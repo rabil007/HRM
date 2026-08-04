@@ -25,7 +25,7 @@ export function BulkDocumentsViewSwitcher({
                 )}
             >
                 <FileStack className="h-3.5 w-3.5" />
-                Employees
+                Generate
             </button>
             {showSignatures ? (
                 <button
@@ -39,7 +39,7 @@ export function BulkDocumentsViewSwitcher({
                     )}
                 >
                     <FilePenLine className="h-3.5 w-3.5" />
-                    Signatures
+                    Requests
                 </button>
             ) : null}
             <button
@@ -53,7 +53,7 @@ export function BulkDocumentsViewSwitcher({
                 )}
             >
                 <History className="h-3.5 w-3.5" />
-                History
+                Activity
             </button>
         </div>
     );

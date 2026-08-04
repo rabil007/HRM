@@ -74,6 +74,11 @@ import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import documentRoutes from '@/routes/organization/documents';
+import {
+    DocumentsModuleNav,
+    documentsSectionFromView,
+    documentsUrlForView,
+} from '@/features/organization/documents/documents-module-nav';
 import { EMPTY_BULK_DOCUMENT_FILTERS } from './types';
 import type {
     BulkDocumentFilters,
@@ -86,7 +91,9 @@ import type {
     LatestSignatureRepairRun,
 } from './types';
 
-const BULK_URL = '/organization/documents/bulk';
+function sectionBaseUrl(view: BulkDocumentsView): string {
+    return documentsUrlForView(view);
+}
 
 function buildQuery(
     documentTypeKey: string,
@@ -507,6 +514,7 @@ function SignatureRepairProgressBanner({
 export function BulkDocumentsContent({
     document_type_key,
     document_type_options,
+    section,
     view,
     filters: initialFilters,
     search: initialSearch,
@@ -533,6 +541,7 @@ export function BulkDocumentsContent({
     const isRosterView = view === 'roster';
     const isSignaturesView = view === 'signatures';
     const isHistoryView = view === 'history';
+    const activeSection = section ?? documentsSectionFromView(view);
     const showEmployeeFilters =
         isRosterView || isSignaturesView || isHistoryView;
     const supportsEsignature = document_type_key === 'salary_declaration';
@@ -866,6 +875,19 @@ export function BulkDocumentsContent({
         document_type_options.find(
             (option) => option.value === document_type_key,
         )?.label ?? document_type_key;
+
+    const pageTitle =
+        activeSection === 'requests'
+            ? 'Requests'
+            : activeSection === 'activity'
+              ? 'Activity'
+              : 'Generate & Send';
+    const pageDescription =
+        activeSection === 'requests'
+            ? `Review signature requests for ${selectedTypeLabel} documents.`
+            : activeSection === 'activity'
+              ? `Generation and delivery history for ${selectedTypeLabel} documents.`
+              : `Generate and send ${selectedTypeLabel} documents for multiple employees.`;
 
     const missingCount = counts.not_generated;
     const generateLabel =
@@ -1246,7 +1268,7 @@ export function BulkDocumentsContent({
             page: number | null = null,
         ) => {
             router.get(
-                BULK_URL,
+                sectionBaseUrl(nextView),
                 buildQuery(
                     nextType,
                     nextFilters,
@@ -1394,7 +1416,7 @@ export function BulkDocumentsContent({
     const setPerPage = useCallback(
         (perPage: number) => {
             router.get(
-                BULK_URL,
+                sectionBaseUrl(view),
                 buildQuery(
                     document_type_key,
                     filters,
@@ -1587,9 +1609,10 @@ export function BulkDocumentsContent({
 
     return (
         <Main>
+            <DocumentsModuleNav active={activeSection} />
             <PageHeader
-                title="Bulk generate"
-                description={`Generate and manage ${selectedTypeLabel} documents for multiple employees.`}
+                title={pageTitle}
+                description={pageDescription}
                 right={
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                         <AppSelect

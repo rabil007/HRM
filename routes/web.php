@@ -86,6 +86,7 @@ use App\Http\Controllers\Organization\DocumentFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentFolderShareLinksController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
 use App\Http\Controllers\Organization\DocumentShareController;
+use App\Http\Controllers\Organization\DocumentTemplatesController;
 use App\Http\Controllers\Organization\EmployeeBankAccountController;
 use App\Http\Controllers\Organization\EmployeeBankAccountsBrowseController;
 use App\Http\Controllers\Organization\EmployeeContractController;
@@ -527,12 +528,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('organization/employees/{employee}', [EmployeeController::class, 'destroy'])->middleware('can:employees.delete')->name('organization.employees.destroy');
     Route::middleware('can:documents.view')->group(function () {
         Route::get('organization/documents', DocumentsFolderIndexController::class)->name('organization.documents');
+        Route::get('organization/documents/library', DocumentsFolderIndexController::class)->name('organization.documents.library');
         Route::get('organization/documents/employees/{employee}', EmployeeDocumentsBrowseController::class)->name('organization.documents.employee');
         Route::get('organization/documents/employees/{employee}/files/{document}', EmployeeDocumentShowController::class)->name('organization.documents.employee.files.show');
         Route::post('organization/documents/employees/{employee}/files/email', DocumentBulkEmailController::class)->name('organization.documents.employee.files.email');
         Route::get('organization/employees/{employee}/documents/{document}/versions', [EmployeeDocumentController::class, 'versions'])->name('organization.employees.documents.versions');
     });
+    Route::get('organization/documents/templates', DocumentTemplatesController::class)
+        ->name('organization.documents.templates');
     Route::middleware('can:bulk_documents.view')->group(function () {
+        Route::get('organization/documents/generate', BulkDocumentsController::class)
+            ->name('organization.documents.generate');
+        Route::get('organization/documents/requests', BulkDocumentsController::class)
+            ->name('organization.documents.requests');
+        Route::get('organization/documents/activity', BulkDocumentsController::class)
+            ->name('organization.documents.activity');
         Route::get('organization/documents/bulk', BulkDocumentsController::class)
             ->name('organization.documents.bulk');
         Route::get('organization/documents/bulk/selection', BulkDocumentSelectionController::class)

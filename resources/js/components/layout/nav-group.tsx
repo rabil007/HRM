@@ -244,12 +244,31 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
             return false;
         }
 
+        if (item.url === '/organization/documents') {
+            return path === '/organization/documents';
+        }
+
+        if (item.url === '/organization/documents/library') {
+            return (
+                path === '/organization/documents/library' ||
+                path.startsWith('/organization/documents/employees/')
+            );
+        }
+
+        if (item.url === '/organization/documents/generate') {
+            return (
+                path === item.url ||
+                path === '/organization/documents/bulk' ||
+                path.startsWith('/organization/documents/bulk/')
+            );
+        }
+
         if (
-            item.url === '/organization/documents' &&
-            (path === '/organization/documents/bulk' ||
-                path.startsWith('/organization/documents/bulk/'))
+            item.url === '/organization/documents/requests' ||
+            item.url === '/organization/documents/activity' ||
+            item.url === '/organization/documents/templates'
         ) {
-            return false;
+            return path === item.url;
         }
 
         if (

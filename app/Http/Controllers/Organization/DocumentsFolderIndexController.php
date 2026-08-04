@@ -29,7 +29,12 @@ class DocumentsFolderIndexController extends Controller
         $summary = $browse->expirySummary($companyId, departmentId: $departmentId);
         $perPage = max(1, min(100, (int) $request->query('per_page', 25)));
 
+        $section = $request->routeIs('organization.documents.library')
+            ? 'library'
+            : 'overview';
+
         $payload = [
+            'section' => $section,
             'summary' => $summary,
             'expiry' => $expiry,
             'search' => $search,

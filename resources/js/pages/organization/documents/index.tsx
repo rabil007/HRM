@@ -6,6 +6,7 @@ import { SearchBar } from '@/components/search-bar';
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
+import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
 import { DocumentsIndexDocumentBulkActions } from '@/features/organization/documents/index/documents-index-document-bulk-actions';
 import { DocumentsIndexDocumentsTable } from '@/features/organization/documents/index/documents-index-documents-table';
@@ -34,10 +35,13 @@ import type { DepartmentTreeNode } from '@/features/organization/employees/types
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
-import documentRoutes from '@/routes/organization/documents';
+import documentRoutes, {
+    library as documentsLibrary,
+} from '@/routes/organization/documents';
 import { shareLinks as folderShareLinks } from '@/routes/organization/documents/folders';
 
 type Props = {
+    section?: 'overview' | 'library';
     summary: DocumentExpirySummary;
     expiry: ExpiryFilter;
     search: string;
@@ -71,6 +75,7 @@ const EMPTY_SEARCH_DOCUMENTS: PaginatedComplianceDocuments = {
 };
 
 export default function DocumentsIndex({
+    section = 'overview',
     summary,
     expiry: initialExpiry,
     search: initialSearch,
@@ -144,7 +149,7 @@ export default function DocumentsIndex({
         onDepartmentChange,
         onPageChange,
     } = useDocumentsIndexFilters({
-        url: documents.url(),
+        url: section === 'library' ? documentsLibrary.url() : documents.url(),
         initialSearch,
         initialExpiry,
         initialDepartmentId,
@@ -269,9 +274,22 @@ export default function DocumentsIndex({
 
     return (
         <Main>
-            <Head title="Documents" />
+            <Head
+                title={section === 'library' ? 'Documents library' : 'Documents'}
+            />
 
-            <DocumentsBreadcrumbs items={[{ title: 'Documents' }]} />
+            <DocumentsModuleNav active={section} />
+
+            <DocumentsBreadcrumbs
+                items={[
+                    {
+                        title:
+                            section === 'library'
+                                ? 'Library'
+                                : 'Overview',
+                    },
+                ]}
+            />
 
             <DocumentsSummaryCards
                 summary={summary}

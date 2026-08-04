@@ -12,7 +12,6 @@ import {
     Wallet,
     Settings,
     FileText,
-    FileStack,
     FileSignature,
     IdCard,
     BadgeCheck,
@@ -122,11 +121,35 @@ const baseSidebarData: SidebarData = {
                     url: '/organization/employees',
                     icon: Users,
                 },
-                { title: 'Documents', url: documents.url(), icon: FileText },
                 {
-                    title: 'Bulk generate',
-                    url: '/organization/documents/bulk',
-                    icon: FileStack,
+                    title: 'Documents',
+                    icon: FileText,
+                    items: [
+                        {
+                            title: 'Overview',
+                            url: documents.url(),
+                        },
+                        {
+                            title: 'Library',
+                            url: '/organization/documents/library',
+                        },
+                        {
+                            title: 'Generate & Send',
+                            url: '/organization/documents/generate',
+                        },
+                        {
+                            title: 'Requests',
+                            url: '/organization/documents/requests',
+                        },
+                        {
+                            title: 'Templates',
+                            url: '/organization/documents/templates',
+                        },
+                        {
+                            title: 'Activity',
+                            url: '/organization/documents/activity',
+                        },
+                    ],
                 },
                 {
                     title: 'Contracts',
@@ -308,6 +331,59 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             };
                         }
 
+                        if (item.title === 'Documents') {
+                            const filteredSub = item.items.filter((sub) => {
+                                if (
+                                    sub.url === documents.url() ||
+                                    sub.url === '/organization/documents/library'
+                                ) {
+                                    return has(permissions, 'documents.view');
+                                }
+
+                                if (
+                                    sub.url ===
+                                        '/organization/documents/generate' ||
+                                    sub.url ===
+                                        '/organization/documents/requests' ||
+                                    sub.url ===
+                                        '/organization/documents/activity'
+                                ) {
+                                    return has(
+                                        permissions,
+                                        'bulk_documents.view',
+                                    );
+                                }
+
+                                if (
+                                    sub.url ===
+                                    '/organization/documents/templates'
+                                ) {
+                                    return (
+                                        has(permissions, 'documents.view') ||
+                                        has(
+                                            permissions,
+                                            'bulk_documents.view',
+                                        ) ||
+                                        has(
+                                            permissions,
+                                            'settings.application.view',
+                                        )
+                                    );
+                                }
+
+                                return true;
+                            });
+
+                            if (!filteredSub.length) {
+                                return null;
+                            }
+
+                            return {
+                                ...item,
+                                items: filteredSub,
+                            };
+                        }
+
                         const filteredSub = item.items.filter((sub) => {
                             if (
                                 sub.url ===
@@ -409,10 +485,6 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 : null;
                         case documents.url():
                             return has(permissions, 'documents.view')
-                                ? item
-                                : null;
-                        case '/organization/documents/bulk':
-                            return has(permissions, 'bulk_documents.view')
                                 ? item
                                 : null;
                         case contracts.url():

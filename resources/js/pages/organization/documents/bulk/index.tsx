@@ -3,9 +3,18 @@ import { BulkDocumentsContent } from '@/features/organization/documents/bulk/bul
 import type { BulkDocumentsPageProps } from '@/features/organization/documents/bulk/types';
 
 export default function BulkDocumentsIndex(props: BulkDocumentsPageProps) {
+    const title =
+        props.section === 'requests'
+            ? 'Requests'
+            : props.section === 'activity'
+              ? 'Activity'
+              : props.section === 'generate'
+                ? 'Generate & Send'
+                : 'Generate & Send';
+
     return (
         <>
-            <Head title="Bulk generate" />
+            <Head title={title} />
             <BulkDocumentsContent {...props} />
         </>
     );

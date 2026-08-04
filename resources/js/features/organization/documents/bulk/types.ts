@@ -192,6 +192,7 @@ export type LatestSignatureRepairRun = {
 export type BulkDocumentsPageProps = {
     document_type_key: string;
     document_type_options: BulkDocumentTypeOption[];
+    section?: 'generate' | 'requests' | 'activity';
     view: 'roster' | 'signatures' | 'history';
     filters: {
         department_id: string;

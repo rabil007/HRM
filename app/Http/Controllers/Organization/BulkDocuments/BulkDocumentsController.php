@@ -53,11 +53,8 @@ class BulkDocumentsController extends Controller
             'not_emailed' => 'not_emailed',
             default => 'all',
         };
-        $view = match ($request->query('view')) {
-            'history' => 'history',
-            'signatures' => 'signatures',
-            default => 'roster',
-        };
+        $view = $this->resolveView($request);
+        $section = $this->resolveSection($request, $view);
         $formOptions = EmployeeFormOptions::for($companyId);
 
         if ($view === 'history') {
@@ -76,6 +73,7 @@ class BulkDocumentsController extends Controller
                 $filters,
                 $formOptions,
             ) + [
+                'section' => $section,
                 'view' => 'history',
                 'activity' => $activityPaginator->items(),
                 'employees' => [],
@@ -106,6 +104,7 @@ class BulkDocumentsController extends Controller
                 $filters,
                 $formOptions,
             ) + [
+                'section' => $section,
                 'view' => 'signatures',
                 'signature_requests' => $signaturesPaginator->items(),
                 'activity' => [],
@@ -134,6 +133,7 @@ class BulkDocumentsController extends Controller
             $filters,
             $formOptions,
         ) + [
+            'section' => $section,
             'view' => 'roster',
             'activity' => [],
             'counts' => BulkDocumentRosterQuery::counts($companyId, $documentTypeKey, $filters, null, $emailFilter),
@@ -144,6 +144,55 @@ class BulkDocumentsController extends Controller
             'email_filter' => $emailFilter,
             'signature_requests' => [],
         ]);
+    }
+
+    /**
+     * @return 'roster'|'signatures'|'history'
+     */
+    private function resolveView(Request $request): string
+    {
+        if ($request->routeIs('organization.documents.activity')) {
+            return 'history';
+        }
+
+        if ($request->routeIs('organization.documents.requests')) {
+            return 'signatures';
+        }
+
+        if ($request->routeIs('organization.documents.generate')) {
+            return 'roster';
+        }
+
+        return match ($request->query('view')) {
+            'history' => 'history',
+            'signatures' => 'signatures',
+            default => 'roster',
+        };
+    }
+
+    /**
+     * @param  'roster'|'signatures'|'history'  $view
+     * @return 'generate'|'requests'|'activity'
+     */
+    private function resolveSection(Request $request, string $view): string
+    {
+        if ($request->routeIs('organization.documents.generate')) {
+            return 'generate';
+        }
+
+        if ($request->routeIs('organization.documents.requests')) {
+            return 'requests';
+        }
+
+        if ($request->routeIs('organization.documents.activity')) {
+            return 'activity';
+        }
+
+        return match ($view) {
+            'signatures' => 'requests',
+            'history' => 'activity',
+            default => 'generate',
+        };
     }
 
     /**
