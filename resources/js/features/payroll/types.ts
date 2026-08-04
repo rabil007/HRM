@@ -506,6 +506,8 @@ export type EmployeeStats = {
 
 export type PayrollRecordsSummary = {
     employee_count: number;
+    daily_employee_count?: number;
+    monthly_employee_count?: number;
     total_gross: string;
     total_net: string;
     total_additions: string;

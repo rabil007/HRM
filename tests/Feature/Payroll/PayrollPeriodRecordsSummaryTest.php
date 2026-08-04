@@ -56,6 +56,8 @@ test('pay run page includes payroll records summary with aggregated totals', fun
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
             ->where('payroll_records_summary.employee_count', 2)
+            ->where('payroll_records_summary.daily_employee_count', 0)
+            ->where('payroll_records_summary.monthly_employee_count', 0)
             ->where('payroll_records_summary.total_gross', '24800.00')
             ->where('payroll_records_summary.total_net', '24300.00')
             ->where('payroll_records_summary.total_additions', '1300.00')
@@ -99,6 +101,43 @@ test('pay run page includes crew overtime totals in payroll records summary', fu
             ->component('payroll/show')
             ->where('payroll_records_summary.total_overtime_pay', '2592.60')
             ->where('payroll_records_summary.total_overtime_hours', '96.00'));
+});
+
+test('crew pay run summary splits daily and monthly employee counts', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Processing,
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    $dailyEmployee = createCrewEmployeeWithContract($company, 'CREW-D1', 500, 200, 300);
+    $monthlyEmployee = createCrewEmployeeWithContract($company, 'CREW-M1', 500, 200, 300);
+
+    PayrollRecord::factory()->for($company)->for($period, 'period')->for($dailyEmployee)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'gross_salary' => 1000.00,
+        'net_salary' => 1000.00,
+        'calculation_breakdown' => ['salary_structure' => 'daily'],
+    ]);
+    PayrollRecord::factory()->for($company)->for($period, 'period')->for($monthlyEmployee)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'gross_salary' => 5000.00,
+        'net_salary' => 5000.00,
+        'calculation_breakdown' => ['salary_structure' => 'monthly'],
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('payroll_records_summary.employee_count', 2)
+            ->where('payroll_records_summary.daily_employee_count', 1)
+            ->where('payroll_records_summary.monthly_employee_count', 1));
 });
 
 test('pay run page omits payroll records summary when no records exist', function () {

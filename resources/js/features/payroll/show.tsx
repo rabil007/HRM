@@ -12,15 +12,7 @@ import {
     Upload,
     XCircle,
 } from 'lucide-react';
-import {
-    lazy,
-    Suspense,
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     approve,
     cancel,
@@ -51,12 +43,27 @@ import { formatDisplayDate } from '@/lib/format-date';
 import { show as crewTimelineShow } from '@/routes/payroll/crew-timeline';
 import { clearManualImport } from '@/routes/payroll/crew-timesheets';
 import { CrewSalaryStructureToggle } from './components/crew-salary-structure-toggle';
-import { PayrollBoardSkeleton } from './components/payroll-board-skeleton';
+import { ClearCrewTimesheetsDialog } from './components/clear-crew-timesheets-dialog';
+import { CrewMovementPeriodsDialog } from './components/crew-movement-periods-dialog';
+import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
+import { CrewTimesheetsBoard } from './components/crew-timesheets-board';
+import { OfficeEmployeesTabContent } from './components/office-employees-tab-content';
+import { OfficeSalaryInputsSheet } from './components/office-salary-inputs-sheet';
+import { PayrollApproveDialog } from './components/payroll-approve-dialog';
+import { PayrollCancelDialog } from './components/payroll-cancel-dialog';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
 import { PayrollCreationSourceBadge } from './components/payroll-creation-source-badge';
+import { PayrollGenerateDialog } from './components/payroll-generate-dialog';
+import { PayrollMarkPaidDialog } from './components/payroll-mark-paid-dialog';
 import { PayrollPeriodDeliveryPanel } from './components/payroll-period-delivery-panel';
 import { PayrollPeriodStatusBadge } from './components/payroll-period-status-badge';
+import { PayrollRecordRemoveDialog } from './components/payroll-record-remove-dialog';
+import { PayrollRecordsBoard } from './components/payroll-records-board';
 import { PayrollRecordsSummaryCards } from './components/payroll-records-summary-cards';
+import { PayrollReprepareTimelineDialog } from './components/payroll-reprepare-timeline-dialog';
+import { PayrollRevertToApprovedDialog } from './components/payroll-revert-to-approved-dialog';
+import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft-dialog';
+import { PayrollRevertToProcessingDialog } from './components/payroll-revert-to-processing-dialog';
 import { PayrollShowFiltersSheet } from './components/payroll-show-filters-sheet';
 import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
 import { PayrollStatusTimeline } from './components/payroll-status-timeline';
@@ -74,89 +81,6 @@ import type {
     SalaryInput,
 } from './types';
 import { usePayrollShowFilters } from './use-payroll-show-filters';
-
-const LazyOfficeEmployeesTabContent = lazy(() =>
-    import('./components/office-employees-tab-content').then((module) => ({
-        default: module.OfficeEmployeesTabContent,
-    })),
-);
-const LazyCrewTimesheetsBoard = lazy(() =>
-    import('./components/crew-timesheets-board').then((module) => ({
-        default: module.CrewTimesheetsBoard,
-    })),
-);
-const LazyPayrollRecordsBoard = lazy(() =>
-    import('./components/payroll-records-board').then((module) => ({
-        default: module.PayrollRecordsBoard,
-    })),
-);
-const LazyCrewTimesheetImportDialog = lazy(() =>
-    import('./components/crew-timesheet-import-dialog').then((module) => ({
-        default: module.CrewTimesheetImportDialog,
-    })),
-);
-const LazyCrewMovementPeriodsDialog = lazy(() =>
-    import('./components/crew-movement-periods-dialog').then((module) => ({
-        default: module.CrewMovementPeriodsDialog,
-    })),
-);
-const LazyClearCrewTimesheetsDialog = lazy(() =>
-    import('./components/clear-crew-timesheets-dialog').then((module) => ({
-        default: module.ClearCrewTimesheetsDialog,
-    })),
-);
-const LazyOfficeSalaryInputsSheet = lazy(() =>
-    import('./components/office-salary-inputs-sheet').then((module) => ({
-        default: module.OfficeSalaryInputsSheet,
-    })),
-);
-const LazyPayrollGenerateDialog = lazy(() =>
-    import('./components/payroll-generate-dialog').then((module) => ({
-        default: module.PayrollGenerateDialog,
-    })),
-);
-const LazyPayrollRevertToDraftDialog = lazy(() =>
-    import('./components/payroll-revert-to-draft-dialog').then((module) => ({
-        default: module.PayrollRevertToDraftDialog,
-    })),
-);
-const LazyPayrollRevertToApprovedDialog = lazy(() =>
-    import('./components/payroll-revert-to-approved-dialog').then((module) => ({
-        default: module.PayrollRevertToApprovedDialog,
-    })),
-);
-const LazyPayrollRevertToProcessingDialog = lazy(() =>
-    import('./components/payroll-revert-to-processing-dialog').then(
-        (module) => ({
-            default: module.PayrollRevertToProcessingDialog,
-        }),
-    ),
-);
-const LazyPayrollApproveDialog = lazy(() =>
-    import('./components/payroll-approve-dialog').then((module) => ({
-        default: module.PayrollApproveDialog,
-    })),
-);
-const LazyPayrollMarkPaidDialog = lazy(() =>
-    import('./components/payroll-mark-paid-dialog').then((module) => ({
-        default: module.PayrollMarkPaidDialog,
-    })),
-);
-const LazyPayrollCancelDialog = lazy(() =>
-    import('./components/payroll-cancel-dialog').then((module) => ({
-        default: module.PayrollCancelDialog,
-    })),
-);
-const LazyPayrollReprepareTimelineDialog = lazy(() =>
-    import('./components/payroll-reprepare-timeline-dialog').then((module) => ({
-        default: module.PayrollReprepareTimelineDialog,
-    })),
-);
-const LazyPayrollRecordRemoveDialog = lazy(() =>
-    import('./components/payroll-record-remove-dialog').then((module) => ({
-        default: module.PayrollRecordRemoveDialog,
-    })),
-);
 
 export function PayrollShowContent({
     period,
@@ -317,6 +241,94 @@ export function PayrollShowContent({
 
     const activeCrewSalaryStructure = payrollFilters.crew_salary_structure;
     const activeEmployeeGroup = payrollFilters.employee_group;
+
+    // #region agent log
+    useEffect(() => {
+        fetch(
+            'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Debug-Session-Id': 'b2c5e6',
+                },
+                body: JSON.stringify({
+                    sessionId: 'b2c5e6',
+                    runId: 'post-fix-ssr',
+                    hypothesisId: 'H-SSR',
+                    location: 'payroll/show.tsx:mount',
+                    message:
+                        'payroll show mounted without Suspense/lazy boards',
+                    data: {
+                        periodStatus: period.status,
+                        activeCrewSalaryStructure,
+                        supportsTimesheets: period.supports_timesheets,
+                        hasPayrollRecordsSummary: Boolean(
+                            payroll_records_summary,
+                        ),
+                    },
+                    timestamp: Date.now(),
+                }),
+            },
+        ).catch(() => {});
+    }, [
+        period.status,
+        period.supports_timesheets,
+        activeCrewSalaryStructure,
+        payroll_records_summary,
+    ]);
+
+    useEffect(() => {
+        const onError = (event: ErrorEvent) => {
+            const message = event.message ?? '';
+            if (
+                !message.includes('removeChild') &&
+                !message.includes('NotFoundError') &&
+                !message.includes('Hydration') &&
+                !message.includes('Suspense') &&
+                !message.includes('createRoot')
+            ) {
+                return;
+            }
+
+            fetch(
+                'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Debug-Session-Id': 'b2c5e6',
+                    },
+                    body: JSON.stringify({
+                        sessionId: 'b2c5e6',
+                        runId: 'post-fix-ssr',
+                        hypothesisId: 'H-SSR',
+                        location: 'payroll/show.tsx:window.error',
+                        message: 'caught removeChild/hydration window error',
+                        data: {
+                            errorMessage: message,
+                            filename: event.filename ?? null,
+                            lineno: event.lineno ?? null,
+                            colno: event.colno ?? null,
+                            periodStatus: period.status,
+                            activeCrewSalaryStructure,
+                            hasPayrollRecordsSummary: Boolean(
+                                payroll_records_summary,
+                            ),
+                        },
+                        timestamp: Date.now(),
+                    }),
+                },
+            ).catch(() => {});
+        };
+
+        window.addEventListener('error', onError);
+
+        return () => {
+            window.removeEventListener('error', onError);
+        };
+    }, [period.status, activeCrewSalaryStructure, payroll_records_summary]);
+    // #endregion
     const activeSheetFiltersCount = [
         payrollFilters.company_visa_type_id,
     ].filter(Boolean).length;
@@ -1175,60 +1187,46 @@ export function PayrollShowContent({
                         : renderListToolbar()}
 
                     {period.supports_timesheets ? (
-                        <Suspense fallback={<PayrollBoardSkeleton />}>
-                            <LazyCrewTimesheetsBoard
-                                period={period}
-                                rows={rows}
-                                pagination={pagination}
-                                paginationProps={list.paginationProps}
-                                allBoardEmployeeIds={all_board_employee_ids}
-                                excludedIds={excludedIds}
-                                setExcludedIds={setExcludedIds}
-                                employee_stats={employee_stats}
-                                activeEmployeeGroup={activeEmployeeGroup}
-                                onEmployeeGroupSelect={
-                                    handleEmployeeGroupSelect
-                                }
-                                crewTimesheetDrafts={crewTimesheetDrafts}
-                                onCrewTimesheetChange={
-                                    handleCrewTimesheetChange
-                                }
-                                savingTimesheetEmployeeIds={
-                                    savingTimesheetEmployeeIds
-                                }
-                                financialAutosaveErrors={
-                                    financialAutosaveErrors
-                                }
-                                onRetryFinancialAutosave={
-                                    retryFinancialAutosave
-                                }
-                                canEditTimesheets={canEditTimesheets}
-                                onOpenMovementPeriods={(row, categoryGroup) =>
-                                    setMovementPeriodsTarget({
-                                        row,
-                                        categoryGroup,
-                                    })
-                                }
-                            />
-                        </Suspense>
+                        <CrewTimesheetsBoard
+                            period={period}
+                            rows={rows}
+                            pagination={pagination}
+                            paginationProps={list.paginationProps}
+                            allBoardEmployeeIds={all_board_employee_ids}
+                            excludedIds={excludedIds}
+                            setExcludedIds={setExcludedIds}
+                            employee_stats={employee_stats}
+                            activeEmployeeGroup={activeEmployeeGroup}
+                            onEmployeeGroupSelect={handleEmployeeGroupSelect}
+                            crewTimesheetDrafts={crewTimesheetDrafts}
+                            onCrewTimesheetChange={handleCrewTimesheetChange}
+                            savingTimesheetEmployeeIds={
+                                savingTimesheetEmployeeIds
+                            }
+                            financialAutosaveErrors={financialAutosaveErrors}
+                            onRetryFinancialAutosave={retryFinancialAutosave}
+                            canEditTimesheets={canEditTimesheets}
+                            onOpenMovementPeriods={(row, categoryGroup) =>
+                                setMovementPeriodsTarget({
+                                    row,
+                                    categoryGroup,
+                                })
+                            }
+                        />
                     ) : (
-                        <Suspense fallback={<PayrollBoardSkeleton />}>
-                            <LazyOfficeEmployeesTabContent
-                                period={period}
-                                rows={rows}
-                                paginationProps={list.paginationProps}
-                                allBoardEmployeeIds={all_board_employee_ids}
-                                employee_stats={employee_stats}
-                                activeEmployeeGroup={activeEmployeeGroup}
-                                onEmployeeGroupSelect={
-                                    handleEmployeeGroupSelect
-                                }
-                                excludedIds={excludedIds}
-                                setExcludedIds={setExcludedIds}
-                                rowDates={rowDates}
-                                setRowDates={setRowDates}
-                            />
-                        </Suspense>
+                        <OfficeEmployeesTabContent
+                            period={period}
+                            rows={rows}
+                            paginationProps={list.paginationProps}
+                            allBoardEmployeeIds={all_board_employee_ids}
+                            employee_stats={employee_stats}
+                            activeEmployeeGroup={activeEmployeeGroup}
+                            onEmployeeGroupSelect={handleEmployeeGroupSelect}
+                            excludedIds={excludedIds}
+                            setExcludedIds={setExcludedIds}
+                            rowDates={rowDates}
+                            setRowDates={setRowDates}
+                        />
                     )}
                 </section>
             )}
@@ -1303,142 +1301,130 @@ export function PayrollShowContent({
                     {payroll_records_summary ? (
                         <PayrollRecordsSummaryCards
                             summary={payroll_records_summary}
+                            activeCrewSalaryStructure={
+                                period.supports_timesheets
+                                    ? activeCrewSalaryStructure
+                                    : null
+                            }
                         />
                     ) : null}
-                    <Suspense fallback={<PayrollBoardSkeleton />}>
-                        <LazyPayrollRecordsBoard
-                            period={period}
-                            hasPayrollRecords={hasPayrollRecords}
-                            canGenerate={canGenerate}
-                            isGenerationBlocked={isGenerationBlocked}
-                            generationBlockingReason={generationBlockingReason}
-                            onOpenGenerateDialog={() =>
-                                setIsGenerateDialogOpen(true)
-                            }
-                            payroll_records={payroll_records}
-                            payroll_records_monthly={payroll_records_monthly}
-                            activeCrewSalaryStructure={
-                                activeCrewSalaryStructure
-                            }
-                            salary_inputs_by_employee={
-                                salary_inputs_by_employee
-                            }
-                            canManageSalaryInputs={canManageSalaryInputs}
-                            wpsSelection={wpsSelection}
-                            onManageSalaryInputs={setSalaryInputsRecord}
-                            onRemove={setRemoveRecord}
-                            isPayslipGenerationLive={isPayslipGenerationLive}
-                            recordsPagination={recordsPagination}
-                            monthlyRecordsPagination={monthlyRecordsPagination}
-                            onDailyRecordsPageChange={
-                                handleDailyRecordsPageChange
-                            }
-                            onMonthlyRecordsPageChange={
-                                handleMonthlyRecordsPageChange
-                            }
-                            onOfficeRecordsPageChange={
-                                handleOfficeRecordsPageChange
-                            }
-                        />
-                    </Suspense>
+                    <PayrollRecordsBoard
+                        period={period}
+                        hasPayrollRecords={hasPayrollRecords}
+                        canGenerate={canGenerate}
+                        isGenerationBlocked={isGenerationBlocked}
+                        generationBlockingReason={generationBlockingReason}
+                        onOpenGenerateDialog={() =>
+                            setIsGenerateDialogOpen(true)
+                        }
+                        payroll_records={payroll_records}
+                        payroll_records_monthly={payroll_records_monthly}
+                        activeCrewSalaryStructure={activeCrewSalaryStructure}
+                        salary_inputs_by_employee={salary_inputs_by_employee}
+                        canManageSalaryInputs={canManageSalaryInputs}
+                        wpsSelection={wpsSelection}
+                        onManageSalaryInputs={setSalaryInputsRecord}
+                        onRemove={setRemoveRecord}
+                        isPayslipGenerationLive={isPayslipGenerationLive}
+                        recordsPagination={recordsPagination}
+                        monthlyRecordsPagination={monthlyRecordsPagination}
+                        onDailyRecordsPageChange={handleDailyRecordsPageChange}
+                        onMonthlyRecordsPageChange={
+                            handleMonthlyRecordsPageChange
+                        }
+                        onOfficeRecordsPageChange={
+                            handleOfficeRecordsPageChange
+                        }
+                    />
                 </section>
             )}
 
             {period.supports_timesheets && isImportDialogOpen ? (
-                <Suspense fallback={null}>
-                    <LazyCrewTimesheetImportDialog
-                        open={isImportDialogOpen}
-                        onOpenChange={setIsImportDialogOpen}
-                        periodId={period.id}
-                    />
-                </Suspense>
+                <CrewTimesheetImportDialog
+                    open={isImportDialogOpen}
+                    onOpenChange={setIsImportDialogOpen}
+                    periodId={period.id}
+                />
             ) : null}
 
             {period.supports_timesheets && movementPeriodsTarget !== null ? (
-                <Suspense fallback={null}>
-                    <LazyCrewMovementPeriodsDialog
-                        open={movementPeriodsTarget !== null}
-                        onOpenChange={(open) => {
-                            if (!open) {
-                                setMovementPeriodsTarget(null);
-                            }
-                        }}
-                        period={period}
-                        row={
-                            rows.find(
-                                (row) =>
-                                    row.employee.id ===
-                                    movementPeriodsTarget.row.employee.id,
-                            ) ?? movementPeriodsTarget.row
+                <CrewMovementPeriodsDialog
+                    open={movementPeriodsTarget !== null}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setMovementPeriodsTarget(null);
                         }
-                        categoryGroup={movementPeriodsTarget.categoryGroup}
-                        masterOptions={
-                            movement_master_options ?? {
-                                vessels: [],
-                                clients: [],
-                                ranks: [],
-                            }
-                        }
-                        canEdit={canEditTimesheets}
-                        onBeforeSave={async () => {
-                            const employeeId =
-                                movementPeriodsTarget.row.employee.id;
-                            const latestTimesheet =
-                                rows.find(
-                                    (row) => row.employee.id === employeeId,
-                                )?.timesheet ??
-                                movementPeriodsTarget.row.timesheet;
-
-                            await flushPendingFinancialSave(
-                                employeeId,
-                                latestTimesheet,
-                            );
-                        }}
-                        onSaved={() => {
-                            clearEmployeeDraft(
+                    }}
+                    period={period}
+                    row={
+                        rows.find(
+                            (row) =>
+                                row.employee.id ===
                                 movementPeriodsTarget.row.employee.id,
-                            );
-                        }}
-                    />
-                </Suspense>
+                        ) ?? movementPeriodsTarget.row
+                    }
+                    categoryGroup={movementPeriodsTarget.categoryGroup}
+                    masterOptions={
+                        movement_master_options ?? {
+                            vessels: [],
+                            clients: [],
+                            ranks: [],
+                        }
+                    }
+                    canEdit={canEditTimesheets}
+                    onBeforeSave={async () => {
+                        const employeeId =
+                            movementPeriodsTarget.row.employee.id;
+                        const latestTimesheet =
+                            rows.find((row) => row.employee.id === employeeId)
+                                ?.timesheet ??
+                            movementPeriodsTarget.row.timesheet;
+
+                        await flushPendingFinancialSave(
+                            employeeId,
+                            latestTimesheet,
+                        );
+                    }}
+                    onSaved={() => {
+                        clearEmployeeDraft(
+                            movementPeriodsTarget.row.employee.id,
+                        );
+                    }}
+                />
             ) : null}
 
             {period.supports_timesheets && isClearTimesheetsDialogOpen ? (
-                <Suspense fallback={null}>
-                    <LazyClearCrewTimesheetsDialog
-                        open={isClearTimesheetsDialogOpen}
-                        onOpenChange={(open) => {
-                            if (!isClearingTimesheets) {
-                                setIsClearTimesheetsDialogOpen(open);
-                            }
-                        }}
-                        clearableCount={clearable_timesheet_count}
-                        isClearing={isClearingTimesheets}
-                        onConfirm={() => {
-                            void handleConfirmClearTimesheets();
-                        }}
-                    />
-                </Suspense>
+                <ClearCrewTimesheetsDialog
+                    open={isClearTimesheetsDialogOpen}
+                    onOpenChange={(open) => {
+                        if (!isClearingTimesheets) {
+                            setIsClearTimesheetsDialogOpen(open);
+                        }
+                    }}
+                    clearableCount={clearable_timesheet_count}
+                    isClearing={isClearingTimesheets}
+                    onConfirm={() => {
+                        void handleConfirmClearTimesheets();
+                    }}
+                />
             ) : null}
 
             {salaryInputsRecord !== null ? (
-                <Suspense fallback={null}>
-                    <LazyOfficeSalaryInputsSheet
-                        open={salaryInputsRecord !== null}
-                        onOpenChange={(open) => {
-                            if (!open) {
-                                setSalaryInputsRecord(null);
-                            }
-                        }}
-                        periodId={period.id}
-                        record={salaryInputsRecord as any}
-                        inputs={activeSalaryInputs}
-                        typeOptions={salary_input_type_options}
-                        canCreate={permissions.salary_inputs_create}
-                        canUpdate={permissions.salary_inputs_update}
-                        canDelete={permissions.salary_inputs_delete}
-                    />
-                </Suspense>
+                <OfficeSalaryInputsSheet
+                    open={salaryInputsRecord !== null}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setSalaryInputsRecord(null);
+                        }
+                    }}
+                    periodId={period.id}
+                    record={salaryInputsRecord as any}
+                    inputs={activeSalaryInputs}
+                    typeOptions={salary_input_type_options}
+                    canCreate={permissions.salary_inputs_create}
+                    canUpdate={permissions.salary_inputs_update}
+                    canDelete={permissions.salary_inputs_delete}
+                />
             ) : null}
 
             <PayrollShowFiltersSheet
@@ -1472,121 +1458,103 @@ export function PayrollShowContent({
             />
 
             {isGenerateDialogOpen ? (
-                <Suspense fallback={null}>
-                    <LazyPayrollGenerateDialog
-                        open={isGenerateDialogOpen}
-                        onOpenChange={setIsGenerateDialogOpen}
-                        onConfirm={handleGeneratePayroll}
-                        processing={isGenerating}
-                        payrollCategory={period.payroll_category}
-                        periodId={period.id}
-                        hasExistingRecords={hasPayrollRecords}
-                        excludedCount={excludedIds.size}
-                        excludedEmployeeIds={Array.from(excludedIds)}
-                    />
-                </Suspense>
+                <PayrollGenerateDialog
+                    open={isGenerateDialogOpen}
+                    onOpenChange={setIsGenerateDialogOpen}
+                    onConfirm={handleGeneratePayroll}
+                    processing={isGenerating}
+                    payrollCategory={period.payroll_category}
+                    periodId={period.id}
+                    hasExistingRecords={hasPayrollRecords}
+                    excludedCount={excludedIds.size}
+                    excludedEmployeeIds={Array.from(excludedIds)}
+                />
             ) : null}
 
             {isRevertDialogOpen ? (
-                <Suspense fallback={null}>
-                    <LazyPayrollRevertToDraftDialog
-                        open={isRevertDialogOpen}
-                        onOpenChange={setIsRevertDialogOpen}
-                        onConfirm={handleRevertToDraft}
-                        processing={isReverting}
-                        supportsTimesheets={period.supports_timesheets}
-                    />
-                </Suspense>
+                <PayrollRevertToDraftDialog
+                    open={isRevertDialogOpen}
+                    onOpenChange={setIsRevertDialogOpen}
+                    onConfirm={handleRevertToDraft}
+                    processing={isReverting}
+                    supportsTimesheets={period.supports_timesheets}
+                />
             ) : null}
 
             {isRevertToApprovedDialogOpen ? (
-                <Suspense fallback={null}>
-                    <LazyPayrollRevertToApprovedDialog
-                        open={isRevertToApprovedDialogOpen}
-                        onOpenChange={setIsRevertToApprovedDialogOpen}
-                        onConfirm={handleRevertToApproved}
-                        processing={isRevertingToApproved}
-                    />
-                </Suspense>
+                <PayrollRevertToApprovedDialog
+                    open={isRevertToApprovedDialogOpen}
+                    onOpenChange={setIsRevertToApprovedDialogOpen}
+                    onConfirm={handleRevertToApproved}
+                    processing={isRevertingToApproved}
+                />
             ) : null}
 
             {isRevertToProcessingDialogOpen ? (
-                <Suspense fallback={null}>
-                    <LazyPayrollRevertToProcessingDialog
-                        open={isRevertToProcessingDialogOpen}
-                        onOpenChange={setIsRevertToProcessingDialogOpen}
-                        onConfirm={handleRevertToProcessing}
-                        processing={isRevertingToProcessing}
-                    />
-                </Suspense>
+                <PayrollRevertToProcessingDialog
+                    open={isRevertToProcessingDialogOpen}
+                    onOpenChange={setIsRevertToProcessingDialogOpen}
+                    onConfirm={handleRevertToProcessing}
+                    processing={isRevertingToProcessing}
+                />
             ) : null}
 
             {isApproveDialogOpen ? (
-                <Suspense fallback={null}>
-                    <LazyPayrollApproveDialog
-                        open={isApproveDialogOpen}
-                        onOpenChange={setIsApproveDialogOpen}
-                        onConfirm={handleApprove}
-                        processing={isApproving}
-                    />
-                </Suspense>
+                <PayrollApproveDialog
+                    open={isApproveDialogOpen}
+                    onOpenChange={setIsApproveDialogOpen}
+                    onConfirm={handleApprove}
+                    processing={isApproving}
+                />
             ) : null}
 
             {isMarkPaidDialogOpen ? (
-                <Suspense fallback={null}>
-                    <LazyPayrollMarkPaidDialog
-                        open={isMarkPaidDialogOpen}
-                        onOpenChange={(open) => {
-                            setIsMarkPaidDialogOpen(open);
+                <PayrollMarkPaidDialog
+                    open={isMarkPaidDialogOpen}
+                    onOpenChange={(open) => {
+                        setIsMarkPaidDialogOpen(open);
 
-                            if (!open) {
-                                setMarkPaidDateError(undefined);
-                            }
-                        }}
-                        onConfirm={handleMarkPaid}
-                        processing={isMarkingPaid}
-                        paymentDateError={markPaidDateError}
-                    />
-                </Suspense>
+                        if (!open) {
+                            setMarkPaidDateError(undefined);
+                        }
+                    }}
+                    onConfirm={handleMarkPaid}
+                    processing={isMarkingPaid}
+                    paymentDateError={markPaidDateError}
+                />
             ) : null}
 
             {isCancelDialogOpen ? (
-                <Suspense fallback={null}>
-                    <LazyPayrollCancelDialog
-                        open={isCancelDialogOpen}
-                        onOpenChange={setIsCancelDialogOpen}
-                        onConfirm={handleCancel}
-                        processing={isCancelling}
-                    />
-                </Suspense>
+                <PayrollCancelDialog
+                    open={isCancelDialogOpen}
+                    onOpenChange={setIsCancelDialogOpen}
+                    onConfirm={handleCancel}
+                    processing={isCancelling}
+                />
             ) : null}
 
             {crew_timeline_preparation && isReprepareDialogOpen ? (
-                <Suspense fallback={null}>
-                    <LazyPayrollReprepareTimelineDialog
-                        open={isReprepareDialogOpen}
-                        onOpenChange={setIsReprepareDialogOpen}
-                        onConfirm={handlePrepareTimeline}
-                        processing={isPreparingTimeline}
-                        currentVersion={crew_timeline_preparation.version}
-                    />
-                </Suspense>
+                <PayrollReprepareTimelineDialog
+                    open={isReprepareDialogOpen}
+                    onOpenChange={setIsReprepareDialogOpen}
+                    onConfirm={handlePrepareTimeline}
+                    processing={isPreparingTimeline}
+                    currentVersion={crew_timeline_preparation.version}
+                />
             ) : null}
 
             {removeRecord !== null ? (
-                <Suspense fallback={null}>
-                    <LazyPayrollRecordRemoveDialog
-                        open={removeRecord !== null}
-                        onOpenChange={(open) => {
-                            if (!open) {
-                                setRemoveRecord(null);
-                            }
-                        }}
-                        employeeName={removeRecord?.employee.name ?? null}
-                        onConfirm={handleRemoveRecord}
-                        processing={isRemovingRecord}
-                    />
-                </Suspense>
+                <PayrollRecordRemoveDialog
+                    open={removeRecord !== null}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setRemoveRecord(null);
+                        }
+                    }}
+                    employeeName={removeRecord?.employee.name ?? null}
+                    onConfirm={handleRemoveRecord}
+                    processing={isRemovingRecord}
+                />
             ) : null}
         </Main>
     );

@@ -16,7 +16,12 @@ return [
     */
 
     'ssr' => [
-        'enabled' => true,
+        /*
+         * Disabled: Inertia SSR uses renderToString, which cannot finish React
+         * Suspense/lazy boundaries and mismatches Radix UI (sidebar Collapsible,
+         * Checkbox bubble input), causing hydration / removeChild errors.
+         */
+        'enabled' => false,
         'url' => 'http://127.0.0.1:13714',
         // 'bundle' => base_path('bootstrap/ssr/ssr.mjs'),
 

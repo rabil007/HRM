@@ -54,7 +54,10 @@ export default defineConfig({
             refresh: true,
             detectTls: 'oms-hrm.test',
         }),
-        inertia(),
+        inertia({
+            // Keep in sync with config/inertia.php — see SSR note there.
+            ssr: false,
+        }),
         react({
             babel: {
                 plugins: ['babel-plugin-react-compiler'],

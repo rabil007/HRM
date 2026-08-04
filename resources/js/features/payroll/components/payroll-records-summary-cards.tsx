@@ -6,7 +6,7 @@ import {
     Users,
     Wallet,
 } from 'lucide-react';
-import type { ElementType } from 'react';
+import { type ElementType, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { PayrollRecordsSummary } from '../types';
@@ -62,15 +62,68 @@ function SummaryCard({
 
 export function PayrollRecordsSummaryCards({
     summary,
+    activeCrewSalaryStructure = null,
 }: {
     summary: PayrollRecordsSummary;
+    activeCrewSalaryStructure?: 'daily' | 'monthly' | null;
 }) {
+    const dailyCount = summary.daily_employee_count ?? 0;
+    const monthlyCount = summary.monthly_employee_count ?? 0;
+    const hasCrewSplit = dailyCount > 0 || monthlyCount > 0;
+    const employeeHint = hasCrewSplit
+        ? [
+              `${dailyCount.toLocaleString()} daily`,
+              `${monthlyCount.toLocaleString()} monthly`,
+              activeCrewSalaryStructure
+                  ? `viewing ${activeCrewSalaryStructure}`
+                  : null,
+          ]
+              .filter(Boolean)
+              .join(' · ')
+        : 'Included in this pay run';
+
+    // #region agent log
+    useEffect(() => {
+        fetch(
+            'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Debug-Session-Id': 'b2c5e6',
+                },
+                body: JSON.stringify({
+                    sessionId: 'b2c5e6',
+                    runId: 'hydrate-debug',
+                    hypothesisId: 'H-B',
+                    location: 'payroll-records-summary-cards.tsx:useEffect',
+                    message: 'summary card after commit',
+                    data: {
+                        employeeCount: summary.employee_count,
+                        dailyCount,
+                        monthlyCount,
+                        activeCrewSalaryStructure,
+                        employeeHint,
+                    },
+                    timestamp: Date.now(),
+                }),
+            },
+        ).catch(() => {});
+    }, [
+        summary.employee_count,
+        dailyCount,
+        monthlyCount,
+        activeCrewSalaryStructure,
+        employeeHint,
+    ]);
+    // #endregion
+
     return (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <SummaryCard
                 title="Total Employees"
                 value={summary.employee_count.toLocaleString()}
-                hint="Included in this pay run"
+                hint={employeeHint}
                 icon={Users}
                 iconClassName="border-primary/20 bg-primary/10 text-primary"
             />
