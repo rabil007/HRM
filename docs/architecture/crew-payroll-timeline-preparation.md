@@ -442,3 +442,4 @@ Vessel transfer, redeployment, and assignment-based timesheet segments are imple
 - Parent day totals always sync from active segments; multiple segments per category leave parent From/To null (“Multiple periods”).
 - Daily Excel repeated employee rows group into one parent + many segments; employee-level financial values must appear on at most one non-zero row.
 - Calculator and salary export use segment totals when present; Movement Details worksheet lists each segment without duplicating net salary.
+- Daily Crew prior-period arrears are sourced from `crew_timesheet_segments` that may start before the payroll period. Payment tracking lives on `payroll_work_allocations`. Apply replaces Manual / Import / CrewOperations operational segments; timeline preparation continues to clip phases to the payroll period, so Crew Operations does not automatically create cross-period arrears.

@@ -11,10 +11,10 @@ final class ValidateCrewTimesheetOperationalIntegrity
 {
     public function handle(CrewTimesheet $timesheet, Employee $employee): ?string
     {
-        $timesheet->loadMissing('segments');
+        $timesheet->loadMissing(['segments']);
 
         if ($timesheet->segments->isNotEmpty()) {
-            return $this->validateSegments($timesheet, $employee);
+            return $this->validateMovements($timesheet, $employee);
         }
 
         $checks = [
@@ -74,7 +74,7 @@ final class ValidateCrewTimesheetOperationalIntegrity
         return null;
     }
 
-    private function validateSegments(CrewTimesheet $timesheet, Employee $employee): ?string
+    private function validateMovements(CrewTimesheet $timesheet, Employee $employee): ?string
     {
         /** @var list<array{0: CarbonInterface, 1: CarbonInterface, 2: string}> $ranges */
         $ranges = [];

@@ -115,7 +115,9 @@ test('crew payroll salary sheet export populates payroll and timesheet data', fu
         ->and($sheet->getCell('T3')->getCalculatedValue())->toEqual(55000)
         ->and($sheet->getCell('U3')->getValue())->toBe('Bank transfer')
         ->and($sheet->getCell('V3')->getValue())->toBe('Daily')
-        ->and($sheet->getAutoFilter()->getRange())->toBe('A2:V3');
+        ->and($sheet->getCell('W2')->getValue())->toBe('ARREARS / PRIOR')
+        ->and($sheet->getCell('W3')->getCalculatedValue())->toEqual(0)
+        ->and($sheet->getAutoFilter()->getRange())->toBe('A2:W3');
 
     @unlink($result['path']);
 });
@@ -203,6 +205,84 @@ test('crew payroll salary sheet export includes salary structure column for mont
 
     expect($sheet->getCell('V2')->getValue())->toBe('SALARY STRUCTURE')
         ->and($sheet->getCell('V3')->getValue())->toBe('Monthly');
+
+    @unlink($result['path']);
+});
+
+test('crew payroll salary sheet export includes arrears column and presentation line movement details', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    [$period, $employee] = createApprovedCrewExportFixture($company);
+
+    PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->update([
+            'net_salary' => '55350.00',
+            'gross_salary' => '55350.00',
+            'calculation_breakdown' => [
+                'salary_structure' => 'daily',
+                'total_standby_days' => 0,
+                'onsite_days' => 30,
+                'rates' => [
+                    'basic_daily' => 100,
+                    'site_allowance_daily' => 50,
+                    'supplementary_allowance_daily' => 25,
+                ],
+                'lines' => [
+                    'total_standby_pay' => 0,
+                    'onsite_pay' => 3000,
+                    'site_allowance' => 1500,
+                    'supplementary_allowance' => 750,
+                    'prior_period_amount' => 350,
+                ],
+                'prior_period_lines' => [
+                    'amount' => 350,
+                    'payable_days' => 2,
+                ],
+                'presentation_lines' => [
+                    [
+                        'from_date' => '2026-05-30',
+                        'to_date' => '2026-05-31',
+                        'days' => 2,
+                        'pay_category' => 'onsite',
+                        'period_classification' => 'prior',
+                        'basic_daily_rate' => 100,
+                        'site_allowance_daily_rate' => 50,
+                        'supplementary_allowance_daily_rate' => 25,
+                        'amount' => 350,
+                    ],
+                    [
+                        'from_date' => '2026-06-01',
+                        'to_date' => '2026-06-30',
+                        'days' => 30,
+                        'pay_category' => 'onsite',
+                        'period_classification' => 'current',
+                        'basic_daily_rate' => 100,
+                        'site_allowance_daily_rate' => 50,
+                        'supplementary_allowance_daily_rate' => 25,
+                        'amount' => 5250,
+                    ],
+                ],
+            ],
+        ]);
+
+    $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh());
+    $spreadsheet = IOFactory::load($result['path']);
+    $sheet = $spreadsheet->getSheetByName(CrewPayrollSalarySheetExporter::SHEET_NAME);
+    $movement = $spreadsheet->getSheetByName('Movement Details');
+
+    expect($sheet->getCell('W2')->getValue())->toBe('ARREARS / PRIOR')
+        ->and($sheet->getCell('W3')->getCalculatedValue())->toEqual(350)
+        ->and($movement->getCell('L1')->getValue())->toBe('PERIOD')
+        ->and($movement->getCell('M1')->getValue())->toBe('BASIC RATE')
+        ->and($movement->getCell('P1')->getValue())->toBe('AMOUNT')
+        ->and($movement->getCell('Q1')->getValue())->toBe('CURRENCY')
+        ->and($movement->getCell('L2')->getValue())->toBe('Prior-period')
+        ->and($movement->getCell('M2')->getValue())->toEqual(100)
+        ->and($movement->getCell('P2')->getValue())->toEqual(350)
+        ->and($movement->getCell('L3')->getValue())->toBe('Current-period')
+        ->and($movement->getCell('P3')->getValue())->toEqual(5250);
 
     @unlink($result['path']);
 });

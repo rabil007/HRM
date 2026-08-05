@@ -32,7 +32,7 @@ Other supported transitions are:
 - `processing -> draft`: removes payroll records and salary inputs; crew periods also lose their timesheets.
 - `approved -> processing`: clears approval data, generated payslip files, and WPS submission fields.
 - `paid -> approved`: removes the paid state from records and clears `payment_date`; `generated_at` is preserved.
-- `draft`, `processing`, or `approved` -> `cancelled`: removes payroll records and salary inputs.
+- `draft`, `processing`, or `approved` -> `cancelled`: Draft/Processing cancel force-deletes payroll records and salary inputs. Approved cancel preserves payroll records (status `cancelled`), salary inputs, payslips, and WPS fields; work allocations are reversed but keep `payroll_record_id`.
 
 The transition rules live in `app/Models/PayrollPeriod.php` and `app/Support/Payroll/Actions/`.
 
@@ -111,6 +111,46 @@ For a monthly structure, `CrewMonthlyPayrollCalculator` uses monthly basic, hous
 
 Daily crew uses only Sign-On Standby → Onsite → Sign-Off Standby. Monthly crew uses `unpaid_leave_days`. The legacy generic standby columns (`standby_from`, `standby_to`, `standby_days`) were intentionally removed by migration `2026_07_21_100000_replace_legacy_standby_fields_on_crew_timesheets` before any production payroll data existed; no compatibility bridge, mirroring, or source-based fallback remains.
 
+### Daily Crew prior-period arrears
+
+Daily Crew payroll automatically pays unpaid work that falls **before** the payment period start, using historical rates. There is no ON/OFF setting.
+
+**Sources**
+
+- Manual movement edits and Excel import may enter ranges that start before the payroll period.
+- Original movement ranges are stored as `crew_timesheet_segments` (not physically split).
+- Payroll generation expands segments day-by-day into `payroll_work_allocations`.
+- Dates after the payroll period end remain rejected.
+- Crew Operations timeline apply still clips phases to the current period and does **not** invent arrears from earlier periods.
+
+**Historical rate resolution**
+
+- Each payable work date resolves the Daily Crew contract covering that date (company + employee + Crew + Daily + not soft-deleted). No “current contract” fallback for arrears dates.
+- Missing or overlapping covering contracts block generation.
+- Salary components resolve for the work date: latest revision with `effective_from <= work_date`. If the contract has revisions but none cover the date, generation is blocked. If the contract has no revisions, baseline contract components are used.
+- Standby day stores basic and supplementary amounts separately. Onsite stores basic + site + supplementary separately.
+- Overtime, additions, and deductions stay payment-period values and are **not** historically rated in this phase.
+
+**Duplicate-payment protection**
+
+- `payroll_work_allocations` stores one day allocation with lifecycle statuses (`reserved` → `approved` → `paid`, or `reversed`).
+- Active uniqueness uses nullable unique `active_allocation_key` = `{company_id}:{employee_id}:{work_date}` for reserved/approved/paid rows (null when reversed). Multiple NULLs are allowed, so reversed dates can be re-allocated.
+- Already approved/paid dates are excluded from new generation with a warning; reserved-by-other-payroll dates are blocking conflicts.
+- Draft regeneration deletes and recreates only `reserved` allocations for that record. Approved/paid rows are never silently replaced.
+- Cancelling a Draft/Processing period releases reserved allocations and force-deletes payroll records + salary inputs. Cancelling an Approved period reverses allocations (history retained, `payroll_record_id` kept), marks payroll records `cancelled`, and preserves payslip/WPS fields — financial records are not force-deleted.
+- Daily Crew movement allocations use one work_date = exactly 1 payable day. Segment `days` must equal the inclusive calendar day count (integer). Fractional days are rejected.
+- Generation stores `source_fingerprint` and `currency_code` in `calculation_breakdown`. Approve recomputes the fingerprint and blocks if segments or historical contract/revision resolution drifted; Mark Paid does not re-check (approved snapshot is frozen).
+- `payroll_work_allocations.payroll_period_id` uses `restrictOnDelete` so periods cannot be hard-deleted while allocations remain.
+
+**Attendance and breakdown**
+
+- `present_days` / `leave_days` and current-period standby/onsite summaries count **current-period days only**.
+- Parent timesheet present-day fields also count only calendar days inside the payroll period.
+- `calculation_breakdown` includes `current_period`, `prior_period`, `prior_period_adjustments` / `earning_periods` for payslip/export.
+- The single `payroll_records.contract_id` remains a compatibility snapshot (usually the payment-period primary contract). Per-date contracts and revisions live on allocations.
+- Payslip shows separate prior-period and current-period earnings lines with date range, days, and rate. Salary export marks Movement Details rows with PERIOD / rates.
+- Overtime remains a payment-period value and is not historically rated until overtime has an earned date.
+
 Key implementation files:
 
 - `app/Support/Payroll/Actions/GenerateCrewPayroll.php`
@@ -118,6 +158,11 @@ Key implementation files:
 - `app/Support/Payroll/CrewMonthlyPayrollCalculator.php`
 - `app/Support/Payroll/Actions/RecalculateCrewPayroll.php`
 - `app/Support/Payroll/ApplyCrewSalaryInputs.php`
+- `app/Support/Payroll/BuildDailyCrewPayrollAllocationPlan.php`
+- `app/Support/Payroll/ResolveCrewContractForWorkDate.php`
+- `app/Support/Payroll/PersistPayrollWorkAllocations.php`
+- `app/Support/Payroll/SplitCrewMovementRangeAcrossPeriod.php`
+- `app/Support/Payroll/Actions/PersistCrewTimesheetMovements.php`
 
 ### Crew timeline preparation (Phase 1A–1D)
 

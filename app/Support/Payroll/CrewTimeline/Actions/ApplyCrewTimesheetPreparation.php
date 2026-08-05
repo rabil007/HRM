@@ -20,6 +20,7 @@ use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationWorkflowGuard;
 use App\Support\Payroll\CrewTimeline\PayableCrewPreparationLines;
 use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
 use App\Support\Payroll\SyncCrewTimesheetParentFromSegments;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -202,8 +203,11 @@ final class ApplyCrewTimesheetPreparation
                     $action = 'updated';
                 }
 
-                $this->replaceOperationalSegments($timesheet, $employeeLines, $companyId);
-                $timesheet = $this->syncParentFromSegments->handle($timesheet->fresh() ?? $timesheet);
+                $this->replaceOperationalSegments($timesheet, $employeeLines, $companyId, $period);
+                $timesheet = $this->syncParentFromSegments->handle(
+                    $timesheet->fresh(['segments', 'period']) ?? $timesheet,
+                    $period,
+                );
 
                 $changes[] = [
                     'employee_id' => $employeeId,
@@ -341,14 +345,27 @@ final class ApplyCrewTimesheetPreparation
     }
 
     /**
+     * Replace current-period operational segments while preserving prior-period Manual/Import source.
+     *
+     * - Soft-delete CrewOperations segments always.
+     * - Soft-delete Manual/Import segments that overlap the current payroll period.
+     * - When a Manual/Import segment crosses the period boundary, recreate a prior-only
+     *   clipped segment (from_date → period.start-1) so June arrears source survives.
+     * - Segments entirely before period.start are preserved unchanged.
+     *
      * @param  list<CrewTimesheetPreparationLine>  $lines
      */
     private function replaceOperationalSegments(
         CrewTimesheet $timesheet,
         array $lines,
         int $companyId,
+        PayrollPeriod $period,
     ): void {
-        CrewTimesheetSegment::query()
+        $periodStart = CarbonImmutable::parse($period->start_date)->startOfDay();
+        $periodEnd = CarbonImmutable::parse($period->end_date)->startOfDay();
+        $priorCutoff = $periodStart->subDay();
+
+        $existing = CrewTimesheetSegment::query()
             ->where('company_id', $companyId)
             ->where('crew_timesheet_id', $timesheet->id)
             ->whereIn('source', [
@@ -357,11 +374,77 @@ final class ApplyCrewTimesheetPreparation
                 CrewTimesheetSource::CrewOperations->value,
             ])
             ->lockForUpdate()
-            ->get()
-            ->each
-            ->delete();
+            ->get();
+
+        /** @var list<array<string, mixed>> $priorClips */
+        $priorClips = [];
+
+        foreach ($existing as $segment) {
+            $source = $segment->source instanceof CrewTimesheetSource
+                ? $segment->source
+                : CrewTimesheetSource::tryFrom((string) $segment->source);
+
+            if ($source === CrewTimesheetSource::CrewOperations) {
+                $segment->delete();
+
+                continue;
+            }
+
+            if (! in_array($source, [CrewTimesheetSource::Manual, CrewTimesheetSource::Import], true)) {
+                continue;
+            }
+
+            if ($segment->from_date === null || $segment->to_date === null) {
+                $segment->delete();
+
+                continue;
+            }
+
+            $from = CarbonImmutable::parse($segment->from_date)->startOfDay();
+            $to = CarbonImmutable::parse($segment->to_date)->startOfDay();
+
+            // Entirely before the payroll period — keep as prior-period arrears source.
+            if ($to->lessThan($periodStart)) {
+                continue;
+            }
+
+            $overlapsCurrent = $from->lessThanOrEqualTo($periodEnd) && $to->greaterThanOrEqualTo($periodStart);
+
+            if (! $overlapsCurrent) {
+                continue;
+            }
+
+            // Crossing or fully inside current period: soft-delete and clip prior portion if any.
+            if ($from->lessThan($periodStart)) {
+                $priorClips[] = [
+                    'pay_category' => $segment->pay_category,
+                    'from_date' => $from->toDateString(),
+                    'to_date' => $priorCutoff->toDateString(),
+                    'days' => (float) ($from->diffInDays($priorCutoff) + 1),
+                    'source' => $source,
+                    'crew_assignment_id' => $segment->crew_assignment_id,
+                    'crew_assignment_phase_id' => $segment->crew_assignment_phase_id,
+                    'crew_timesheet_preparation_line_id' => null,
+                    'vessel_id' => $segment->vessel_id,
+                    'client_id' => $segment->client_id,
+                    'rank_id' => $segment->rank_id,
+                    'remarks' => $segment->remarks,
+                ];
+            }
+
+            $segment->delete();
+        }
 
         $sequence = 1;
+
+        foreach ($priorClips as $clip) {
+            CrewTimesheetSegment::query()->create([
+                'company_id' => $companyId,
+                'crew_timesheet_id' => $timesheet->id,
+                'sequence' => $sequence++,
+                ...$clip,
+            ]);
+        }
 
         foreach ($lines as $line) {
             $assignment = $line->assignment;

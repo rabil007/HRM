@@ -118,7 +118,9 @@ final class PayslipData
         $category = $record->payroll_category ?? PayrollCategory::Office;
         $breakdown = $record->calculation_breakdown ?? [];
         $lines = is_array($breakdown['lines'] ?? null) ? $breakdown['lines'] : [];
-        $currencyCode = CompanyCurrency::codeForCompany($company);
+        $currencyCode = is_string($breakdown['currency_code'] ?? null) && $breakdown['currency_code'] !== ''
+            ? (string) $breakdown['currency_code']
+            : CompanyCurrency::codeForCompany($company);
 
         $periodStart = ! empty($breakdown['period_start_date'])
             ? CarbonImmutable::parse($breakdown['period_start_date'])->format('M d, Y')
@@ -296,10 +298,65 @@ final class PayslipData
 
     /**
      * @param  array<string, mixed>  $lines
-     * @return list<array{label: string, amount: string}>
+     * @return list<array{label: string, amount: string, detail?: string|null}>
      */
     private static function crewEarnings(PayrollRecord $record, array $lines): array
     {
+        $breakdown = is_array($record->calculation_breakdown) ? $record->calculation_breakdown : [];
+        $presentationLines = is_array($breakdown['earning_periods'] ?? null)
+            ? $breakdown['earning_periods']
+            : (is_array($breakdown['presentation_lines'] ?? null)
+                ? $breakdown['presentation_lines']
+                : []);
+
+        if ($presentationLines !== []) {
+            $rows = [];
+
+            foreach ($presentationLines as $line) {
+                if (! is_array($line) || (float) ($line['amount'] ?? 0) <= 0) {
+                    continue;
+                }
+
+                $rows[] = [
+                    'label' => self::crewPresentationLineLabel($line),
+                    'detail' => self::crewPresentationLineDetail($line),
+                    'amount' => self::formatAmount($line['amount'] ?? 0),
+                ];
+            }
+
+            $overtimeHours = (float) ($record->overtime_hours ?? 0);
+            $overtimeLabel = $overtimeHours > 0
+                ? sprintf('Overtime (%s hrs)', self::formatDayCount($overtimeHours))
+                : 'Overtime';
+
+            $rows[] = [
+                'label' => $overtimeLabel,
+                'detail' => null,
+                'amount' => self::formatAmount($record->overtime_pay),
+            ];
+            $rows[] = [
+                'label' => 'Additional amount',
+                'detail' => null,
+                'amount' => self::formatAmount($record->bonus),
+            ];
+
+            $salaryInputs = is_array($breakdown['salary_inputs'] ?? null) ? $breakdown['salary_inputs'] : [];
+
+            foreach ($salaryInputs as $input) {
+                if (! ($input['is_addition'] ?? false)) {
+                    continue;
+                }
+
+                $rows[] = [
+                    'label' => (string) ($input['type_label'] ?? $input['type'] ?? 'Addition'),
+                    'detail' => null,
+                    'amount' => self::formatAmount($input['amount'] ?? 0),
+                ];
+            }
+
+            return self::filterPositiveLines($rows);
+        }
+
         $overtimeHours = (float) ($record->overtime_hours ?? 0);
         $overtimeLabel = $overtimeHours > 0
             ? sprintf('Overtime (%s hrs)', self::formatDayCount($overtimeHours))
@@ -321,7 +378,6 @@ final class PayslipData
             ['label' => 'Additional amount', 'amount' => self::formatAmount($record->bonus)],
         ];
 
-        $breakdown = is_array($record->calculation_breakdown) ? $record->calculation_breakdown : [];
         $salaryInputs = is_array($breakdown['salary_inputs'] ?? null) ? $breakdown['salary_inputs'] : [];
 
         foreach ($salaryInputs as $input) {
@@ -336,6 +392,94 @@ final class PayslipData
         }
 
         return self::filterPositiveLines($rows);
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     */
+    private static function crewPresentationLineLabel(array $line): string
+    {
+        $classification = (string) ($line['period_classification'] ?? 'current');
+        $category = match ((string) ($line['pay_category'] ?? '')) {
+            'sign_on_standby' => 'Sign-On Standby',
+            'sign_off_standby' => 'Sign-Off Standby',
+            'onsite' => 'Onsite',
+            default => 'Crew pay',
+        };
+
+        $prefix = in_array($classification, ['prior', 'prior_period'], true)
+            ? 'Prior-period'
+            : 'Current-period';
+
+        return match ((string) ($line['pay_category'] ?? '')) {
+            'onsite' => "{$prefix} onsite pay",
+            'sign_on_standby', 'sign_off_standby' => "{$prefix} {$category} adjustment",
+            default => "{$prefix} {$category}",
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     */
+    private static function crewPresentationLineDetail(array $line): ?string
+    {
+        $from = isset($line['from_date']) ? CarbonImmutable::parse((string) $line['from_date']) : null;
+        $to = isset($line['to_date']) ? CarbonImmutable::parse((string) $line['to_date']) : null;
+        $days = (float) ($line['days'] ?? 0);
+        $payCategory = (string) ($line['pay_category'] ?? '');
+
+        if ($from === null || $to === null || $days <= 0) {
+            return null;
+        }
+
+        $basic = (float) ($line['basic_daily_rate'] ?? 0);
+        $site = (float) ($line['site_allowance_daily_rate'] ?? 0);
+        $supp = (float) ($line['supplementary_allowance_daily_rate'] ?? 0);
+
+        $rateDetail = self::crewRateComponentDetail($payCategory, $basic, $site, $supp);
+
+        return sprintf(
+            '%s – %s · %s days × %s',
+            $from->format('d M Y'),
+            $to->format('d M Y'),
+            self::formatDayCount($days),
+            $rateDetail,
+        );
+    }
+
+    /**
+     * Prefer component breakdown when onsite site/supp rates are present so the
+     * payslip does not imply a single blended rate.
+     */
+    private static function crewRateComponentDetail(
+        string $payCategory,
+        float $basic,
+        float $site,
+        float $supp,
+    ): string {
+        if ($payCategory === 'onsite' && ($site > 0 || $supp > 0)) {
+            $parts = [sprintf('basic %s', self::formatAmount($basic))];
+
+            if ($site > 0) {
+                $parts[] = sprintf('site %s', self::formatAmount($site));
+            }
+
+            if ($supp > 0) {
+                $parts[] = sprintf('supp %s', self::formatAmount($supp));
+            }
+
+            return implode(' + ', $parts);
+        }
+
+        if (in_array($payCategory, ['sign_on_standby', 'sign_off_standby'], true) && $supp > 0) {
+            return sprintf('basic %s + supp %s', self::formatAmount($basic), self::formatAmount($supp));
+        }
+
+        $rate = $payCategory === 'onsite'
+            ? $basic + $site + $supp
+            : $basic + $supp;
+
+        return self::formatAmount($rate);
     }
 
     /**
@@ -384,8 +528,8 @@ final class PayslipData
     }
 
     /**
-     * @param  list<array{label: string, amount: string}>  $rows
-     * @return list<array{label: string, amount: string}>
+     * @param  list<array{label: string, amount: string, detail?: string|null}>  $rows
+     * @return list<array{label: string, amount: string, detail?: string|null}>
      */
     private static function filterPositiveLines(array $rows): array
     {

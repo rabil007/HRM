@@ -17,6 +17,7 @@ use App\Support\Payroll\Actions\RecalculateCrewPayroll;
 use App\Support\Payroll\Actions\SyncEmployeeSalaryInputsFromImport;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
+use App\Support\Payroll\SplitCrewMovementRangeAcrossPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -31,6 +32,7 @@ final class CrewTimesheetImportOrchestrator
         private readonly SyncEmployeeSalaryInputsFromImport $syncEmployeeSalaryInputsFromImport,
         private readonly RecalculateCrewPayroll $recalculateCrewPayroll,
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
+        private readonly SplitCrewMovementRangeAcrossPeriod $splitRange,
     ) {}
 
     /**
@@ -402,6 +404,14 @@ final class CrewTimesheetImportOrchestrator
                 }
             }
 
+            $movementSplit = $isDaily && ! $financialOnly
+                ? $this->buildMovementSplitPreview($timesheetData, $period)
+                : [
+                    'prior_period_days' => 0.0,
+                    'current_period_days' => 0.0,
+                    'portions' => [],
+                ];
+
             /** @var array<int, float|string|null> $salaryAmountsByTypeId */
             $salaryAmountsByTypeId = $parsedRow['salary_amounts_by_type_id'] ?? [];
 
@@ -452,6 +462,9 @@ final class CrewTimesheetImportOrchestrator
                 'total_standby_days' => isset($timesheetData['sign_on_standby_days']) || isset($timesheetData['sign_off_standby_days'])
                     ? round((float) ($timesheetData['sign_on_standby_days'] ?? 0) + (float) ($timesheetData['sign_off_standby_days'] ?? 0), 2)
                     : null,
+                'prior_period_days' => $movementSplit['prior_period_days'],
+                'current_period_days' => $movementSplit['current_period_days'],
+                'movement_split' => $movementSplit['portions'],
                 'unpaid_leave_days' => $timesheetData['unpaid_leave_days'] ?? null,
                 'overtime_hours' => $timesheetData['overtime_hours'] ?? null,
                 'remarks' => $timesheetData['remarks'] ?? null,
@@ -500,7 +513,6 @@ final class CrewTimesheetImportOrchestrator
         PayrollPeriod $period,
         array $typeNamesById,
     ): array {
-        $periodStart = $period->start_date?->toDateString();
         $periodEnd = $period->end_date?->toDateString();
         $groupedIndexes = [];
 
@@ -551,22 +563,24 @@ final class CrewTimesheetImportOrchestrator
                         continue;
                     }
 
-                    if ($periodStart !== null && $start->toDateString() < $periodStart) {
-                        $rows[$index]['errors'][] = [
-                            'row' => $rowNumber,
-                            'field' => $fromKey,
-                            'message' => 'Operational dates must fall within the payroll period.',
-                        ];
-                    }
-
                     if ($periodEnd !== null && $end->toDateString() > $periodEnd) {
                         $rows[$index]['errors'][] = [
                             'row' => $rowNumber,
                             'field' => $toKey,
-                            'message' => 'Operational dates must fall within the payroll period.',
+                            'message' => 'Operational dates cannot extend past the payroll period end.',
                         ];
                     }
 
+                    if ($periodEnd !== null && $start->toDateString() > $periodEnd) {
+                        $rows[$index]['errors'][] = [
+                            'row' => $rowNumber,
+                            'field' => $fromKey,
+                            'message' => 'Operational dates cannot extend past the payroll period end.',
+                        ];
+                    }
+
+                    // Daily Crew may start before the payroll period (prior-period arrears).
+                    // Overlap checks use the full submitted range (prior + current portions).
                     $ranges[] = [$start, $end, $rowNumber, $index, $fromKey];
                 }
 
@@ -777,6 +791,86 @@ final class CrewTimesheetImportOrchestrator
             'deduction_amount' => 0,
             'remarks' => $parsedRow['remarks'] ?? null,
             'source' => CrewTimesheetSource::Import,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $timesheetData
+     * @return array{
+     *     prior_period_days: float,
+     *     current_period_days: float,
+     *     portions: list<array{
+     *         pay_category: string,
+     *         from_date: string,
+     *         to_date: string,
+     *         days: int,
+     *         classification: 'prior'|'current'
+     *     }>
+     * }
+     */
+    private function buildMovementSplitPreview(array $timesheetData, PayrollPeriod $period): array
+    {
+        $periodStart = $period->start_date?->toDateString();
+        $periodEnd = $period->end_date?->toDateString();
+
+        if ($periodStart === null || $periodEnd === null) {
+            return [
+                'prior_period_days' => 0.0,
+                'current_period_days' => 0.0,
+                'portions' => [],
+            ];
+        }
+
+        $priorDays = 0.0;
+        $currentDays = 0.0;
+        $portions = [];
+
+        foreach ([
+            CrewTimesheetPayCategory::SignOnStandby->value => ['sign_on_standby_from', 'sign_on_standby_to'],
+            CrewTimesheetPayCategory::Onsite->value => ['onsite_from', 'onsite_to'],
+            CrewTimesheetPayCategory::SignOffStandby->value => ['sign_off_standby_from', 'sign_off_standby_to'],
+        ] as $category => [$fromKey, $toKey]) {
+            $from = $timesheetData[$fromKey] ?? null;
+            $to = $timesheetData[$toKey] ?? null;
+
+            if (! filled($from) || ! filled($to)) {
+                continue;
+            }
+
+            $split = $this->splitRange->handle(
+                (string) $from,
+                (string) $to,
+                $periodStart,
+                $periodEnd,
+            );
+
+            foreach (['prior', 'current'] as $key) {
+                $portion = $split[$key] ?? null;
+
+                if ($portion === null) {
+                    continue;
+                }
+
+                $portions[] = [
+                    'pay_category' => $category,
+                    'from_date' => $portion['from_date'],
+                    'to_date' => $portion['to_date'],
+                    'days' => $portion['days'],
+                    'classification' => $portion['classification'],
+                ];
+
+                if ($portion['classification'] === 'prior') {
+                    $priorDays += $portion['days'];
+                } else {
+                    $currentDays += $portion['days'];
+                }
+            }
+        }
+
+        return [
+            'prior_period_days' => round($priorDays, 2),
+            'current_period_days' => round($currentDays, 2),
+            'portions' => $portions,
         ];
     }
 

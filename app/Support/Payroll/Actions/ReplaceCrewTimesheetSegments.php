@@ -3,11 +3,9 @@
 namespace App\Support\Payroll\Actions;
 
 use App\Enums\ContractSalaryStructure;
-use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
 use App\Models\CrewTimesheet;
-use App\Models\CrewTimesheetSegment;
 use App\Models\PayrollPeriod;
 use App\Models\User;
 use App\Support\Attendance\CalculateLeaveRequestDays;
@@ -23,6 +21,7 @@ final class ReplaceCrewTimesheetSegments
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
         private readonly ApplyManualImportTimesheetAutoApproval $autoApproval,
         private readonly SyncCrewTimesheetParentFromSegments $syncParentFromSegments,
+        private readonly PersistCrewTimesheetMovements $persistMovements,
     ) {}
 
     /**
@@ -110,46 +109,14 @@ final class ReplaceCrewTimesheetSegments
                 ]);
             }
 
-            $existingSegments = CrewTimesheetSegment::query()
-                ->where('company_id', $companyId)
-                ->where('crew_timesheet_id', $timesheet->id)
-                ->whereIn('source', [
-                    CrewTimesheetSource::Manual->value,
-                    CrewTimesheetSource::Import->value,
-                ])
-                ->lockForUpdate()
-                ->orderBy('sequence')
-                ->get();
-
-            $previousCount = $existingSegments->count();
-            $previousCategories = $existingSegments
-                ->pluck('pay_category')
-                ->map(fn ($category) => $category instanceof CrewTimesheetPayCategory ? $category->value : (string) $category)
-                ->unique()
-                ->values()
-                ->all();
-
-            $existingSegments->each->delete();
-
-            $sequence = 1;
             $source = CrewTimesheetSource::Manual;
-
-            foreach ($normalized as $row) {
-                CrewTimesheetSegment::query()->create([
-                    'company_id' => $companyId,
-                    'crew_timesheet_id' => $timesheet->id,
-                    'sequence' => $sequence++,
-                    'pay_category' => $row['pay_category'],
-                    'from_date' => $row['from_date'],
-                    'to_date' => $row['to_date'],
-                    'days' => $row['days'],
-                    'source' => $source,
-                    'vessel_id' => $row['vessel_id'],
-                    'client_id' => $row['client_id'],
-                    'rank_id' => $row['rank_id'],
-                    'remarks' => $row['remarks'],
-                ]);
-            }
+            $persisted = $this->persistMovements->handle(
+                $timesheet,
+                $period,
+                $normalized,
+                $source,
+                (int) $actor->id,
+            );
 
             $attributes = [
                 'source' => $source,
@@ -169,13 +136,11 @@ final class ReplaceCrewTimesheetSegments
             $timesheet->fill($attributes);
             $timesheet->save();
 
-            $synced = $this->syncParentFromSegments->handle($timesheet->fresh(['segments']) ?? $timesheet);
-
-            $newCategories = collect($normalized)
-                ->pluck('pay_category')
-                ->unique()
-                ->values()
-                ->all();
+            // Parent present-day totals come from current-period segment portions only.
+            $synced = $this->syncParentFromSegments->handle(
+                $timesheet->fresh(['segments', 'period']) ?? $timesheet,
+                $period,
+            );
 
             activity()
                 ->performedOn($synced)
@@ -186,10 +151,10 @@ final class ReplaceCrewTimesheetSegments
                     'payroll_period_id' => $period->id,
                     'crew_timesheet_id' => $synced->id,
                     'employee_id' => $synced->employee_id,
-                    'previous_segment_count' => $previousCount,
-                    'new_segment_count' => count($normalized),
-                    'previous_categories' => $previousCategories,
-                    'new_categories' => $newCategories,
+                    'previous_segment_count' => $persisted['previous_segment_count'],
+                    'new_segment_count' => $persisted['segment_count'],
+                    'previous_categories' => $persisted['previous_categories'],
+                    'new_categories' => $persisted['categories'],
                 ])
                 ->log('Crew timesheet movement periods replaced');
 

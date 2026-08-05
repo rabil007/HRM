@@ -5,12 +5,17 @@ namespace App\Support\Payroll\Actions;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Support\Payroll\PersistPayrollWorkAllocations;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 final class DeletePayrollRecord
 {
+    public function __construct(
+        private readonly PersistPayrollWorkAllocations $persistAllocations,
+    ) {}
+
     public function handle(PayrollPeriod $period, PayrollRecord $record): void
     {
         abort_unless(
@@ -33,6 +38,8 @@ final class DeletePayrollRecord
             if (filled($record->payslip_path) && Storage::disk('local')->exists($record->payslip_path)) {
                 Storage::disk('local')->delete($record->payslip_path);
             }
+
+            $this->persistAllocations->releaseReservedForRecord($record);
 
             $record->forceDelete();
 
