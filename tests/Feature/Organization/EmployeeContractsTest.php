@@ -51,6 +51,7 @@ test('users without permission cannot manage employee contracts', function () {
 
     $employee = Employee::factory()
         ->forCompany($company)
+        ->withoutDefaultContract()
         ->create([
             'employee_no' => 'EMP-C01',
             'name' => 'Contract Worker',
@@ -165,6 +166,7 @@ test('users with permission can add update and delete contracts', function () {
 
     $employee = Employee::factory()
         ->forCompany($company)
+        ->withoutDefaultContract()
         ->create([
             'employee_no' => 'EMP-C03',
             'name' => 'Manage Contracts',
@@ -255,6 +257,7 @@ test('activating a contract ends other active contracts for the employee', funct
 
     $employee = Employee::factory()
         ->forCompany($company)
+        ->withoutDefaultContract()
         ->create([
             'employee_no' => 'EMP-C04',
             'name' => 'Active Contract',
@@ -309,6 +312,7 @@ test('contract store rejects invalid salary and end date with validation errors'
 
     $employee = Employee::factory()
         ->forCompany($company)
+        ->withoutDefaultContract()
         ->create([
             'employee_no' => 'EMP-CVE-1',
             'name' => 'Validation Contracts',
@@ -358,6 +362,7 @@ test('contract store persists supplementary and site allowances', function () {
 
     $employee = Employee::factory()
         ->forCompany($company)
+        ->withoutDefaultContract()
         ->create([
             'employee_no' => 'EMP-CWA-1',
             'name' => 'Crew Member',
@@ -421,7 +426,7 @@ test('contract store persists payroll_category correctly')
             'status' => 'active',
         ]);
 
-        $employee = Employee::factory()->forCompany($company)->create([
+        $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create([
             'employee_no' => 'EMP-PC-'.strtoupper($category->value),
             'status' => 'active',
         ]);

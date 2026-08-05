@@ -24,6 +24,7 @@ class ContractShowController extends Controller
             'employee.department:id,name',
             'employee.position:id,title',
             'employee.employeeProfileTemplate:id,name',
+            'companyVisaType:id,name',
             'salaryRevisions' => fn ($query) => $query
                 ->with('lines')
                 ->orderByDesc('version'),

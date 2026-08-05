@@ -265,9 +265,9 @@ class EmployeeController extends Controller
             $data['visa_type_id'] = null;
         }
 
-        if (($data['company_visa_type_id'] ?? null) === '') {
-            $data['company_visa_type_id'] = null;
-        }
+        // Sponsor is managed via the employee's active contract; profile saves
+        // must not overwrite the current value mirrored from contract history.
+        unset($data['company_visa_type_id']);
 
         foreach ([
             'user_id',
@@ -281,7 +281,6 @@ class EmployeeController extends Controller
             'hire_date',
             'nationality_id',
             'visa_type_id',
-            'company_visa_type_id',
             'marital_status',
             'personal_email',
             'work_email',

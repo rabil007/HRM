@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { Eye, Pencil, Trash2 } from 'lucide-react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -9,6 +9,7 @@ type EmployeeRecordRowActionsProps = {
     onEdit?: () => void;
     onDelete?: () => void;
     className?: string;
+    extraActions?: ReactNode;
 };
 
 export function EmployeeRecordRowActions({
@@ -16,6 +17,7 @@ export function EmployeeRecordRowActions({
     onEdit,
     onDelete,
     className,
+    extraActions,
 }: EmployeeRecordRowActionsProps): ReactElement {
     return (
         <div
@@ -26,6 +28,7 @@ export function EmployeeRecordRowActions({
             onClick={(event) => event.stopPropagation()}
             role="presentation"
         >
+            {extraActions}
             {viewHref ? (
                 <Button
                     type="button"

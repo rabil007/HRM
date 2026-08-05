@@ -686,6 +686,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('organization/employees/{employee}/contracts', [EmployeeContractController::class, 'store'])->middleware('can:contracts.create')->name('organization.employees.contracts.store');
     Route::put('organization/employees/{employee}/contracts/{employeeContract}', [EmployeeContractController::class, 'update'])->middleware('can:contracts.update')->name('organization.employees.contracts.update');
+    Route::post('organization/employees/{employee}/contracts/{employeeContract}/transfer-visa-company', [EmployeeContractController::class, 'transferVisaCompany'])->middleware('can:contracts.create')->name('organization.employees.contracts.transfer-visa-company');
     Route::delete('organization/employees/{employee}/contracts/{employeeContract}', [EmployeeContractController::class, 'destroy'])->middleware('can:contracts.delete')->name('organization.employees.contracts.destroy');
     Route::post('organization/employees/{employee}/contracts/{employeeContract}/salary-revisions', [ContractSalaryRevisionController::class, 'store'])->middleware('can:contracts.salary_revisions.create')->name('organization.employees.contracts.salary-revisions.store');
     Route::put('organization/employees/{employee}/contracts/{employeeContract}/salary-revisions/{salaryRevision}', [ContractSalaryRevisionController::class, 'update'])->middleware('can:contracts.salary_revisions.update')->name('organization.employees.contracts.salary-revisions.update');

@@ -111,10 +111,10 @@ export function ContractsContent({
 
     const minWidth = useMemo(() => {
         if (showCrewColumns) {
-            return 'min-w-[1510px]';
+            return 'min-w-[1650px]';
         }
 
-        return 'min-w-[1970px]';
+        return 'min-w-[2110px]';
     }, [showCrewColumns]);
 
     const backContext = useMemo(
@@ -343,6 +343,7 @@ export function ContractsContent({
                                     </>
                                 ) : null}
                                 <DataTableHead>Labor contract ID</DataTableHead>
+                                <DataTableHead>Sponsor</DataTableHead>
                                 <DataTableHead># Contracts</DataTableHead>
                                 <DataTableHead>Start</DataTableHead>
                                 <DataTableHead>End</DataTableHead>

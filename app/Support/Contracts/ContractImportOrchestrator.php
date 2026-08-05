@@ -4,6 +4,7 @@ namespace App\Support\Contracts;
 
 use App\Enums\PayrollCategory;
 use App\Imports\ContractsImport;
+use App\Models\CompanyVisaType;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Support\Contracts\Actions\UpsertEmployeeContract;
@@ -116,6 +117,7 @@ final class ContractImportOrchestrator
     private function evaluateRows(int $companyId, PayrollCategory $payrollCategory, array $parsedRows): array
     {
         $employeesByNo = $this->loadEmployeesByNumber($companyId);
+        $companyVisaTypeMap = $this->loadCompanyVisaTypeMap();
         $seenEmployeeNumbers = [];
         $rows = [];
         $errors = [];
@@ -151,13 +153,30 @@ final class ContractImportOrchestrator
                 ];
             }
 
+            $companyVisaTypeId = null;
+            $companyVisaTypeName = trim((string) ($parsedRow['company_visa_type'] ?? ''));
+
+            if ($companyVisaTypeName !== '') {
+                $normalized = self::normalizeVisaTypeName($companyVisaTypeName);
+
+                if (isset($companyVisaTypeMap[$normalized])) {
+                    $companyVisaTypeId = $companyVisaTypeMap[$normalized];
+                } else {
+                    $rowErrors[] = [
+                        'row' => $rowNumber,
+                        'field' => 'company_visa_type',
+                        'message' => "Sponsor \"{$companyVisaTypeName}\" was not found or is inactive.",
+                    ];
+                }
+            }
+
             $hasContractData = $this->hasContractData($parsedRow);
             $action = 'skip';
             $existingContract = null;
             $contractAttributes = [];
 
             if ($hasContractData) {
-                $contractAttributes = $this->buildContractAttributes($parsedRow, $payrollCategory);
+                $contractAttributes = $this->buildContractAttributes($parsedRow, $payrollCategory, $companyVisaTypeId);
                 $validator = Validator::make($contractAttributes, $this->contractRules());
 
                 if ($validator->fails()) {
@@ -186,6 +205,7 @@ final class ContractImportOrchestrator
                 'labor_contract_id' => $contractAttributes['labor_contract_id'] ?? null,
                 'status' => $contractAttributes['status'] ?? null,
                 'basic_salary' => $contractAttributes['basic_salary'] ?? null,
+                'company_visa_type' => $parsedRow['company_visa_type'] ?? null,
                 'errors' => $rowErrors,
                 'warnings' => [],
                 'employee' => $employee,
@@ -234,6 +254,26 @@ final class ContractImportOrchestrator
     }
 
     /**
+     * Company Visa Types are global, active master data. Only active,
+     * non-deleted values can be matched by name during import.
+     *
+     * @return array<string, int>
+     */
+    private function loadCompanyVisaTypeMap(): array
+    {
+        return CompanyVisaType::query()
+            ->where('is_active', true)
+            ->pluck('id', 'name')
+            ->mapWithKeys(fn ($id, $name) => [self::normalizeVisaTypeName((string) $name) => (int) $id])
+            ->all();
+    }
+
+    private static function normalizeVisaTypeName(string $value): string
+    {
+        return mb_strtolower(trim($value));
+    }
+
+    /**
      * @param  array<string, mixed>  $parsedRow
      */
     private function hasContractData(array $parsedRow): bool
@@ -250,6 +290,7 @@ final class ContractImportOrchestrator
             'supplementary_allowance',
             'site_allowance',
             'note',
+            'company_visa_type',
         ] as $field) {
             if (filled($parsedRow[$field] ?? null)) {
                 return true;
@@ -263,7 +304,7 @@ final class ContractImportOrchestrator
      * @param  array<string, mixed>  $parsedRow
      * @return array<string, mixed>
      */
-    private function buildContractAttributes(array $parsedRow, PayrollCategory $payrollCategory): array
+    private function buildContractAttributes(array $parsedRow, PayrollCategory $payrollCategory, ?int $companyVisaTypeId): array
     {
         return [
             'start_date' => $parsedRow['start_date'],
@@ -278,6 +319,7 @@ final class ContractImportOrchestrator
             'supplementary_allowance' => $parsedRow['supplementary_allowance'],
             'site_allowance' => $parsedRow['site_allowance'],
             'note' => $parsedRow['note'],
+            'company_visa_type_id' => $companyVisaTypeId,
         ];
     }
 
@@ -299,6 +341,7 @@ final class ContractImportOrchestrator
             'supplementary_allowance' => ['nullable', 'numeric', 'min:0'],
             'site_allowance' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],
+            'company_visa_type_id' => ['nullable', 'integer'],
         ];
     }
 

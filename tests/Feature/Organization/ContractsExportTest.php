@@ -3,6 +3,7 @@
 use App\Enums\PayrollCategory;
 use App\Models\Branch;
 use App\Models\Company;
+use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
@@ -376,6 +377,35 @@ test('crew export calculates usd from basic supplementary and site allowances on
     expect($crewRow)->not->toBeNull()
         ->and((float) $crewRow[array_search('Total Salary', $headers, true)])->toBe(267.0)
         ->and((float) $crewRow[array_search('Total Salary (USD)', $headers, true)])->toBe(72.7);
+});
+
+test('export includes company visa type column with resolved name', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'contract' => $contract] = makeContractExportFixtures();
+
+    $visaType = CompanyVisaType::query()->create([
+        'name' => 'Export Visa Co '.uniqid(),
+        'is_active' => true,
+    ]);
+    $contract->update(['company_visa_type_id' => $visaType->id]);
+
+    grantCompanyPermissions($user, $company, ['contracts.view']);
+
+    $response = $this->get(route('organization.contracts.export', [
+        'format' => 'csv',
+        'payroll_category' => 'office',
+    ]));
+
+    $response->assertOk();
+
+    $lines = array_values(array_filter(explode("\n", trim($response->streamedContent()))));
+    $headers = str_getcsv($lines[0]);
+    $row = str_getcsv($lines[1]);
+
+    expect($headers)->toContain('Sponsor')
+        ->and($row[array_search('Sponsor', $headers, true)])->toBe($visaType->name);
 });
 
 test('export shows zero totals when contract has no salary components', function () {

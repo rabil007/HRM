@@ -222,6 +222,14 @@ export function ContractsTableRow({
                 </span>
             </TableCell>
             <TableCell className={dataTableCellClass()}>
+                <span
+                    className="block max-w-[160px] truncate text-sm text-muted-foreground"
+                    title={contract.company_visa_type?.name ?? undefined}
+                >
+                    {contract.company_visa_type?.name ?? '—'}
+                </span>
+            </TableCell>
+            <TableCell className={dataTableCellClass()}>
                 <span className="text-sm text-muted-foreground tabular-nums">
                     {contract.total_contracts}
                 </span>

@@ -1,4 +1,7 @@
-import type { DepartmentTreeNode } from '@/features/organization/employees/types';
+import type {
+    CompanyVisaTypeOption,
+    DepartmentTreeNode,
+} from '@/features/organization/employees/types';
 import type { EmployeeContractDetails } from '@/pages/organization/employee-page.types';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -35,6 +38,7 @@ export type ContractEmployeeSummary = {
     id: number;
     name: string;
     employee_no: string;
+    company_visa_type_id: number | null;
 };
 
 export type ContractBackNavigation = {
@@ -102,4 +106,5 @@ export type ContractEmployeeBrowseProps = {
     > | null;
     back: ContractBackNavigation;
     can: ContractPageCan;
+    company_visa_types: CompanyVisaTypeOption[];
 };
