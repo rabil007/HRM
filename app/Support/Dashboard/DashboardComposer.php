@@ -33,9 +33,6 @@ final class DashboardComposer
         // Always-present: personal summary, self-service personal dashboard, attention items, and action capabilities.
         $props['personal_summary'] = DashboardPersonalSummary::for($user, $companyId);
         $props['personal_dashboard'] = $this->analytics->personalDashboard($companyId, $user);
-        // #region agent log
-        @file_put_contents('/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-a22a17.log', json_encode(['sessionId' => 'a22a17', 'runId' => 'post-fix', 'hypothesisId' => 'A', 'location' => 'DashboardComposer.php:36', 'message' => 'personal_dashboard composed', 'data' => ['payslip_count' => count($props['personal_dashboard']['my_payslips'] ?? []), 'first_period_name' => $props['personal_dashboard']['my_payslips'][0]['period_name'] ?? null], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND);
-        // #endregion
         $props['attention_items'] = $this->analytics->attentionCentre($companyId, $user);
         $props['can'] = $this->can($user);
 
@@ -76,9 +73,6 @@ final class DashboardComposer
 
         if ($user->can('payroll.overview.view')) {
             $props['payroll_summary'] = $this->analytics->payrollSummary($companyId, $user);
-            // #region agent log
-            @file_put_contents('/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-a22a17.log', json_encode(['sessionId' => 'a22a17', 'runId' => 'post-fix', 'hypothesisId' => 'B', 'location' => 'DashboardComposer.php:75', 'message' => 'payroll_summary composed', 'data' => $props['payroll_summary'], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND);
-            // #endregion
         }
 
         if ($user->can('announcements.view')) {
@@ -88,10 +82,6 @@ final class DashboardComposer
         if ($user->can('audit.view')) {
             $props['audit_summary'] = $this->analytics->auditSummary($companyId, $user);
         }
-
-        // #region agent log
-        @file_put_contents('/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-a22a17.log', json_encode(['sessionId' => 'a22a17', 'runId' => 'post-fix', 'hypothesisId' => 'C', 'location' => 'DashboardComposer.php:86', 'message' => 'primary() completed', 'data' => ['prop_keys' => array_keys($props)], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND);
-        // #endregion
 
         return $props;
     }

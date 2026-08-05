@@ -352,7 +352,7 @@ test('dashboard includes document compliance stats', function () {
 
     ['company' => $company, 'employee' => $employee, 'visaType' => $visaType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     EmployeeDocument::query()->create([
         'company_id' => $company->id,
