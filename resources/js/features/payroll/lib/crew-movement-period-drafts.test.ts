@@ -10,6 +10,7 @@ import {
     isAssignmentEditorOpen,
     resolveDefaultAssignment,
     segmentDraftsFromTimesheet,
+    splitMovementRangeAcrossPeriod,
     toggleAssignmentEditor,
 } from './crew-movement-period-drafts.ts';
 
@@ -171,5 +172,37 @@ describe('crew movement period drafts', () => {
         assert.equal(inclusiveMovementDays('2026-07-01', '2026-07-04'), 4);
         assert.equal(inclusiveMovementDays('2026-07-04', '2026-07-01'), null);
         assert.equal(inclusiveMovementDays('', '2026-07-01'), null);
+    });
+
+    it('splits movement ranges across the payroll period for arrears preview', () => {
+        const split = splitMovementRangeAcrossPeriod(
+            '2026-06-28',
+            '2026-07-03',
+            '2026-07-01',
+            '2026-07-31',
+        );
+
+        assert.ok(split);
+        assert.equal(split.priorDays, 3);
+        assert.equal(split.currentDays, 3);
+        assert.equal(split.prior?.from_date, '2026-06-28');
+        assert.equal(split.prior?.to_date, '2026-06-30');
+        assert.equal(split.current?.from_date, '2026-07-01');
+        assert.equal(split.current?.to_date, '2026-07-03');
+        assert.equal(split.exceedsPeriodEnd, false);
+    });
+
+    it('flags movement dates after the payroll period end', () => {
+        const split = splitMovementRangeAcrossPeriod(
+            '2026-07-28',
+            '2026-08-02',
+            '2026-07-01',
+            '2026-07-31',
+        );
+
+        assert.ok(split);
+        assert.equal(split.exceedsPeriodEnd, true);
+        assert.equal(split.currentDays, 4);
+        assert.equal(split.current?.to_date, '2026-07-31');
     });
 });

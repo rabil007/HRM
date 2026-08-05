@@ -5,12 +5,19 @@ namespace App\Support\Payroll\Actions;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Support\Payroll\AssertPayrollAllocationLifecycle;
+use App\Support\Payroll\PersistPayrollWorkAllocations;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 final class RevertPayrollPeriodToProcessing
 {
+    public function __construct(
+        private readonly PersistPayrollWorkAllocations $persistAllocations,
+        private readonly AssertPayrollAllocationLifecycle $assertLifecycle,
+    ) {}
+
     public function handle(PayrollPeriod $period): PayrollPeriod
     {
         if (! $period->canRevertToProcessing()) {
@@ -28,6 +35,10 @@ final class RevertPayrollPeriodToProcessing
                     }
                 });
 
+            // Keep day locks; move approved allocations back to reserved so
+            // draft records and reserved allocations stay aligned.
+            $this->persistAllocations->transitionApprovedBackToReserved($period);
+
             $period->payrollRecords()->update([
                 'status' => 'draft',
                 'payslip_path' => null,
@@ -42,6 +53,8 @@ final class RevertPayrollPeriodToProcessing
                 'approved_by' => null,
                 'approved_at' => null,
             ]);
+
+            $this->assertLifecycle->assertAfterRevertToProcessing($period->fresh() ?? $period);
 
             return $period->refresh();
         });

@@ -79,7 +79,7 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
             ],
             'segments.*.from_date' => ['required', 'date'],
             'segments.*.to_date' => ['required', 'date'],
-            'segments.*.days' => ['nullable', 'numeric', 'min:0'],
+            'segments.*.days' => ['nullable', 'integer', 'min:0'],
             'segments.*.vessel_id' => [
                 'nullable',
                 'integer',
@@ -113,7 +113,6 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
                 return;
             }
 
-            $periodStart = $period->start_date?->toDateString();
             $periodEnd = $period->end_date?->toDateString();
 
             /** @var list<array{0: CarbonImmutable, 1: CarbonImmutable, 2: int}> $ranges */
@@ -145,17 +144,19 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
                     );
                 }
 
-                if ($periodStart !== null && $start->toDateString() < $periodStart) {
-                    $validator->errors()->add(
-                        "segments.{$index}.from_date",
-                        'Movement period dates must fall within the payroll period.',
-                    );
-                }
-
+                // Daily Crew may start before the payroll period (prior-period arrears).
+                // Dates after the period end remain invalid.
                 if ($periodEnd !== null && $end->toDateString() > $periodEnd) {
                     $validator->errors()->add(
                         "segments.{$index}.to_date",
-                        'Movement period dates must fall within the payroll period.',
+                        'Movement period dates cannot extend past the payroll period end.',
+                    );
+                }
+
+                if ($periodEnd !== null && $start->toDateString() > $periodEnd) {
+                    $validator->errors()->add(
+                        "segments.{$index}.from_date",
+                        'Movement period dates cannot extend past the payroll period end.',
                     );
                 }
 
@@ -170,6 +171,7 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
                     }
                 }
 
+                // Overlap checks use the full submitted range (prior + current portions).
                 $ranges[] = [$start, $end, $index];
             }
 
@@ -210,7 +212,7 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
                 'from_date' => $from,
                 'to_date' => $to,
                 'days' => filled($from) && filled($to)
-                    ? round((new CalculateLeaveRequestDays)((string) $from, (string) $to), 2)
+                    ? (int) round((new CalculateLeaveRequestDays)((string) $from, (string) $to))
                     : null,
                 'vessel_id' => $segment['vessel_id'] ?? null,
                 'client_id' => $segment['client_id'] ?? null,

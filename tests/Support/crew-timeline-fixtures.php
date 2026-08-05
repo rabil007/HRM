@@ -28,6 +28,8 @@ function makeDailyCrewTimelineFixtures(): array
         'payroll_category' => PayrollCategory::Crew,
         'salary_structure' => ContractSalaryStructure::Daily,
         'status' => 'active',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
         'basic_salary' => 100,
         'site_allowance' => 50,
         'supplementary_allowance' => 25,

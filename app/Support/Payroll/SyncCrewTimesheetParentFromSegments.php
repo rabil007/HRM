@@ -5,6 +5,8 @@ namespace App\Support\Payroll;
 use App\Enums\CrewTimesheetPayCategory;
 use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetSegment;
+use App\Models\PayrollPeriod;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
 final class SyncCrewTimesheetParentFromSegments
@@ -12,16 +14,23 @@ final class SyncCrewTimesheetParentFromSegments
     /**
      * Recalculate parent operational category totals from active segments.
      *
-     * Multiple segments in the same category leave parent from/to null so the
-     * UI can show "Multiple periods" instead of a misleading continuous range.
+     * Only calendar days that fall inside the payroll period count toward parent
+     * present-day totals. Prior-period arrears days on the same segments are excluded.
+     *
+     * Multiple current-period portions in the same category leave parent from/to null
+     * so the UI can show "Multiple periods" instead of a misleading continuous range.
      */
-    public function handle(CrewTimesheet $timesheet): CrewTimesheet
+    public function handle(CrewTimesheet $timesheet, ?PayrollPeriod $period = null): CrewTimesheet
     {
+        $period ??= $timesheet->relationLoaded('period')
+            ? $timesheet->period
+            : $timesheet->period()->first();
+
         $segments = $timesheet->relationLoaded('segments')
             ? $timesheet->segments
             : $timesheet->segments()->get();
 
-        $payload = $this->operationalPayloadFromSegments($segments);
+        $payload = $this->operationalPayloadFromSegments($segments, $period);
         $timesheet->fill($payload);
         $timesheet->save();
 
@@ -51,7 +60,7 @@ final class SyncCrewTimesheetParentFromSegments
      *     sign_off_standby_days: float
      * }
      */
-    public function operationalPayloadFromSegments(iterable $segments): array
+    public function operationalPayloadFromSegments(iterable $segments, ?PayrollPeriod $period = null): array
     {
         $byCategory = [
             CrewTimesheetPayCategory::SignOnStandby->value => [],
@@ -68,7 +77,13 @@ final class SyncCrewTimesheetParentFromSegments
                 continue;
             }
 
-            $byCategory[$category][] = $segment;
+            $portion = $this->currentPeriodPortion($segment, $period);
+
+            if ($portion === null) {
+                continue;
+            }
+
+            $byCategory[$category][] = $portion;
         }
 
         return [
@@ -79,22 +94,56 @@ final class SyncCrewTimesheetParentFromSegments
     }
 
     /**
-     * @param  list<CrewTimesheetSegment>  $segments
+     * @return array{from_date: string, to_date: string, days: float}|null
+     */
+    private function currentPeriodPortion(CrewTimesheetSegment $segment, ?PayrollPeriod $period): ?array
+    {
+        if ($segment->from_date === null || $segment->to_date === null) {
+            return null;
+        }
+
+        $from = CarbonImmutable::parse($segment->from_date)->startOfDay();
+        $to = CarbonImmutable::parse($segment->to_date)->startOfDay();
+
+        if ($period?->start_date !== null && $period->end_date !== null) {
+            $periodStart = CarbonImmutable::parse($period->start_date)->startOfDay();
+            $periodEnd = CarbonImmutable::parse($period->end_date)->startOfDay();
+
+            $clippedFrom = $from->greaterThan($periodStart) ? $from : $periodStart;
+            $clippedTo = $to->lessThan($periodEnd) ? $to : $periodEnd;
+
+            if ($clippedFrom->greaterThan($clippedTo)) {
+                return null;
+            }
+
+            $from = $clippedFrom;
+            $to = $clippedTo;
+        }
+
+        return [
+            'from_date' => $from->toDateString(),
+            'to_date' => $to->toDateString(),
+            'days' => (float) ($from->diffInDays($to) + 1),
+        ];
+    }
+
+    /**
+     * @param  list<array{from_date: string, to_date: string, days: float}>  $portions
      * @return array<string, float|string|null>
      */
-    private function categoryFields(string $prefix, array $segments): array
+    private function categoryFields(string $prefix, array $portions): array
     {
         $days = round(array_sum(array_map(
-            static fn (CrewTimesheetSegment $segment): float => (float) $segment->days,
-            $segments,
+            static fn (array $portion): float => (float) $portion['days'],
+            $portions,
         )), 2);
 
-        if (count($segments) === 1) {
-            $only = $segments[0];
+        if (count($portions) === 1) {
+            $only = $portions[0];
 
             return [
-                "{$prefix}_from" => $only->from_date?->toDateString(),
-                "{$prefix}_to" => $only->to_date?->toDateString(),
+                "{$prefix}_from" => $only['from_date'],
+                "{$prefix}_to" => $only['to_date'],
                 "{$prefix}_days" => $days,
             ];
         }

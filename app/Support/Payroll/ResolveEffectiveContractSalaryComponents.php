@@ -21,6 +21,7 @@ final class ResolveEffectiveContractSalaryComponents
 
         $revision = $contract->relationLoaded('salaryRevisions')
             ? $contract->salaryRevisions
+                ->reject(fn (ContractSalaryRevision $item): bool => $item->trashed())
                 ->filter(fn (ContractSalaryRevision $item) => $item->effective_from !== null
                     && $item->effective_from->toDateString() <= $asOfDate)
                 ->sortBy([
@@ -29,6 +30,7 @@ final class ResolveEffectiveContractSalaryComponents
                 ])
                 ->first()
             : ContractSalaryRevision::query()
+                ->withoutTrashed()
                 ->where('contract_id', $contract->id)
                 ->whereDate('effective_from', '<=', $asOfDate)
                 ->with('lines')

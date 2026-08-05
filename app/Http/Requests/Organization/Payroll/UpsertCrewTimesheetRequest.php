@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests\Organization\Payroll;
 
+use App\Enums\ContractSalaryStructure;
 use App\Enums\CrewTimesheetPayCategory;
+use App\Enums\PayrollCategory;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Support\Attendance\CalculateLeaveRequestDays;
+use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
@@ -119,7 +122,7 @@ class UpsertCrewTimesheetRequest extends FormRequest
             ];
             $rules['segments.*.from_date'] = ['required', 'date'];
             $rules['segments.*.to_date'] = ['required', 'date'];
-            $rules['segments.*.days'] = ['nullable', 'numeric', 'min:0'];
+            $rules['segments.*.days'] = ['nullable', 'integer', 'min:0'];
             $rules['segments.*.vessel_id'] = [
                 'nullable',
                 'integer',
@@ -184,9 +187,11 @@ class UpsertCrewTimesheetRequest extends FormRequest
 
             $periodStart = $period->start_date?->toDateString();
             $periodEnd = $period->end_date?->toDateString();
+            $allowsPriorPeriodDates = $this->employeeAllowsPriorPeriodDates($period);
 
             if ($this->has('segments') && is_array($this->input('segments'))) {
-                $this->validateSegments($validator, $periodStart, $periodEnd);
+                // Segment payloads are Daily Crew movement periods.
+                $this->validateSegments($validator, $periodEnd, allowPriorPeriodDates: true);
 
                 return;
             }
@@ -198,12 +203,26 @@ class UpsertCrewTimesheetRequest extends FormRequest
             ]);
 
             foreach ($ranges as $key => [$start, $end]) {
-                if ($periodStart !== null && $start->toDateString() < $periodStart) {
+                if (! $allowsPriorPeriodDates && $periodStart !== null && $start->toDateString() < $periodStart) {
                     $validator->errors()->add("{$key}_from", 'Operational dates must fall within the payroll period.');
                 }
 
                 if ($periodEnd !== null && $end->toDateString() > $periodEnd) {
-                    $validator->errors()->add("{$key}_to", 'Operational dates must fall within the payroll period.');
+                    $validator->errors()->add(
+                        "{$key}_to",
+                        $allowsPriorPeriodDates
+                            ? 'Operational dates cannot extend past the payroll period end.'
+                            : 'Operational dates must fall within the payroll period.',
+                    );
+                }
+
+                if ($periodEnd !== null && $start->toDateString() > $periodEnd) {
+                    $validator->errors()->add(
+                        "{$key}_from",
+                        $allowsPriorPeriodDates
+                            ? 'Operational dates cannot extend past the payroll period end.'
+                            : 'Operational dates must fall within the payroll period.',
+                    );
                 }
             }
 
@@ -225,7 +244,7 @@ class UpsertCrewTimesheetRequest extends FormRequest
         });
     }
 
-    private function validateSegments(Validator $validator, ?string $periodStart, ?string $periodEnd): void
+    private function validateSegments(Validator $validator, ?string $periodEnd, bool $allowPriorPeriodDates): void
     {
         /** @var list<array{0: CarbonImmutable, 1: CarbonImmutable, 2: int}> $ranges */
         $ranges = [];
@@ -256,17 +275,21 @@ class UpsertCrewTimesheetRequest extends FormRequest
                 );
             }
 
-            if ($periodStart !== null && $start->toDateString() < $periodStart) {
-                $validator->errors()->add(
-                    "segments.{$index}.from_date",
-                    'Movement period dates must fall within the payroll period.',
-                );
-            }
-
             if ($periodEnd !== null && $end->toDateString() > $periodEnd) {
                 $validator->errors()->add(
                     "segments.{$index}.to_date",
-                    'Movement period dates must fall within the payroll period.',
+                    $allowPriorPeriodDates
+                        ? 'Movement period dates cannot extend past the payroll period end.'
+                        : 'Movement period dates must fall within the payroll period.',
+                );
+            }
+
+            if ($periodEnd !== null && $start->toDateString() > $periodEnd) {
+                $validator->errors()->add(
+                    "segments.{$index}.from_date",
+                    $allowPriorPeriodDates
+                        ? 'Movement period dates cannot extend past the payroll period end.'
+                        : 'Movement period dates must fall within the payroll period.',
                 );
             }
 
@@ -280,6 +303,7 @@ class UpsertCrewTimesheetRequest extends FormRequest
                 }
             }
 
+            // Overlap checks use the full submitted range (prior + current portions).
             $ranges[] = [$start, $end, $index];
         }
 
@@ -300,6 +324,30 @@ class UpsertCrewTimesheetRequest extends FormRequest
                 }
             }
         }
+    }
+
+    private function employeeAllowsPriorPeriodDates(PayrollPeriod $period): bool
+    {
+        $employeeId = (int) $this->input('employee_id');
+
+        if ($employeeId <= 0) {
+            return false;
+        }
+
+        $employee = Employee::query()
+            ->whereKey($employeeId)
+            ->where('company_id', (int) $this->attributes->get('current_company_id'))
+            ->first();
+
+        if ($employee === null) {
+            return false;
+        }
+
+        $contract = app(ResolveCrewContractForPayrollPeriod::class)->resolve($employee, $period);
+
+        return $contract !== null
+            && $contract->payroll_category === PayrollCategory::Crew
+            && $contract->resolvedSalaryStructure() === ContractSalaryStructure::Daily;
     }
 
     /**

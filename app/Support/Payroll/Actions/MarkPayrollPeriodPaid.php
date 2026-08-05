@@ -4,6 +4,8 @@ namespace App\Support\Payroll\Actions;
 
 use App\Enums\PayrollPeriodStatus;
 use App\Models\PayrollPeriod;
+use App\Support\Payroll\AssertPayrollAllocationLifecycle;
+use App\Support\Payroll\PersistPayrollWorkAllocations;
 use App\Support\Settings\CompanyTimezone;
 use App\Support\Uploads\UploadedFileStorage;
 use Carbon\CarbonImmutable;
@@ -13,6 +15,11 @@ use Illuminate\Validation\ValidationException;
 
 final class MarkPayrollPeriodPaid
 {
+    public function __construct(
+        private readonly PersistPayrollWorkAllocations $persistAllocations,
+        private readonly AssertPayrollAllocationLifecycle $assertLifecycle,
+    ) {}
+
     /**
      * @param  array<int, UploadedFile>|UploadedFile|null  $proofFiles
      */
@@ -75,12 +82,17 @@ final class MarkPayrollPeriodPaid
                 'paid_at' => $paidAt,
             ]);
 
+            $this->persistAllocations->transitionToPaid($locked);
+
             $locked->update([
                 'status' => PayrollPeriodStatus::Paid,
                 'payment_date' => $resolvedPaymentDate->toDateString(),
                 'payment_proof_path' => $primaryPath,
                 'payment_proof_paths' => $paths,
             ]);
+
+            // Approved snapshots are frozen — no movement freshness re-check on mark paid.
+            $this->assertLifecycle->assertAfterPaid($locked->fresh() ?? $locked);
 
             return $locked->refresh();
         });

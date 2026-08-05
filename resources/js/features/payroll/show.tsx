@@ -42,9 +42,9 @@ import { DepartmentFilterControls } from '@/features/organization/employees/comp
 import { formatDisplayDate } from '@/lib/format-date';
 import { show as crewTimelineShow } from '@/routes/payroll/crew-timeline';
 import { clearManualImport } from '@/routes/payroll/crew-timesheets';
-import { CrewSalaryStructureToggle } from './components/crew-salary-structure-toggle';
 import { ClearCrewTimesheetsDialog } from './components/clear-crew-timesheets-dialog';
 import { CrewMovementPeriodsDialog } from './components/crew-movement-periods-dialog';
+import { CrewSalaryStructureToggle } from './components/crew-salary-structure-toggle';
 import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
 import { CrewTimesheetsBoard } from './components/crew-timesheets-board';
 import { OfficeEmployeesTabContent } from './components/office-employees-tab-content';

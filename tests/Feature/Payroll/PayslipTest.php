@@ -343,6 +343,62 @@ test('crew payslip shows overtime in earnings without calculation breakdown', fu
         ->toContain('Crew Attendance');
 });
 
+test('crew payslip presentation lines include detail and blade renders it', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'CREW-DET']);
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'gross_salary' => 350.00,
+        'net_salary' => 350.00,
+        'total_deductions' => 0,
+        'status' => 'approved',
+        'calculation_breakdown' => [
+            'salary_structure' => 'daily',
+            'presentation_lines' => [
+                [
+                    'from_date' => '2026-06-28',
+                    'to_date' => '2026-06-29',
+                    'days' => 2,
+                    'pay_category' => 'onsite',
+                    'period_classification' => 'prior',
+                    'basic_daily_rate' => 100,
+                    'site_allowance_daily_rate' => 50,
+                    'supplementary_allowance_daily_rate' => 25,
+                    'amount' => 350,
+                ],
+            ],
+            'lines' => [
+                'prior_period_amount' => 350,
+            ],
+        ],
+    ]);
+
+    $data = PayslipData::for($record, $company->id);
+    $earning = collect($data['earnings'])->firstWhere('label', 'Prior-period onsite pay');
+
+    expect($earning)->not->toBeNull()
+        ->and($earning['detail'] ?? null)->toContain('28 Jun 2026')
+        ->and($earning['detail'] ?? null)->toContain('2 days')
+        ->and($earning['detail'] ?? null)->toContain('basic 100.00')
+        ->and($earning['detail'] ?? null)->toContain('site 50.00')
+        ->and($earning['detail'] ?? null)->toContain('supp 25.00');
+
+    $html = view('payroll.payslip', $data)->render();
+
+    expect($html)
+        ->toContain('Prior-period onsite pay')
+        ->toContain('line-detail')
+        ->toContain('28 Jun 2026');
+});
+
 test('crew payslip combines sign-on and sign-off standby into total standby pay', function () {
     ['company' => $company] = makePayrollFixtures();
 

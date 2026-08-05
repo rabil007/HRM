@@ -2,6 +2,20 @@
 
 namespace App\Support\Payroll;
 
+/**
+ * @phpstan-type BlockingIssue array{
+ *     employee_id: int|null,
+ *     employee_name: string|null,
+ *     code: string,
+ *     message: string,
+ *     work_date?: string|null,
+ *     from_date?: string|null,
+ *     to_date?: string|null,
+ *     pay_category?: string|null,
+ *     contract_id?: int|null,
+ *     salary_revision_id?: int|null
+ * }
+ */
 final class CrewPayrollGenerationPreview
 {
     /**
@@ -9,7 +23,7 @@ final class CrewPayrollGenerationPreview
      * @param  list<int>  $missingTimesheetEmployeeIds
      * @param  list<int>  $awaitingApprovalEmployeeIds
      * @param  list<int>  $excludedEmployeeIds
-     * @param  list<array{employee_id: int|null, employee_name: string|null, code: string, message: string}>  $blockingIssues
+     * @param  list<BlockingIssue>  $blockingIssues
      */
     public function __construct(
         public readonly bool $ready,

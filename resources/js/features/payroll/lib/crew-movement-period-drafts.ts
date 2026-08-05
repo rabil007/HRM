@@ -62,6 +62,120 @@ export function inclusiveMovementDays(from: string, to: string): number | null {
     return diff + 1;
 }
 
+export type MovementRangePortion = {
+    from_date: string;
+    to_date: string;
+    days: number;
+    classification: 'prior' | 'current';
+};
+
+export type MovementRangeSplit = {
+    prior: MovementRangePortion | null;
+    current: MovementRangePortion | null;
+    priorDays: number;
+    currentDays: number;
+    exceedsPeriodEnd: boolean;
+};
+
+/**
+ * Splits a movement date range across the payroll period start so prior-period
+ * days (arrears) can be previewed separately from current-period days.
+ * Dates after period end are flagged; the server remains authoritative.
+ */
+export function splitMovementRangeAcrossPeriod(
+    fromDate: string,
+    toDate: string,
+    periodStart: string,
+    periodEnd: string,
+): MovementRangeSplit | null {
+    if (
+        !fromDate ||
+        !toDate ||
+        !periodStart ||
+        !periodEnd ||
+        toDate < fromDate
+    ) {
+        return null;
+    }
+
+    const exceedsPeriodEnd = fromDate > periodEnd || toDate > periodEnd;
+
+    if (fromDate > periodEnd) {
+        return {
+            prior: null,
+            current: null,
+            priorDays: 0,
+            currentDays: 0,
+            exceedsPeriodEnd: true,
+        };
+    }
+
+    let prior: MovementRangePortion | null = null;
+    let current: MovementRangePortion | null = null;
+
+    if (fromDate < periodStart) {
+        const priorTo =
+            toDate < periodStart ? toDate : previousCalendarDay(periodStart);
+
+        if (priorTo !== null && fromDate <= priorTo) {
+            const days = inclusiveMovementDays(fromDate, priorTo);
+
+            if (days !== null && days > 0) {
+                prior = {
+                    from_date: fromDate,
+                    to_date: priorTo,
+                    days,
+                    classification: 'prior',
+                };
+            }
+        }
+    }
+
+    const currentFrom = fromDate >= periodStart ? fromDate : periodStart;
+    const currentTo = toDate <= periodEnd ? toDate : periodEnd;
+
+    if (
+        currentFrom <= currentTo &&
+        currentFrom >= periodStart &&
+        currentTo <= periodEnd
+    ) {
+        const days = inclusiveMovementDays(currentFrom, currentTo);
+
+        if (days !== null && days > 0) {
+            current = {
+                from_date: currentFrom,
+                to_date: currentTo,
+                days,
+                classification: 'current',
+            };
+        }
+    }
+
+    return {
+        prior,
+        current,
+        priorDays: prior?.days ?? 0,
+        currentDays: current?.days ?? 0,
+        exceedsPeriodEnd,
+    };
+}
+
+function previousCalendarDay(isoDate: string): string | null {
+    const date = new Date(`${isoDate}T00:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    date.setDate(date.getDate() - 1);
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
+
 export function masterOptionName(
     options: MovementMasterOption[],
     id: number | null,

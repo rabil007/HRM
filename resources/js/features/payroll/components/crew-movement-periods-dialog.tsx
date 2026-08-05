@@ -6,6 +6,7 @@ import {
     CalendarRange,
     ChevronDown,
     ChevronUp,
+    Info,
     Lock,
     Plus,
     Ship,
@@ -49,6 +50,7 @@ import {
     isAssignmentEditorOpen,
     resolveDefaultAssignment,
     segmentDraftsFromTimesheet,
+    splitMovementRangeAcrossPeriod,
     toggleAssignmentEditor,
 } from '../lib/crew-movement-period-drafts';
 import type {
@@ -378,6 +380,38 @@ function CrewMovementPeriodsDialogBody({
         return `${formatDisplayDate(period.start_date)} → ${formatDisplayDate(period.end_date)}`;
     }, [period.end_date, period.start_date]);
 
+    const totalDays = useMemo(
+        () =>
+            segments.reduce((sum, seg) => {
+                const days = inclusiveMovementDays(seg.from_date, seg.to_date);
+
+                return sum + (days ?? 0);
+            }, 0),
+        [segments],
+    );
+
+    const hasDateAfterPeriodEnd = useMemo(() => {
+        if (!period.end_date) {
+            return false;
+        }
+
+        return segments.some((segment) => {
+            const split = splitMovementRangeAcrossPeriod(
+                segment.from_date,
+                segment.to_date,
+                period.start_date ?? period.end_date ?? '',
+                period.end_date,
+            );
+
+            return (
+                split?.exceedsPeriodEnd === true ||
+                (segment.from_date !== '' &&
+                    segment.from_date > period.end_date!) ||
+                (segment.to_date !== '' && segment.to_date > period.end_date!)
+            );
+        });
+    }, [period.end_date, period.start_date, segments]);
+
     const updateSegment = (
         key: string,
         field: keyof MovementPeriodDraftSegment,
@@ -420,6 +454,15 @@ function CrewMovementPeriodsDialogBody({
     };
 
     const save = async (): Promise<void> => {
+        if (hasDateAfterPeriodEnd) {
+            setErrors({
+                segments:
+                    'Movement dates after the payroll period end are not allowed.',
+            });
+
+            return;
+        }
+
         setProcessing(true);
         setErrors({});
 
@@ -517,16 +560,6 @@ function CrewMovementPeriodsDialogBody({
             },
         );
     };
-
-    const totalDays = useMemo(
-        () =>
-            segments.reduce((sum, seg) => {
-                const days = inclusiveMovementDays(seg.from_date, seg.to_date);
-
-                return sum + (days ?? 0);
-            }, 0),
-        [segments],
-    );
 
     return (
         <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden glass-card p-0 sm:max-w-3xl">
@@ -653,6 +686,26 @@ function CrewMovementPeriodsDialogBody({
                                 segment.from_date,
                                 segment.to_date,
                             );
+                            const rangeSplit =
+                                period.start_date && period.end_date
+                                    ? splitMovementRangeAcrossPeriod(
+                                          segment.from_date,
+                                          segment.to_date,
+                                          period.start_date,
+                                          period.end_date,
+                                      )
+                                    : null;
+                            const hasPriorArrears =
+                                rangeSplit !== null && rangeSplit.priorDays > 0;
+                            const exceedsPeriodEnd =
+                                rangeSplit?.exceedsPeriodEnd === true ||
+                                (Boolean(period.end_date) &&
+                                    ((segment.from_date !== '' &&
+                                        segment.from_date >
+                                            (period.end_date ?? '')) ||
+                                        (segment.to_date !== '' &&
+                                            segment.to_date >
+                                                (period.end_date ?? ''))));
                             const assignmentOpen = isAssignmentEditorOpen(
                                 assignmentEditorKeys,
                                 segment.key,
@@ -783,12 +836,12 @@ function CrewMovementPeriodsDialogBody({
                                                     id={`from-${segment.key}`}
                                                     type="date"
                                                     value={segment.from_date}
-                                                    min={
-                                                        period.start_date ??
-                                                        undefined
-                                                    }
                                                     max={
                                                         period.end_date ??
+                                                        undefined
+                                                    }
+                                                    aria-invalid={
+                                                        exceedsPeriodEnd ||
                                                         undefined
                                                     }
                                                     onChange={(event) =>
@@ -819,11 +872,14 @@ function CrewMovementPeriodsDialogBody({
                                                     value={segment.to_date}
                                                     min={
                                                         segment.from_date ||
-                                                        period.start_date ||
                                                         undefined
                                                     }
                                                     max={
                                                         period.end_date ??
+                                                        undefined
+                                                    }
+                                                    aria-invalid={
+                                                        exceedsPeriodEnd ||
                                                         undefined
                                                     }
                                                     onChange={(event) =>
@@ -843,6 +899,79 @@ function CrewMovementPeriodsDialogBody({
                                                 />
                                             </div>
                                         </div>
+
+                                        {exceedsPeriodEnd ? (
+                                            <p
+                                                role="alert"
+                                                className="text-sm text-destructive"
+                                            >
+                                                Dates after the payroll period
+                                                end (
+                                                {formatDisplayDate(
+                                                    period.end_date,
+                                                )}
+                                                ) are not allowed.
+                                            </p>
+                                        ) : null}
+
+                                        {hasPriorArrears &&
+                                        !exceedsPeriodEnd ? (
+                                            <div
+                                                role="status"
+                                                className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-3 text-sm text-amber-900 dark:text-amber-100"
+                                            >
+                                                <Info
+                                                    className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300"
+                                                    aria-hidden
+                                                />
+                                                <div className="space-y-1">
+                                                    <p className="font-medium">
+                                                        Days before the period
+                                                        start will be treated as
+                                                        prior-period arrears.
+                                                    </p>
+                                                    <p className="text-xs text-amber-800/90 dark:text-amber-200/90">
+                                                        <span className="font-semibold tabular-nums">
+                                                            {
+                                                                rangeSplit.priorDays
+                                                            }
+                                                        </span>{' '}
+                                                        prior-period{' '}
+                                                        {rangeSplit.priorDays ===
+                                                        1
+                                                            ? 'day'
+                                                            : 'days'}
+                                                        {rangeSplit.currentDays >
+                                                        0 ? (
+                                                            <>
+                                                                {' '}
+                                                                ·{' '}
+                                                                <span className="font-semibold tabular-nums">
+                                                                    {
+                                                                        rangeSplit.currentDays
+                                                                    }
+                                                                </span>{' '}
+                                                                current-period{' '}
+                                                                {rangeSplit.currentDays ===
+                                                                1
+                                                                    ? 'day'
+                                                                    : 'days'}
+                                                            </>
+                                                        ) : null}
+                                                        {period.start_date ? (
+                                                            <>
+                                                                {' '}
+                                                                (period starts{' '}
+                                                                {formatDisplayDate(
+                                                                    period.start_date,
+                                                                )}
+                                                                )
+                                                            </>
+                                                        ) : null}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ) : null}
 
                                         <div className="space-y-2">
                                             <Label
@@ -1018,7 +1147,7 @@ function CrewMovementPeriodsDialogBody({
                         onClick={() => {
                             void save();
                         }}
-                        disabled={processing}
+                        disabled={processing || hasDateAfterPeriodEnd}
                     >
                         {processing ? <Spinner className="mr-2" /> : null}
                         Save movement periods

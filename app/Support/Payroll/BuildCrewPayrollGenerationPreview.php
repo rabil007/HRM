@@ -11,6 +11,7 @@ use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Models\PayrollRecord;
 use Illuminate\Support\Collection;
 
 final class BuildCrewPayrollGenerationPreview
@@ -19,6 +20,7 @@ final class BuildCrewPayrollGenerationPreview
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
         private readonly ValidateCrewTimesheetOperationalIntegrity $validateIntegrity,
         private readonly CrewOperationsPayrollGenerationGuard $legacyGuard,
+        private readonly BuildDailyCrewPayrollAllocationPlan $buildAllocationPlan,
     ) {}
 
     /**
@@ -132,7 +134,7 @@ final class BuildCrewPayrollGenerationPreview
             ->where('company_id', $companyId)
             ->where('period_id', $period->id)
             ->whereIn('employee_id', $included->pluck('id')->map(intval(...))->all() ?: [0])
-            ->with(['preparation', 'segments'])
+            ->with(['preparation', 'segments', 'employee'])
             ->get()
             ->keyBy(fn (CrewTimesheet $timesheet) => (int) $timesheet->employee_id);
 
@@ -259,6 +261,10 @@ final class BuildCrewPayrollGenerationPreview
                     continue;
                 }
 
+                if ($this->appendDailyAllocationPlanIssues($period, $timesheet, $blockingIssues)) {
+                    continue;
+                }
+
                 $readyIds[] = $employeeId;
 
                 continue;
@@ -291,6 +297,10 @@ final class BuildCrewPayrollGenerationPreview
                     'message' => $integrity,
                 ];
 
+                continue;
+            }
+
+            if ($this->appendDailyAllocationPlanIssues($period, $timesheet, $blockingIssues)) {
                 continue;
             }
 
@@ -330,6 +340,60 @@ final class BuildCrewPayrollGenerationPreview
     {
         return ($timesheet->approval_status ?? CrewTimesheetApprovalStatus::Draft)
             === CrewTimesheetApprovalStatus::Approved;
+    }
+
+    /**
+     * Runs the daily allocation plan and appends blocking issues (missing contract,
+     * overlapping contracts, missing revision, future dates, etc.).
+     * Already-paid exclusions are non-blocking and are not added to the issue list.
+     *
+     * @param  list<array<string, mixed>>  $blockingIssues
+     * @return bool True when blocking allocation issues were found
+     */
+    private function appendDailyAllocationPlanIssues(
+        PayrollPeriod $period,
+        CrewTimesheet $timesheet,
+        array &$blockingIssues,
+    ): bool {
+        $timesheet->loadMissing(['segments']);
+
+        if ($timesheet->segments->isEmpty()) {
+            return false;
+        }
+
+        $existingRecordId = PayrollRecord::query()
+            ->where('company_id', (int) $period->company_id)
+            ->where('period_id', (int) $period->id)
+            ->where('employee_id', (int) $timesheet->employee_id)
+            ->value('id');
+
+        $plan = $this->buildAllocationPlan->handle(
+            $period,
+            $timesheet,
+            $existingRecordId !== null ? (int) $existingRecordId : null,
+        );
+
+        if ($plan['issues'] === []) {
+            return false;
+        }
+
+        foreach ($plan['issues'] as $issue) {
+            $blockingIssues[] = [
+                'employee_id' => $issue['employee_id'] ?? (int) $timesheet->employee_id,
+                'employee_name' => $issue['employee_name'] ?? $timesheet->employee?->name,
+                'code' => (string) ($issue['code'] ?? 'allocation_plan_issue'),
+                'message' => (string) ($issue['message'] ?? 'Daily crew allocation could not be resolved.'),
+                'work_date' => $issue['work_date'] ?? null,
+                'from_date' => $issue['from_date'] ?? null,
+                'to_date' => $issue['to_date'] ?? null,
+                'pay_category' => $issue['pay_category'] ?? null,
+                'contract_id' => $issue['contract_id'] ?? null,
+                'salary_revision_id' => $issue['salary_revision_id'] ?? null,
+                'competing_payroll_period_id' => $issue['competing_payroll_period_id'] ?? null,
+            ];
+        }
+
+        return true;
     }
 
     /**
