@@ -1,7 +1,6 @@
-import type { CrewPayrollGenerationPreview } from '../types';
+import type { CrewPayrollGenerationPreviewIssue } from '../types';
 
-export type CrewPayrollBlockingIssue =
-    CrewPayrollGenerationPreview['blocking_issues'][number];
+export type CrewPayrollBlockingIssue = CrewPayrollGenerationPreviewIssue;
 
 export type CrewPayrollBlockingIssueGroup = {
     key: string;
@@ -15,11 +14,11 @@ export type CrewPayrollBlockingIssueGroup = {
 const DATE_PLACEHOLDER = '{{date}}';
 
 /**
- * Collapses per-work-date blocking issues (one entry per affected calendar
+ * Collapses per-work-date preview issues (one entry per affected calendar
  * day) into a single line per employee/issue, with the individual dates
  * replaced by a compact range summary. Without this, an employee affected on
- * every day of the period would flood the list and hide every other blocked
- * employee.
+ * every day of the period would flood the list and hide every other issue.
+ * Used for both blocking errors and non-blocking warnings.
  */
 export function groupCrewPayrollBlockingIssues(
     issues: CrewPayrollBlockingIssue[],

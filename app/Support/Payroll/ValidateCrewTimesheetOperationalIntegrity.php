@@ -2,6 +2,7 @@
 
 namespace App\Support\Payroll;
 
+use App\Enums\CrewTimesheetPayCategory;
 use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetSegment;
 use App\Models\Employee;
@@ -9,7 +10,7 @@ use Carbon\CarbonInterface;
 
 final class ValidateCrewTimesheetOperationalIntegrity
 {
-    public function handle(CrewTimesheet $timesheet, Employee $employee): ?string
+    public function handle(CrewTimesheet $timesheet, Employee $employee): CrewTimesheetOperationalIntegrityResult
     {
         $timesheet->loadMissing(['segments']);
 
@@ -17,101 +18,210 @@ final class ValidateCrewTimesheetOperationalIntegrity
             return $this->validateMovements($timesheet, $employee);
         }
 
+        return $this->validateFlatFields($timesheet, $employee);
+    }
+
+    private function validateFlatFields(
+        CrewTimesheet $timesheet,
+        Employee $employee,
+    ): CrewTimesheetOperationalIntegrityResult {
         $checks = [
-            ['sign_on_standby_from', 'sign_on_standby_to', 'sign_on_standby_days', 'Sign-On Standby'],
-            ['onsite_from', 'onsite_to', 'onsite_days', 'Onsite'],
-            ['sign_off_standby_from', 'sign_off_standby_to', 'sign_off_standby_days', 'Sign-Off Standby'],
+            [
+                'sign_on_standby_from',
+                'sign_on_standby_to',
+                'sign_on_standby_days',
+                'Sign-On Standby',
+                CrewTimesheetPayCategory::SignOnStandby->value,
+            ],
+            [
+                'onsite_from',
+                'onsite_to',
+                'onsite_days',
+                'Onsite',
+                CrewTimesheetPayCategory::Onsite->value,
+            ],
+            [
+                'sign_off_standby_from',
+                'sign_off_standby_to',
+                'sign_off_standby_days',
+                'Sign-Off Standby',
+                CrewTimesheetPayCategory::SignOffStandby->value,
+            ],
         ];
 
-        foreach ($checks as [$fromKey, $toKey, $daysKey, $label]) {
+        $blocking = [];
+        $warnings = [];
+
+        foreach ($checks as [$fromKey, $toKey, $daysKey, $label, $payCategory]) {
             $from = $timesheet->{$fromKey};
             $to = $timesheet->{$toKey};
             $days = $timesheet->{$daysKey};
 
-            if ($from !== null && $to === null) {
-                return "{$employee->name} has {$label} start date without an end date.";
-            }
+            if (($from !== null && $to === null) || ($from === null && $to !== null)) {
+                $warnings[] = $this->finding(
+                    'incomplete_movement_range',
+                    "{$employee->name} has incomplete {$label} dates. Both start and end dates are needed, so this movement was ignored.",
+                    $payCategory,
+                    'warning',
+                );
 
-            if ($from === null && $to !== null) {
-                return "{$employee->name} has {$label} end date without a start date.";
+                continue;
             }
 
             if ($from !== null && $to !== null && $to->lt($from)) {
-                return "{$employee->name} has an invalid {$label} date range.";
+                $blocking[] = $this->finding(
+                    'invalid_movement_range',
+                    "{$employee->name} has an invalid {$label} date range.",
+                    $payCategory,
+                    'blocking',
+                );
             }
 
             if ($days !== null && (float) $days < 0) {
-                return "{$employee->name} has negative {$label} days.";
+                $blocking[] = $this->finding(
+                    'negative_movement_days',
+                    "{$employee->name} has negative {$label} days.",
+                    $payCategory,
+                    'blocking',
+                );
             }
         }
 
         if ($timesheet->unpaid_leave_days !== null && (float) $timesheet->unpaid_leave_days < 0) {
-            return "{$employee->name} has negative unpaid leave days.";
+            $blocking[] = $this->finding(
+                'negative_unpaid_leave_days',
+                "{$employee->name} has negative unpaid leave days.",
+                null,
+                'blocking',
+            );
         }
 
         $ranges = [];
 
-        foreach ($checks as [$fromKey, $toKey, , $label]) {
+        foreach ($checks as [$fromKey, $toKey, , $label, $payCategory]) {
             $from = $timesheet->{$fromKey};
             $to = $timesheet->{$toKey};
 
             if ($from !== null && $to !== null) {
-                $ranges[] = [$from, $to, $label];
+                $ranges[] = [$from, $to, $label, $payCategory];
             }
         }
 
         for ($i = 0; $i < count($ranges); $i++) {
             for ($j = $i + 1; $j < count($ranges); $j++) {
-                [$fromA, $toA, $labelA] = $ranges[$i];
+                [$fromA, $toA, $labelA, $payCategoryA] = $ranges[$i];
                 [$fromB, $toB, $labelB] = $ranges[$j];
 
                 if ($fromA->lte($toB) && $fromB->lte($toA)) {
-                    return "{$employee->name} has overlapping {$labelA} and {$labelB} date ranges.";
+                    $blocking[] = $this->finding(
+                        'overlapping_movement_ranges',
+                        "{$employee->name} has overlapping {$labelA} and {$labelB} date ranges.",
+                        $payCategoryA,
+                        'blocking',
+                    );
                 }
             }
         }
 
-        return null;
+        return new CrewTimesheetOperationalIntegrityResult(
+            blocking: $blocking,
+            warnings: $warnings,
+        );
     }
 
-    private function validateMovements(CrewTimesheet $timesheet, Employee $employee): ?string
-    {
-        /** @var list<array{0: CarbonInterface, 1: CarbonInterface, 2: string}> $ranges */
+    private function validateMovements(
+        CrewTimesheet $timesheet,
+        Employee $employee,
+    ): CrewTimesheetOperationalIntegrityResult {
+        /** @var list<array{0: CarbonInterface, 1: CarbonInterface, 2: string, 3: string|null}> $ranges */
         $ranges = [];
+        $blocking = [];
 
         foreach ($timesheet->segments as $segment) {
             /** @var CrewTimesheetSegment $segment */
+            $payCategory = $segment->pay_category?->value;
+
             if ($segment->from_date === null || $segment->to_date === null) {
-                return "{$employee->name} has a movement period missing from/to dates.";
+                $blocking[] = $this->finding(
+                    'missing_segment_dates',
+                    "{$employee->name} has a movement period missing from/to dates.",
+                    $payCategory,
+                    'blocking',
+                );
+
+                continue;
             }
 
             if ($segment->to_date->lt($segment->from_date)) {
-                return "{$employee->name} has a movement period with end before start.";
+                $blocking[] = $this->finding(
+                    'invalid_movement_range',
+                    "{$employee->name} has a movement period with end before start.",
+                    $payCategory,
+                    'blocking',
+                );
+
+                continue;
             }
 
             if ((float) $segment->days < 0) {
-                return "{$employee->name} has a movement period with negative days.";
+                $blocking[] = $this->finding(
+                    'negative_movement_days',
+                    "{$employee->name} has a movement period with negative days.",
+                    $payCategory,
+                    'blocking',
+                );
             }
 
             $label = $segment->pay_category?->label() ?? 'Movement';
-            $ranges[] = [$segment->from_date, $segment->to_date, $label];
+            $ranges[] = [$segment->from_date, $segment->to_date, $label, $payCategory];
         }
 
         if ($timesheet->unpaid_leave_days !== null && (float) $timesheet->unpaid_leave_days < 0) {
-            return "{$employee->name} has negative unpaid leave days.";
+            $blocking[] = $this->finding(
+                'negative_unpaid_leave_days',
+                "{$employee->name} has negative unpaid leave days.",
+                null,
+                'blocking',
+            );
         }
 
         for ($i = 0; $i < count($ranges); $i++) {
             for ($j = $i + 1; $j < count($ranges); $j++) {
-                [$fromA, $toA, $labelA] = $ranges[$i];
+                [$fromA, $toA, $labelA, $payCategoryA] = $ranges[$i];
                 [$fromB, $toB, $labelB] = $ranges[$j];
 
                 if ($fromA->lte($toB) && $fromB->lte($toA)) {
-                    return "{$employee->name} has overlapping {$labelA} and {$labelB} movement periods.";
+                    $blocking[] = $this->finding(
+                        'overlapping_movement_ranges',
+                        "{$employee->name} has overlapping {$labelA} and {$labelB} movement periods.",
+                        $payCategoryA,
+                        'blocking',
+                    );
                 }
             }
         }
 
-        return null;
+        return new CrewTimesheetOperationalIntegrityResult(
+            blocking: $blocking,
+            warnings: [],
+        );
+    }
+
+    /**
+     * @param  'blocking'|'warning'  $severity
+     * @return array{code: string, message: string, pay_category: string|null, severity: 'blocking'|'warning'}
+     */
+    private function finding(
+        string $code,
+        string $message,
+        ?string $payCategory,
+        string $severity,
+    ): array {
+        return [
+            'code' => $code,
+            'message' => $message,
+            'pay_category' => $payCategory,
+            'severity' => $severity,
+        ];
     }
 }

@@ -107,6 +107,18 @@ Crew periods use `CrewTimesheet` data and support daily and monthly contract sal
 
 For a daily structure, the calculator uses the three explicit operational categories — Sign-On Standby, Onsite, and Sign-Off Standby — plus overtime hours and active daily contract rates. Each category's days and pay are recorded separately in the calculation breakdown, along with `total_standby_days` (= `sign_on_standby_days` + `sign_off_standby_days`) and `total_standby_pay`. Site allowance, supplementary allowance, overtime, additions, and deductions are recorded separately.
 
+#### Incomplete unused flat-field movement categories
+
+Legacy parent flat-field pairs with only one date set (for example Sign-On Standby end without start) are **warnings**, not blocking errors:
+
+- Incomplete categories produce **no movement days and no movement pay**. Stored `*_days` values for those incomplete pairs are ignored.
+- Complete valid categories on the same timesheet still calculate normally.
+- Overtime-only, addition-only, deduction-only, and salary-input-only Daily Crew rows can be processed when there are no complete movement periods (`present_days` stays 0; no attendance is manufactured).
+- Overtime still requires a resolvable Daily Crew contract and the required active basic daily rate.
+- Malformed persisted `crew_timesheet_segments` (missing dates, reversed ranges, negative days, overlaps) remain **blocking**.
+- Missing or overlapping historical Daily Crew contracts and missing historical salary revisions remain **blocking**.
+- Preview exposes `warning_issues` / `warning_count` separately from `blocking_issues` / `blocking_count`. `can_generate` depends only on true blockers and ready employees.
+
 For a monthly structure, `CrewMonthlyPayrollCalculator` uses monthly basic, housing, transport, and other components, then prorates them by `unpaid_leave_days` over the period working days. Salary inputs use the office-style addition and deduction application for monthly crew records.
 
 Daily crew uses only Sign-On Standby → Onsite → Sign-Off Standby. Monthly crew uses `unpaid_leave_days`. The legacy generic standby columns (`standby_from`, `standby_to`, `standby_days`) were intentionally removed by migration `2026_07_21_100000_replace_legacy_standby_fields_on_crew_timesheets` before any production payroll data existed; no compatibility bridge, mirroring, or source-based fallback remains.

@@ -409,8 +409,9 @@ test('operational integrity allows prior-only segments', function () {
     ]);
 
     $timesheet = $fixtures['timesheet']->fresh(['segments']);
-    $message = app(ValidateCrewTimesheetOperationalIntegrity::class)
+    $result = app(ValidateCrewTimesheetOperationalIntegrity::class)
         ->handle($timesheet, $fixtures['employee']);
 
-    expect($message)->toBeNull();
+    expect($result->hasBlocking())->toBeFalse()
+        ->and($result->hasWarnings())->toBeFalse();
 });

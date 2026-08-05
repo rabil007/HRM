@@ -95,9 +95,10 @@ describe('groupCrewPayrollBlockingIssues', () => {
             issue({
                 employee_id: 246,
                 employee_name: 'FRANKLINE MESAPE EBONG',
-                code: 'invalid_approved_timesheet',
+                code: 'incomplete_movement_range',
                 message:
-                    'FRANKLINE MESAPE EBONG has Sign-On Standby end date without a start date.',
+                    'FRANKLINE MESAPE EBONG has incomplete Sign-On Standby dates. Both start and end dates are needed, so this movement was ignored.',
+                pay_category: 'sign_on_standby',
             }),
         ];
 
@@ -105,10 +106,42 @@ describe('groupCrewPayrollBlockingIssues', () => {
 
         assert.equal(groups.length, 1);
         assert.equal(groups[0].occurrenceCount, 1);
+        assert.equal(groups[0].code, 'incomplete_movement_range');
         assert.equal(
             groups[0].message,
-            'FRANKLINE MESAPE EBONG has Sign-On Standby end date without a start date.',
+            'FRANKLINE MESAPE EBONG has incomplete Sign-On Standby dates. Both start and end dates are needed, so this movement was ignored.',
         );
+    });
+
+    it('groups warning issues separately from blocking issues by code', () => {
+        const warningIssues: CrewPayrollBlockingIssue[] = [
+            issue({
+                employee_id: 246,
+                employee_name: 'FRANKLINE MESAPE EBONG',
+                code: 'incomplete_movement_range',
+                message:
+                    'FRANKLINE MESAPE EBONG has incomplete Sign-On Standby dates. Both start and end dates are needed, so this movement was ignored.',
+                pay_category: 'sign_on_standby',
+            }),
+        ];
+        const blockingIssues: CrewPayrollBlockingIssue[] = [
+            issue({
+                employee_id: 355,
+                employee_name: 'ANOOP PILLAI',
+                code: 'missing_historical_contract',
+                message: 'No Daily Crew contract covers work date 2026-06-07.',
+                work_date: '2026-06-07',
+            }),
+        ];
+
+        const warningGroups = groupCrewPayrollBlockingIssues(warningIssues);
+        const blockingGroups = groupCrewPayrollBlockingIssues(blockingIssues);
+
+        assert.equal(warningGroups.length, 1);
+        assert.equal(blockingGroups.length, 1);
+        assert.equal(warningGroups[0].code, 'incomplete_movement_range');
+        assert.equal(blockingGroups[0].code, 'missing_historical_contract');
+        assert.notEqual(warningGroups[0].code, blockingGroups[0].code);
     });
 
     it('shows a single date without a range when only one day is affected', () => {

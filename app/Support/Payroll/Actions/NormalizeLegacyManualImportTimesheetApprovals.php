@@ -62,7 +62,7 @@ final class NormalizeLegacyManualImportTimesheetApprovals
 
             $integrity = $this->validateIntegrity->handle($timesheet, $employee);
 
-            if ($integrity !== null) {
+            if ($integrity->hasBlocking()) {
                 $skippedInvalid++;
 
                 continue;

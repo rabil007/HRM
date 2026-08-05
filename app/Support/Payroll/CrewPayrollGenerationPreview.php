@@ -3,7 +3,7 @@
 namespace App\Support\Payroll;
 
 /**
- * @phpstan-type BlockingIssue array{
+ * @phpstan-type PreviewIssue array{
  *     employee_id: int|null,
  *     employee_name: string|null,
  *     code: string,
@@ -23,7 +23,8 @@ final class CrewPayrollGenerationPreview
      * @param  list<int>  $missingTimesheetEmployeeIds
      * @param  list<int>  $awaitingApprovalEmployeeIds
      * @param  list<int>  $excludedEmployeeIds
-     * @param  list<BlockingIssue>  $blockingIssues
+     * @param  list<PreviewIssue>  $blockingIssues
+     * @param  list<PreviewIssue>  $warningIssues
      */
     public function __construct(
         public readonly bool $ready,
@@ -41,6 +42,8 @@ final class CrewPayrollGenerationPreview
         public readonly ?int $appliedPreparationId,
         public readonly ?int $appliedPreparationVersion,
         public readonly ?string $periodBlockingReason = null,
+        public readonly array $warningIssues = [],
+        public readonly int $warningCount = 0,
     ) {}
 
     /**
@@ -55,8 +58,10 @@ final class CrewPayrollGenerationPreview
             'missing_timesheet_count' => $this->missingTimesheetCount,
             'awaiting_approval_count' => $this->awaitingApprovalCount,
             'excluded_count' => $this->excludedCount,
-            'blocking_issues' => array_slice($this->groupedBlockingIssues(), 0, 25),
+            'blocking_issues' => array_slice($this->groupedIssues($this->blockingIssues), 0, 25),
             'blocking_count' => $this->blockingCount,
+            'warning_issues' => array_slice($this->groupedIssues($this->warningIssues), 0, 25),
+            'warning_count' => $this->warningCount,
             'applied_preparation_id' => $this->appliedPreparationId,
             'applied_preparation_version' => $this->appliedPreparationVersion,
             'period_blocking_reason' => $this->periodBlockingReason,
@@ -90,13 +95,14 @@ final class CrewPayrollGenerationPreview
      * would consume the entire display cap and hide every other blocked
      * employee.
      *
-     * @return list<BlockingIssue>
+     * @param  list<PreviewIssue>  $issues
+     * @return list<PreviewIssue>
      */
-    private function groupedBlockingIssues(): array
+    private function groupedIssues(array $issues): array
     {
         $groups = [];
 
-        foreach ($this->blockingIssues as $issue) {
+        foreach ($issues as $issue) {
             $workDate = $issue['work_date'] ?? $issue['to_date'] ?? $issue['from_date'] ?? null;
             $template = $issue['message'];
 

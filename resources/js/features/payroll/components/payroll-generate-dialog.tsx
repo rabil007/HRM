@@ -52,6 +52,10 @@ export function PayrollGenerateDialog({
         () => groupCrewPayrollBlockingIssues(preview?.blocking_issues ?? []),
         [preview],
     );
+    const warningGroups = useMemo(
+        () => groupCrewPayrollBlockingIssues(preview?.warning_issues ?? []),
+        [preview],
+    );
 
     useEffect(() => {
         if (!open || !isCrew) {
@@ -164,15 +168,55 @@ export function PayrollGenerateDialog({
                                         {preview.blocking_count > 0 ? (
                                             <div className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
                                                 <p className="font-semibold">
-                                                    Blocking (
+                                                    Blocking errors (
                                                     {blockingGroups.length}{' '}
                                                     {blockingGroups.length === 1
-                                                        ? 'employee'
-                                                        : 'employees'}
+                                                        ? 'issue'
+                                                        : 'issues'}
                                                     )
                                                 </p>
                                                 <ul className="max-h-48 list-disc space-y-1.5 overflow-y-auto pl-4">
                                                     {blockingGroups.map(
+                                                        (group) => (
+                                                            <li key={group.key}>
+                                                                {group.employeeName ? (
+                                                                    <>
+                                                                        <span className="font-semibold">
+                                                                            {
+                                                                                group.employeeName
+                                                                            }
+                                                                            :
+                                                                        </span>{' '}
+                                                                        {
+                                                                            group.message
+                                                                        }
+                                                                    </>
+                                                                ) : (
+                                                                    group.message
+                                                                )}
+                                                            </li>
+                                                        ),
+                                                    )}
+                                                </ul>
+                                            </div>
+                                        ) : null}
+                                        {(preview.warning_count ?? 0) > 0 ? (
+                                            <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
+                                                <p className="font-semibold">
+                                                    Warnings (
+                                                    {warningGroups.length}{' '}
+                                                    {warningGroups.length === 1
+                                                        ? 'issue'
+                                                        : 'issues'}
+                                                    )
+                                                </p>
+                                                <p className="text-[11px] text-amber-700/90 dark:text-amber-200/80">
+                                                    Incomplete unused movement
+                                                    categories are ignored and
+                                                    do not block generation.
+                                                </p>
+                                                <ul className="max-h-48 list-disc space-y-1.5 overflow-y-auto pl-4">
+                                                    {warningGroups.map(
                                                         (group) => (
                                                             <li key={group.key}>
                                                                 {group.employeeName ? (

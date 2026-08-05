@@ -260,7 +260,7 @@ test('approved invalid timesheet is blocking and prevents generation', function 
 
     expect($preview->ready)->toBeFalse()
         ->and($preview->blockingCount)->toBe(1)
-        ->and($preview->blockingIssues[0]['code'])->toBe('invalid_approved_timesheet');
+        ->and($preview->blockingIssues[0]['code'])->toBe('invalid_movement_range');
 
     expect(fn () => app(GenerateCrewPayroll::class)->handle($period))
         ->toThrow(ValidationException::class);

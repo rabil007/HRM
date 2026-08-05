@@ -145,6 +145,7 @@ final class BuildCrewPayrollGenerationPreview
             ->get();
 
         $blockingIssues = [];
+        $warningIssues = [];
         $readyIds = [];
         $missingIds = [];
         $awaitingIds = [];
@@ -248,16 +249,12 @@ final class BuildCrewPayrollGenerationPreview
                     continue;
                 }
 
-                $integrity = $this->validateIntegrity->handle($timesheet, $employee);
-
-                if ($integrity !== null) {
-                    $blockingIssues[] = [
-                        'employee_id' => $employeeId,
-                        'employee_name' => $employee->name,
-                        'code' => 'invalid_approved_timesheet',
-                        'message' => $integrity,
-                    ];
-
+                if ($this->appendIntegrityFindings(
+                    $timesheet,
+                    $employee,
+                    $blockingIssues,
+                    $warningIssues,
+                )) {
                     continue;
                 }
 
@@ -287,16 +284,12 @@ final class BuildCrewPayrollGenerationPreview
                 continue;
             }
 
-            $integrity = $this->validateIntegrity->handle($timesheet, $employee);
-
-            if ($integrity !== null) {
-                $blockingIssues[] = [
-                    'employee_id' => $employeeId,
-                    'employee_name' => $employee->name,
-                    'code' => 'invalid_approved_timesheet',
-                    'message' => $integrity,
-                ];
-
+            if ($this->appendIntegrityFindings(
+                $timesheet,
+                $employee,
+                $blockingIssues,
+                $warningIssues,
+            )) {
                 continue;
             }
 
@@ -308,6 +301,7 @@ final class BuildCrewPayrollGenerationPreview
         }
 
         $blockingCount = count($blockingIssues);
+        $warningCount = count($warningIssues);
         $readyCount = count($readyIds);
         $periodBlocking = null;
 
@@ -333,7 +327,50 @@ final class BuildCrewPayrollGenerationPreview
             appliedPreparationId: $preparation?->id,
             appliedPreparationVersion: $preparation?->version,
             periodBlockingReason: $periodBlocking,
+            warningIssues: $warningIssues,
+            warningCount: $warningCount,
         );
+    }
+
+    /**
+     * Appends integrity findings. Returns true when blocking findings were found.
+     *
+     * @param  list<array<string, mixed>>  $blockingIssues
+     * @param  list<array<string, mixed>>  $warningIssues
+     */
+    private function appendIntegrityFindings(
+        CrewTimesheet $timesheet,
+        Employee $employee,
+        array &$blockingIssues,
+        array &$warningIssues,
+    ): bool {
+        $integrity = $this->validateIntegrity->handle($timesheet, $employee);
+
+        foreach ($integrity->warnings as $warning) {
+            $warningIssues[] = [
+                'employee_id' => (int) $employee->id,
+                'employee_name' => $employee->name,
+                'code' => $warning['code'],
+                'message' => $warning['message'],
+                'pay_category' => $warning['pay_category'],
+            ];
+        }
+
+        if (! $integrity->hasBlocking()) {
+            return false;
+        }
+
+        foreach ($integrity->blocking as $issue) {
+            $blockingIssues[] = [
+                'employee_id' => (int) $employee->id,
+                'employee_name' => $employee->name,
+                'code' => $issue['code'],
+                'message' => $issue['message'],
+                'pay_category' => $issue['pay_category'],
+            ];
+        }
+
+        return true;
     }
 
     private function isFallbackApproved(CrewTimesheet $timesheet): bool

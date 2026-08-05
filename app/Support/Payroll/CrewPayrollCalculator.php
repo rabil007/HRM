@@ -102,12 +102,8 @@ final class CrewPayrollCalculator
         $siteRate = $this->activeAmount($components, SalaryComponentCode::SiteAllowance);
         $supplementaryRate = $this->activeAmount($components, SalaryComponentCode::SupplementaryAllowance);
 
-        $signOnStandbyDays = (float) ($timesheet->sign_on_standby_days ?? 0);
-        $signOffStandbyDays = (float) ($timesheet->sign_off_standby_days ?? 0);
-        $standbyDays = round($signOnStandbyDays + $signOffStandbyDays, 2);
-        $onsiteDays = (float) ($timesheet->onsite_days ?? 0);
-
         $timesheet->loadMissing(['segments.assignment', 'segments.vessel', 'segments.client', 'segments.rank', 'period']);
+
         if ($timesheet->segments->isNotEmpty()) {
             // Never sum raw segment days when segments exist — prior-period portions would
             // inflate payable days. Clip to the payroll period (same rules as parent sync).
@@ -119,6 +115,24 @@ final class CrewPayrollCalculator
             $signOnStandbyDays = $clipped[CrewTimesheetPayCategory::SignOnStandby->value];
             $signOffStandbyDays = $clipped[CrewTimesheetPayCategory::SignOffStandby->value];
             $onsiteDays = $clipped[CrewTimesheetPayCategory::Onsite->value];
+            $standbyDays = round($signOnStandbyDays + $signOffStandbyDays, 2);
+        } else {
+            // Incomplete legacy flat-field pairs cannot contribute payable days.
+            $signOnStandbyDays = $this->payableFlatCategoryDays(
+                $timesheet->sign_on_standby_from,
+                $timesheet->sign_on_standby_to,
+                $timesheet->sign_on_standby_days,
+            );
+            $signOffStandbyDays = $this->payableFlatCategoryDays(
+                $timesheet->sign_off_standby_from,
+                $timesheet->sign_off_standby_to,
+                $timesheet->sign_off_standby_days,
+            );
+            $onsiteDays = $this->payableFlatCategoryDays(
+                $timesheet->onsite_from,
+                $timesheet->onsite_to,
+                $timesheet->onsite_days,
+            );
             $standbyDays = round($signOnStandbyDays + $signOffStandbyDays, 2);
         }
 
@@ -638,6 +652,19 @@ final class CrewPayrollCalculator
                 'daily_onsite_rate' => $dailyOnsiteRate,
             ],
         );
+    }
+
+    /**
+     * Incomplete legacy flat-field pairs (only one date set) contribute zero payable days.
+     * Stored *_days values are ignored for those categories so they cannot create movement pay.
+     */
+    private function payableFlatCategoryDays(mixed $from, mixed $to, mixed $days): float
+    {
+        if (($from !== null && $to === null) || ($from === null && $to !== null)) {
+            return 0.0;
+        }
+
+        return (float) ($days ?? 0);
     }
 
     /**
