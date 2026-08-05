@@ -479,7 +479,7 @@ test('contract store syncs salary components from legacy columns', function () {
         'status' => 'active',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create([
         'employee_no' => 'EMP-CSC-1',
         'status' => 'active',
     ]);
@@ -497,7 +497,10 @@ test('contract store syncs salary components from legacy columns', function () {
     $contract = EmployeeContract::query()
         ->where('employee_id', $employee->id)
         ->where('status', 'active')
+        ->latest('id')
         ->first();
+
+    expect($contract)->not->toBeNull();
 
     $components = ContractSalaryComponent::query()
         ->where('contract_id', $contract->id)
