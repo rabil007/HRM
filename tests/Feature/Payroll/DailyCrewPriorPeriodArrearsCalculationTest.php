@@ -429,7 +429,7 @@ test('persist payroll work allocations enforces unique active employee work date
         ->toThrow(ValidationException::class);
 });
 
-test('soft-deleted salary revisions are ignored for historical coverage', function () {
+test('soft-deleted salary revision history blocks baseline fallback', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     grantCompanyPermissions($user, $company, ['payroll.periods.update']);
 
@@ -449,10 +449,10 @@ test('soft-deleted salary revisions are ignored for historical coverage', functi
     expect($revision)->not->toBeNull();
     $revision->delete();
 
-    // All revisions soft-deleted → baseline contract components are allowed.
     $resolved = app(ResolveCrewContractForWorkDate::class)
         ->resolveSalaryRevision($contract->fresh(['salaryRevisions']), '2026-06-25');
 
     expect($resolved['revision'])->toBeNull()
-        ->and($resolved['issue'])->toBeNull();
+        ->and($resolved['issue'])->not->toBeNull()
+        ->and($resolved['issue']['code'])->toBe('missing_historical_salary_revision');
 });
