@@ -3,6 +3,7 @@
 use App\Enums\PayrollCategory;
 use App\Imports\ContractsImport;
 use App\Models\Company;
+use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
@@ -283,6 +284,104 @@ test('contracts import ends other active contracts when importing an active cont
         ->and($officeContract->fresh()->status)->toBe('active');
 });
 
+test('contracts import resolves company visa type by name', function () {
+    ['user' => $user, 'company' => $company, 'blankEmployee' => $blankEmployee] = makeContractsImportFixtures();
+
+    $visaType = CompanyVisaType::query()->create([
+        'name' => 'Import Visa Co '.uniqid(),
+        'is_active' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['contracts.view', 'contracts.import']);
+
+    $file = makeContractsImportFile(PayrollCategory::Office, [
+        [
+            'employee_no' => $blankEmployee->employee_no,
+            'name' => $blankEmployee->name,
+            'start_date' => '2026-02-01',
+            'status' => 'active',
+            'basic_salary' => 7500,
+            'company_visa_type' => $visaType->name,
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.contracts.import'), [
+            'payroll_category' => PayrollCategory::Office->value,
+            'file' => $file,
+        ])
+        ->assertRedirect(route('organization.contracts'))
+        ->assertSessionHas('success');
+
+    $created = EmployeeContract::query()
+        ->where('employee_id', $blankEmployee->id)
+        ->where('status', 'active')
+        ->first();
+
+    expect($created)->not->toBeNull()
+        ->and($created->company_visa_type_id)->toBe($visaType->id);
+});
+
+test('contracts import rejects unknown company visa type names', function () {
+    ['user' => $user, 'company' => $company, 'blankEmployee' => $blankEmployee] = makeContractsImportFixtures();
+
+    grantCompanyPermissions($user, $company, ['contracts.view', 'contracts.import']);
+
+    $file = makeContractsImportFile(PayrollCategory::Office, [
+        [
+            'employee_no' => $blankEmployee->employee_no,
+            'name' => $blankEmployee->name,
+            'start_date' => '2026-02-01',
+            'status' => 'active',
+            'basic_salary' => 7500,
+            'company_visa_type' => 'Totally Unknown Visa Co',
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.contracts.import.preview'), [
+            'payroll_category' => PayrollCategory::Office->value,
+            'file' => $file,
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.invalid', 1)
+        ->assertJsonPath('rows.0.errors.0.field', 'company_visa_type');
+});
+
+test('contracts import rejects inactive company visa type names', function () {
+    ['user' => $user, 'company' => $company, 'blankEmployee' => $blankEmployee] = makeContractsImportFixtures();
+
+    $inactiveVisaType = CompanyVisaType::query()->create([
+        'name' => 'Inactive Visa Co '.uniqid(),
+        'is_active' => false,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['contracts.view', 'contracts.import']);
+
+    $file = makeContractsImportFile(PayrollCategory::Office, [
+        [
+            'employee_no' => $blankEmployee->employee_no,
+            'name' => $blankEmployee->name,
+            'start_date' => '2026-02-01',
+            'status' => 'active',
+            'basic_salary' => 7500,
+            'company_visa_type' => $inactiveVisaType->name,
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.contracts.import.preview'), [
+            'payroll_category' => PayrollCategory::Office->value,
+            'file' => $file,
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.invalid', 1)
+        ->assertJsonPath('rows.0.errors.0.field', 'company_visa_type');
+});
+
 /**
  * @return array{
  *     user: User,
@@ -412,10 +511,12 @@ function makeContractsImportFile(PayrollCategory $payrollCategory, array $rows):
             $sheet->setCellValueByColumnAndRow(9, $rowNumber, $row['transport_allowance'] ?? null);
             $sheet->setCellValueByColumnAndRow(10, $rowNumber, $row['other_allowances'] ?? null);
             $sheet->setCellValueByColumnAndRow(11, $rowNumber, $row['note'] ?? null);
+            $sheet->setCellValueByColumnAndRow(12, $rowNumber, $row['company_visa_type'] ?? null);
         } else {
             $sheet->setCellValueByColumnAndRow(8, $rowNumber, $row['supplementary_allowance'] ?? null);
             $sheet->setCellValueByColumnAndRow(9, $rowNumber, $row['site_allowance'] ?? null);
             $sheet->setCellValueByColumnAndRow(10, $rowNumber, $row['note'] ?? null);
+            $sheet->setCellValueByColumnAndRow(11, $rowNumber, $row['company_visa_type'] ?? null);
         }
 
         $rowNumber++;

@@ -26,6 +26,7 @@
             <th>Name</th>
             <th>Department</th>
             <th>Position</th>
+            <th>Sponsor</th>
             <th>Labor Contract ID</th>
             <th>Start Date</th>
             <th>End Date</th>
@@ -56,6 +57,7 @@
                 <td>{{ $contract->employee?->name }}</td>
                 <td>{{ $contract->employee?->department?->name ?? '—' }}</td>
                 <td>{{ $contract->employee?->position?->title ?? '—' }}</td>
+                <td>{{ $contract->companyVisaType?->name ?? '—' }}</td>
                 <td>{{ $contract->labor_contract_id ?? '—' }}</td>
                 <td>{{ optional($contract->start_date)->toDateString() ?? '—' }}</td>
                 <td>{{ optional($contract->end_date)->toDateString() ?? '—' }}</td>

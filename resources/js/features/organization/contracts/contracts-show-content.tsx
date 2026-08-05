@@ -204,6 +204,12 @@ export function ContractsShowContent({
                                 label="Position"
                                 value={displayValue(contract.position_title)}
                             />
+                            <DetailField
+                                label="Sponsor"
+                                value={displayValue(
+                                    contract.company_visa_type?.name,
+                                )}
+                            />
                         </CardContent>
                     </Card>
 

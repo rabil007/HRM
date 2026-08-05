@@ -32,6 +32,7 @@ import {
     EditableHeaderNameField,
     EditableHeaderPillTextField,
 } from '@/features/organization/employees/profile/components/editable-header-fields';
+import { ReadOnlyDetailFieldWithTooltip } from '@/features/organization/employees/profile/components/readonly-detail-field-with-tooltip';
 import { SALARY_PAYMENT_METHOD_OPTIONS } from '@/features/organization/employees/salary-payment-method';
 import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import type { CountryOption } from '@/features/organization/employees/types';
@@ -321,8 +322,6 @@ export function EmployeeHeaderCard({
         useMutableSelectOptions(religions);
     const { selectOptions: visaTypeOptions } =
         useMutableSelectOptions(visa_types);
-    const { selectOptions: companyVisaTypeOptions } =
-        useMutableSelectOptions(company_visa_types);
 
     const salaryPaymentMethodOptions = useMemo(
         () =>
@@ -910,25 +909,16 @@ export function EmployeeHeaderCard({
                     )}
 
                     {showField('company_visa_type_id') && (
-                        <EditableDetailSelectField
+                        <ReadOnlyDetailFieldWithTooltip
                             label="Sponsor"
                             field="company_visa_type_id"
-                            value={form.data.company_visa_type_id}
                             displayValue={optionLabel(
                                 company_visa_types,
                                 form.data.company_visa_type_id ||
                                     employee.company_visa_type_id,
                                 employee.company_visa_type_ref?.name,
                             )}
-                            options={companyVisaTypeOptions}
-                            creatableKey="companyVisaType"
-                            activeField={activeField}
-                            setActiveField={setActiveField}
-                            beginEdit={beginEdit}
-                            canEdit={canUpdate}
-                            onChange={(value) =>
-                                form.setData('company_visa_type_id', value)
-                            }
+                            tooltip="Managed via active contract"
                             highlightMissing={isMissingRequired(
                                 'company_visa_type_id',
                             )}

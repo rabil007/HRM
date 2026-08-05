@@ -826,6 +826,13 @@ function EmployeeDetailsPage({
                                                 resolved_template?.fields,
                                                 'employee_contracts',
                                             )}
+                                            companyVisaTypes={
+                                                company_visa_types
+                                            }
+                                            employeeCompanyVisaTypeId={
+                                                employee?.company_visa_type_id ??
+                                                null
+                                            }
                                         />
                                     </Suspense>
                                 )

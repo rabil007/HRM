@@ -16,6 +16,7 @@ export function ContractsEmployeeContent({
     template_contract_fields,
     back,
     can,
+    company_visa_types,
 }: ContractEmployeeBrowseProps) {
     const pageUrl = usePage().url;
 
@@ -76,6 +77,8 @@ export function ContractsEmployeeContent({
                 contractShowFrom="employee"
                 initialEditContractId={initialEditContractId}
                 templateContractFields={template_contract_fields}
+                companyVisaTypes={company_visa_types}
+                employeeCompanyVisaTypeId={employee.company_visa_type_id}
             />
         </Main>
     );

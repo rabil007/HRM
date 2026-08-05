@@ -17,6 +17,13 @@ final class EmployeeContractResource
             'id' => $contract->id,
             'payroll_category' => $contract->payroll_category?->value,
             'salary_structure' => $contract->resolvedSalaryStructure()->value,
+            'company_visa_type_id' => $contract->company_visa_type_id,
+            'company_visa_type' => $contract->company_visa_type_id ? [
+                'id' => $contract->company_visa_type_id,
+                'name' => $contract->relationLoaded('companyVisaType')
+                    ? $contract->companyVisaType?->name
+                    : null,
+            ] : null,
             'start_date' => $contract->start_date?->toDateString(),
             'end_date' => $contract->end_date?->toDateString(),
             'labor_contract_id' => $contract->labor_contract_id,

@@ -35,7 +35,8 @@ final class ContractImportTemplateExporter
             ->with([
                 'contracts' => fn ($query) => $query
                     ->where('status', 'active')
-                    ->where('payroll_category', $payrollCategory->value),
+                    ->where('payroll_category', $payrollCategory->value)
+                    ->with('companyVisaType:id,name'),
             ])
             ->orderBy('employees.name')
             ->get();
@@ -67,16 +68,18 @@ final class ContractImportTemplateExporter
                 $sheet->setCellValueByColumnAndRow(9, $rowNumber, $contract?->transport_allowance);
                 $sheet->setCellValueByColumnAndRow(10, $rowNumber, $contract?->other_allowances);
                 $sheet->setCellValueByColumnAndRow(11, $rowNumber, $contract?->note);
+                $this->setStringCell($sheet, 12, $rowNumber, $contract?->companyVisaType?->name);
             } else {
                 $sheet->setCellValueByColumnAndRow(8, $rowNumber, $contract?->supplementary_allowance);
                 $sheet->setCellValueByColumnAndRow(9, $rowNumber, $contract?->site_allowance);
                 $sheet->setCellValueByColumnAndRow(10, $rowNumber, $contract?->note);
+                $this->setStringCell($sheet, 11, $rowNumber, $contract?->companyVisaType?->name);
             }
 
             $rowNumber++;
         }
 
-        $lastColumn = $payrollCategory === PayrollCategory::Office ? 'K' : 'J';
+        $lastColumn = $payrollCategory === PayrollCategory::Office ? 'L' : 'K';
         $lastDataRow = max($rowNumber - 1, ContractsImport::DATA_START_ROW);
         $sheet->setAutoFilter("A1:{$lastColumn}{$lastDataRow}");
         $sheet->freezePane('A2');

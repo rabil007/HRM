@@ -10,7 +10,7 @@ final class ContractEmployeeBrowseQuery
 {
     /**
      * @return array{
-     *     employee: array{id: int, name: string, employee_no: string},
+     *     employee: array{id: int, name: string, employee_no: string, company_visa_type_id: int|null},
      *     contracts: list<array<string, mixed>>
      * }
      */
@@ -19,9 +19,12 @@ final class ContractEmployeeBrowseQuery
         $contracts = EmployeeContract::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employee->id)
-            ->with(['salaryRevisions' => fn ($query) => $query
-                ->with('lines')
-                ->orderByDesc('version')])
+            ->with([
+                'companyVisaType:id,name',
+                'salaryRevisions' => fn ($query) => $query
+                    ->with('lines')
+                    ->orderByDesc('version'),
+            ])
             ->orderByDesc('start_date')
             ->orderByDesc('id')
             ->get()
@@ -34,6 +37,7 @@ final class ContractEmployeeBrowseQuery
                 'id' => $employee->id,
                 'name' => $employee->name,
                 'employee_no' => $employee->employee_no,
+                'company_visa_type_id' => $employee->company_visa_type_id,
             ],
             'contracts' => $contracts,
         ];

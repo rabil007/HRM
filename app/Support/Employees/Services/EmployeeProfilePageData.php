@@ -429,9 +429,12 @@ final class EmployeeProfilePageData
         return EmployeeContract::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employeeId)
-            ->with(['salaryRevisions' => fn ($query) => $query
-                ->with('lines')
-                ->orderByDesc('version')])
+            ->with([
+                'companyVisaType:id,name',
+                'salaryRevisions' => fn ($query) => $query
+                    ->with('lines')
+                    ->orderByDesc('version'),
+            ])
             ->orderByDesc('start_date')
             ->orderByDesc('id')
             ->get()

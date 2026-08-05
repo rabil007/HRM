@@ -31,6 +31,7 @@ class EmployeeContract extends Model
                 'employee_id',
                 'payroll_category',
                 'salary_structure',
+                'company_visa_type_id',
                 'start_date',
                 'end_date',
                 'labor_contract_id',
@@ -53,6 +54,7 @@ class EmployeeContract extends Model
             'end_date' => 'date',
             'payroll_category' => PayrollCategory::class,
             'salary_structure' => ContractSalaryStructure::class,
+            'company_visa_type_id' => 'integer',
             'basic_salary' => 'decimal:2',
             'housing_allowance' => 'decimal:2',
             'transport_allowance' => 'decimal:2',
@@ -70,6 +72,17 @@ class EmployeeContract extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    /**
+     * The visa company that applied to this contract's own effective
+     * period. This is a per-contract historical snapshot; it must never be
+     * confused with the employee's current visa company on
+     * {@see Employee::$company_visa_type_id}.
+     */
+    public function companyVisaType(): BelongsTo
+    {
+        return $this->belongsTo(CompanyVisaType::class);
     }
 
     public function salaryComponents(): HasMany
