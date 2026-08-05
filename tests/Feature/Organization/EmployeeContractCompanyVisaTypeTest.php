@@ -342,7 +342,46 @@ test('ended contracts remain valid for historical work dates regardless of visa 
         ->and($afterResult['contract']->company_visa_type_id)->toBe($companyB->id);
 });
 
-test('overlapping contracts with different company visa types are still rejected by the resolver', function () {
+test('stale ended contracts overlapping an active successor resolve to the active contract', function () {
+    ['company' => $company] = makeVisaTypeContractFixtures();
+
+    $companyA = CompanyVisaType::query()->create(['name' => 'Stale End Company A '.uniqid(), 'is_active' => true]);
+    $companyB = CompanyVisaType::query()->create(['name' => 'Stale End Company B '.uniqid(), 'is_active' => true]);
+
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'daily',
+        'start_date' => '2024-08-14',
+        'end_date' => '2026-08-14',
+        'status' => 'ended',
+        'company_visa_type_id' => $companyA->id,
+        'basic_salary' => 200,
+    ]);
+
+    $activeContract = EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'daily',
+        'start_date' => '2026-02-03',
+        'end_date' => '2028-03-03',
+        'status' => 'active',
+        'company_visa_type_id' => $companyB->id,
+        'basic_salary' => 220,
+    ]);
+
+    $resolver = app(ResolveCrewContractForWorkDate::class);
+    $result = $resolver->resolve($company->id, $employee->id, '2026-07-01');
+
+    expect($result['contract']?->id)->toBe($activeContract->id)
+        ->and($result['issue'])->toBeNull();
+});
+
+test('overlapping active contracts are still rejected by the resolver', function () {
     ['company' => $company] = makeVisaTypeContractFixtures();
 
     $companyA = CompanyVisaType::query()->create(['name' => 'Overlap Company A '.uniqid(), 'is_active' => true]);
@@ -356,8 +395,7 @@ test('overlapping contracts with different company visa types are still rejected
         'payroll_category' => PayrollCategory::Crew->value,
         'salary_structure' => 'daily',
         'start_date' => '2026-01-01',
-        'end_date' => '2026-12-31',
-        'status' => 'ended',
+        'status' => 'active',
         'company_visa_type_id' => $companyA->id,
         'basic_salary' => 200,
     ]);

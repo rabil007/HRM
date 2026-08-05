@@ -47,7 +47,9 @@ final class ResolveCrewContractForWorkDate
             ];
         }
 
-        if ($candidates->count() > 1) {
+        $contract = $this->pickSingleCandidate($candidates);
+
+        if ($contract === null) {
             return [
                 'contract' => null,
                 'issue' => [
@@ -58,9 +60,38 @@ final class ResolveCrewContractForWorkDate
         }
 
         return [
-            'contract' => $candidates->first(),
+            'contract' => $contract,
             'issue' => null,
         ];
+    }
+
+    /**
+     * @param  Collection<int, EmployeeContract>  $candidates
+     */
+    private function pickSingleCandidate(Collection $candidates): ?EmployeeContract
+    {
+        $active = $candidates->filter(
+            fn (EmployeeContract $contract): bool => $contract->status === 'active',
+        )->values();
+
+        if ($active->count() === 1) {
+            return $active->first();
+        }
+
+        if ($active->count() > 1) {
+            return null;
+        }
+
+        if ($candidates->count() === 1) {
+            return $candidates->first();
+        }
+
+        return $candidates
+            ->sortByDesc(fn (EmployeeContract $contract): array => [
+                $contract->start_date?->toDateString() ?? '',
+                (int) $contract->id,
+            ])
+            ->first();
     }
 
     /**
