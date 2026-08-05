@@ -100,8 +100,11 @@ final class ResolveCrewContractForWorkDate
     }
 
     /**
-     * Latest revision with effective_from <= work date, or null when the
-     * contract has no non-trashed revisions (baseline components may be used).
+     * Latest non-deleted revision with effective_from <= work date.
+     *
+     * Baseline components may be used only when the contract has never had a
+     * salary revision. Deleted revision history must not reactivate potentially
+     * mirrored current contract components as a historical fallback.
      *
      * @return array{revision: ?ContractSalaryRevision, issue: ?array{code: string, message: string}}
      */
@@ -114,6 +117,20 @@ final class ResolveCrewContractForWorkDate
             : $contract->salaryRevisions()->withoutTrashed()->with('lines')->get();
 
         if ($revisions->isEmpty()) {
+            $hasEverHadRevisions = $contract->salaryRevisions()
+                ->withTrashed()
+                ->exists();
+
+            if ($hasEverHadRevisions) {
+                return [
+                    'revision' => null,
+                    'issue' => [
+                        'code' => 'missing_historical_salary_revision',
+                        'message' => "No valid salary revision covers work date {$date} for contract #{$contract->id}.",
+                    ],
+                ];
+            }
+
             return ['revision' => null, 'issue' => null];
         }
 
