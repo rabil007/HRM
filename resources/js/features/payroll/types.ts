@@ -57,6 +57,12 @@ export type CrewPayrollGenerationPreview = {
         employee_name: string | null;
         code: string;
         message: string;
+        work_date?: string | null;
+        from_date?: string | null;
+        to_date?: string | null;
+        pay_category?: string | null;
+        contract_id?: number | null;
+        salary_revision_id?: number | null;
     }>;
     blocking_count: number;
     applied_preparation_id: number | null;

@@ -55,7 +55,7 @@ final class CrewPayrollGenerationPreview
             'missing_timesheet_count' => $this->missingTimesheetCount,
             'awaiting_approval_count' => $this->awaitingApprovalCount,
             'excluded_count' => $this->excludedCount,
-            'blocking_issues' => array_slice($this->blockingIssues, 0, 25),
+            'blocking_issues' => array_slice($this->groupedBlockingIssues(), 0, 25),
             'blocking_count' => $this->blockingCount,
             'applied_preparation_id' => $this->appliedPreparationId,
             'applied_preparation_version' => $this->appliedPreparationVersion,
@@ -81,5 +81,60 @@ final class CrewPayrollGenerationPreview
     public function toPublicArray(): array
     {
         return $this->toArray(includeEmployeeIds: false);
+    }
+
+    /**
+     * Collapses one-issue-per-work-date entries (e.g. a contract conflict
+     * repeated for every blocked calendar day) into a single line per
+     * employee/issue type. Without this, an employee blocked on many days
+     * would consume the entire display cap and hide every other blocked
+     * employee.
+     *
+     * @return list<BlockingIssue>
+     */
+    private function groupedBlockingIssues(): array
+    {
+        $groups = [];
+
+        foreach ($this->blockingIssues as $issue) {
+            $workDate = $issue['work_date'] ?? $issue['to_date'] ?? $issue['from_date'] ?? null;
+            $template = $issue['message'];
+
+            if ($workDate !== null && str_contains($template, $workDate)) {
+                $template = str_replace($workDate, '{date}', $template);
+            } else {
+                $workDate = null;
+            }
+
+            $key = ($issue['employee_id'] ?? 'period').'|'.$issue['code'].'|'.$template;
+
+            if (! isset($groups[$key])) {
+                $groups[$key] = [
+                    'issue' => $issue,
+                    'template' => $template,
+                    'dates' => [],
+                ];
+            }
+
+            if ($workDate !== null) {
+                $groups[$key]['dates'][] = $workDate;
+            }
+        }
+
+        return array_values(array_map(function (array $group): array {
+            $issue = $group['issue'];
+            $dates = array_values(array_unique($group['dates']));
+            sort($dates);
+
+            if ($dates !== []) {
+                $rangeText = count($dates) === 1
+                    ? $dates[0]
+                    : sprintf('%s – %s (%d days)', $dates[0], $dates[count($dates) - 1], count($dates));
+
+                $issue['message'] = str_replace('{date}', $rangeText, $group['template']);
+            }
+
+            return $issue;
+        }, $groups));
     }
 }

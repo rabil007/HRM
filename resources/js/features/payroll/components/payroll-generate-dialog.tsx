@@ -1,5 +1,5 @@
 import { useHttp } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import CrewPayrollGenerationPreviewController from '@/actions/App/Http/Controllers/Payroll/CrewPayrollGenerationPreviewController';
 import {
     AlertDialog,
@@ -11,6 +11,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { groupCrewPayrollBlockingIssues } from '../lib/group-crew-payroll-blocking-issues';
 import type { CrewPayrollGenerationPreview, PayrollCategory } from '../types';
 
 export function PayrollGenerateDialog({
@@ -46,6 +47,11 @@ export function PayrollGenerateDialog({
     );
     const [loadingPreview, setLoadingPreview] = useState(false);
     const [previewError, setPreviewError] = useState<string | null>(null);
+
+    const blockingGroups = useMemo(
+        () => groupCrewPayrollBlockingIssues(preview?.blocking_issues ?? []),
+        [preview],
+    );
 
     useEffect(() => {
         if (!open || !isCrew) {
@@ -92,7 +98,7 @@ export function PayrollGenerateDialog({
 
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
-            <AlertDialogContent className="max-w-lg glass-card">
+            <AlertDialogContent className="max-w-xl glass-card">
                 <AlertDialogHeader>
                     <AlertDialogTitle>
                         {isCrew
@@ -159,16 +165,34 @@ export function PayrollGenerateDialog({
                                             <div className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
                                                 <p className="font-semibold">
                                                     Blocking (
-                                                    {preview.blocking_count})
+                                                    {blockingGroups.length}{' '}
+                                                    {blockingGroups.length === 1
+                                                        ? 'employee'
+                                                        : 'employees'}
+                                                    )
                                                 </p>
-                                                <ul className="list-disc space-y-1 pl-4">
-                                                    {preview.blocking_issues
-                                                        .slice(0, 5)
-                                                        .map((issue, index) => (
-                                                            <li key={index}>
-                                                                {issue.message}
+                                                <ul className="max-h-48 list-disc space-y-1.5 overflow-y-auto pl-4">
+                                                    {blockingGroups.map(
+                                                        (group) => (
+                                                            <li key={group.key}>
+                                                                {group.employeeName ? (
+                                                                    <>
+                                                                        <span className="font-semibold">
+                                                                            {
+                                                                                group.employeeName
+                                                                            }
+                                                                            :
+                                                                        </span>{' '}
+                                                                        {
+                                                                            group.message
+                                                                        }
+                                                                    </>
+                                                                ) : (
+                                                                    group.message
+                                                                )}
                                                             </li>
-                                                        ))}
+                                                        ),
+                                                    )}
                                                 </ul>
                                             </div>
                                         ) : null}
