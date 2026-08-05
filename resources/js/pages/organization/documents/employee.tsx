@@ -27,6 +27,7 @@ import { DocumentsSummaryCards } from '@/features/organization/documents/documen
 import { EmailDocumentsModal } from '@/features/organization/documents/email-send';
 import type { EmailDocumentItem } from '@/features/organization/documents/email-send';
 import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
+import { EmployeeDocumentMobileCard } from '@/features/organization/documents/employee-document-mobile-card';
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { filterDocuments } from '@/features/organization/documents/filter-documents';
 import { filterDocumentsByExpiry } from '@/features/organization/documents/filter-documents-by-expiry';
@@ -465,78 +466,136 @@ export default function EmployeeDocumentsBrowse({
                     hasSearch={fileSearch.trim() !== ''}
                 />
             ) : (
-                <OrganizationDataTable minWidth="min-w-[980px]" compact>
-                    <TableHeader>
-                        <DataTableHeaderRow>
-                            <DataTableHead className="w-10 px-3">
-                                <Checkbox
-                                    checked={
-                                        allDocumentsSelected
-                                            ? true
-                                            : documentsPartiallySelected
-                                              ? 'indeterminate'
-                                              : false
-                                    }
-                                    onCheckedChange={toggleAllDocuments}
-                                    aria-label="Select all files"
-                                />
-                            </DataTableHead>
-                            <DataTableHead className="min-w-[240px]">
-                                File
-                            </DataTableHead>
-                            <DataTableHead className="hidden md:table-cell">
-                                Document no.
-                            </DataTableHead>
-                            <DataTableHead className="hidden md:table-cell">
-                                Issue date
-                            </DataTableHead>
-                            <DataTableHead className="hidden lg:table-cell">
-                                Expiry
-                            </DataTableHead>
-                            <DataTableHead className="hidden lg:table-cell">
-                                Status
-                            </DataTableHead>
-                            <DataTableHead className="hidden xl:table-cell">
-                                Uploaded
-                            </DataTableHead>
-                            <DataTableHead className="text-right">
-                                Actions
-                            </DataTableHead>
-                        </DataTableHeaderRow>
-                    </TableHeader>
-                    <TableBody>
+                <>
+                    {/* ── Mobile card list (phones only) ── */}
+                    <div className="flex flex-col gap-3 sm:hidden">
+                        {/* Mobile select-all bar */}
+                        <div className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-muted/20 px-3 py-2 dark:border-white/8">
+                            <Checkbox
+                                checked={
+                                    allDocumentsSelected
+                                        ? true
+                                        : documentsPartiallySelected
+                                          ? 'indeterminate'
+                                          : false
+                                }
+                                onCheckedChange={toggleAllDocuments}
+                                aria-label="Select all files"
+                                id="mobile-select-all"
+                            />
+                            <label
+                                htmlFor="mobile-select-all"
+                                className="cursor-pointer select-none text-xs text-muted-foreground"
+                            >
+                                Select all ({filteredDocuments.length})
+                            </label>
+                        </div>
                         {filteredDocuments.map((doc) => (
-                            <EmployeeDocumentTableRow
+                            <EmployeeDocumentMobileCard
                                 key={doc.id}
                                 doc={doc}
                                 viewHref={buildDocumentShowUrl(
                                     employee.id,
                                     doc.id,
-                                    {
-                                        from: 'employee-browse',
-                                    },
+                                    { from: 'employee-browse' },
                                 )}
                                 canDownload={canDownloadDocuments}
                                 canUpload={canUploadDocuments}
                                 canDelete={canDeleteDocuments}
-                                onEdit={(document) =>
-                                    setEditDoc(document as DocumentProfileItem)
-                                }
-                                onReplace={(document) =>
-                                    setReplaceDoc(
-                                        document as DocumentProfileItem,
-                                    )
-                                }
-                                onDelete={(document) =>
-                                    setDeleteDocId(document.id)
-                                }
                                 selectionMode
                                 selected={isDocumentSelected(doc.id)}
                                 onSelectedChange={() => toggleDocument(doc.id)}
+                                onEdit={() =>
+                                    setEditDoc(doc as DocumentProfileItem)
+                                }
+                                onReplace={() =>
+                                    setReplaceDoc(doc as DocumentProfileItem)
+                                }
+                                onDelete={() => setDeleteDocId(doc.id)}
                             />
                         ))}
-                    </TableBody>
-                </OrganizationDataTable>
+                    </div>
+
+                    {/* ── Desktop table (sm+) ── */}
+                    <div className="hidden sm:block">
+                        <OrganizationDataTable minWidth="min-w-[600px]" compact>
+                            <TableHeader>
+                                <DataTableHeaderRow>
+                                    <DataTableHead className="w-10 px-3">
+                                        <Checkbox
+                                            checked={
+                                                allDocumentsSelected
+                                                    ? true
+                                                    : documentsPartiallySelected
+                                                      ? 'indeterminate'
+                                                      : false
+                                            }
+                                            onCheckedChange={toggleAllDocuments}
+                                            aria-label="Select all files"
+                                        />
+                                    </DataTableHead>
+                                    <DataTableHead className="min-w-[240px]">
+                                        File
+                                    </DataTableHead>
+                                    <DataTableHead className="hidden md:table-cell">
+                                        Document no.
+                                    </DataTableHead>
+                                    <DataTableHead className="hidden md:table-cell">
+                                        Issue date
+                                    </DataTableHead>
+                                    <DataTableHead className="hidden lg:table-cell">
+                                        Expiry
+                                    </DataTableHead>
+                                    <DataTableHead className="hidden lg:table-cell">
+                                        Status
+                                    </DataTableHead>
+                                    <DataTableHead className="hidden xl:table-cell">
+                                        Uploaded
+                                    </DataTableHead>
+                                    <DataTableHead className="text-right">
+                                        Actions
+                                    </DataTableHead>
+                                </DataTableHeaderRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredDocuments.map((doc) => (
+                                    <EmployeeDocumentTableRow
+                                        key={doc.id}
+                                        doc={doc}
+                                        viewHref={buildDocumentShowUrl(
+                                            employee.id,
+                                            doc.id,
+                                            {
+                                                from: 'employee-browse',
+                                            },
+                                        )}
+                                        canDownload={canDownloadDocuments}
+                                        canUpload={canUploadDocuments}
+                                        canDelete={canDeleteDocuments}
+                                        onEdit={(document) =>
+                                            setEditDoc(
+                                                document as DocumentProfileItem,
+                                            )
+                                        }
+                                        onReplace={(document) =>
+                                            setReplaceDoc(
+                                                document as DocumentProfileItem,
+                                            )
+                                        }
+                                        onDelete={(document) =>
+                                            setDeleteDocId(document.id)
+                                        }
+                                        selectionMode
+                                        selected={isDocumentSelected(doc.id)}
+                                        onSelectedChange={() =>
+                                            toggleDocument(doc.id)
+                                        }
+                                    />
+                                ))}
+                            </TableBody>
+                        </OrganizationDataTable>
+                    </div>
+                </>
             )}
 
             <ConfirmDeleteDocumentDialog

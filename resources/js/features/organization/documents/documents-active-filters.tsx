@@ -77,7 +77,7 @@ export function DocumentsActiveFilters({
             {hasSearch ? (
                 <Badge
                     variant="outline"
-                    className="max-w-xs gap-1 truncate border-border pr-1 pl-2.5 font-normal dark:border-white/10"
+                    className="max-w-[calc(100vw-4rem)] gap-1 truncate border-border pr-1 pl-2.5 font-normal sm:max-w-xs dark:border-white/10"
                 >
                     <span className="truncate">Search: {search}</span>
                     <Button

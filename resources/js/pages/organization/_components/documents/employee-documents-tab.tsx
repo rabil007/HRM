@@ -6,6 +6,7 @@ import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Orga
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TabsContent } from '@/components/ui/tabs';
+import { EmployeeDocumentMobileCard } from '@/features/organization/documents/employee-document-mobile-card';
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
@@ -178,6 +179,7 @@ export function EmployeeDocumentsTab({
                     </div>
                 }
             >
+                <div className="hidden sm:block">
                 <EmployeeRecordsTable className="min-w-[980px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
@@ -294,7 +296,76 @@ export function EmployeeDocumentsTab({
                         })}
                     </tbody>
                 </EmployeeRecordsTable>
+                </div>
             </EmployeeRecordsPanel>
+
+            {/* ── Mobile card list (phones only, outside the scrolling panel) ── */}
+            {documents.length > 0 ? (
+                <div className="mt-4 flex flex-col gap-3 sm:hidden">
+                    {/* Mobile select-all bar */}
+                    {selectionMode ? (
+                        <div className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-muted/20 px-3 py-2 dark:border-white/8">
+                            <Checkbox
+                                checked={
+                                    allDocumentsSelected
+                                        ? true
+                                        : documentsPartiallySelected
+                                          ? 'indeterminate'
+                                          : false
+                                }
+                                onCheckedChange={toggleAllDocuments}
+                                aria-label="Select all documents"
+                                id="profile-mobile-select-all"
+                            />
+                            <label
+                                htmlFor="profile-mobile-select-all"
+                                className="cursor-pointer select-none text-xs text-muted-foreground"
+                            >
+                                Select all ({documents.length})
+                            </label>
+                        </div>
+                    ) : null}
+                    {documents.map((doc) => {
+                        const browseDoc = toBrowseItem(doc);
+                        const viewHref = hasEmployeeId
+                            ? buildDocumentShowUrl(employeeId, doc.id, {
+                                  from: 'profile',
+                              })
+                            : '#';
+
+                        return (
+                            <EmployeeDocumentMobileCard
+                                key={doc.id}
+                                doc={browseDoc}
+                                viewHref={viewHref}
+                                canDownload={can.documents_download}
+                                canUpload={can.documents_upload}
+                                canDelete={can.documents_delete}
+                                selectionMode={selectionMode}
+                                selected={isDocumentSelected(doc.id)}
+                                onSelectedChange={() =>
+                                    toggleDocument(doc.id)
+                                }
+                                onEdit={
+                                    hasEmployeeId
+                                        ? () => setEditDoc(doc)
+                                        : undefined
+                                }
+                                onReplace={
+                                    hasEmployeeId
+                                        ? () => setReplaceDoc(doc)
+                                        : undefined
+                                }
+                                onDelete={
+                                    hasEmployeeId
+                                        ? () => setDeleteDocId(doc.id)
+                                        : undefined
+                                }
+                            />
+                        );
+                    })}
+                </div>
+            ) : null}
 
             <UploadDocumentDialog
                 open={uploadOpen}
