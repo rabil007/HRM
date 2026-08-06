@@ -12,10 +12,10 @@ export default function PasswordInput({
     const [showPassword, setShowPassword] = useState(false);
 
     return (
-        <div className="relative">
+        <div className="relative w-full">
             <Input
                 type={showPassword ? 'text' : 'password'}
-                className={cn('pr-10', className)}
+                className={cn('w-full pr-10', className)}
                 ref={ref}
                 {...props}
             />
