@@ -260,9 +260,61 @@ Planning never starts movement, completes source P4, creates Sea Service, or cre
 
 ### Deferred
 
-- Phase 2B: projected vessel manning / coverage gaps
+- Phase 2B.2+: projected manning UI / dashboard cards
 - Phase 2C: transfer / redeployment Tour behaviour
 - Phase 3: notifications (email, push, in-app, escalation)
+
+## Phase 2B.1 — Projected Vessel Manning Engine
+
+Read-only Support query: `CrewProjectedManningQuery`. Derives coverage from existing Crew Assignments, P4 phases, Crew Planning rows, relief links (`relieves_crew_assignment_id`), and company-scoped `VesselManning`. No projection table; no mutations.
+
+### Data sources
+
+| Input | Use |
+|-------|-----|
+| `VesselManning` | Required count per vessel + rank |
+| P4 `actual_start_at` / `actual_end_at` | Actual onboard intervals and authoritative dates |
+| Assignment `planned_join_at` / `planned_signoff_at` | Forecast when actuals absent |
+| P4 `planned_end_at` | Forecast leave fallback |
+| Planning `planned_join_date` / `planned_leave_date` | Planning-only joins; lowest precedence when linked |
+
+### Join precedence
+
+1. P4 `actual_start_at`
+2. Assignment `planned_join_at`
+3. Linked / planning-only `planned_join_date`
+
+Vacant Planning (`employee_id` null) does not increase headcount. Soft-deleted Planning and cancelled assignments are excluded. Linked Planning + Assignment count once (assignment wins).
+
+### Leave / sign-off precedence
+
+1. P4 `actual_end_at`
+2. Assignment `planned_signoff_at`
+3. P4 `planned_end_at`
+4. Planning `planned_leave_date`
+5. Open-ended (remains onboard through the horizon)
+
+Planned Sign-Off is forecast-only; it never completes P4, creates Sea Service, or payroll actuals.
+
+### Same-day ordering
+
+Company-local calendar days. On a shared date, **join events apply before sign-off events** (handover without an artificial one-day gap).
+
+### Starting onboard count
+
+Person counts at range start when join date ≤ `from` and leave is null or leave ≥ `from`, based on resolved dates (actual P4 preferred). Draft without an actual/planned join does not count.
+
+### Relief
+
+Uses Phase 2A Planning relief links. Late relief → gap between source leave and relief join; early relief → overlap/excess. Historical P5/P6 / cancelled / completed linked relief follow assignment P4 history and status exclusions, not readiness labels alone.
+
+### Tenant scope
+
+Trusted `companyId` only. Vessel Manning, assignments, and Planning are company-scoped. Cross-company rows never appear.
+
+### Deferred UI
+
+Projected Manning screens, Planning overlays, and dashboard cards are out of scope for 2B.1.
 
 
 ## Sea service
