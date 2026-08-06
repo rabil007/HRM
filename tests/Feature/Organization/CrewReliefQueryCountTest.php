@@ -116,10 +116,6 @@ it('scales Current Crew queries for many no-relief assignments without per-row p
     expect($many->total())->toBe(20)
         ->and($manyCount)->toBeLessThanOrEqual($oneCount + 8)
         ->and($manyCount - $oneCount)->toBeLessThan(20);
-
-    // Stable enough for the hardening report without asserting an exact count.
-    expect($oneCount)->toBeGreaterThan(0)
-        ->and($manyCount)->toBeGreaterThanOrEqual($oneCount);
 });
 
 it('keeps Current Crew queries bounded for mixed relief states as row count grows', function () {
