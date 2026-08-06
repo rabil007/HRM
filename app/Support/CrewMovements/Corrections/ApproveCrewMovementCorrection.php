@@ -26,6 +26,7 @@ final class ApproveCrewMovementCorrection
         private readonly CrewAssignmentInvariantGuard $invariantGuard = new CrewAssignmentInvariantGuard,
         private readonly SyncPlanningAssignmentFromCrewAssignment $planningSync = new SyncPlanningAssignmentFromCrewAssignment,
         private readonly SeaServiceSyncService $seaServiceSync = new SeaServiceSyncService,
+        private readonly RecalculateTourSignoffAfterP4StartCorrection $tourSignoffRecalc = new RecalculateTourSignoffAfterP4StartCorrection,
     ) {}
 
     public function handle(
@@ -111,6 +112,11 @@ final class ApproveCrewMovementCorrection
             );
 
             $this->applier->apply($assignment, $phase, $normalized);
+
+            $assignment->refresh();
+            $phase->refresh();
+
+            $this->tourSignoffRecalc->handle($assignment, $phase, $normalized, $approver);
 
             $assignment->refresh();
             $phase->refresh();

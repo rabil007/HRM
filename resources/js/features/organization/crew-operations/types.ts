@@ -20,6 +20,13 @@ export type CrewOperationsAlertCounts = {
     overdue_home: number;
     upcoming_planning: number;
     manning_gaps: number;
+    signoff_within_30_days: number;
+    signoff_within_14_days: number;
+    signoff_within_7_days: number;
+    signoff_due_today: number;
+    signoff_overdue: number;
+    missing_tour_of_duty: number;
+    missing_planned_signoff: number;
 };
 
 export type CrewOperationsAttentionItem = {

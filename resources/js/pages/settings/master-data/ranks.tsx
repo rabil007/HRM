@@ -431,6 +431,14 @@ export default function Ranks({
                                         — optional; use yes, true, 1, or active
                                         for enabled
                                     </li>
+                                    <li>
+                                        <span className="font-medium text-foreground">
+                                            max_tour_of_duty_days
+                                        </span>{' '}
+                                        — optional Tour of Duty in days (1–365).
+                                        Leave blank to keep the existing value
+                                        on update.
+                                    </li>
                                 </ul>
                             </AlertDescription>
                         </Alert>
@@ -442,7 +450,9 @@ export default function Ranks({
                             <div className="rounded-xl border border-border/80 bg-muted/20 p-4">
                                 <p className="text-sm text-muted-foreground">
                                     Download a file with the correct column
-                                    headers so your import validates cleanly.
+                                    headers (name, is_active,
+                                    max_tour_of_duty_days) so your import
+                                    validates cleanly.
                                 </p>
                                 <Button
                                     variant="secondary"

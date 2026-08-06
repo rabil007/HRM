@@ -44,9 +44,30 @@ function defaultDateTimeLocal(): string {
     return now.toISOString().slice(0, 16);
 }
 
+function resolveJoinSignoffChoice(
+    context: CrewMovementContext,
+    formOptions?: CrewAssignmentFormOptions,
+): CrewMovementActionFormData['planned_signoff_choice'] {
+    if (context.planned_signoff_at) {
+        return 'existing_plan';
+    }
+
+    const rank = formOptions?.ranks.find((item) => item.id === context.rank_id);
+    const tourAvailable =
+        rank?.resolved_tour_of_duty_days != null &&
+        rank.resolved_tour_of_duty_days > 0;
+
+    if (tourAvailable) {
+        return 'tour_of_duty';
+    }
+
+    return 'manual_override';
+}
+
 function buildInitialForm(
     action: CrewMovementAction,
     context: CrewMovementContext,
+    formOptions?: CrewAssignmentFormOptions,
 ): CrewMovementActionFormData {
     const config = getMovementActionConfig(action);
     const nextPhase = config.nextPhaseOptions?.[0]?.value ?? '';
@@ -69,6 +90,12 @@ function buildInitialForm(
             action === 'redeploy' ? '' : (context.planned_signoff_at ?? ''),
         planned_travel_at: '',
         reason: '',
+        tour_of_duty_days: '',
+        planned_signoff_choice:
+            action === 'join_vessel'
+                ? resolveJoinSignoffChoice(context, formOptions)
+                : 'manual_override',
+        planned_signoff_override_reason: '',
     };
 }
 
@@ -140,7 +167,11 @@ export function MovementActionDialog({
         null,
     );
     const form = useForm<CrewMovementActionFormData>(
-        buildInitialForm(action ?? 'approve_mobilisation', movementContext),
+        buildInitialForm(
+            action ?? 'approve_mobilisation',
+            movementContext,
+            formOptions,
+        ),
     );
 
     useEffect(() => {
@@ -149,7 +180,7 @@ export function MovementActionDialog({
         }
 
         form.clearErrors();
-        form.setData(buildInitialForm(action, movementContext));
+        form.setData(buildInitialForm(action, movementContext, formOptions));
         // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when dialog opens for an action
     }, [open, action, movementContext.assignment_id]);
 
@@ -192,6 +223,22 @@ export function MovementActionDialog({
                 payload.client_id = null;
                 payload.company_visa_type_id = null;
                 payload.planned_signoff_at = '';
+            }
+
+            if (action === 'join_vessel') {
+                if (data.planned_signoff_choice !== 'manual_override') {
+                    delete (payload as { planned_signoff_at?: string })
+                        .planned_signoff_at;
+                    payload.planned_signoff_override_reason = '';
+                }
+
+                if (
+                    data.tour_of_duty_days === '' ||
+                    data.tour_of_duty_days === null
+                ) {
+                    delete (payload as { tour_of_duty_days?: number | '' })
+                        .tour_of_duty_days;
+                }
             }
 
             return payload;

@@ -3,6 +3,22 @@ import type {
     CrewMovementCorrectionListItem,
 } from '@/features/organization/crew-movement-corrections/types';
 
+export type CrewTourProgressFields = {
+    tour_of_duty_days: number | null;
+    tour_of_duty_source: string | null;
+    tour_of_duty_source_label: string | null;
+    planned_signoff_source: string | null;
+    planned_signoff_source_label: string | null;
+    days_onboard: number | null;
+    current_duty_day: number | null;
+    remaining_tour_days: number | null;
+    tour_progress_percent: number | null;
+    tour_progress_display_percent: number | null;
+    tour_status: string | null;
+    tour_status_label: string | null;
+    tour_status_severity: string | null;
+};
+
 export type CrewMovementContext = {
     assignment_id: number;
     assignment_no: string;
@@ -33,9 +49,9 @@ export type CrewMovementContext = {
     training_started_at: string | null;
     training_expected_completion_at: string | null;
     company_timezone: string;
-};
+} & CrewTourProgressFields;
 
-export interface CrewAssignmentListItem {
+export interface CrewAssignmentListItem extends CrewTourProgressFields {
     id: number;
     assignment_no: string;
     status: string;
@@ -78,7 +94,7 @@ export interface CrewAssignmentListItem {
     movement_context: CrewMovementContext;
 }
 
-export interface CrewAssignmentDetail {
+export interface CrewAssignmentDetail extends CrewTourProgressFields {
     id: number;
     assignment_no: string;
     status: string;
@@ -113,7 +129,6 @@ export interface CrewAssignmentDetail {
         started_at?: string | null;
     } | null;
     days_in_phase: number | null;
-    days_onboard?: number | null;
     days_in_training?: number | null;
     planned_join_at: string | null;
     planned_signoff_at: string | null;
@@ -196,7 +211,14 @@ export interface CrewAssignmentFormOptions {
         employee_no: string | null;
         rank_id: number | null;
     }>;
-    ranks: Array<{ id: number; name: string }>;
+    ranks: Array<{
+        id: number;
+        name: string;
+        global_tour_of_duty_days: number | null;
+        company_tour_of_duty_days: number | null;
+        resolved_tour_of_duty_days: number | null;
+        resolved_tour_of_duty_source: string | null;
+    }>;
     vessels: Array<{ id: number; name: string }>;
     clients: Array<{ id: number; name: string }>;
     visa_types: Array<{ id: number; name: string }>;
@@ -233,6 +255,7 @@ export interface CrewAssignmentFilters {
     planned_signoff_to: string;
     movement_attention: boolean;
     include_completed: boolean;
+    tour_status: string;
 }
 
 export interface CrewAssignmentPagePermissions {
@@ -336,4 +359,10 @@ export interface CrewMovementActionFormData {
     planned_signoff_at: string;
     planned_travel_at: string;
     reason: string;
+    tour_of_duty_days: number | null | '';
+    planned_signoff_choice:
+        | 'tour_of_duty'
+        | 'existing_plan'
+        | 'manual_override';
+    planned_signoff_override_reason: string;
 }

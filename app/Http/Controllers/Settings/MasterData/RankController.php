@@ -66,7 +66,7 @@ class RankController extends Controller
 
     public function importTemplate(): Response
     {
-        $csv = "name,is_active\nCaptain,yes\nChief Officer,yes\n";
+        $csv = "name,is_active,max_tour_of_duty_days\nCaptain,yes,90\nChief Officer,yes,90\nSecond Engineer,yes,75\n";
 
         return response($csv, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -104,6 +104,15 @@ class RankController extends Controller
             if (in_array($key, ['active', 'is_active', 'status', 'enabled'], true)) {
                 $map['active'] = (int) $index;
             }
+            if (in_array($key, [
+                'max_tour_of_duty_days',
+                'tour_of_duty_days',
+                'tour_of_duty',
+                'tod',
+                'tod_days',
+            ], true)) {
+                $map['tour_of_duty'] = (int) $index;
+            }
         }
 
         if (! isset($map['name'])) {
@@ -116,6 +125,7 @@ class RankController extends Controller
 
         $imported = 0;
         $emptyNames = 0;
+        $invalidTourRows = 0;
 
         while (($row = fgetcsv($handle)) !== false) {
             if (! is_array($row)) {
@@ -135,9 +145,31 @@ class RankController extends Controller
                 $active = $v === '' || in_array($v, ['1', 'yes', 'true', 'y', 'active'], true);
             }
 
+            $attributes = ['is_active' => $active];
+
+            if (isset($map['tour_of_duty'])) {
+                $rawTour = trim((string) ($row[$map['tour_of_duty']] ?? ''));
+
+                if ($rawTour === '') {
+                    // Blank preserves the existing Tour of Duty value on update.
+                } elseif (! ctype_digit($rawTour) && ! preg_match('/^-?\d+$/', $rawTour)) {
+                    $invalidTourRows++;
+
+                    continue;
+                } else {
+                    $tourDays = (int) $rawTour;
+                    if ($tourDays < 1 || $tourDays > 365) {
+                        $invalidTourRows++;
+
+                        continue;
+                    }
+                    $attributes['max_tour_of_duty_days'] = $tourDays;
+                }
+            }
+
             Rank::query()->updateOrCreate(
                 ['name' => $name],
-                ['is_active' => $active],
+                $attributes,
             );
             $imported++;
 
@@ -152,14 +184,21 @@ class RankController extends Controller
             return redirect()
                 ->route('settings.master-data.ranks.index')
                 ->withErrors([
-                    'file' => $emptyNames > 0
-                        ? "No rows were imported. {$emptyNames} row(s) had an empty name."
-                        : 'No rows were imported. Ensure each row has a name.',
+                    'file' => $invalidTourRows > 0
+                        ? "No rows were imported. {$invalidTourRows} row(s) had an invalid Tour of Duty (must be 1–365 or blank)."
+                        : ($emptyNames > 0
+                            ? "No rows were imported. {$emptyNames} row(s) had an empty name."
+                            : 'No rows were imported. Ensure each row has a name.'),
                 ]);
+        }
+
+        $message = "Imported {$imported} rank row(s).";
+        if ($invalidTourRows > 0) {
+            $message .= " Skipped {$invalidTourRows} row(s) with invalid Tour of Duty values.";
         }
 
         return redirect()
             ->route('settings.master-data.ranks.index')
-            ->with('success', "Imported {$imported} rank row(s).");
+            ->with('success', $message);
     }
 }

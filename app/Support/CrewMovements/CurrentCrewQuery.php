@@ -3,6 +3,7 @@
 namespace App\Support\CrewMovements;
 
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewTourStatus;
 use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
@@ -83,6 +84,14 @@ class CurrentCrewQuery
             $query->where('planned_signoff_at', '<=', $filters['planned_signoff_to']);
         }
 
+        if (! empty($filters['tour_status'])) {
+            (new CrewTourStatusQuery)->applyFilter(
+                $query,
+                (string) $filters['tour_status'],
+                $companyId,
+            );
+        }
+
         if (! empty($filters['movement_attention'])) {
             $query->with(['currentPhase', 'company']);
         }
@@ -141,7 +150,8 @@ class CurrentCrewQuery
      *     vessels: list<array{id: int, name: string}>,
      *     ranks: list<array{id: int, name: string}>,
      *     clients: list<array{id: int, name: string}>,
-     *     employees: list<array{id: int, name: string, employee_no: string|null}>
+     *     employees: list<array{id: int, name: string, employee_no: string|null}>,
+     *     tour_statuses: list<array{value: string, label: string}>
      * }
      */
     public static function filterOptions(int $companyId): array
@@ -177,6 +187,13 @@ class CurrentCrewQuery
                     'id' => $e->id,
                     'name' => $e->name,
                     'employee_no' => $e->employee_no,
+                ])
+                ->values()
+                ->all(),
+            'tour_statuses' => collect(CrewTourStatus::filterable())
+                ->map(fn (CrewTourStatus $status): array => [
+                    'value' => $status->value,
+                    'label' => $status->label(),
                 ])
                 ->values()
                 ->all(),

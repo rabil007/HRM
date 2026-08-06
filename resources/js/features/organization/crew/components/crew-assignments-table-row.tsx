@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
+import { CrewTourProgressDisplay } from '@/features/organization/crew/components/crew-tour-progress-display';
 import { formatDaysInPhase } from '@/features/organization/crew/format-days-in-phase';
 import type {
     CrewAssignmentFormOptions,
@@ -42,6 +43,7 @@ export function CrewAssignmentsTableRow({
     const showMovementActions =
         (canPerformMovement || canCancel) &&
         assignment.available_actions.length > 0;
+    const isOnVessel = assignment.current_phase?.code === 'p4';
 
     return (
         <TableRow
@@ -134,12 +136,26 @@ export function CrewAssignmentsTableRow({
                     <div className="font-medium">
                         {formatDisplayDate(assignment.planned_join_at)}
                     </div>
-                    <div className="text-[11px] text-muted-foreground/70">
-                        Planned sign-off
-                    </div>
-                    <div className="font-medium">
-                        {formatDisplayDate(assignment.planned_signoff_at)}
-                    </div>
+                    {isOnVessel ? (
+                        <div className="mt-2">
+                            <CrewTourProgressDisplay
+                                progress={assignment}
+                                plannedSignoffAt={assignment.planned_signoff_at}
+                                compact
+                            />
+                        </div>
+                    ) : (
+                        <>
+                            <div className="text-[11px] text-muted-foreground/70">
+                                Planned sign-off
+                            </div>
+                            <div className="font-medium">
+                                {formatDisplayDate(
+                                    assignment.planned_signoff_at,
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
             </TableCell>
 

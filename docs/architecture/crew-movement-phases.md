@@ -7,7 +7,7 @@ Crew Planning
     ↓ confirm / convert
 Crew Assignment
     ↓ movement lifecycle
-Crew Assignment Phases
+    Crew Assignment Phases
     ↓ completed P4
 Employee Sea Service
 ```
@@ -22,6 +22,7 @@ Employee Sea Service
 | **CrewAssignment** | One mobilisation cycle (P0–P6). |
 | **CrewAssignmentPhase** | Ordered occurrence of a phase on that cycle. |
 | **EmployeeSeaService** | Historical sea time created from completed P4 phases. |
+| **CrewRankPolicy** | Company-scoped Tour of Duty override per rank (does not mutate global Rank). |
 
 ## P0–P6
 
@@ -35,6 +36,93 @@ Employee Sea Service
 | P4 | On Vessel |
 | P5 | Demobilisation Standby |
 | P6 | Home / Redeployment |
+
+## Tour of Duty (Phase 1)
+
+When Join Vessel creates active P4, the system may resolve a Tour of Duty and suggest Planned Sign-Off.
+
+### Resolution precedence
+
+1. Assignment-specific override entered during Join Vessel (`assignment_override`)
+2. Active company rank policy (`company_rank_policy`)
+3. Global `ranks.max_tour_of_duty_days` (`global_rank_default`)
+4. No automatic calculation
+
+### Calculation (company timezone)
+
+```text
+suggested planned sign-off local date
+    = actual P4 join local date + applied Tour of Duty days
+```
+
+Operational values for active P4:
+
+```text
+days_onboard        = whole local calendar days between actual join and today
+current_duty_day    = days_onboard + 1
+remaining_tour_days = planned sign-off local date − today (may be negative)
+tour_progress_percent = days_onboard / applied Tour of Duty days
+```
+
+Display percentage may be clamped to 0–100; remaining days stay negative when overdue.
+
+### Snapshot behaviour
+
+After P4 join, `crew_assignments.tour_of_duty_days` and `tour_of_duty_source` are snapshotted. Later changes to Rank or company policy do **not** rewrite existing assignments. New joins use the latest rules.
+
+### Planned versus actual
+
+- Planned Sign-Off is an expected date only (`planned_signoff_at` / P4 `planned_end_at`).
+- A generated Planned Sign-Off must **never** complete P4, disembark the employee, close the assignment, create payroll days, or create Sea Service.
+- Actual disembarkation remains a separate `confirm_disembarkation` action.
+
+### Join Vessel sign-off choices
+
+| Choice | Behaviour |
+|--------|-----------|
+| `tour_of_duty` | Use calculated suggestion |
+| `existing_plan` | Keep existing Planning/assignment planned date (never silently overwritten) |
+| `manual_override` | Enter another date; date and reason are both required when this choice is explicit |
+
+If no Tour exists and no Planned Sign-Off is entered (and no explicit manual choice was supplied), join still succeeds and attention warnings surface `missing_tour_of_duty` / `missing_planned_signoff`.
+
+### Tour status filters vs dashboard counts
+
+`due_within_7_days`, `due_within_14_days`, and `due_within_30_days` Current Crew filters are **cumulative** (include due today and nearer windows) so they match Crew Operations dashboard “within N days” cards. Exclusive internal buckets remain only for analytics rollups. `due_today` stays independently filterable. Planned sign-off overdue uses company-local calendar dates so due-today assignments are never also overdue.
+
+### Company rank policies
+
+Manage under Crew Operations → Rank Tour Policies (`crew_operations.rank_policies.view|update`). Clearing an override soft-deletes the policy and sets `is_active = false`. Re-creating the same company + rank restores the soft-deleted row and updates `tour_of_duty_days` (unique `company_id + rank_id` is preserved). Cross-company deleted rows are never restored.
+
+### Permission mapping for Rank Tour Policies
+
+Roles are company-scoped and managed via Organization → Roles. `PermissionsSeeder` grants:
+
+| Existing role capability | Granted |
+|--------------------------|---------|
+| `crew_operations.planning.update` | `rank_policies.view` + `rank_policies.update` |
+| `crew_operations.planning.view` or `overview.view` (without planning.update) | `rank_policies.view` only |
+| Neither | unchanged |
+
+The seeded `Owner` role continues to receive all permissions when `AdminSeeder` runs (`syncPermissions` of the full catalog).
+
+### Correction recalculation
+
+When an approved correction changes P4 `actual_start_at` and `planned_signoff_source` is `tour_of_duty`, Planned Sign-Off is recalculated from the **snapshotted** tour days and written to:
+
+1. `crew_assignments.planned_signoff_at`
+2. P4 `crew_assignment_phases.planned_end_at`
+3. Linked `crew_planning_assignments.planned_leave_date` (via `SyncPlanningAssignmentFromCrewAssignment` in the same approval transaction)
+
+Manual / existing-plan sources are preserved. Pending corrections do not mutate official dates. A failure during approval rolls back assignment, phase, planning, and correction status together.
+
+### Transfer / redeployment (Phase 1 limitation)
+
+Vessel transfer and redeployment do not yet re-resolve Tour of Duty for the linked destination assignment beyond existing movement payload fields. Destination Planned Sign-Off continues to follow the existing transfer/redeploy payload rules.
+
+### Notifications deferred
+
+Email, browser Web Push, in-app notification feeds, escalation, and Announcement records for Tour of Duty are **not** implemented in Phase 1.
 
 ## Supported movement actions
 
@@ -86,6 +174,8 @@ crew_operations.corrections.view
 crew_operations.corrections.request
 crew_operations.corrections.approve
 crew_operations.corrections.override
+crew_operations.rank_policies.view
+crew_operations.rank_policies.update
 audit.view
 ```
 
@@ -94,6 +184,8 @@ Legacy `crew_operations.deployments.*` permissions are removed and migrated onto
 ## Movement service
 
 `CrewMovementService` runs every create/action in a company-scoped transaction with `lockForUpdate()`, invariant checks, and atomic phase updates. Completed P4 (`actual_end_at` set) syncs sea service via `SeaServiceSyncService` in the same transaction.
+
+Tour resolution uses `CrewTourOfDutyResolver` / `CrewTourOfDutyCalculator`. Progress and status buckets use `CrewTourProgress` / `CrewTourStatusQuery`.
 
 ## Planning
 
@@ -136,9 +228,9 @@ Requires P4 with `actual_start_at`, `actual_end_at`, plus assignment vessel/rank
 ## Status / dashboard / manning / attention
 
 - `CrewAssignmentStatusResolver` maps current phase → operational status.
-- Dashboard counts use latest relevant assignment per employee.
+- Dashboard counts use latest relevant assignment per employee, plus Tour of Duty sign-off buckets (within 30/14/7 days, due today, overdue, missing tour/sign-off).
 - Onboard manning = active assignment + active P4 on vessel. Planned sign-off does not remove onboard crew.
-- Attention rules live in `CrewMovementAttentionQuery` (stale draft/phase, overdue planned join/sign-off, missing vessel/rank).
+- Attention rules live in `CrewMovementAttentionQuery` (stale draft/phase, overdue planned join/sign-off, missing vessel/rank, tour due/overdue/missing).
 
 ## Assignment numbers
 
@@ -155,7 +247,9 @@ Requires P4 with `actual_start_at`, `actual_end_at`, plus assignment vessel/rank
 
 Global (no `company_id`): ranks, vessels, clients, company visa types. Filter by `is_active` when present.
 
-Tenant-scoped: employees (`company_id`, `employee_no`), crew assignments, phases, sequences.
+Tenant-scoped: employees (`company_id`, `employee_no`), crew assignments, phases, sequences, crew rank policies.
+
+Rank CSV import supports `name,is_active,max_tour_of_duty_days` (blank Tour cell preserves existing value).
 
 ## Production verification commands
 

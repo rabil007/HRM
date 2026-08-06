@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 class PermissionsSeeder extends Seeder
@@ -285,6 +286,9 @@ class PermissionsSeeder extends Seeder
             'crew_operations.corrections.approve',
             'crew_operations.corrections.override',
 
+            'crew_operations.rank_policies.view',
+            'crew_operations.rank_policies.update',
+
             'reports.crew_movement_history.view',
             'reports.crew_movement_history.export',
 
@@ -335,6 +339,62 @@ class PermissionsSeeder extends Seeder
             ]);
         }
 
+        $this->grantCrewRankPolicyPermissionsToExistingRoles();
+
         app(PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
+    /**
+     * Map new Rank Tour Policy permissions onto existing company roles by capability pattern.
+     *
+     * - Roles with crew_operations.planning.update → view + update
+     * - Roles with crew_operations.planning.view or overview.view (without planning.update) → view only
+     * - Other roles are unchanged (capabilities remain assignable via Organization → Roles)
+     *
+     * The seeded Owner role continues to receive all permissions via AdminSeeder::syncPermissions.
+     */
+    private function grantCrewRankPolicyPermissionsToExistingRoles(): void
+    {
+        $viewPermission = Permission::query()
+            ->where('guard_name', 'web')
+            ->where('name', 'crew_operations.rank_policies.view')
+            ->first();
+        $updatePermission = Permission::query()
+            ->where('guard_name', 'web')
+            ->where('name', 'crew_operations.rank_policies.update')
+            ->first();
+
+        if ($viewPermission === null || $updatePermission === null) {
+            return;
+        }
+
+        $roles = Role::query()
+            ->where('guard_name', 'web')
+            ->get();
+
+        foreach ($roles as $role) {
+            $names = $role->permissions()->pluck('name');
+            $canUpdateSettings = $names->contains('crew_operations.planning.update');
+            $canViewCrewOps = $names->contains('crew_operations.planning.view')
+                || $names->contains('crew_operations.overview.view');
+
+            if (! $canUpdateSettings && ! $canViewCrewOps) {
+                continue;
+            }
+
+            $grantIds = [];
+
+            if (! $names->contains('crew_operations.rank_policies.view')) {
+                $grantIds[] = $viewPermission->id;
+            }
+
+            if ($canUpdateSettings && ! $names->contains('crew_operations.rank_policies.update')) {
+                $grantIds[] = $updatePermission->id;
+            }
+
+            if ($grantIds !== []) {
+                $role->permissions()->syncWithoutDetaching($grantIds);
+            }
+        }
     }
 }

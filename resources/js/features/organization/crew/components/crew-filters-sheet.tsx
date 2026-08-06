@@ -3,6 +3,7 @@ import { FiltersSheet } from '@/components/filters-sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { CREW_TOUR_STATUS_FILTER_OPTIONS } from '@/features/organization/crew/lib/tour-of-duty';
 import type {
     CrewAssignmentFilterOptions,
     CrewAssignmentFilters,
@@ -64,6 +65,29 @@ export function CrewFiltersSheet({
                     placeholder="All statuses"
                 >
                     {STATUS_OPTIONS.map((option) => (
+                        <AppSelectItem
+                            key={option.value || 'all'}
+                            value={option.value}
+                        >
+                            {option.label}
+                        </AppSelectItem>
+                    ))}
+                </AppSelect>
+            </div>
+
+            <div className="space-y-2">
+                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                    Tour status
+                </Label>
+                <AppSelect
+                    value={value.tour_status}
+                    onValueChange={(tourStatus) =>
+                        onChange({ ...value, tour_status: tourStatus })
+                    }
+                    variant="dark"
+                    placeholder="All tour statuses"
+                >
+                    {CREW_TOUR_STATUS_FILTER_OPTIONS.map((option) => (
                         <AppSelectItem
                             key={option.value || 'all'}
                             value={option.value}

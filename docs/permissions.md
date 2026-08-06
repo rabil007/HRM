@@ -30,7 +30,14 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 | Contracts / bank / training / sea service / profile tabs | `contracts.view|create|update|delete|import`, `contracts.salary_revisions.view|create|update|delete`, `bank_accounts.view|create|update|delete|import`, `training.view|create|update|delete|import`, `sea_services.view|create|update|delete|import`, `education.view|create|update|delete`, `work_experience.view|create|update|delete|import`, `vaccination.view|create|update|delete|import`, `languages.view|create|update|delete` |
 | Documents | `documents.view|download|share|upload|delete` |
 | Bulk documents / signatures | `bulk_documents.view|generate|delete|email`, `bulk_documents.signatures.review` |
-| Crew operations | `crew_operations.overview.view`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*`, `crew_operations.assignments.*`, `crew_operations.movements.perform`, `crew_operations.corrections.view|request|approve|override` |
+| Crew operations | `crew_operations.overview.view`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*`, `crew_operations.assignments.*`, `crew_operations.movements.perform`, `crew_operations.corrections.view|request|approve|override`, `crew_operations.rank_policies.view|update` |
+
+Rank Tour Policy permissions are auto-granted by `PermissionsSeeder` to existing company roles that already hold Crew Operations settings/overview capabilities:
+
+- `crew_operations.planning.update` → `rank_policies.view` + `rank_policies.update`
+- `crew_operations.planning.view` or `crew_operations.overview.view` (without planning.update) → `rank_policies.view` only
+
+Re-seed after catalog changes: `php artisan db:seed --class=PermissionsSeeder`. The seeded `Owner` role receives the full catalog when `AdminSeeder` runs.
 | Reports | `reports.crew_movement_history.view|export` |
 | Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` (incl. `view_all` and privileged `delete_any`; approve is step-scoped; `assigned_to_me` is historical assignment visibility only), `attendance.leave-approval-policies.*`, `attendance.leave-approval-settings.view|update` (company-scoped approver defaults and leave-request email notification switches; Email Templates still control content/enabled state) |
 | Payroll | `payroll.overview.view`, `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, `payroll.payslips.*`, `payroll.wps.export` |
