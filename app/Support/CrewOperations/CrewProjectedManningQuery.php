@@ -19,8 +19,9 @@ use InvalidArgumentException;
 /**
  * Read-only date-aware projected vessel/rank manning for a company date range.
  *
- * Calendar-day semantics in the company timezone. Same-day: join events apply
- * before sign-off events (handover without an artificial one-day gap).
+ * Calendar-day semantics in the company timezone. Event display order on a shared
+ * date is join before sign-off; min/max/gap/overlap are computed from the net
+ * end-of-day count after all events for that date are applied.
  */
 final class CrewProjectedManningQuery
 {
@@ -43,6 +44,8 @@ final class CrewProjectedManningQuery
      *         rank_id: int,
      *         rank_name: string,
      *         required_count: int,
+     *         actual_onboard_at_start: int,
+     *         projected_count_at_start: int,
      *         starting_count: int,
      *         minimum_projected_count: int,
      *         maximum_projected_count: int,
@@ -105,9 +108,33 @@ final class CrewProjectedManningQuery
             ->whereIn('vessel_id', $vesselIds)
             ->whereIn('rank_id', $rankIds)
             ->where('status', '!=', CrewAssignmentStatus::Cancelled->value)
+            ->where(function ($query) use ($fromDate, $companyId): void {
+                $query->whereIn('status', [
+                    CrewAssignmentStatus::Draft->value,
+                    CrewAssignmentStatus::Active->value,
+                ])->orWhere(function ($completed) use ($fromDate, $companyId): void {
+                    $completed->where('status', CrewAssignmentStatus::Completed->value)
+                        ->whereHas('phases', function ($phase) use ($fromDate, $companyId): void {
+                            $phase->where('company_id', $companyId)
+                                ->where('phase_code', CrewPhaseCode::OnVessel->value)
+                                ->whereNotNull('actual_start_at')
+                                ->where(function ($interval) use ($fromDate): void {
+                                    $interval->whereNull('actual_end_at')
+                                        ->orWhere('actual_end_at', '>=', $fromDate.' 00:00:00');
+                                });
+                        });
+                });
+            })
             ->with([
-                'phases' => fn ($q) => $q->where('phase_code', CrewPhaseCode::OnVessel->value),
-                'planningAssignment',
+                'phases' => fn ($q) => $q
+                    ->where('company_id', $companyId)
+                    ->where('phase_code', CrewPhaseCode::OnVessel->value)
+                    ->orderBy('sequence'),
+                'currentPhase' => fn ($q) => $q->where('company_id', $companyId),
+                'planningAssignment' => fn ($q) => $q->where('company_id', $companyId),
+                'employee' => fn ($q) => $q
+                    ->where('company_id', $companyId)
+                    ->select(['id', 'company_id', 'name', 'employee_no']),
             ])
             ->get([
                 'id',
@@ -116,6 +143,7 @@ final class CrewProjectedManningQuery
                 'vessel_id',
                 'rank_id',
                 'status',
+                'current_phase_id',
                 'planned_join_at',
                 'planned_signoff_at',
             ]);
@@ -128,6 +156,11 @@ final class CrewProjectedManningQuery
             ->whereIn('rank_id', $rankIds)
             ->whereNull('crew_assignment_id')
             ->whereNotNull('employee_id')
+            ->with([
+                'employee' => fn ($q) => $q
+                    ->where('company_id', $companyId)
+                    ->select(['id', 'company_id', 'name', 'employee_no']),
+            ])
             ->get([
                 'id',
                 'company_id',
@@ -140,7 +173,13 @@ final class CrewProjectedManningQuery
                 'crew_assignment_id',
             ]);
 
-        $segmentsByKey = $this->buildSegments($assignments, $planningOnly, $timezone, $linkedAssignmentIds);
+        $segmentsByKey = $this->buildSegments(
+            $assignments,
+            $planningOnly,
+            $companyId,
+            $timezone,
+            $linkedAssignmentIds,
+        );
 
         $items = [];
         $summary = [
@@ -169,10 +208,14 @@ final class CrewProjectedManningQuery
             $summary['positions']++;
             $summary['total_projected_shortfall_days'] += $this->shortfallDays($item['periods'], $fromDate, $toDate);
 
+            if ($item['has_overlap']) {
+                $summary['overlap_positions']++;
+            }
+
             match ($item['status']) {
                 CrewProjectedManningStatus::CurrentGap->value => $summary['current_gap_positions']++,
                 CrewProjectedManningStatus::FutureGap->value => $summary['future_gap_positions']++,
-                CrewProjectedManningStatus::Overlap->value => $summary['overlap_positions']++,
+                CrewProjectedManningStatus::Overlap->value => null,
                 default => $summary['covered_positions']++,
             };
         }
@@ -191,8 +234,9 @@ final class CrewProjectedManningQuery
      * @param  Collection<int, CrewPlanningAssignment>  $planningOnly
      * @param  list<int>  $linkedAssignmentIds
      * @return Collection<string, Collection<int, array{
-     *     join: string|null,
+     *     join: string,
      *     leave: string|null,
+     *     is_actual: bool,
      *     employee_id: int|null,
      *     crew_assignment_id: int|null,
      *     crew_planning_assignment_id: int|null,
@@ -202,28 +246,29 @@ final class CrewProjectedManningQuery
     private function buildSegments(
         Collection $assignments,
         Collection $planningOnly,
+        int $companyId,
         string $timezone,
         array $linkedAssignmentIds,
     ): Collection {
         $byKey = collect();
 
         foreach ($assignments as $assignment) {
-            $segment = $this->segmentFromAssignment($assignment, $timezone);
+            foreach ($this->segmentsFromAssignment($assignment, $companyId, $timezone) as $segment) {
+                $key = $this->key((int) $assignment->vessel_id, (int) $assignment->rank_id);
 
-            if ($segment === null) {
-                continue;
+                if (! $byKey->has($key)) {
+                    $byKey->put($key, collect());
+                }
+
+                $byKey->get($key)->push($segment);
             }
-
-            $key = $this->key((int) $assignment->vessel_id, (int) $assignment->rank_id);
-
-            if (! $byKey->has($key)) {
-                $byKey->put($key, collect());
-            }
-
-            $byKey->get($key)->push($segment);
         }
 
         foreach ($planningOnly as $planning) {
+            if ((int) $planning->company_id !== $companyId) {
+                continue;
+            }
+
             if ($planning->crew_assignment_id !== null
                 && in_array((int) $planning->crew_assignment_id, $linkedAssignmentIds, true)) {
                 continue;
@@ -233,8 +278,12 @@ final class CrewProjectedManningQuery
                 continue;
             }
 
-            $join = $planning->planned_join_date->toDateString();
-            $leave = $planning->planned_leave_date?->toDateString();
+            $employee = $planning->relationLoaded('employee') ? $planning->employee : null;
+
+            if ($employee === null || (int) $employee->company_id !== $companyId) {
+                continue;
+            }
+
             $key = $this->key((int) $planning->vessel_id, (int) $planning->rank_id);
 
             if (! $byKey->has($key)) {
@@ -242,9 +291,10 @@ final class CrewProjectedManningQuery
             }
 
             $byKey->get($key)->push([
-                'join' => $join,
-                'leave' => $leave,
-                'employee_id' => (int) $planning->employee_id,
+                'join' => $planning->planned_join_date->toDateString(),
+                'leave' => $planning->planned_leave_date?->toDateString(),
+                'is_actual' => false,
+                'employee_id' => (int) $employee->id,
                 'crew_assignment_id' => null,
                 'crew_planning_assignment_id' => (int) $planning->id,
                 'is_relief' => $planning->relieves_crew_assignment_id !== null,
@@ -255,95 +305,156 @@ final class CrewProjectedManningQuery
     }
 
     /**
-     * @return array{
-     *     join: string|null,
+     * @return list<array{
+     *     join: string,
      *     leave: string|null,
+     *     is_actual: bool,
      *     employee_id: int|null,
      *     crew_assignment_id: int|null,
      *     crew_planning_assignment_id: int|null,
      *     is_relief: bool
-     * }|null
+     * }>
      */
-    private function segmentFromAssignment(CrewAssignment $assignment, string $timezone): ?array
-    {
+    private function segmentsFromAssignment(
+        CrewAssignment $assignment,
+        int $companyId,
+        string $timezone,
+    ): array {
         if ($assignment->status === CrewAssignmentStatus::Cancelled) {
-            return null;
+            return [];
         }
 
-        $p4 = $this->primaryOnVesselPhase($assignment);
+        if ((int) $assignment->company_id !== $companyId) {
+            return [];
+        }
+
+        if ($assignment->employee_id !== null) {
+            $employee = $assignment->relationLoaded('employee') ? $assignment->employee : null;
+
+            if ($employee === null || (int) $employee->company_id !== $companyId) {
+                return [];
+            }
+
+            $employeeId = (int) $employee->id;
+        } else {
+            $employeeId = null;
+        }
+
         $planning = $assignment->relationLoaded('planningAssignment')
             ? $assignment->planningAssignment
             : null;
 
-        $join = $this->resolveJoinDate($assignment, $p4, $planning, $timezone);
-        $leave = $this->resolveLeaveDate($assignment, $p4, $planning, $timezone);
-
-        if ($join === null && $leave === null && $p4?->actual_start_at === null) {
-            return null;
+        if ($planning !== null && (int) $planning->company_id !== $companyId) {
+            $planning = null;
         }
+
+        $phases = ($assignment->relationLoaded('phases') ? $assignment->phases : collect())
+            ->filter(function (CrewAssignmentPhase $phase) use ($companyId): bool {
+                return $phase->phase_code === CrewPhaseCode::OnVessel
+                    && (int) $phase->company_id === $companyId;
+            })
+            ->sortBy(fn (CrewAssignmentPhase $phase): int => (int) $phase->sequence)
+            ->values();
+
+        $segments = [];
+        $hasActualP4 = false;
+
+        foreach ($phases as $phase) {
+            if ($phase->actual_start_at === null) {
+                continue;
+            }
+
+            $hasActualP4 = true;
+            $join = $this->toCompanyDate($phase->actual_start_at, $timezone);
+            $leave = $phase->actual_end_at !== null
+                ? $this->toCompanyDate($phase->actual_end_at, $timezone)
+                : $this->resolveForecastLeave($assignment, $phase, $planning, $timezone);
+
+            $segments[] = [
+                'join' => $join,
+                'leave' => $leave,
+                'is_actual' => true,
+                'employee_id' => $employeeId,
+                'crew_assignment_id' => (int) $assignment->id,
+                'crew_planning_assignment_id' => $planning?->id !== null ? (int) $planning->id : null,
+                'is_relief' => $planning?->relieves_crew_assignment_id !== null,
+            ];
+        }
+
+        if ($hasActualP4 || ! $this->allowsProjectedFallback($assignment)) {
+            return $segments;
+        }
+
+        $join = $this->resolveForecastJoin($assignment, $planning, $timezone);
 
         if ($join === null) {
-            return null;
+            return $segments;
         }
 
-        return [
+        $segments[] = [
             'join' => $join,
-            'leave' => $leave,
-            'employee_id' => $assignment->employee_id !== null ? (int) $assignment->employee_id : null,
+            'leave' => $this->resolveForecastLeave($assignment, null, $planning, $timezone),
+            'is_actual' => false,
+            'employee_id' => $employeeId,
             'crew_assignment_id' => (int) $assignment->id,
             'crew_planning_assignment_id' => $planning?->id !== null ? (int) $planning->id : null,
             'is_relief' => $planning?->relieves_crew_assignment_id !== null,
         ];
+
+        return $segments;
     }
 
-    private function primaryOnVesselPhase(CrewAssignment $assignment): ?CrewAssignmentPhase
+    private function allowsProjectedFallback(CrewAssignment $assignment): bool
     {
-        $phases = $assignment->relationLoaded('phases')
-            ? $assignment->phases
-            : $assignment->phases()->where('phase_code', CrewPhaseCode::OnVessel)->get();
+        if ($assignment->status === CrewAssignmentStatus::Completed) {
+            return false;
+        }
 
-        $onVessel = $phases
-            ->filter(fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === CrewPhaseCode::OnVessel)
-            ->sortByDesc(fn (CrewAssignmentPhase $phase): int => (int) $phase->sequence)
-            ->values();
+        if (! in_array($assignment->status, [
+            CrewAssignmentStatus::Draft,
+            CrewAssignmentStatus::Active,
+        ], true)) {
+            return false;
+        }
 
-        return $onVessel->first(fn (CrewAssignmentPhase $phase): bool => $phase->actual_start_at !== null)
-            ?? $onVessel->first();
+        $current = $assignment->relationLoaded('currentPhase')
+            ? $assignment->currentPhase
+            : null;
+
+        if ($current !== null && in_array($current->phase_code, [
+            CrewPhaseCode::DemobStandby,
+            CrewPhaseCode::HomeRedeploy,
+        ], true)) {
+            return false;
+        }
+
+        return true;
     }
 
-    private function resolveJoinDate(
+    private function resolveForecastJoin(
         CrewAssignment $assignment,
-        ?CrewAssignmentPhase $p4,
         ?CrewPlanningAssignment $planning,
         string $timezone,
     ): ?string {
-        if ($p4?->actual_start_at !== null) {
-            return $p4->actual_start_at->copy()->timezone($timezone)->toDateString();
-        }
-
         if ($assignment->planned_join_at !== null) {
-            return $assignment->planned_join_at->copy()->timezone($timezone)->toDateString();
+            return $this->toCompanyDate($assignment->planned_join_at, $timezone);
         }
 
         return $planning?->planned_join_date?->toDateString();
     }
 
-    private function resolveLeaveDate(
+    private function resolveForecastLeave(
         CrewAssignment $assignment,
-        ?CrewAssignmentPhase $p4,
+        ?CrewAssignmentPhase $phase,
         ?CrewPlanningAssignment $planning,
         string $timezone,
     ): ?string {
-        if ($p4?->actual_end_at !== null) {
-            return $p4->actual_end_at->copy()->timezone($timezone)->toDateString();
-        }
-
         if ($assignment->planned_signoff_at !== null) {
-            return $assignment->planned_signoff_at->copy()->timezone($timezone)->toDateString();
+            return $this->toCompanyDate($assignment->planned_signoff_at, $timezone);
         }
 
-        if ($p4?->planned_end_at !== null) {
-            return $p4->planned_end_at->copy()->timezone($timezone)->toDateString();
+        if ($phase?->planned_end_at !== null) {
+            return $this->toCompanyDate($phase->planned_end_at, $timezone);
         }
 
         return $planning?->planned_leave_date?->toDateString();
@@ -351,8 +462,9 @@ final class CrewProjectedManningQuery
 
     /**
      * @param  Collection<int, array{
-     *     join: string|null,
+     *     join: string,
      *     leave: string|null,
+     *     is_actual: bool,
      *     employee_id: int|null,
      *     crew_assignment_id: int|null,
      *     crew_planning_assignment_id: int|null,
@@ -370,31 +482,27 @@ final class CrewProjectedManningQuery
         string $toDate,
         Collection $segments,
     ): array {
-        $starting = 0;
+        $actualOnboard = 0;
+        $projectedAtStart = 0;
         $events = [];
         $hasOpenEnded = false;
 
         foreach ($segments as $segment) {
             $join = $segment['join'];
             $leave = $segment['leave'];
+            $coversStart = $join <= $fromDate && ($leave === null || $leave >= $fromDate);
 
-            if ($join === null) {
-                continue;
-            }
+            if ($coversStart) {
+                $projectedAtStart++;
 
-            $onboardAtStart = $join <= $fromDate && ($leave === null || $leave >= $fromDate);
-
-            if ($onboardAtStart) {
-                $starting++;
+                if ($segment['is_actual']) {
+                    $actualOnboard++;
+                }
 
                 if ($leave === null) {
                     $hasOpenEnded = true;
                 } elseif ($leave >= $fromDate && $leave <= $toDate) {
-                    $events[] = $this->event(
-                        $leave,
-                        CrewProjectedManningEventType::SignOff,
-                        $segment,
-                    );
+                    $events[] = $this->event($leave, CrewProjectedManningEventType::SignOff, $segment);
                 }
 
                 continue;
@@ -409,20 +517,12 @@ final class CrewProjectedManningQuery
             }
 
             if ($join > $fromDate && $join <= $toDate) {
-                $events[] = $this->event(
-                    $join,
-                    CrewProjectedManningEventType::Join,
-                    $segment,
-                );
+                $events[] = $this->event($join, CrewProjectedManningEventType::Join, $segment);
 
                 if ($leave === null) {
                     $hasOpenEnded = true;
                 } elseif ($leave >= $fromDate && $leave <= $toDate) {
-                    $events[] = $this->event(
-                        $leave,
-                        CrewProjectedManningEventType::SignOff,
-                        $segment,
-                    );
+                    $events[] = $this->event($leave, CrewProjectedManningEventType::SignOff, $segment);
                 }
             }
         }
@@ -434,43 +534,37 @@ final class CrewProjectedManningQuery
                 return $dateCmp;
             }
 
-            $typeA = CrewProjectedManningEventType::from($a['type']);
-            $typeB = CrewProjectedManningEventType::from($b['type']);
-
-            return $typeA->sortOrder() <=> $typeB->sortOrder();
+            return CrewProjectedManningEventType::from($a['type'])->sortOrder()
+                <=> CrewProjectedManningEventType::from($b['type'])->sortOrder();
         });
 
-        $count = $starting;
-        $minimum = $starting;
-        $maximum = $starting;
-        $maximumGap = max(0, $required - $starting);
-        $nextGapDate = $starting < $required ? $fromDate : null;
+        $count = $projectedAtStart;
+        $minimum = $projectedAtStart;
+        $maximum = $projectedAtStart;
+        $maximumGap = max(0, $required - $projectedAtStart);
+        $nextGapDate = $projectedAtStart < $required ? $fromDate : null;
         $hasDeparture = false;
         $hasIncoming = false;
 
         $periods = [];
         $periodStart = $fromDate;
-        $periodCount = $starting;
+        $periodCount = $projectedAtStart;
 
         $flushPeriod = function (string $periodEnd) use (&$periods, &$periodStart, &$periodCount, $required): void {
             if ($periodStart > $periodEnd) {
                 return;
             }
 
-            $gap = max(0, $required - $periodCount);
-            $excess = max(0, $periodCount - $required);
             $periods[] = [
                 'from' => $periodStart,
                 'to' => $periodEnd,
                 'projected_count' => $periodCount,
-                'gap' => $gap,
-                'excess' => $excess,
+                'gap' => max(0, $required - $periodCount),
+                'excess' => max(0, $periodCount - $required),
             ];
         };
 
-        $grouped = collect($events)->groupBy('date');
-
-        foreach ($grouped as $date => $dayEvents) {
+        foreach (collect($events)->groupBy('date') as $date => $dayEvents) {
             $day = (string) $date;
 
             if ($day > $periodStart) {
@@ -480,10 +574,6 @@ final class CrewProjectedManningQuery
 
             foreach ($dayEvents as $event) {
                 $count += (int) $event['delta'];
-                $minimum = min($minimum, $count);
-                $maximum = max($maximum, $count);
-                $gap = max(0, $required - $count);
-                $maximumGap = max($maximumGap, $gap);
 
                 if ($event['type'] === CrewProjectedManningEventType::SignOff->value) {
                     $hasDeparture = true;
@@ -492,10 +582,16 @@ final class CrewProjectedManningQuery
                 if ($event['type'] === CrewProjectedManningEventType::Join->value) {
                     $hasIncoming = true;
                 }
+            }
 
-                if ($gap > 0 && $nextGapDate === null) {
-                    $nextGapDate = $day;
-                }
+            // Aggregate after all same-day events so one-for-one handovers do not false-overlap.
+            $minimum = min($minimum, $count);
+            $maximum = max($maximum, $count);
+            $gap = max(0, $required - $count);
+            $maximumGap = max($maximumGap, $gap);
+
+            if ($gap > 0 && $nextGapDate === null) {
+                $nextGapDate = $day;
             }
 
             $periodCount = $count;
@@ -503,7 +599,7 @@ final class CrewProjectedManningQuery
 
         $flushPeriod($toDate);
 
-        $currentGap = max(0, $required - $starting);
+        $currentGap = max(0, $required - $projectedAtStart);
         $hasOverlap = $maximum > $required;
         $status = $this->resolveStatus(
             currentGap: $currentGap,
@@ -519,7 +615,9 @@ final class CrewProjectedManningQuery
             'rank_id' => $rankId,
             'rank_name' => $rankName,
             'required_count' => $required,
-            'starting_count' => $starting,
+            'actual_onboard_at_start' => $actualOnboard,
+            'projected_count_at_start' => $projectedAtStart,
+            'starting_count' => $projectedAtStart,
             'minimum_projected_count' => $minimum,
             'maximum_projected_count' => $maximum,
             'current_gap' => $currentGap,
@@ -623,20 +721,23 @@ final class CrewProjectedManningQuery
         string|CarbonInterface $to,
         string $timezone,
     ): array {
-        $fromDate = CarbonImmutable::parse(
-            $from instanceof CarbonInterface ? $from->toDateString() : (string) $from,
-            $timezone,
-        )->toDateString();
-        $toDate = CarbonImmutable::parse(
-            $to instanceof CarbonInterface ? $to->toDateString() : (string) $to,
-            $timezone,
-        )->toDateString();
+        $fromDate = $this->toCompanyDate($from, $timezone);
+        $toDate = $this->toCompanyDate($to, $timezone);
 
         if ($fromDate > $toDate) {
             throw new InvalidArgumentException('Projection "from" date must be on or before "to" date.');
         }
 
         return [$fromDate, $toDate];
+    }
+
+    private function toCompanyDate(string|CarbonInterface $value, string $timezone): string
+    {
+        if ($value instanceof CarbonInterface) {
+            return $value->copy()->timezone($timezone)->toDateString();
+        }
+
+        return CarbonImmutable::parse((string) $value, $timezone)->toDateString();
     }
 
     private function key(int $vesselId, int $rankId): string

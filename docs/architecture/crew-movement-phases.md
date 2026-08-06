@@ -298,19 +298,37 @@ Planned Sign-Off is forecast-only; it never completes P4, creates Sea Service, o
 
 ### Same-day ordering
 
-Company-local calendar days. On a shared date, **join events apply before sign-off events** (handover without an artificial one-day gap).
+Company-local calendar days. Event **display** order on a shared date is join before sign-off. Min/max/gap/overlap are calculated from the **net end-of-day count** after all events for that date are applied, so a one-for-one handover does not create false overlap.
 
-### Starting onboard count
+### Actual vs projected counts at range start
 
-Person counts at range start when join date ≤ `from` and leave is null or leave ≥ `from`, based on resolved dates (actual P4 preferred). Draft without an actual/planned join does not count.
+| Field | Meaning |
+|-------|---------|
+| `actual_onboard_at_start` | Only actual P4 intervals (`actual_start_at` ≤ `from`, and `actual_end_at` null or ≥ `from`) |
+| `projected_count_at_start` | Actual intervals plus valid planned coverage at `from` |
+| `starting_count` | Compatibility alias of `projected_count_at_start` |
+
+Overdue Planning rows and pre-P4 Draft/planned assignments are **not** actual onboard. They may still contribute to `projected_count_at_start` when their resolved join ≤ `from` and leave is open or ≥ `from`.
+
+### Repeatable P4 phases
+
+Each On Vessel phase with `actual_start_at` becomes its own projection segment (ordered by `sequence`). Assignment/Planning forecast dates are used only when they do not duplicate an actual P4 segment (typically Draft/Active with no actual P4 yet).
+
+### Completed / P5 / P6
+
+Completed assignments contribute historical actual P4 intervals only — never stale planned joins or Planning-driven future joins. Active P5/P6 may contribute historical P4 intervals but never projected fallback joins. Cancelled assignments remain excluded.
+
+### Tenant-safe relations
+
+Trusted `companyId` is enforced independently on Vessel Manning, assignments, phases, linked Planning, and employees. Malformed cross-company relations are omitted and their IDs are not exposed on events.
 
 ### Relief
 
 Uses Phase 2A Planning relief links. Late relief → gap between source leave and relief join; early relief → overlap/excess. Historical P5/P6 / cancelled / completed linked relief follow assignment P4 history and status exclusions, not readiness labels alone.
 
-### Tenant scope
+### Summary overlap
 
-Trusted `companyId` only. Vessel Manning, assignments, and Planning are company-scoped. Cross-company rows never appear.
+`summary.overlap_positions` counts rows where `has_overlap` is true (not only when primary status is `overlap`).
 
 ### Deferred UI
 

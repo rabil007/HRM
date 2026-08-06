@@ -60,7 +60,9 @@ it('counts current onboard from actual P4 coverage at range start', function () 
 
     $item = firstProjectedItem(projectManning($ctx, '2026-08-01', '2026-08-31'));
 
-    expect($item['starting_count'])->toBe(1)
+    expect($item['actual_onboard_at_start'])->toBe(1)
+        ->and($item['projected_count_at_start'])->toBe(1)
+        ->and($item['starting_count'])->toBe(1)
         ->and($item['required_count'])->toBe(1)
         ->and($item['current_gap'])->toBe(0)
         ->and($item['status'])->toBe(CrewProjectedManningStatus::Covered->value);
@@ -72,7 +74,9 @@ it('produces current gap when Vessel Manning has no crew', function () {
 
     $item = firstProjectedItem(projectManning($ctx, '2026-08-01', '2026-08-31'));
 
-    expect($item['starting_count'])->toBe(0)
+    expect($item['actual_onboard_at_start'])->toBe(0)
+        ->and($item['projected_count_at_start'])->toBe(0)
+        ->and($item['starting_count'])->toBe(0)
         ->and($item['current_gap'])->toBe(2)
         ->and($item['status'])->toBe(CrewProjectedManningStatus::CurrentGap->value)
         ->and($item['next_gap_date'])->toBe('2026-08-01');
@@ -191,7 +195,9 @@ it('does not create an artificial gap for same-day join and sign-off', function 
     $gapPeriods = collect($item['periods'])->filter(fn (array $p): bool => $p['gap'] > 0);
 
     expect($gapPeriods)->toBeEmpty()
-        ->and($item['maximum_gap'])->toBe(0);
+        ->and($item['maximum_gap'])->toBe(0)
+        ->and($item['has_overlap'])->toBeFalse()
+        ->and($item['maximum_projected_count'])->toBe(1);
 });
 
 it('ignores vacant Planning and counts Planning-only employees once with linked assignments', function () {
@@ -366,4 +372,223 @@ it('uses company timezone calendar boundaries for event dates', function () {
     expect($result['company_timezone'])->toBe('Asia/Dubai')
         ->and($item['starting_count'])->toBe(1)
         ->and(collect($item['events'])->firstWhere('type', 'signoff')['date'])->toBe('2026-08-21');
+});
+
+it('does not treat overdue Planning or pre-P4 assignments as actual onboard but may project them', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $ctx = makeProjectedManningPosition($fixtures, 'Overdue Projected Vessel');
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $ctx['company']->id,
+        'vessel_id' => $ctx['vessel']->id,
+        'rank_id' => $ctx['rank']->id,
+        'employee_id' => Employee::factory()->forCompany($ctx['company'])->create([
+            'rank_id' => $ctx['rank']->id,
+            'status' => 'active',
+        ])->id,
+        'planned_join_date' => '2026-07-15',
+        'planned_leave_date' => '2026-10-15',
+    ]);
+
+    $draft = CrewAssignment::query()->create([
+        'company_id' => $ctx['company']->id,
+        'assignment_no' => 'CA-2026-DRAFT1',
+        'employee_id' => Employee::factory()->forCompany($ctx['company'])->create([
+            'rank_id' => $ctx['rank']->id,
+            'status' => 'active',
+        ])->id,
+        'rank_id' => $ctx['rank']->id,
+        'vessel_id' => $ctx['vessel']->id,
+        'status' => CrewAssignmentStatus::Draft,
+        'planned_join_at' => '2026-07-10 00:00:00',
+        'planned_signoff_at' => '2026-10-10 00:00:00',
+        'source' => 'manual',
+    ]);
+    $phase = CrewAssignmentPhase::query()->create([
+        'company_id' => $ctx['company']->id,
+        'crew_assignment_id' => $draft->id,
+        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Planned,
+    ]);
+    $draft->update(['current_phase_id' => $phase->id]);
+
+    $item = firstProjectedItem(projectManning($ctx, '2026-08-01', '2026-08-31'));
+
+    expect($item['actual_onboard_at_start'])->toBe(0)
+        ->and($item['projected_count_at_start'])->toBe(2)
+        ->and($item['starting_count'])->toBe(2);
+});
+
+it('keeps multiple actual P4 occurrences as separate segments', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $ctx = makeProjectedManningPosition($fixtures, 'Repeatable P4 Vessel', required: 1);
+
+    $assignment = CrewAssignment::query()->create([
+        'company_id' => $ctx['company']->id,
+        'assignment_no' => 'CA-2026-REP4',
+        'employee_id' => $ctx['employee']->id,
+        'rank_id' => $ctx['rank']->id,
+        'vessel_id' => $ctx['vessel']->id,
+        'status' => CrewAssignmentStatus::Active,
+        'source' => 'manual',
+    ]);
+    CrewAssignmentPhase::query()->create([
+        'company_id' => $ctx['company']->id,
+        'crew_assignment_id' => $assignment->id,
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-07-01 08:00:00',
+        'actual_end_at' => '2026-07-20 08:00:00',
+    ]);
+    $second = CrewAssignmentPhase::query()->create([
+        'company_id' => $ctx['company']->id,
+        'crew_assignment_id' => $assignment->id,
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-08-10 08:00:00',
+        'actual_end_at' => null,
+    ]);
+    $assignment->update(['current_phase_id' => $second->id]);
+
+    $item = firstProjectedItem(projectManning($ctx, '2026-08-01', '2026-08-31'));
+
+    expect($item['actual_onboard_at_start'])->toBe(0)
+        ->and(collect($item['events'])->where('type', 'join')->pluck('date')->all())->toBe(['2026-08-10'])
+        ->and($item['maximum_projected_count'])->toBe(1);
+});
+
+it('does not let completed or P5/P6 assignments create stale future joins', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $ctx = makeProjectedManningPosition($fixtures, 'Stale Future Vessel');
+
+    $completed = CrewAssignment::query()->create([
+        'company_id' => $ctx['company']->id,
+        'assignment_no' => 'CA-2026-COMP1',
+        'employee_id' => Employee::factory()->forCompany($ctx['company'])->create([
+            'rank_id' => $ctx['rank']->id,
+            'status' => 'active',
+        ])->id,
+        'rank_id' => $ctx['rank']->id,
+        'vessel_id' => $ctx['vessel']->id,
+        'status' => CrewAssignmentStatus::Completed,
+        'planned_join_at' => '2026-08-15 00:00:00',
+        'planned_signoff_at' => '2026-09-15 00:00:00',
+        'source' => 'manual',
+    ]);
+    CrewAssignmentPhase::query()->create([
+        'company_id' => $ctx['company']->id,
+        'crew_assignment_id' => $completed->id,
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-01 08:00:00',
+        'actual_end_at' => '2026-07-01 08:00:00',
+    ]);
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $ctx['company']->id,
+        'vessel_id' => $ctx['vessel']->id,
+        'rank_id' => $ctx['rank']->id,
+        'employee_id' => $completed->employee_id,
+        'crew_assignment_id' => $completed->id,
+        'planned_join_date' => '2026-08-18',
+        'planned_leave_date' => '2026-11-18',
+    ]);
+
+    $p5 = makeActiveOnVesselAssignment(
+        $ctx['company'],
+        Employee::factory()->forCompany($ctx['company'])->create([
+            'rank_id' => $ctx['rank']->id,
+            'status' => 'active',
+        ]),
+        $ctx['rank'],
+        $ctx['vessel'],
+        ['planned_join_at' => '2026-08-25 00:00:00', 'planned_signoff_at' => '2026-09-25 00:00:00'],
+    );
+    $p5->currentPhase->update([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-05-01 08:00:00',
+        'actual_end_at' => '2026-06-01 08:00:00',
+    ]);
+    $demob = CrewAssignmentPhase::query()->create([
+        'company_id' => $ctx['company']->id,
+        'crew_assignment_id' => $p5->id,
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-06-01 09:00:00',
+    ]);
+    $p5->update(['current_phase_id' => $demob->id]);
+
+    $item = firstProjectedItem(projectManning($ctx, '2026-08-01', '2026-08-31'));
+
+    expect(collect($item['events'])->where('type', 'join'))->toBeEmpty()
+        ->and($item['actual_onboard_at_start'])->toBe(0)
+        ->and($item['projected_count_at_start'])->toBe(0);
+});
+
+it('creates overlap only for same-day net increase and counts summary overlap from has_overlap', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $ctx = makeProjectedManningPosition($fixtures, 'Same Day Net Vessel');
+    makeActiveOnVesselAssignment($ctx['company'], $ctx['employee'], $ctx['rank'], $ctx['vessel'], [
+        'planned_signoff_at' => '2026-08-20 00:00:00',
+    ]);
+    $incomingA = Employee::factory()->forCompany($ctx['company'])->create([
+        'rank_id' => $ctx['rank']->id,
+        'status' => 'active',
+    ]);
+    $incomingB = Employee::factory()->forCompany($ctx['company'])->create([
+        'rank_id' => $ctx['rank']->id,
+        'status' => 'active',
+    ]);
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $ctx['company']->id,
+        'vessel_id' => $ctx['vessel']->id,
+        'rank_id' => $ctx['rank']->id,
+        'employee_id' => $incomingA->id,
+        'planned_join_date' => '2026-08-20',
+        'planned_leave_date' => '2026-11-20',
+    ]);
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $ctx['company']->id,
+        'vessel_id' => $ctx['vessel']->id,
+        'rank_id' => $ctx['rank']->id,
+        'employee_id' => $incomingB->id,
+        'planned_join_date' => '2026-08-20',
+        'planned_leave_date' => '2026-11-20',
+    ]);
+
+    $result = projectManning($ctx, '2026-08-01', '2026-08-31');
+    $item = firstProjectedItem($result);
+
+    expect($item['has_overlap'])->toBeTrue()
+        ->and($item['maximum_projected_count'])->toBe(2)
+        ->and($result['summary']['overlap_positions'])->toBe(1);
+});
+
+it('converts CarbonInterface range bounds through the company timezone', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $fixtures['company']->update(['timezone' => 'Asia/Dubai']);
+    $ctx = makeProjectedManningPosition($fixtures, 'Carbon Bound Vessel');
+    makeActiveOnVesselAssignment($ctx['company'], $ctx['employee'], $ctx['rank'], $ctx['vessel'], [
+        'planned_signoff_at' => null,
+    ]);
+
+    $from = CarbonImmutable::parse('2026-07-31 22:00:00', 'UTC');
+    $to = CarbonImmutable::parse('2026-08-31 10:00:00', 'UTC');
+
+    $result = (new CrewProjectedManningQuery)->forCompany(
+        (int) $ctx['company']->id,
+        $from,
+        $to,
+        (int) $ctx['vessel']->id,
+        (int) $ctx['rank']->id,
+    );
+
+    expect($result['from'])->toBe('2026-08-01')
+        ->and($result['to'])->toBe('2026-08-31')
+        ->and($result['items'][0]['actual_onboard_at_start'])->toBe(1);
 });

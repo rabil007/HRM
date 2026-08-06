@@ -166,3 +166,55 @@ it('does not project cancelled completed or P5/P6 historical linked relief as fu
     expect(collect($item['events'])->where('crew_assignment_id', $linked->id))->toBeEmpty()
         ->and($item['status'])->toBe('future_gap');
 });
+
+it('excludes foreign employee phase and Planning relations from projection events', function () {
+    $a = makeCrewAssignmentFixtures();
+    $b = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Foreign Relation Vessel');
+
+    VesselManning::query()->create([
+        'company_id' => $a['company']->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $a['rank']->id,
+        'required_count' => 1,
+    ]);
+
+    $assignment = makeActiveOnVesselAssignment($a['company'], $a['employee'], $a['rank'], $vessel, [
+        'planned_signoff_at' => '2026-08-20 00:00:00',
+    ]);
+
+    // Malformed cross-company phase / planning / employee pointers must not count.
+    CrewAssignmentPhase::query()->create([
+        'company_id' => $b['company']->id,
+        'crew_assignment_id' => $assignment->id,
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 99,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-08-05 08:00:00',
+        'actual_end_at' => null,
+    ]);
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $b['company']->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $a['rank']->id,
+        'employee_id' => $b['employee']->id,
+        'crew_assignment_id' => $assignment->id,
+        'planned_join_date' => '2026-08-12',
+        'planned_leave_date' => '2026-11-12',
+    ]);
+
+    $result = (new CrewProjectedManningQuery)->forCompany(
+        (int) $a['company']->id,
+        '2026-08-01',
+        '2026-08-31',
+        (int) $vessel->id,
+        (int) $a['rank']->id,
+    );
+    $item = $result['items'][0];
+
+    expect($item['actual_onboard_at_start'])->toBe(1)
+        ->and(collect($item['events'])->where('date', '2026-08-05'))->toBeEmpty()
+        ->and(collect($item['events'])->pluck('employee_id')->filter(
+            fn ($id) => $id !== null && (int) $id === (int) $b['employee']->id,
+        ))->toBeEmpty();
+});
