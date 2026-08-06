@@ -23,6 +23,7 @@ All tests must be written using Pest. Use `php artisan make:test --pest {name}`.
 - Unit/Feature tests: `tests/Feature` and `tests/Unit` directories.
 - Browser tests: `tests/Browser/` directory.
 - Do NOT remove tests without approval - these are core application code.
+- Never use `migrate:fresh` / `db:wipe` on the Herd app DB for fixtures or query measurement. This project's `phpunit.xml` already isolates tests on sqlite `:memory:`. See `.cursor/rules/database-safety.mdc`.
 
 ### Basic Test Structure
 
