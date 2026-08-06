@@ -11,15 +11,19 @@ use App\Models\CrewAssignment;
 use App\Models\EmployeeSeaService;
 use App\Models\Vessel;
 use App\Models\VesselType;
+use App\Support\Vessels\StoresVesselCertificate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 class VesselController extends Controller
 {
     use ReturnsQuickCreateJson;
+
+    public function __construct(private StoresVesselCertificate $certificateStore) {}
 
     public function index(): InertiaResponse
     {
@@ -36,8 +40,34 @@ class VesselController extends Controller
                 'vessel_type_id',
                 'grt',
                 'bhp',
+                'official_no',
+                'call_sign',
+                'imo_no',
+                'certificate_path',
+                'certificate_original_filename',
                 'is_active',
-            ]);
+            ])
+            ->map(function (Vessel $vessel): array {
+                return [
+                    'id' => $vessel->id,
+                    'name' => $vessel->name,
+                    'vessel_type_id' => $vessel->vessel_type_id,
+                    'vessel_type' => $vessel->vesselType
+                        ? [
+                            'id' => $vessel->vesselType->id,
+                            'name' => $vessel->vesselType->name,
+                        ]
+                        : null,
+                    'grt' => $vessel->grt,
+                    'bhp' => $vessel->bhp,
+                    'official_no' => $vessel->official_no,
+                    'call_sign' => $vessel->call_sign,
+                    'imo_no' => $vessel->imo_no,
+                    'certificate_original_filename' => $vessel->certificate_original_filename,
+                    'certificate_url' => $this->certificateUrl($vessel->certificate_path),
+                    'is_active' => $vessel->is_active,
+                ];
+            });
 
         return Inertia::render('settings/master-data/vessels', [
             'vessels' => $vessels,
@@ -47,20 +77,52 @@ class VesselController extends Controller
 
     public function store(StoreVesselRequest $request): JsonResponse|RedirectResponse
     {
-        $data = $request->validated();
+        $data = $request->safe()->except(['certificate']);
         $data['is_active'] = $data['is_active'] ?? true;
+        $data['official_no'] = $this->nullableString($data['official_no'] ?? null);
+        $data['call_sign'] = $this->nullableString($data['call_sign'] ?? null);
+        $data['imo_no'] = $this->nullableString($data['imo_no'] ?? null);
 
-        return $this->createOrReturnExistingQuickCreate(
-            $request,
-            Vessel::class,
-            $data,
-            redirect()->route('settings.master-data.vessels.index'),
-        );
+        if ($request->wantsJson()) {
+            return $this->createOrReturnExistingQuickCreate(
+                $request,
+                Vessel::class,
+                $data,
+                redirect()->route('settings.master-data.vessels.index'),
+            );
+        }
+
+        $vessel = Vessel::query()->create($data);
+
+        if ($request->hasFile('certificate')) {
+            $vessel->update(
+                $this->certificateStore->store(
+                    $request->file('certificate'),
+                    (int) $vessel->id,
+                ),
+            );
+        }
+
+        return redirect()->route('settings.master-data.vessels.index');
     }
 
     public function update(UpdateVesselRequest $request, Vessel $vessel): RedirectResponse
     {
-        $vessel->update($request->validated());
+        $data = $request->safe()->except(['certificate']);
+        $data['official_no'] = $this->nullableString($data['official_no'] ?? null);
+        $data['call_sign'] = $this->nullableString($data['call_sign'] ?? null);
+        $data['imo_no'] = $this->nullableString($data['imo_no'] ?? null);
+
+        $vessel->update($data);
+
+        if ($request->hasFile('certificate')) {
+            $vessel->update(
+                $this->certificateStore->replace(
+                    $vessel->fresh() ?? $vessel,
+                    $request->file('certificate'),
+                ),
+            );
+        }
 
         return redirect()->route('settings.master-data.vessels.index');
     }
@@ -233,5 +295,25 @@ class VesselController extends Controller
         return redirect()
             ->route('settings.master-data.vessels.index')
             ->with('success', $message);
+    }
+
+    private function certificateUrl(?string $path): ?string
+    {
+        if ($path === null || $path === '') {
+            return null;
+        }
+
+        return Storage::disk('public')->url($path);
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $trimmed = trim((string) $value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 }

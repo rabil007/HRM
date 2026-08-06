@@ -55,6 +55,11 @@ type VesselRow = {
     vessel_type?: { id: number; name: string } | null;
     grt: string | number | null;
     bhp: number | null;
+    official_no: string | null;
+    call_sign: string | null;
+    imo_no: string | null;
+    certificate_original_filename: string | null;
+    certificate_url: string | null;
     is_active: boolean;
 };
 
@@ -82,12 +87,17 @@ export default function Vessels({
     const [importProcessing, setImportProcessing] = useState(false);
     const [importDragActive, setImportDragActive] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const certificateInputRef = useRef<HTMLInputElement>(null);
 
     const form = useForm({
         name: '',
         vessel_type_id: '' as number | '',
         grt: '',
         bhp: '',
+        official_no: '',
+        call_sign: '',
+        imo_no: '',
+        certificate: null as File | null,
         is_active: true,
     });
 
@@ -103,7 +113,10 @@ export default function Vessels({
                 v.name.toLowerCase().includes(q) ||
                 (v.vessel_type?.name ?? '').toLowerCase().includes(q) ||
                 String(v.grt ?? '').includes(q) ||
-                String(v.bhp ?? '').includes(q)
+                String(v.bhp ?? '').includes(q) ||
+                (v.official_no ?? '').toLowerCase().includes(q) ||
+                (v.call_sign ?? '').toLowerCase().includes(q) ||
+                (v.imo_no ?? '').toLowerCase().includes(q)
             );
         });
     }, [vessels, query]);
@@ -117,8 +130,17 @@ export default function Vessels({
             vessel_type_id: '',
             grt: '',
             bhp: '',
+            official_no: '',
+            call_sign: '',
+            imo_no: '',
+            certificate: null,
             is_active: true,
         });
+
+        if (certificateInputRef.current) {
+            certificateInputRef.current.value = '';
+        }
+
         setSheetOpen(true);
     };
 
@@ -137,12 +159,23 @@ export default function Vessels({
                 row.bhp !== null && row.bhp !== undefined
                     ? String(row.bhp)
                     : '',
+            official_no: row.official_no ?? '',
+            call_sign: row.call_sign ?? '',
+            imo_no: row.imo_no ?? '',
+            certificate: null,
             is_active: row.is_active,
         });
+
+        if (certificateInputRef.current) {
+            certificateInputRef.current.value = '';
+        }
+
         setSheetOpen(true);
     };
 
     const submit = () => {
+        const hasCertificate = form.data.certificate instanceof File;
+
         const payload = {
             name: form.data.name,
             vessel_type_id: form.data.vessel_type_id,
@@ -151,13 +184,27 @@ export default function Vessels({
                 form.data.bhp.trim() === ''
                     ? null
                     : Number.parseInt(form.data.bhp, 10),
+            official_no:
+                form.data.official_no.trim() === ''
+                    ? null
+                    : form.data.official_no.trim(),
+            call_sign:
+                form.data.call_sign.trim() === ''
+                    ? null
+                    : form.data.call_sign.trim(),
+            imo_no:
+                form.data.imo_no.trim() === ''
+                    ? null
+                    : form.data.imo_no.trim(),
             is_active: form.data.is_active,
+            ...(hasCertificate ? { certificate: form.data.certificate } : {}),
         };
 
         if (current) {
             form.transform(() => payload);
             form.put(`/settings/master-data/vessels/${current.id}`, {
                 preserveScroll: true,
+                forceFormData: hasCertificate,
                 onSuccess: () => setSheetOpen(false),
             });
 
@@ -167,6 +214,7 @@ export default function Vessels({
         form.transform(() => payload);
         form.post('/settings/master-data/vessels', {
             preserveScroll: true,
+            forceFormData: hasCertificate,
             onSuccess: () => setSheetOpen(false),
         });
     };
@@ -198,6 +246,9 @@ export default function Vessels({
                 vessel_type_id: row.vessel_type_id,
                 grt: row.grt,
                 bhp: row.bhp,
+                official_no: row.official_no,
+                call_sign: row.call_sign,
+                imo_no: row.imo_no,
                 is_active: !row.is_active,
             },
             { preserveScroll: true },
@@ -312,7 +363,7 @@ export default function Vessels({
                 <Heading
                     variant="small"
                     title="Vessels"
-                    description="Manage vessels, types, GRT, and BHP used across the system."
+                    description="Manage vessels, types, GRT, BHP, and identification used across the system."
                 />
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -340,73 +391,110 @@ export default function Vessels({
 
                 <div className="overflow-hidden rounded-xl border border-border/60">
                     <div className="overflow-x-auto">
-                        <div className="min-w-[980px]">
-                            <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
-                                <div className="col-span-3">Name</div>
-                                <div className="col-span-3">Vessel type</div>
-                                <div className="col-span-2">GRT</div>
-                                <div className="col-span-2">BHP</div>
-                                <div className="col-span-1">Active</div>
-                                <div className="col-span-1 text-right">
-                                    Actions
-                                </div>
+                        <table className="min-w-[1280px] w-full border-collapse text-sm">
+                            <thead>
+                                <tr className="bg-muted/30 text-left text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
+                                    <th className="px-4 py-3">Name</th>
+                                    <th className="px-4 py-3">Vessel type</th>
+                                    <th className="px-4 py-3">GRT</th>
+                                    <th className="px-4 py-3">BHP</th>
+                                    <th className="px-4 py-3">Official No</th>
+                                    <th className="px-4 py-3">Call Sign</th>
+                                    <th className="px-4 py-3">IMO No</th>
+                                    <th className="px-4 py-3">Certificate</th>
+                                    <th className="px-4 py-3">Active</th>
+                                    <th className="px-4 py-3 text-right">
+                                        Actions
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rows.map((v) => (
+                                    <tr
+                                        key={v.id}
+                                        className="border-t border-border/60 whitespace-nowrap"
+                                    >
+                                        <td className="max-w-[180px] truncate px-4 py-3">
+                                            {v.name}
+                                        </td>
+                                        <td className="max-w-[140px] truncate px-4 py-3 text-muted-foreground">
+                                            {v.vessel_type?.name ?? '—'}
+                                        </td>
+                                        <td className="px-4 py-3 tabular-nums">
+                                            {v.grt ?? '—'}
+                                        </td>
+                                        <td className="px-4 py-3 tabular-nums">
+                                            {v.bhp ?? '—'}
+                                        </td>
+                                        <td className="max-w-[120px] truncate px-4 py-3">
+                                            {v.official_no ?? '—'}
+                                        </td>
+                                        <td className="max-w-[100px] truncate px-4 py-3">
+                                            {v.call_sign ?? '—'}
+                                        </td>
+                                        <td className="max-w-[100px] truncate px-4 py-3">
+                                            {v.imo_no ?? '—'}
+                                        </td>
+                                        <td className="max-w-[160px] truncate px-4 py-3">
+                                            {v.certificate_url ? (
+                                                <a
+                                                    href={v.certificate_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-primary underline-offset-2 hover:underline"
+                                                >
+                                                    {v.certificate_original_filename ??
+                                                        'View'}
+                                                </a>
+                                            ) : (
+                                                '—'
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <Switch
+                                                disabled={!can.update}
+                                                checked={v.is_active}
+                                                onCheckedChange={() =>
+                                                    toggleActive(v)
+                                                }
+                                            />
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex justify-end gap-2">
+                                                {can.update ? (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() =>
+                                                            openEdit(v)
+                                                        }
+                                                    >
+                                                        Edit
+                                                    </Button>
+                                                ) : null}
+                                                {can.delete ? (
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        onClick={() =>
+                                                            requestDelete(v)
+                                                        }
+                                                    >
+                                                        Delete
+                                                    </Button>
+                                                ) : null}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+
+                        {rows.length === 0 ? (
+                            <div className="px-4 py-10 text-sm text-muted-foreground">
+                                No vessels found.
                             </div>
-
-                            {rows.map((v) => (
-                                <div
-                                    key={v.id}
-                                    className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
-                                >
-                                    <div className="col-span-3 truncate text-sm">
-                                        {v.name}
-                                    </div>
-                                    <div className="col-span-3 truncate text-sm text-muted-foreground">
-                                        {v.vessel_type?.name ?? '—'}
-                                    </div>
-                                    <div className="col-span-2 text-sm tabular-nums">
-                                        {v.grt ?? '—'}
-                                    </div>
-                                    <div className="col-span-2 text-sm tabular-nums">
-                                        {v.bhp ?? '—'}
-                                    </div>
-                                    <div className="col-span-1 flex items-center">
-                                        <Switch
-                                            disabled={!can.update}
-                                            checked={v.is_active}
-                                            onCheckedChange={() =>
-                                                toggleActive(v)
-                                            }
-                                        />
-                                    </div>
-                                    <div className="col-span-1 flex justify-end gap-2">
-                                        {can.update ? (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => openEdit(v)}
-                                            >
-                                                Edit
-                                            </Button>
-                                        ) : null}
-                                        {can.delete ? (
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={() => requestDelete(v)}
-                                            >
-                                                Delete
-                                            </Button>
-                                        ) : null}
-                                    </div>
-                                </div>
-                            ))}
-
-                            {rows.length === 0 ? (
-                                <div className="px-4 py-10 text-sm text-muted-foreground">
-                                    No vessels found.
-                                </div>
-                            ) : null}
-                        </div>
+                        ) : null}
                     </div>
                 </div>
             </div>
@@ -603,8 +691,8 @@ export default function Vessels({
                             {current ? 'Edit vessel' : 'New vessel'}
                         </SheetTitle>
                         <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
-                            GRT and BHP are managed here and shown on sea
-                            service records.
+                            Identification details and certificate are optional.
+                            GRT and BHP are shown on sea service records.
                         </SheetDescription>
                     </SheetHeader>
 
@@ -697,6 +785,106 @@ export default function Vessels({
                                     </div>
                                 ) : null}
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="official_no">Official No</Label>
+                            <Input
+                                id="official_no"
+                                value={form.data.official_no}
+                                onChange={(e) =>
+                                    form.setData('official_no', e.target.value)
+                                }
+                                placeholder="Official number"
+                            />
+                            {form.errors.official_no ? (
+                                <div className="text-xs text-destructive">
+                                    {form.errors.official_no}
+                                </div>
+                            ) : null}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="call_sign">Call Sign</Label>
+                                <Input
+                                    id="call_sign"
+                                    value={form.data.call_sign}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'call_sign',
+                                            e.target.value,
+                                        )
+                                    }
+                                    placeholder="Call sign"
+                                />
+                                {form.errors.call_sign ? (
+                                    <div className="text-xs text-destructive">
+                                        {form.errors.call_sign}
+                                    </div>
+                                ) : null}
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="imo_no">IMO No</Label>
+                                <Input
+                                    id="imo_no"
+                                    value={form.data.imo_no}
+                                    onChange={(e) =>
+                                        form.setData('imo_no', e.target.value)
+                                    }
+                                    placeholder="IMO number"
+                                />
+                                {form.errors.imo_no ? (
+                                    <div className="text-xs text-destructive">
+                                        {form.errors.imo_no}
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="certificate">
+                                Certificate of vessel
+                            </Label>
+                            <Input
+                                ref={certificateInputRef}
+                                id="certificate"
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                                onChange={(e) =>
+                                    form.setData(
+                                        'certificate',
+                                        e.target.files?.[0] ?? null,
+                                    )
+                                }
+                            />
+                            {form.data.certificate ? (
+                                <div className="text-xs text-muted-foreground">
+                                    Selected: {form.data.certificate.name}
+                                </div>
+                            ) : current?.certificate_url ? (
+                                <div className="text-xs text-muted-foreground">
+                                    Current:{' '}
+                                    <a
+                                        href={current.certificate_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-primary underline-offset-2 hover:underline"
+                                    >
+                                        {current.certificate_original_filename ??
+                                            'View certificate'}
+                                    </a>
+                                </div>
+                            ) : (
+                                <div className="text-xs text-muted-foreground">
+                                    PDF, JPG, or PNG up to 5 MB.
+                                </div>
+                            )}
+                            {form.errors.certificate ? (
+                                <div className="text-xs text-destructive">
+                                    {form.errors.certificate}
+                                </div>
+                            ) : null}
                         </div>
 
                         <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
