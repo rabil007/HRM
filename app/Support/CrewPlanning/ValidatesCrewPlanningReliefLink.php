@@ -7,11 +7,18 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
+use App\Support\CrewMovements\CrewReliefReadinessResolver;
 use Illuminate\Validation\Validator;
 
 final class ValidatesCrewPlanningReliefLink
 {
     /**
+     * Early Form Request validation for relief links.
+     *
+     * Always runs when `relieves_crew_assignment_id` is present, including vacant slots
+     * (`employee_id` null). Authoritative duplicate enforcement lives in
+     * {@see SaveCrewPlanningAssignment} after `lockForUpdate()`.
+     *
      * @param  array{
      *     company_id: int,
      *     relieves_crew_assignment_id: int|string|null,
@@ -22,10 +29,6 @@ final class ValidatesCrewPlanningReliefLink
      */
     public static function validate(Validator $validator, array $data, ?CrewPlanningAssignment $existing = null): void
     {
-        if ($validator->errors()->isNotEmpty()) {
-            return;
-        }
-
         if ($existing?->crew_assignment_id !== null) {
             return;
         }
@@ -111,19 +114,11 @@ final class ValidatesCrewPlanningReliefLink
             );
         }
 
-        $duplicate = CrewPlanningAssignment::query()
-            ->where('company_id', $companyId)
-            ->where('relieves_crew_assignment_id', $relievesId)
-            ->when($existing?->id !== null, fn ($q) => $q->whereKeyNot($existing->id))
-            ->where(function ($query): void {
-                $query->whereNull('crew_assignment_id')
-                    ->orWhereHas('crewAssignment', function ($linked): void {
-                        $linked->where('status', '!=', CrewAssignmentStatus::Cancelled->value);
-                    });
-            })
-            ->exists();
-
-        if ($duplicate) {
+        if ((new CrewReliefReadinessResolver)->hasActiveOperationalRelief(
+            $companyId,
+            $relievesId,
+            $existing?->id !== null ? (int) $existing->id : null,
+        )) {
             $validator->errors()->add(
                 'relieves_crew_assignment_id',
                 'An active relief plan already exists for this assignment.',

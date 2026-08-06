@@ -176,7 +176,7 @@ final class CrewReliefStatusQuery
         foreach ($assignments as $assignment) {
             $resolved->put(
                 (int) $assignment->id,
-                $this->resolver->forSourceAssignment(
+                $this->resolver->forPreloadedPlan(
                     $assignment,
                     $plans->get((int) $assignment->id),
                     $today,

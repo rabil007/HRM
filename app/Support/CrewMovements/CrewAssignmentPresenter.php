@@ -85,13 +85,13 @@ class CrewAssignmentPresenter
         $onVesselPhase = self::latestOnVesselPhase($assignment);
         $trainingPhase = self::latestPhase($assignment, CrewPhaseCode::Training);
         $tourProgress = (new CrewTourProgress)->forAssignment($assignment, null, $timezone);
-        $reliefPlan = (new CrewReliefReadinessResolver)->findActiveReliefPlan(
-            (int) $assignment->company_id,
-            (int) $assignment->id,
-        );
-        $relief = (new CrewReliefReadinessResolver)->forSourceAssignment(
+        $reliefResolver = new CrewReliefReadinessResolver;
+        $relief = $reliefResolver->forPreloadedPlan(
             $assignment,
-            $reliefPlan,
+            $reliefResolver->findActiveReliefPlan(
+                (int) $assignment->company_id,
+                (int) $assignment->id,
+            ),
             null,
             $timezone,
         );

@@ -2,7 +2,6 @@
 
 namespace App\Support\CrewMovements;
 
-use App\Enums\CrewAssignmentStatus;
 use App\Models\CrewPlanningAssignment;
 use Illuminate\Support\Collection;
 
@@ -51,11 +50,6 @@ final class CrewReliefPlanningLoader
             }
 
             if (! $resolver->isOperationallyActive($plan)) {
-                continue;
-            }
-
-            // Cancelled linked assignments are not operationally active.
-            if ($plan->crewAssignment?->status === CrewAssignmentStatus::Cancelled) {
                 continue;
             }
 

@@ -163,7 +163,8 @@ class CurrentCrewQuery
         $resolver = new CrewReliefReadinessResolver;
 
         $paginator->getCollection()->transform(function (CrewAssignment $assignment) use ($plans, $resolver) {
-            $assignment->relief_readiness = $resolver->forSourceAssignment(
+            // null from the loader means confirmed no active plan — do not re-query.
+            $assignment->relief_readiness = $resolver->forPreloadedPlan(
                 $assignment,
                 $plans->get((int) $assignment->id),
             );

@@ -18,7 +18,8 @@ final class CrewReliefReadinessResolver
     /**
      * Resolve readiness for an onboard source assignment.
      *
-     * Pass a preloaded active relief Planning row (and nested relations) to avoid N+1.
+     * When no plan is passed, queries for an active operational relief plan.
+     * Prefer {@see forPreloadedPlan()} on list/dashboard paths to avoid N+1.
      */
     public function forSourceAssignment(
         CrewAssignment $source,
@@ -26,54 +27,31 @@ final class CrewReliefReadinessResolver
         ?CarbonInterface $asOf = null,
         ?string $timezone = null,
     ): CrewReliefReadinessResult {
+        if ($reliefPlan !== null) {
+            return $this->buildResult($source, $reliefPlan, $asOf, $timezone);
+        }
+
         $timezone ??= $this->resolveTimezone($source);
         $asOf ??= now($timezone);
-        $signoffDate = $source->planned_signoff_at !== null
-            ? $source->planned_signoff_at->copy()->timezone($timezone)->toDateString()
-            : null;
-        $daysUntil = $signoffDate !== null
-            ? $this->daysUntilSignoff($signoffDate, $timezone, $asOf)
-            : null;
 
-        $plan = $reliefPlan ?? $this->findActiveReliefPlan((int) $source->company_id, (int) $source->id);
+        $plan = $this->findActiveReliefPlan((int) $source->company_id, (int) $source->id);
 
-        if ($plan === null) {
-            return CrewReliefReadinessResult::none($signoffDate, $daysUntil);
-        }
+        return $this->buildResult($source, $plan, $asOf, $timezone);
+    }
 
-        $linked = $plan->relationLoaded('crewAssignment')
-            ? $plan->crewAssignment
-            : $plan->crewAssignment()->with('currentPhase')->first();
-
-        if ($linked !== null && $linked->status === CrewAssignmentStatus::Cancelled) {
-            return CrewReliefReadinessResult::none($signoffDate, $daysUntil);
-        }
-
-        $status = $this->resolveStatus($plan, $linked);
-        $risk = $this->riskFor($status, $daysUntil);
-        $phase = $linked?->currentPhase;
-
-        $employee = $plan->employee;
-
-        return new CrewReliefReadinessResult(
-            status: $status,
-            risk: $risk,
-            reliefEmployee: $employee !== null ? [
-                'id' => (int) $employee->id,
-                'name' => (string) $employee->name,
-                'employee_no' => $employee->employee_no !== null ? (string) $employee->employee_no : null,
-            ] : null,
-            reliefPlanningAssignmentId: (int) $plan->id,
-            reliefCrewAssignmentId: $linked?->id !== null ? (int) $linked->id : null,
-            reliefPlannedJoinDate: $plan->planned_join_date?->toDateString(),
-            reliefPhase: $phase !== null ? [
-                'code' => $phase->phase_code->value,
-                'label' => $phase->phase_code->label(),
-                'status' => $phase->status->value,
-            ] : null,
-            sourcePlannedSignoffDate: $signoffDate,
-            daysUntilSignoff: $daysUntil,
-        );
+    /**
+     * Resolve using a batch-preloaded plan (or confirmed absence).
+     *
+     * Pass null when the loader confirmed there is no active operational plan —
+     * this must not trigger another query.
+     */
+    public function forPreloadedPlan(
+        CrewAssignment $source,
+        ?CrewPlanningAssignment $reliefPlan,
+        ?CarbonInterface $asOf = null,
+        ?string $timezone = null,
+    ): CrewReliefReadinessResult {
+        return $this->buildResult($source, $reliefPlan, $asOf, $timezone);
     }
 
     public function riskFor(CrewReliefStatus $status, ?int $daysUntilSignoff): CrewReliefRisk
@@ -122,6 +100,32 @@ final class CrewReliefReadinessResolver
         return null;
     }
 
+    public function hasActiveOperationalRelief(
+        int $companyId,
+        int $sourceAssignmentId,
+        ?int $exceptPlanningId = null,
+    ): bool {
+        $plans = CrewPlanningAssignment::query()
+            ->where('company_id', $companyId)
+            ->where('relieves_crew_assignment_id', $sourceAssignmentId)
+            ->when($exceptPlanningId !== null, fn ($q) => $q->whereKeyNot($exceptPlanningId))
+            ->with('crewAssignment')
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($plans as $plan) {
+            if ($this->isOperationallyActive($plan)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Active operational relief: non-deleted Planning with no linked assignment,
+     * or a linked Draft/Active assignment still in the P0–P4 relief lifecycle.
+     */
     public function isOperationallyActive(CrewPlanningAssignment $plan): bool
     {
         if ($plan->trashed()) {
@@ -132,11 +136,84 @@ final class CrewReliefReadinessResolver
             ? $plan->crewAssignment
             : $plan->crewAssignment;
 
-        if ($linked !== null && $linked->status === CrewAssignmentStatus::Cancelled) {
-            return false;
+        if ($linked === null) {
+            return true;
         }
 
-        return true;
+        return in_array($linked->status, [
+            CrewAssignmentStatus::Draft,
+            CrewAssignmentStatus::Active,
+        ], true);
+    }
+
+    public function daysUntilSignoff(
+        string $signoffDate,
+        string $timezone,
+        ?CarbonInterface $asOf = null,
+    ): int {
+        $signoff = CarbonImmutable::parse($signoffDate, $timezone)->startOfDay();
+        $today = CarbonImmutable::parse(
+            ($asOf ?? now($timezone))->copy()->timezone($timezone)->toDateString(),
+            $timezone,
+        )->startOfDay();
+
+        return (int) $today->diffInDays($signoff, false);
+    }
+
+    private function buildResult(
+        CrewAssignment $source,
+        ?CrewPlanningAssignment $plan,
+        ?CarbonInterface $asOf,
+        ?string $timezone,
+    ): CrewReliefReadinessResult {
+        $timezone ??= $this->resolveTimezone($source);
+        $asOf ??= now($timezone);
+        $signoffDate = $source->planned_signoff_at !== null
+            ? $source->planned_signoff_at->copy()->timezone($timezone)->toDateString()
+            : null;
+        $daysUntil = $signoffDate !== null
+            ? $this->daysUntilSignoff($signoffDate, $timezone, $asOf)
+            : null;
+
+        if ($plan === null || ! $this->isOperationallyActive($plan)) {
+            return CrewReliefReadinessResult::none($signoffDate, $daysUntil);
+        }
+
+        $linked = $plan->relationLoaded('crewAssignment')
+            ? $plan->crewAssignment
+            : $plan->crewAssignment()->with('currentPhase')->first();
+
+        if ($linked !== null && ! in_array($linked->status, [
+            CrewAssignmentStatus::Draft,
+            CrewAssignmentStatus::Active,
+        ], true)) {
+            return CrewReliefReadinessResult::none($signoffDate, $daysUntil);
+        }
+
+        $status = $this->resolveStatus($plan, $linked);
+        $risk = $this->riskFor($status, $daysUntil);
+        $phase = $linked?->currentPhase;
+        $employee = $plan->employee;
+
+        return new CrewReliefReadinessResult(
+            status: $status,
+            risk: $risk,
+            reliefEmployee: $employee !== null ? [
+                'id' => (int) $employee->id,
+                'name' => (string) $employee->name,
+                'employee_no' => $employee->employee_no !== null ? (string) $employee->employee_no : null,
+            ] : null,
+            reliefPlanningAssignmentId: (int) $plan->id,
+            reliefCrewAssignmentId: $linked?->id !== null ? (int) $linked->id : null,
+            reliefPlannedJoinDate: $plan->planned_join_date?->toDateString(),
+            reliefPhase: $phase !== null ? [
+                'code' => $phase->phase_code->value,
+                'label' => $phase->phase_code->label(),
+                'status' => $phase->status->value,
+            ] : null,
+            sourcePlannedSignoffDate: $signoffDate,
+            daysUntilSignoff: $daysUntil,
+        );
     }
 
     private function resolveStatus(
@@ -180,20 +257,6 @@ final class CrewReliefReadinessResolver
         }
 
         return CrewReliefStatus::AssignmentCreated;
-    }
-
-    public function daysUntilSignoff(
-        string $signoffDate,
-        string $timezone,
-        ?CarbonInterface $asOf = null,
-    ): int {
-        $signoff = CarbonImmutable::parse($signoffDate, $timezone)->startOfDay();
-        $today = CarbonImmutable::parse(
-            ($asOf ?? now($timezone))->copy()->timezone($timezone)->toDateString(),
-            $timezone,
-        )->startOfDay();
-
-        return (int) $today->diffInDays($signoff, false);
     }
 
     private function resolveTimezone(CrewAssignment $assignment): string

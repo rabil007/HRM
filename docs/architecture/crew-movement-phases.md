@@ -238,7 +238,7 @@ Resolved by `CrewReliefReadinessResolver` from the active operational Planning r
 | `ready_to_join` | Linked assignment active P3 |
 | `relief_onboard` | Linked assignment active P4 with actual join |
 
-Soft-deleted Planning rows and cancelled linked assignments do not count as operational relief.
+Soft-deleted Planning rows and cancelled or completed linked assignments do not count as operational relief. Vacant relief slots (null `employee_id`) still require source P4 / vessel / rank / duplicate validation. Authoritative duplicate protection runs inside `SaveCrewPlanningAssignment` after locking the source assignment.
 
 ### Risk (company-local calendar days until Planned Sign-Off)
 
