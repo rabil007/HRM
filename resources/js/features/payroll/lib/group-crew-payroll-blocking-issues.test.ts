@@ -97,7 +97,7 @@ describe('groupCrewPayrollBlockingIssues', () => {
                 employee_name: 'FRANKLINE MESAPE EBONG',
                 code: 'incomplete_movement_range',
                 message:
-                    'FRANKLINE MESAPE EBONG has incomplete Sign-On Standby dates. Both start and end dates are needed, so this movement was ignored.',
+                    'Incomplete movement dates.',
                 pay_category: 'sign_on_standby',
             }),
         ];
@@ -109,7 +109,7 @@ describe('groupCrewPayrollBlockingIssues', () => {
         assert.equal(groups[0].code, 'incomplete_movement_range');
         assert.equal(
             groups[0].message,
-            'FRANKLINE MESAPE EBONG has incomplete Sign-On Standby dates. Both start and end dates are needed, so this movement was ignored.',
+            'Incomplete movement dates.',
         );
     });
 
@@ -120,7 +120,7 @@ describe('groupCrewPayrollBlockingIssues', () => {
                 employee_name: 'FRANKLINE MESAPE EBONG',
                 code: 'incomplete_movement_range',
                 message:
-                    'FRANKLINE MESAPE EBONG has incomplete Sign-On Standby dates. Both start and end dates are needed, so this movement was ignored.',
+                    'Incomplete movement dates.',
                 pay_category: 'sign_on_standby',
             }),
         ];

@@ -211,9 +211,9 @@ export function PayrollGenerateDialog({
                                                     )
                                                 </p>
                                                 <p className="text-[11px] text-amber-700/90 dark:text-amber-200/80">
-                                                    Incomplete unused movement
-                                                    categories are ignored and
-                                                    do not block generation.
+                                                    Incomplete movement dates
+                                                    are ignored and do not block
+                                                    generation.
                                                 </p>
                                                 <ul className="max-h-48 list-disc space-y-1.5 overflow-y-auto pl-4">
                                                     {warningGroups.map(

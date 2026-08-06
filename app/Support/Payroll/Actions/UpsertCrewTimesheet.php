@@ -168,6 +168,27 @@ final class UpsertCrewTimesheet
                     'source' => $existing?->source ?? $source,
                 ];
 
+                // Explicit operational keys (including null) clear stale movement dates after
+                // soft-delete restore. Omitted keys still preserve existing values for
+                // true financial-only autosaves.
+                foreach ([
+                    'sign_on_standby_from',
+                    'sign_on_standby_to',
+                    'sign_on_standby_days',
+                    'onsite_from',
+                    'onsite_to',
+                    'onsite_days',
+                    'sign_off_standby_from',
+                    'sign_off_standby_to',
+                    'sign_off_standby_days',
+                ] as $operationalKey) {
+                    if (array_key_exists($operationalKey, $data)) {
+                        $attributes[$operationalKey] = $data[$operationalKey] !== ''
+                            ? $data[$operationalKey]
+                            : null;
+                    }
+                }
+
                 if ($this->autoApproval->shouldAutoApprove($source)) {
                     $attributes = array_merge(
                         $attributes,

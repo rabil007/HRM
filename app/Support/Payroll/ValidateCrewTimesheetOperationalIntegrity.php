@@ -51,6 +51,8 @@ final class ValidateCrewTimesheetOperationalIntegrity
 
         $blocking = [];
         $warnings = [];
+        $hasIncompleteMovementDates = false;
+        $incompletePayCategory = null;
 
         foreach ($checks as [$fromKey, $toKey, $daysKey, $label, $payCategory]) {
             $from = $timesheet->{$fromKey};
@@ -58,12 +60,8 @@ final class ValidateCrewTimesheetOperationalIntegrity
             $days = $timesheet->{$daysKey};
 
             if (($from !== null && $to === null) || ($from === null && $to !== null)) {
-                $warnings[] = $this->finding(
-                    'incomplete_movement_range',
-                    "{$employee->name} has incomplete {$label} dates. Both start and end dates are needed, so this movement was ignored.",
-                    $payCategory,
-                    'warning',
-                );
+                $hasIncompleteMovementDates = true;
+                $incompletePayCategory ??= $payCategory;
 
                 continue;
             }
@@ -85,6 +83,15 @@ final class ValidateCrewTimesheetOperationalIntegrity
                     'blocking',
                 );
             }
+        }
+
+        if ($hasIncompleteMovementDates) {
+            $warnings[] = $this->finding(
+                'incomplete_movement_range',
+                'Incomplete movement dates.',
+                $incompletePayCategory,
+                'warning',
+            );
         }
 
         if ($timesheet->unpaid_leave_days !== null && (float) $timesheet->unpaid_leave_days < 0) {

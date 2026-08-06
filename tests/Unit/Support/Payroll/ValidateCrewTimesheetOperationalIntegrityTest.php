@@ -35,8 +35,7 @@ test('sign-on start without end becomes a warning', function () {
         ->and($result->warnings)->toHaveCount(1)
         ->and($result->warnings[0]['code'])->toBe('incomplete_movement_range')
         ->and($result->warnings[0]['pay_category'])->toBe('sign_on_standby')
-        ->and($result->warnings[0]['message'])->toContain('incomplete Sign-On Standby dates')
-        ->and($result->warnings[0]['message'])->toContain('ignored');
+        ->and($result->warnings[0]['message'])->toBe('Incomplete movement dates.');
 });
 
 test('sign-on end without start becomes a warning', function () {
@@ -54,8 +53,7 @@ test('sign-on end without start becomes a warning', function () {
 
     expect($result->hasBlocking())->toBeFalse()
         ->and($result->warnings)->toHaveCount(1)
-        ->and($result->warnings[0]['message'])->toContain('incomplete Sign-On Standby dates')
-        ->and($result->warnings[0]['message'])->toContain('Both start and end dates are needed');
+        ->and($result->warnings[0]['message'])->toBe('Incomplete movement dates.');
 });
 
 test('onsite incomplete pair becomes a warning', function () {
@@ -92,7 +90,7 @@ test('sign-off incomplete pair becomes a warning', function () {
         ->and($result->hasBlocking())->toBeFalse();
 });
 
-test('returns all incomplete flat-field warnings together', function () {
+test('returns one common incomplete movement warning for multiple incomplete categories', function () {
     $timesheet = CrewTimesheet::factory()->create([
         'company_id' => $this->company->id,
         'employee_id' => $this->employee->id,
@@ -109,7 +107,9 @@ test('returns all incomplete flat-field warnings together', function () {
     $result = $this->validator->handle($timesheet, $this->employee->fresh());
 
     expect($result->hasBlocking())->toBeFalse()
-        ->and($result->warnings)->toHaveCount(3);
+        ->and($result->warnings)->toHaveCount(1)
+        ->and($result->warnings[0]['code'])->toBe('incomplete_movement_range')
+        ->and($result->warnings[0]['message'])->toBe('Incomplete movement dates.');
 });
 
 test('reversed complete date range remains blocking', function () {
