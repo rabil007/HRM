@@ -77,6 +77,7 @@ final class CreateCrewAssignmentFromPlanning
                 'crew_assignment_id' => $assignment->id,
             ]);
 
+            // Preserve relieves_crew_assignment_id — conversion reuses the same Planning row.
             $this->planningSync->sync($assignment->fresh(['phases', 'employee', 'company']) ?? $assignment);
 
             return $assignment->fresh(['phases', 'currentPhase', 'planningAssignment']) ?? $assignment;

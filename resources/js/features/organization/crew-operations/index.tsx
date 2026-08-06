@@ -13,7 +13,9 @@ import {
     LayoutDashboard,
     Ship,
     Settings,
+    ShieldAlert,
     Users,
+    UserRoundX,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { lazy, Suspense } from 'react';
@@ -360,6 +362,58 @@ export function CrewOperationsDashboardContent({
                     </div>
                 </>
             ) : null}
+
+            <SectionLabel icon={ShieldAlert} label="Relief Readiness" />
+            <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <MetricCard
+                    title="Sign-off within 14 days — no relief"
+                    value={alertCounts.signoff_within_14_days_no_relief.toLocaleString()}
+                    hint="On-vessel with no relief planned"
+                    icon={UserRoundX}
+                    iconColor="text-red-400"
+                    iconBg="bg-red-500/10 border-red-500/20"
+                    accent="border-red-500/20 hover:border-red-500/30"
+                    href={crewAssignmentsIndex.url({
+                        query: { signoff_within_14_no_relief: 1 },
+                    })}
+                />
+                <MetricCard
+                    title="Relief not ready"
+                    value={alertCounts.relief_not_ready.toLocaleString()}
+                    hint="Relief still mobilising or missing"
+                    icon={Clock}
+                    iconColor="text-amber-400"
+                    iconBg="bg-amber-500/10 border-amber-500/20"
+                    accent="border-amber-500/20 hover:border-amber-500/30"
+                    href={crewAssignmentsIndex.url({
+                        query: { relief_not_ready: 1 },
+                    })}
+                />
+                <MetricCard
+                    title="Relief ready to join"
+                    value={alertCounts.relief_ready_to_join.toLocaleString()}
+                    hint="Relief in ready-to-join phase"
+                    icon={Users}
+                    iconColor="text-emerald-400"
+                    iconBg="bg-emerald-500/10 border-emerald-500/20"
+                    accent="border-emerald-500/20 hover:border-emerald-500/30"
+                    href={crewAssignmentsIndex.url({
+                        query: { relief_status: 'ready_to_join' },
+                    })}
+                />
+                <MetricCard
+                    title="Critical relief risk"
+                    value={alertCounts.critical_relief_risk.toLocaleString()}
+                    hint="Highest-priority relief gaps"
+                    icon={ShieldAlert}
+                    iconColor="text-red-400"
+                    iconBg="bg-red-500/10 border-red-500/20"
+                    accent="border-red-500/20 hover:border-red-500/30"
+                    href={crewAssignmentsIndex.url({
+                        query: { relief_risk: 'critical' },
+                    })}
+                />
+            </div>
 
             {movementCorrections ? (
                 <Link

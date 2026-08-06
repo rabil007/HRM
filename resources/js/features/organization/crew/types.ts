@@ -51,7 +51,48 @@ export type CrewMovementContext = {
     company_timezone: string;
 } & CrewTourProgressFields;
 
-export interface CrewAssignmentListItem extends CrewTourProgressFields {
+export type CrewReliefEmployee = {
+    id: number;
+    name: string;
+    employee_no: string | null;
+};
+
+export type CrewReliefPhase = {
+    code: string;
+    label: string;
+    status: string;
+};
+
+export type CrewReliefFields = {
+    relief_status: string | null;
+    relief_status_label: string | null;
+    relief_action_label: string | null;
+    relief_risk: string | null;
+    relief_risk_label: string | null;
+    relief_employee: CrewReliefEmployee | null;
+    relief_planning_assignment_id: number | null;
+    relief_crew_assignment_id: number | null;
+    relief_planned_join_date: string | null;
+    relief_phase: CrewReliefPhase | null;
+    relief_phase_code: string | null;
+    relief_phase_label: string | null;
+    relief_phase_status: string | null;
+    source_planned_signoff_date: string | null;
+    days_until_signoff: number | null;
+};
+
+export type CrewRelievesContext = {
+    planning_assignment_id: number;
+    source_assignment_id: number;
+    source_assignment_no: string;
+    source_employee: CrewReliefEmployee | null;
+    source_vessel: { id: number; name: string } | null;
+    source_rank: { id: number; name: string } | null;
+    source_planned_signoff_at: string | null;
+};
+
+export interface CrewAssignmentListItem
+    extends CrewTourProgressFields, CrewReliefFields {
     id: number;
     assignment_no: string;
     status: string;
@@ -94,7 +135,8 @@ export interface CrewAssignmentListItem extends CrewTourProgressFields {
     movement_context: CrewMovementContext;
 }
 
-export interface CrewAssignmentDetail extends CrewTourProgressFields {
+export interface CrewAssignmentDetail
+    extends CrewTourProgressFields, CrewReliefFields {
     id: number;
     assignment_no: string;
     status: string;
@@ -146,6 +188,7 @@ export interface CrewAssignmentDetail extends CrewTourProgressFields {
     warnings: CrewAssignmentWarning[];
     available_actions: string[];
     planning_assignment_id: number | null;
+    relieves: CrewRelievesContext | null;
     previous_assignment: {
         id: number;
         assignment_no: string;
@@ -231,6 +274,11 @@ export interface CrewAssignmentSummary {
     by_phase: Record<string, number>;
 }
 
+export type CrewFilterOption = {
+    value: string;
+    label: string;
+};
+
 export interface CrewAssignmentFilterOptions {
     vessels: Array<{ id: number; name: string }>;
     ranks: Array<{ id: number; name: string }>;
@@ -240,6 +288,8 @@ export interface CrewAssignmentFilterOptions {
         name: string;
         employee_no: string | null;
     }>;
+    relief_statuses?: CrewFilterOption[];
+    relief_risks?: CrewFilterOption[];
 }
 
 export interface CrewAssignmentFilters {
@@ -256,6 +306,10 @@ export interface CrewAssignmentFilters {
     movement_attention: boolean;
     include_completed: boolean;
     tour_status: string;
+    relief_status: string;
+    relief_risk: string;
+    relief_not_ready: boolean;
+    signoff_within_14_no_relief: boolean;
 }
 
 export interface CrewAssignmentPagePermissions {

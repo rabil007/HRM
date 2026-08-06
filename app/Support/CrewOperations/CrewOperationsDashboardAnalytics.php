@@ -11,6 +11,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionAge;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
+use App\Support\CrewMovements\CrewReliefStatusQuery;
 use App\Support\CrewMovements\CrewTourStatusQuery;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -53,6 +54,7 @@ final class CrewOperationsDashboardAnalytics
             $permissions['planning'],
         );
         $tourBuckets = (new CrewTourStatusQuery)->bucketCounts($companyId);
+        $reliefBuckets = (new CrewReliefStatusQuery)->dashboardCounts($companyId);
         $attentionItems = $this->attentionItems(
             $companyId,
             $maxHomeDays,
@@ -78,8 +80,13 @@ final class CrewOperationsDashboardAnalytics
                 'signoff_overdue' => $tourBuckets['overdue'],
                 'missing_tour_of_duty' => $tourBuckets['missing_tour_rule'],
                 'missing_planned_signoff' => $tourBuckets['missing_signoff'],
+                'signoff_within_14_days_no_relief' => $reliefBuckets['signoff_within_14_days_no_relief'],
+                'relief_not_ready' => $reliefBuckets['relief_not_ready'],
+                'relief_ready_to_join' => $reliefBuckets['relief_ready_to_join'],
+                'critical_relief_risk' => $reliefBuckets['critical_relief_risk'],
             ]),
             'tour_signoff_counts' => $tourBuckets,
+            'relief_readiness_counts' => $reliefBuckets,
             'attention_items' => $attentionItems,
             'manning_gaps' => $manningGaps,
             'deployment_trends' => CrewOperationsDeploymentTrends::lastSixMonths($companyId),

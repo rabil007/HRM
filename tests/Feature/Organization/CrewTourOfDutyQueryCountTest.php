@@ -6,6 +6,7 @@ use App\Models\CrewRankPolicy;
 use App\Models\Employee;
 use App\Models\Rank;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
+use App\Support\CrewMovements\CrewReliefReadinessResult;
 use App\Support\CrewMovements\CrewTourOfDutyResolver;
 use App\Support\CrewOperations\CrewRankPolicyIndexQuery;
 use Illuminate\Support\Facades\DB;
@@ -67,12 +68,15 @@ it('keeps rank policy index and presenter query counts bounded for multiple rank
     DB::flushQueryLog();
     DB::enableQueryLog();
     foreach ($assignments as $assignment) {
+        // Simulate Current Crew batching: relief + warnings attached once per page.
+        $assignment->relief_readiness = CrewReliefReadinessResult::none();
+        $assignment->attention_warnings = [];
         CrewAssignmentPresenter::listItem($assignment);
     }
     $presenterQueries = count(DB::getQueryLog());
     DB::disableQueryLog();
 
-    // Preloaded company/phases should avoid per-assignment timezone lookups.
+    // Preloaded company/phases/relief should avoid per-assignment lookups.
     expect($presenterQueries)->toBeLessThanOrEqual(2);
 
     DB::flushQueryLog();

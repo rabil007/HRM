@@ -221,6 +221,50 @@ Lookup by `crew_assignment_id` (unique), restore soft-deleted linked rows, never
 
 Relief linking uses `relieves_crew_assignment_id`. Gantt `is_assigned` is true when `crew_assignment_id` is set.
 
+## Phase 2A — Crew Relief Readiness
+
+Crew Planning remains the management surface for creating and editing relief plans. Current Crew, Assignment Show, and the Crew Operations dashboard display derived readiness and risk; they do not introduce a separate Relief workflow or table.
+
+### Derived readiness statuses
+
+Resolved by `CrewReliefReadinessResolver` from the active operational Planning row where `relieves_crew_assignment_id` equals the onboard source assignment:
+
+| Status | Meaning |
+|--------|---------|
+| `no_relief` | No active relief Planning row |
+| `relief_planned` | Planning row exists; `crew_assignment_id` is null |
+| `assignment_created` | Linked draft / not-yet-mobilising assignment |
+| `mobilising` | Linked assignment in P0–P2B movement |
+| `ready_to_join` | Linked assignment active P3 |
+| `relief_onboard` | Linked assignment active P4 with actual join |
+
+Soft-deleted Planning rows and cancelled linked assignments do not count as operational relief.
+
+### Risk (company-local calendar days until Planned Sign-Off)
+
+| Condition | Risk |
+|-----------|------|
+| Ready to join or relief onboard | `none` |
+| More than 14 days | `none` (unless otherwise invalid) |
+| 14 days or fewer and not ready/onboard | `warning` |
+| 7 days or fewer, due today, or overdue and not ready/onboard | `critical` |
+
+### Workflow
+
+1. Current Crew → **Plan Relief** opens Crew Planning with vessel/rank/source/prefill join (= source Planned Sign-Off).
+2. Crew Planning creates/edits the row (`relieves_crew_assignment_id` set; same vessel/rank; one active relief per source).
+3. `CreateCrewAssignmentFromPlanning` converts the same Planning row (preserves the relief link).
+4. Real P0–P4 movement progresses on the linked assignment; readiness recalculates from phase.
+
+Planning never starts movement, completes source P4, creates Sea Service, or creates payroll actuals.
+
+### Deferred
+
+- Phase 2B: projected vessel manning / coverage gaps
+- Phase 2C: transfer / redeployment Tour behaviour
+- Phase 3: notifications (email, push, in-app, escalation)
+
+
 ## Sea service
 
 Requires P4 with `actual_start_at`, `actual_end_at`, plus assignment vessel/rank/employee. Linked by unique `employee_sea_services.crew_assignment_phase_id`.

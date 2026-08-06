@@ -171,6 +171,16 @@ class CrewAssignment extends Model
     }
 
     /**
+     * Planning rows that relieve this onboard assignment.
+     *
+     * @return HasMany<CrewPlanningAssignment, $this>
+     */
+    public function reliefPlanningAssignments(): HasMany
+    {
+        return $this->hasMany(CrewPlanningAssignment::class, 'relieves_crew_assignment_id');
+    }
+
+    /**
      * @return HasMany<CrewMovementCorrection, $this>
      */
     public function corrections(): HasMany

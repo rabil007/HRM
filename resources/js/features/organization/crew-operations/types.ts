@@ -27,6 +27,10 @@ export type CrewOperationsAlertCounts = {
     signoff_overdue: number;
     missing_tour_of_duty: number;
     missing_planned_signoff: number;
+    signoff_within_14_days_no_relief: number;
+    relief_not_ready: number;
+    relief_ready_to_join: number;
+    critical_relief_risk: number;
 };
 
 export type CrewOperationsAttentionItem = {
