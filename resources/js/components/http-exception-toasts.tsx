@@ -49,6 +49,12 @@ export function HttpExceptionToasts() {
                 if (status === 403) {
                     toast.error("You don't have permission to do this action.");
                 }
+
+                if (status === 413) {
+                    toast.error(
+                        'File is too large for the server upload limit. Try a smaller file or ask an admin to raise PHP upload limits.',
+                    );
+                }
             },
         );
 
