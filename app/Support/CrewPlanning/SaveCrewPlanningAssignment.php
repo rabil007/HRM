@@ -7,6 +7,7 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
+use App\Models\Employee;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -153,10 +154,35 @@ final class SaveCrewPlanningAssignment
 
         $employeeId = $attributes['employee_id'] ?? null;
 
-        if ($employeeId !== null && $employeeId !== '' && (int) $employeeId === (int) $source->employee_id) {
-            throw ValidationException::withMessages([
-                'employee_id' => 'The relief crew member cannot be the same person as the crew being relieved.',
-            ]);
+        if ($employeeId !== null && $employeeId !== '') {
+            $employee = Employee::query()
+                ->where('company_id', $companyId)
+                ->whereKey((int) $employeeId)
+                ->first(['id', 'status', 'rank_id']);
+
+            if ($employee === null) {
+                throw ValidationException::withMessages([
+                    'employee_id' => 'The selected relief employee could not be found.',
+                ]);
+            }
+
+            if ($employee->status !== 'active') {
+                throw ValidationException::withMessages([
+                    'employee_id' => 'The selected relief employee must be active.',
+                ]);
+            }
+
+            if ((int) $employee->rank_id !== (int) $rankId) {
+                throw ValidationException::withMessages([
+                    'employee_id' => 'The selected relief employee must have the selected rank.',
+                ]);
+            }
+
+            if ((int) $employee->id === (int) $source->employee_id) {
+                throw ValidationException::withMessages([
+                    'employee_id' => 'The relief crew member cannot be the same person as the crew being relieved.',
+                ]);
+            }
         }
 
         if ($this->reliefResolver->hasActiveOperationalRelief($companyId, $relievesId, $exceptPlanningId)) {

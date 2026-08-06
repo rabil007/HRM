@@ -10,6 +10,7 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\Rank;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
+use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use App\Support\CrewPlanning\SaveCrewPlanningAssignment;
 use Illuminate\Validation\ValidationException;
@@ -222,7 +223,7 @@ it('allows replacement planning after cancelled completed or soft-deleted relief
 
     $linked->update(['status' => CrewAssignmentStatus::Completed]);
     // Completed linked plan on the first row still exists; replacement is the active one.
-    expect((new CrewReliefReadinessResolver)->isOperationallyActive($cancelledPlan->fresh(['crewAssignment'])))
+    expect((new CrewReliefReadinessResolver)->isOperationallyActive($cancelledPlan->fresh(['crewAssignment.currentPhase'])))
         ->toBeFalse();
 
     $replacement->delete();
@@ -267,4 +268,211 @@ it('treats completed linked relief as non-blocking for a new plan', function () 
     expect($next->id)->not->toBe($plan->id)
         ->and($plan->fresh())->not->toBeNull()
         ->and($linked->fresh()->status)->toBe(CrewAssignmentStatus::Completed);
+});
+
+it('treats active P4 relief as operational and P5/P6 as historical', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $save = app(SaveCrewPlanningAssignment::class);
+    $resolver = new CrewReliefReadinessResolver;
+    $source = makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        makeCrewMovementVessel('P4-P6 Lifecycle Vessel'),
+    );
+    $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
+        'rank_id' => $fixtures['rank']->id,
+        'status' => 'active',
+    ]);
+
+    $plan = $save->create((int) $fixtures['company']->id, reliefPlanningPayload($source, [
+        'employee_id' => $reliefEmployee->id,
+    ]));
+    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $fixtures['user']->id);
+    $linked->update(['status' => CrewAssignmentStatus::Active]);
+    $linked->currentPhase->update([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => now(),
+    ]);
+
+    $plan = $plan->fresh(['crewAssignment.currentPhase']);
+    expect($resolver->isOperationallyActive($plan))->toBeTrue()
+        ->and($resolver->forSourceAssignment($source->fresh())->status)->toBe(CrewReliefStatus::ReliefOnboard);
+
+    $linked->currentPhase->update([
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'status' => CrewPhaseStatus::Active,
+    ]);
+    $plan = $plan->fresh(['crewAssignment.currentPhase']);
+    expect($resolver->isOperationallyActive($plan))->toBeFalse()
+        ->and($resolver->forSourceAssignment($source->fresh())->status)->toBe(CrewReliefStatus::NoRelief);
+
+    $linked->currentPhase->update([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'status' => CrewPhaseStatus::Active,
+    ]);
+    $plan = $plan->fresh(['crewAssignment.currentPhase']);
+    expect($resolver->isOperationallyActive($plan))->toBeFalse()
+        ->and($resolver->forSourceAssignment($source->fresh())->status)->toBe(CrewReliefStatus::NoRelief)
+        ->and(CrewPlanningAssignment::query()->whereKey($plan->id)->exists())->toBeTrue();
+});
+
+it('allows a new relief plan after linked relief reaches P5 or P6 and preserves history', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $save = app(SaveCrewPlanningAssignment::class);
+    $source = makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        makeCrewMovementVessel('P5 Block Vessel'),
+    );
+    $firstRelief = Employee::factory()->forCompany($fixtures['company'])->create([
+        'rank_id' => $fixtures['rank']->id,
+        'status' => 'active',
+    ]);
+    $secondRelief = Employee::factory()->forCompany($fixtures['company'])->create([
+        'rank_id' => $fixtures['rank']->id,
+        'status' => 'active',
+    ]);
+
+    $p5Plan = $save->create((int) $fixtures['company']->id, reliefPlanningPayload($source, [
+        'employee_id' => $firstRelief->id,
+    ]));
+    $p5Linked = app(CreateCrewAssignmentFromPlanning::class)->handle($p5Plan, $fixtures['user']->id);
+    $p5Linked->update(['status' => CrewAssignmentStatus::Active]);
+    $p5Linked->currentPhase->update([
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'status' => CrewPhaseStatus::Active,
+    ]);
+
+    $afterP5 = $save->create((int) $fixtures['company']->id, reliefPlanningPayload($source, [
+        'employee_id' => $secondRelief->id,
+        'planned_join_date' => now()->addDays(12)->toDateString(),
+    ]));
+
+    expect($afterP5->id)->not->toBe($p5Plan->id)
+        ->and($p5Plan->fresh())->not->toBeNull();
+
+    $afterP5Linked = app(CreateCrewAssignmentFromPlanning::class)->handle($afterP5, $fixtures['user']->id);
+    $afterP5Linked->update(['status' => CrewAssignmentStatus::Active]);
+    $afterP5Linked->currentPhase->update([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'status' => CrewPhaseStatus::Active,
+    ]);
+
+    $afterP6 = $save->create((int) $fixtures['company']->id, reliefPlanningPayload($source, [
+        'planned_join_date' => now()->addDays(14)->toDateString(),
+    ]));
+
+    expect($afterP6->id)->not->toBe($afterP5->id)
+        ->and(CrewPlanningAssignment::query()->where('relieves_crew_assignment_id', $source->id)->count())->toBe(3);
+});
+
+it('resolves Current Crew no_relief when only an old P5 or P6 relief exists', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $save = app(SaveCrewPlanningAssignment::class);
+    $source = makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        makeCrewMovementVessel('Current Crew P5 Vessel'),
+        ['planned_signoff_at' => now()->addDays(8)->toDateTimeString()],
+    );
+    $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
+        'rank_id' => $fixtures['rank']->id,
+        'status' => 'active',
+    ]);
+
+    $plan = $save->create((int) $fixtures['company']->id, reliefPlanningPayload($source, [
+        'employee_id' => $reliefEmployee->id,
+    ]));
+    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $fixtures['user']->id);
+    $linked->update(['status' => CrewAssignmentStatus::Active]);
+    $linked->currentPhase->update([
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'status' => CrewPhaseStatus::Active,
+    ]);
+
+    $paginator = CurrentCrewQuery::paginate((int) $fixtures['company']->id, [
+        'employee_id' => $fixtures['employee']->id,
+    ]);
+    $row = collect($paginator->items())->first(
+        fn ($assignment) => (int) $assignment->id === (int) $source->id,
+    );
+
+    expect($row)->not->toBeNull()
+        ->and($row->relief_readiness->status)->toBe(CrewReliefStatus::NoRelief);
+});
+
+it('authoritatively validates the relief employee inside SaveCrewPlanningAssignment', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $other = makeCrewAssignmentFixtures();
+    $save = app(SaveCrewPlanningAssignment::class);
+    $source = makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        makeCrewMovementVessel('Employee Txn Vessel'),
+    );
+    $companyId = (int) $fixtures['company']->id;
+
+    $valid = Employee::factory()->forCompany($fixtures['company'])->create([
+        'rank_id' => $fixtures['rank']->id,
+        'status' => 'active',
+    ]);
+    expect($save->create($companyId, reliefPlanningPayload($source, [
+        'employee_id' => $valid->id,
+    ]))->employee_id)->toBe($valid->id);
+
+    $sourceB = makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        Employee::factory()->forCompany($fixtures['company'])->create([
+            'rank_id' => $fixtures['rank']->id,
+            'status' => 'active',
+        ]),
+        $fixtures['rank'],
+        makeCrewMovementVessel('Employee Txn Vessel B'),
+    );
+
+    $foreign = Employee::factory()->forCompany($other['company'])->create([
+        'rank_id' => $other['rank']->id,
+        'status' => 'active',
+    ]);
+    expect(fn () => $save->create($companyId, reliefPlanningPayload($sourceB, [
+        'employee_id' => $foreign->id,
+    ])))->toThrow(ValidationException::class);
+
+    $inactive = Employee::factory()->forCompany($fixtures['company'])->create([
+        'rank_id' => $fixtures['rank']->id,
+        'status' => 'inactive',
+    ]);
+    expect(fn () => $save->create($companyId, reliefPlanningPayload($sourceB, [
+        'employee_id' => $inactive->id,
+    ])))->toThrow(ValidationException::class);
+
+    $wrongRank = Rank::query()->create([
+        'name' => 'Wrong Emp Rank '.uniqid(),
+        'is_active' => true,
+    ]);
+    $wrongRankEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
+        'rank_id' => $wrongRank->id,
+        'status' => 'active',
+    ]);
+    expect(fn () => $save->create($companyId, reliefPlanningPayload($sourceB, [
+        'employee_id' => $wrongRankEmployee->id,
+    ])))->toThrow(ValidationException::class);
+
+    expect(fn () => $save->create($companyId, reliefPlanningPayload($sourceB, [
+        'employee_id' => 9_999_999,
+    ])))->toThrow(ValidationException::class);
+
+    expect(fn () => $save->create($companyId, reliefPlanningPayload($sourceB, [
+        'employee_id' => $sourceB->employee_id,
+    ])))->toThrow(ValidationException::class);
+
+    $vacant = $save->create($companyId, reliefPlanningPayload($sourceB, [
+        'employee_id' => null,
+    ]));
+    expect($vacant->employee_id)->toBeNull();
 });

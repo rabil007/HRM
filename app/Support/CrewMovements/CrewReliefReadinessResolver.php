@@ -109,7 +109,7 @@ final class CrewReliefReadinessResolver
             ->where('company_id', $companyId)
             ->where('relieves_crew_assignment_id', $sourceAssignmentId)
             ->when($exceptPlanningId !== null, fn ($q) => $q->whereKeyNot($exceptPlanningId))
-            ->with('crewAssignment')
+            ->with('crewAssignment.currentPhase')
             ->orderByDesc('id')
             ->get();
 
@@ -124,7 +124,8 @@ final class CrewReliefReadinessResolver
 
     /**
      * Active operational relief: non-deleted Planning with no linked assignment,
-     * or a linked Draft/Active assignment still in the P0–P4 relief lifecycle.
+     * or a linked Draft/Active assignment whose current phase is still P0–P4.
+     * Active P5/P6 replacements are historical and must not block a new plan.
      */
     public function isOperationallyActive(CrewPlanningAssignment $plan): bool
     {
@@ -140,9 +141,28 @@ final class CrewReliefReadinessResolver
             return true;
         }
 
-        return in_array($linked->status, [
+        if (! in_array($linked->status, [
             CrewAssignmentStatus::Draft,
             CrewAssignmentStatus::Active,
+        ], true)) {
+            return false;
+        }
+
+        $phase = $linked->relationLoaded('currentPhase')
+            ? $linked->currentPhase
+            : $linked->currentPhase;
+
+        if ($phase === null) {
+            return true;
+        }
+
+        return in_array($phase->phase_code, [
+            CrewPhaseCode::PreMobilisation,
+            CrewPhaseCode::TravelIn,
+            CrewPhaseCode::JoinStandby,
+            CrewPhaseCode::Training,
+            CrewPhaseCode::ReadyToJoin,
+            CrewPhaseCode::OnVessel,
         ], true);
     }
 
@@ -182,13 +202,6 @@ final class CrewReliefReadinessResolver
         $linked = $plan->relationLoaded('crewAssignment')
             ? $plan->crewAssignment
             : $plan->crewAssignment()->with('currentPhase')->first();
-
-        if ($linked !== null && ! in_array($linked->status, [
-            CrewAssignmentStatus::Draft,
-            CrewAssignmentStatus::Active,
-        ], true)) {
-            return CrewReliefReadinessResult::none($signoffDate, $daysUntil);
-        }
 
         $status = $this->resolveStatus($plan, $linked);
         $risk = $this->riskFor($status, $daysUntil);
