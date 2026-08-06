@@ -82,9 +82,13 @@ After P4 join, `crew_assignments.tour_of_duty_days` and `tour_of_duty_source` ar
 |--------|-----------|
 | `tour_of_duty` | Use calculated suggestion |
 | `existing_plan` | Keep existing Planning/assignment planned date (never silently overwritten) |
-| `manual_override` | Enter another date; reason required |
+| `manual_override` | Enter another date; date and reason are both required when this choice is explicit |
 
-If no Tour exists and no Planned Sign-Off is entered, join still succeeds and attention warnings surface `missing_tour_of_duty` / `missing_planned_signoff`.
+If no Tour exists and no Planned Sign-Off is entered (and no explicit manual choice was supplied), join still succeeds and attention warnings surface `missing_tour_of_duty` / `missing_planned_signoff`.
+
+### Tour status filters vs dashboard counts
+
+`due_within_7_days`, `due_within_14_days`, and `due_within_30_days` Current Crew filters are **cumulative** (include due today and nearer windows) so they match Crew Operations dashboard “within N days” cards. Exclusive internal buckets remain only for analytics rollups. `due_today` stays independently filterable. Planned sign-off overdue uses company-local calendar dates so due-today assignments are never also overdue.
 
 ### Company rank policies
 

@@ -18,7 +18,7 @@ class CrewAssignmentPresenter
     {
         $current = $assignment->currentPhase;
         $timezone = self::companyTimezone($assignment);
-        $tourProgress = (new CrewTourProgress)->forAssignment($assignment);
+        $tourProgress = (new CrewTourProgress)->forAssignment($assignment, null, $timezone);
 
         return [
             'id' => $assignment->id,
@@ -64,9 +64,9 @@ class CrewAssignmentPresenter
             ...$tourProgress,
             'warnings' => property_exists($assignment, 'attention_warnings')
                 ? $assignment->attention_warnings
-                : CrewMovementAttentionQuery::forAssignment($assignment),
+                : CrewMovementAttentionQuery::forAssignment($assignment, $tourProgress),
             'available_actions' => CrewMovementAvailableActions::for($assignment),
-            'movement_context' => self::movementContext($assignment),
+            'movement_context' => self::movementContext($assignment, $tourProgress),
         ];
     }
 
@@ -79,7 +79,7 @@ class CrewAssignmentPresenter
         $timezone = self::companyTimezone($assignment);
         $onVesselPhase = self::latestOnVesselPhase($assignment);
         $trainingPhase = self::latestPhase($assignment, CrewPhaseCode::Training);
-        $tourProgress = (new CrewTourProgress)->forAssignment($assignment);
+        $tourProgress = (new CrewTourProgress)->forAssignment($assignment, null, $timezone);
 
         $phaseTimeline = $assignment->phases
             ->map(function ($phase) {
@@ -172,7 +172,7 @@ class CrewAssignmentPresenter
             'company_timezone' => $timezone,
             ...$tourProgress,
             'phase_timeline' => $phaseTimeline,
-            'warnings' => CrewMovementAttentionQuery::forAssignment($assignment),
+            'warnings' => CrewMovementAttentionQuery::forAssignment($assignment, $tourProgress),
             'available_actions' => CrewMovementAvailableActions::for($assignment),
             'planning_assignment_id' => $assignment->planningAssignment?->id,
             'previous_assignment' => $assignment->previousAssignment ? [
@@ -199,19 +199,21 @@ class CrewAssignmentPresenter
                     ])
                     ->all()
                 : [],
-            'movement_context' => self::movementContext($assignment),
+            'movement_context' => self::movementContext($assignment, $tourProgress),
         ];
     }
 
     /**
+     * @param  array<string, mixed>|null  $tourProgress
      * @return array<string, mixed>
      */
-    public static function movementContext(CrewAssignment $assignment): array
+    public static function movementContext(CrewAssignment $assignment, ?array $tourProgress = null): array
     {
         $timezone = self::companyTimezone($assignment);
         $current = $assignment->currentPhase;
         $onVesselPhase = self::latestOnVesselPhase($assignment);
         $trainingPhase = self::latestPhase($assignment, CrewPhaseCode::Training);
+        $tourProgress ??= (new CrewTourProgress)->forAssignment($assignment, null, $timezone);
 
         return [
             'assignment_id' => $assignment->id,
@@ -253,7 +255,7 @@ class CrewAssignmentPresenter
             'training_started_at' => self::formatDateTime($trainingPhase?->actual_start_at, $timezone),
             'training_expected_completion_at' => $trainingPhase?->planned_end_at?->toDateString(),
             'company_timezone' => $timezone,
-            ...((new CrewTourProgress)->forAssignment($assignment)),
+            ...$tourProgress,
         ];
     }
 

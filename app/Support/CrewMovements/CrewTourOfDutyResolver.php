@@ -80,6 +80,11 @@ final class CrewTourOfDutyResolver
     /**
      * Preview resolution for Join Vessel form options (no join date required).
      *
+     * When `$companyPolicyDaysByRankId` is provided, policy values are resolved
+     * from that map (no per-rank database query). Pass an empty array to force
+     * in-memory resolution with no company policies.
+     *
+     * @param  array<int, int>|null  $companyPolicyDaysByRankId  rank_id => tour days
      * @return array{
      *     rank_id: int,
      *     rank_name: string,
@@ -89,21 +94,30 @@ final class CrewTourOfDutyResolver
      *     resolved_tour_of_duty_source: string|null
      * }
      */
-    public function previewForRank(int $companyId, Rank $rank): array
-    {
-        $policyDays = CrewRankPolicy::query()
-            ->forCompany($companyId)
-            ->active()
-            ->where('rank_id', $rank->id)
-            ->value('tour_of_duty_days');
+    public function previewForRank(
+        int $companyId,
+        Rank $rank,
+        ?array $companyPolicyDaysByRankId = null,
+    ): array {
+        if ($companyPolicyDaysByRankId !== null) {
+            $companyDays = array_key_exists($rank->id, $companyPolicyDaysByRankId)
+                ? (int) $companyPolicyDaysByRankId[$rank->id]
+                : null;
+        } else {
+            $policyDays = CrewRankPolicy::query()
+                ->forCompany($companyId)
+                ->active()
+                ->where('rank_id', $rank->id)
+                ->value('tour_of_duty_days');
+
+            $companyDays = $policyDays !== null ? (int) $policyDays : null;
+        }
 
         $globalDays = $rank->max_tour_of_duty_days !== null
             ? (int) $rank->max_tour_of_duty_days
             : null;
 
-        $companyDays = $policyDays !== null ? (int) $policyDays : null;
-
-        if ($companyDays !== null) {
+        if ($companyDays !== null && $companyDays > 0) {
             $resolvedDays = $companyDays;
             $resolvedSource = CrewTourOfDutySource::CompanyRankPolicy;
         } elseif ($globalDays !== null && $globalDays > 0) {
@@ -122,6 +136,23 @@ final class CrewTourOfDutyResolver
             'resolved_tour_of_duty_days' => $resolvedDays,
             'resolved_tour_of_duty_source' => $resolvedSource?->value,
         ];
+    }
+
+    /**
+     * Load active company rank policies once, keyed by rank_id.
+     *
+     * @return array<int, int>
+     */
+    public function companyPolicyDaysByRankId(int $companyId): array
+    {
+        return CrewRankPolicy::query()
+            ->forCompany($companyId)
+            ->active()
+            ->get(['rank_id', 'tour_of_duty_days'])
+            ->mapWithKeys(fn (CrewRankPolicy $policy): array => [
+                (int) $policy->rank_id => (int) $policy->tour_of_duty_days,
+            ])
+            ->all();
     }
 
     private function assertTourDaysRange(int $days, string $field): void

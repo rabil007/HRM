@@ -7,6 +7,7 @@ use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewTourStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 
 /**
@@ -37,9 +38,12 @@ final class CrewTourProgress
     /**
      * @return TourProgressArray
      */
-    public function forAssignment(CrewAssignment $assignment, ?CarbonInterface $asOf = null): array
-    {
-        $timezone = $this->calculator->timezoneForCompany((int) $assignment->company_id);
+    public function forAssignment(
+        CrewAssignment $assignment,
+        ?CarbonInterface $asOf = null,
+        ?string $timezone = null,
+    ): array {
+        $timezone ??= $this->resolveTimezone($assignment);
         $onVessel = $this->latestOnVesselPhase($assignment);
 
         $tourDays = $assignment->tour_of_duty_days !== null
@@ -69,24 +73,29 @@ final class CrewTourProgress
             return $empty;
         }
 
-        $endAt = $onVessel->actual_end_at
-            ?? $asOf
-            ?? now($timezone);
+        $isCompletedP4 = $onVessel->status === CrewPhaseStatus::Completed
+            && $onVessel->actual_end_at !== null;
+
+        // Active P4 uses "now"; completed P4 freezes progress at actual disembarkation.
+        $progressAsOf = $isCompletedP4
+            ? $onVessel->actual_end_at
+            : ($asOf ?? now($timezone));
 
         $daysOnboard = $this->calculator->daysOnboard(
             $onVessel->actual_start_at,
             $timezone,
-            $endAt,
+            $progressAsOf,
         );
 
         $remaining = $plannedSignoff !== null
-            ? $this->calculator->remainingTourDays($plannedSignoff, $timezone, $asOf ?? now($timezone))
+            ? $this->calculator->remainingTourDays($plannedSignoff, $timezone, $progressAsOf)
             : null;
 
         $rawPercent = $tourDays !== null
             ? $this->calculator->tourProgressPercent($daysOnboard, $tourDays)
             : null;
 
+        // Operational tour status / alerts only apply to active On Vessel.
         $status = null;
 
         if ($onVessel->status === CrewPhaseStatus::Active) {
@@ -94,7 +103,7 @@ final class CrewTourProgress
                 $tourDays,
                 $plannedSignoff,
                 $timezone,
-                $asOf ?? now($timezone),
+                $progressAsOf,
             );
         }
 
@@ -115,13 +124,25 @@ final class CrewTourProgress
         ];
     }
 
-    public function statusForAssignment(CrewAssignment $assignment, ?CarbonInterface $asOf = null): ?CrewTourStatus
-    {
-        $progress = $this->forAssignment($assignment, $asOf);
+    public function statusForAssignment(
+        CrewAssignment $assignment,
+        ?CarbonInterface $asOf = null,
+        ?string $timezone = null,
+    ): ?CrewTourStatus {
+        $progress = $this->forAssignment($assignment, $asOf, $timezone);
 
         return $progress['tour_status'] !== null
             ? CrewTourStatus::tryFrom($progress['tour_status'])
             : null;
+    }
+
+    private function resolveTimezone(CrewAssignment $assignment): string
+    {
+        if ($assignment->relationLoaded('company') && $assignment->company !== null) {
+            return CompanyTimezone::forCompany($assignment->company);
+        }
+
+        return $this->calculator->timezoneForCompany((int) $assignment->company_id);
     }
 
     private function latestOnVesselPhase(CrewAssignment $assignment): ?CrewAssignmentPhase

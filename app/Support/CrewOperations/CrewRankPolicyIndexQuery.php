@@ -30,12 +30,18 @@ final class CrewRankPolicyIndexQuery
             ->get()
             ->keyBy('rank_id');
 
+        $policyDaysByRankId = $policies
+            ->mapWithKeys(fn (CrewRankPolicy $policy): array => [
+                (int) $policy->rank_id => (int) $policy->tour_of_duty_days,
+            ])
+            ->all();
+
         return Rank::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'is_active', 'max_tour_of_duty_days'])
-            ->map(function (Rank $rank) use ($resolver, $companyId, $policies): array {
-                $preview = $resolver->previewForRank($companyId, $rank);
+            ->map(function (Rank $rank) use ($resolver, $companyId, $policies, $policyDaysByRankId): array {
+                $preview = $resolver->previewForRank($companyId, $rank, $policyDaysByRankId);
                 /** @var CrewRankPolicy|null $policy */
                 $policy = $policies->get($rank->id);
 

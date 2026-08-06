@@ -58,7 +58,19 @@ final class CrewJoinVesselSignoffApplier
             $planned = $existingPlannedSignoff;
             $source = CrewPlannedSignoffSource::ExistingPlan;
         } elseif ($choice === self::CHOICE_MANUAL) {
-            if (isset($payload['planned_signoff_at']) && filled($payload['planned_signoff_at'])) {
+            if ($explicitChoice) {
+                // Explicit manual override is authoritative: date + reason are required.
+                $planned = $this->parseManualDate($payload, $tour->timezone);
+                $source = CrewPlannedSignoffSource::ManualOverride;
+                $reason = $overrideReason;
+
+                if ($reason === null || $reason === '') {
+                    throw ValidationException::withMessages([
+                        'planned_signoff_override_reason' => 'A reason is required when entering another Planned Sign-Off date.',
+                    ]);
+                }
+            } elseif (isset($payload['planned_signoff_at']) && filled($payload['planned_signoff_at'])) {
+                // Legacy callers that omit planned_signoff_choice but send a date.
                 $planned = $this->parseManualDate($payload, $tour->timezone);
                 $source = CrewPlannedSignoffSource::ManualOverride;
                 $reason = $overrideReason;
@@ -68,16 +80,6 @@ final class CrewJoinVesselSignoffApplier
                 $source = null;
                 $reason = null;
             }
-        }
-
-        // Override reason is required only when the user explicitly chooses manual override.
-        if ($choice === self::CHOICE_MANUAL
-            && $explicitChoice
-            && $planned !== null
-            && ($reason === null || $reason === '')) {
-            throw ValidationException::withMessages([
-                'planned_signoff_override_reason' => 'A reason is required when entering another Planned Sign-Off date.',
-            ]);
         }
 
         if ($choice === self::CHOICE_EXISTING && $existingPlannedSignoff === null) {

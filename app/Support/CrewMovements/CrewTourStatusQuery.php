@@ -59,17 +59,19 @@ final class CrewTourStatusQuery
             CrewTourStatus::DueToday => $query
                 ->whereNotNull('planned_signoff_at')
                 ->whereDate('planned_signoff_at', '=', $today),
+            // Cumulative windows match dashboard "within N days" card counts
+            // (include due today and all nearer exclusive buckets).
             CrewTourStatus::DueWithin7Days => $query
                 ->whereNotNull('planned_signoff_at')
-                ->whereDate('planned_signoff_at', '>', $today)
+                ->whereDate('planned_signoff_at', '>=', $today)
                 ->whereDate('planned_signoff_at', '<=', CarbonImmutable::parse($today, $timezone)->addDays(7)->toDateString()),
             CrewTourStatus::DueWithin14Days => $query
                 ->whereNotNull('planned_signoff_at')
-                ->whereDate('planned_signoff_at', '>', CarbonImmutable::parse($today, $timezone)->addDays(7)->toDateString())
+                ->whereDate('planned_signoff_at', '>=', $today)
                 ->whereDate('planned_signoff_at', '<=', CarbonImmutable::parse($today, $timezone)->addDays(14)->toDateString()),
             CrewTourStatus::DueWithin30Days => $query
                 ->whereNotNull('planned_signoff_at')
-                ->whereDate('planned_signoff_at', '>', CarbonImmutable::parse($today, $timezone)->addDays(14)->toDateString())
+                ->whereDate('planned_signoff_at', '>=', $today)
                 ->whereDate('planned_signoff_at', '<=', CarbonImmutable::parse($today, $timezone)->addDays(30)->toDateString()),
             default => $query,
         };

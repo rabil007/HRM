@@ -349,13 +349,14 @@ class CrewAssignmentController extends Controller
     private function activeRanksWithTour(int $companyId): array
     {
         $resolver = new CrewTourOfDutyResolver;
+        $policyDaysByRankId = $resolver->companyPolicyDaysByRankId($companyId);
 
         return Rank::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'max_tour_of_duty_days'])
-            ->map(function (Rank $rank) use ($resolver, $companyId): array {
-                $preview = $resolver->previewForRank($companyId, $rank);
+            ->map(function (Rank $rank) use ($resolver, $companyId, $policyDaysByRankId): array {
+                $preview = $resolver->previewForRank($companyId, $rank, $policyDaysByRankId);
 
                 return [
                     'id' => $preview['rank_id'],

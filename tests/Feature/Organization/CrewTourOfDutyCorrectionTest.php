@@ -85,6 +85,7 @@ it('recalculates tour-derived planned sign-off when approved p4 start changes', 
             ->where('subject_type', $assignment::class)
             ->where('subject_id', $assignment->id)
             ->where('description', 'Planned Sign-Off recalculated after P4 start correction')
+            ->where('company_id', $fixtures['company']->id)
             ->exists())->toBeTrue();
 });
 

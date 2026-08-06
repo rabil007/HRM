@@ -80,6 +80,9 @@ final class RecalculateTourSignoffAfterP4StartCorrection
                 'new_planned_signoff_at' => $newSignoff->toDateTimeString(),
                 'actual_start_at' => $actualStart->toDateTimeString(),
             ])
+            ->tap(function ($activity) use ($assignment): void {
+                $activity->company_id = $assignment->company_id;
+            })
             ->log('Planned Sign-Off recalculated after P4 start correction');
     }
 }
