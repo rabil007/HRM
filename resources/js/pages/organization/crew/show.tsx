@@ -12,6 +12,7 @@ import { MovementActionMenu } from '@/features/organization/crew/actions/movemen
 import { CrewMetadataField } from '@/features/organization/crew/components/crew-metadata-field';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { CrewPhaseProgress } from '@/features/organization/crew/components/crew-phase-progress';
+import { CrewReliefReadinessBadge } from '@/features/organization/crew/components/crew-relief-readiness-badge';
 import { CrewTourProgressDisplay } from '@/features/organization/crew/components/crew-tour-progress-display';
 import { CorrectionHistoryCard } from '@/features/organization/crew/corrections/correction-history-card';
 import { PendingCorrectionBanner } from '@/features/organization/crew/corrections/pending-correction-banner';
@@ -33,6 +34,47 @@ import {
 } from '@/routes/organization/crew-assignments';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
 
+function reliefActionHref(assignment: CrewAssignmentDetail): string {
+    const status = assignment.relief_status;
+
+    if (!status || status === 'no_relief') {
+        return crewPlanningIndex.url({
+            query: {
+                vessel_id: assignment.vessel?.id,
+                rank_id: assignment.rank?.id,
+                relieves_crew_assignment_id: assignment.id,
+                planned_join_date:
+                    assignment.planned_signoff_at ??
+                    assignment.source_planned_signoff_date ??
+                    undefined,
+                open_create: 1,
+            },
+        });
+    }
+
+    if (status === 'relief_planned') {
+        return crewPlanningIndex.url({
+            query: {
+                vessel_id: assignment.vessel?.id ?? undefined,
+                rank_id: assignment.rank?.id ?? undefined,
+                search: assignment.relief_employee?.name ?? undefined,
+            },
+        });
+    }
+
+    if (assignment.relief_crew_assignment_id) {
+        return showAssignment.url(assignment.relief_crew_assignment_id);
+    }
+
+    return crewPlanningIndex.url({
+        query: {
+            vessel_id: assignment.vessel?.id ?? undefined,
+            rank_id: assignment.rank?.id ?? undefined,
+            search: assignment.relief_employee?.name ?? undefined,
+        },
+    });
+}
+
 export default function CrewAssignmentShow({
     assignment,
     corrections,
@@ -51,6 +93,14 @@ export default function CrewAssignmentShow({
         (can.perform_movement || can.cancel) &&
         assignment.available_actions.length > 0;
     const isOnVessel = assignment.current_phase?.code === 'p4';
+    const reliefHref = isOnVessel ? reliefActionHref(assignment) : null;
+    const reliefActionLabel =
+        assignment.relief_action_label ??
+        (assignment.relief_status === 'no_relief'
+            ? 'Plan Relief'
+            : assignment.relief_status === 'relief_planned'
+              ? 'Open Relief Plan'
+              : 'Open Relief Assignment');
 
     return (
         <>
@@ -202,6 +252,95 @@ export default function CrewAssignmentShow({
                                             assignment.planned_signoff_at
                                         }
                                     />
+                                </CardContent>
+                            </Card>
+                        ) : null}
+
+                        {isOnVessel ? (
+                            <Card className="border-border/80 dark:border-white/10">
+                                <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+                                    <CardTitle className="text-base">
+                                        Relief Readiness
+                                    </CardTitle>
+                                    {reliefHref ? (
+                                        <Button
+                                            asChild
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 rounded-lg"
+                                        >
+                                            <Link href={reliefHref}>
+                                                {reliefActionLabel}
+                                            </Link>
+                                        </Button>
+                                    ) : null}
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-0">
+                                    <CrewReliefReadinessBadge
+                                        relief_status={assignment.relief_status}
+                                        relief_status_label={
+                                            assignment.relief_status_label
+                                        }
+                                        relief_risk={assignment.relief_risk}
+                                        relief_risk_label={
+                                            assignment.relief_risk_label
+                                        }
+                                        relief_employee={
+                                            assignment.relief_employee
+                                        }
+                                    />
+                                    <CrewMetadataField
+                                        label="Planned join"
+                                        value={formatDisplayDate(
+                                            assignment.relief_planned_join_date,
+                                        )}
+                                    />
+                                    <CrewMetadataField
+                                        label="Days until sign-off"
+                                        value={
+                                            assignment.days_until_signoff !==
+                                            null
+                                                ? String(
+                                                      assignment.days_until_signoff,
+                                                  )
+                                                : '—'
+                                        }
+                                    />
+                                    {assignment.relief_phase_code ? (
+                                        <CrewMetadataField
+                                            label="Relief phase"
+                                            value={
+                                                <CrewPhaseBadge
+                                                    code={
+                                                        assignment.relief_phase_code
+                                                    }
+                                                    label={
+                                                        assignment.relief_phase_label ??
+                                                        assignment.relief_phase_code
+                                                    }
+                                                    status={
+                                                        assignment.relief_phase_status ??
+                                                        undefined
+                                                    }
+                                                />
+                                            }
+                                        />
+                                    ) : null}
+                                    {assignment.relief_crew_assignment_id ? (
+                                        <CrewMetadataField
+                                            label="Relief assignment"
+                                            value={
+                                                <Link
+                                                    href={showAssignment.url(
+                                                        assignment.relief_crew_assignment_id,
+                                                    )}
+                                                    className="text-primary hover:underline"
+                                                >
+                                                    Open assignment
+                                                </Link>
+                                            }
+                                        />
+                                    ) : null}
                                 </CardContent>
                             </Card>
                         ) : null}
@@ -557,6 +696,88 @@ export default function CrewAssignmentShow({
                                     <p className="text-sm whitespace-pre-wrap text-muted-foreground">
                                         {assignment.remarks}
                                     </p>
+                                </CardContent>
+                            </Card>
+                        ) : null}
+
+                        {assignment.relieves ? (
+                            <Card className="border-border/80 dark:border-white/10">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base">
+                                        Relieves
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-1 pt-0">
+                                    <CrewMetadataField
+                                        label="Source assignment"
+                                        value={
+                                            <Link
+                                                href={showAssignment.url(
+                                                    assignment.relieves
+                                                        .source_assignment_id,
+                                                )}
+                                                className="text-primary hover:underline"
+                                            >
+                                                {
+                                                    assignment.relieves
+                                                        .source_assignment_no
+                                                }
+                                            </Link>
+                                        }
+                                    />
+                                    <CrewMetadataField
+                                        label="Employee"
+                                        value={
+                                            assignment.relieves.source_employee
+                                                ? assignment.relieves
+                                                      .source_employee.name
+                                                : '—'
+                                        }
+                                    />
+                                    <CrewMetadataField
+                                        label="Vessel"
+                                        value={
+                                            assignment.relieves.source_vessel
+                                                ?.name ?? '—'
+                                        }
+                                    />
+                                    <CrewMetadataField
+                                        label="Rank"
+                                        value={
+                                            assignment.relieves.source_rank
+                                                ?.name ?? '—'
+                                        }
+                                    />
+                                    <CrewMetadataField
+                                        label="Planned sign-off"
+                                        value={formatDisplayDate(
+                                            assignment.relieves
+                                                .source_planned_signoff_at,
+                                        )}
+                                    />
+                                    <Button
+                                        asChild
+                                        variant="link"
+                                        className="mt-2 h-auto px-0"
+                                    >
+                                        <Link
+                                            href={crewPlanningIndex.url({
+                                                query: {
+                                                    vessel_id:
+                                                        assignment.vessel?.id ??
+                                                        undefined,
+                                                    rank_id:
+                                                        assignment.rank?.id ??
+                                                        undefined,
+                                                    search:
+                                                        assignment.employee
+                                                            ?.name ?? undefined,
+                                                },
+                                            })}
+                                        >
+                                            Open Crew Planning
+                                        </Link>
+                                    </Button>
                                 </CardContent>
                             </Card>
                         ) : null}

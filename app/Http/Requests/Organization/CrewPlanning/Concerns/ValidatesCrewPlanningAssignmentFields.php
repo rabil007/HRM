@@ -45,10 +45,6 @@ trait ValidatesCrewPlanningAssignmentFields
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            if ($validator->errors()->hasAny(['employee_id', 'rank_id'])) {
-                return;
-            }
-
             $companyId = (int) $this->attributes->get('current_company_id');
 
             $assignment = $this->route('assignment');
@@ -58,32 +54,28 @@ trait ValidatesCrewPlanningAssignmentFields
                 ? $this->input('employee_id')
                 : $existing?->employee_id;
 
-            if ($rawEmployeeId === null || $rawEmployeeId === '') {
-                return;
-            }
-
-            $employeeId = (int) $rawEmployeeId;
-
             $assignmentRankId = $this->has('rank_id')
                 ? $this->input('rank_id')
                 : $existing?->rank_id;
 
-            if ($assignmentRankId === null || $assignmentRankId === '') {
-                return;
+            // Employee-specific rules only when a relief/planned employee is selected.
+            if ($rawEmployeeId !== null && $rawEmployeeId !== ''
+                && $assignmentRankId !== null && $assignmentRankId !== ''
+                && ! $validator->errors()->hasAny(['employee_id', 'rank_id'])) {
+                $employee = Employee::query()
+                    ->where('company_id', $companyId)
+                    ->whereKey((int) $rawEmployeeId)
+                    ->first(['rank_id']);
+
+                if ($employee !== null && (int) $employee->rank_id !== (int) $assignmentRankId) {
+                    $validator->errors()->add(
+                        'employee_id',
+                        'The crew member\'s profile rank must match the selected rank.',
+                    );
+                }
             }
 
-            $employee = Employee::query()
-                ->where('company_id', $companyId)
-                ->whereKey($employeeId)
-                ->first(['rank_id']);
-
-            if ($employee !== null && (int) $employee->rank_id !== (int) $assignmentRankId) {
-                $validator->errors()->add(
-                    'employee_id',
-                    'The crew member\'s profile rank must match the selected rank.',
-                );
-            }
-
+            // Relief link rules always apply when present — including vacant slots.
             ValidatesCrewPlanningReliefLink::validate($validator, [
                 'company_id' => $companyId,
                 'relieves_crew_assignment_id' => $this->has('relieves_crew_assignment_id')

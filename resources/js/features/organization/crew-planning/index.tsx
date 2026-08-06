@@ -10,7 +10,7 @@ import { useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     store as storeAssignment,
     update as updateAssignment,
@@ -38,6 +38,7 @@ import type {
     PlanningOption,
     PlanningPagePermissions,
     PlanningPoolEmployee,
+    PlanningReliefPrefill,
     RowDropData,
     TreeVessel,
 } from './types';
@@ -70,6 +71,7 @@ type Props = {
     ranks: PlanningOption[];
     employees: PlanningPoolEmployee[];
     can: PlanningPagePermissions;
+    relief_prefill?: PlanningReliefPrefill | null;
 };
 
 export function CrewPlanningContent({
@@ -82,6 +84,7 @@ export function CrewPlanningContent({
     ranks,
     employees,
     can,
+    relief_prefill: reliefPrefill = null,
 }: Props): ReactElement {
     const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState(filters.search ?? '');
@@ -91,6 +94,7 @@ export function CrewPlanningContent({
     const [draggingEmployee, setDraggingEmployee] =
         useState<CrewDragData | null>(null);
     const ganttRef = useRef<HTMLDivElement | null>(null);
+    const prefillAppliedRef = useRef(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -138,6 +142,30 @@ export function CrewPlanningContent({
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [],
     );
+
+    useEffect(() => {
+        if (!reliefPrefill?.open_create || prefillAppliedRef.current) {
+            return;
+        }
+
+        if (!can.create) {
+            return;
+        }
+
+        prefillAppliedRef.current = true;
+        openCreate(
+            reliefPrefill.vessel_id != null
+                ? String(reliefPrefill.vessel_id)
+                : '',
+            reliefPrefill.rank_id != null ? String(reliefPrefill.rank_id) : '',
+            reliefPrefill.planned_join_date ?? '',
+            '',
+            reliefPrefill.relieves_crew_assignment_id != null
+                ? String(reliefPrefill.relieves_crew_assignment_id)
+                : '',
+            reliefPrefill.relieves_employee_name ?? '',
+        );
+    }, [can.create, openCreate, reliefPrefill]);
 
     const openCreateForRow = useCallback(
         (

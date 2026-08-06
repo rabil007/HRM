@@ -100,6 +100,48 @@ export function CrewFiltersSheet({
 
             <div className="space-y-2">
                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                    Relief status
+                </Label>
+                <AppSelect
+                    value={value.relief_status}
+                    onValueChange={(reliefStatus) =>
+                        onChange({ ...value, relief_status: reliefStatus })
+                    }
+                    variant="dark"
+                    placeholder="All relief statuses"
+                >
+                    <AppSelectItem value="">All relief statuses</AppSelectItem>
+                    {(filterOptions.relief_statuses ?? []).map((option) => (
+                        <AppSelectItem key={option.value} value={option.value}>
+                            {option.label}
+                        </AppSelectItem>
+                    ))}
+                </AppSelect>
+            </div>
+
+            <div className="space-y-2">
+                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                    Relief risk
+                </Label>
+                <AppSelect
+                    value={value.relief_risk}
+                    onValueChange={(reliefRisk) =>
+                        onChange({ ...value, relief_risk: reliefRisk })
+                    }
+                    variant="dark"
+                    placeholder="All relief risks"
+                >
+                    <AppSelectItem value="">All relief risks</AppSelectItem>
+                    {(filterOptions.relief_risks ?? []).map((option) => (
+                        <AppSelectItem key={option.value} value={option.value}>
+                            {option.label}
+                        </AppSelectItem>
+                    ))}
+                </AppSelect>
+            </div>
+
+            <div className="space-y-2">
+                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                     Vessel
                 </Label>
                 <AppSelect
@@ -279,6 +321,41 @@ export function CrewFiltersSheet({
                     checked={value.movement_attention}
                     onCheckedChange={(checked) =>
                         onChange({ ...value, movement_attention: checked })
+                    }
+                />
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
+                <div>
+                    <p className="text-sm font-medium">Relief not ready</p>
+                    <p className="text-xs text-muted-foreground">
+                        On-vessel crew without ready-to-join relief
+                    </p>
+                </div>
+                <Switch
+                    checked={value.relief_not_ready}
+                    onCheckedChange={(checked) =>
+                        onChange({ ...value, relief_not_ready: checked })
+                    }
+                />
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
+                <div>
+                    <p className="text-sm font-medium">
+                        Sign-off within 14 days — no relief
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                        Planned sign-off soon without a relief planned
+                    </p>
+                </div>
+                <Switch
+                    checked={value.signoff_within_14_no_relief}
+                    onCheckedChange={(checked) =>
+                        onChange({
+                            ...value,
+                            signoff_within_14_no_relief: checked,
+                        })
                     }
                 />
             </div>

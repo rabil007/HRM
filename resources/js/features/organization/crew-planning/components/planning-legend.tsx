@@ -8,24 +8,39 @@ import { cn } from '@/lib/utils';
 import {
     deployedBarSurfaceClass,
     plannedReliefBarSurfaceClass,
+    vacantBarSurfaceClass,
 } from '../lib/assignment-bar-styles';
 
 const LEGEND_ITEMS = [
     {
-        label: 'Assigned',
+        label: 'Assignment Created',
         description:
-            'Crew currently on the vessel — synced automatically from Crew Assignments.',
+            'Planning row already linked to a crew assignment — typically on-vessel or mobilising.',
         surfaceClass: deployedBarSurfaceClass,
         labelClass: 'text-emerald-700 dark:text-emerald-300',
         swatchRingClass: 'ring-emerald-500/45 dark:ring-emerald-400/55',
     },
     {
-        label: 'Planned relief',
+        label: 'Planned Relief',
         description:
-            'Successor crew you plan here to replace assigned crew after they leave.',
+            'Successor crew planned to relieve an onboard assignment after sign-off.',
         surfaceClass: plannedReliefBarSurfaceClass,
         labelClass: 'text-sky-700 dark:text-sky-300',
         swatchRingClass: 'ring-sky-500/45 dark:ring-sky-400/55',
+    },
+    {
+        label: 'Planned',
+        description: 'Planned crew with no relief link and no assignment yet.',
+        surfaceClass: plannedReliefBarSurfaceClass,
+        labelClass: 'text-sky-700/80 dark:text-sky-300/80',
+        swatchRingClass: 'ring-sky-500/30 dark:ring-sky-400/35',
+    },
+    {
+        label: 'Vacant Slot',
+        description: 'Open planning slot with no employee assigned yet.',
+        surfaceClass: vacantBarSurfaceClass,
+        labelClass: 'text-muted-foreground',
+        swatchRingClass: 'ring-muted-foreground/30',
     },
 ] as const;
 
@@ -46,8 +61,8 @@ export function PlanningLegend(): ReactElement {
                     align="start"
                     className="max-w-xs"
                 >
-                    Timeline bar colors show whether crew is currently deployed
-                    on a vessel or planned as relief for a future handover.
+                    Timeline bar kinds show vacant slots, planned crew, planned
+                    relief, and assignments already created from planning.
                 </TooltipContent>
             </Tooltip>
 

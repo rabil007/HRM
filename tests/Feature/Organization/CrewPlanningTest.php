@@ -99,6 +99,50 @@ test('authorized users can view the crew planning index', function () {
             ->has('tree')
             ->has('filters')
             ->where('can.view', true)
+            ->where('relief_prefill', null)
+        );
+});
+
+test('crew planning index returns relief prefill from query params', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'vessel' => $vessel,
+        'captain' => $captain,
+    ] = makeCrewPlanningFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.planning.create',
+    ]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $captain->id,
+        'name' => 'Onboard Source',
+    ]);
+
+    $source = makeActiveOnVesselAssignment($company, $employee, $captain, $vessel, [
+        'planned_signoff_at' => '2026-09-15 00:00:00',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'vessel_id' => $vessel->id,
+            'rank_id' => $captain->id,
+            'relieves_crew_assignment_id' => $source->id,
+            'planned_join_date' => '2026-09-15',
+            'open_create' => 1,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew-planning/index')
+            ->where('relief_prefill.open_create', true)
+            ->where('relief_prefill.vessel_id', $vessel->id)
+            ->where('relief_prefill.rank_id', $captain->id)
+            ->where('relief_prefill.relieves_crew_assignment_id', $source->id)
+            ->where('relief_prefill.planned_join_date', '2026-09-15')
+            ->where('relief_prefill.relieves_employee_name', 'Onboard Source')
         );
 });
 

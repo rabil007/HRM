@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { AlertTriangle } from 'lucide-react';
 import {
     dataTableActionsCellClass,
@@ -8,9 +8,11 @@ import {
 } from '@/components/data-table';
 import { ListTableCrudActions } from '@/components/list-table-actions';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
+import { CrewReliefReadinessBadge } from '@/features/organization/crew/components/crew-relief-readiness-badge';
 import { CrewTourProgressDisplay } from '@/features/organization/crew/components/crew-tour-progress-display';
 import { formatDaysInPhase } from '@/features/organization/crew/format-days-in-phase';
 import type {
@@ -21,6 +23,49 @@ import { EmployeeAvatar } from '@/features/organization/employees/components/emp
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import { show as showAssignment } from '@/routes/organization/crew-assignments';
+import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
+
+function reliefActionHref(assignment: CrewAssignmentListItem): string | null {
+    const status = assignment.relief_status;
+
+    if (!status || status === 'no_relief') {
+        return crewPlanningIndex.url({
+            query: {
+                vessel_id: assignment.vessel?.id,
+                rank_id: assignment.rank?.id,
+                relieves_crew_assignment_id: assignment.id,
+                planned_join_date:
+                    assignment.planned_signoff_at ??
+                    assignment.source_planned_signoff_date ??
+                    undefined,
+                open_create: 1,
+            },
+        });
+    }
+
+    if (status === 'relief_planned') {
+        return crewPlanningIndex.url({
+            query: {
+                vessel_id: assignment.vessel?.id ?? undefined,
+                rank_id: assignment.rank?.id ?? undefined,
+                search: assignment.relief_employee?.name ?? undefined,
+            },
+        });
+    }
+
+    if (assignment.relief_crew_assignment_id) {
+        return showAssignment.url(assignment.relief_crew_assignment_id);
+    }
+
+    return crewPlanningIndex.url({
+        query: {
+            vessel_id: assignment.vessel?.id ?? undefined,
+            rank_id: assignment.rank?.id ?? undefined,
+            search: assignment.relief_employee?.name ?? undefined,
+        },
+    });
+}
 
 export function CrewAssignmentsTableRow({
     assignment,
@@ -44,6 +89,14 @@ export function CrewAssignmentsTableRow({
         (canPerformMovement || canCancel) &&
         assignment.available_actions.length > 0;
     const isOnVessel = assignment.current_phase?.code === 'p4';
+    const reliefHref = isOnVessel ? reliefActionHref(assignment) : null;
+    const reliefActionLabel =
+        assignment.relief_action_label ??
+        (assignment.relief_status === 'no_relief'
+            ? 'Plan Relief'
+            : assignment.relief_status === 'relief_planned'
+              ? 'Open Relief Plan'
+              : 'Open Relief Assignment');
 
     return (
         <TableRow
@@ -160,6 +213,20 @@ export function CrewAssignmentsTableRow({
             </TableCell>
 
             <TableCell className={dataTableCellClass()}>
+                {isOnVessel ? (
+                    <CrewReliefReadinessBadge
+                        relief_status={assignment.relief_status}
+                        relief_status_label={assignment.relief_status_label}
+                        relief_risk={assignment.relief_risk}
+                        relief_risk_label={assignment.relief_risk_label}
+                        relief_employee={assignment.relief_employee}
+                    />
+                ) : (
+                    <span className="text-muted-foreground">—</span>
+                )}
+            </TableCell>
+
+            <TableCell className={dataTableCellClass()}>
                 <div className="flex flex-wrap items-center gap-1.5">
                     <Badge
                         variant={
@@ -194,6 +261,22 @@ export function CrewAssignmentsTableRow({
                 onClick={(event) => event.stopPropagation()}
             >
                 <div className="flex items-center justify-end gap-1.5">
+                    {reliefHref ? (
+                        <Button
+                            asChild
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-lg px-2.5 text-xs"
+                        >
+                            <Link
+                                href={reliefHref}
+                                onClick={(event) => event.stopPropagation()}
+                            >
+                                {reliefActionLabel}
+                            </Link>
+                        </Button>
+                    ) : null}
                     {showMovementActions ? (
                         <MovementActionMenu
                             assignmentId={assignment.id}

@@ -11,6 +11,12 @@ export type GanttVesselGroup = {
     ranks: GanttRankRow[];
 };
 
+export type PlanningKind =
+    | 'vacant_slot'
+    | 'planned'
+    | 'planned_relief'
+    | 'assignment_created';
+
 export type GanttBar = {
     id: number;
     row_key: string;
@@ -28,7 +34,22 @@ export type GanttBar = {
     crew_assignment_id: number | null;
     relieves_crew_assignment_id: number | null;
     relieves_employee_name: string | null;
+    relieves_assignment_no?: string | null;
+    relieves_vessel_name?: string | null;
+    relieves_rank_name?: string | null;
+    relieves_planned_signoff_at?: string | null;
     is_assigned: boolean;
+    planning_kind?: PlanningKind;
+    planning_kind_label?: string;
+};
+
+export type PlanningReliefPrefill = {
+    vessel_id: number | null;
+    rank_id: number | null;
+    relieves_crew_assignment_id: number | null;
+    planned_join_date: string | null;
+    open_create: boolean;
+    relieves_employee_name: string | null;
 };
 
 export type TreeCrewMember = {

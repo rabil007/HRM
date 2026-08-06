@@ -77,7 +77,9 @@ function AssignmentBarPopoverContent({
     onDelete,
 }: Props): ReactElement {
     const isVacant = bar.employee_id === null;
-    const sourceLabel = bar.is_assigned ? 'Assigned' : 'Planned relief';
+    const sourceLabel =
+        bar.planning_kind_label ??
+        (bar.is_assigned ? 'Assigned' : 'Planned relief');
 
     return (
         <>
@@ -126,10 +128,41 @@ function AssignmentBarPopoverContent({
                     </p>
                 ) : null}
                 {bar.relieves_employee_name ? (
-                    <InfoRow
-                        label="Replacing"
-                        value={bar.relieves_employee_name}
-                    />
+                    <div className="mt-1 space-y-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5">
+                        <InfoRow
+                            label="Relieves"
+                            value={bar.relieves_employee_name}
+                        />
+                        {bar.relieves_assignment_no ? (
+                            <InfoRow
+                                label="Assignment"
+                                value={bar.relieves_assignment_no}
+                            />
+                        ) : null}
+                        {bar.relieves_vessel_name ? (
+                            <InfoRow
+                                label="Vessel"
+                                value={bar.relieves_vessel_name}
+                            />
+                        ) : null}
+                        {bar.relieves_rank_name ? (
+                            <InfoRow
+                                label="Rank"
+                                value={bar.relieves_rank_name}
+                            />
+                        ) : null}
+                        {bar.relieves_planned_signoff_at ? (
+                            <InfoRow
+                                label="Sign-off"
+                                value={formatDate(
+                                    bar.relieves_planned_signoff_at,
+                                )}
+                            />
+                        ) : null}
+                    </div>
+                ) : null}
+                {bar.planning_kind_label ? (
+                    <InfoRow label="Kind" value={bar.planning_kind_label} />
                 ) : null}
                 {bar.notes ? (
                     <p className="mt-1 rounded-md bg-muted px-2 py-1.5 text-muted-foreground">

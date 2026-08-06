@@ -83,13 +83,16 @@ final class CrewPlanningGanttQuery
             'employee:id,name',
             'rank:id,name',
             'vessel:id,name',
-            'relievedAssignment.employee:id,name',
+            'relievedAssignment.employee:id,name,employee_no',
+            'relievedAssignment.vessel:id,name',
+            'relievedAssignment.rank:id,name',
         ])
             ->map(function (CrewPlanningAssignment $assignment) use ($to) {
                 $joinDate = $assignment->planned_join_date->toDateString();
                 $leaveDate = $assignment->planned_leave_date?->toDateString();
                 $isOpenEnded = $leaveDate === null;
                 $displayEnd = $leaveDate ?? $to;
+                $planningKind = self::planningKind($assignment);
 
                 return [
                     'id' => $assignment->id,
@@ -108,11 +111,47 @@ final class CrewPlanningGanttQuery
                     'crew_assignment_id' => $assignment->crew_assignment_id,
                     'relieves_crew_assignment_id' => $assignment->relieves_crew_assignment_id,
                     'relieves_employee_name' => $assignment->relievedAssignment?->employee?->name,
+                    'relieves_assignment_no' => $assignment->relievedAssignment?->assignment_no,
+                    'relieves_vessel_name' => $assignment->relievedAssignment?->vessel?->name,
+                    'relieves_rank_name' => $assignment->relievedAssignment?->rank?->name,
+                    'relieves_planned_signoff_at' => $assignment->relievedAssignment?->planned_signoff_at?->toDateString(),
                     'is_assigned' => $assignment->crew_assignment_id !== null,
+                    'planning_kind' => $planningKind,
+                    'planning_kind_label' => self::planningKindLabel($planningKind),
                 ];
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * @return 'vacant_slot'|'planned'|'planned_relief'|'assignment_created'
+     */
+    private static function planningKind(CrewPlanningAssignment $assignment): string
+    {
+        if ($assignment->crew_assignment_id !== null) {
+            return 'assignment_created';
+        }
+
+        if ($assignment->relieves_crew_assignment_id !== null) {
+            return 'planned_relief';
+        }
+
+        if ($assignment->employee_id === null) {
+            return 'vacant_slot';
+        }
+
+        return 'planned';
+    }
+
+    private static function planningKindLabel(string $kind): string
+    {
+        return match ($kind) {
+            'vacant_slot' => 'Vacant Slot',
+            'planned_relief' => 'Planned Relief',
+            'assignment_created' => 'Assignment Created',
+            default => 'Planned',
+        };
     }
 
     /**
