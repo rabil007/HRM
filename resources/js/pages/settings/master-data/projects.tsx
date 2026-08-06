@@ -7,9 +7,10 @@ import {
     Loader2,
     Upload,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
 import Heading from '@/components/heading';
+import { Pagination } from '@/components/pagination';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     AlertDialog,
@@ -41,11 +42,13 @@ import {
 } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import {
     firstValidationError,
     hasFlashSuccess,
 } from '@/lib/first-validation-error';
 import { cn } from '@/lib/utils';
+import type { PaginationMeta } from '@/types/pagination';
 
 type Project = {
     id: number;
@@ -53,10 +56,24 @@ type Project = {
     is_active: boolean;
 };
 
-export default function Projects({ projects }: { projects: Project[] }) {
+export default function Projects({
+    projects,
+    pagination,
+    search = '',
+}: {
+    projects: Project[];
+    pagination: PaginationMeta;
+    search?: string;
+}) {
     const can = useSettingsMasterDataCan('projects');
 
-    const [query, setQuery] = useState('');
+    const list = useServerPaginationFilters({
+        url: '/settings/master-data/projects',
+        search,
+        filters: {},
+        pagination,
+    });
+
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [current, setCurrent] = useState<Project | null>(null);
@@ -72,15 +89,7 @@ export default function Projects({ projects }: { projects: Project[] }) {
         is_active: true,
     });
 
-    const rows = useMemo(() => {
-        const q = query.trim().toLowerCase();
-
-        if (!q) {
-            return projects;
-        }
-
-        return projects.filter((p) => p.title.toLowerCase().includes(q));
-    }, [projects, query]);
+    const rows = projects;
 
     const openCreate = () => {
         setCurrent(null);
@@ -264,8 +273,10 @@ export default function Projects({ projects }: { projects: Project[] }) {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
                         <Input
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
+                            value={list.searchInput}
+                            onChange={(e) =>
+                                list.onSearchChange(e.target.value)
+                            }
                             placeholder="Search projects..."
                         />
                     </div>
@@ -343,6 +354,8 @@ export default function Projects({ projects }: { projects: Project[] }) {
                         </div>
                     </div>
                 </div>
+
+                <Pagination {...list.paginationProps} label="projects" />
             </div>
 
             <Dialog

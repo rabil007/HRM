@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings\MasterData;
 
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\ImportRanksRequest;
 use App\Http\Requests\Settings\MasterData\StoreRankRequest;
 use App\Http\Requests\Settings\MasterData\UpdateRankRequest;
@@ -16,16 +17,23 @@ use Inertia\Response as InertiaResponse;
 
 class RankController extends Controller
 {
+    use PaginatesMasterDataIndex;
     use ReturnsQuickCreateJson;
 
     public function index(): InertiaResponse
     {
-        $ranks = Rank::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'is_active', 'max_tour_of_duty_days']);
+        $page = $this->paginateMasterDataIndex(
+            request(),
+            Rank::query()
+                ->orderBy('name')
+                ->select(['id', 'name', 'is_active', 'max_tour_of_duty_days']),
+            ['name'],
+        );
 
         return Inertia::render('settings/master-data/ranks', [
-            'ranks' => $ranks,
+            'ranks' => $page['items'],
+            'pagination' => $page['pagination'],
+            'search' => $page['search'],
         ]);
     }
 

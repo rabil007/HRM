@@ -1,6 +1,8 @@
 import type { InertiaFormProps } from '@inertiajs/react';
 import { router, useForm } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
+import type { PaginationMeta } from '@/types/pagination';
 
 export type MasterDataNameActiveItem = {
     id: number;
@@ -16,7 +18,8 @@ export type MasterDataNameActiveFormData = {
 type UseMasterDataNameActiveCrudOptions<T extends MasterDataNameActiveItem> = {
     items: T[];
     baseUrl: string;
-    filterItem?: (item: T, query: string) => boolean;
+    search?: string;
+    pagination: PaginationMeta;
 };
 
 export function useMasterDataNameActiveCrud<
@@ -24,9 +27,9 @@ export function useMasterDataNameActiveCrud<
 >({
     items,
     baseUrl,
-    filterItem = (item, query) => item.name.toLowerCase().includes(query),
+    search = '',
+    pagination,
 }: UseMasterDataNameActiveCrudOptions<T>) {
-    const [query, setQuery] = useState('');
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [current, setCurrent] = useState<T | null>(null);
@@ -36,15 +39,12 @@ export function useMasterDataNameActiveCrud<
         is_active: true,
     });
 
-    const rows = useMemo(() => {
-        const normalized = query.trim().toLowerCase();
-
-        if (!normalized) {
-            return items;
-        }
-
-        return items.filter((item) => filterItem(item, normalized));
-    }, [filterItem, items, query]);
+    const list = useServerPaginationFilters({
+        url: baseUrl,
+        search,
+        filters: {},
+        pagination,
+    });
 
     const openCreate = (): void => {
         setCurrent(null);
@@ -115,15 +115,16 @@ export function useMasterDataNameActiveCrud<
     };
 
     return {
-        query,
-        setQuery,
+        searchInput: list.searchInput,
+        onSearchChange: list.onSearchChange,
+        paginationProps: list.paginationProps,
         sheetOpen,
         setSheetOpen,
         deleteOpen,
         setDeleteOpen,
         current,
         form: form as InertiaFormProps<MasterDataNameActiveFormData>,
-        rows,
+        rows: items,
         openCreate,
         openEdit,
         submit,

@@ -329,6 +329,9 @@ test('authorized users can store vessel identification and certificate', functio
         ->assertInertia(fn (Assert $page) => $page
             ->component('settings/master-data/vessels')
             ->has('vessels', 1)
+            ->has('pagination')
+            ->where('pagination.total', 1)
+            ->where('search', '')
             ->where('vessels.0.official_no', 'OFF-1001')
             ->where('vessels.0.call_sign', 'A6XYZ')
             ->where('vessels.0.imo_no', '9123456')

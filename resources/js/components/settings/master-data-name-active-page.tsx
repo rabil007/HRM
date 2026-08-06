@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import Heading from '@/components/heading';
+import { Pagination } from '@/components/pagination';
 import {
     MasterDataActiveToggle,
     MasterDataField,
@@ -14,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useMasterDataNameActiveCrud } from '@/hooks/use-master-data-name-active-crud';
 import type { MasterDataNameActiveItem } from '@/hooks/use-master-data-name-active-crud';
+import type { PaginationMeta } from '@/types/pagination';
 
 type MasterDataNameActivePageProps<T extends MasterDataNameActiveItem> = {
     headTitle: string;
@@ -22,6 +24,8 @@ type MasterDataNameActivePageProps<T extends MasterDataNameActiveItem> = {
     resource: string;
     baseUrl: string;
     items: T[];
+    pagination: PaginationMeta;
+    search?: string;
     entityLabel: string;
     searchPlaceholder: string;
     createButtonLabel: string;
@@ -32,7 +36,7 @@ type MasterDataNameActivePageProps<T extends MasterDataNameActiveItem> = {
     sheetDescription: string;
     emptyLabel: string;
     createSubmitLabel: string;
-    filterItem?: (item: T, query: string) => boolean;
+    paginationLabel?: string;
 };
 
 export function MasterDataNameActivePage<T extends MasterDataNameActiveItem>({
@@ -42,6 +46,8 @@ export function MasterDataNameActivePage<T extends MasterDataNameActiveItem>({
     resource,
     baseUrl,
     items,
+    pagination,
+    search = '',
     entityLabel,
     searchPlaceholder,
     createButtonLabel,
@@ -52,12 +58,13 @@ export function MasterDataNameActivePage<T extends MasterDataNameActiveItem>({
     sheetDescription,
     emptyLabel,
     createSubmitLabel,
-    filterItem,
+    paginationLabel,
 }: MasterDataNameActivePageProps<T>) {
     const can = useSettingsMasterDataCan(resource);
     const {
-        query,
-        setQuery,
+        searchInput,
+        onSearchChange,
+        paginationProps,
         sheetOpen,
         setSheetOpen,
         deleteOpen,
@@ -74,7 +81,8 @@ export function MasterDataNameActivePage<T extends MasterDataNameActiveItem>({
     } = useMasterDataNameActiveCrud({
         items,
         baseUrl,
-        filterItem,
+        search,
+        pagination,
     });
 
     return (
@@ -91,8 +99,10 @@ export function MasterDataNameActivePage<T extends MasterDataNameActiveItem>({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
                         <Input
-                            value={query}
-                            onChange={(event) => setQuery(event.target.value)}
+                            value={searchInput}
+                            onChange={(event) =>
+                                onSearchChange(event.target.value)
+                            }
                             placeholder={searchPlaceholder}
                             className={masterDataInputClass}
                         />
@@ -167,6 +177,11 @@ export function MasterDataNameActivePage<T extends MasterDataNameActiveItem>({
                         </div>
                     </div>
                 </div>
+
+                <Pagination
+                    {...paginationProps}
+                    label={paginationLabel ?? entityLabel}
+                />
             </div>
 
             <MasterDataFormSheet

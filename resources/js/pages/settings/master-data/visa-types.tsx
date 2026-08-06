@@ -1,4 +1,5 @@
 import { MasterDataNameActivePage } from '@/components/settings/master-data-name-active-page';
+import type { PaginationMeta } from '@/types/pagination';
 
 type VisaType = {
     id: number;
@@ -6,7 +7,15 @@ type VisaType = {
     is_active: boolean;
 };
 
-export default function VisaTypes({ visa_types }: { visa_types: VisaType[] }) {
+export default function VisaTypes({
+    visa_types,
+    pagination,
+    search = '',
+}: {
+    visa_types: VisaType[];
+    pagination: PaginationMeta;
+    search?: string;
+}) {
     return (
         <MasterDataNameActivePage
             headTitle="Visa types"
@@ -15,6 +24,8 @@ export default function VisaTypes({ visa_types }: { visa_types: VisaType[] }) {
             resource="visa-types"
             baseUrl="/settings/master-data/visa-types"
             items={visa_types}
+            pagination={pagination}
+            search={search}
             entityLabel="visa type"
             searchPlaceholder="Search visa types..."
             createButtonLabel="Add visa type"

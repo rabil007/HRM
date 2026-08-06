@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings\MasterData;
 
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\ImportVesselTypesRequest;
 use App\Http\Requests\Settings\MasterData\StoreVesselTypeRequest;
 use App\Http\Requests\Settings\MasterData\UpdateVesselTypeRequest;
@@ -17,16 +18,23 @@ use Inertia\Response as InertiaResponse;
 
 class VesselTypeController extends Controller
 {
+    use PaginatesMasterDataIndex;
     use ReturnsQuickCreateJson;
 
     public function index(): InertiaResponse
     {
-        $vesselTypes = VesselType::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'is_active']);
+        $page = $this->paginateMasterDataIndex(
+            request(),
+            VesselType::query()
+                ->orderBy('name')
+                ->select(['id', 'name', 'is_active']),
+            ['name'],
+        );
 
         return Inertia::render('settings/master-data/vessel-types', [
-            'vessel_types' => $vesselTypes,
+            'vessel_types' => $page['items'],
+            'pagination' => $page['pagination'],
+            'search' => $page['search'],
         ]);
     }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings\MasterData;
 
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreVisaTypeRequest;
 use App\Http\Requests\Settings\MasterData\UpdateVisaTypeRequest;
 use App\Models\VisaType;
@@ -13,16 +14,23 @@ use Inertia\Inertia;
 
 class VisaTypeController extends Controller
 {
+    use PaginatesMasterDataIndex;
     use ReturnsQuickCreateJson;
 
     public function index()
     {
-        $visaTypes = VisaType::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'is_active']);
+        $page = $this->paginateMasterDataIndex(
+            request(),
+            VisaType::query()
+                ->orderBy('name')
+                ->select(['id', 'name', 'is_active']),
+            ['name'],
+        );
 
         return Inertia::render('settings/master-data/visa-types', [
-            'visa_types' => $visaTypes,
+            'visa_types' => $page['items'],
+            'pagination' => $page['pagination'],
+            'search' => $page['search'],
         ]);
     }
 

@@ -1,6 +1,8 @@
 import type { InertiaFormProps } from '@inertiajs/react';
 import { router, useForm } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
+import type { PaginationMeta } from '@/types/pagination';
 
 type UseMasterDataCrudOptions<
     TItem extends { id: number },
@@ -9,7 +11,8 @@ type UseMasterDataCrudOptions<
     items: TItem[];
     baseUrl: string;
     initialForm: TForm;
-    filterItem?: (item: TItem, query: string) => boolean;
+    search?: string;
+    pagination: PaginationMeta;
     toFormData: (item: TItem) => TForm;
     toTogglePayload: (item: TItem) => Record<string, any>;
     transformSubmit?: (data: TForm) => Record<string, any>;
@@ -23,32 +26,25 @@ export function useMasterDataCrud<
     items,
     baseUrl,
     initialForm,
-    filterItem,
+    search = '',
+    pagination,
     toFormData,
     toTogglePayload,
     transformSubmit,
     onDeleteError,
 }: UseMasterDataCrudOptions<TItem, TForm>) {
-    const [query, setQuery] = useState('');
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [current, setCurrent] = useState<TItem | null>(null);
 
     const form = useForm<TForm>(initialForm);
 
-    const rows = useMemo(() => {
-        const normalized = query.trim().toLowerCase();
-
-        if (!normalized) {
-            return items;
-        }
-
-        if (!filterItem) {
-            return items;
-        }
-
-        return items.filter((item) => filterItem(item, normalized));
-    }, [filterItem, items, query]);
+    const list = useServerPaginationFilters({
+        url: baseUrl,
+        search,
+        filters: {},
+        pagination,
+    });
 
     const openCreate = (): void => {
         setCurrent(null);
@@ -113,15 +109,16 @@ export function useMasterDataCrud<
     };
 
     return {
-        query,
-        setQuery,
+        searchInput: list.searchInput,
+        onSearchChange: list.onSearchChange,
+        paginationProps: list.paginationProps,
         sheetOpen,
         setSheetOpen,
         deleteOpen,
         setDeleteOpen,
         current,
         form: form as InertiaFormProps<TForm>,
-        rows,
+        rows: items,
         openCreate,
         openEdit,
         submit,

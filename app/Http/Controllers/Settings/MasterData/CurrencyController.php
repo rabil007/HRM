@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings\MasterData;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreCurrencyRequest;
 use App\Http\Requests\Settings\MasterData\UpdateCurrencyRequest;
 use App\Models\Currency;
@@ -11,14 +12,22 @@ use Inertia\Inertia;
 
 class CurrencyController extends Controller
 {
+    use PaginatesMasterDataIndex;
+
     public function index()
     {
-        $currencies = Currency::query()
-            ->orderBy('code')
-            ->get(['id', 'code', 'name', 'symbol', 'is_active']);
+        $page = $this->paginateMasterDataIndex(
+            request(),
+            Currency::query()
+                ->orderBy('code')
+                ->select(['id', 'code', 'name', 'symbol', 'is_active']),
+            ['code', 'name', 'symbol'],
+        );
 
         return Inertia::render('settings/master-data/currencies', [
-            'currencies' => $currencies,
+            'currencies' => $page['items'],
+            'pagination' => $page['pagination'],
+            'search' => $page['search'],
         ]);
     }
 

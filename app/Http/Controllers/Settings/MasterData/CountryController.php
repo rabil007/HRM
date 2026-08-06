@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings\MasterData;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreCountryRequest;
 use App\Http\Requests\Settings\MasterData\UpdateCountryRequest;
 use App\Models\Country;
@@ -11,14 +12,22 @@ use Inertia\Inertia;
 
 class CountryController extends Controller
 {
+    use PaginatesMasterDataIndex;
+
     public function index()
     {
-        $countries = Country::query()
-            ->orderBy('name')
-            ->get(['id', 'code', 'name', 'dial_code', 'is_active']);
+        $page = $this->paginateMasterDataIndex(
+            request(),
+            Country::query()
+                ->orderBy('name')
+                ->select(['id', 'code', 'name', 'dial_code', 'is_active']),
+            ['code', 'name', 'dial_code'],
+        );
 
         return Inertia::render('settings/master-data/countries', [
-            'countries' => $countries,
+            'countries' => $page['items'],
+            'pagination' => $page['pagination'],
+            'search' => $page['search'],
         ]);
     }
 

@@ -1,4 +1,5 @@
 import { MasterDataNameActivePage } from '@/components/settings/master-data-name-active-page';
+import type { PaginationMeta } from '@/types/pagination';
 
 type Gender = {
     id: number;
@@ -6,7 +7,15 @@ type Gender = {
     is_active: boolean;
 };
 
-export default function Genders({ genders }: { genders: Gender[] }) {
+export default function Genders({
+    genders,
+    pagination,
+    search = '',
+}: {
+    genders: Gender[];
+    pagination: PaginationMeta;
+    search?: string;
+}) {
     return (
         <MasterDataNameActivePage
             headTitle="Genders"
@@ -15,6 +24,8 @@ export default function Genders({ genders }: { genders: Gender[] }) {
             resource="genders"
             baseUrl="/settings/master-data/genders"
             items={genders}
+            pagination={pagination}
+            search={search}
             entityLabel="gender"
             searchPlaceholder="Search genders..."
             createButtonLabel="Add gender"

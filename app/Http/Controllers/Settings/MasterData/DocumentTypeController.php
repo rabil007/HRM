@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings\MasterData;
 
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\ImportDocumentTypesRequest;
 use App\Http\Requests\Settings\MasterData\StoreDocumentTypeRequest;
 use App\Http\Requests\Settings\MasterData\UpdateDocumentTypeRequest;
@@ -15,16 +16,23 @@ use Inertia\Inertia;
 
 class DocumentTypeController extends Controller
 {
+    use PaginatesMasterDataIndex;
     use ReturnsQuickCreateJson;
 
     public function index()
     {
-        $documentTypes = DocumentType::query()
-            ->orderBy('title')
-            ->get(['id', 'title', 'is_active']);
+        $page = $this->paginateMasterDataIndex(
+            request(),
+            DocumentType::query()
+                ->orderBy('title')
+                ->select(['id', 'title', 'is_active']),
+            ['title'],
+        );
 
         return Inertia::render('settings/master-data/document-types', [
-            'document_types' => $documentTypes,
+            'document_types' => $page['items'],
+            'pagination' => $page['pagination'],
+            'search' => $page['search'],
         ]);
     }
 

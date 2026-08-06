@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings\MasterData;
 
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\ImportVesselsRequest;
 use App\Http\Requests\Settings\MasterData\StoreVesselRequest;
 use App\Http\Requests\Settings\MasterData\UpdateVesselRequest;
@@ -21,6 +22,7 @@ use Inertia\Response as InertiaResponse;
 
 class VesselController extends Controller
 {
+    use PaginatesMasterDataIndex;
     use ReturnsQuickCreateJson;
 
     public function __construct(private StoresVesselCertificate $certificateStore) {}
@@ -31,23 +33,26 @@ class VesselController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $vessels = Vessel::query()
-            ->with(['vesselType:id,name'])
-            ->orderBy('name')
-            ->get([
-                'id',
-                'name',
-                'vessel_type_id',
-                'grt',
-                'bhp',
-                'official_no',
-                'call_sign',
-                'imo_no',
-                'certificate_path',
-                'certificate_original_filename',
-                'is_active',
-            ])
-            ->map(function (Vessel $vessel): array {
+        $page = $this->paginateMasterDataIndex(
+            request(),
+            Vessel::query()
+                ->with(['vesselType:id,name'])
+                ->orderBy('name')
+                ->select([
+                    'id',
+                    'name',
+                    'vessel_type_id',
+                    'grt',
+                    'bhp',
+                    'official_no',
+                    'call_sign',
+                    'imo_no',
+                    'certificate_path',
+                    'certificate_original_filename',
+                    'is_active',
+                ]),
+            ['name', 'official_no', 'call_sign', 'imo_no', 'vesselType.name'],
+            function (Vessel $vessel): array {
                 return [
                     'id' => $vessel->id,
                     'name' => $vessel->name,
@@ -67,11 +72,14 @@ class VesselController extends Controller
                     'certificate_url' => $this->certificateUrl($vessel->certificate_path),
                     'is_active' => $vessel->is_active,
                 ];
-            });
+            },
+        );
 
         return Inertia::render('settings/master-data/vessels', [
-            'vessels' => $vessels,
+            'vessels' => $page['items'],
             'vessel_types' => $vesselTypes,
+            'pagination' => $page['pagination'],
+            'search' => $page['search'],
         ]);
     }
 

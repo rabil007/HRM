@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings\MasterData;
 
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreCompanyVisaTypeRequest;
 use App\Http\Requests\Settings\MasterData\UpdateCompanyVisaTypeRequest;
 use App\Models\CompanyVisaType;
@@ -13,16 +14,23 @@ use Inertia\Inertia;
 
 class CompanyVisaTypeController extends Controller
 {
+    use PaginatesMasterDataIndex;
     use ReturnsQuickCreateJson;
 
     public function index()
     {
-        $companyVisaTypes = CompanyVisaType::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'is_active']);
+        $page = $this->paginateMasterDataIndex(
+            request(),
+            CompanyVisaType::query()
+                ->orderBy('name')
+                ->select(['id', 'name', 'is_active']),
+            ['name'],
+        );
 
         return Inertia::render('settings/master-data/company-visa-types', [
-            'company_visa_types' => $companyVisaTypes,
+            'company_visa_types' => $page['items'],
+            'pagination' => $page['pagination'],
+            'search' => $page['search'],
         ]);
     }
 

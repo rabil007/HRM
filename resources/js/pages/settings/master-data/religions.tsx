@@ -1,4 +1,5 @@
 import { MasterDataNameActivePage } from '@/components/settings/master-data-name-active-page';
+import type { PaginationMeta } from '@/types/pagination';
 
 type Religion = {
     id: number;
@@ -6,7 +7,15 @@ type Religion = {
     is_active: boolean;
 };
 
-export default function Religions({ religions }: { religions: Religion[] }) {
+export default function Religions({
+    religions,
+    pagination,
+    search = '',
+}: {
+    religions: Religion[];
+    pagination: PaginationMeta;
+    search?: string;
+}) {
     return (
         <MasterDataNameActivePage
             headTitle="Religions"
@@ -15,6 +24,8 @@ export default function Religions({ religions }: { religions: Religion[] }) {
             resource="religions"
             baseUrl="/settings/master-data/religions"
             items={religions}
+            pagination={pagination}
+            search={search}
             entityLabel="religion"
             searchPlaceholder="Search religions..."
             createButtonLabel="Add religion"

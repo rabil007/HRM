@@ -7,10 +7,11 @@ import {
     Loader2,
     Upload,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import Heading from '@/components/heading';
+import { Pagination } from '@/components/pagination';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     AlertDialog,
@@ -42,11 +43,13 @@ import {
 } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import {
     firstValidationError,
     hasFlashSuccess,
 } from '@/lib/first-validation-error';
 import { cn } from '@/lib/utils';
+import type { PaginationMeta } from '@/types/pagination';
 
 type VesselRow = {
     id: number;
@@ -71,13 +74,23 @@ type VesselTypeOption = {
 export default function Vessels({
     vessels,
     vessel_types,
+    pagination,
+    search = '',
 }: {
     vessels: VesselRow[];
     vessel_types: VesselTypeOption[];
+    pagination: PaginationMeta;
+    search?: string;
 }) {
     const can = useSettingsMasterDataCan('vessels');
 
-    const [query, setQuery] = useState('');
+    const list = useServerPaginationFilters({
+        url: '/settings/master-data/vessels',
+        search,
+        filters: {},
+        pagination,
+    });
+
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [current, setCurrent] = useState<VesselRow | null>(null);
@@ -101,25 +114,7 @@ export default function Vessels({
         is_active: true,
     });
 
-    const rows = useMemo(() => {
-        const q = query.trim().toLowerCase();
-
-        if (!q) {
-            return vessels;
-        }
-
-        return vessels.filter((v) => {
-            return (
-                v.name.toLowerCase().includes(q) ||
-                (v.vessel_type?.name ?? '').toLowerCase().includes(q) ||
-                String(v.grt ?? '').includes(q) ||
-                String(v.bhp ?? '').includes(q) ||
-                (v.official_no ?? '').toLowerCase().includes(q) ||
-                (v.call_sign ?? '').toLowerCase().includes(q) ||
-                (v.imo_no ?? '').toLowerCase().includes(q)
-            );
-        });
-    }, [vessels, query]);
+    const rows = vessels;
 
     const openCreate = () => {
         setCurrent(null);
@@ -369,8 +364,10 @@ export default function Vessels({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
                         <Input
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
+                            value={list.searchInput}
+                            onChange={(e) =>
+                                list.onSearchChange(e.target.value)
+                            }
                             placeholder="Search vessels..."
                         />
                     </div>
@@ -497,6 +494,8 @@ export default function Vessels({
                         ) : null}
                     </div>
                 </div>
+
+                <Pagination {...list.paginationProps} label="vessels" />
             </div>
 
             <Dialog

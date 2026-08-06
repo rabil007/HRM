@@ -7,9 +7,10 @@ import {
     Loader2,
     Upload,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
 import Heading from '@/components/heading';
+import { Pagination } from '@/components/pagination';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     AlertDialog,
@@ -41,11 +42,13 @@ import {
 } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import {
     firstValidationError,
     hasFlashSuccess,
 } from '@/lib/first-validation-error';
 import { cn } from '@/lib/utils';
+import type { PaginationMeta } from '@/types/pagination';
 
 type Rank = {
     id: number;
@@ -54,10 +57,24 @@ type Rank = {
     max_tour_of_duty_days: number | null;
 };
 
-export default function Ranks({ ranks }: { ranks: Rank[] }) {
+export default function Ranks({
+    ranks,
+    pagination,
+    search = '',
+}: {
+    ranks: Rank[];
+    pagination: PaginationMeta;
+    search?: string;
+}) {
     const can = useSettingsMasterDataCan('ranks');
 
-    const [query, setQuery] = useState('');
+    const list = useServerPaginationFilters({
+        url: '/settings/master-data/ranks',
+        search,
+        filters: {},
+        pagination,
+    });
+
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [current, setCurrent] = useState<Rank | null>(null);
@@ -74,15 +91,7 @@ export default function Ranks({ ranks }: { ranks: Rank[] }) {
         max_tour_of_duty_days: '' as string | number,
     });
 
-    const rows = useMemo(() => {
-        const q = query.trim().toLowerCase();
-
-        if (!q) {
-            return ranks;
-        }
-
-        return ranks.filter((v) => v.name.toLowerCase().includes(q));
-    }, [ranks, query]);
+    const rows = ranks;
 
     const openCreate = () => {
         setCurrent(null);
@@ -269,8 +278,10 @@ export default function Ranks({ ranks }: { ranks: Rank[] }) {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
                         <Input
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
+                            value={list.searchInput}
+                            onChange={(e) =>
+                                list.onSearchChange(e.target.value)
+                            }
                             placeholder="Search ranks..."
                         />
                     </div>
@@ -360,6 +371,8 @@ export default function Ranks({ ranks }: { ranks: Rank[] }) {
                         </div>
                     </div>
                 </div>
+
+                <Pagination {...list.paginationProps} label="ranks" />
             </div>
 
             <Dialog

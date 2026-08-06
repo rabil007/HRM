@@ -7,9 +7,10 @@ import {
     Loader2,
     Upload,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
 import Heading from '@/components/heading';
+import { Pagination } from '@/components/pagination';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     AlertDialog,
@@ -41,11 +42,13 @@ import {
 } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import {
     firstValidationError,
     hasFlashSuccess,
 } from '@/lib/first-validation-error';
 import { cn } from '@/lib/utils';
+import type { PaginationMeta } from '@/types/pagination';
 
 type VesselTypeRow = {
     id: number;
@@ -55,12 +58,22 @@ type VesselTypeRow = {
 
 export default function VesselTypes({
     vessel_types,
+    pagination,
+    search = '',
 }: {
     vessel_types: VesselTypeRow[];
+    pagination: PaginationMeta;
+    search?: string;
 }) {
     const can = useSettingsMasterDataCan('vessel-types');
 
-    const [query, setQuery] = useState('');
+    const list = useServerPaginationFilters({
+        url: '/settings/master-data/vessel-types',
+        search,
+        filters: {},
+        pagination,
+    });
+
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [current, setCurrent] = useState<VesselTypeRow | null>(null);
@@ -76,15 +89,7 @@ export default function VesselTypes({
         is_active: true,
     });
 
-    const rows = useMemo(() => {
-        const q = query.trim().toLowerCase();
-
-        if (!q) {
-            return vessel_types;
-        }
-
-        return vessel_types.filter((v) => v.name.toLowerCase().includes(q));
-    }, [vessel_types, query]);
+    const rows = vessel_types;
 
     const openCreate = () => {
         setCurrent(null);
@@ -268,8 +273,10 @@ export default function VesselTypes({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
                         <Input
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
+                            value={list.searchInput}
+                            onChange={(e) =>
+                                list.onSearchChange(e.target.value)
+                            }
                             placeholder="Search vessel types..."
                         />
                     </div>
@@ -349,6 +356,8 @@ export default function VesselTypes({
                         </div>
                     </div>
                 </div>
+
+                <Pagination {...list.paginationProps} label="vessel types" />
             </div>
 
             <Dialog
