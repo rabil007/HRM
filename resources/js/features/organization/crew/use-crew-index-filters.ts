@@ -82,6 +82,7 @@ export function useCrewIndexFilters({
             planned_signoff_to: initialFilters.planned_signoff_to || undefined,
             movement_attention: initialFilters.movement_attention || undefined,
             include_completed: initialFilters.include_completed || undefined,
+            tour_status: initialFilters.tour_status || undefined,
             per_page: perPage,
         }),
         [initialSearch, initialFilters, perPage],
@@ -177,6 +178,7 @@ export function useCrewIndexFilters({
                 planned_signoff_to: next.planned_signoff_to || undefined,
                 movement_attention: next.movement_attention || undefined,
                 include_completed: next.include_completed || undefined,
+                tour_status: next.tour_status || undefined,
                 per_page: perPage,
                 page: 1,
             });

@@ -12,6 +12,7 @@ import { MovementActionMenu } from '@/features/organization/crew/actions/movemen
 import { CrewMetadataField } from '@/features/organization/crew/components/crew-metadata-field';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { CrewPhaseProgress } from '@/features/organization/crew/components/crew-phase-progress';
+import { CrewTourProgressDisplay } from '@/features/organization/crew/components/crew-tour-progress-display';
 import { CorrectionHistoryCard } from '@/features/organization/crew/corrections/correction-history-card';
 import { PendingCorrectionBanner } from '@/features/organization/crew/corrections/pending-correction-banner';
 import { RequestCorrectionDialog } from '@/features/organization/crew/corrections/request-correction-dialog';
@@ -49,6 +50,7 @@ export default function CrewAssignmentShow({
     const showMovementActions =
         (can.perform_movement || can.cancel) &&
         assignment.available_actions.length > 0;
+    const isOnVessel = assignment.current_phase?.code === 'p4';
 
     return (
         <>
@@ -185,6 +187,24 @@ export default function CrewAssignmentShow({
                                 />
                             </CardContent>
                         </Card>
+
+                        {isOnVessel ? (
+                            <Card className="border-border/80 dark:border-white/10">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base">
+                                        Tour of Duty
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <CrewTourProgressDisplay
+                                        progress={assignment}
+                                        plannedSignoffAt={
+                                            assignment.planned_signoff_at
+                                        }
+                                    />
+                                </CardContent>
+                            </Card>
+                        ) : null}
 
                         <Card className="border-border/80 dark:border-white/10">
                             <CardHeader className="pb-3">

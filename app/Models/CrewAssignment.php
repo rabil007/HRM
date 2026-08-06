@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementCorrectionStatus;
+use App\Enums\CrewPlannedSignoffSource;
+use App\Enums\CrewTourOfDutySource;
 use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\CrewAssignmentFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -38,6 +40,10 @@ class CrewAssignment extends Model
         'current_phase_id',
         'planned_join_at',
         'planned_signoff_at',
+        'tour_of_duty_days',
+        'tour_of_duty_source',
+        'planned_signoff_source',
+        'planned_signoff_override_reason',
         'planned_travel_at',
         'started_at',
         'closed_at',
@@ -61,6 +67,10 @@ class CrewAssignment extends Model
                 'current_phase_id',
                 'planned_join_at',
                 'planned_signoff_at',
+                'tour_of_duty_days',
+                'tour_of_duty_source',
+                'planned_signoff_source',
+                'planned_signoff_override_reason',
                 'planned_travel_at',
                 'started_at',
                 'closed_at',
@@ -90,6 +100,9 @@ class CrewAssignment extends Model
             'status' => CrewAssignmentStatus::class,
             'planned_join_at' => 'datetime',
             'planned_signoff_at' => 'datetime',
+            'tour_of_duty_days' => 'integer',
+            'tour_of_duty_source' => CrewTourOfDutySource::class,
+            'planned_signoff_source' => CrewPlannedSignoffSource::class,
             'planned_travel_at' => 'datetime',
             'started_at' => 'datetime',
             'closed_at' => 'datetime',

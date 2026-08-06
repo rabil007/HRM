@@ -22,6 +22,7 @@ use App\Support\CrewMovements\CrewAssignmentPagePermissions;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\CrewMovements\CrewTourOfDutyResolver;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use App\Support\Pagination\ResolvesPerPage;
@@ -58,6 +59,7 @@ class CrewAssignmentController extends Controller
             'planned_join_to' => $request->query('planned_join_to'),
             'planned_signoff_from' => $request->query('planned_signoff_from'),
             'planned_signoff_to' => $request->query('planned_signoff_to'),
+            'tour_status' => trim((string) $request->query('tour_status', '')),
             'movement_attention' => filter_var($request->query('movement_attention', false), FILTER_VALIDATE_BOOLEAN),
             'include_completed' => filter_var($request->query('include_completed', false), FILTER_VALIDATE_BOOLEAN),
             'sort' => $request->query('sort', 'created_at'),
@@ -87,6 +89,7 @@ class CrewAssignmentController extends Controller
                 'planned_join_to' => $filters['planned_join_to'] ? (string) $filters['planned_join_to'] : '',
                 'planned_signoff_from' => $filters['planned_signoff_from'] ? (string) $filters['planned_signoff_from'] : '',
                 'planned_signoff_to' => $filters['planned_signoff_to'] ? (string) $filters['planned_signoff_to'] : '',
+                'tour_status' => $filters['tour_status'],
                 'movement_attention' => (bool) $filters['movement_attention'],
                 'include_completed' => (bool) $filters['include_completed'],
             ],
@@ -94,7 +97,7 @@ class CrewAssignmentController extends Controller
             'filter_options' => $filterOptions,
             'form_options' => [
                 'employees' => [],
-                'ranks' => $this->activeRanks(),
+                'ranks' => $this->activeRanksWithTour($companyId),
                 'vessels' => $this->activeVessels(),
                 'clients' => $this->activeClients(),
                 'visa_types' => $this->activeVisaTypes(),
@@ -215,7 +218,7 @@ class CrewAssignmentController extends Controller
             'recent_activity' => $recentActivity,
             'form_options' => [
                 'employees' => [],
-                'ranks' => $this->activeRanks(),
+                'ranks' => $this->activeRanksWithTour($companyId),
                 'vessels' => $this->activeVessels(),
                 'clients' => $this->activeClients(),
                 'visa_types' => $this->activeVisaTypes(),
@@ -327,6 +330,42 @@ class CrewAssignmentController extends Controller
             ->orderBy('name')
             ->get(['id', 'name'])
             ->map(fn (Rank $rank) => ['id' => $rank->id, 'name' => $rank->name])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Rank options enriched with Tour of Duty resolution for Join Vessel.
+     *
+     * @return list<array{
+     *     id: int,
+     *     name: string,
+     *     global_tour_of_duty_days: int|null,
+     *     company_tour_of_duty_days: int|null,
+     *     resolved_tour_of_duty_days: int|null,
+     *     resolved_tour_of_duty_source: string|null
+     * }>
+     */
+    private function activeRanksWithTour(int $companyId): array
+    {
+        $resolver = new CrewTourOfDutyResolver;
+
+        return Rank::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'max_tour_of_duty_days'])
+            ->map(function (Rank $rank) use ($resolver, $companyId): array {
+                $preview = $resolver->previewForRank($companyId, $rank);
+
+                return [
+                    'id' => $preview['rank_id'],
+                    'name' => $preview['rank_name'],
+                    'global_tour_of_duty_days' => $preview['global_tour_of_duty_days'],
+                    'company_tour_of_duty_days' => $preview['company_tour_of_duty_days'],
+                    'resolved_tour_of_duty_days' => $preview['resolved_tour_of_duty_days'],
+                    'resolved_tour_of_duty_source' => $preview['resolved_tour_of_duty_source'],
+                ];
+            })
             ->values()
             ->all();
     }

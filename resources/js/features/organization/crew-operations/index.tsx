@@ -4,6 +4,7 @@ import {
     Anchor,
     ArrowUpRight,
     BarChart3,
+    CalendarClock,
     CalendarDays,
     CalendarRange,
     ChevronRight,
@@ -33,6 +34,7 @@ import { ManningGapsCard } from '@/features/organization/crew-operations/compone
 import type { CrewOperationsDashboardProps } from '@/features/organization/crew-operations/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import { index as crewAssignmentsIndex } from '@/routes/organization/crew-assignments';
 import crewOperations from '@/routes/organization/crew-operations';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
 import { index as vesselManningIndex } from '@/routes/organization/vessel-manning';
@@ -97,8 +99,16 @@ export function CrewOperationsDashboardContent({
         alertCounts.needs_update +
             alertCounts.overdue_home +
             alertCounts.due_soon +
+            alertCounts.signoff_overdue +
+            alertCounts.signoff_due_today +
             (can.vessel_manning ? alertCounts.manning_gaps : 0) >
         0;
+
+    const tourAlertTotal =
+        alertCounts.signoff_within_30_days +
+        alertCounts.signoff_overdue +
+        alertCounts.missing_tour_of_duty +
+        alertCounts.missing_planned_signoff;
 
     return (
         <Main>
@@ -178,6 +188,10 @@ export function CrewOperationsDashboardContent({
                                     `${alertCounts.overdue_home} over home limit (${maxHomeDays}d)`,
                                 alertCounts.due_soon > 0 &&
                                     `${alertCounts.due_soon} due within 2 days`,
+                                alertCounts.signoff_overdue > 0 &&
+                                    `${alertCounts.signoff_overdue} tour sign-off overdue`,
+                                alertCounts.signoff_due_today > 0 &&
+                                    `${alertCounts.signoff_due_today} tour sign-off due today`,
                                 can.vessel_manning &&
                                     alertCounts.manning_gaps > 0 &&
                                     `${alertCounts.manning_gaps} manning gap${alertCounts.manning_gaps !== 1 ? 's' : ''}`,
@@ -254,6 +268,98 @@ export function CrewOperationsDashboardContent({
                     />
                 ) : null}
             </div>
+
+            {tourAlertTotal > 0 ? (
+                <>
+                    <SectionLabel icon={CalendarClock} label="Tour of Duty" />
+                    <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <MetricCard
+                            title="Sign-off within 30 days"
+                            value={alertCounts.signoff_within_30_days.toLocaleString()}
+                            hint="Active P4 assignments"
+                            icon={CalendarClock}
+                            iconColor="text-sky-400"
+                            iconBg="bg-sky-500/10 border-sky-500/20"
+                            accent="border-sky-500/20 hover:border-sky-500/30"
+                            href={crewAssignmentsIndex.url({
+                                query: { tour_status: 'due_within_30_days' },
+                            })}
+                        />
+                        <MetricCard
+                            title="Sign-off within 14 days"
+                            value={alertCounts.signoff_within_14_days.toLocaleString()}
+                            hint="Higher-priority window"
+                            icon={CalendarRange}
+                            iconColor="text-amber-400"
+                            iconBg="bg-amber-500/10 border-amber-500/20"
+                            accent="border-amber-500/20 hover:border-amber-500/30"
+                            href={crewAssignmentsIndex.url({
+                                query: { tour_status: 'due_within_14_days' },
+                            })}
+                        />
+                        <MetricCard
+                            title="Sign-off within 7 days"
+                            value={alertCounts.signoff_within_7_days.toLocaleString()}
+                            hint="Due within one week"
+                            icon={Clock}
+                            iconColor="text-orange-400"
+                            iconBg="bg-orange-500/10 border-orange-500/20"
+                            accent="border-orange-500/20 hover:border-orange-500/30"
+                            href={crewAssignmentsIndex.url({
+                                query: { tour_status: 'due_within_7_days' },
+                            })}
+                        />
+                        <MetricCard
+                            title="Due today"
+                            value={alertCounts.signoff_due_today.toLocaleString()}
+                            hint="Planned sign-off today"
+                            icon={AlertTriangle}
+                            iconColor="text-red-400"
+                            iconBg="bg-red-500/10 border-red-500/20"
+                            accent="border-red-500/20 hover:border-red-500/30"
+                            href={crewAssignmentsIndex.url({
+                                query: { tour_status: 'due_today' },
+                            })}
+                        />
+                        <MetricCard
+                            title="Tour overdue"
+                            value={alertCounts.signoff_overdue.toLocaleString()}
+                            hint="Past planned sign-off"
+                            icon={AlertTriangle}
+                            iconColor="text-red-400"
+                            iconBg="bg-red-500/10 border-red-500/20"
+                            accent="border-red-500/20 hover:border-red-500/30"
+                            href={crewAssignmentsIndex.url({
+                                query: { tour_status: 'overdue' },
+                            })}
+                        />
+                        <MetricCard
+                            title="Missing tour rule"
+                            value={alertCounts.missing_tour_of_duty.toLocaleString()}
+                            hint="No Tour of Duty configured"
+                            icon={CalendarClock}
+                            iconColor="text-amber-400"
+                            iconBg="bg-amber-500/10 border-amber-500/20"
+                            accent="border-amber-500/20 hover:border-amber-500/30"
+                            href={crewAssignmentsIndex.url({
+                                query: { tour_status: 'missing_tour_rule' },
+                            })}
+                        />
+                        <MetricCard
+                            title="Missing sign-off"
+                            value={alertCounts.missing_planned_signoff.toLocaleString()}
+                            hint="No planned sign-off date"
+                            icon={CalendarClock}
+                            iconColor="text-amber-400"
+                            iconBg="bg-amber-500/10 border-amber-500/20"
+                            accent="border-amber-500/20 hover:border-amber-500/30"
+                            href={crewAssignmentsIndex.url({
+                                query: { tour_status: 'missing_signoff' },
+                            })}
+                        />
+                    </div>
+                </>
+            ) : null}
 
             {movementCorrections ? (
                 <Link

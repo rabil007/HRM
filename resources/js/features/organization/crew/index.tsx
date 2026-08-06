@@ -53,6 +53,7 @@ function normalizeFilters(
         planned_signoff_to: String(filters.planned_signoff_to ?? ''),
         movement_attention: Boolean(filters.movement_attention),
         include_completed: Boolean(filters.include_completed),
+        tour_status: String(filters.tour_status ?? ''),
     };
 }
 
@@ -126,6 +127,7 @@ export function CurrentCrewContent({
         filters.planned_signoff_to,
         filters.movement_attention ? '1' : '',
         filters.include_completed ? '1' : '',
+        filters.tour_status,
     ].filter(Boolean).length;
 
     const hasActiveQuery =

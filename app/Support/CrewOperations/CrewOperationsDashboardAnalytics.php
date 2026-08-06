@@ -11,6 +11,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionAge;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
+use App\Support\CrewMovements\CrewTourStatusQuery;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -51,19 +52,34 @@ final class CrewOperationsDashboardAnalytics
             $today,
             $permissions['planning'],
         );
+        $tourBuckets = (new CrewTourStatusQuery)->bucketCounts($companyId);
         $attentionItems = $this->attentionItems(
             $companyId,
             $maxHomeDays,
             $today,
             $permissions['planning'],
             $manningGaps['items'],
+            $tourBuckets,
         );
 
         return [
             'deployment_summary' => $deploymentSummary,
             'alert_counts' => array_merge($alertCounts, [
                 'manning_gaps' => $manningGaps['understaffed_positions'],
+                'signoff_within_30_days' => $tourBuckets['due_within_30_days']
+                    + $tourBuckets['due_within_14_days']
+                    + $tourBuckets['due_within_7_days']
+                    + $tourBuckets['due_today'],
+                'signoff_within_14_days' => $tourBuckets['due_within_14_days']
+                    + $tourBuckets['due_within_7_days']
+                    + $tourBuckets['due_today'],
+                'signoff_within_7_days' => $tourBuckets['due_within_7_days'] + $tourBuckets['due_today'],
+                'signoff_due_today' => $tourBuckets['due_today'],
+                'signoff_overdue' => $tourBuckets['overdue'],
+                'missing_tour_of_duty' => $tourBuckets['missing_tour_rule'],
+                'missing_planned_signoff' => $tourBuckets['missing_signoff'],
             ]),
+            'tour_signoff_counts' => $tourBuckets,
             'attention_items' => $attentionItems,
             'manning_gaps' => $manningGaps,
             'deployment_trends' => CrewOperationsDeploymentTrends::lastSixMonths($companyId),
@@ -202,9 +218,37 @@ final class CrewOperationsDashboardAnalytics
         CarbonImmutable $today,
         bool $canViewPlanning,
         array $manningGapItems,
+        array $tourBuckets = [],
     ): array {
         $items = [];
         $seenEmployeeIds = [];
+
+        $tourAttention = [
+            ['missing_tour_of_duty', 'Missing Tour of Duty', 'warning', 'missing_tour_rule'],
+            ['missing_planned_signoff', 'Missing Planned Sign-Off', 'warning', 'missing_signoff'],
+            ['signoff_overdue', 'Tour of Duty overdue', 'critical', 'overdue'],
+            ['signoff_due_today', 'Planned Sign-Off due today', 'critical', 'due_today'],
+            ['signoff_within_7_days', 'Planned Sign-Off within 7 days', 'critical', 'due_within_7_days'],
+            ['signoff_within_14_days', 'Planned Sign-Off within 14 days', 'warning', 'due_within_14_days'],
+        ];
+
+        foreach ($tourAttention as [$type, $hint, $severity, $statusKey]) {
+            $count = (int) ($tourBuckets[$statusKey] ?? 0);
+            if ($count <= 0 || count($items) >= self::ATTENTION_LIMIT) {
+                continue;
+            }
+
+            $items[] = [
+                'type' => $type,
+                'title' => $hint,
+                'subtitle' => sprintf('%d assignment(s)', $count),
+                'hint' => $hint,
+                'href' => route('organization.crew-assignments.index', [
+                    'tour_status' => $statusKey,
+                ]),
+                'severity' => $severity,
+            ];
+        }
 
         $employees = Employee::query()
             ->where('company_id', $companyId)

@@ -18,6 +18,7 @@ class CrewAssignmentPresenter
     {
         $current = $assignment->currentPhase;
         $timezone = self::companyTimezone($assignment);
+        $tourProgress = (new CrewTourProgress)->forAssignment($assignment);
 
         return [
             'id' => $assignment->id,
@@ -60,6 +61,7 @@ class CrewAssignmentPresenter
             'actual_disembarkation_at' => self::latestOnVesselPhase($assignment)?->actual_end_at?->toDateString(),
             'created_at' => $assignment->created_at?->toDateString(),
             'company_timezone' => $timezone,
+            ...$tourProgress,
             'warnings' => property_exists($assignment, 'attention_warnings')
                 ? $assignment->attention_warnings
                 : CrewMovementAttentionQuery::forAssignment($assignment),
@@ -77,6 +79,7 @@ class CrewAssignmentPresenter
         $timezone = self::companyTimezone($assignment);
         $onVesselPhase = self::latestOnVesselPhase($assignment);
         $trainingPhase = self::latestPhase($assignment, CrewPhaseCode::Training);
+        $tourProgress = (new CrewTourProgress)->forAssignment($assignment);
 
         $phaseTimeline = $assignment->phases
             ->map(function ($phase) {
@@ -167,6 +170,7 @@ class CrewAssignmentPresenter
             'created_at' => $assignment->created_at?->toDateString(),
             'updated_at' => $assignment->updated_at?->toDateString(),
             'company_timezone' => $timezone,
+            ...$tourProgress,
             'phase_timeline' => $phaseTimeline,
             'warnings' => CrewMovementAttentionQuery::forAssignment($assignment),
             'available_actions' => CrewMovementAvailableActions::for($assignment),
@@ -249,6 +253,7 @@ class CrewAssignmentPresenter
             'training_started_at' => self::formatDateTime($trainingPhase?->actual_start_at, $timezone),
             'training_expected_completion_at' => $trainingPhase?->planned_end_at?->toDateString(),
             'company_timezone' => $timezone,
+            ...((new CrewTourProgress)->forAssignment($assignment)),
         ];
     }
 

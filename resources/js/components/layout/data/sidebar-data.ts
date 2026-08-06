@@ -175,6 +175,11 @@ const baseSidebarData: SidebarData = {
                     url: '/organization/crew-operations/settings',
                     icon: Settings,
                 },
+                {
+                    title: 'Rank Tour Policies',
+                    url: '/organization/crew-operations/rank-policies',
+                    icon: ShieldCheck,
+                },
             ],
         },
         {
@@ -267,7 +272,8 @@ function canViewCrewOperations(permissions: string[]): boolean {
         has(permissions, 'crew_operations.assignments.view') ||
         has(permissions, 'crew_operations.vessel_manning.view') ||
         has(permissions, 'crew_operations.planning.view') ||
-        has(permissions, 'crew_operations.corrections.view')
+        has(permissions, 'crew_operations.corrections.view') ||
+        has(permissions, 'crew_operations.rank_policies.view')
     );
 }
 
@@ -390,6 +396,13 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(
                                 permissions,
                                 'crew_operations.planning.view',
+                            )
+                                ? item
+                                : null;
+                        case '/organization/crew-operations/rank-policies':
+                            return has(
+                                permissions,
+                                'crew_operations.rank_policies.view',
                             )
                                 ? item
                                 : null;

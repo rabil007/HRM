@@ -6,6 +6,7 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Enums\CrewPlannedSignoffSource;
 use App\Exceptions\CrewMovementException;
 use App\Models\Client;
 use App\Models\Company;
@@ -36,6 +37,8 @@ final class CrewMovementService
         private SeaServiceSyncService $seaServiceSync,
         private SyncPlanningAssignmentFromCrewAssignment $planningSync,
         private CrewMovementMasterDataGuard $masters,
+        private CrewTourOfDutyResolver $tourOfDutyResolver = new CrewTourOfDutyResolver,
+        private CrewJoinVesselSignoffApplier $signoffApplier = new CrewJoinVesselSignoffApplier,
     ) {}
 
     /**
@@ -357,6 +360,24 @@ final class CrewMovementService
             $this->assertCompanyOwnedMaster($assignment->company_id, CompanyVisaType::class, $visaTypeId, 'visa type');
         }
 
+        $overrideDays = isset($payload['tour_of_duty_days']) && filled($payload['tour_of_duty_days'])
+            ? (int) $payload['tour_of_duty_days']
+            : null;
+
+        $tour = $this->tourOfDutyResolver->resolve(
+            (int) $assignment->company_id,
+            $rankId,
+            $occurredAt,
+            $overrideDays,
+        );
+
+        $signoff = $this->signoffApplier->apply(
+            $tour,
+            $payload,
+            $assignment->planned_signoff_at,
+            $occurredAt,
+        );
+
         $this->completePhase($current, $current->actual_start_at ?? $occurredAt, $occurredAt, $actorId);
 
         $next = $this->createPhase(
@@ -367,7 +388,7 @@ final class CrewMovementService
             null,
             $actorId,
             [
-                'planned_end_at' => $payload['planned_signoff_at'] ?? null,
+                'planned_end_at' => $signoff['planned_signoff_at'],
                 'remarks' => $payload['remarks'] ?? null,
             ],
         );
@@ -377,11 +398,34 @@ final class CrewMovementService
             'rank_id' => $rankId,
             'client_id' => $clientId ?? $assignment->client_id,
             'company_visa_type_id' => $visaTypeId ?? $assignment->company_visa_type_id,
-            'planned_signoff_at' => $payload['planned_signoff_at'] ?? $assignment->planned_signoff_at,
+            'planned_signoff_at' => $signoff['planned_signoff_at'],
+            'tour_of_duty_days' => $signoff['tour_of_duty_days'],
+            'tour_of_duty_source' => $signoff['tour_of_duty_source'],
+            'planned_signoff_source' => $signoff['planned_signoff_source'],
+            'planned_signoff_override_reason' => $signoff['planned_signoff_override_reason'],
             'current_phase_id' => $next->id,
             'updated_by' => $actorId,
             'remarks' => $payload['remarks'] ?? $assignment->remarks,
         ]);
+
+        activity()
+            ->performedOn($assignment)
+            ->causedBy($actorId)
+            ->withProperties([
+                'event' => 'tour_of_duty_applied',
+                'company_id' => $assignment->company_id,
+                'assignment_id' => $assignment->id,
+                'tour_of_duty_days' => $signoff['tour_of_duty_days'],
+                'tour_of_duty_source' => $signoff['tour_of_duty_source'],
+                'planned_signoff_at' => $signoff['planned_signoff_at']?->toDateTimeString(),
+                'planned_signoff_source' => $signoff['planned_signoff_source']?->value,
+                'planned_signoff_override_reason' => $signoff['planned_signoff_override_reason'],
+                'actual_join_at' => $occurredAt->toDateTimeString(),
+            ])
+            ->tap(function ($activity) use ($assignment): void {
+                $activity->company_id = $assignment->company_id;
+            })
+            ->log('Tour of Duty snapshot applied on vessel join');
 
         return $assignment;
     }
@@ -410,6 +454,10 @@ final class CrewMovementService
 
         $assignment->update([
             'planned_signoff_at' => $planned,
+            'planned_signoff_source' => CrewPlannedSignoffSource::ManualOverride,
+            'planned_signoff_override_reason' => isset($payload['planned_signoff_override_reason'])
+                ? trim((string) $payload['planned_signoff_override_reason'])
+                : ($assignment->planned_signoff_override_reason ?? 'Updated via Plan Sign-Off'),
             'updated_by' => $actorId,
         ]);
 
