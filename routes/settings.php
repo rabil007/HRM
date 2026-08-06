@@ -354,6 +354,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('vessels', [VesselController::class, 'store'])
             ->middleware('can:settings.master-data.vessels.create')
             ->name('vessels.store');
+        Route::get('vessels/{vessel}', [VesselController::class, 'show'])
+            ->middleware('can:settings.master-data.vessels.view')
+            ->name('vessels.show');
         Route::put('vessels/{vessel}', [VesselController::class, 'update'])
             ->middleware('can:settings.master-data.vessels.update')
             ->name('vessels.update');

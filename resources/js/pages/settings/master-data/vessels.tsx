@@ -2,13 +2,15 @@ import { Head, router, useForm } from '@inertiajs/react';
 import {
     AlertCircle,
     Download,
+    Eye,
     FileSpreadsheet,
     Info,
     Loader2,
     Upload,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
-import type { DragEvent, KeyboardEvent } from 'react';
+import type { DragEvent, KeyboardEvent, MouseEvent } from 'react';
+import { show as vesselShow } from '@/actions/App/Http/Controllers/Settings/MasterData/VesselController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import Heading from '@/components/heading';
 import { Pagination } from '@/components/pagination';
@@ -409,10 +411,21 @@ export default function Vessels({
                                 {rows.map((v) => (
                                     <tr
                                         key={v.id}
-                                        className="border-t border-border/60 whitespace-nowrap"
+                                        className="cursor-pointer border-t border-border/60 whitespace-nowrap hover:bg-muted/30"
+                                        onClick={() =>
+                                            router.visit(vesselShow.url(v.id))
+                                        }
                                     >
                                         <td className="max-w-[180px] truncate px-4 py-3">
-                                            {v.name}
+                                            <a
+                                                href={vesselShow.url(v.id)}
+                                                className="font-medium text-primary underline-offset-2 hover:underline"
+                                                onClick={(
+                                                    event: MouseEvent<HTMLAnchorElement>,
+                                                ) => event.stopPropagation()}
+                                            >
+                                                {v.name}
+                                            </a>
                                         </td>
                                         <td className="max-w-[140px] truncate px-4 py-3 text-muted-foreground">
                                             {v.vessel_type?.name ?? '—'}
@@ -432,7 +445,12 @@ export default function Vessels({
                                         <td className="max-w-[100px] truncate px-4 py-3">
                                             {v.imo_no ?? '—'}
                                         </td>
-                                        <td className="max-w-[160px] truncate px-4 py-3">
+                                        <td
+                                            className="max-w-[160px] truncate px-4 py-3"
+                                            onClick={(
+                                                event: MouseEvent<HTMLTableCellElement>,
+                                            ) => event.stopPropagation()}
+                                        >
                                             {v.certificate_url ? (
                                                 <a
                                                     href={v.certificate_url}
@@ -447,7 +465,12 @@ export default function Vessels({
                                                 '—'
                                             )}
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td
+                                            className="px-4 py-3"
+                                            onClick={(
+                                                event: MouseEvent<HTMLTableCellElement>,
+                                            ) => event.stopPropagation()}
+                                        >
                                             <Switch
                                                 disabled={!can.update}
                                                 checked={v.is_active}
@@ -456,8 +479,27 @@ export default function Vessels({
                                                 }
                                             />
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td
+                                            className="px-4 py-3"
+                                            onClick={(
+                                                event: MouseEvent<HTMLTableCellElement>,
+                                            ) => event.stopPropagation()}
+                                        >
                                             <div className="flex justify-end gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    asChild
+                                                >
+                                                    <a
+                                                        href={vesselShow.url(
+                                                            v.id,
+                                                        )}
+                                                    >
+                                                        <Eye className="mr-1.5 size-3.5" />
+                                                        View
+                                                    </a>
+                                                </Button>
                                                 {can.update ? (
                                                     <Button
                                                         variant="outline"

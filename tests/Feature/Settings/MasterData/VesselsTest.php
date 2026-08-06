@@ -379,3 +379,89 @@ test('authorized users can store vessel identification and certificate', functio
     Storage::disk('public')->assertExists($vessel->certificate_path);
     Storage::disk('public')->assertMissing($previousPath);
 });
+
+test('authorized users can view vessel details page', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'VSH',
+        'name' => 'Vessel Show Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'VSH',
+        'name' => 'Vessel Show Currency',
+        'symbol' => 'S$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Vessel Show Co',
+        'slug' => 'vessel-show-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $vesselType = VesselType::query()->create([
+        'name' => 'AHTS Show',
+        'is_active' => true,
+    ]);
+
+    $vessel = Vessel::query()->create([
+        'name' => 'MV Detail',
+        'vessel_type_id' => $vesselType->id,
+        'grt' => 1200,
+        'bhp' => 5000,
+        'official_no' => 'OFF-SHOW',
+        'call_sign' => 'A6SHOW',
+        'imo_no' => '9000001',
+        'is_active' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.vessels.view',
+        'settings.master-data.vessels.update',
+        'audit.view',
+    ]);
+
+    $this->get("/settings/master-data/vessels/{$vessel->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/vessel')
+            ->where('vessel.id', $vessel->id)
+            ->where('vessel.name', 'MV Detail')
+            ->where('vessel.official_no', 'OFF-SHOW')
+            ->where('vessel.call_sign', 'A6SHOW')
+            ->where('vessel.imo_no', '9000001')
+            ->where('summary.manning_ranks', 0)
+            ->where('summary.sea_services', 0)
+            ->where('summary.active_crew', 0)
+            ->where('can.update', true)
+            ->where('can_view_audit', true)
+            ->has('recent_activity')
+            ->has('vessel_types')
+        );
+});
+
+test('guests cannot view vessel details page', function () {
+    $vesselType = VesselType::query()->create([
+        'name' => 'Guest Type',
+        'is_active' => true,
+    ]);
+
+    $vessel = Vessel::query()->create([
+        'name' => 'Guest Vessel',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    $this->get("/settings/master-data/vessels/{$vessel->id}")
+        ->assertRedirect(route('login'));
+});

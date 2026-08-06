@@ -11,10 +11,13 @@ use App\Http\Requests\Settings\MasterData\UpdateVesselRequest;
 use App\Models\CrewAssignment;
 use App\Models\EmployeeSeaService;
 use App\Models\Vessel;
+use App\Models\VesselManning;
 use App\Models\VesselType;
+use App\Support\Activity\RecentActivityQuery;
 use App\Support\Vessels\StoresVesselCertificate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -83,6 +86,71 @@ class VesselController extends Controller
         ]);
     }
 
+    public function show(Request $request, Vessel $vessel): InertiaResponse
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+
+        $vessel->load(['vesselType:id,name']);
+
+        $vesselTypes = VesselType::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $user = $request->user();
+
+        return Inertia::render('settings/master-data/vessel', [
+            'vessel' => [
+                'id' => $vessel->id,
+                'name' => $vessel->name,
+                'vessel_type_id' => $vessel->vessel_type_id,
+                'vessel_type' => $vessel->vesselType
+                    ? [
+                        'id' => $vessel->vesselType->id,
+                        'name' => $vessel->vesselType->name,
+                    ]
+                    : null,
+                'grt' => $vessel->grt,
+                'bhp' => $vessel->bhp,
+                'official_no' => $vessel->official_no,
+                'call_sign' => $vessel->call_sign,
+                'imo_no' => $vessel->imo_no,
+                'certificate_original_filename' => $vessel->certificate_original_filename,
+                'certificate_url' => $this->certificateUrl($vessel->certificate_path),
+                'is_active' => (bool) $vessel->is_active,
+                'created_at' => $vessel->created_at?->toIso8601String(),
+                'updated_at' => $vessel->updated_at?->toIso8601String(),
+            ],
+            'vessel_types' => $vesselTypes,
+            'summary' => [
+                'manning_ranks' => VesselManning::query()
+                    ->where('company_id', $companyId)
+                    ->where('vessel_id', $vessel->id)
+                    ->count(),
+                'sea_services' => EmployeeSeaService::query()
+                    ->where('company_id', $companyId)
+                    ->where('vessel_id', $vessel->id)
+                    ->count(),
+                'active_crew' => CrewAssignment::query()
+                    ->where('company_id', $companyId)
+                    ->where('vessel_id', $vessel->id)
+                    ->active()
+                    ->count(),
+            ],
+            'can' => [
+                'update' => $user?->can('settings.master-data.vessels.update') ?? false,
+                'delete' => $user?->can('settings.master-data.vessels.delete') ?? false,
+                'view_manning' => $user?->can('crew_operations.vessel_manning.view') ?? false,
+            ],
+            'recent_activity' => RecentActivityQuery::for(
+                $user,
+                $companyId,
+                Vessel::class,
+                $vessel->id,
+            ),
+            'can_view_audit' => $user?->can('audit.view') ?? false,
+        ]);
+    }
+
     public function store(StoreVesselRequest $request): JsonResponse|RedirectResponse
     {
         $data = $request->safe()->except(['certificate']);
@@ -130,6 +198,10 @@ class VesselController extends Controller
                     $request->file('certificate'),
                 ),
             );
+        }
+
+        if ($request->input('redirect_to') === 'show') {
+            return redirect()->route('settings.master-data.vessels.show', $vessel);
         }
 
         return redirect()->route('settings.master-data.vessels.index');
