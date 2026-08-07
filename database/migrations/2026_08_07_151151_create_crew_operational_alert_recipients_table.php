@@ -10,11 +10,15 @@ return new class extends Migration
     {
         Schema::create('crew_operational_alert_recipients', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('company_id')->constrained('companies')->cascadeOnDelete();
-            $table->foreignId('crew_operational_alert_id')
-                ->constrained('crew_operational_alerts')
+            $table->foreignId('company_id')
+                ->constrained('companies', indexName: 'crew_alert_rec_company_fk')
                 ->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('crew_operational_alert_id')
+                ->constrained('crew_operational_alerts', indexName: 'crew_alert_rec_alert_fk')
+                ->cascadeOnDelete();
+            $table->foreignId('user_id')
+                ->constrained('users', indexName: 'crew_alert_rec_user_fk')
+                ->cascadeOnDelete();
             $table->timestamp('read_at')->nullable();
             $table->timestamps();
 
@@ -22,8 +26,14 @@ return new class extends Migration
                 ['crew_operational_alert_id', 'user_id'],
                 'crew_alert_recipients_alert_user_unique',
             );
-            $table->index(['company_id', 'user_id', 'read_at']);
-            $table->index(['company_id', 'crew_operational_alert_id']);
+            $table->index(
+                ['company_id', 'user_id', 'read_at'],
+                'crew_alert_rec_company_user_read_idx',
+            );
+            $table->index(
+                ['company_id', 'crew_operational_alert_id'],
+                'crew_alert_rec_company_alert_idx',
+            );
         });
     }
 
