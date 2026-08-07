@@ -22,6 +22,7 @@ use App\Support\Attendance\LeaveTypeYearBalance;
 use App\Support\BankAccounts\BankAccountSummaryQuery;
 use App\Support\Contracts\ContractDirectoryFilters;
 use App\Support\Contracts\ContractSummaryQuery;
+use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\CrewOperations\CrewOperationsDashboardAnalytics;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use App\Support\EmployeeTrainings\TrainingSummaryQuery;
@@ -458,22 +459,57 @@ final class DashboardAnalytics
         return $this->rememberCompany($companyId, 'crew', function () use ($companyId, $user): array {
             $crewAnalytics = app(CrewOperationsDashboardAnalytics::class);
             $full = $crewAnalytics->forCompany($companyId, $user);
-            $deployment = $full['deployment_summary'] ?? [];
+            $pulse = $full['daily_pulse'] ?? [];
+            $maxHomeDays = (int) ($full['max_home_days'] ?? 0);
 
-            $needsUpdate = (int) ($full['alert_counts']['needs_update'] ?? 0);
-            $dueSoon = (int) ($full['alert_counts']['due_soon'] ?? 0);
-            $overdueHome = (int) ($full['alert_counts']['overdue_home'] ?? 0);
+            $employees = Employee::query()
+                ->where('company_id', $companyId)
+                ->active()
+                ->with(['company'])
+                ->get();
+
+            $resolver = new CrewAssignmentStatusResolver;
+            $readyToJoin = 0;
+            $inHome = 0;
+            $needsUpdate = 0;
+            $overdueHome = 0;
+            $total = 0;
+
+            foreach ($employees as $employee) {
+                $resolved = $resolver->forEmployee($employee);
+                $status = $resolved['status'];
+                $total++;
+
+                if ($status === 'ready_to_join') {
+                    $readyToJoin++;
+                }
+
+                if ($status === 'in_home') {
+                    $inHome++;
+
+                    if (
+                        $resolved['in_home_days'] !== null
+                        && $resolved['in_home_days'] > $maxHomeDays
+                    ) {
+                        $overdueHome++;
+                    }
+                }
+
+                if ($status === 'movement_update_required') {
+                    $needsUpdate++;
+                }
+            }
 
             return [
-                'on_vessel' => (int) ($deployment['on_vessel'] ?? 0),
-                'ready_to_join' => (int) ($deployment['ready_to_join'] ?? 0),
-                'in_home' => (int) ($deployment['in_home'] ?? 0),
-                'at_home' => (int) ($deployment['in_home'] ?? 0),
+                'on_vessel' => (int) ($pulse['onboard_now'] ?? 0),
+                'ready_to_join' => $readyToJoin,
+                'in_home' => $inHome,
+                'at_home' => $inHome,
                 'needs_update' => $needsUpdate,
                 'movement_updates_required' => $needsUpdate,
-                'planned_signoffs_due' => $dueSoon,
+                'planned_signoffs_due' => (int) ($pulse['signoffs_next_7_days'] ?? 0),
                 'overdue_at_home' => $overdueHome,
-                'total' => (int) ($deployment['total'] ?? 0),
+                'total' => $total,
             ];
         });
     }

@@ -89,7 +89,7 @@ it('filters current crew by relief status no relief', function () {
         );
 });
 
-it('matches dashboard relief counts to linked current crew filters', function () {
+it('matches current crew relief filters to daily dashboard risk and action signals', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-06 12:00:00', 'UTC'));
 
     $fixtures = makeCrewAssignmentFixtures();
@@ -135,17 +135,49 @@ it('matches dashboard relief counts to linked current crew filters', function ()
         'actual_start_at' => now(),
     ]);
 
+    $within14NoRelief = CurrentCrewQuery::paginate($companyId, [
+        'signoff_within_14_no_relief' => true,
+    ])->total();
+    $reliefNotReady = CurrentCrewQuery::paginate($companyId, [
+        'relief_not_ready' => true,
+    ])->total();
+    $readyToJoin = CurrentCrewQuery::paginate($companyId, [
+        'relief_status' => CrewReliefStatus::ReadyToJoin->value,
+    ])->total();
+    $criticalRelief = CurrentCrewQuery::paginate($companyId, [
+        'relief_risk' => CrewReliefRisk::Critical->value,
+    ])->total();
+
     $dashboard = app(CrewOperationsDashboardAnalytics::class)
         ->forCompany($companyId, $fixtures['user']);
 
-    expect($dashboard['alert_counts']['signoff_within_14_days_no_relief'])
-        ->toBe(CurrentCrewQuery::paginate($companyId, ['signoff_within_14_no_relief' => true])->total())
-        ->and($dashboard['alert_counts']['relief_not_ready'])
-        ->toBe(CurrentCrewQuery::paginate($companyId, ['relief_not_ready' => true])->total())
-        ->and($dashboard['alert_counts']['relief_ready_to_join'])
-        ->toBe(CurrentCrewQuery::paginate($companyId, ['relief_status' => CrewReliefStatus::ReadyToJoin->value])->total())
-        ->and($dashboard['alert_counts']['critical_relief_risk'])
-        ->toBe(CurrentCrewQuery::paginate($companyId, ['relief_risk' => CrewReliefRisk::Critical->value])->total());
+    $actions = collect($dashboard['action_required']);
+    $risks = collect($dashboard['manning_relief_risks']);
+
+    expect($within14NoRelief)->toBe(1)
+        ->and($readyToJoin)->toBe(1)
+        ->and($dashboard)->not->toHaveKey('alert_counts')
+        ->and($risks->contains(
+            fn (array $item): bool => $item['kind'] === 'relief'
+                && in_array($item['risk'], ['No relief', 'Critical relief'], true),
+        ))->toBeTrue();
+
+    if ($criticalRelief > 0) {
+        expect($actions->contains(
+            fn (array $item): bool => $item['type'] === 'critical_relief_risk',
+        ) || $risks->contains(
+            fn (array $item): bool => $item['kind'] === 'relief'
+                && $item['risk'] === 'Critical relief',
+        ))->toBeTrue();
+    }
+
+    // relief_not_ready includes NoRelief; daily cockpit surfaces that as a No-relief risk,
+    // not the separate "relief not ready" imminent action (which excludes NoRelief).
+    if ($reliefNotReady > 0) {
+        expect($risks->contains(
+            fn (array $item): bool => $item['kind'] === 'relief',
+        ))->toBeTrue();
+    }
 
     CarbonImmutable::setTestNow();
 });

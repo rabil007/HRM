@@ -18,7 +18,7 @@ use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewOperations\CrewOperationsDashboardAnalytics;
 use Carbon\CarbonImmutable;
 
-it('uses cumulative within-N-day filters matching dashboard card counts', function () {
+it('uses cumulative within-N-day filters matching daily pulse sign-off counts', function () {
     $fixtures = makeCrewAssignmentFixtures();
     $companyId = (int) $fixtures['company']->id;
     $timezone = $fixtures['company']->timezone;
@@ -71,27 +71,30 @@ it('uses cumulative within-N-day filters matching dashboard card counts', functi
     $dueToday = CurrentCrewQuery::paginate($companyId, [
         'tour_status' => CrewTourStatus::DueToday->value,
     ])->total();
+    $overdue = CurrentCrewQuery::paginate($companyId, [
+        'tour_status' => CrewTourStatus::Overdue->value,
+    ])->total();
 
     expect($within7)->toBe(2)
         ->and($within14)->toBe(3)
         ->and($within30)->toBe(4)
         ->and($dueToday)->toBe(1)
-        ->and($dashboard['alert_counts']['signoff_within_7_days'])->toBe($within7)
-        ->and($dashboard['alert_counts']['signoff_within_14_days'])->toBe($within14)
-        ->and($dashboard['alert_counts']['signoff_within_30_days'])->toBe($within30)
-        ->and($dashboard['alert_counts']['signoff_due_today'])->toBe($dueToday)
-        ->and($dashboard['alert_counts']['signoff_within_7_days'])->toBe(
+        ->and($overdue)->toBe(1)
+        ->and($within7)->toBe(
             $buckets['due_within_7_days'] + $buckets['due_today'],
         )
-        ->and($dashboard['alert_counts']['signoff_within_14_days'])->toBe(
+        ->and($within14)->toBe(
             $buckets['due_within_14_days'] + $buckets['due_within_7_days'] + $buckets['due_today'],
         )
-        ->and($dashboard['alert_counts']['signoff_within_30_days'])->toBe(
+        ->and($within30)->toBe(
             $buckets['due_within_30_days']
             + $buckets['due_within_14_days']
             + $buckets['due_within_7_days']
             + $buckets['due_today'],
-        );
+        )
+        ->and($dashboard['daily_pulse']['signoffs_next_7_days'])->toBe($within7)
+        ->and($dashboard['daily_pulse']['signoffs_overdue'])->toBe($overdue)
+        ->and($dashboard)->not->toHaveKey('alert_counts');
 });
 
 it('does not mark due-today assignments as overdue at midday', function () {
