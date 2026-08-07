@@ -4,9 +4,13 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { barPositionStyle } from '../lib/planning-gantt-math';
+import {
+    bandAriaLabel,
+    periodTitle,
+    projectionBandMode,
+} from '../lib/projection-band';
 import type { PlanningProjectionPeriod, PlanningProjectionRow } from '../types';
 
 type Props = {
@@ -21,29 +25,6 @@ function exceptionPeriods(
     periods: PlanningProjectionPeriod[],
 ): PlanningProjectionPeriod[] {
     return periods.filter((period) => period.gap > 0 || period.excess > 0);
-}
-
-function periodTitle(
-    period: PlanningProjectionPeriod,
-    requiredCount: number,
-): string {
-    if (period.gap > 0) {
-        return [
-            'Projected gap',
-            `Required: ${requiredCount}`,
-            `Projected: ${period.projected_count}`,
-            `Short: ${period.gap}`,
-            `${formatDisplayDate(period.from)} → ${formatDisplayDate(period.to)}`,
-        ].join('\n');
-    }
-
-    return [
-        'Projected overlap',
-        `Required: ${requiredCount}`,
-        `Projected: ${period.projected_count}`,
-        `Excess: ${period.excess}`,
-        `${formatDisplayDate(period.from)} → ${formatDisplayDate(period.to)}`,
-    ].join('\n');
 }
 
 export function ProjectionOverlay({
@@ -61,7 +42,7 @@ export function ProjectionOverlay({
 
     return (
         <div
-            className="absolute inset-0 z-[2]"
+            className="pointer-events-none absolute inset-0 z-[2]"
             data-projection-overlay={projection.row_key}
         >
             {periods.map((period) => {
@@ -77,7 +58,17 @@ export function ProjectionOverlay({
                 }
 
                 const isGap = period.gap > 0;
-                const interactive = isGap && canCreate && onGapClick != null;
+                const mode = projectionBandMode(
+                    period,
+                    canCreate,
+                    onGapClick != null,
+                );
+                const actionable = mode === 'create';
+                const label = bandAriaLabel(
+                    period,
+                    projection.required_count,
+                    mode,
+                );
 
                 return (
                     <Tooltip
@@ -86,55 +77,46 @@ export function ProjectionOverlay({
                         <TooltipTrigger asChild>
                             <div
                                 data-projection-band
+                                data-projection-band-mode={mode}
                                 className={cn(
-                                    'absolute top-1 bottom-1 rounded-sm',
+                                    'pointer-events-auto absolute top-1 bottom-1 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                                     isGap
                                         ? 'bg-destructive/20 ring-1 ring-destructive/35 dark:bg-destructive/25 dark:ring-destructive/45'
-                                        : 'pointer-events-none bg-amber-500/15 ring-1 ring-amber-500/30 dark:bg-amber-400/20 dark:ring-amber-400/40',
-                                    interactive &&
-                                        'cursor-crosshair transition-colors hover:bg-destructive/30 dark:hover:bg-destructive/35',
-                                    !interactive &&
-                                        isGap &&
-                                        'pointer-events-none',
+                                        : 'bg-amber-500/15 ring-1 ring-amber-500/30 dark:bg-amber-400/20 dark:ring-amber-400/40',
+                                    actionable
+                                        ? 'cursor-crosshair transition-colors hover:bg-destructive/30 dark:hover:bg-destructive/35'
+                                        : 'cursor-help',
                                 )}
                                 style={style}
-                                role={interactive ? 'button' : undefined}
-                                tabIndex={interactive ? 0 : undefined}
-                                aria-label={
-                                    interactive
-                                        ? `Plan crew for projected gap starting ${period.from}`
-                                        : undefined
-                                }
-                                title={periodTitle(
-                                    period,
-                                    projection.required_count,
-                                )}
-                                onClick={
-                                    interactive
-                                        ? (
-                                              event: MouseEvent<HTMLDivElement>,
-                                          ) => {
-                                              event.stopPropagation();
-                                              onGapClick(period);
-                                          }
-                                        : undefined
-                                }
-                                onKeyDown={
-                                    interactive
-                                        ? (
-                                              event: KeyboardEvent<HTMLDivElement>,
-                                          ) => {
-                                              if (
-                                                  event.key === 'Enter' ||
-                                                  event.key === ' '
-                                              ) {
-                                                  event.preventDefault();
-                                                  event.stopPropagation();
-                                                  onGapClick(period);
-                                              }
-                                          }
-                                        : undefined
-                                }
+                                role={actionable ? 'button' : undefined}
+                                tabIndex={0}
+                                aria-label={label}
+                                onClick={(
+                                    event: MouseEvent<HTMLDivElement>,
+                                ) => {
+                                    event.stopPropagation();
+
+                                    if (actionable && onGapClick) {
+                                        onGapClick(period);
+                                    }
+                                }}
+                                onKeyDown={(
+                                    event: KeyboardEvent<HTMLDivElement>,
+                                ) => {
+                                    if (
+                                        event.key !== 'Enter' &&
+                                        event.key !== ' '
+                                    ) {
+                                        return;
+                                    }
+
+                                    event.preventDefault();
+                                    event.stopPropagation();
+
+                                    if (actionable && onGapClick) {
+                                        onGapClick(period);
+                                    }
+                                }}
                             />
                         </TooltipTrigger>
                         <TooltipContent
