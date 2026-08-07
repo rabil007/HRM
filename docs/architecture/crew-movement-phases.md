@@ -260,7 +260,7 @@ Planning never starts movement, completes source P4, creates Sea Service, or cre
 
 ### Deferred
 
-- Phase 2B.2+: projected manning UI / dashboard cards
+- Phase 2B.2 dashboard cards / Planning Gantt overlays
 - Phase 2C: transfer / redeployment Tour behaviour
 - Phase 3: notifications (email, push, in-app, escalation)
 
@@ -330,10 +330,23 @@ Uses Phase 2A Planning relief links. Late relief → gap between source leave an
 
 `summary.overlap_positions` counts rows where `has_overlap` is true (not only when primary status is `overlap`).
 
-### Deferred UI
+## Phase 2B.2 — Projected Manning UI
 
-Projected Manning screens, Planning overlays, and dashboard cards are out of scope for 2B.1.
+Dedicated Crew Operations page at `/organization/crew-operations/projected-manning` (`organization.crew-operations.projected-manning`).
 
+- Thin controller: trusted `current_company_id`, filter validation, calls `CrewProjectedManningQuery`, returns Inertia props.
+- Permission: `crew_operations.vessel_manning.view` (Plan Crew action UX gated by `crew_operations.planning.view` **and** `crew_operations.planning.create`).
+- Filters (URL query, shareable): `horizon` 30/60/90 (default 30), `vessel_id`, `rank_id` — foreign vessel/rank IDs not present in company `VesselManning` are rejected by validation.
+- Range: `from` = company-local today; `to` derived server-side as `from + horizon days`.
+- UI shows summary cards, vessel/rank rows (actual vs projected clearly labeled), expandable period/event detail, and **Plan Crew** links into existing Crew Planning with `open_create=1` plus vessel/rank/date query prefills.
+- React does not recalculate gaps, status, or counts — server values only.
+
+### Deferred (still later)
+
+- Crew Operations dashboard projected cards
+- Crew Planning Gantt projection overlays
+- Notifications / escalations
+- Phase 2C transfer / redeployment
 
 ## Sea service
 
