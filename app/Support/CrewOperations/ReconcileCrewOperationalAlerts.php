@@ -18,7 +18,7 @@ use Throwable;
  * Creates missing alerts, refreshes last_detected_at / severity,
  * reactivates resolved alerts when the same condition returns,
  * resolves alerts whose underlying condition no longer exists,
- * syncs recipient rows, and queues browser pushes for meaningful versions.
+ * syncs recipient rows, and queues browser push + email for meaningful versions.
  *
  * One row per (company_id, dedupe_key); history lives in timestamps / status / activity log.
  */
@@ -28,6 +28,7 @@ final class ReconcileCrewOperationalAlerts
         private readonly DetectCrewOperationalAlerts $detector = new DetectCrewOperationalAlerts,
         private readonly SyncCrewOperationalAlertRecipients $recipientSync = new SyncCrewOperationalAlertRecipients,
         private readonly QueueCrewOperationalAlertPushes $pushQueue = new QueueCrewOperationalAlertPushes,
+        private readonly QueueCrewOperationalAlertEmails $emailQueue = new QueueCrewOperationalAlertEmails,
     ) {}
 
     /**
@@ -49,12 +50,12 @@ final class ReconcileCrewOperationalAlerts
         $timezone = CompanyTimezone::forCompanyId($companyId);
         $now = CarbonImmutable::now($timezone);
 
-        /** @var array{created: int, updated: int, resolved: int, skipped: bool, push_alert_ids: list<int>} $result */
+        /** @var array{created: int, updated: int, resolved: int, skipped: bool, notify_alert_ids: list<int>} $result */
         $result = DB::transaction(function () use ($companyId, $detected, $now): array {
             $created = 0;
             $updated = 0;
             $seenKeys = [];
-            $pushAlertIds = [];
+            $notifyAlertIds = [];
 
             foreach ($detected as $item) {
                 $seenKeys[] = $item['dedupe_key'];
@@ -66,7 +67,7 @@ final class ReconcileCrewOperationalAlerts
                     $updated++;
 
                     if ($outcome['should_notify']) {
-                        $pushAlertIds[] = (int) $existing->id;
+                        $notifyAlertIds[] = (int) $existing->id;
                     }
 
                     continue;
@@ -88,7 +89,7 @@ final class ReconcileCrewOperationalAlerts
                         'notification_version' => 1,
                     ]);
                     $created++;
-                    $pushAlertIds[] = (int) $alert->id;
+                    $notifyAlertIds[] = (int) $alert->id;
                 } catch (UniqueConstraintViolationException $exception) {
                     $existing = $this->findForUpdate($companyId, $item['dedupe_key']);
 
@@ -100,7 +101,7 @@ final class ReconcileCrewOperationalAlerts
                     $updated++;
 
                     if ($outcome['should_notify']) {
-                        $pushAlertIds[] = (int) $existing->id;
+                        $notifyAlertIds[] = (int) $existing->id;
                     }
                 }
             }
@@ -121,13 +122,14 @@ final class ReconcileCrewOperationalAlerts
                 'updated' => $updated,
                 'resolved' => $resolved,
                 'skipped' => false,
-                'push_alert_ids' => array_values(array_unique($pushAlertIds)),
+                'notify_alert_ids' => array_values(array_unique($notifyAlertIds)),
             ];
         });
 
-        $this->pushQueue->forAlerts($companyId, $result['push_alert_ids']);
+        $this->pushQueue->forAlerts($companyId, $result['notify_alert_ids']);
+        $this->emailQueue->forAlerts($companyId, $result['notify_alert_ids']);
 
-        unset($result['push_alert_ids']);
+        unset($result['notify_alert_ids']);
 
         return $result;
     }
