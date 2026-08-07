@@ -2,7 +2,9 @@
 
 namespace App\Support\CrewOperations;
 
+use App\Enums\CrewOperationalAlertStatus;
 use App\Enums\CrewOperationalAlertType;
+use App\Models\CrewOperationalAlert;
 use App\Models\CrewOperationsSetting;
 use App\Models\Department;
 use App\Models\Employee;
@@ -162,7 +164,7 @@ final class CrewOperationsSettings
     ): CrewOperationsSetting {
         $normalized = array_values(array_unique(array_map(intval(...), $departmentIds)));
 
-        return DB::transaction(function () use (
+        $setting = DB::transaction(function () use (
             $companyId,
             $normalized,
             $maxHomeDays,
@@ -235,6 +237,20 @@ final class CrewOperationsSettings
 
             return $setting;
         });
+
+        if ((bool) $setting->notifications_enabled) {
+            $activeAlertIds = CrewOperationalAlert::query()
+                ->where('company_id', $companyId)
+                ->where('status', CrewOperationalAlertStatus::Active)
+                ->pluck('id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+
+            app(SyncCrewOperationalAlertRecipients::class)->forCompany($companyId, $activeAlertIds);
+            app(QueueCrewOperationalAlertPushes::class)->forAlerts($companyId, $activeAlertIds);
+        }
+
+        return $setting;
     }
 
     /**

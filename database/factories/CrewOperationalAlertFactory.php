@@ -35,6 +35,7 @@ class CrewOperationalAlertFactory extends Factory
             'detected_at' => $now,
             'last_detected_at' => $now,
             'resolved_at' => null,
+            'notification_version' => 1,
         ];
     }
 
