@@ -23,8 +23,8 @@ return new class extends Migration
             $table->timestamp('resolved_at')->nullable();
             $table->timestamps();
 
+            $table->unique(['company_id', 'dedupe_key']);
             $table->index(['company_id', 'status', 'type']);
-            $table->index(['company_id', 'dedupe_key', 'status']);
             $table->index(['company_id', 'last_detected_at']);
         });
     }

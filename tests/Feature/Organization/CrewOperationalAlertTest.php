@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewOperationalAlertSeverity;
 use App\Enums\CrewOperationalAlertStatus;
 use App\Enums\CrewOperationalAlertType;
 use App\Enums\CrewPhaseCode;
@@ -17,6 +18,7 @@ use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewOperations\ReconcileCrewOperationalAlerts;
 use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
 function crewNotificationSettingsPayload(array $overrides = []): array
@@ -333,6 +335,146 @@ test('reconciliation is idempotent and resolves fixed conditions', function () {
             ->where('company_id', $companyId)
             ->where('status', CrewOperationalAlertStatus::Resolved)
             ->count())->toBe(1);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('resolved condition returning later reactivates the same alert row', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-07 12:00:00', 'Asia/Dubai'));
+    $fixtures = makeCrewAssignmentFixtures();
+    $companyId = (int) $fixtures['company']->id;
+    enableCrewNotifications($companyId);
+
+    $assignment = makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        makeCrewMovementVessel('Reactivate Vessel'),
+        ['planned_signoff_at' => '2026-08-01 00:00:00'],
+    );
+
+    app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+
+    $original = CrewOperationalAlert::query()->where('company_id', $companyId)->firstOrFail();
+    $originalDetectedAt = $original->detected_at?->toIso8601String();
+
+    $assignment->update(['planned_signoff_at' => '2026-09-01 00:00:00']);
+    app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+
+    expect($original->fresh()->status)->toBe(CrewOperationalAlertStatus::Resolved)
+        ->and($original->fresh()->resolved_at)->not->toBeNull();
+
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-08 12:00:00', 'Asia/Dubai'));
+    $assignment->update(['planned_signoff_at' => '2026-08-01 00:00:00']);
+
+    $result = app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    $reactivated = CrewOperationalAlert::query()->where('company_id', $companyId)->firstOrFail();
+
+    expect($result['created'])->toBe(0)
+        ->and($result['updated'])->toBe(1)
+        ->and(CrewOperationalAlert::query()->where('company_id', $companyId)->count())->toBe(1)
+        ->and($reactivated->id)->toBe($original->id)
+        ->and($reactivated->status)->toBe(CrewOperationalAlertStatus::Active)
+        ->and($reactivated->resolved_at)->toBeNull()
+        ->and($reactivated->detected_at?->toIso8601String())->toBe($originalDetectedAt)
+        ->and($reactivated->last_detected_at?->toIso8601String())
+        ->not->toBe($originalDetectedAt);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('company_id and dedupe_key are unique while companies may share logical keys', function () {
+    $companyA = makeCrewAssignmentFixtures();
+    $companyB = makeCrewAssignmentFixtures();
+    $dedupeKey = 'signoff_overdue:assignment:shared-logical-key';
+    $now = now();
+
+    $attrs = [
+        'type' => CrewOperationalAlertType::SignoffOverdue,
+        'severity' => CrewOperationalAlertSeverity::Critical,
+        'status' => CrewOperationalAlertStatus::Active,
+        'dedupe_key' => $dedupeKey,
+        'title' => 'Sign-off overdue',
+        'message' => 'Shared key isolation',
+        'context' => [],
+        'detected_at' => $now,
+        'last_detected_at' => $now,
+        'resolved_at' => null,
+    ];
+
+    CrewOperationalAlert::query()->create($attrs + ['company_id' => $companyA['company']->id]);
+    CrewOperationalAlert::query()->create($attrs + ['company_id' => $companyB['company']->id]);
+
+    expect(CrewOperationalAlert::query()->where('dedupe_key', $dedupeKey)->count())->toBe(2);
+
+    expect(fn () => CrewOperationalAlert::query()->create($attrs + [
+        'company_id' => $companyA['company']->id,
+    ]))->toThrow(UniqueConstraintViolationException::class);
+});
+
+test('notifications off resolves existing active alerts', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-07 12:00:00', 'Asia/Dubai'));
+    $fixtures = makeCrewAssignmentFixtures();
+    $companyId = (int) $fixtures['company']->id;
+    enableCrewNotifications($companyId);
+
+    makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        makeCrewMovementVessel('Notifications Off Resolve'),
+        ['planned_signoff_at' => '2026-08-01 00:00:00'],
+    );
+
+    app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    expect(CrewOperationalAlert::query()
+        ->where('company_id', $companyId)
+        ->where('status', CrewOperationalAlertStatus::Active)
+        ->count())->toBe(1);
+
+    enableCrewNotifications($companyId, ['notifications_enabled' => false]);
+    $result = app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+
+    expect($result['skipped'])->toBeTrue()
+        ->and($result['resolved'])->toBe(1)
+        ->and(CrewOperationalAlert::query()
+            ->where('company_id', $companyId)
+            ->where('status', CrewOperationalAlertStatus::Resolved)
+            ->count())->toBe(1)
+        ->and(CrewOperationalAlert::query()->where('company_id', $companyId)->count())->toBe(1);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('disabling an alert type resolves the corresponding existing alert', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-07 12:00:00', 'Asia/Dubai'));
+    $fixtures = makeCrewAssignmentFixtures();
+    $companyId = (int) $fixtures['company']->id;
+    enableCrewNotifications($companyId);
+
+    makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        makeCrewMovementVessel('Disable Type Resolve'),
+        ['planned_signoff_at' => '2026-08-01 00:00:00'],
+    );
+
+    app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+
+    $alert = CrewOperationalAlert::query()
+        ->where('company_id', $companyId)
+        ->where('type', CrewOperationalAlertType::SignoffOverdue)
+        ->firstOrFail();
+
+    expect($alert->status)->toBe(CrewOperationalAlertStatus::Active);
+
+    enableCrewNotifications($companyId, ['alert_signoff_overdue' => false]);
+    $result = app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+
+    expect($result['resolved'])->toBe(1)
+        ->and($alert->fresh()->status)->toBe(CrewOperationalAlertStatus::Resolved)
+        ->and(CrewOperationalAlert::query()->where('company_id', $companyId)->count())->toBe(1);
 
     CarbonImmutable::setTestNow();
 });

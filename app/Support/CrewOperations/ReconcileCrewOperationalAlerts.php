@@ -4,17 +4,22 @@ namespace App\Support\CrewOperations;
 
 use App\Enums\CrewOperationalAlertSeverity;
 use App\Enums\CrewOperationalAlertStatus;
+use App\Enums\CrewOperationalAlertType;
 use App\Models\CrewOperationalAlert;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
  * Reconciles persisted Crew operational alerts for one company.
  *
- * Creates missing active alerts, refreshes last_detected_at / severity,
+ * Creates missing alerts, refreshes last_detected_at / severity,
+ * reactivates resolved alerts when the same condition returns,
  * and resolves alerts whose underlying condition no longer exists.
+ *
+ * One row per (company_id, dedupe_key); history lives in timestamps / status / activity log.
  */
 final class ReconcileCrewOperationalAlerts
 {
@@ -49,45 +54,40 @@ final class ReconcileCrewOperationalAlerts
             foreach ($detected as $item) {
                 $seenKeys[] = $item['dedupe_key'];
 
-                /** @var CrewOperationalAlert|null $existing */
-                $existing = CrewOperationalAlert::query()
-                    ->where('company_id', $companyId)
-                    ->where('dedupe_key', $item['dedupe_key'])
-                    ->where('status', CrewOperationalAlertStatus::Active)
-                    ->lockForUpdate()
-                    ->first();
+                $existing = $this->findForUpdate($companyId, $item['dedupe_key']);
 
                 if ($existing !== null) {
-                    $severity = $item['severity'];
-                    $shouldEscalate = $this->severityRank($severity) > $this->severityRank($existing->severity);
-
-                    $existing->fill([
-                        'severity' => $shouldEscalate ? $severity : $existing->severity,
-                        'title' => $item['title'],
-                        'message' => $item['message'],
-                        'context' => $item['context'],
-                        'last_detected_at' => $now,
-                    ]);
-                    $existing->save();
+                    $this->applyDetectedCondition($existing, $item, $now);
                     $updated++;
 
                     continue;
                 }
 
-                CrewOperationalAlert::query()->create([
-                    'company_id' => $companyId,
-                    'type' => $item['type'],
-                    'severity' => $item['severity'],
-                    'status' => CrewOperationalAlertStatus::Active,
-                    'dedupe_key' => $item['dedupe_key'],
-                    'title' => $item['title'],
-                    'message' => $item['message'],
-                    'context' => $item['context'],
-                    'detected_at' => $now,
-                    'last_detected_at' => $now,
-                    'resolved_at' => null,
-                ]);
-                $created++;
+                try {
+                    CrewOperationalAlert::query()->create([
+                        'company_id' => $companyId,
+                        'type' => $item['type'],
+                        'severity' => $item['severity'],
+                        'status' => CrewOperationalAlertStatus::Active,
+                        'dedupe_key' => $item['dedupe_key'],
+                        'title' => $item['title'],
+                        'message' => $item['message'],
+                        'context' => $item['context'],
+                        'detected_at' => $now,
+                        'last_detected_at' => $now,
+                        'resolved_at' => null,
+                    ]);
+                    $created++;
+                } catch (UniqueConstraintViolationException $exception) {
+                    $existing = $this->findForUpdate($companyId, $item['dedupe_key']);
+
+                    if ($existing === null) {
+                        throw $exception;
+                    }
+
+                    $this->applyDetectedCondition($existing, $item, $now);
+                    $updated++;
+                }
             }
 
             $resolved = $this->resolveMissing($companyId, $seenKeys, $now);
@@ -138,6 +138,54 @@ final class ReconcileCrewOperationalAlerts
                 'resolved' => $this->resolveMissing($companyId, [], $now),
             ];
         });
+    }
+
+    private function findForUpdate(int $companyId, string $dedupeKey): ?CrewOperationalAlert
+    {
+        return CrewOperationalAlert::query()
+            ->where('company_id', $companyId)
+            ->where('dedupe_key', $dedupeKey)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    /**
+     * @param  array{
+     *     type: CrewOperationalAlertType,
+     *     severity: CrewOperationalAlertSeverity,
+     *     dedupe_key: string,
+     *     title: string,
+     *     message: string,
+     *     context: array<string, mixed>
+     * }  $item
+     */
+    private function applyDetectedCondition(
+        CrewOperationalAlert $alert,
+        array $item,
+        CarbonImmutable $now,
+    ): void {
+        $wasResolved = $alert->status === CrewOperationalAlertStatus::Resolved;
+
+        if ($wasResolved) {
+            $severity = $item['severity'];
+        } else {
+            $severity = $this->severityRank($item['severity']) > $this->severityRank($alert->severity)
+                ? $item['severity']
+                : $alert->severity;
+        }
+
+        $alert->fill([
+            'type' => $item['type'],
+            'severity' => $severity,
+            'status' => CrewOperationalAlertStatus::Active,
+            'title' => $item['title'],
+            'message' => $item['message'],
+            'context' => $item['context'],
+            'last_detected_at' => $now,
+            'resolved_at' => null,
+        ]);
+        // Preserve first-ever detected_at for auditable history.
+        $alert->save();
     }
 
     /**

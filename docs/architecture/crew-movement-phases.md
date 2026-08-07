@@ -438,12 +438,12 @@ Crew Operations → Settings gains a **Notifications** card. Defaults **OFF** so
 | Recipients | Explicit selected active company users with active membership only — no role-based recipient config |
 | Alert types | Independent toggles for overdue, no-relief, relief-not-ready, current gap, projected gap |
 | Delivery | No separate company In-app / Browser Push / Email toggles. Browser Push is an extension of Crew in-app notifications and uses the user's existing device-level browser notification preference. Inbox/push delivery jobs are Phase 3B+ |
-| Persistence | `crew_operational_alerts` with `dedupe_key`, active/resolved lifecycle |
+| Persistence | `crew_operational_alerts` with unique `(company_id, dedupe_key)` and active/resolved lifecycle |
 | Detection | `DetectCrewOperationalAlerts` uses Tour / Relief / Manning / Projected queries — not Action Required |
 | Reconciliation | `ReconcileCrewOperationalAlerts` + `crew:reconcile-operational-alerts` every 10 minutes (`withoutOverlapping`) |
 | Tenancy | Trusted `current_company_id`; per-company safe iteration |
 
-Resolved alerts are kept for history. Recurring conditions after resolution create a new active alert.
+One row per company condition. History is preserved via `detected_at` (first detection), `last_detected_at`, `resolved_at`, `status`, and activity log. When a resolved condition returns, the same row is reactivated.
 
 ### Deferred (still later)
 
