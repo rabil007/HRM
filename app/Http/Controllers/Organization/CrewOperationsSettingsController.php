@@ -46,9 +46,6 @@ class CrewOperationsSettingsController extends Controller
                 'alert_relief_not_ready' => $request->boolean('alert_relief_not_ready'),
                 'alert_current_manning_gap' => $request->boolean('alert_current_manning_gap'),
                 'alert_projected_manning_gap' => $request->boolean('alert_projected_manning_gap'),
-                'notify_in_app' => $request->boolean('notify_in_app'),
-                'notify_browser_push' => $request->boolean('notify_browser_push'),
-                'notify_email' => $request->boolean('notify_email'),
                 'actor_id' => $request->user()?->id,
             ],
         );

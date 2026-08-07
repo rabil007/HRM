@@ -137,9 +137,6 @@ test('authorized user can update crew operations settings', function () {
             'alert_relief_not_ready' => true,
             'alert_current_manning_gap' => true,
             'alert_projected_manning_gap' => true,
-            'notify_in_app' => true,
-            'notify_browser_push' => true,
-            'notify_email' => false,
         ])
         ->assertRedirect();
 
@@ -186,9 +183,6 @@ test('clearing pool department settings works', function () {
             'alert_relief_not_ready' => true,
             'alert_current_manning_gap' => true,
             'alert_projected_manning_gap' => true,
-            'notify_in_app' => true,
-            'notify_browser_push' => true,
-            'notify_email' => false,
         ])
         ->assertRedirect();
 
@@ -215,9 +209,6 @@ test('users without update permission cannot change settings', function () {
             'alert_relief_not_ready' => true,
             'alert_current_manning_gap' => true,
             'alert_projected_manning_gap' => true,
-            'notify_in_app' => true,
-            'notify_browser_push' => true,
-            'notify_email' => false,
         ])
         ->assertForbidden();
 });
@@ -249,9 +240,6 @@ test('settings reject departments from another company', function () {
             'alert_relief_not_ready' => true,
             'alert_current_manning_gap' => true,
             'alert_projected_manning_gap' => true,
-            'notify_in_app' => true,
-            'notify_browser_push' => true,
-            'notify_email' => false,
         ])
         ->assertSessionHasErrors(['pool_department_ids.0']);
 });
@@ -283,9 +271,6 @@ test('disabling sea service sync is logged with old and new values', function ()
             'alert_relief_not_ready' => true,
             'alert_current_manning_gap' => true,
             'alert_projected_manning_gap' => true,
-            'notify_in_app' => true,
-            'notify_browser_push' => true,
-            'notify_email' => false,
         ])
         ->assertRedirect();
 

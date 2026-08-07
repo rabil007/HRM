@@ -28,9 +28,6 @@ class CrewOperationsSetting extends Model
             'alert_relief_not_ready' => 'boolean',
             'alert_current_manning_gap' => 'boolean',
             'alert_projected_manning_gap' => 'boolean',
-            'notify_in_app' => 'boolean',
-            'notify_browser_push' => 'boolean',
-            'notify_email' => 'boolean',
         ];
     }
 

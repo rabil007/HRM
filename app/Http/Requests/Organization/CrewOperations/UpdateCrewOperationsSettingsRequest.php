@@ -22,9 +22,6 @@ class UpdateCrewOperationsSettingsRequest extends FormRequest
             'alert_relief_not_ready',
             'alert_current_manning_gap',
             'alert_projected_manning_gap',
-            'notify_in_app',
-            'notify_browser_push',
-            'notify_email',
         ] as $booleanField) {
             if ($this->has($booleanField)) {
                 $this->merge([
@@ -63,9 +60,6 @@ class UpdateCrewOperationsSettingsRequest extends FormRequest
             'alert_relief_not_ready' => ['required', 'boolean'],
             'alert_current_manning_gap' => ['required', 'boolean'],
             'alert_projected_manning_gap' => ['required', 'boolean'],
-            'notify_in_app' => ['required', 'boolean'],
-            'notify_browser_push' => ['required', 'boolean'],
-            'notify_email' => ['required', 'boolean'],
         ];
     }
 }

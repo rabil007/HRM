@@ -86,10 +86,7 @@ final class CrewOperationsSettings
      *     alert_signoff_no_relief: bool,
      *     alert_relief_not_ready: bool,
      *     alert_current_manning_gap: bool,
-     *     alert_projected_manning_gap: bool,
-     *     notify_in_app: bool,
-     *     notify_browser_push: bool,
-     *     notify_email: bool
+     *     alert_projected_manning_gap: bool
      * }
      */
     public static function notificationSettings(int $companyId): array
@@ -106,9 +103,6 @@ final class CrewOperationsSettings
             'alert_relief_not_ready' => (bool) ($setting?->alert_relief_not_ready ?? true),
             'alert_current_manning_gap' => (bool) ($setting?->alert_current_manning_gap ?? true),
             'alert_projected_manning_gap' => (bool) ($setting?->alert_projected_manning_gap ?? true),
-            'notify_in_app' => (bool) ($setting?->notify_in_app ?? true),
-            'notify_browser_push' => (bool) ($setting?->notify_browser_push ?? true),
-            'notify_email' => (bool) ($setting?->notify_email ?? false),
         ];
     }
 
@@ -156,9 +150,6 @@ final class CrewOperationsSettings
      *     alert_relief_not_ready?: bool,
      *     alert_current_manning_gap?: bool,
      *     alert_projected_manning_gap?: bool,
-     *     notify_in_app?: bool,
-     *     notify_browser_push?: bool,
-     *     notify_email?: bool,
      *     actor_id?: int|null
      * }  $options
      */
@@ -218,15 +209,6 @@ final class CrewOperationsSettings
                     'alert_projected_manning_gap' => array_key_exists('alert_projected_manning_gap', $options)
                         ? (bool) $options['alert_projected_manning_gap']
                         : (bool) ($existing?->alert_projected_manning_gap ?? true),
-                    'notify_in_app' => array_key_exists('notify_in_app', $options)
-                        ? (bool) $options['notify_in_app']
-                        : (bool) ($existing?->notify_in_app ?? true),
-                    'notify_browser_push' => array_key_exists('notify_browser_push', $options)
-                        ? (bool) $options['notify_browser_push']
-                        : (bool) ($existing?->notify_browser_push ?? true),
-                    'notify_email' => array_key_exists('notify_email', $options)
-                        ? (bool) $options['notify_email']
-                        : (bool) ($existing?->notify_email ?? false),
                 ],
             );
 

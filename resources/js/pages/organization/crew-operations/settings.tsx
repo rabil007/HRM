@@ -82,12 +82,6 @@ const ALERT_TYPE_FIELDS = [
     },
 ];
 
-const DELIVERY_FIELDS = [
-    { key: 'notify_in_app' as const, label: 'In-app' },
-    { key: 'notify_browser_push' as const, label: 'Browser Push' },
-    { key: 'notify_email' as const, label: 'Email' },
-];
-
 function DepartmentTreeNodeRow({
     node,
     depth,
@@ -368,11 +362,12 @@ export default function CrewOperationsSettings({
                                             Notifications
                                         </CardTitle>
                                         <CardDescription className="max-w-2xl text-sm leading-relaxed">
-                                            Detect Crew operational alerts and
-                                            choose who should receive them.
-                                            Delivery channels are stored now;
-                                            external delivery follows in later
-                                            phases.
+                                            Choose who receives Crew operational
+                                            alerts and which conditions are
+                                            tracked. Browser push follows each
+                                            user&apos;s existing device
+                                            notification preference once inbox
+                                            delivery is enabled.
                                         </CardDescription>
                                     </div>
                                 </div>
@@ -398,15 +393,14 @@ export default function CrewOperationsSettings({
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent className="grid gap-6 p-5 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
+                        <CardContent className="grid gap-6 p-5 sm:p-6 md:grid-cols-2">
                             {!form.data.notifications_enabled ? (
-                                <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-950 md:col-span-2 xl:col-span-3 dark:text-amber-100">
+                                <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-950 md:col-span-2 dark:text-amber-100">
                                     <AlertTriangle className="text-amber-600 dark:text-amber-400" />
                                     <AlertTitle>Notifications off</AlertTitle>
                                     <AlertDescription>
-                                        No new Crew operational notifications
-                                        will be generated or delivered while
-                                        this is disabled.
+                                        Crew operational alerts are disabled for
+                                        this company.
                                     </AlertDescription>
                                 </Alert>
                             ) : null}
@@ -552,39 +546,6 @@ export default function CrewOperationsSettings({
                                 </div>
                                 <div className="space-y-2">
                                     {ALERT_TYPE_FIELDS.map((field) => (
-                                        <label
-                                            key={field.key}
-                                            className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2"
-                                        >
-                                            <span className="text-sm">
-                                                {field.label}
-                                            </span>
-                                            <Switch
-                                                checked={form.data[field.key]}
-                                                onCheckedChange={(checked) =>
-                                                    form.setData(
-                                                        field.key,
-                                                        checked,
-                                                    )
-                                                }
-                                            />
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                <div>
-                                    <p className="text-sm font-semibold">
-                                        Delivery
-                                    </p>
-                                    <p className="mt-1 text-xs text-muted-foreground">
-                                        Channel preferences for later delivery
-                                        phases.
-                                    </p>
-                                </div>
-                                <div className="space-y-2">
-                                    {DELIVERY_FIELDS.map((field) => (
                                         <label
                                             key={field.key}
                                             className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2"

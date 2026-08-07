@@ -32,9 +32,6 @@ function crewNotificationSettingsPayload(array $overrides = []): array
         'alert_relief_not_ready' => true,
         'alert_current_manning_gap' => true,
         'alert_projected_manning_gap' => true,
-        'notify_in_app' => true,
-        'notify_browser_push' => true,
-        'notify_email' => false,
     ], $overrides);
 }
 
@@ -75,7 +72,6 @@ test('settings page exposes notification defaults and recipient options', functi
         ->assertInertia(fn (Assert $page) => $page
             ->where('crew_settings.notifications_enabled', false)
             ->where('crew_settings.alert_signoff_overdue', true)
-            ->where('crew_settings.notify_email', false)
             ->has('notification_users')
             ->where('notification_users.0.id', $fixtures['user']->id)
         );
@@ -94,7 +90,6 @@ test('authorized user can enable notifications recipients and alert types', func
             'notification_recipient_user_ids' => [$fixtures['user']->id],
             'alert_signoff_overdue' => true,
             'alert_projected_manning_gap' => false,
-            'notify_email' => true,
         ]))
         ->assertRedirect();
 
@@ -103,8 +98,7 @@ test('authorized user can enable notifications recipients and alert types', func
     expect($setting)->not->toBeNull()
         ->and($setting->notifications_enabled)->toBeTrue()
         ->and($setting->notification_recipient_user_ids)->toBe([$fixtures['user']->id])
-        ->and($setting->alert_projected_manning_gap)->toBeFalse()
-        ->and($setting->notify_email)->toBeTrue();
+        ->and($setting->alert_projected_manning_gap)->toBeFalse();
 });
 
 test('settings reject recipients from another company', function () {

@@ -16,9 +16,6 @@ return new class extends Migration
             $table->boolean('alert_relief_not_ready')->default(true)->after('alert_signoff_no_relief');
             $table->boolean('alert_current_manning_gap')->default(true)->after('alert_relief_not_ready');
             $table->boolean('alert_projected_manning_gap')->default(true)->after('alert_current_manning_gap');
-            $table->boolean('notify_in_app')->default(true)->after('alert_projected_manning_gap');
-            $table->boolean('notify_browser_push')->default(true)->after('notify_in_app');
-            $table->boolean('notify_email')->default(false)->after('notify_browser_push');
         });
     }
 
@@ -33,9 +30,6 @@ return new class extends Migration
                 'alert_relief_not_ready',
                 'alert_current_manning_gap',
                 'alert_projected_manning_gap',
-                'notify_in_app',
-                'notify_browser_push',
-                'notify_email',
             ]);
         });
     }
