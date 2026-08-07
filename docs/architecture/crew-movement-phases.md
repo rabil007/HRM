@@ -409,7 +409,23 @@ Hardens existing `TransferVessel` / `Redeploy` without redesigning Current Crew 
 
 ### Deferred (still later)
 
-- Phase 2C.2 UI refinements if genuinely needed
+- Phase 3 notifications / escalations
+
+## Phase 2C.2 — Transfer / Redeploy Tour UI Alignment
+
+Movement dialogs reuse shared Tour / Planned Sign-Off controls (`TourSignoffFields`) for Join Vessel, Transfer Vessel, and Redeploy starting at P4.
+
+| Surface | Behaviour |
+|---------|-----------|
+| Transfer Vessel | Destination-rank Tour default (`tour_of_duty` when resolved); no `existing_plan` |
+| Redeploy P4 | Same Tour / sign-off controls as Transfer |
+| Redeploy P0–P3 | Tour fields hidden and excluded from submit; optional forecast sign-off only |
+| Payload | Empty `tour_of_duty_days` omitted; non-manual choices drop stale date/reason |
+
+Backend Tour resolution remains authoritative.
+
+### Deferred (still later)
+
 - Phase 3 notifications / escalations
 
 ## Sea service

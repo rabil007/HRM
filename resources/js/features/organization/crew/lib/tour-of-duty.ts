@@ -1,4 +1,4 @@
-import type { CrewAssignmentFormOptions } from '@/features/organization/crew/types';
+import type { CrewAssignmentFormOptions } from '../types';
 
 export const TOUR_OF_DUTY_SOURCE_LABELS: Record<string, string> = {
     global_rank_default: 'Global Rank Default',
