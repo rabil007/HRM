@@ -4,7 +4,7 @@ use App\Models\CrewMovementCorrection;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
 
-test('dashboard correction summary is company scoped and contains only pending and overdue counts', function () {
+test('dashboard surfaces overdue corrections in action required when permitted', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-17 12:00:00', 'Asia/Dubai'));
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
     grantCompanyPermissions($user, $company, [
@@ -50,21 +50,19 @@ test('dashboard correction summary is company scoped and contains only pending a
         ->get(route('organization.crew-operations.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('movement_corrections', 3)
-            ->where('movement_corrections.pending', 4)
-            ->where('movement_corrections.overdue', 2)
-            ->where(
-                'movement_corrections.url',
-                route('organization.crew-movement-corrections.index'),
-            )
-            ->missing('alert_counts.pending_corrections')
-            ->where('attention_items', fn ($items) => collect($items)
-                ->doesntContain(fn (array $item): bool => $item['type'] === 'pending_corrections')));
+            ->missing('movement_corrections')
+            ->missing('alert_counts')
+            ->where('can.corrections_view', true)
+            ->where('action_required', fn ($items) => collect($items)->contains(
+                fn (array $item): bool => $item['type'] === 'overdue_movement_correction'
+                    && $item['problem'] === '2 correction(s) past review SLA'
+                    && $item['href'] === route('organization.crew-movement-corrections.index'),
+            )));
 
     CarbonImmutable::setTestNow();
 });
 
-test('dashboard omits correction summary without correction view permission', function () {
+test('dashboard omits correction actions without correction view permission', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
     CrewMovementCorrection::factory()
@@ -72,6 +70,7 @@ test('dashboard omits correction summary without correction view permission', fu
         ->pending()
         ->create([
             'requested_by' => $user->id,
+            'requested_at' => now()->subDays(10),
         ]);
 
     $this->actingAs($user)
@@ -79,5 +78,7 @@ test('dashboard omits correction summary without correction view permission', fu
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('can.corrections_view', false)
-            ->missing('movement_corrections'));
+            ->missing('movement_corrections')
+            ->where('action_required', fn ($items) => collect($items)
+                ->doesntContain(fn (array $item): bool => $item['type'] === 'overdue_movement_correction')));
 });
