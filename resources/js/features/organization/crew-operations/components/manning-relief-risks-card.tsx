@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/card';
 import type { CrewOperationsManningReliefRisk } from '@/features/organization/crew-operations/types';
 import { formatDisplayDate } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 import { projectedManning as projectedManningRoute } from '@/routes/organization/crew-operations';
 
 function riskVariant(
@@ -31,6 +32,47 @@ function riskVariant(
     }
 
     return 'secondary';
+}
+
+function ManningReliefRiskRowContent({
+    item,
+}: {
+    item: CrewOperationsManningReliefRisk;
+}): ReactElement {
+    return (
+        <>
+            <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-foreground/80 group-hover:text-primary">
+                        {item.vessel_name}
+                    </p>
+                    <Badge variant={riskVariant(item.kind, item.risk)}>
+                        {item.risk}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                        {item.kind === 'actual'
+                            ? 'Actual'
+                            : item.kind === 'projected'
+                              ? 'Projected'
+                              : 'Relief'}
+                    </Badge>
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground/60">
+                    {item.rank_name}
+                    {item.employee_name ? ` · ${item.employee_name}` : ''}
+                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground/50">
+                    When:{' '}
+                    {/^\d{4}-\d{2}-\d{2}/.test(item.when)
+                        ? formatDisplayDate(item.when)
+                        : item.when}
+                </p>
+            </div>
+            {item.href ? (
+                <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/45 opacity-0 transition-all group-hover:opacity-100" />
+            ) : null}
+        </>
+    );
 }
 
 export function ManningReliefRisksCard({
@@ -73,52 +115,35 @@ export function ManningReliefRisksCard({
                         No manning or relief risks to highlight
                     </p>
                 ) : (
-                    risks.map((item, index) => (
-                        <Link
-                            key={`${item.kind}-${item.vessel_id}-${item.rank_id}-${item.risk}-${index}`}
-                            href={item.href}
-                            className="group flex items-center gap-3 rounded-xl border border-border/80 bg-muted/10 p-3 transition-all hover:border-border hover:bg-muted/30 dark:border-white/5 dark:bg-white/1 dark:hover:border-white/10"
-                        >
-                            <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <p className="truncate text-sm font-semibold text-foreground/80 group-hover:text-primary">
-                                        {item.vessel_name}
-                                    </p>
-                                    <Badge
-                                        variant={riskVariant(
-                                            item.kind,
-                                            item.risk,
-                                        )}
-                                    >
-                                        {item.risk}
-                                    </Badge>
-                                    <Badge
-                                        variant="outline"
-                                        className="text-[10px]"
-                                    >
-                                        {item.kind === 'actual'
-                                            ? 'Actual'
-                                            : item.kind === 'projected'
-                                              ? 'Projected'
-                                              : 'Relief'}
-                                    </Badge>
-                                </div>
-                                <p className="mt-0.5 text-xs text-muted-foreground/60">
-                                    {item.rank_name}
-                                    {item.employee_name
-                                        ? ` · ${item.employee_name}`
-                                        : ''}
-                                </p>
-                                <p className="mt-1 text-[11px] text-muted-foreground/50">
-                                    When:{' '}
-                                    {/^\d{4}-\d{2}-\d{2}/.test(item.when)
-                                        ? formatDisplayDate(item.when)
-                                        : item.when}
-                                </p>
+                    risks.map((item, index) => {
+                        const rowClassName = cn(
+                            'flex items-center gap-3 rounded-xl border border-border/80 bg-muted/10 p-3 dark:border-white/5 dark:bg-white/1',
+                            item.href
+                                ? 'group transition-all hover:border-border hover:bg-muted/30 dark:hover:border-white/10'
+                                : null,
+                        );
+
+                        if (item.href) {
+                            return (
+                                <Link
+                                    key={`${item.kind}-${item.vessel_id}-${item.rank_id}-${item.risk}-${index}`}
+                                    href={item.href}
+                                    className={rowClassName}
+                                >
+                                    <ManningReliefRiskRowContent item={item} />
+                                </Link>
+                            );
+                        }
+
+                        return (
+                            <div
+                                key={`${item.kind}-${item.vessel_id}-${item.rank_id}-${item.risk}-${index}`}
+                                className={rowClassName}
+                            >
+                                <ManningReliefRiskRowContent item={item} />
                             </div>
-                            <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/45 opacity-0 transition-all group-hover:opacity-100" />
-                        </Link>
-                    ))
+                        );
+                    })
                 )}
             </CardContent>
         </Card>

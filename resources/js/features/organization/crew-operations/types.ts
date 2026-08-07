@@ -25,7 +25,7 @@ export type CrewOperationsActionItem = {
     subtitle: string | null;
     problem: string;
     meta: string | null;
-    href: string;
+    href: string | null;
 };
 
 export type CrewOperationsNextDay = {
@@ -43,7 +43,7 @@ export type CrewOperationsManningReliefRisk = {
     rank_id: number | null;
     rank_name: string;
     when: string;
-    href: string;
+    href: string | null;
     employee_name?: string | null;
 };
 

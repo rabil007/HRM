@@ -416,3 +416,234 @@ test('projected critical positions remain bounded on daily dashboard', function 
             ->where('action_required.0.type', 'current_manning_gap')
         );
 });
+
+test('overview-only users do not receive assignment urls in action or relief risk rows', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
+
+    $timezone = CompanyTimezone::forCompanyId((int) $company->id);
+    $today = CarbonImmutable::now($timezone)->startOfDay();
+
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel, [
+        'planned_signoff_at' => $today->subDays(3)->toDateTimeString(),
+    ]);
+
+    $reliefEmployee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+    makeActiveOnVesselAssignment(
+        $company,
+        $reliefEmployee,
+        $rank,
+        makeCrewMovementVessel('Overview Relief Risk Vessel'),
+        [
+            'planned_signoff_at' => $today->addDays(5)->toDateTimeString(),
+        ],
+    );
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.overview', true)
+            ->where('can.assignments', false)
+            ->where('can.vessel_manning', false)
+            ->where('projected_manning', null)
+        );
+
+    $actions = collect($response->inertiaProps('action_required'));
+    $risks = collect($response->inertiaProps('manning_relief_risks'));
+
+    $signoffOverdue = $actions->firstWhere('type', 'signoff_overdue');
+    expect($signoffOverdue)->not->toBeNull()
+        ->and($signoffOverdue['href'])->toBeNull();
+
+    expect($actions->every(
+        fn (array $item): bool => ! crewOperationsHrefTargetsAssignments($item['href'] ?? null),
+    ))->toBeTrue();
+
+    $reliefRisk = $risks->firstWhere('kind', 'relief');
+    expect($reliefRisk)->not->toBeNull()
+        ->and($reliefRisk['href'])->toBeNull()
+        ->and($reliefRisk['employee_name'])->toBeNull();
+
+    expect($risks->every(
+        fn (array $item): bool => ! crewOperationsHrefTargetsAssignments($item['href'] ?? null),
+    ))->toBeTrue();
+});
+
+test('users with assignments view receive assignment links on dashboard actions and risks', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.overview.view',
+        'crew_operations.assignments.view',
+    ]);
+
+    $timezone = CompanyTimezone::forCompanyId((int) $company->id);
+    $today = CarbonImmutable::now($timezone)->startOfDay();
+
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel, [
+        'planned_signoff_at' => $today->subDays(3)->toDateTimeString(),
+    ]);
+
+    $reliefEmployee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+    $reliefAssignment = makeActiveOnVesselAssignment(
+        $company,
+        $reliefEmployee,
+        $rank,
+        makeCrewMovementVessel('Assignments View Relief Vessel'),
+        [
+            'planned_signoff_at' => $today->addDays(5)->toDateTimeString(),
+        ],
+    );
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.assignments', true)
+        );
+
+    $actions = collect($response->inertiaProps('action_required'));
+    $risks = collect($response->inertiaProps('manning_relief_risks'));
+
+    $signoffOverdue = $actions->firstWhere('type', 'signoff_overdue');
+    expect($signoffOverdue)->not->toBeNull()
+        ->and($signoffOverdue['href'])->toBe(route('organization.crew-assignments.index', [
+            'tour_status' => 'overdue',
+        ]));
+
+    $reliefRisk = $risks->first(
+        fn (array $item): bool => ($item['kind'] ?? null) === 'relief'
+            && ($item['employee_name'] ?? null) === $reliefEmployee->name,
+    );
+    expect($reliefRisk)->not->toBeNull()
+        ->and($reliefRisk['href'])->toBe(route('organization.crew-assignments.show', [
+            'assignment' => $reliefAssignment->id,
+        ]))
+        ->and($reliefRisk['employee_name'])->toBe($reliefEmployee->name);
+});
+
+test('vessel and projected dashboard links remain gated by vessel manning permission', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.overview.view',
+        'crew_operations.vessel_manning.view',
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 1,
+    ]);
+
+    $timezone = CompanyTimezone::forCompanyId((int) $company->id);
+    $from = CarbonImmutable::now($timezone)->toDateString();
+    $plannedSignoff = CarbonImmutable::parse($from, $timezone)->addDays(12)->startOfDay();
+
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel, [
+        'planned_signoff_at' => $plannedSignoff->toDateTimeString(),
+    ]);
+
+    $gapVessel = makeCrewMovementVessel('Permission Gap Vessel');
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $gapVessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 1,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.vessel_manning', true)
+            ->where('can.assignments', false)
+        );
+
+    $actions = collect($response->inertiaProps('action_required'));
+    $risks = collect($response->inertiaProps('manning_relief_risks'));
+
+    $currentGap = $actions->firstWhere('type', 'current_manning_gap');
+    $projectedGap = $actions->firstWhere('type', 'projected_future_gap');
+
+    expect($currentGap)->not->toBeNull()
+        ->and($currentGap['href'])->toBe(route('organization.vessel-manning.show', [
+            'vessel' => $gapVessel->id,
+        ]))
+        ->and($projectedGap)->not->toBeNull()
+        ->and($projectedGap['href'])->toBe(route('organization.crew-operations.projected-manning', [
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+        ]));
+
+    expect($actions->every(
+        fn (array $item): bool => ! crewOperationsHrefTargetsAssignments($item['href'] ?? null),
+    ))->toBeTrue();
+
+    $actualRisk = $risks->firstWhere('kind', 'actual');
+    $projectedRisk = $risks->firstWhere('kind', 'projected');
+    $reliefRisk = $risks->firstWhere('kind', 'relief');
+
+    expect($actualRisk)->not->toBeNull()
+        ->and($actualRisk['href'])->toContain('/vessel-manning/')
+        ->and($projectedRisk)->not->toBeNull()
+        ->and($projectedRisk['href'])->toContain('/projected-manning')
+        ->and($reliefRisk)->not->toBeNull()
+        ->and($reliefRisk['href'])->toBeNull()
+        ->and($reliefRisk['employee_name'])->toBeNull();
+});
+
+test('employee action rows omit employee show links without employees view', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
+
+    CrewAssignment::query()->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-'.now()->year.'-NEEDSLINK',
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Active,
+        'started_at' => now()->subDays(10),
+        'source' => 'manual',
+        'current_phase_id' => null,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk();
+
+    $needsUpdate = collect($response->inertiaProps('action_required'))
+        ->firstWhere('type', 'needs_update');
+
+    expect($needsUpdate)->not->toBeNull()
+        ->and($needsUpdate['href'])->toBeNull();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.overview.view',
+        'employees.view',
+    ]);
+
+    $responseWithEmployees = $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk();
+
+    $linkedNeedsUpdate = collect($responseWithEmployees->inertiaProps('action_required'))
+        ->firstWhere('type', 'needs_update');
+
+    expect($linkedNeedsUpdate)->not->toBeNull()
+        ->and($linkedNeedsUpdate['href'])->toBe(route('organization.employees.show', [
+            'employee' => $employee->id,
+        ]));
+});
+
+function crewOperationsHrefTargetsAssignments(mixed $href): bool
+{
+    return is_string($href) && str_contains($href, '/crew-assignments');
+}

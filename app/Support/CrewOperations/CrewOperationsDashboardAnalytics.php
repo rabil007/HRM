@@ -87,6 +87,8 @@ final class CrewOperationsDashboardAnalytics
             tourBuckets: $tourBuckets,
             reliefResolved: $reliefResolved,
             canViewCorrections: $permissions['corrections_view'],
+            canViewAssignments: $permissions['assignments'],
+            canViewEmployees: $user?->can('employees.view') ?? false,
         );
         $manningReliefRisks = $this->manningReliefRisks(
             manningGapItems: $manningGaps['items'],
@@ -94,6 +96,7 @@ final class CrewOperationsDashboardAnalytics
             reliefResolved: $reliefResolved,
             companyId: $companyId,
             canViewVesselManning: $permissions['vessel_manning'],
+            canViewAssignments: $permissions['assignments'],
         );
 
         return [
@@ -281,6 +284,8 @@ final class CrewOperationsDashboardAnalytics
         array $tourBuckets,
         Collection $reliefResolved,
         bool $canViewCorrections,
+        bool $canViewAssignments,
+        bool $canViewEmployees,
     ): array {
         $items = [];
 
@@ -313,9 +318,11 @@ final class CrewOperationsDashboardAnalytics
                 'subtitle' => null,
                 'problem' => sprintf('%d crew past planned sign-off', $tourBuckets['overdue']),
                 'meta' => null,
-                'href' => route('organization.crew-assignments.index', [
-                    'tour_status' => 'overdue',
-                ]),
+                'href' => $canViewAssignments
+                    ? route('organization.crew-assignments.index', [
+                        'tour_status' => 'overdue',
+                    ])
+                    : null,
             ];
         }
 
@@ -333,10 +340,12 @@ final class CrewOperationsDashboardAnalytics
                 'subtitle' => null,
                 'problem' => sprintf('%d assignment(s) due today without relief', $dueTodayNoRelief),
                 'meta' => $today->toDateString(),
-                'href' => route('organization.crew-assignments.index', [
-                    'tour_status' => 'due_today',
-                    'relief_status' => CrewReliefStatus::NoRelief->value,
-                ]),
+                'href' => $canViewAssignments
+                    ? route('organization.crew-assignments.index', [
+                        'tour_status' => 'due_today',
+                        'relief_status' => CrewReliefStatus::NoRelief->value,
+                    ])
+                    : null,
             ];
         }
 
@@ -353,9 +362,11 @@ final class CrewOperationsDashboardAnalytics
                 'subtitle' => null,
                 'problem' => sprintf('%d assignment(s) at critical relief risk', $criticalRelief),
                 'meta' => null,
-                'href' => route('organization.crew-assignments.index', [
-                    'relief_risk' => CrewReliefRisk::Critical->value,
-                ]),
+                'href' => $canViewAssignments
+                    ? route('organization.crew-assignments.index', [
+                        'relief_risk' => CrewReliefRisk::Critical->value,
+                    ])
+                    : null,
             ];
         }
 
@@ -379,10 +390,12 @@ final class CrewOperationsDashboardAnalytics
                     $imminentNotReady,
                 ),
                 'meta' => null,
-                'href' => route('organization.crew-assignments.index', [
-                    'tour_status' => 'due_within_7_days',
-                    'relief_not_ready' => 1,
-                ]),
+                'href' => $canViewAssignments
+                    ? route('organization.crew-assignments.index', [
+                        'tour_status' => 'due_within_7_days',
+                        'relief_not_ready' => 1,
+                    ])
+                    : null,
             ];
         }
 
@@ -430,7 +443,7 @@ final class CrewOperationsDashboardAnalytics
             }
         }
 
-        $this->appendEmployeeActions($items, $companyId, $maxHomeDays);
+        $this->appendEmployeeActions($items, $companyId, $maxHomeDays, $canViewEmployees);
 
         return array_slice($items, 0, self::ACTION_LIMIT);
     }
@@ -438,8 +451,12 @@ final class CrewOperationsDashboardAnalytics
     /**
      * @param  list<array<string, mixed>>  $items
      */
-    private function appendEmployeeActions(array &$items, int $companyId, int $maxHomeDays): void
-    {
+    private function appendEmployeeActions(
+        array &$items,
+        int $companyId,
+        int $maxHomeDays,
+        bool $canViewEmployees,
+    ): void {
         if (count($items) >= self::ACTION_LIMIT) {
             return;
         }
@@ -471,7 +488,9 @@ final class CrewOperationsDashboardAnalytics
                 'subtitle' => $employee->rank?->name,
                 'problem' => $resolved['warning'] ?? 'Assignment needs an update',
                 'meta' => null,
-                'href' => route('organization.employees.show', ['employee' => $employee->id]),
+                'href' => $canViewEmployees
+                    ? route('organization.employees.show', ['employee' => $employee->id])
+                    : null,
             ];
             $seen[$employee->id] = true;
         }
@@ -506,7 +525,9 @@ final class CrewOperationsDashboardAnalytics
                     $maxHomeDays,
                 ),
                 'meta' => null,
-                'href' => route('organization.employees.show', ['employee' => $employee->id]),
+                'href' => $canViewEmployees
+                    ? route('organization.employees.show', ['employee' => $employee->id])
+                    : null,
             ];
         }
     }
@@ -540,6 +561,7 @@ final class CrewOperationsDashboardAnalytics
         Collection $reliefResolved,
         int $companyId,
         bool $canViewVesselManning,
+        bool $canViewAssignments,
     ): array {
         $items = [];
 
@@ -558,6 +580,7 @@ final class CrewOperationsDashboardAnalytics
                     'rank_name' => (string) $gap['rank_name'],
                     'when' => 'Now',
                     'href' => route('organization.vessel-manning.show', ['vessel' => $gap['vessel_id']]),
+                    'employee_name' => null,
                 ];
             }
         }
@@ -584,6 +607,7 @@ final class CrewOperationsDashboardAnalytics
                         'vessel_id' => $position['vessel_id'],
                         'rank_id' => $position['rank_id'],
                     ]),
+                    'employee_name' => null,
                 ];
             }
         }
@@ -635,10 +659,14 @@ final class CrewOperationsDashboardAnalytics
                 'rank_id' => $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
                 'rank_name' => $assignment->rank?->name ?? 'Unassigned rank',
                 'when' => $result->sourcePlannedSignoffDate ?? 'Upcoming',
-                'href' => route('organization.crew-assignments.show', [
-                    'assignment' => $assignmentId,
-                ]),
-                'employee_name' => $assignment->employee?->name,
+                'href' => $canViewAssignments
+                    ? route('organization.crew-assignments.show', [
+                        'assignment' => $assignmentId,
+                    ])
+                    : null,
+                'employee_name' => $canViewAssignments
+                    ? $assignment->employee?->name
+                    : null,
             ];
         }
 

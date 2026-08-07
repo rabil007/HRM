@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card';
 import type { CrewOperationsActionItem } from '@/features/organization/crew-operations/types';
 import { formatDisplayDate } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 
 const SEVERITY_BADGE: Record<string, 'destructive' | 'warning' | 'secondary'> =
     {
@@ -18,6 +19,41 @@ const SEVERITY_BADGE: Record<string, 'destructive' | 'warning' | 'secondary'> =
         warning: 'warning',
         info: 'secondary',
     };
+
+function ActionRequiredRowContent({
+    item,
+}: {
+    item: CrewOperationsActionItem;
+}): ReactElement {
+    return (
+        <>
+            <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-foreground/80 group-hover:text-primary">
+                        {item.title}
+                    </p>
+                    <Badge
+                        variant={SEVERITY_BADGE[item.severity] ?? 'secondary'}
+                    >
+                        {item.severity}
+                    </Badge>
+                </div>
+                {item.subtitle ? (
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground/60">
+                        {item.subtitle}
+                    </p>
+                ) : null}
+                <p className="mt-1 text-[11px] text-muted-foreground/55">
+                    {item.problem}
+                    {item.meta ? ` · ${formatDisplayDate(item.meta)}` : ''}
+                </p>
+            </div>
+            {item.href ? (
+                <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/45 opacity-0 transition-all group-hover:opacity-100" />
+            ) : null}
+        </>
+    );
+}
 
 export function ActionRequiredCard({
     items,
@@ -40,41 +76,35 @@ export function ActionRequiredCard({
                         Nothing urgent right now
                     </p>
                 ) : (
-                    items.map((item, index) => (
-                        <Link
-                            key={`${item.type}-${item.href}-${index}`}
-                            href={item.href}
-                            className="group flex items-center gap-3 rounded-xl border border-border/80 bg-muted/10 p-3 transition-all hover:border-border hover:bg-muted/30 dark:border-white/5 dark:bg-white/1 dark:hover:border-white/10"
-                        >
-                            <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <p className="truncate text-sm font-semibold text-foreground/80 group-hover:text-primary">
-                                        {item.title}
-                                    </p>
-                                    <Badge
-                                        variant={
-                                            SEVERITY_BADGE[item.severity] ??
-                                            'secondary'
-                                        }
-                                    >
-                                        {item.severity}
-                                    </Badge>
-                                </div>
-                                {item.subtitle ? (
-                                    <p className="mt-0.5 truncate text-xs text-muted-foreground/60">
-                                        {item.subtitle}
-                                    </p>
-                                ) : null}
-                                <p className="mt-1 text-[11px] text-muted-foreground/55">
-                                    {item.problem}
-                                    {item.meta
-                                        ? ` · ${formatDisplayDate(item.meta)}`
-                                        : ''}
-                                </p>
+                    items.map((item, index) => {
+                        const rowClassName = cn(
+                            'flex items-center gap-3 rounded-xl border border-border/80 bg-muted/10 p-3 dark:border-white/5 dark:bg-white/1',
+                            item.href
+                                ? 'group transition-all hover:border-border hover:bg-muted/30 dark:hover:border-white/10'
+                                : null,
+                        );
+
+                        if (item.href) {
+                            return (
+                                <Link
+                                    key={`${item.type}-${item.href}-${index}`}
+                                    href={item.href}
+                                    className={rowClassName}
+                                >
+                                    <ActionRequiredRowContent item={item} />
+                                </Link>
+                            );
+                        }
+
+                        return (
+                            <div
+                                key={`${item.type}-${index}`}
+                                className={rowClassName}
+                            >
+                                <ActionRequiredRowContent item={item} />
                             </div>
-                            <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/45 opacity-0 transition-all group-hover:opacity-100" />
-                        </Link>
-                    ))
+                        );
+                    })
                 )}
             </CardContent>
         </Card>
