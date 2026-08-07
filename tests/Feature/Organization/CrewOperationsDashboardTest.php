@@ -1,11 +1,15 @@
 <?php
 
 use App\Enums\CrewAssignmentStatus;
+use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\CrewOperationsSetting;
 use App\Models\CrewPlanningAssignment;
+use App\Models\Rank;
 use App\Models\User;
 use App\Models\VesselManning;
+use App\Support\CrewOperations\CrewProjectedManningQuery;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -38,6 +42,7 @@ test('authorized users can view crew operations overview', function () {
             ->has('alert_counts.critical_relief_risk')
             ->has('attention_items')
             ->has('pool_snapshot')
+            ->where('projected_manning', null)
             ->where('can.overview', true)
         );
 });
@@ -278,5 +283,199 @@ test('crew operations overview hides manning gaps without vessel manning permiss
         ->assertInertia(fn (Assert $page) => $page
             ->where('can.vessel_manning', false)
             ->where('alert_counts.manning_gaps', 0)
-            ->where('manning_gaps.items', []));
+            ->where('manning_gaps.items', [])
+            ->where('projected_manning', null));
+});
+
+test('crew operations overview exposes 30-day projected manning separate from actual gaps', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.overview.view',
+        'crew_operations.vessel_manning.view',
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 1,
+    ]);
+
+    $timezone = CompanyTimezone::forCompanyId((int) $company->id);
+    $from = CarbonImmutable::now($timezone)->toDateString();
+    $to = CarbonImmutable::parse($from, $timezone)->addDays(30)->toDateString();
+    $plannedSignoff = CarbonImmutable::parse($from, $timezone)->addDays(10)->startOfDay();
+
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel, [
+        'planned_signoff_at' => $plannedSignoff->toDateTimeString(),
+    ]);
+
+    $expected = (new CrewProjectedManningQuery)->forCompany(
+        (int) $company->id,
+        $from,
+        $to,
+    );
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.vessel_manning', true)
+            ->where('manning_gaps.understaffed_positions', 0)
+            ->where('manning_gaps.total_shortfall', 0)
+            ->where('projected_manning.horizon_days', 30)
+            ->where('projected_manning.from', $expected['from'])
+            ->where('projected_manning.to', $expected['to'])
+            ->where('projected_manning.current_gap_positions', $expected['summary']['current_gap_positions'])
+            ->where('projected_manning.future_gap_positions', $expected['summary']['future_gap_positions'])
+            ->where('projected_manning.covered_positions', $expected['summary']['covered_positions'])
+            ->where('projected_manning.overlap_positions', $expected['summary']['overlap_positions'])
+            ->where('projected_manning.projected_shortfall_days', $expected['summary']['total_projected_shortfall_days'])
+            ->where('projected_manning.future_gap_positions', 1)
+            ->where('projected_manning.next_gap_date', $expected['items'][0]['next_gap_date'])
+            ->has('projected_manning.critical_positions', 1)
+            ->where('projected_manning.critical_positions.0.vessel_id', $vessel->id)
+            ->where('projected_manning.critical_positions.0.rank_id', $rank->id)
+            ->where('projected_manning.critical_positions.0.status', 'future_gap')
+            ->where('projected_manning.critical_positions.0.maximum_gap', $expected['items'][0]['maximum_gap'])
+        );
+});
+
+test('crew operations overview represents current and future projected gaps', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.overview.view',
+        'crew_operations.vessel_manning.view',
+    ]);
+
+    $futureRank = Rank::query()->create([
+        'name' => 'Future Gap Rank '.uniqid(),
+        'is_active' => true,
+    ]);
+    $currentVessel = makeCrewMovementVessel('Current Gap Vessel');
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $currentVessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 1,
+    ]);
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $futureRank->id,
+        'required_count' => 1,
+    ]);
+
+    $timezone = CompanyTimezone::forCompanyId((int) $company->id);
+    $from = CarbonImmutable::now($timezone)->toDateString();
+    $plannedSignoff = CarbonImmutable::parse($from, $timezone)->addDays(12)->startOfDay();
+
+    makeActiveOnVesselAssignment(
+        $company,
+        $employee,
+        $futureRank,
+        $vessel,
+        ['planned_signoff_at' => $plannedSignoff->toDateTimeString()],
+    );
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('projected_manning.current_gap_positions', 1)
+            ->where('projected_manning.future_gap_positions', 1)
+            ->has('projected_manning.critical_positions', 2)
+            ->where('projected_manning.critical_positions.0.status', 'current_gap')
+            ->where('projected_manning.critical_positions.1.status', 'future_gap')
+            ->where('projected_manning.next_gap_date', $from)
+        );
+});
+
+test('crew operations overview projected manning stays company scoped', function () {
+    ['user' => $user, 'company' => $companyA, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
+
+    grantCompanyPermissions($user, $companyA, [
+        'crew_operations.overview.view',
+        'crew_operations.vessel_manning.view',
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $companyA->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 1,
+    ]);
+
+    makeActiveOnVesselAssignment($companyA, $employee, $rank, $vessel, [
+        'planned_signoff_at' => null,
+    ]);
+
+    $companyB = Company::query()->create([
+        'name' => 'Dashboard Other Co',
+        'slug' => 'dashboard-other-'.uniqid(),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $companyA->country_id,
+        'currency_id' => $companyA->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $vesselB = makeCrewMovementVessel('Foreign Dashboard Vessel');
+    $rankB = Rank::query()->create([
+        'name' => 'Foreign Dashboard Rank '.uniqid(),
+        'is_active' => true,
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $companyB->id,
+        'vessel_id' => $vesselB->id,
+        'rank_id' => $rankB->id,
+        'required_count' => 4,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('projected_manning.current_gap_positions', 0)
+            ->where('projected_manning.future_gap_positions', 0)
+            ->where('projected_manning.critical_positions', [])
+            ->missing('projected_manning.critical_positions.0')
+        );
+});
+
+test('crew operations overview bounds projected critical positions and picks nearest gap', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewOperationsFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.overview.view',
+        'crew_operations.vessel_manning.view',
+    ]);
+
+    $timezone = CompanyTimezone::forCompanyId((int) $company->id);
+    $from = CarbonImmutable::now($timezone)->toDateString();
+
+    for ($i = 0; $i < 7; $i++) {
+        $vessel = makeCrewMovementVessel("Critical Gap Vessel {$i}");
+        VesselManning::query()->create([
+            'company_id' => $company->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'required_count' => 1,
+        ]);
+    }
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('projected_manning.current_gap_positions', 7)
+            ->has('projected_manning.critical_positions', 5)
+            ->where('projected_manning.next_gap_date', $from)
+            ->where('projected_manning.critical_positions.0.next_gap_date', $from)
+        );
 });

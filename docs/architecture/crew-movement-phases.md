@@ -260,7 +260,7 @@ Planning never starts movement, completes source P4, creates Sea Service, or cre
 
 ### Deferred
 
-- Phase 2B.2 dashboard cards / Planning Gantt overlays
+- Phase 2B.3B: Planning Gantt projection overlays
 - Phase 2C: transfer / redeployment Tour behaviour
 - Phase 3: notifications (email, push, in-app, escalation)
 
@@ -343,10 +343,26 @@ Dedicated Crew Operations page at `/organization/crew-operations/projected-manni
 
 ### Deferred (still later)
 
-- Crew Operations dashboard projected cards
-- Crew Planning Gantt projection overlays
+- Crew Planning Gantt projection overlays (Phase 2B.3B)
 - Notifications / escalations
 - Phase 2C transfer / redeployment
+
+## Phase 2B.3A — Projected Manning Dashboard
+
+Crew Operations overview includes a compact **Projected Manning — Next 30 Days** card when the user has `crew_operations.vessel_manning.view`.
+
+- Built only from `CrewProjectedManningQuery` (`from` = company-local today, `to` = today + 30 days).
+- Prop `projected_manning` is `null` without vessel-manning view (no projected payload).
+- Actual `manning_gaps` remains operational P4 truth and is unchanged.
+- Card shows current/future gaps, covered, shortfall days, overlap, nearest gap date, and a bounded `critical_positions` list (current gaps first, then soonest `next_gap_date`).
+- Links to `/organization/crew-operations/projected-manning` (optionally filtered by vessel/rank).
+- Included in existing dashboard `usePoll` partial reload keys.
+
+### Deferred (still later)
+
+- Crew Planning Gantt projection overlays (Phase 2B.3B)
+- Phase 2C transfer / redeployment
+- Notifications / escalations
 
 ## Sea service
 

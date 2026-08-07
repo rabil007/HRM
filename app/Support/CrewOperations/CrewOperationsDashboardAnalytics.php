@@ -3,6 +3,7 @@
 namespace App\Support\CrewOperations;
 
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewProjectedManningStatus;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\CrewMovementCorrection;
@@ -13,6 +14,7 @@ use App\Support\CrewMovements\Corrections\CrewMovementCorrectionAge;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\CrewMovements\CrewReliefStatusQuery;
 use App\Support\CrewMovements\CrewTourStatusQuery;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -25,8 +27,13 @@ final class CrewOperationsDashboardAnalytics
 
     private const UPCOMING_PLANNING_DAYS = 14;
 
+    private const PROJECTED_MANNING_HORIZON_DAYS = 30;
+
+    private const PROJECTED_CRITICAL_POSITIONS_LIMIT = 5;
+
     public function __construct(
         private readonly CrewMovementCorrectionAge $correctionAge,
+        private readonly CrewProjectedManningQuery $projectedManningQuery,
     ) {}
 
     /**
@@ -45,6 +52,10 @@ final class CrewOperationsDashboardAnalytics
                 'total_shortfall' => 0,
                 'items' => [],
             ];
+
+        $projectedManning = $permissions['vessel_manning']
+            ? $this->projectedManningSummary($companyId)
+            : null;
 
         $deploymentSummary = $this->deploymentSummary($companyId);
         $alertCounts = $this->alertCounts(
@@ -89,6 +100,7 @@ final class CrewOperationsDashboardAnalytics
             'relief_readiness_counts' => $reliefBuckets,
             'attention_items' => $attentionItems,
             'manning_gaps' => $manningGaps,
+            'projected_manning' => $projectedManning,
             'deployment_trends' => CrewOperationsDeploymentTrends::lastSixMonths($companyId),
             'upcoming_planning' => $permissions['planning']
                 ? $this->upcomingPlanning($companyId, $today)
@@ -103,6 +115,113 @@ final class CrewOperationsDashboardAnalytics
             'max_home_days' => $maxHomeDays,
             'can' => $permissions,
             'can_view_audit' => $user?->can('audit.view') ?? false,
+        ];
+    }
+
+    /**
+     * Compact 30-day projected manning summary for the Crew Operations dashboard.
+     * Derived only from CrewProjectedManningQuery — no second calculation path.
+     *
+     * @return array{
+     *     horizon_days: int,
+     *     from: string,
+     *     to: string,
+     *     current_gap_positions: int,
+     *     future_gap_positions: int,
+     *     covered_positions: int,
+     *     overlap_positions: int,
+     *     projected_shortfall_days: int,
+     *     next_gap_date: string|null,
+     *     critical_positions: list<array{
+     *         vessel_id: int,
+     *         vessel_name: string,
+     *         rank_id: int,
+     *         rank_name: string,
+     *         required_count: int,
+     *         minimum_projected_count: int,
+     *         maximum_gap: int,
+     *         next_gap_date: string|null,
+     *         status: string,
+     *         status_label: string
+     *     }>
+     * }
+     */
+    private function projectedManningSummary(int $companyId): array
+    {
+        $timezone = CompanyTimezone::forCompanyId($companyId);
+        $from = CarbonImmutable::now($timezone)->toDateString();
+        $to = CarbonImmutable::parse($from, $timezone)
+            ->addDays(self::PROJECTED_MANNING_HORIZON_DAYS)
+            ->toDateString();
+
+        $projection = $this->projectedManningQuery->forCompany(
+            $companyId,
+            $from,
+            $to,
+        );
+
+        $gapItems = collect($projection['items'])
+            ->filter(fn (array $item): bool => in_array($item['status'], [
+                CrewProjectedManningStatus::CurrentGap->value,
+                CrewProjectedManningStatus::FutureGap->value,
+            ], true))
+            ->sort(function (array $a, array $b): int {
+                $statusRank = [
+                    CrewProjectedManningStatus::CurrentGap->value => 0,
+                    CrewProjectedManningStatus::FutureGap->value => 1,
+                ];
+
+                $statusCmp = ($statusRank[$a['status']] ?? 9) <=> ($statusRank[$b['status']] ?? 9);
+
+                if ($statusCmp !== 0) {
+                    return $statusCmp;
+                }
+
+                $aDate = $a['next_gap_date'] ?? '9999-12-31';
+                $bDate = $b['next_gap_date'] ?? '9999-12-31';
+                $dateCmp = strcmp((string) $aDate, (string) $bDate);
+
+                if ($dateCmp !== 0) {
+                    return $dateCmp;
+                }
+
+                return ((int) $b['maximum_gap']) <=> ((int) $a['maximum_gap']);
+            })
+            ->values();
+
+        $criticalPositions = $gapItems
+            ->take(self::PROJECTED_CRITICAL_POSITIONS_LIMIT)
+            ->map(fn (array $item): array => [
+                'vessel_id' => (int) $item['vessel_id'],
+                'vessel_name' => (string) $item['vessel_name'],
+                'rank_id' => (int) $item['rank_id'],
+                'rank_name' => (string) $item['rank_name'],
+                'required_count' => (int) $item['required_count'],
+                'minimum_projected_count' => (int) $item['minimum_projected_count'],
+                'maximum_gap' => (int) $item['maximum_gap'],
+                'next_gap_date' => $item['next_gap_date'],
+                'status' => (string) $item['status'],
+                'status_label' => (string) $item['status_label'],
+            ])
+            ->all();
+
+        $nextGapDate = $gapItems
+            ->pluck('next_gap_date')
+            ->filter(fn (mixed $date): bool => is_string($date) && $date !== '')
+            ->sort()
+            ->first();
+
+        return [
+            'horizon_days' => self::PROJECTED_MANNING_HORIZON_DAYS,
+            'from' => $projection['from'],
+            'to' => $projection['to'],
+            'current_gap_positions' => (int) $projection['summary']['current_gap_positions'],
+            'future_gap_positions' => (int) $projection['summary']['future_gap_positions'],
+            'covered_positions' => (int) $projection['summary']['covered_positions'],
+            'overlap_positions' => (int) $projection['summary']['overlap_positions'],
+            'projected_shortfall_days' => (int) $projection['summary']['total_projected_shortfall_days'],
+            'next_gap_date' => is_string($nextGapDate) ? $nextGapDate : null,
+            'critical_positions' => $criticalPositions,
         ];
     }
 

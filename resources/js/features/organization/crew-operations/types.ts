@@ -72,6 +72,32 @@ export type CrewOperationsManningGaps = {
     items: CrewOperationsManningGapItem[];
 };
 
+export type CrewOperationsProjectedManningCriticalPosition = {
+    vessel_id: number;
+    vessel_name: string;
+    rank_id: number;
+    rank_name: string;
+    required_count: number;
+    minimum_projected_count: number;
+    maximum_gap: number;
+    next_gap_date: string | null;
+    status: 'current_gap' | 'future_gap' | string;
+    status_label: string;
+};
+
+export type CrewOperationsProjectedManning = {
+    horizon_days: number;
+    from: string;
+    to: string;
+    current_gap_positions: number;
+    future_gap_positions: number;
+    covered_positions: number;
+    overlap_positions: number;
+    projected_shortfall_days: number;
+    next_gap_date: string | null;
+    critical_positions: CrewOperationsProjectedManningCriticalPosition[];
+};
+
 export type CrewOperationsDeploymentTrendPoint = {
     month: string;
     joins: number;
@@ -91,6 +117,7 @@ export type CrewOperationsDashboardProps = {
     alert_counts: CrewOperationsAlertCounts;
     attention_items: CrewOperationsAttentionItem[];
     manning_gaps: CrewOperationsManningGaps;
+    projected_manning: CrewOperationsProjectedManning | null;
     deployment_trends: CrewOperationsDeploymentTrendPoint[];
     upcoming_planning: CrewOperationsUpcomingPlanningItem[];
     pool_snapshot: { count: number };

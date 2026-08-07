@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/card';
 import { CrewOperationsDeploymentSummaryCards } from '@/features/organization/crew-operations/components/deployment-summary-cards';
 import { ManningGapsCard } from '@/features/organization/crew-operations/components/manning-gaps-card';
+import { ProjectedManningCard } from '@/features/organization/crew-operations/components/projected-manning-card';
 import type { CrewOperationsDashboardProps } from '@/features/organization/crew-operations/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -70,6 +71,7 @@ export function CrewOperationsDashboardContent({
     alert_counts: alertCounts,
     attention_items: attentionItems,
     manning_gaps: manningGaps,
+    projected_manning: projectedManning,
     deployment_trends: deploymentTrends,
     upcoming_planning: upcomingPlanning,
     pool_snapshot: poolSnapshot,
@@ -85,6 +87,7 @@ export function CrewOperationsDashboardContent({
             'deployment_summary',
             'attention_items',
             'manning_gaps',
+            'projected_manning',
             'deployment_trends',
             'movement_corrections',
         ],
@@ -500,6 +503,12 @@ export function CrewOperationsDashboardContent({
                     <ManningGapsCard manningGaps={manningGaps} />
                 ) : null}
             </div>
+
+            {can.vessel_manning && projectedManning ? (
+                <div className="mb-6">
+                    <ProjectedManningCard projectedManning={projectedManning} />
+                </div>
+            ) : null}
 
             <div className="mb-6 grid gap-6 lg:grid-cols-2">
                 <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
