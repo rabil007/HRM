@@ -437,7 +437,7 @@ Crew Operations → Settings gains a **Notifications** card. Defaults **OFF** so
 | Master switch | Company-level Crew Notifications ON/OFF (default OFF) |
 | Recipients | Explicit selected active company users with active membership only — no role-based recipient config |
 | Alert types | Independent toggles for overdue, no-relief, relief-not-ready, current gap, projected gap |
-| Delivery | No separate company In-app / Browser Push / Email toggles. Browser Push is an extension of Crew in-app notifications and uses the user's existing device-level browser notification preference. Inbox/push delivery jobs are Phase 3B+ |
+| Delivery | No separate company In-app / Browser Push / Email toggles |
 | Persistence | `crew_operational_alerts` with unique `(company_id, dedupe_key)` and active/resolved lifecycle |
 | Detection | `DetectCrewOperationalAlerts` uses Tour / Relief / Manning / Projected queries — not Action Required |
 | Reconciliation | `ReconcileCrewOperationalAlerts` + `crew:reconcile-operational-alerts` every 10 minutes (`withoutOverlapping`) |
@@ -445,12 +445,27 @@ Crew Operations → Settings gains a **Notifications** card. Defaults **OFF** so
 
 One row per company condition. History is preserved via `detected_at` (first detection), `last_detected_at`, `resolved_at`, `status`, and activity log. When a resolved condition returns, the same row is reactivated.
 
+## Phase 3B — Unified Notification Bell + Crew Browser Push + Escalation
+
+Crew operational alerts appear in the existing notification bell alongside Announcements.
+
+| Concern | Behaviour |
+|---------|-----------|
+| Unified feed | Server-backed `BuildUnifiedNotificationFeed` merges AnnouncementRecipient + CrewOperationalAlertRecipient |
+| Recipient/read state | `crew_operational_alert_recipients` with unique `(alert_id, user_id)` and per-user `read_at` |
+| Unread badge | Combined announcement + active Crew unread count |
+| Browser Push | Extension of in-app Crew notifications; uses the user's existing device subscription preference. **No company Browser Push toggle** |
+| Push privacy | Generic lock-screen copy only: “Crew Operations requires attention. Open OMS-HRM to review.” |
+| Push dedupe | `crew_operational_alert_push_deliveries` unique on `(alert_id, user_id, notification_version)` |
+| Version bumps | New alert, reactivation, and meaningful severity escalation increment `notification_version` and may push again |
+| Escalation | Sign-off/relief windows tighten severity (8–14 warning, ≤7 critical); current manning critical; projected gap warning |
+| Links | Permission-safe URLs to Current Crew / assignment, Vessel Manning, or Projected Manning |
+| Jobs | `DeliverCrewOperationalAlertWebPushJob` afterCommit; re-checks company, membership, selection, alert activity, subscriptions |
+
 ### Deferred (still later)
 
-- Unified notification bell integration
-- Browser push delivery (reuses existing Push Subscription / Web Push infrastructure)
 - Email delivery
-- Escalation UX
+- Phase 3C delivery/retry hardening
 
 ## Sea service
 

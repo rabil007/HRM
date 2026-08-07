@@ -17,7 +17,8 @@ use Throwable;
  *
  * Creates missing alerts, refreshes last_detected_at / severity,
  * reactivates resolved alerts when the same condition returns,
- * and resolves alerts whose underlying condition no longer exists.
+ * resolves alerts whose underlying condition no longer exists,
+ * syncs recipient rows, and queues browser pushes for meaningful versions.
  *
  * One row per (company_id, dedupe_key); history lives in timestamps / status / activity log.
  */
@@ -25,6 +26,8 @@ final class ReconcileCrewOperationalAlerts
 {
     public function __construct(
         private readonly DetectCrewOperationalAlerts $detector = new DetectCrewOperationalAlerts,
+        private readonly SyncCrewOperationalAlertRecipients $recipientSync = new SyncCrewOperationalAlertRecipients,
+        private readonly QueueCrewOperationalAlertPushes $pushQueue = new QueueCrewOperationalAlertPushes,
     ) {}
 
     /**
@@ -46,10 +49,12 @@ final class ReconcileCrewOperationalAlerts
         $timezone = CompanyTimezone::forCompanyId($companyId);
         $now = CarbonImmutable::now($timezone);
 
-        return DB::transaction(function () use ($companyId, $detected, $now): array {
+        /** @var array{created: int, updated: int, resolved: int, skipped: bool, push_alert_ids: list<int>} $result */
+        $result = DB::transaction(function () use ($companyId, $detected, $now): array {
             $created = 0;
             $updated = 0;
             $seenKeys = [];
+            $pushAlertIds = [];
 
             foreach ($detected as $item) {
                 $seenKeys[] = $item['dedupe_key'];
@@ -57,14 +62,18 @@ final class ReconcileCrewOperationalAlerts
                 $existing = $this->findForUpdate($companyId, $item['dedupe_key']);
 
                 if ($existing !== null) {
-                    $this->applyDetectedCondition($existing, $item, $now);
+                    $outcome = $this->applyDetectedCondition($existing, $item, $now);
                     $updated++;
+
+                    if ($outcome['should_notify']) {
+                        $pushAlertIds[] = (int) $existing->id;
+                    }
 
                     continue;
                 }
 
                 try {
-                    CrewOperationalAlert::query()->create([
+                    $alert = CrewOperationalAlert::query()->create([
                         'company_id' => $companyId,
                         'type' => $item['type'],
                         'severity' => $item['severity'],
@@ -76,8 +85,10 @@ final class ReconcileCrewOperationalAlerts
                         'detected_at' => $now,
                         'last_detected_at' => $now,
                         'resolved_at' => null,
+                        'notification_version' => 1,
                     ]);
                     $created++;
+                    $pushAlertIds[] = (int) $alert->id;
                 } catch (UniqueConstraintViolationException $exception) {
                     $existing = $this->findForUpdate($companyId, $item['dedupe_key']);
 
@@ -85,20 +96,40 @@ final class ReconcileCrewOperationalAlerts
                         throw $exception;
                     }
 
-                    $this->applyDetectedCondition($existing, $item, $now);
+                    $outcome = $this->applyDetectedCondition($existing, $item, $now);
                     $updated++;
+
+                    if ($outcome['should_notify']) {
+                        $pushAlertIds[] = (int) $existing->id;
+                    }
                 }
             }
 
             $resolved = $this->resolveMissing($companyId, $seenKeys, $now);
+
+            $activeIds = CrewOperationalAlert::query()
+                ->where('company_id', $companyId)
+                ->where('status', CrewOperationalAlertStatus::Active)
+                ->pluck('id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+
+            $this->recipientSync->forCompany($companyId, $activeIds);
 
             return [
                 'created' => $created,
                 'updated' => $updated,
                 'resolved' => $resolved,
                 'skipped' => false,
+                'push_alert_ids' => array_values(array_unique($pushAlertIds)),
             ];
         });
+
+        $this->pushQueue->forAlerts($companyId, $result['push_alert_ids']);
+
+        unset($result['push_alert_ids']);
+
+        return $result;
     }
 
     /**
@@ -158,20 +189,29 @@ final class ReconcileCrewOperationalAlerts
      *     message: string,
      *     context: array<string, mixed>
      * }  $item
+     * @return array{should_notify: bool}
      */
     private function applyDetectedCondition(
         CrewOperationalAlert $alert,
         array $item,
         CarbonImmutable $now,
-    ): void {
+    ): array {
         $wasResolved = $alert->status === CrewOperationalAlertStatus::Resolved;
+        $previousSeverity = $alert->severity;
+        $shouldNotify = false;
 
         if ($wasResolved) {
             $severity = $item['severity'];
+            $alert->notification_version = ((int) $alert->notification_version) + 1;
+            $shouldNotify = true;
         } else {
-            $severity = $this->severityRank($item['severity']) > $this->severityRank($alert->severity)
-                ? $item['severity']
-                : $alert->severity;
+            $escalated = $this->severityRank($item['severity']) > $this->severityRank($previousSeverity);
+            $severity = $escalated ? $item['severity'] : $previousSeverity;
+
+            if ($escalated) {
+                $alert->notification_version = ((int) $alert->notification_version) + 1;
+                $shouldNotify = true;
+            }
         }
 
         $alert->fill([
@@ -186,6 +226,8 @@ final class ReconcileCrewOperationalAlerts
         ]);
         // Preserve first-ever detected_at for auditable history.
         $alert->save();
+
+        return ['should_notify' => $shouldNotify];
     }
 
     /**

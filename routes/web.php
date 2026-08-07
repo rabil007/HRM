@@ -14,7 +14,9 @@ use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
 use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\JobRunController;
 use App\Http\Controllers\Notifications\DestroyPushSubscriptionController;
+use App\Http\Controllers\Notifications\NotificationFeedController;
 use App\Http\Controllers\Notifications\OpenAnnouncementNotificationController;
+use App\Http\Controllers\Notifications\OpenCrewOperationalAlertNotificationController;
 use App\Http\Controllers\Notifications\OpenDocumentComplianceNotificationController;
 use App\Http\Controllers\Notifications\StorePushSubscriptionController;
 use App\Http\Controllers\Notifications\TestPushSubscriptionController;
@@ -67,6 +69,7 @@ use App\Http\Controllers\Organization\CrewMovementActionController;
 use App\Http\Controllers\Organization\CrewMovementCorrectionController;
 use App\Http\Controllers\Organization\CrewMovementCorrectionDecisionController;
 use App\Http\Controllers\Organization\CrewMovementHistoryController;
+use App\Http\Controllers\Organization\CrewOperations\CrewOperationalAlertInboxController;
 use App\Http\Controllers\Organization\CrewOperationsDashboardController;
 use App\Http\Controllers\Organization\CrewOperationsSettingsController;
 use App\Http\Controllers\Organization\CrewPlanningAssignmentController;
@@ -248,8 +251,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('notification-settings.push-subscription.destroy');
     Route::get('notifications/announcements/{recipient}/open', OpenAnnouncementNotificationController::class)
         ->name('notifications.announcements.open');
+    Route::get('notifications/crew-operational-alerts/{recipient}/open', OpenCrewOperationalAlertNotificationController::class)
+        ->name('notifications.crew-operational-alerts.open');
     Route::get('notifications/documents/compliance/{company}/open', OpenDocumentComplianceNotificationController::class)
         ->name('notifications.documents.compliance.open');
+    Route::get('notifications/feed', NotificationFeedController::class)
+        ->name('notifications.feed');
     Route::get('organization/companies', [CompanyController::class, 'index'])->middleware('can:companies.view')->name('organization.companies');
     Route::get('organization/companies/export', [CompanyController::class, 'export'])->middleware('can:companies.export')->name('organization.companies.export');
     Route::get('organization/companies/{company}/documents', [CompanyDocumentController::class, 'index'])->name('organization.companies.documents.index');
@@ -296,12 +303,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/announcements/preview-recipients', PreviewAnnouncementRecipientsController::class)
         ->middleware('can:announcements.create')
         ->name('organization.announcements.preview-recipients');
-    Route::get('organization/announcements/inbox/feed', [EmployeeAnnouncementController::class, 'feed'])
+    Route::get('organization/announcements/inbox/feed', NotificationFeedController::class)
         ->name('organization.announcements.inbox.feed');
     Route::get('organization/announcements/inbox/{recipient}', [EmployeeAnnouncementController::class, 'show'])
         ->name('organization.announcements.inbox.show');
     Route::post('organization/announcements/inbox/{recipient}/read', [EmployeeAnnouncementController::class, 'markRead'])
         ->name('organization.announcements.inbox.read');
+    Route::post('organization/notifications/crew/{recipient}/read', [CrewOperationalAlertInboxController::class, 'markRead'])
+        ->name('organization.notifications.crew.read');
     Route::get('organization/announcements/{announcement}', [AnnouncementController::class, 'show'])
         ->middleware('can:announcements.view')
         ->name('organization.announcements.show');

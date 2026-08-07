@@ -10,6 +10,7 @@ use Database\Factories\CrewOperationalAlertFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Activitylog\Support\LogOptions;
 
 class CrewOperationalAlert extends Model
@@ -31,6 +32,7 @@ class CrewOperationalAlert extends Model
         'detected_at',
         'last_detected_at',
         'resolved_at',
+        'notification_version',
     ];
 
     protected function casts(): array
@@ -44,6 +46,7 @@ class CrewOperationalAlert extends Model
             'detected_at' => 'datetime',
             'last_detected_at' => 'datetime',
             'resolved_at' => 'datetime',
+            'notification_version' => 'integer',
         ];
     }
 
@@ -58,6 +61,7 @@ class CrewOperationalAlert extends Model
                 'dedupe_key',
                 'title',
                 'resolved_at',
+                'notification_version',
             ])
             ->logOnlyDirty();
     }
@@ -65,5 +69,15 @@ class CrewOperationalAlert extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function recipients(): HasMany
+    {
+        return $this->hasMany(CrewOperationalAlertRecipient::class);
+    }
+
+    public function pushDeliveries(): HasMany
+    {
+        return $this->hasMany(CrewOperationalAlertPushDelivery::class);
     }
 }

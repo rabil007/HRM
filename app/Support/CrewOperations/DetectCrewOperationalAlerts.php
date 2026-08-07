@@ -5,6 +5,7 @@ namespace App\Support\CrewOperations;
 use App\Enums\CrewOperationalAlertSeverity;
 use App\Enums\CrewOperationalAlertType;
 use App\Enums\CrewProjectedManningStatus;
+use App\Enums\CrewReliefRisk;
 use App\Enums\CrewReliefStatus;
 use App\Enums\CrewTourStatus;
 use App\Models\CrewAssignment;
@@ -168,7 +169,7 @@ final class DetectCrewOperationalAlerts
             if ($noRelief && $within14NoRelief) {
                 $alerts[] = [
                     'type' => CrewOperationalAlertType::SignoffNoRelief,
-                    'severity' => CrewOperationalAlertSeverity::Critical,
+                    'severity' => $this->signoffWindowSeverity($daysUntil),
                     'dedupe_key' => 'signoff_no_relief:assignment:'.$assignment->id,
                     'title' => 'Sign-off approaching — no relief',
                     'message' => sprintf(
@@ -190,7 +191,7 @@ final class DetectCrewOperationalAlerts
             if ($notReady && $imminentNotReady) {
                 $alerts[] = [
                     'type' => CrewOperationalAlertType::ReliefNotReady,
-                    'severity' => CrewOperationalAlertSeverity::Warning,
+                    'severity' => $this->reliefNotReadySeverity($daysUntil, $result->risk),
                     'dedupe_key' => 'relief_not_ready:assignment:'.$assignment->id,
                     'title' => 'Relief not ready',
                     'message' => sprintf(
@@ -206,6 +207,28 @@ final class DetectCrewOperationalAlerts
         }
 
         return $alerts;
+    }
+
+    private function signoffWindowSeverity(?int $daysUntil): CrewOperationalAlertSeverity
+    {
+        if ($daysUntil === null || $daysUntil <= 7) {
+            return CrewOperationalAlertSeverity::Critical;
+        }
+
+        return CrewOperationalAlertSeverity::Warning;
+    }
+
+    private function reliefNotReadySeverity(?int $daysUntil, CrewReliefRisk $risk): CrewOperationalAlertSeverity
+    {
+        if ($daysUntil !== null && $daysUntil <= 0) {
+            return CrewOperationalAlertSeverity::Critical;
+        }
+
+        if ($risk === CrewReliefRisk::Critical || ($daysUntil !== null && $daysUntil <= 3)) {
+            return CrewOperationalAlertSeverity::Critical;
+        }
+
+        return CrewOperationalAlertSeverity::Warning;
     }
 
     /**

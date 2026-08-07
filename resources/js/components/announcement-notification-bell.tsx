@@ -11,15 +11,19 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { WebPushNotificationControl } from '@/components/web-push-notification-control';
+import { cn } from '@/lib/utils';
 
 type FeedItem = {
-    id: number;
+    id: string;
+    source: 'announcement' | 'crew_operational_alert';
     title: string | null;
-    preview: string;
-    priority: string | null;
-    published_at: string | null;
+    summary: string;
+    severity: string | null;
+    created_at: string | null;
     read_at: string | null;
-    url: string;
+    is_read: boolean;
+    url: string | null;
+    source_label: string;
 };
 
 type FeedResponse = {
@@ -27,13 +31,66 @@ type FeedResponse = {
     items: FeedItem[];
 };
 
+function severityLabel(severity: string | null): string | null {
+    if (!severity) {
+        return null;
+    }
+
+    if (severity === 'critical') {
+        return 'Critical';
+    }
+
+    if (severity === 'warning') {
+        return 'Warning';
+    }
+
+    if (severity === 'info') {
+        return 'Info';
+    }
+
+    return severity;
+}
+
+function relativeTime(value: string | null): string | null {
+    if (!value) {
+        return null;
+    }
+
+    const date = new Date(value);
+    const diffMs = Date.now() - date.getTime();
+
+    if (Number.isNaN(diffMs) || diffMs < 0) {
+        return null;
+    }
+
+    const minutes = Math.floor(diffMs / 60000);
+
+    if (minutes < 1) {
+        return 'Just now';
+    }
+
+    if (minutes < 60) {
+        return `${minutes} min ago`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+
+    if (hours < 24) {
+        return `${hours} hr ago`;
+    }
+
+    const days = Math.floor(hours / 24);
+
+    return `${days}d ago`;
+}
+
 export function AnnouncementNotificationBell() {
     const http = useHttp();
     const [unreadCount, setUnreadCount] = useState(0);
     const [items, setItems] = useState<FeedItem[]>([]);
 
     const loadFeed = () => {
-        http.get('/organization/announcements/inbox/feed')
+        http.get('/notifications/feed')
             .then((data) => {
                 const payload = data as FeedResponse;
                 setUnreadCount(payload.unread_count);
@@ -53,11 +110,34 @@ export function AnnouncementNotificationBell() {
     }, []);
 
     const markRead = (item: FeedItem) => {
-        if (item.read_at) {
+        if (item.is_read) {
             return;
         }
 
-        void http.post(`/organization/announcements/inbox/${item.id}/read`);
+        if (item.source === 'announcement') {
+            const recipientId = item.id.replace('announcement:', '');
+            void http.post(
+                `/organization/announcements/inbox/${recipientId}/read`,
+            );
+        } else {
+            const recipientId = item.id.replace('crew_operational_alert:', '');
+            void http.post(
+                `/organization/notifications/crew/${recipientId}/read`,
+            );
+        }
+
+        setItems((current) =>
+            current.map((entry) =>
+                entry.id === item.id
+                    ? {
+                          ...entry,
+                          is_read: true,
+                          read_at: new Date().toISOString(),
+                      }
+                    : entry,
+            ),
+        );
+        setUnreadCount((count) => Math.max(0, count - 1));
     };
 
     return (
@@ -78,32 +158,73 @@ export function AnnouncementNotificationBell() {
                     ) : null}
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
+            <DropdownMenuContent align="end" className="w-96">
                 <DropdownMenuLabel>Notifications</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <WebPushNotificationControl />
                 <DropdownMenuSeparator />
                 {items.length === 0 ? (
                     <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                        No announcements yet.
+                        No notifications yet.
                     </div>
                 ) : (
-                    items.map((item) => (
-                        <DropdownMenuItem key={item.id} asChild>
-                            <Link
-                                href={item.url}
-                                className="flex flex-col items-start gap-1 py-2"
-                                onClick={() => markRead(item)}
+                    items.map((item) => {
+                        const severity = severityLabel(item.severity);
+                        const when = relativeTime(item.created_at);
+                        const content = (
+                            <div
+                                className={cn(
+                                    'flex w-full flex-col items-start gap-1 py-2',
+                                    !item.is_read && 'font-medium',
+                                )}
                             >
-                                <span className="font-medium">
-                                    {item.title}
-                                </span>
+                                <div className="flex w-full items-start justify-between gap-2">
+                                    <span className="line-clamp-1 text-sm">
+                                        {severity ? (
+                                            <span className="mr-1 text-xs text-muted-foreground">
+                                                [{severity}]
+                                            </span>
+                                        ) : null}
+                                        {item.title}
+                                    </span>
+                                </div>
                                 <span className="line-clamp-2 text-xs text-muted-foreground">
-                                    {item.preview}
+                                    {item.summary}
                                 </span>
-                            </Link>
-                        </DropdownMenuItem>
-                    ))
+                                <div className="flex w-full items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                                    <span>{item.source_label}</span>
+                                    {when ? <span>{when}</span> : null}
+                                </div>
+                            </div>
+                        );
+
+                        if (!item.url) {
+                            return (
+                                <DropdownMenuItem
+                                    key={item.id}
+                                    className="cursor-pointer"
+                                    onSelect={(event) => {
+                                        event.preventDefault();
+                                        markRead(item);
+                                    }}
+                                >
+                                    {content}
+                                </DropdownMenuItem>
+                            );
+                        }
+
+                        return (
+                            <DropdownMenuItem key={item.id} asChild>
+                                <Link
+                                    href={item.url}
+                                    className="flex flex-col items-start gap-1 py-2"
+                                    onClick={() => markRead(item)}
+                                >
+                                    {content}
+                                </Link>
+                            </DropdownMenuItem>
+                        );
+                    })
                 )}
             </DropdownMenuContent>
         </DropdownMenu>
