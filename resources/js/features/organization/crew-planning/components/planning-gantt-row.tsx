@@ -6,8 +6,18 @@ import {
     dateFromPointerRatio,
     todayLinePositionPercent,
 } from '../lib/planning-gantt-math';
-import type { GanttBar, PlanningPagePermissions, RowDropData } from '../types';
+import type {
+    GanttBar,
+    PlanningPagePermissions,
+    PlanningProjectionPeriod,
+    PlanningProjectionRow,
+    RowDropData,
+} from '../types';
 import { PlanningGanttBar } from './planning-bar-tooltip';
+import {
+    ProjectionOverlay,
+    projectionExceptionLabel,
+} from './projection-overlay';
 
 export const ROW_HEIGHT = 48;
 export const RANK_LABEL_WIDTH = 112;
@@ -17,6 +27,7 @@ type Props = {
     rankName: string;
     vesselId: number;
     rankId: number;
+    requiredCount?: number;
     bars: GanttBar[];
     rangeFrom: Date;
     rangeTo: Date;
@@ -25,12 +36,19 @@ type Props = {
     isHighlighted: boolean;
     timelineMinWidth: number;
     can: PlanningPagePermissions;
+    projection?: PlanningProjectionRow | null;
+    showCoverage?: boolean;
     isDraggingBar?: boolean;
     onRowClick?: (
         rowKey: string,
         vesselId: number,
         rankId: number,
         estimatedDate: string,
+    ) => void;
+    onGapClick?: (
+        vesselId: number,
+        rankId: number,
+        period: PlanningProjectionPeriod,
     ) => void;
     onEditBar?: (bar: GanttBar) => void;
     onDeleteBar?: (bar: GanttBar) => void;
@@ -55,6 +73,7 @@ export function PlanningGanttRow({
     rankName,
     vesselId,
     rankId,
+    requiredCount,
     bars,
     rangeFrom,
     rangeTo,
@@ -63,8 +82,11 @@ export function PlanningGanttRow({
     isHighlighted,
     timelineMinWidth,
     can,
+    projection = null,
+    showCoverage = false,
     isDraggingBar = false,
     onRowClick,
+    onGapClick,
     onEditBar,
     onDeleteBar,
 }: Props): ReactElement {
@@ -76,6 +98,10 @@ export function PlanningGanttRow({
 
     const todayStyle = todayLineStyle(today, rangeFrom, rangeTo);
     const lowerSearch = highlightedCrewName.toLowerCase();
+    const exceptionLabel = projection
+        ? projectionExceptionLabel(projection.status)
+        : null;
+    const manningRequired = projection?.required_count ?? requiredCount ?? null;
 
     const handleBackgroundClick = (e: MouseEvent<HTMLDivElement>): void => {
         if (!can.create || !onRowClick || isDraggingBar) {
@@ -86,6 +112,7 @@ export function PlanningGanttRow({
 
         if (
             target.closest('[data-radix-popper-content-wrapper]') ??
+            target.closest('[data-projection-band]') ??
             target.closest('.absolute')
         ) {
             return;
@@ -112,10 +139,9 @@ export function PlanningGanttRow({
                 minWidth: timelineMinWidth + RANK_LABEL_WIDTH,
             }}
         >
-            {/* Rank label */}
             <div
                 className={cn(
-                    'sticky left-0 z-20 flex shrink-0 items-center border-r border-border/50 bg-background px-3',
+                    'sticky left-0 z-20 flex shrink-0 flex-col justify-center gap-0.5 border-r border-border/50 bg-background px-2.5',
                     isHighlighted && 'bg-amber-50/50 dark:bg-amber-950/30',
                     isOver && 'bg-primary/5 dark:bg-primary/10',
                     can.create &&
@@ -123,9 +149,28 @@ export function PlanningGanttRow({
                 )}
                 style={{ width: RANK_LABEL_WIDTH }}
             >
-                <span className="truncate text-[11px] font-medium tracking-wide text-muted-foreground/60">
+                <span className="truncate text-[11px] font-medium tracking-wide text-muted-foreground/70">
                     {rankName}
                 </span>
+                {manningRequired != null && showCoverage ? (
+                    <div className="flex min-w-0 items-center gap-1">
+                        <span className="truncate text-[9px] text-muted-foreground/55">
+                            Required {manningRequired}
+                        </span>
+                        {exceptionLabel ? (
+                            <span
+                                className={cn(
+                                    'shrink-0 rounded px-1 py-px text-[8px] font-semibold tracking-wide uppercase',
+                                    projection?.status === 'overlap'
+                                        ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                                        : 'bg-destructive/15 text-destructive',
+                                )}
+                            >
+                                {exceptionLabel}
+                            </span>
+                        ) : null}
+                    </div>
+                ) : null}
             </div>
 
             <div
@@ -133,7 +178,6 @@ export function PlanningGanttRow({
                 className="relative min-w-0 flex-1"
                 style={{ minWidth: timelineMinWidth }}
             >
-                {/* Today line */}
                 {todayStyle ? (
                     <div
                         className="pointer-events-none absolute top-0 bottom-0 z-[1] w-[2px] bg-red-500/70 shadow-[0_0_4px_rgba(239,68,68,0.4)]"
@@ -145,12 +189,26 @@ export function PlanningGanttRow({
                     </div>
                 ) : null}
 
-                {/* Hover click layer */}
                 {can.create ? (
                     <div
                         className="absolute inset-0 z-0 cursor-crosshair"
                         title={`Click to plan assignment on ${rankName}`}
                         onClick={handleBackgroundClick}
+                    />
+                ) : null}
+
+                {showCoverage && projection ? (
+                    <ProjectionOverlay
+                        projection={projection}
+                        rangeFrom={rangeFrom}
+                        rangeTo={rangeTo}
+                        canCreate={can.create}
+                        onGapClick={
+                            onGapClick
+                                ? (period) =>
+                                      onGapClick(vesselId, rankId, period)
+                                : undefined
+                        }
                     />
                 ) : null}
 

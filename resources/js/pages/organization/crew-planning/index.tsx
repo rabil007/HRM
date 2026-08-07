@@ -7,6 +7,7 @@ import type {
     PlanningOption,
     PlanningPagePermissions,
     PlanningPoolEmployee,
+    PlanningProjection,
     PlanningReliefPrefill,
     TreeVessel,
 } from '@/features/organization/crew-planning/types';
@@ -21,6 +22,7 @@ type Props = {
     ranks: PlanningOption[];
     employees: PlanningPoolEmployee[];
     can: PlanningPagePermissions;
+    projection?: PlanningProjection | null;
     relief_prefill?: PlanningReliefPrefill | null;
 };
 
@@ -34,6 +36,7 @@ export default function CrewPlanningIndex({
     ranks,
     employees,
     can,
+    projection = null,
     relief_prefill = null,
 }: Props) {
     return (
@@ -49,6 +52,7 @@ export default function CrewPlanningIndex({
                 ranks={ranks}
                 employees={employees}
                 can={can}
+                projection={projection}
                 relief_prefill={relief_prefill}
             />
         </>

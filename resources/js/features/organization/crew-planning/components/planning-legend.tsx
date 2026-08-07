@@ -1,4 +1,6 @@
 import type { ReactElement } from 'react';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
     Tooltip,
     TooltipContent,
@@ -44,7 +46,40 @@ const LEGEND_ITEMS = [
     },
 ] as const;
 
-export function PlanningLegend(): ReactElement {
+const PROJECTION_LEGEND_ITEMS = [
+    {
+        label: 'Projected Gap',
+        description:
+            'Vessel/rank is projected short versus Vessel Manning required count for this date range.',
+        surfaceClass: 'bg-destructive/20 dark:bg-destructive/25',
+        labelClass: 'text-destructive',
+        swatchRingClass: 'ring-destructive/40',
+    },
+    {
+        label: 'Projected Overlap',
+        description:
+            'Projected coverage exceeds required count (early relief / overlap).',
+        surfaceClass: 'bg-amber-500/20 dark:bg-amber-400/25',
+        labelClass: 'text-amber-700 dark:text-amber-300',
+        swatchRingClass: 'ring-amber-500/40',
+    },
+] as const;
+
+type Props = {
+    canProjection?: boolean;
+    showCoverage?: boolean;
+    onShowCoverageChange?: (value: boolean) => void;
+};
+
+export function PlanningLegend({
+    canProjection = false,
+    showCoverage = false,
+    onShowCoverageChange,
+}: Props): ReactElement {
+    const items = canProjection
+        ? [...LEGEND_ITEMS, ...PROJECTION_LEGEND_ITEMS]
+        : LEGEND_ITEMS;
+
     return (
         <div
             className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/20 px-4 py-1.5 dark:bg-muted/10"
@@ -63,6 +98,9 @@ export function PlanningLegend(): ReactElement {
                 >
                     Timeline bar kinds show vacant slots, planned crew, planned
                     relief, and assignments already created from planning.
+                    {canProjection
+                        ? ' Projected gap and overlap bands come from Vessel Manning coverage.'
+                        : ''}
                 </TooltipContent>
             </Tooltip>
 
@@ -70,7 +108,7 @@ export function PlanningLegend(): ReactElement {
                 className="flex flex-wrap items-center gap-x-3 gap-y-1"
                 role="list"
             >
-                {LEGEND_ITEMS.map((item) => (
+                {items.map((item) => (
                     <Tooltip key={item.label}>
                         <TooltipTrigger asChild>
                             <div
@@ -108,6 +146,22 @@ export function PlanningLegend(): ReactElement {
                     </Tooltip>
                 ))}
             </div>
+
+            {canProjection && onShowCoverageChange ? (
+                <div className="ml-auto flex items-center gap-2">
+                    <Switch
+                        id="planning-show-coverage"
+                        checked={showCoverage}
+                        onCheckedChange={onShowCoverageChange}
+                    />
+                    <Label
+                        htmlFor="planning-show-coverage"
+                        className="cursor-pointer text-xs font-medium text-muted-foreground"
+                    >
+                        Show coverage
+                    </Label>
+                </div>
+            ) : null}
         </div>
     );
 }

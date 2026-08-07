@@ -7,8 +7,10 @@ use App\Models\CrewAssignment;
 use App\Models\Rank;
 use App\Models\Vessel;
 use App\Support\CrewOperations\CrewOperationsSettings;
+use App\Support\CrewOperations\CrewProjectedManningQuery;
 use App\Support\CrewPlanning\CrewPlanningGanttQuery;
 use App\Support\CrewPlanning\CrewPlanningPagePermissions;
+use App\Support\CrewPlanning\CrewPlanningProjectionPresenter;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,6 +18,10 @@ use Inertia\Response;
 
 class CrewPlanningController extends Controller
 {
+    public function __construct(
+        private readonly CrewProjectedManningQuery $projectedManningQuery,
+    ) {}
+
     public function index(Request $request): Response
     {
         $companyId = (int) $request->attributes->get('current_company_id');
@@ -30,9 +36,33 @@ class CrewPlanningController extends Controller
         $rankId = $rankId !== null && $rankId !== '' ? (int) $rankId : null;
 
         $search = trim((string) $request->query('search', ''));
+        $can = CrewPlanningPagePermissions::for($request->user());
+
+        $projection = null;
+        $projectionPositions = null;
+
+        if ($can['projection']) {
+            $projection = CrewPlanningProjectionPresenter::present(
+                $this->projectedManningQuery->forCompany(
+                    $companyId,
+                    $from,
+                    $to,
+                    $vesselId,
+                    $rankId,
+                ),
+            );
+            $projectionPositions = $projection['rows'];
+        }
 
         return Inertia::render('organization/crew-planning/index', [
-            'rows' => CrewPlanningGanttQuery::rows($companyId, $from, $to, $vesselId, $rankId),
+            'rows' => CrewPlanningGanttQuery::rows(
+                $companyId,
+                $from,
+                $to,
+                $vesselId,
+                $rankId,
+                $projectionPositions,
+            ),
             'bars' => CrewPlanningGanttQuery::bars($companyId, $from, $to, $vesselId, $rankId),
             'tree' => CrewPlanningGanttQuery::tree($companyId, $from, $to, $vesselId, $rankId),
             'filters' => [
@@ -46,7 +76,8 @@ class CrewPlanningController extends Controller
             'vessels' => $this->activeVessels(),
             'ranks' => $this->activeRanks(),
             'employees' => CrewOperationsSettings::poolEmployees($companyId),
-            'can' => CrewPlanningPagePermissions::for($request->user()),
+            'can' => $can,
+            'projection' => $projection,
             'relief_prefill' => $this->reliefPrefill($request, $companyId),
         ]);
     }

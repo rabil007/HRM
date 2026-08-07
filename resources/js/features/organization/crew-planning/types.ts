@@ -103,6 +103,52 @@ export type PlanningPagePermissions = {
     create: boolean;
     update: boolean;
     delete: boolean;
+    projection: boolean;
+};
+
+export type PlanningProjectionStatus =
+    | 'covered'
+    | 'covered_by_incoming'
+    | 'current_gap'
+    | 'future_gap'
+    | 'overlap';
+
+export type PlanningProjectionPeriod = {
+    from: string;
+    to: string;
+    projected_count: number;
+    gap: number;
+    excess: number;
+};
+
+export type PlanningProjectionRow = {
+    row_key: string;
+    vessel_id: number;
+    vessel_name: string;
+    rank_id: number;
+    rank_name: string;
+    required_count: number;
+    status: PlanningProjectionStatus;
+    next_gap_date: string | null;
+    minimum_projected_count: number;
+    maximum_gap: number;
+    periods: PlanningProjectionPeriod[];
+};
+
+export type PlanningProjectionSummary = {
+    positions: number;
+    current_gap_positions: number;
+    future_gap_positions: number;
+    covered_positions: number;
+    overlap_positions: number;
+    total_projected_shortfall_days: number;
+};
+
+export type PlanningProjection = {
+    from: string;
+    to: string;
+    summary: PlanningProjectionSummary;
+    rows: PlanningProjectionRow[];
 };
 
 export type PlanningSettings = {
