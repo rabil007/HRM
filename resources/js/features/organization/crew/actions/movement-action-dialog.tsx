@@ -12,6 +12,11 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
+import {
+    defaultDestinationTourSignoffChoice,
+    findRankTourOption,
+    normalizeTourSignoffPayload,
+} from '@/features/organization/crew/lib/tour-signoff';
 import { cn } from '@/lib/utils';
 import { performAction } from '@/routes/organization/crew-assignments';
 import type {
@@ -52,15 +57,27 @@ function resolveJoinSignoffChoice(
         return 'existing_plan';
     }
 
-    const rank = formOptions?.ranks.find((item) => item.id === context.rank_id);
-    const tourAvailable =
-        rank?.resolved_tour_of_duty_days != null &&
-        rank.resolved_tour_of_duty_days > 0;
+    return defaultDestinationTourSignoffChoice(
+        findRankTourOption(formOptions?.ranks, context.rank_id),
+    );
+}
 
-    if (tourAvailable) {
-        return 'tour_of_duty';
+function resolveInitialSignoffChoice(
+    action: CrewMovementAction,
+    context: CrewMovementContext,
+    formOptions?: CrewAssignmentFormOptions,
+): CrewMovementActionFormData['planned_signoff_choice'] {
+    if (action === 'join_vessel') {
+        return resolveJoinSignoffChoice(context, formOptions);
     }
 
+    if (action === 'transfer_vessel') {
+        return defaultDestinationTourSignoffChoice(
+            findRankTourOption(formOptions?.ranks, context.rank_id),
+        );
+    }
+
+    // Redeploy opens on P0 — Tour fields are excluded until starting_phase = p4.
     return 'manual_override';
 }
 
@@ -87,14 +104,17 @@ function buildInitialForm(
         client_id: context.client_id,
         company_visa_type_id: context.visa_type_id,
         planned_signoff_at:
-            action === 'redeploy' ? '' : (context.planned_signoff_at ?? ''),
+            action === 'redeploy' || action === 'transfer_vessel'
+                ? ''
+                : (context.planned_signoff_at ?? ''),
         planned_travel_at: '',
         reason: '',
         tour_of_duty_days: '',
-        planned_signoff_choice:
-            action === 'join_vessel'
-                ? resolveJoinSignoffChoice(context, formOptions)
-                : 'manual_override',
+        planned_signoff_choice: resolveInitialSignoffChoice(
+            action,
+            context,
+            formOptions,
+        ),
         planned_signoff_override_reason: '',
     };
 }
@@ -206,7 +226,7 @@ export function MovementActionDialog({
         }
 
         form.transform((data) => {
-            const payload = { ...data };
+            let payload = { ...data };
 
             if (action === 'send_to_training') {
                 payload.planned_start_at = data.occurred_at;
@@ -217,29 +237,10 @@ export function MovementActionDialog({
                     .planned_travel_at;
             }
 
-            if (action === 'redeploy' && data.starting_phase === 'p0') {
-                payload.vessel_id = null;
-                payload.rank_id = null;
-                payload.client_id = null;
-                payload.company_visa_type_id = null;
-                payload.planned_signoff_at = '';
-            }
-
-            if (action === 'join_vessel') {
-                if (data.planned_signoff_choice !== 'manual_override') {
-                    delete (payload as { planned_signoff_at?: string })
-                        .planned_signoff_at;
-                    payload.planned_signoff_override_reason = '';
-                }
-
-                if (
-                    data.tour_of_duty_days === '' ||
-                    data.tour_of_duty_days === null
-                ) {
-                    delete (payload as { tour_of_duty_days?: number | '' })
-                        .tour_of_duty_days;
-                }
-            }
+            payload = normalizeTourSignoffPayload(
+                payload,
+                action,
+            ) as CrewMovementActionFormData;
 
             return payload;
         });
