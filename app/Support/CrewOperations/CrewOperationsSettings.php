@@ -2,13 +2,18 @@
 
 namespace App\Support\CrewOperations;
 
+use App\Enums\CrewOperationalAlertType;
 use App\Models\CrewOperationsSetting;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\User;
+use App\Support\Companies\ResolveCompanyAccess;
 use App\Support\Departments\BuildDepartmentTree;
 use App\Support\Employees\DepartmentDescendantIds;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 final class CrewOperationsSettings
 {
@@ -62,8 +67,100 @@ final class CrewOperationsSettings
     }
 
     /**
+     * Defaults to OFF when the company has no settings row yet.
+     */
+    public static function notificationsEnabled(int $companyId): bool
+    {
+        $setting = CrewOperationsSetting::query()
+            ->where('company_id', $companyId)
+            ->first();
+
+        return (bool) ($setting?->notifications_enabled ?? false);
+    }
+
+    /**
+     * @return array{
+     *     notifications_enabled: bool,
+     *     notification_recipient_user_ids: list<int>,
+     *     alert_signoff_overdue: bool,
+     *     alert_signoff_no_relief: bool,
+     *     alert_relief_not_ready: bool,
+     *     alert_current_manning_gap: bool,
+     *     alert_projected_manning_gap: bool,
+     *     notify_in_app: bool,
+     *     notify_browser_push: bool,
+     *     notify_email: bool
+     * }
+     */
+    public static function notificationSettings(int $companyId): array
+    {
+        $setting = CrewOperationsSetting::query()
+            ->where('company_id', $companyId)
+            ->first();
+
+        return [
+            'notifications_enabled' => (bool) ($setting?->notifications_enabled ?? false),
+            'notification_recipient_user_ids' => self::notificationRecipientUserIds($companyId, $setting),
+            'alert_signoff_overdue' => (bool) ($setting?->alert_signoff_overdue ?? true),
+            'alert_signoff_no_relief' => (bool) ($setting?->alert_signoff_no_relief ?? true),
+            'alert_relief_not_ready' => (bool) ($setting?->alert_relief_not_ready ?? true),
+            'alert_current_manning_gap' => (bool) ($setting?->alert_current_manning_gap ?? true),
+            'alert_projected_manning_gap' => (bool) ($setting?->alert_projected_manning_gap ?? true),
+            'notify_in_app' => (bool) ($setting?->notify_in_app ?? true),
+            'notify_browser_push' => (bool) ($setting?->notify_browser_push ?? true),
+            'notify_email' => (bool) ($setting?->notify_email ?? false),
+        ];
+    }
+
+    /**
+     * @return list<CrewOperationalAlertType>
+     */
+    public static function enabledAlertTypes(int $companyId): array
+    {
+        $settings = self::notificationSettings($companyId);
+        $types = [];
+
+        foreach (CrewOperationalAlertType::cases() as $type) {
+            if ($settings[$type->settingsColumn()] ?? false) {
+                $types[] = $type;
+            }
+        }
+
+        return $types;
+    }
+
+    /**
+     * Active company users with active membership for the recipient picker.
+     *
+     * @return list<array{id: int, name: string, email: string}>
+     */
+    public static function notificationRecipientOptions(int $companyId): array
+    {
+        return self::activeCompanyUsers($companyId)
+            ->map(fn (User $user): array => [
+                'id' => (int) $user->id,
+                'name' => (string) $user->name,
+                'email' => (string) $user->email,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
      * @param  list<int>  $departmentIds
-     * @param  array{actor_id?: int|null}  $options
+     * @param  array{
+     *     notifications_enabled?: bool,
+     *     notification_recipient_user_ids?: list<int>,
+     *     alert_signoff_overdue?: bool,
+     *     alert_signoff_no_relief?: bool,
+     *     alert_relief_not_ready?: bool,
+     *     alert_current_manning_gap?: bool,
+     *     alert_projected_manning_gap?: bool,
+     *     notify_in_app?: bool,
+     *     notify_browser_push?: bool,
+     *     notify_email?: bool,
+     *     actor_id?: int|null
+     * }  $options
      */
     public static function saveSettings(
         int $companyId,
@@ -74,7 +171,13 @@ final class CrewOperationsSettings
     ): CrewOperationsSetting {
         $normalized = array_values(array_unique(array_map(intval(...), $departmentIds)));
 
-        return DB::transaction(function () use ($companyId, $normalized, $maxHomeDays, $syncSeaService, $options): CrewOperationsSetting {
+        return DB::transaction(function () use (
+            $companyId,
+            $normalized,
+            $maxHomeDays,
+            $syncSeaService,
+            $options,
+        ): CrewOperationsSetting {
             $existing = CrewOperationsSetting::query()
                 ->where('company_id', $companyId)
                 ->first();
@@ -83,12 +186,47 @@ final class CrewOperationsSettings
                 ? true
                 : (bool) $existing->sync_sea_service;
 
+            $recipientIds = array_key_exists('notification_recipient_user_ids', $options)
+                ? self::normalizeRecipientUserIds(
+                    $companyId,
+                    $options['notification_recipient_user_ids'] ?? [],
+                )
+                : self::notificationRecipientUserIds($companyId, $existing);
+
             $setting = CrewOperationsSetting::query()->updateOrCreate(
                 ['company_id' => $companyId],
                 [
                     'pool_department_ids' => $normalized === [] ? null : $normalized,
                     'max_home_days' => $maxHomeDays,
                     'sync_sea_service' => $syncSeaService,
+                    'notifications_enabled' => array_key_exists('notifications_enabled', $options)
+                        ? (bool) $options['notifications_enabled']
+                        : (bool) ($existing?->notifications_enabled ?? false),
+                    'notification_recipient_user_ids' => $recipientIds === [] ? null : $recipientIds,
+                    'alert_signoff_overdue' => array_key_exists('alert_signoff_overdue', $options)
+                        ? (bool) $options['alert_signoff_overdue']
+                        : (bool) ($existing?->alert_signoff_overdue ?? true),
+                    'alert_signoff_no_relief' => array_key_exists('alert_signoff_no_relief', $options)
+                        ? (bool) $options['alert_signoff_no_relief']
+                        : (bool) ($existing?->alert_signoff_no_relief ?? true),
+                    'alert_relief_not_ready' => array_key_exists('alert_relief_not_ready', $options)
+                        ? (bool) $options['alert_relief_not_ready']
+                        : (bool) ($existing?->alert_relief_not_ready ?? true),
+                    'alert_current_manning_gap' => array_key_exists('alert_current_manning_gap', $options)
+                        ? (bool) $options['alert_current_manning_gap']
+                        : (bool) ($existing?->alert_current_manning_gap ?? true),
+                    'alert_projected_manning_gap' => array_key_exists('alert_projected_manning_gap', $options)
+                        ? (bool) $options['alert_projected_manning_gap']
+                        : (bool) ($existing?->alert_projected_manning_gap ?? true),
+                    'notify_in_app' => array_key_exists('notify_in_app', $options)
+                        ? (bool) $options['notify_in_app']
+                        : (bool) ($existing?->notify_in_app ?? true),
+                    'notify_browser_push' => array_key_exists('notify_browser_push', $options)
+                        ? (bool) $options['notify_browser_push']
+                        : (bool) ($existing?->notify_browser_push ?? true),
+                    'notify_email' => array_key_exists('notify_email', $options)
+                        ? (bool) $options['notify_email']
+                        : (bool) ($existing?->notify_email ?? false),
                 ],
             );
 
@@ -115,6 +253,97 @@ final class CrewOperationsSettings
 
             return $setting;
         });
+    }
+
+    /**
+     * @param  list<int>  $userIds
+     * @return list<int>
+     */
+    public static function normalizeRecipientUserIds(int $companyId, array $userIds): array
+    {
+        $normalized = array_values(array_unique(array_map(intval(...), $userIds)));
+
+        if ($normalized === []) {
+            return [];
+        }
+
+        $allowed = self::activeCompanyUsers($companyId)
+            ->pluck('id')
+            ->map(intval(...))
+            ->all();
+
+        $invalid = array_values(array_diff($normalized, $allowed));
+
+        if ($invalid !== []) {
+            throw ValidationException::withMessages([
+                'notification_recipient_user_ids' => 'One or more selected recipients are not active members of this company.',
+            ]);
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    public static function activeCompanyUsers(int $companyId)
+    {
+        $access = app(ResolveCompanyAccess::class);
+
+        return User::query()
+            ->whereNull('deleted_at')
+            ->where(function (Builder $query): void {
+                $query->whereNull('status')
+                    ->orWhere('status', 'active');
+            })
+            ->where(function (Builder $query) use ($companyId): void {
+                $query->whereHas('companies', function (Builder $membership) use ($companyId): void {
+                    $membership->where('companies.id', $companyId)
+                        ->where('companies.status', 'active')
+                        ->where('company_user.status', 'active');
+                })->orWhere(function (Builder $legacy) use ($companyId): void {
+                    $legacy->where('company_id', $companyId)
+                        ->whereDoesntHave('companies', function (Builder $membership) use ($companyId): void {
+                            $membership->where('companies.id', $companyId);
+                        });
+                });
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'status', 'company_id', 'deleted_at'])
+            ->filter(fn (User $user): bool => $access->hasAccessibleMembership($user, $companyId))
+            ->values();
+    }
+
+    /**
+     * @return list<int>
+     */
+    private static function notificationRecipientUserIds(
+        int $companyId,
+        ?CrewOperationsSetting $setting = null,
+    ): array {
+        $setting ??= CrewOperationsSetting::query()
+            ->where('company_id', $companyId)
+            ->first();
+
+        if ($setting === null || $setting->notification_recipient_user_ids === null) {
+            return [];
+        }
+
+        $stored = array_values(array_unique(array_map(
+            intval(...),
+            array_filter($setting->notification_recipient_user_ids, fn ($id) => is_numeric($id)),
+        )));
+
+        if ($stored === []) {
+            return [];
+        }
+
+        $allowed = self::activeCompanyUsers($companyId)
+            ->pluck('id')
+            ->map(intval(...))
+            ->all();
+
+        return array_values(array_intersect($stored, $allowed));
     }
 
     /**

@@ -155,6 +155,22 @@ export type PlanningSettings = {
     pool_department_ids: number[];
     max_home_days: number;
     sync_sea_service: boolean;
+    notifications_enabled: boolean;
+    notification_recipient_user_ids: number[];
+    alert_signoff_overdue: boolean;
+    alert_signoff_no_relief: boolean;
+    alert_relief_not_ready: boolean;
+    alert_current_manning_gap: boolean;
+    alert_projected_manning_gap: boolean;
+    notify_in_app: boolean;
+    notify_browser_push: boolean;
+    notify_email: boolean;
+};
+
+export type NotificationUserOption = {
+    id: number;
+    name: string;
+    email: string;
 };
 
 export type AssignmentFormData = {

@@ -1,6 +1,7 @@
 import { Head, useForm } from '@inertiajs/react';
 import {
     AlertTriangle,
+    Bell,
     Check,
     CheckCircle2,
     ChevronRight,
@@ -10,14 +11,17 @@ import {
     Save,
     Ship,
     Sliders,
+    X,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 import { update as updateSettings } from '@/actions/App/Http/Controllers/Organization/CrewOperationsSettingsController';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
+import InputError from '@/components/input-error';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -41,21 +45,48 @@ import {
     getDepartmentCheckState,
 } from '@/features/organization/crew-planning/lib/department-tree';
 import type {
+    NotificationUserOption,
     PlanningDepartmentNode,
     PlanningSettings,
 } from '@/features/organization/crew-planning/types';
 import { cn } from '@/lib/utils';
 
-type FormData = {
-    pool_department_ids: number[];
-    max_home_days: number;
-    sync_sea_service: boolean;
-};
+type FormData = PlanningSettings;
 
 type Props = {
     department_tree: PlanningDepartmentNode[];
     crew_settings: PlanningSettings;
+    notification_users: NotificationUserOption[];
 };
+
+const ALERT_TYPE_FIELDS = [
+    {
+        key: 'alert_signoff_overdue' as const,
+        label: 'Sign-off overdue',
+    },
+    {
+        key: 'alert_signoff_no_relief' as const,
+        label: 'Sign-off approaching — no relief',
+    },
+    {
+        key: 'alert_relief_not_ready' as const,
+        label: 'Relief not ready',
+    },
+    {
+        key: 'alert_current_manning_gap' as const,
+        label: 'Current manning gap',
+    },
+    {
+        key: 'alert_projected_manning_gap' as const,
+        label: 'Projected manning gap',
+    },
+];
+
+const DELIVERY_FIELDS = [
+    { key: 'notify_in_app' as const, label: 'In-app' },
+    { key: 'notify_browser_push' as const, label: 'Browser Push' },
+    { key: 'notify_email' as const, label: 'Email' },
+];
 
 function DepartmentTreeNodeRow({
     node,
@@ -144,27 +175,18 @@ function DepartmentTreeNodeRow({
 export default function CrewOperationsSettings({
     department_tree,
     crew_settings,
+    notification_users,
 }: Props): ReactElement {
     const form = useForm<FormData>({
-        pool_department_ids: crew_settings.pool_department_ids,
-        max_home_days: crew_settings.max_home_days,
-        sync_sea_service: crew_settings.sync_sea_service,
+        ...crew_settings,
     });
     const [disableSyncDialogOpen, setDisableSyncDialogOpen] = useState(false);
 
     useEffect(() => {
-        form.setData({
-            pool_department_ids: crew_settings.pool_department_ids,
-            max_home_days: crew_settings.max_home_days,
-            sync_sea_service: crew_settings.sync_sea_service,
-        });
+        form.setData({ ...crew_settings });
         form.clearErrors();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [
-        crew_settings.pool_department_ids,
-        crew_settings.max_home_days,
-        crew_settings.sync_sea_service,
-    ]);
+    }, [crew_settings]);
 
     const selectedSet = new Set(form.data.pool_department_ids);
     const allDepartmentIds = flattenDepartmentTreeIds(department_tree);
@@ -209,127 +231,383 @@ export default function CrewOperationsSettings({
                 onSubmit={handleSubmit}
                 className="grid max-w-6xl items-start gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(19rem,0.75fr)]"
             >
-                <Card className="overflow-hidden border-border/80 bg-card/70 shadow-sm backdrop-blur-md dark:border-white/8 dark:bg-white/[0.03]">
-                    <CardHeader className="border-b border-border/60 bg-linear-to-r from-primary/[0.07] via-muted/20 to-transparent p-5 sm:p-6 dark:border-white/6">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="flex items-start gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-                                    <Sliders className="h-5 w-5" />
+                <div className="space-y-6">
+                    <Card className="overflow-hidden border-border/80 bg-card/70 shadow-sm backdrop-blur-md dark:border-white/8 dark:bg-white/[0.03]">
+                        <CardHeader className="border-b border-border/60 bg-linear-to-r from-primary/[0.07] via-muted/20 to-transparent p-5 sm:p-6 dark:border-white/6">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="flex items-start gap-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                                        <Sliders className="h-5 w-5" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <CardTitle className="text-lg font-bold tracking-tight">
+                                            Crew departments pool
+                                        </CardTitle>
+                                        <CardDescription className="max-w-xl text-sm leading-relaxed">
+                                            Control which employees are
+                                            available in the planning sidebar
+                                            and assignment picker.
+                                        </CardDescription>
+                                    </div>
                                 </div>
-                                <div className="space-y-1">
-                                    <CardTitle className="text-lg font-bold tracking-tight">
-                                        Crew departments pool
-                                    </CardTitle>
-                                    <CardDescription className="max-w-xl text-sm leading-relaxed">
-                                        Control which employees are available in
-                                        the planning sidebar and assignment
-                                        picker.
-                                    </CardDescription>
-                                </div>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-2 self-start rounded-full border border-border/70 bg-background/60 px-3 py-1.5 text-xs font-semibold shadow-xs">
-                                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                                {selectionLabel}
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-5 p-5 sm:p-6">
-                        <div className="rounded-xl border border-primary/15 bg-primary/[0.05] p-4">
-                            <p className="text-sm font-semibold text-foreground">
-                                How department filtering works
-                            </p>
-                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                Selecting a parent includes every child
-                                department. Leave the selection empty to make
-                                every active employee available to Crew
-                                Planning.
-                            </p>
-                        </div>
-
-                        <div className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
-                                    <p className="text-xs font-bold tracking-wider text-muted-foreground/80 uppercase">
-                                        Available departments
-                                    </p>
-                                    <p className="mt-0.5 text-xs text-muted-foreground">
-                                        {allDepartmentIds.length} active across
-                                        your organization
-                                    </p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 rounded-lg bg-background/50 px-3 text-xs"
-                                        disabled={allDepartmentIds.length === 0}
-                                        onClick={() =>
-                                            form.setData(
-                                                'pool_department_ids',
-                                                allDepartmentIds,
-                                            )
-                                        }
-                                    >
-                                        Select all
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 rounded-lg px-3 text-xs"
-                                        onClick={() =>
-                                            form.setData(
-                                                'pool_department_ids',
-                                                [],
-                                            )
-                                        }
-                                    >
-                                        Clear
-                                    </Button>
+                                <div className="flex shrink-0 items-center gap-2 self-start rounded-full border border-border/70 bg-background/60 px-3 py-1.5 text-xs font-semibold shadow-xs">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                                    {selectionLabel}
                                 </div>
                             </div>
-
-                            <div className="flex items-center gap-3 rounded-xl border border-dashed border-border/80 px-4 py-3 text-xs text-muted-foreground">
-                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                                    <Check className="h-3.5 w-3.5" />
-                                </span>
-                                <span>
-                                    {noneSelected
-                                        ? 'No filter applied — every active employee is available.'
-                                        : allSelected
-                                          ? 'Every department is selected — all active employees are available.'
-                                          : 'A department filter is active. Parent departments include all of their children.'}
-                                </span>
-                            </div>
-
-                            {department_tree.length === 0 ? (
-                                <p className="py-4 text-center text-sm text-muted-foreground/80">
-                                    No active departments found for this
-                                    company.
+                        </CardHeader>
+                        <CardContent className="space-y-5 p-5 sm:p-6">
+                            <div className="rounded-xl border border-primary/15 bg-primary/[0.05] p-4">
+                                <p className="text-sm font-semibold text-foreground">
+                                    How department filtering works
                                 </p>
-                            ) : (
-                                <div className="grid items-start gap-3 md:grid-cols-2">
-                                    {department_tree.map((node) => (
-                                        <DepartmentTreeNodeRow
-                                            key={node.id}
-                                            node={node}
-                                            depth={0}
-                                            selectedIds={selectedSet}
-                                            onToggle={toggleDepartment}
-                                        />
+                                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                                    Selecting a parent includes every child
+                                    department. Leave the selection empty to
+                                    make every active employee available to Crew
+                                    Planning.
+                                </p>
+                            </div>
+
+                            <div className="flex flex-col gap-4">
+                                <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <p className="text-xs font-bold tracking-wider text-muted-foreground/80 uppercase">
+                                            Available departments
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-muted-foreground">
+                                            {allDepartmentIds.length} active
+                                            across your organization
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 rounded-lg bg-background/50 px-3 text-xs"
+                                            disabled={
+                                                allDepartmentIds.length === 0
+                                            }
+                                            onClick={() =>
+                                                form.setData(
+                                                    'pool_department_ids',
+                                                    allDepartmentIds,
+                                                )
+                                            }
+                                        >
+                                            Select all
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 rounded-lg px-3 text-xs"
+                                            onClick={() =>
+                                                form.setData(
+                                                    'pool_department_ids',
+                                                    [],
+                                                )
+                                            }
+                                        >
+                                            Clear
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-3 rounded-xl border border-dashed border-border/80 px-4 py-3 text-xs text-muted-foreground">
+                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                        <Check className="h-3.5 w-3.5" />
+                                    </span>
+                                    <span>
+                                        {noneSelected
+                                            ? 'No filter applied — every active employee is available.'
+                                            : allSelected
+                                              ? 'Every department is selected — all active employees are available.'
+                                              : 'A department filter is active. Parent departments include all of their children.'}
+                                    </span>
+                                </div>
+
+                                {department_tree.length === 0 ? (
+                                    <p className="py-4 text-center text-sm text-muted-foreground/80">
+                                        No active departments found for this
+                                        company.
+                                    </p>
+                                ) : (
+                                    <div className="grid items-start gap-3 md:grid-cols-2">
+                                        {department_tree.map((node) => (
+                                            <DepartmentTreeNodeRow
+                                                key={node.id}
+                                                node={node}
+                                                depth={0}
+                                                selectedIds={selectedSet}
+                                                onToggle={toggleDepartment}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+
+                                {form.errors.pool_department_ids ? (
+                                    <p className="text-xs font-medium text-destructive">
+                                        {form.errors.pool_department_ids}
+                                    </p>
+                                ) : null}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="overflow-hidden border-border/80 bg-card/70 shadow-sm backdrop-blur-md dark:border-white/8 dark:bg-white/[0.03]">
+                        <CardHeader className="border-b border-border/60 bg-linear-to-r from-primary/[0.07] via-muted/20 to-transparent p-5 sm:p-6 dark:border-white/6">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="flex items-start gap-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                                        <Bell className="h-5 w-5" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <CardTitle className="text-lg font-bold tracking-tight">
+                                            Notifications
+                                        </CardTitle>
+                                        <CardDescription className="max-w-2xl text-sm leading-relaxed">
+                                            Detect Crew operational alerts and
+                                            choose who should receive them.
+                                            Delivery channels are stored now;
+                                            external delivery follows in later
+                                            phases.
+                                        </CardDescription>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 self-start rounded-full border border-border/70 bg-background/60 px-3 py-1.5 shadow-xs">
+                                    <Label
+                                        htmlFor="notifications_enabled"
+                                        className="text-xs font-semibold"
+                                    >
+                                        Crew Notifications
+                                    </Label>
+                                    <Switch
+                                        id="notifications_enabled"
+                                        checked={
+                                            form.data.notifications_enabled
+                                        }
+                                        onCheckedChange={(checked) =>
+                                            form.setData(
+                                                'notifications_enabled',
+                                                checked,
+                                            )
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="grid gap-6 p-5 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
+                            {!form.data.notifications_enabled ? (
+                                <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-950 md:col-span-2 xl:col-span-3 dark:text-amber-100">
+                                    <AlertTriangle className="text-amber-600 dark:text-amber-400" />
+                                    <AlertTitle>Notifications off</AlertTitle>
+                                    <AlertDescription>
+                                        No new Crew operational notifications
+                                        will be generated or delivered while
+                                        this is disabled.
+                                    </AlertDescription>
+                                </Alert>
+                            ) : null}
+
+                            <div className="space-y-3 md:col-span-1">
+                                <div>
+                                    <p className="text-sm font-semibold">
+                                        Recipients
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Active users with membership in this
+                                        company.
+                                    </p>
+                                </div>
+                                {form.data.notification_recipient_user_ids
+                                    .length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {form.data.notification_recipient_user_ids.map(
+                                            (userId) => {
+                                                const user =
+                                                    notification_users.find(
+                                                        (option) =>
+                                                            option.id ===
+                                                            userId,
+                                                    );
+
+                                                if (!user) {
+                                                    return null;
+                                                }
+
+                                                return (
+                                                    <Badge
+                                                        key={user.id}
+                                                        variant="secondary"
+                                                        className="gap-1 pr-1"
+                                                    >
+                                                        {user.name}
+                                                        <button
+                                                            type="button"
+                                                            className="rounded-full p-0.5 hover:bg-muted"
+                                                            aria-label={`Remove ${user.name}`}
+                                                            onClick={() =>
+                                                                form.setData(
+                                                                    'notification_recipient_user_ids',
+                                                                    form.data.notification_recipient_user_ids.filter(
+                                                                        (id) =>
+                                                                            id !==
+                                                                            user.id,
+                                                                    ),
+                                                                )
+                                                            }
+                                                        >
+                                                            <X className="h-3 w-3" />
+                                                        </button>
+                                                    </Badge>
+                                                );
+                                            },
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-muted-foreground">
+                                        No recipients selected.
+                                    </p>
+                                )}
+                                <div className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-border/60 bg-muted/10 p-3">
+                                    {notification_users.length === 0 ? (
+                                        <p className="text-xs text-muted-foreground">
+                                            No active company users available.
+                                        </p>
+                                    ) : (
+                                        notification_users.map((user) => {
+                                            const checked =
+                                                form.data.notification_recipient_user_ids.includes(
+                                                    user.id,
+                                                );
+
+                                            return (
+                                                <label
+                                                    key={user.id}
+                                                    className="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-1.5 hover:bg-muted/40"
+                                                >
+                                                    <Checkbox
+                                                        checked={checked}
+                                                        onCheckedChange={(
+                                                            value,
+                                                        ) => {
+                                                            const next =
+                                                                value === true
+                                                                    ? [
+                                                                          ...form
+                                                                              .data
+                                                                              .notification_recipient_user_ids,
+                                                                          user.id,
+                                                                      ]
+                                                                    : form.data.notification_recipient_user_ids.filter(
+                                                                          (
+                                                                              id,
+                                                                          ) =>
+                                                                              id !==
+                                                                              user.id,
+                                                                      );
+
+                                                            form.setData(
+                                                                'notification_recipient_user_ids',
+                                                                Array.from(
+                                                                    new Set(
+                                                                        next,
+                                                                    ),
+                                                                ),
+                                                            );
+                                                        }}
+                                                    />
+                                                    <span className="min-w-0">
+                                                        <span className="block truncate text-sm font-medium">
+                                                            {user.name}
+                                                        </span>
+                                                        <span className="block truncate text-xs text-muted-foreground">
+                                                            {user.email}
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                                <InputError
+                                    message={
+                                        form.errors
+                                            .notification_recipient_user_ids
+                                    }
+                                />
+                            </div>
+
+                            <div className="space-y-3">
+                                <div>
+                                    <p className="text-sm font-semibold">
+                                        Alert Types
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Enable only the conditions this company
+                                        wants to track.
+                                    </p>
+                                </div>
+                                <div className="space-y-2">
+                                    {ALERT_TYPE_FIELDS.map((field) => (
+                                        <label
+                                            key={field.key}
+                                            className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2"
+                                        >
+                                            <span className="text-sm">
+                                                {field.label}
+                                            </span>
+                                            <Switch
+                                                checked={form.data[field.key]}
+                                                onCheckedChange={(checked) =>
+                                                    form.setData(
+                                                        field.key,
+                                                        checked,
+                                                    )
+                                                }
+                                            />
+                                        </label>
                                     ))}
                                 </div>
-                            )}
+                            </div>
 
-                            {form.errors.pool_department_ids ? (
-                                <p className="text-xs font-medium text-destructive">
-                                    {form.errors.pool_department_ids}
-                                </p>
-                            ) : null}
-                        </div>
-                    </CardContent>
-                </Card>
+                            <div className="space-y-3">
+                                <div>
+                                    <p className="text-sm font-semibold">
+                                        Delivery
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Channel preferences for later delivery
+                                        phases.
+                                    </p>
+                                </div>
+                                <div className="space-y-2">
+                                    {DELIVERY_FIELDS.map((field) => (
+                                        <label
+                                            key={field.key}
+                                            className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2"
+                                        >
+                                            <span className="text-sm">
+                                                {field.label}
+                                            </span>
+                                            <Switch
+                                                checked={form.data[field.key]}
+                                                onCheckedChange={(checked) =>
+                                                    form.setData(
+                                                        field.key,
+                                                        checked,
+                                                    )
+                                                }
+                                            />
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
 
                 <div className="space-y-4 lg:sticky lg:top-6">
                     <Card className="overflow-hidden border-border/80 bg-card/70 shadow-sm backdrop-blur-md dark:border-white/8 dark:bg-white/[0.03]">

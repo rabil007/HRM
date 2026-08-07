@@ -40,6 +40,11 @@ Schedule::command('announcements:publish-scheduled')
     ->timezone(config('app.timezone', 'UTC'))
     ->withoutOverlapping();
 
+Schedule::command('crew:reconcile-operational-alerts')
+    ->everyTenMinutes()
+    ->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping();
+
 Schedule::command('contracts:expire')
     ->dailyAt('01:00')
     ->timezone(config('app.timezone', 'UTC'))

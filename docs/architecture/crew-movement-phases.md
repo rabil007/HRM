@@ -409,7 +409,7 @@ Hardens existing `TransferVessel` / `Redeploy` without redesigning Current Crew 
 
 ### Deferred (still later)
 
-- Phase 3 notifications / escalations
+- Phase 3B+ delivery / escalations
 
 ## Phase 2C.2 — Transfer / Redeploy Tour UI Alignment
 
@@ -426,7 +426,29 @@ Backend Tour resolution remains authoritative.
 
 ### Deferred (still later)
 
-- Phase 3 notifications / escalations
+- Phase 3B+ delivery (in-app bell, Web Push, email)
+
+## Phase 3A — Crew Operational Alerts Foundation + Company Notification Settings
+
+Crew Operations → Settings gains a **Notifications** card. Defaults **OFF** so existing companies are not notified after migration.
+
+| Concern | Behaviour |
+|---------|-----------|
+| Recipients | Explicit selected active company users with active membership only |
+| Alert types | Independent toggles for overdue, no-relief, relief-not-ready, current gap, projected gap |
+| Delivery prefs | In-app / Browser Push / Email stored; delivery deferred |
+| Persistence | `crew_operational_alerts` with `dedupe_key`, active/resolved lifecycle |
+| Detection | `DetectCrewOperationalAlerts` uses Tour / Relief / Manning / Projected queries — not Action Required |
+| Reconciliation | `ReconcileCrewOperationalAlerts` + `crew:reconcile-operational-alerts` every 10 minutes (`withoutOverlapping`) |
+| Tenancy | Trusted `current_company_id`; per-company safe iteration |
+
+Resolved alerts are kept for history. Recurring conditions after resolution create a new active alert.
+
+### Deferred (still later)
+
+- Unified notification bell
+- Web Push / email delivery jobs
+- Escalation UX
 
 ## Sea service
 
