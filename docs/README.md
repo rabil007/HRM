@@ -19,7 +19,7 @@ Product and developer documentation for the Herd OMS-HRM application. These guid
 | [Crew payroll timeline preparation](./architecture/crew-payroll-timeline-preparation.md) | Payroll, operations, developers | Prepare / review / approve / apply crew timeline from Crew Operations actuals (Phase 1A–1D; calculator safeguards are 1E) |
 | [Crew Movement History](./reports/crew-movement-history.md) | Operations, management, developers | One-row assignment history, phase mapping, durations, exports |
 | [Crew Movement Corrections](./architecture/crew-movement-corrections.md) | Operations, developers | Request/approve workflow for in-place movement field corrections |
-| [Crew Movement Phases](./architecture/crew-movement-phases.md) | Operations, developers | P0–P6 lifecycle, Tour of Duty Phase 1, Relief Readiness Phase 2A, Projected Manning Engine Phase 2B.1, Projected Manning UI Phase 2B.2, planning sync, sea service |
+| [Crew Movement Phases](./architecture/crew-movement-phases.md) | Operations, developers | P0–P6 lifecycle, Tour of Duty Phase 1, Relief Readiness Phase 2A, Projected Manning Engine Phase 2B.1, Projected Manning UI Phase 2B.2, Daily Operations Dashboard Phase 2B.3A, planning sync, sea service |
 | [Architecture overview](./architecture/project-analysis.md) | Developers | Application structure, stack, risks, conventions |
 | [Domain map](./architecture/domains.md) | Product, developers | Core HR, documents, attendance, payroll, crew operations |
 | [Golden files](./architecture/golden-files.md) | Developers | Preferred implementation references |

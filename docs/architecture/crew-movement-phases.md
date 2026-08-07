@@ -260,7 +260,7 @@ Planning never starts movement, completes source P4, creates Sea Service, or cre
 
 ### Deferred
 
-- Phase 2B.2 dashboard cards / Planning Gantt overlays
+- Phase 2B.3B: Planning Gantt projection overlays
 - Phase 2C: transfer / redeployment Tour behaviour
 - Phase 3: notifications (email, push, in-app, escalation)
 
@@ -343,10 +343,38 @@ Dedicated Crew Operations page at `/organization/crew-operations/projected-manni
 
 ### Deferred (still later)
 
-- Crew Operations dashboard projected cards
-- Crew Planning Gantt projection overlays
+- Crew Planning Gantt projection overlays (Phase 2B.3B)
 - Notifications / escalations
 - Phase 2C transfer / redeployment
+
+## Phase 2B.3A — Daily Operations Dashboard + projected manning risk integration
+
+Crew Operations landing page (`/organization/crew-operations`) is an **operational cockpit**, not an analytics board.
+
+### Sections
+
+1. **Header / quick actions** — Current Crew, Planning, Projected Manning (permission-gated; Settings is not a primary daily action).
+2. **Daily Pulse** (max 4) — Onboard Now (actual P4), Joins Next 7 Days, Sign-offs Next 7 Days (+ overdue secondary), Coverage Risks (`current now · upcoming projected`).
+3. **Action Required** — bounded (≤10) urgency-ordered items: current manning gap → overdue sign-off → due today no relief → critical relief → imminent not-ready relief → projected future gap → overdue corrections → needs update → over-home.
+4. **Next 7 Days** — compact join/sign-off day list + Open Crew Planning.
+5. **Manning & Relief Risks** — bounded mixed list with explicit Actual / Projected / Relief kinds + View Projected Manning.
+
+### Projected manning
+
+- Still calculated only via `CrewProjectedManningQuery` (company-local today → +30 days).
+- `projected_manning` is `null` without `crew_operations.vessel_manning.view`.
+- Used for Coverage Risks upcoming, Action Required future-gap rows, and projected risk rows — not a large KPI card on the landing page.
+- Detailed UI remains `/organization/crew-operations/projected-manning`.
+
+### Removed from landing presentation
+
+Deployment trends chart, phase-status grid, crew pool, recent activity, standalone movement-corrections card, Tour/Relief KPI grids, standalone Manning Gaps card, large Projected Manning card. Underlying routes/queries/features remain elsewhere.
+
+### Deferred (still later)
+
+- Crew Planning Gantt projection overlays (Phase 2B.3B)
+- Phase 2C transfer / redeployment
+- Notifications / escalations
 
 ## Sea service
 

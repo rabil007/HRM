@@ -11,8 +11,11 @@ final class CrewOperationsDashboardPagePermissions
      *     overview: bool,
      *     planning: bool,
      *     vessel_manning: bool,
+     *     assignments: bool,
      *     deployments: bool,
-     *     deployments_create: bool
+     *     deployments_create: bool,
+     *     corrections_view: bool,
+     *     corrections_approve: bool
      * }
      */
     public static function for(?User $user): array
@@ -21,6 +24,7 @@ final class CrewOperationsDashboardPagePermissions
             'overview' => CrewOperationsOverviewAccess::canView($user),
             'planning' => $user?->can('crew_operations.planning.view') ?? false,
             'vessel_manning' => $user?->can('crew_operations.vessel_manning.view') ?? false,
+            'assignments' => $user?->can('crew_operations.assignments.view') ?? false,
             'deployments' => false,
             'deployments_create' => false,
             'corrections_view' => $user?->can('crew_operations.corrections.view') ?? false,
