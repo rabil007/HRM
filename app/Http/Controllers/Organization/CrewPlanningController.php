@@ -64,7 +64,14 @@ class CrewPlanningController extends Controller
                 $projectionPositions,
             ),
             'bars' => CrewPlanningGanttQuery::bars($companyId, $from, $to, $vesselId, $rankId),
-            'tree' => CrewPlanningGanttQuery::tree($companyId, $from, $to, $vesselId, $rankId),
+            'tree' => CrewPlanningGanttQuery::tree(
+                $companyId,
+                $from,
+                $to,
+                $vesselId,
+                $rankId,
+                $projectionPositions,
+            ),
             'filters' => [
                 'vessel_id' => $vesselId,
                 'rank_id' => $rankId,
