@@ -56,4 +56,5 @@ Ledger unique key: `(crew_operational_alert_id, user_id, notification_version)`.
 - Queue: `app/Support/CrewOperations/QueueCrewOperationalAlertPushes.php`
 - Job: `app/Jobs/DeliverCrewOperationalAlertWebPushJob.php`
 - Notification: `app/Notifications/CrewOperationalAlertWebPushNotification.php`
+- Email companion: [Crew operational alerts email](./crew-operational-alerts-email.md)
 - Shared subscriptions / SW: see [Announcement Web Push](./announcements-web-push.md)

@@ -409,7 +409,7 @@ Hardens existing `TransferVessel` / `Redeploy` without redesigning Current Crew 
 
 ### Deferred (still later)
 
-- Phase 3B+ delivery / escalations
+- Phase 3B+ delivery / escalations (in-app, Web Push); Phase 3C email
 
 ## Phase 2C.2 — Transfer / Redeploy Tour UI Alignment
 
@@ -464,8 +464,26 @@ Crew operational alerts appear in the existing notification bell alongside Annou
 
 ### Deferred (still later)
 
-- Email delivery
-- Phase 3C delivery/retry hardening
+- Further escalation / digest workflows beyond Phase 3C
+
+## Phase 3C — Operational Alert Email Delivery + Retry Hardening
+
+Email is an automatic extension of Crew operational notifications. There is **no company Email ON/OFF toggle** and no separate Crew email settings.
+
+| Concern | Behaviour |
+|---------|-----------|
+| When emailed | Same meaningful `notification_version` events as Web Push: new alert, reactivation, severity escalation |
+| Not emailed | Unchanged reconciliation, `last_detected_at` refresh, resolved alerts |
+| Recipients | Selected active company members with a usable email address |
+| SMTP | Existing application `MailSettingsService` (settings over env). No second SMTP system |
+| Ledger | `crew_operational_alert_email_deliveries` unique on `(alert_id, user_id, notification_version)` |
+| Jobs | `DeliverCrewOperationalAlertEmailJob` afterCommit; re-checks company, membership, selection, alert activity/version, email, SMTP |
+| Retry | Bounded tries/backoff; transport failures keep queued until exhausted → `email_transport_exhausted` |
+| Privacy | Subject: “Crew Operations requires attention.” No employee/vessel/rank/assignment detail |
+| Links | Permission-safe CTA via `ResolveCrewOperationalAlertUrl`; omit CTA when unauthorized |
+| Independence | Email and Web Push ledgers/queues are independent |
+
+See [Crew operational alerts email delivery](../crew-operational-alerts-email.md).
 
 ## Sea service
 
