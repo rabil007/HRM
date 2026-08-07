@@ -125,7 +125,19 @@ class PerformCrewMovementActionRequest extends FormRequest
             $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
             $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)];
+            $baseRules['tour_of_duty_days'] = ['nullable', 'integer', 'min:1', 'max:365'];
+            $baseRules['planned_signoff_choice'] = [
+                'nullable',
+                'string',
+                Rule::in(['tour_of_duty', 'existing_plan', 'manual_override']),
+            ];
             $baseRules['planned_signoff_at'] = ['nullable', 'date'];
+            $baseRules['planned_signoff_override_reason'] = [
+                Rule::requiredIf(fn () => $this->input('planned_signoff_choice') === 'manual_override'),
+                'nullable',
+                'string',
+                'max:1000',
+            ];
             $baseRules['remarks'] = ['nullable', 'string', 'max:1000'];
         }
 
@@ -155,7 +167,27 @@ class PerformCrewMovementActionRequest extends FormRequest
             ];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
             $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)];
+            $baseRules['tour_of_duty_days'] = [
+                Rule::excludeIf(fn () => $this->input('starting_phase') !== CrewPhaseCode::OnVessel->value),
+                'nullable',
+                'integer',
+                'min:1',
+                'max:365',
+            ];
+            $baseRules['planned_signoff_choice'] = [
+                Rule::excludeIf(fn () => $this->input('starting_phase') !== CrewPhaseCode::OnVessel->value),
+                'nullable',
+                'string',
+                Rule::in(['tour_of_duty', 'existing_plan', 'manual_override']),
+            ];
             $baseRules['planned_signoff_at'] = ['nullable', 'date'];
+            $baseRules['planned_signoff_override_reason'] = [
+                Rule::requiredIf(fn () => $this->input('starting_phase') === CrewPhaseCode::OnVessel->value
+                    && $this->input('planned_signoff_choice') === 'manual_override'),
+                'nullable',
+                'string',
+                'max:1000',
+            ];
             $baseRules['remarks'] = ['nullable', 'string', 'max:1000'];
         }
 
@@ -237,14 +269,24 @@ class PerformCrewMovementActionRequest extends FormRequest
                 }
             }
 
-            if ($action === 'join_vessel') {
+            if (in_array($action, ['join_vessel', 'transfer_vessel'], true)
+                || ($action === 'redeploy' && $this->input('starting_phase') === CrewPhaseCode::OnVessel->value)) {
                 $choice = (string) $this->input('planned_signoff_choice', '');
 
-                if ($choice === 'existing_plan' && $assignment->planned_signoff_at === null) {
-                    $validator->errors()->add(
-                        'planned_signoff_choice',
-                        'There is no existing planned sign-off date to keep.',
-                    );
+                if ($choice === 'existing_plan') {
+                    if ($action === 'join_vessel' && $assignment->planned_signoff_at === null) {
+                        $validator->errors()->add(
+                            'planned_signoff_choice',
+                            'There is no existing planned sign-off date to keep.',
+                        );
+                    }
+
+                    if ($action !== 'join_vessel') {
+                        $validator->errors()->add(
+                            'planned_signoff_choice',
+                            'Existing planned sign-off cannot be kept on a new linked assignment. Choose Tour of Duty or enter another date.',
+                        );
+                    }
                 }
 
                 if ($choice === 'manual_override' && ! $this->filled('planned_signoff_at')) {

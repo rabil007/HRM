@@ -116,9 +116,14 @@ When an approved correction changes P4 `actual_start_at` and `planned_signoff_so
 
 Manual / existing-plan sources are preserved. Pending corrections do not mutate official dates. A failure during approval rolls back assignment, phase, planning, and correction status together.
 
-### Transfer / redeployment (Phase 1 limitation)
+### Transfer / redeployment (Phase 2C.1)
 
-Vessel transfer and redeployment do not yet re-resolve Tour of Duty for the linked destination assignment beyond existing movement payload fields. Destination Planned Sign-Off continues to follow the existing transfer/redeploy payload rules.
+Direct vessel transfer and direct-P4 redeploy create a **new linked assignment** (`previous_assignment_id`). They never mutate the source assignment into another vessel.
+
+- Source P4 is completed at the actual handoff `occurred_at`; Sea Service syncs from that completed source P4 only.
+- Destination starting in active P4 receives a **fresh Tour of Duty snapshot** via `CrewTourOfDutyResolver` + `CrewJoinVesselSignoffApplier` (same path as Join Vessel), based on **destination rank** and the handoff timestamp — not a copy of the source Tour.
+- Redeploy to P0/P1/P2A/P3 does **not** snapshot Tour; Tour is applied later when that assignment performs Join Vessel.
+- Planned Sign-Off remains forecast-only; only actual transfer/redeploy/`occurred_at` completes source P4.
 
 ### Notifications deferred
 
@@ -146,11 +151,11 @@ Email, browser Web Push, in-app notification feeds, escalation, and Announcement
 
 ### Transfer Vessel (`transfer_vessel`)
 
-Available from Active P4 On Vessel. Completes the source P4 and assignment at `occurred_at`, syncs sea service and planning for the source, then creates a linked Active assignment (`previous_assignment_id`, `source = vessel_transfer`) that starts directly in active P4 on the destination vessel. Destination vessel must start blank in the form, must differ from the source, and is required. Rank/client may default from the current assignment. No artificial P5/P6/P0–P3 phases are created. The movement controller redirects to the new assignment.
+Available from Active P4 On Vessel. Completes the source P4 and assignment at `occurred_at`, syncs sea service and planning for the source, then creates a linked Active assignment (`previous_assignment_id`, `source = vessel_transfer`) that starts directly in active P4 on the destination vessel. Destination vessel must start blank in the form, must differ from the source, and is required. Rank/client may default from the current assignment. No artificial P5/P6/P0–P3 phases are created. The destination receives a fresh Tour of Duty snapshot (destination rank + handoff timestamp) via the same resolver/applier as Join Vessel. The movement controller redirects to the new assignment.
 
 ### Redeploy (`redeploy`)
 
-Available from Active P5 or P6. Completes the source phase and assignment, then creates a linked assignment (`source = redeployment`) starting only at the chosen real phase: P0 (Draft + planned; vessel optional; planned sign-off cleared when not applicable), or P1 / P2A / P3 / P4 (Active; vessel optional except P4 requires vessel and rank). Same or different vessel/client is allowed. Hidden stale destination fields must not be submitted for P0. Earlier phases are never invented.
+Available from Active P5 or P6. Completes the source phase and assignment, then creates a linked assignment (`source = redeployment`) starting only at the chosen real phase: P0 (Draft + planned; vessel optional; planned sign-off cleared when not applicable), or P1 / P2A / P3 / P4 (Active; vessel optional except P4 requires vessel and rank). Same or different vessel/client is allowed. Direct P4 redeploy applies a fresh Tour snapshot; pre-P4 starts do not — Tour is applied later on Join Vessel. Hidden stale destination fields must not be submitted for P0. Earlier phases are never invented.
 
 ### Still unsupported as an immediate movement action
 
@@ -260,7 +265,6 @@ Planning never starts movement, completes source P4, creates Sea Service, or cre
 
 ### Deferred
 
-- Phase 2C: transfer / redeployment Tour behaviour
 - Phase 3: notifications (email, push, in-app, escalation)
 
 ## Phase 2B.1 — Projected Vessel Manning Engine
@@ -343,7 +347,7 @@ Dedicated Crew Operations page at `/organization/crew-operations/projected-manni
 ### Deferred (still later)
 
 - Notifications / escalations
-- Phase 2C transfer / redeployment
+- Phase 3 notifications
 
 ## Phase 2B.3A — Daily Operations Dashboard + projected manning risk integration
 
@@ -370,7 +374,6 @@ Deployment trends chart, phase-status grid, crew pool, recent activity, standalo
 
 ### Deferred (still later)
 
-- Phase 2C transfer / redeployment
 - Notifications / escalations
 
 ## Phase 2B.3B — Crew Planning Gantt Projection Overlays
@@ -389,7 +392,24 @@ Crew Planning (`/organization/crew-planning`) layers read-only projected coverag
 
 ### Deferred (still later)
 
-- Phase 2C transfer / redeployment
+- Phase 3 notifications / escalations
+
+## Phase 2C.1 — Transfer / Redeployment Tour Hardening
+
+Hardens existing `TransferVessel` / `Redeploy` without redesigning Current Crew or Planning.
+
+| Rule | Behaviour |
+|------|-----------|
+| Linked assignment | Destination is a new `CrewAssignment` with `previous_assignment_id`; source vessel/rank/P4 history is preserved |
+| Direct P4 transfer / redeploy | Fresh Tour snapshot via `CrewTourOfDutyResolver` + `CrewJoinVesselSignoffApplier` (destination rank + `occurred_at`) |
+| Pre-P4 redeploy | No Tour snapshot; Join Vessel applies Tour later |
+| Sea Service | Source P4 completion syncs once; destination Sea Service waits until destination P4 completes |
+| Planned vs actual | Only actual `occurred_at` handoff completes source P4 |
+| Rollback | Tour/sign-off validation runs before source mutation; failures leave source active |
+
+### Deferred (still later)
+
+- Phase 2C.2 UI refinements if genuinely needed
 - Phase 3 notifications / escalations
 
 ## Sea service
