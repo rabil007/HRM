@@ -400,7 +400,7 @@ export function CrewPlanningContent({
                                         Vessels &amp; Ranks
                                     </p>
                                     <p className="mt-0.5 text-[11px] text-muted-foreground/55">
-                                        Select a planned rank to focus the
+                                        Select a vessel or rank to focus the
                                         timeline
                                     </p>
                                 </div>

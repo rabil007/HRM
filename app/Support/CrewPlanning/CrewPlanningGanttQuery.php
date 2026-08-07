@@ -218,6 +218,20 @@ final class CrewPlanningGanttQuery
     /**
      * Tree data: vessels and ranks with planned crew in range.
      *
+     * When `$projectionPositions` is provided (same catalog as {@see rows()}),
+     * Vessel Manning / projection positions are merged by vessel_id + rank_id so
+     * configured ranks appear even with zero Planning crew. Existing Planning
+     * crew stays attached; projection-only ranks use `crew: []`. `required_count`
+     * comes from Vessel Manning when the position exists in projection.
+     *
+     * @param  list<array{
+     *     row_key: string,
+     *     vessel_id: int,
+     *     vessel_name: string,
+     *     rank_id: int,
+     *     rank_name: string,
+     *     required_count: int
+     * }>|null  $projectionPositions
      * @return list<array{
      *     vessel_id: int,
      *     vessel_name: string,
@@ -239,6 +253,7 @@ final class CrewPlanningGanttQuery
         string $to,
         ?int $vesselId = null,
         ?int $rankId = null,
+        ?array $projectionPositions = null,
     ): array {
         $assignments = self::assignmentsInRange($companyId, $from, $to, $vesselId, $rankId, [
             'vessel:id,name',
@@ -249,7 +264,7 @@ final class CrewPlanningGanttQuery
 
         $grouped = [];
 
-        foreach ($assignments->groupBy(fn (CrewPlanningAssignment $assignment) => "vessel:{$assignment->vessel_id}|rank:{$assignment->rank_id}") as $rowAssignments) {
+        foreach ($assignments->groupBy(fn (CrewPlanningAssignment $assignment) => "vessel:{$assignment->vessel_id}|rank:{$assignment->rank_id}") as $rowKey => $rowAssignments) {
             /** @var CrewPlanningAssignment $first */
             $first = $rowAssignments->first();
             $vessel = $first->vessel;
@@ -269,7 +284,7 @@ final class CrewPlanningGanttQuery
                 ];
             }
 
-            $grouped[$vId]['ranks'][] = [
+            $grouped[$vId]['ranks'][$rowKey] = [
                 'rank_id' => $rank->id,
                 'rank_name' => $rank->name,
                 'required_count' => $rowAssignments->count(),
@@ -285,7 +300,59 @@ final class CrewPlanningGanttQuery
             ];
         }
 
-        return array_values($grouped);
+        if ($projectionPositions === null) {
+            $result = [];
+
+            foreach ($grouped as $vesselGroup) {
+                $vesselGroup['ranks'] = array_values($vesselGroup['ranks']);
+                $result[] = $vesselGroup;
+            }
+
+            return $result;
+        }
+
+        foreach ($projectionPositions as $position) {
+            $vId = (int) $position['vessel_id'];
+            $rowKey = (string) $position['row_key'];
+
+            if (! isset($grouped[$vId])) {
+                $grouped[$vId] = [
+                    'vessel_id' => $vId,
+                    'vessel_name' => (string) $position['vessel_name'],
+                    'ranks' => [],
+                ];
+            }
+
+            if (isset($grouped[$vId]['ranks'][$rowKey])) {
+                $grouped[$vId]['ranks'][$rowKey]['required_count'] = (int) $position['required_count'];
+            } else {
+                $grouped[$vId]['ranks'][$rowKey] = [
+                    'rank_id' => (int) $position['rank_id'],
+                    'rank_name' => (string) $position['rank_name'],
+                    'required_count' => (int) $position['required_count'],
+                    'crew' => [],
+                ];
+            }
+        }
+
+        $result = [];
+
+        foreach ($grouped as $vesselGroup) {
+            $ranks = array_values($vesselGroup['ranks']);
+            usort(
+                $ranks,
+                fn (array $left, array $right): int => strcasecmp($left['rank_name'], $right['rank_name']),
+            );
+            $vesselGroup['ranks'] = $ranks;
+            $result[] = $vesselGroup;
+        }
+
+        usort(
+            $result,
+            fn (array $left, array $right): int => strcasecmp($left['vessel_name'], $right['vessel_name']),
+        );
+
+        return $result;
     }
 
     /**

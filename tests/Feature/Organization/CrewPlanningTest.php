@@ -564,6 +564,7 @@ test('planning users without vessel manning permission receive no projection pay
             ->where('can.projection', false)
             ->where('projection', null)
             ->has('rows', 0)
+            ->has('tree', 0)
         );
 });
 
@@ -708,6 +709,10 @@ test('projection vessel and rank filters apply on planning index', function () {
             ->has('rows', 1)
             ->where('rows.0.vessel_id', $vessel->id)
             ->where('rows.0.ranks.0.rank_id', $captain->id)
+            ->has('tree', 1)
+            ->where('tree.0.vessel_id', $vessel->id)
+            ->has('tree.0.ranks', 1)
+            ->where('tree.0.ranks.0.rank_id', $captain->id)
         );
 });
 
@@ -767,6 +772,9 @@ test('company B projection cannot appear on company A planning page', function (
             ->where('projection.rows.0.minimum_projected_count', 0)
             ->where('projection.summary.positions', 1)
             ->has('bars', 0)
+            ->has('tree', 1)
+            ->where('tree.0.ranks.0.required_count', 1)
+            ->where('tree.0.ranks.0.crew', [])
         );
 });
 
@@ -803,9 +811,65 @@ test('configured vessel rank with projected gap and zero planning still appears 
             ->where('rows.0.ranks.0.rank_id', $captain->id)
             ->where('rows.0.ranks.0.required_count', 2)
             ->where('rows.0.ranks.0.row_key', "vessel:{$vessel->id}|rank:{$captain->id}")
+            ->has('tree', 1)
+            ->where('tree.0.vessel_id', $vessel->id)
+            ->has('tree.0.ranks', 1)
+            ->where('tree.0.ranks.0.rank_id', $captain->id)
+            ->where('tree.0.ranks.0.required_count', 2)
+            ->where('tree.0.ranks.0.crew', [])
             ->where('projection.rows.0.status', CrewProjectedManningStatus::CurrentGap->value)
             ->where('projection.rows.0.maximum_gap', 2)
         );
+});
+
+test('vessel manning only positions appear in left tree with empty crew', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'vessel' => $vessel,
+        'captain' => $captain,
+        'chiefOfficer' => $welder,
+    ] = makeCrewPlanningFixtures();
+
+    $welder->update(['name' => 'Welder CPL']);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.vessel_manning.view',
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 1,
+    ]);
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $welder->id,
+        'required_count' => 2,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'from' => '2026-08-01',
+            'to' => '2026-08-31',
+        ]))
+        ->assertOk();
+
+    $treeRanks = collect($response->inertiaProps('tree.0.ranks'));
+    $rowRanks = collect($response->inertiaProps('rows.0.ranks'));
+
+    expect($response->inertiaProps('tree'))->toHaveCount(1)
+        ->and($response->inertiaProps('tree.0.vessel_id'))->toBe($vessel->id)
+        ->and($treeRanks)->toHaveCount(2)
+        ->and($treeRanks->pluck('rank_name')->all())->toBe(['Captain CPL', 'Welder CPL'])
+        ->and($treeRanks->every(fn (array $rank): bool => $rank['crew'] === []))->toBeTrue()
+        ->and($treeRanks->firstWhere('rank_id', $captain->id)['required_count'])->toBe(1)
+        ->and($treeRanks->firstWhere('rank_id', $welder->id)['required_count'])->toBe(2)
+        ->and($rowRanks)->toHaveCount(2)
+        ->and($response->inertiaProps('bars'))->toHaveCount(0);
 });
 
 test('existing planning row and projection position do not duplicate vessel rank', function () {
@@ -828,14 +892,16 @@ test('existing planning row and projection position do not duplicate vessel rank
         'required_count' => 3,
     ]);
 
+    $employee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $captain->id,
+        'status' => 'active',
+    ]);
+
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $captain->id,
-        'employee_id' => Employee::factory()->forCompany($company)->create([
-            'rank_id' => $captain->id,
-            'status' => 'active',
-        ])->id,
+        'employee_id' => $employee->id,
         'planned_join_date' => '2026-08-10',
         'planned_leave_date' => '2026-11-10',
     ]);
@@ -848,10 +914,17 @@ test('existing planning row and projection position do not duplicate vessel rank
         ->assertOk();
 
     $ranks = collect($response->inertiaProps('rows.0.ranks'));
+    $treeRanks = collect($response->inertiaProps('tree.0.ranks'));
+    $crew = $treeRanks->first()['crew'];
 
     expect($ranks)->toHaveCount(1)
         ->and($ranks->first()['required_count'])->toBe(3)
-        ->and($response->inertiaProps('bars'))->toHaveCount(1);
+        ->and($response->inertiaProps('bars'))->toHaveCount(1)
+        ->and($treeRanks)->toHaveCount(1)
+        ->and($treeRanks->first()['required_count'])->toBe(3)
+        ->and($crew)->toHaveCount(1)
+        ->and($crew[0]['employee_id'])->toBe($employee->id)
+        ->and($crew[0]['employee_name'])->toBe($employee->name);
 });
 
 test('planning projection returns current gap future gap and overlap periods', function () {
