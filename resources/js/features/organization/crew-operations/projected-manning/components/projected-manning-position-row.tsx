@@ -68,6 +68,7 @@ export function ProjectedManningPositionRow({
 
     const planHref = crewPlanningIndex.url({
         query: {
+            open_create: 1,
             vessel_id: item.vessel_id,
             rank_id: item.rank_id,
             from,

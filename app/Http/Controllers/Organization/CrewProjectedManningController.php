@@ -32,8 +32,22 @@ class CrewProjectedManningController extends Controller
 
         $validated = $request->validate([
             'horizon' => ['nullable', 'integer', Rule::in(self::HORIZONS)],
-            'vessel_id' => ['nullable', 'integer', 'min:1'],
-            'rank_id' => ['nullable', 'integer', 'min:1'],
+            'vessel_id' => [
+                'nullable',
+                'integer',
+                'min:1',
+                Rule::exists('vessel_manning', 'vessel_id')->where(
+                    fn ($query) => $query->where('company_id', $companyId),
+                ),
+            ],
+            'rank_id' => [
+                'nullable',
+                'integer',
+                'min:1',
+                Rule::exists('vessel_manning', 'rank_id')->where(
+                    fn ($query) => $query->where('company_id', $companyId),
+                ),
+            ],
         ]);
 
         $horizon = (int) ($validated['horizon'] ?? 30);

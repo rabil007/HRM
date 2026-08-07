@@ -13,7 +13,8 @@ final class CrewProjectedManningPagePermissions
     {
         return [
             'view' => $user?->can('crew_operations.vessel_manning.view') ?? false,
-            'plan_crew' => $user?->can('crew_operations.planning.view') ?? false,
+            'plan_crew' => ($user?->can('crew_operations.planning.view') ?? false)
+                && ($user?->can('crew_operations.planning.create') ?? false),
         ];
     }
 }

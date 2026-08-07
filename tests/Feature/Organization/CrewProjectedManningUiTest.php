@@ -9,16 +9,17 @@ use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function makeProjectedManningUiFixtures(): array
+function makeProjectedManningUiFixtures(array $permissions = [
+    'crew_operations.vessel_manning.view',
+    'crew_operations.planning.view',
+    'crew_operations.planning.create',
+]): array
 {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
 
     $vessel = makeCrewMovementVessel('Projected UI Vessel');
 
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.vessel_manning.view',
-        'crew_operations.planning.view',
-    ]);
+    grantCompanyPermissions($user, $company, $permissions);
 
     $user->update(['current_company_id' => $company->id]);
 
@@ -90,6 +91,36 @@ it('renders projected manning with default 30-day horizon from company today', f
         );
 });
 
+it('sets plan_crew true when user can view and create planning', function () {
+    ['user' => $user] = makeProjectedManningUiFixtures([
+        'crew_operations.vessel_manning.view',
+        'crew_operations.planning.view',
+        'crew_operations.planning.create',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-operations.projected-manning'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.plan_crew', true)
+        );
+});
+
+it('sets plan_crew false when user can only view planning', function () {
+    ['user' => $user] = makeProjectedManningUiFixtures([
+        'crew_operations.vessel_manning.view',
+        'crew_operations.planning.view',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-operations.projected-manning'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.view', true)
+            ->where('can.plan_crew', false)
+        );
+});
+
 it('supports 30 60 and 90 day horizons', function (int $horizon) {
     ['user' => $user, 'company' => $company] = makeProjectedManningUiFixtures();
 
@@ -147,7 +178,7 @@ it('rejects invalid horizon values', function () {
         ->assertSessionHasErrors('horizon');
 });
 
-it('keeps company B manning out of company A projected props', function () {
+it('rejects vessel and rank filters that are not valid for the active company', function () {
     ['user' => $user, 'company' => $companyA, 'rank' => $rankA, 'vessel' => $vesselA] = makeProjectedManningUiFixtures();
 
     $companyB = Company::query()->create([
@@ -179,14 +210,7 @@ it('keeps company B manning out of company A projected props', function () {
             'vessel_id' => $vesselB->id,
             'rank_id' => $rankB->id,
         ]))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('summary.positions', 0)
-            ->has('items', 0)
-            ->where('filters.vessel_id', $vesselB->id)
-            ->where('filters.rank_id', $rankB->id)
-            ->missing('items.0')
-        );
+        ->assertSessionHasErrors(['vessel_id', 'rank_id']);
 
     $this->actingAs($user)
         ->get(route('organization.crew-operations.projected-manning'))
@@ -196,5 +220,38 @@ it('keeps company B manning out of company A projected props', function () {
             ->where('items.0.vessel_id', $vesselA->id)
             ->where('items.0.rank_id', $rankA->id)
             ->where('summary.positions', 1)
+        );
+});
+
+it('opens crew planning create prefill from projected manning plan crew params', function () {
+    ['user' => $user, 'vessel' => $vessel, 'rank' => $rank] = makeProjectedManningUiFixtures();
+
+    $nextGapDate = CarbonImmutable::now(CompanyTimezone::forCompanyId(
+        (int) $user->current_company_id,
+    ))->addDays(10)->toDateString();
+
+    $from = CarbonImmutable::now(CompanyTimezone::forCompanyId(
+        (int) $user->current_company_id,
+    ))->toDateString();
+    $to = CarbonImmutable::parse($from)->addDays(30)->toDateString();
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'open_create' => 1,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'from' => $from,
+            'to' => $to,
+            'planned_join_date' => $nextGapDate,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew-planning/index')
+            ->where('relief_prefill.open_create', true)
+            ->where('relief_prefill.vessel_id', $vessel->id)
+            ->where('relief_prefill.rank_id', $rank->id)
+            ->where('relief_prefill.planned_join_date', $nextGapDate)
+            ->where('filters.vessel_id', $vessel->id)
+            ->where('filters.rank_id', $rank->id)
         );
 });
