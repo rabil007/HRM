@@ -11,6 +11,18 @@ final class CrewPlanningGanttQuery
     /**
      * Gantt rows derived from planned assignments in range, grouped by vessel.
      *
+     * When `$projectionPositions` is provided (Vessel Manning / projection catalog),
+     * those vessel/rank positions are merged so configured ranks appear even with
+     * zero Planning bars. `required_count` then comes from Vessel Manning.
+     *
+     * @param  list<array{
+     *     row_key: string,
+     *     vessel_id: int,
+     *     vessel_name: string,
+     *     rank_id: int,
+     *     rank_name: string,
+     *     required_count: int
+     * }>|null  $projectionPositions
      * @return list<array{
      *     vessel_id: int,
      *     vessel_name: string,
@@ -28,6 +40,7 @@ final class CrewPlanningGanttQuery
         string $to,
         ?int $vesselId = null,
         ?int $rankId = null,
+        ?array $projectionPositions = null,
     ): array {
         $assignments = self::assignmentsInRange($companyId, $from, $to, $vesselId, $rankId, [
             'vessel:id,name',
@@ -56,7 +69,7 @@ final class CrewPlanningGanttQuery
                 ];
             }
 
-            $grouped[$vId]['ranks'][] = [
+            $grouped[$vId]['ranks'][$rowKey] = [
                 'row_key' => $rowKey,
                 'rank_id' => $rank->id,
                 'rank_name' => $rank->name,
@@ -64,7 +77,55 @@ final class CrewPlanningGanttQuery
             ];
         }
 
-        return array_values($grouped);
+        if ($projectionPositions === null) {
+            $result = [];
+
+            foreach ($grouped as $vesselGroup) {
+                $vesselGroup['ranks'] = array_values($vesselGroup['ranks']);
+                $result[] = $vesselGroup;
+            }
+
+            return $result;
+        }
+
+        foreach ($projectionPositions as $position) {
+            $vId = (int) $position['vessel_id'];
+            $rowKey = (string) $position['row_key'];
+
+            if (! isset($grouped[$vId])) {
+                $grouped[$vId] = [
+                    'vessel_id' => $vId,
+                    'vessel_name' => (string) $position['vessel_name'],
+                    'ranks' => [],
+                ];
+            }
+
+            $grouped[$vId]['ranks'][$rowKey] = [
+                'row_key' => $rowKey,
+                'rank_id' => (int) $position['rank_id'],
+                'rank_name' => (string) $position['rank_name'],
+                'required_count' => (int) $position['required_count'],
+            ];
+        }
+
+        $result = [];
+
+        foreach ($grouped as $vesselGroup) {
+            $ranks = array_values($vesselGroup['ranks']);
+            usort(
+                $ranks,
+                fn (array $left, array $right): int => strcasecmp($left['rank_name'], $right['rank_name']),
+            );
+            $vesselGroup['ranks'] = $ranks;
+            $result[] = $vesselGroup;
+        }
+
+        usort(
+            $result,
+            fn (array $left, array $right): int => strcasecmp($left['vessel_name'], $right['vessel_name']),
+        );
+
+        return $result;
     }
 
     /**

@@ -260,7 +260,6 @@ Planning never starts movement, completes source P4, creates Sea Service, or cre
 
 ### Deferred
 
-- Phase 2B.3B: Planning Gantt projection overlays
 - Phase 2C: transfer / redeployment Tour behaviour
 - Phase 3: notifications (email, push, in-app, escalation)
 
@@ -343,7 +342,6 @@ Dedicated Crew Operations page at `/organization/crew-operations/projected-manni
 
 ### Deferred (still later)
 
-- Crew Planning Gantt projection overlays (Phase 2B.3B)
 - Notifications / escalations
 - Phase 2C transfer / redeployment
 
@@ -372,9 +370,27 @@ Deployment trends chart, phase-status grid, crew pool, recent activity, standalo
 
 ### Deferred (still later)
 
-- Crew Planning Gantt projection overlays (Phase 2B.3B)
 - Phase 2C transfer / redeployment
 - Notifications / escalations
+
+## Phase 2B.3B — Crew Planning Gantt Projection Overlays
+
+Crew Planning (`/organization/crew-planning`) layers read-only projected coverage onto the existing Gantt.
+
+### Rules
+
+- Projection comes only from `CrewProjectedManningQuery` using Planning’s exact `from` / `to` / `vessel_id` / `rank_id` (no separate 30/60/90 horizon).
+- Compact payload via `CrewPlanningProjectionPresenter` (`projection` prop). Events / employee IDs / assignment IDs are omitted.
+- Extra permission: `can.projection` = `crew_operations.vessel_manning.view`. Without it Planning works normally and `projection` is `null`.
+- Gantt row catalog merges Planning rows with company-scoped Vessel Manning positions from projection so empty ranks with gaps still appear. Authoritative `required_count` comes from Vessel Manning when projection is present. No Planning records are created merely to show rows.
+- Frontend draws only exception periods (`gap > 0` red, `excess > 0` amber) behind Planning bars. Covered periods stay quiet. Optional local “Show coverage” toggle (default on when `can.projection`).
+- Gap band click (when `can.create`) opens the existing Assign Crew Sheet via `openCreateForRow` with vessel/rank and gap `from` as join date. DnD / row-click / edit / delete / zoom remain primary.
+- No movement mutations from projection.
+
+### Deferred (still later)
+
+- Phase 2C transfer / redeployment
+- Phase 3 notifications / escalations
 
 ## Sea service
 

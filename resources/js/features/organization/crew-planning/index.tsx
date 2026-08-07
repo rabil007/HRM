@@ -38,6 +38,8 @@ import type {
     PlanningOption,
     PlanningPagePermissions,
     PlanningPoolEmployee,
+    PlanningProjection,
+    PlanningProjectionPeriod,
     PlanningReliefPrefill,
     RowDropData,
     TreeVessel,
@@ -71,6 +73,7 @@ type Props = {
     ranks: PlanningOption[];
     employees: PlanningPoolEmployee[];
     can: PlanningPagePermissions;
+    projection?: PlanningProjection | null;
     relief_prefill?: PlanningReliefPrefill | null;
 };
 
@@ -84,11 +87,13 @@ export function CrewPlanningContent({
     ranks,
     employees,
     can,
+    projection = null,
     relief_prefill: reliefPrefill = null,
 }: Props): ReactElement {
     const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState(filters.search ?? '');
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [showCoverage, setShowCoverage] = useState(can.projection);
     const [dialogState, setDialogState] =
         useState<AssignDialogState>(CLOSED_DIALOG);
     const [draggingEmployee, setDraggingEmployee] =
@@ -285,6 +290,17 @@ export function CrewPlanningContent({
         [openCreateForRow],
     );
 
+    const handleGapClick = useCallback(
+        (
+            vesselId: number,
+            rankId: number,
+            period: PlanningProjectionPeriod,
+        ): void => {
+            openCreateForRow(vesselId, rankId, period.from);
+        },
+        [openCreateForRow],
+    );
+
     const handleDragEnd = useCallback(
         (event: DragEndEvent): void => {
             setDraggingEmployee(null);
@@ -370,7 +386,11 @@ export function CrewPlanningContent({
                         today={today}
                     />
 
-                    <PlanningLegend />
+                    <PlanningLegend
+                        canProjection={can.projection}
+                        showCoverage={showCoverage}
+                        onShowCoverageChange={setShowCoverage}
+                    />
 
                     <div className="relative flex min-h-0 flex-1 overflow-hidden">
                         {sidebarOpen ? (
@@ -413,7 +433,10 @@ export function CrewPlanningContent({
                                 search={searchInput}
                                 highlightedRowKey={selectedRowKey}
                                 can={can}
+                                projection={projection}
+                                showCoverage={can.projection && showCoverage}
                                 onRowClick={handleRowClick}
+                                onGapClick={handleGapClick}
                                 onEditBar={openEdit}
                                 onDeleteBar={handleDeleteBar}
                             />

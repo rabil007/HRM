@@ -1,17 +1,22 @@
 <?php
 
+use App\Enums\CrewProjectedManningStatus;
 use App\Models\Company;
 use App\Models\Country;
+use App\Models\CrewAssignment;
 use App\Models\CrewOperationsSetting;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\EmployeeSeaService;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselManning;
 use App\Models\VesselType;
+use App\Support\CrewOperations\CrewProjectedManningQuery;
+use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -99,6 +104,8 @@ test('authorized users can view the crew planning index', function () {
             ->has('tree')
             ->has('filters')
             ->where('can.view', true)
+            ->where('can.projection', false)
+            ->where('projection', null)
             ->where('relief_prefill', null)
         );
 });
@@ -530,4 +537,492 @@ test('planning data is scoped to current company', function () {
             ->has('rows', 0)
             ->has('bars', 0)
         );
+});
+
+test('planning users without vessel manning permission receive no projection payload', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'vessel' => $vessel,
+        'captain' => $captain,
+    ] = makeCrewPlanningFixtures();
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 2,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'from' => '2026-08-01',
+            'to' => '2026-08-31',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.projection', false)
+            ->where('projection', null)
+            ->has('rows', 0)
+        );
+});
+
+test('planning users with vessel manning permission receive projection matching CrewProjectedManningQuery', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'vessel' => $vessel,
+        'captain' => $captain,
+    ] = makeCrewPlanningFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.vessel_manning.view',
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 2,
+    ]);
+
+    $from = '2026-08-01';
+    $to = '2026-08-31';
+    $expected = (new CrewProjectedManningQuery)->forCompany(
+        (int) $company->id,
+        $from,
+        $to,
+        (int) $vessel->id,
+        (int) $captain->id,
+    );
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'from' => $from,
+            'to' => $to,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $captain->id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.projection', true)
+            ->where('projection.from', $from)
+            ->where('projection.to', $to)
+            ->where('projection.summary.positions', $expected['summary']['positions'])
+            ->where('projection.summary.current_gap_positions', $expected['summary']['current_gap_positions'])
+            ->where('projection.summary.future_gap_positions', $expected['summary']['future_gap_positions'])
+            ->where('projection.summary.overlap_positions', $expected['summary']['overlap_positions'])
+            ->has('projection.rows', 1)
+            ->where('projection.rows.0.required_count', 2)
+            ->where('projection.rows.0.status', $expected['items'][0]['status'])
+            ->where('projection.rows.0.maximum_gap', $expected['items'][0]['maximum_gap'])
+            ->has('rows', 1)
+            ->where('rows.0.ranks.0.required_count', 2)
+        );
+
+    $projectionRow = $response->inertiaProps('projection.rows.0');
+    expect($projectionRow)->not->toHaveKey('events')
+        ->and($projectionRow['periods'])->toBe($expected['items'][0]['periods']);
+});
+
+test('projection uses exact planning from and to range', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'vessel' => $vessel,
+        'captain' => $captain,
+    ] = makeCrewPlanningFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.vessel_manning.view',
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 1,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'from' => '2026-07-15',
+            'to' => '2026-09-10',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters.from', '2026-07-15')
+            ->where('filters.to', '2026-09-10')
+            ->where('projection.from', '2026-07-15')
+            ->where('projection.to', '2026-09-10')
+        );
+});
+
+test('projection vessel and rank filters apply on planning index', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'vessel' => $vessel,
+        'captain' => $captain,
+        'chiefOfficer' => $chiefOfficer,
+    ] = makeCrewPlanningFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.vessel_manning.view',
+    ]);
+
+    $otherVessel = Vessel::query()->create([
+        'name' => 'Projection Filter Vessel',
+        'vessel_type_id' => $vessel->vessel_type_id,
+        'is_active' => true,
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 1,
+    ]);
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $otherVessel->id,
+        'rank_id' => $chiefOfficer->id,
+        'required_count' => 3,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'from' => '2026-08-01',
+            'to' => '2026-08-31',
+            'vessel_id' => $vessel->id,
+            'rank_id' => $captain->id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('projection.rows', 1)
+            ->where('projection.rows.0.vessel_id', $vessel->id)
+            ->where('projection.rows.0.rank_id', $captain->id)
+            ->has('rows', 1)
+            ->where('rows.0.vessel_id', $vessel->id)
+            ->where('rows.0.ranks.0.rank_id', $captain->id)
+        );
+});
+
+test('company B projection cannot appear on company A planning page', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'otherCompany' => $otherCompany,
+        'vessel' => $vessel,
+        'captain' => $captain,
+    ] = makeCrewPlanningFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.vessel_manning.view',
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 1,
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $otherCompany->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 9,
+    ]);
+
+    $foreignEmployee = Employee::factory()->forCompany($otherCompany)->create([
+        'rank_id' => $captain->id,
+        'status' => 'active',
+    ]);
+    makeActiveOnVesselAssignment($otherCompany, $foreignEmployee, $captain, $vessel, [
+        'planned_signoff_at' => '2026-08-20 00:00:00',
+    ]);
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $otherCompany->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'employee_id' => $foreignEmployee->id,
+        'planned_join_date' => '2026-08-05',
+        'planned_leave_date' => '2026-11-05',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'from' => '2026-08-01',
+            'to' => '2026-08-31',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('projection.rows', 1)
+            ->where('projection.rows.0.required_count', 1)
+            ->where('projection.rows.0.minimum_projected_count', 0)
+            ->where('projection.summary.positions', 1)
+            ->has('bars', 0)
+        );
+});
+
+test('configured vessel rank with projected gap and zero planning still appears as a gantt row', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'vessel' => $vessel,
+        'captain' => $captain,
+    ] = makeCrewPlanningFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.vessel_manning.view',
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 2,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'from' => '2026-08-01',
+            'to' => '2026-08-31',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('bars', 0)
+            ->has('rows', 1)
+            ->where('rows.0.vessel_id', $vessel->id)
+            ->where('rows.0.ranks.0.rank_id', $captain->id)
+            ->where('rows.0.ranks.0.required_count', 2)
+            ->where('rows.0.ranks.0.row_key', "vessel:{$vessel->id}|rank:{$captain->id}")
+            ->where('projection.rows.0.status', CrewProjectedManningStatus::CurrentGap->value)
+            ->where('projection.rows.0.maximum_gap', 2)
+        );
+});
+
+test('existing planning row and projection position do not duplicate vessel rank', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'vessel' => $vessel,
+        'captain' => $captain,
+    ] = makeCrewPlanningFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.vessel_manning.view',
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 3,
+    ]);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'employee_id' => Employee::factory()->forCompany($company)->create([
+            'rank_id' => $captain->id,
+            'status' => 'active',
+        ])->id,
+        'planned_join_date' => '2026-08-10',
+        'planned_leave_date' => '2026-11-10',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'from' => '2026-08-01',
+            'to' => '2026-08-31',
+        ]))
+        ->assertOk();
+
+    $ranks = collect($response->inertiaProps('rows.0.ranks'));
+
+    expect($ranks)->toHaveCount(1)
+        ->and($ranks->first()['required_count'])->toBe(3)
+        ->and($response->inertiaProps('bars'))->toHaveCount(1);
+});
+
+test('planning projection returns current gap future gap and overlap periods', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'vessel' => $vessel,
+        'captain' => $captain,
+    ] = makeCrewPlanningFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.vessel_manning.view',
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 1,
+    ]);
+
+    $currentGap = $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'from' => '2026-08-01',
+            'to' => '2026-08-31',
+            'vessel_id' => $vessel->id,
+            'rank_id' => $captain->id,
+        ]))
+        ->assertOk();
+
+    $currentRow = $currentGap->inertiaProps('projection.rows.0');
+    expect($currentRow['status'])->toBe(CrewProjectedManningStatus::CurrentGap->value)
+        ->and(collect($currentRow['periods'])->contains(fn (array $period): bool => $period['gap'] > 0))->toBeTrue();
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $captain->id,
+        'status' => 'active',
+    ]);
+    makeActiveOnVesselAssignment($company, $employee, $captain, $vessel, [
+        'planned_signoff_at' => '2026-08-20 00:00:00',
+    ]);
+
+    $futureGap = $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'from' => '2026-08-01',
+            'to' => '2026-08-31',
+            'vessel_id' => $vessel->id,
+            'rank_id' => $captain->id,
+        ]))
+        ->assertOk();
+
+    $futureRow = $futureGap->inertiaProps('projection.rows.0');
+    expect($futureRow['status'])->toBe(CrewProjectedManningStatus::FutureGap->value)
+        ->and($futureRow['next_gap_date'])->toBe('2026-08-20')
+        ->and(collect($futureRow['periods'])->contains(fn (array $period): bool => $period['gap'] > 0))->toBeTrue();
+
+    $early = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $captain->id,
+        'status' => 'active',
+    ]);
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'employee_id' => $early->id,
+        'planned_join_date' => '2026-08-18',
+        'planned_leave_date' => '2026-11-18',
+    ]);
+
+    $overlap = $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'from' => '2026-08-01',
+            'to' => '2026-08-31',
+            'vessel_id' => $vessel->id,
+            'rank_id' => $captain->id,
+        ]))
+        ->assertOk();
+
+    $overlapRow = $overlap->inertiaProps('projection.rows.0');
+    expect(collect($overlapRow['periods'])->contains(fn (array $period): bool => $period['excess'] > 0))->toBeTrue();
+});
+
+test('planning projection ignores vacant planning and counts linked assignment once', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'vessel' => $vessel,
+        'captain' => $captain,
+    ] = makeCrewPlanningFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.vessel_manning.view',
+        'crew_operations.planning.create',
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 1,
+    ]);
+
+    $onboard = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $captain->id,
+        'status' => 'active',
+    ]);
+    makeActiveOnVesselAssignment($company, $onboard, $captain, $vessel, [
+        'planned_signoff_at' => '2026-09-01 00:00:00',
+    ]);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'employee_id' => null,
+        'planned_join_date' => '2026-08-15',
+        'planned_leave_date' => '2026-11-15',
+    ]);
+
+    $vacantResponse = $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'from' => '2026-08-01',
+            'to' => '2026-08-31',
+            'vessel_id' => $vessel->id,
+            'rank_id' => $captain->id,
+        ]))
+        ->assertOk();
+
+    expect($vacantResponse->inertiaProps('projection.rows.0.minimum_projected_count'))->toBe(1);
+
+    $planner = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $captain->id,
+        'status' => 'active',
+    ]);
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'employee_id' => $planner->id,
+        'planned_join_date' => '2026-08-25',
+        'planned_leave_date' => '2026-11-25',
+    ]);
+
+    $beforeLink = $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'from' => '2026-08-01',
+            'to' => '2026-08-31',
+            'vessel_id' => $vessel->id,
+            'rank_id' => $captain->id,
+        ]))
+        ->assertOk();
+
+    $beforeMax = $beforeLink->inertiaProps('projection.rows.0.minimum_projected_count');
+
+    app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $user->id);
+
+    $assignmentCountBefore = CrewAssignment::query()->where('company_id', $company->id)->count();
+    $seaServiceCountBefore = EmployeeSeaService::query()->where('company_id', $company->id)->count();
+
+    $afterLink = $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', [
+            'from' => '2026-08-01',
+            'to' => '2026-08-31',
+            'vessel_id' => $vessel->id,
+            'rank_id' => $captain->id,
+        ]))
+        ->assertOk();
+
+    expect($afterLink->inertiaProps('projection.rows.0.minimum_projected_count'))->toBe($beforeMax)
+        ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe($assignmentCountBefore)
+        ->and(EmployeeSeaService::query()->where('company_id', $company->id)->count())->toBe($seaServiceCountBefore);
 });
