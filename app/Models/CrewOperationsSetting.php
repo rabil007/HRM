@@ -21,6 +21,13 @@ class CrewOperationsSetting extends Model
             'pool_department_ids' => 'array',
             'max_home_days' => 'integer',
             'sync_sea_service' => 'boolean',
+            'notifications_enabled' => 'boolean',
+            'notification_recipient_user_ids' => 'array',
+            'alert_signoff_overdue' => 'boolean',
+            'alert_signoff_no_relief' => 'boolean',
+            'alert_relief_not_ready' => 'boolean',
+            'alert_current_manning_gap' => 'boolean',
+            'alert_projected_manning_gap' => 'boolean',
         ];
     }
 

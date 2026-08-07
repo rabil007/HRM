@@ -14,14 +14,24 @@ class UpdateCrewOperationsSettingsRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('sync_sea_service')) {
-            $this->merge([
-                'sync_sea_service' => filter_var(
-                    $this->input('sync_sea_service'),
-                    FILTER_VALIDATE_BOOLEAN,
-                    FILTER_NULL_ON_FAILURE,
-                ) ?? false,
-            ]);
+        foreach ([
+            'sync_sea_service',
+            'notifications_enabled',
+            'alert_signoff_overdue',
+            'alert_signoff_no_relief',
+            'alert_relief_not_ready',
+            'alert_current_manning_gap',
+            'alert_projected_manning_gap',
+        ] as $booleanField) {
+            if ($this->has($booleanField)) {
+                $this->merge([
+                    $booleanField => filter_var(
+                        $this->input($booleanField),
+                        FILTER_VALIDATE_BOOLEAN,
+                        FILTER_NULL_ON_FAILURE,
+                    ) ?? false,
+                ]);
+            }
         }
     }
 
@@ -42,6 +52,14 @@ class UpdateCrewOperationsSettingsRequest extends FormRequest
             ],
             'max_home_days' => ['required', 'integer', 'min:0'],
             'sync_sea_service' => ['required', 'boolean'],
+            'notifications_enabled' => ['required', 'boolean'],
+            'notification_recipient_user_ids' => ['nullable', 'array'],
+            'notification_recipient_user_ids.*' => ['integer'],
+            'alert_signoff_overdue' => ['required', 'boolean'],
+            'alert_signoff_no_relief' => ['required', 'boolean'],
+            'alert_relief_not_ready' => ['required', 'boolean'],
+            'alert_current_manning_gap' => ['required', 'boolean'],
+            'alert_projected_manning_gap' => ['required', 'boolean'],
         ];
     }
 }
