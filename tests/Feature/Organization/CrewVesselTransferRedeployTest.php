@@ -4,16 +4,23 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Enums\CrewPlannedSignoffSource;
+use App\Enums\CrewTourOfDutySource;
 use App\Exceptions\CrewMovementException;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
+use App\Models\CrewRankPolicy;
 use App\Models\EmployeeSeaService;
+use App\Models\Rank;
 use App\Models\Vessel;
+use App\Models\VesselManning;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewMovements\CrewMovementService;
 use App\Support\CrewMovements\CurrentCrewQuery;
+use App\Support\CrewOperations\CrewProjectedManningQuery;
 use App\Support\Reports\CrewMovementHistoryFilters;
 use App\Support\Reports\CrewMovementHistoryQuery;
+use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Activity;
 
 function transferRedeployService(): CrewMovementService
@@ -28,6 +35,7 @@ function makeOnVesselSourceAssignment(): array
 {
     $fixtures = makeCrewAssignmentFixtures();
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = $fixtures;
+    $rank->update(['max_tour_of_duty_days' => 90]);
     $vessel = makeCrewMovementVessel('Transfer Source '.uniqid());
     $service = transferRedeployService();
 
@@ -48,6 +56,7 @@ function makeOnVesselSourceAssignment(): array
         'occurred_at' => '2026-07-01 16:00:00',
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
+        'planned_signoff_choice' => 'tour_of_duty',
     ], $user->id);
 
     return [$assignment, $fixtures, $vessel];
@@ -369,4 +378,298 @@ test('transfer request rejects source vessel as destination', function () {
         ])
         ->assertRedirect()
         ->assertSessionHasErrors('vessel_id');
+});
+
+test('direct transfer applies destination rank tour snapshot without copying source tour', function () {
+    [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = $fixtures;
+    $rank->update(['max_tour_of_duty_days' => 90]);
+    $destinationRank = Rank::query()->create([
+        'name' => 'Transfer Dest Rank '.uniqid(),
+        'is_active' => true,
+        'max_tour_of_duty_days' => 60,
+    ]);
+    $destinationVessel = makeCrewMovementVessel('Tour Transfer Dest '.uniqid());
+
+    $source->refresh();
+    $sourceTourDays = $source->tour_of_duty_days;
+    $sourcePlannedSignoff = $source->planned_signoff_at?->toDateTimeString();
+    $sourceP4Start = $source->currentPhase?->actual_start_at?->toDateTimeString();
+
+    $destination = transferRedeployService()->perform(
+        $company->id,
+        $source->id,
+        CrewMovementAction::TransferVessel,
+        [
+            'occurred_at' => '2026-07-11 12:00:00',
+            'vessel_id' => $destinationVessel->id,
+            'rank_id' => $destinationRank->id,
+            'planned_signoff_choice' => 'tour_of_duty',
+        ],
+        $user->id,
+    );
+
+    $source->refresh()->load('currentPhase');
+    $destination->refresh()->load('currentPhase');
+
+    expect($source->vessel_id)->toBe($sourceVessel->id)
+        ->and($source->rank_id)->toBe($rank->id)
+        ->and($source->tour_of_duty_days)->toBe($sourceTourDays)
+        ->and($source->planned_signoff_at?->toDateTimeString())->toBe($sourcePlannedSignoff)
+        ->and($source->currentPhase?->actual_start_at?->toDateTimeString())->toBe($sourceP4Start)
+        ->and($source->currentPhase?->actual_end_at?->toDateTimeString())->toBe('2026-07-11 12:00:00')
+        ->and($destination->previous_assignment_id)->toBe($source->id)
+        ->and($destination->rank_id)->toBe($destinationRank->id)
+        ->and($destination->tour_of_duty_days)->toBe(60)
+        ->and($destination->tour_of_duty_source)->toBe(CrewTourOfDutySource::GlobalRankDefault)
+        ->and($destination->planned_signoff_source)->toBe(CrewPlannedSignoffSource::TourOfDuty)
+        ->and($destination->planned_signoff_at?->timezone($company->timezone)->toDateString())->toBe('2026-09-09')
+        ->and($destination->currentPhase?->planned_end_at?->timezone($company->timezone)->toDateString())->toBe('2026-09-09')
+        ->and($destination->tour_of_duty_days)->not->toBe($source->tour_of_duty_days);
+
+    expect(Activity::query()
+        ->where('company_id', $company->id)
+        ->where('properties->event', 'crew_vessel_transferred')
+        ->where('properties->destination_assignment_id', $destination->id)
+        ->where('properties->tour_of_duty_days', 60)
+        ->exists())->toBeTrue();
+
+    expect(EmployeeSeaService::query()
+        ->where('company_id', $company->id)
+        ->where('employee_id', $employee->id)
+        ->count())->toBe(1)
+        ->and(EmployeeSeaService::query()
+            ->where('crew_assignment_phase_id', $destination->current_phase_id)
+            ->exists())->toBeFalse();
+});
+
+test('direct transfer applies company rank tour policy and supports tour override', function () {
+    [$source, $fixtures] = makeOnVesselSourceAssignment();
+    ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
+    $rank->update(['max_tour_of_duty_days' => 90]);
+    CrewRankPolicy::query()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'tour_of_duty_days' => 45,
+        'is_active' => true,
+    ]);
+    $destinationVessel = makeCrewMovementVessel('Policy Transfer Dest '.uniqid());
+
+    $destination = transferRedeployService()->perform(
+        $company->id,
+        $source->id,
+        CrewMovementAction::TransferVessel,
+        [
+            'occurred_at' => '2026-07-11 12:00:00',
+            'vessel_id' => $destinationVessel->id,
+            'rank_id' => $rank->id,
+            'planned_signoff_choice' => 'tour_of_duty',
+        ],
+        $user->id,
+    );
+
+    expect($destination->tour_of_duty_days)->toBe(45)
+        ->and($destination->tour_of_duty_source)->toBe(CrewTourOfDutySource::CompanyRankPolicy)
+        ->and($destination->planned_signoff_at?->timezone($company->timezone)->toDateString())->toBe('2026-08-25');
+
+    [$source2, $fixtures2] = makeOnVesselSourceAssignment();
+    ['company' => $company2, 'rank' => $rank2, 'user' => $user2] = $fixtures2;
+    $rank2->update(['max_tour_of_duty_days' => 90]);
+    $dest2 = makeCrewMovementVessel('Override Transfer Dest '.uniqid());
+
+    $overridden = transferRedeployService()->perform(
+        $company2->id,
+        $source2->id,
+        CrewMovementAction::TransferVessel,
+        [
+            'occurred_at' => '2026-07-11 12:00:00',
+            'vessel_id' => $dest2->id,
+            'rank_id' => $rank2->id,
+            'tour_of_duty_days' => 30,
+            'planned_signoff_choice' => 'tour_of_duty',
+        ],
+        $user2->id,
+    );
+
+    expect($overridden->tour_of_duty_days)->toBe(30)
+        ->and($overridden->tour_of_duty_source)->toBe(CrewTourOfDutySource::AssignmentOverride)
+        ->and($overridden->planned_signoff_at?->timezone($company2->timezone)->toDateString())->toBe('2026-08-10');
+});
+
+test('direct transfer supports manual planned sign-off override and rolls back on invalid tour choice', function () {
+    [$source, $fixtures] = makeOnVesselSourceAssignment();
+    ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
+    $rank->update(['max_tour_of_duty_days' => 90]);
+    $destinationVessel = makeCrewMovementVessel('Manual Transfer Dest '.uniqid());
+
+    $destination = transferRedeployService()->perform(
+        $company->id,
+        $source->id,
+        CrewMovementAction::TransferVessel,
+        [
+            'occurred_at' => '2026-07-11 12:00:00',
+            'vessel_id' => $destinationVessel->id,
+            'rank_id' => $rank->id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2026-08-01',
+            'planned_signoff_override_reason' => 'Contract ends early',
+        ],
+        $user->id,
+    );
+
+    expect($destination->planned_signoff_source)->toBe(CrewPlannedSignoffSource::ManualOverride)
+        ->and($destination->planned_signoff_override_reason)->toBe('Contract ends early')
+        ->and($destination->planned_signoff_at?->timezone($company->timezone)->toDateString())->toBe('2026-08-01')
+        ->and($destination->currentPhase?->planned_end_at?->timezone($company->timezone)->toDateString())->toBe('2026-08-01');
+
+    [$sourceFail, $fixturesFail, $sourceVesselFail] = makeOnVesselSourceAssignment();
+    ['company' => $companyFail, 'rank' => $rankFail, 'user' => $userFail] = $fixturesFail;
+    $rankFail->update(['max_tour_of_duty_days' => 90]);
+    $beforeCount = CrewAssignment::query()->where('company_id', $companyFail->id)->count();
+    $destFail = makeCrewMovementVessel('Fail Transfer Dest '.uniqid());
+
+    expect(fn () => transferRedeployService()->perform(
+        $companyFail->id,
+        $sourceFail->id,
+        CrewMovementAction::TransferVessel,
+        [
+            'occurred_at' => '2026-07-11 12:00:00',
+            'vessel_id' => $destFail->id,
+            'rank_id' => $rankFail->id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2026-08-01',
+        ],
+        $userFail->id,
+    ))->toThrow(ValidationException::class);
+
+    $sourceFail->refresh();
+
+    expect($sourceFail->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($sourceFail->vessel_id)->toBe($sourceVesselFail->id)
+        ->and(CrewAssignment::query()->where('company_id', $companyFail->id)->count())->toBe($beforeCount);
+});
+
+test('direct p4 redeploy applies fresh tour while pre-p4 redeploy does not', function () {
+    [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
+    ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
+    $rank->update(['max_tour_of_duty_days' => 90]);
+    $service = transferRedeployService();
+
+    $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2026-07-12 08:00:00',
+        'next_phase' => 'p5',
+    ], $user->id);
+
+    $p4Destination = $service->perform($company->id, $source->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-07-15 09:00:00',
+        'starting_phase' => 'p4',
+        'vessel_id' => $sourceVessel->id,
+        'rank_id' => $rank->id,
+        'planned_signoff_choice' => 'tour_of_duty',
+    ], $user->id);
+
+    expect($p4Destination->tour_of_duty_days)->toBe(90)
+        ->and($p4Destination->tour_of_duty_source)->toBe(CrewTourOfDutySource::GlobalRankDefault)
+        ->and($p4Destination->planned_signoff_source)->toBe(CrewPlannedSignoffSource::TourOfDuty)
+        ->and($p4Destination->currentPhase?->planned_end_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-13');
+
+    [$source2, $fixtures2, $sourceVessel2] = makeOnVesselSourceAssignment();
+    ['company' => $company2, 'rank' => $rank2, 'user' => $user2] = $fixtures2;
+    $rank2->update(['max_tour_of_duty_days' => 90]);
+    $service->perform($company2->id, $source2->id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2026-07-12 08:00:00',
+        'next_phase' => 'p5',
+    ], $user2->id);
+
+    $preP4 = $service->perform($company2->id, $source2->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-07-15 09:00:00',
+        'starting_phase' => 'p3',
+        'vessel_id' => $sourceVessel2->id,
+        'rank_id' => $rank2->id,
+    ], $user2->id);
+
+    expect($preP4->tour_of_duty_days)->toBeNull()
+        ->and($preP4->tour_of_duty_source)->toBeNull()
+        ->and($preP4->planned_signoff_source)->toBeNull()
+        ->and($preP4->currentPhase?->phase_code)->toBe(CrewPhaseCode::ReadyToJoin);
+
+    $joined = $service->perform($company2->id, $preP4->id, CrewMovementAction::JoinVessel, [
+        'occurred_at' => '2026-07-20 10:00:00',
+        'vessel_id' => $sourceVessel2->id,
+        'rank_id' => $rank2->id,
+        'planned_signoff_choice' => 'tour_of_duty',
+    ], $user2->id);
+
+    expect($joined->tour_of_duty_days)->toBe(90)
+        ->and($joined->planned_signoff_source)->toBe(CrewPlannedSignoffSource::TourOfDuty)
+        ->and($joined->currentPhase?->planned_end_at?->timezone($company2->timezone)->toDateString())->toBe('2026-10-18');
+});
+
+test('transfer projected manning reflects source loss and destination gain without double count', function () {
+    [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
+    ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
+    $rank->update(['max_tour_of_duty_days' => 90]);
+    $destinationVessel = makeCrewMovementVessel('Projection Transfer Dest '.uniqid());
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $sourceVessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 1,
+    ]);
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $destinationVessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 1,
+    ]);
+
+    $destination = transferRedeployService()->perform(
+        $company->id,
+        $source->id,
+        CrewMovementAction::TransferVessel,
+        [
+            'occurred_at' => '2026-07-11 12:00:00',
+            'vessel_id' => $destinationVessel->id,
+            'rank_id' => $rank->id,
+            'planned_signoff_choice' => 'tour_of_duty',
+        ],
+        $user->id,
+    );
+
+    $projection = (new CrewProjectedManningQuery)->forCompany(
+        (int) $company->id,
+        '2026-07-12',
+        '2026-07-31',
+    );
+
+    $sourceItem = collect($projection['items'])->first(
+        fn (array $item): bool => (int) $item['vessel_id'] === (int) $sourceVessel->id
+            && (int) $item['rank_id'] === (int) $rank->id,
+    );
+    $destinationItem = collect($projection['items'])->first(
+        fn (array $item): bool => (int) $item['vessel_id'] === (int) $destinationVessel->id
+            && (int) $item['rank_id'] === (int) $rank->id,
+    );
+
+    $handoffDay = (new CrewProjectedManningQuery)->forCompany(
+        (int) $company->id,
+        '2026-07-11',
+        '2026-07-11',
+    );
+    $handoffSource = collect($handoffDay['items'])->first(
+        fn (array $item): bool => (int) $item['vessel_id'] === (int) $sourceVessel->id,
+    );
+    $handoffDestination = collect($handoffDay['items'])->first(
+        fn (array $item): bool => (int) $item['vessel_id'] === (int) $destinationVessel->id,
+    );
+
+    expect($sourceItem)->not->toBeNull()
+        ->and($destinationItem)->not->toBeNull()
+        ->and($sourceItem['actual_onboard_at_start'])->toBe(0)
+        ->and($destinationItem['actual_onboard_at_start'])->toBe(1)
+        ->and($destinationItem['projected_count_at_start'])->toBe(1)
+        ->and($destination->planned_signoff_at)->not->toBeNull()
+        ->and(($handoffSource['maximum_projected_count'] ?? 0) + ($handoffDestination['maximum_projected_count'] ?? 0))->toBeLessThanOrEqual(2)
+        ->and($handoffDestination['has_overlap'] ?? false)->toBeFalse();
 });

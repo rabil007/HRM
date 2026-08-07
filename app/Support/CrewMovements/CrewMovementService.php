@@ -364,18 +364,13 @@ final class CrewMovementService
             ? (int) $payload['tour_of_duty_days']
             : null;
 
-        $tour = $this->tourOfDutyResolver->resolve(
-            (int) $assignment->company_id,
-            $rankId,
-            $occurredAt,
-            $overrideDays,
-        );
-
-        $signoff = $this->signoffApplier->apply(
-            $tour,
-            $payload,
-            $assignment->planned_signoff_at,
-            $occurredAt,
+        $signoff = $this->resolveOnVesselTourSignoff(
+            companyId: (int) $assignment->company_id,
+            rankId: $rankId,
+            actualJoinAt: $occurredAt,
+            payload: $payload,
+            existingPlannedSignoff: $assignment->planned_signoff_at,
+            overrideDays: $overrideDays,
         );
 
         $this->completePhase($current, $current->actual_start_at ?? $occurredAt, $occurredAt, $actorId);
@@ -408,24 +403,7 @@ final class CrewMovementService
             'remarks' => $payload['remarks'] ?? $assignment->remarks,
         ]);
 
-        activity()
-            ->performedOn($assignment)
-            ->causedBy($actorId)
-            ->withProperties([
-                'event' => 'tour_of_duty_applied',
-                'company_id' => $assignment->company_id,
-                'assignment_id' => $assignment->id,
-                'tour_of_duty_days' => $signoff['tour_of_duty_days'],
-                'tour_of_duty_source' => $signoff['tour_of_duty_source'],
-                'planned_signoff_at' => $signoff['planned_signoff_at']?->toDateTimeString(),
-                'planned_signoff_source' => $signoff['planned_signoff_source']?->value,
-                'planned_signoff_override_reason' => $signoff['planned_signoff_override_reason'],
-                'actual_join_at' => $occurredAt->toDateTimeString(),
-            ])
-            ->tap(function ($activity) use ($assignment): void {
-                $activity->company_id = $assignment->company_id;
-            })
-            ->log('Tour of Duty snapshot applied on vessel join');
+        $this->logTourOfDutyApplied($assignment, $signoff, $occurredAt, $actorId);
 
         return $assignment;
     }
@@ -587,6 +565,20 @@ final class CrewMovementService
         }
 
         $sourceVesselId = $assignment->vessel_id;
+        $sourceRankId = $assignment->rank_id;
+        $sourceTourDays = $assignment->tour_of_duty_days;
+        $sourceTourSource = $assignment->tour_of_duty_source?->value;
+        $sourcePlannedSignoff = $assignment->planned_signoff_at?->toDateTimeString();
+        $sourceP4ActualStart = $current->actual_start_at?->toDateTimeString();
+
+        // Resolve destination Tour before mutating source so validation failures roll back cleanly.
+        $signoff = $this->resolveOnVesselTourSignoff(
+            companyId: (int) $assignment->company_id,
+            rankId: $destinationRankId,
+            actualJoinAt: $occurredAt,
+            payload: $payload,
+            existingPlannedSignoff: null,
+        );
 
         $this->completePhase($current, $current->actual_start_at ?? $occurredAt, $occurredAt, $actorId);
         $this->seaServiceSync->syncFromPhase($current->fresh());
@@ -614,9 +606,7 @@ final class CrewMovementService
             rankId: $destinationRankId,
             clientId: $destinationClientId ?? $assignment->client_id,
             companyVisaTypeId: $destinationVisaTypeId ?? $assignment->company_visa_type_id,
-            plannedSignoffAt: isset($payload['planned_signoff_at'])
-                ? $this->parseTimestamp($assignment->company_id, (string) $payload['planned_signoff_at'])
-                : null,
+            plannedSignoffAt: $signoff['planned_signoff_at'],
             remarks: isset($payload['remarks']) ? (string) $payload['remarks'] : null,
             actorId: $actorId,
             startingPhase: CrewPhaseCode::OnVessel,
@@ -624,7 +614,10 @@ final class CrewMovementService
             phaseActualStartAt: $occurredAt,
         );
 
+        $this->persistTourSnapshot($destination, $signoff, $actorId);
+        $destination = $this->reloadLocked($destination->company_id, $destination->id);
         $this->invariants->assertValid($destination);
+        $this->logTourOfDutyApplied($destination, $signoff, $occurredAt, $actorId);
         $this->logVesselTransferred(
             $source,
             $destination,
@@ -632,6 +625,14 @@ final class CrewMovementService
             $destinationVesselId,
             $occurredAt,
             $actorId,
+            $signoff,
+            [
+                'source_rank_id' => $sourceRankId,
+                'source_tour_of_duty_days' => $sourceTourDays,
+                'source_tour_of_duty_source' => $sourceTourSource,
+                'source_planned_signoff_at' => $sourcePlannedSignoff,
+                'source_p4_actual_start_at' => $sourceP4ActualStart,
+            ],
         );
 
         return $destination;
@@ -711,6 +712,23 @@ final class CrewMovementService
             );
         }
 
+        $isDraftStart = $startingPhase === CrewPhaseCode::PreMobilisation;
+        $isDirectOnVessel = $startingPhase === CrewPhaseCode::OnVessel;
+
+        // Direct P4 redeploy resolves Tour before mutating source so validation failures roll back.
+        // Pre-P4 redeploy must not snapshot Tour — JoinVessel applies it later.
+        $signoff = null;
+
+        if ($isDirectOnVessel) {
+            $signoff = $this->resolveOnVesselTourSignoff(
+                companyId: (int) $assignment->company_id,
+                rankId: (int) $destinationRankId,
+                actualJoinAt: $occurredAt,
+                payload: $payload,
+                existingPlannedSignoff: null,
+            );
+        }
+
         $this->completePhase($current, $current->actual_start_at ?? $occurredAt, $occurredAt, $actorId);
 
         $assignment->update([
@@ -724,7 +742,6 @@ final class CrewMovementService
         $this->invariants->assertValid($source);
         $this->planningSync->sync($source);
 
-        $isDraftStart = $startingPhase === CrewPhaseCode::PreMobilisation;
         $destination = $this->createLinkedAssignment(
             companyId: $assignment->company_id,
             employeeId: $assignment->employee_id,
@@ -747,15 +764,23 @@ final class CrewMovementService
                 : ($destinationVisaTypeId ?? $assignment->company_visa_type_id),
             plannedSignoffAt: $isDraftStart
                 ? null
-                : (isset($payload['planned_signoff_at']) && filled($payload['planned_signoff_at'])
-                    ? $this->parseTimestamp($assignment->company_id, (string) $payload['planned_signoff_at'])
-                    : null),
+                : ($signoff !== null
+                    ? $signoff['planned_signoff_at']
+                    : (isset($payload['planned_signoff_at']) && filled($payload['planned_signoff_at'])
+                        ? $this->parseTimestamp($assignment->company_id, (string) $payload['planned_signoff_at'])
+                        : null)),
             remarks: isset($payload['remarks']) ? (string) $payload['remarks'] : null,
             actorId: $actorId,
             startingPhase: $startingPhase,
             phaseStatus: $isDraftStart ? CrewPhaseStatus::Planned : CrewPhaseStatus::Active,
             phaseActualStartAt: $isDraftStart ? null : $occurredAt,
         );
+
+        if ($signoff !== null) {
+            $this->persistTourSnapshot($destination, $signoff, $actorId);
+            $destination = $this->reloadLocked($destination->company_id, $destination->id);
+            $this->logTourOfDutyApplied($destination, $signoff, $occurredAt, $actorId);
+        }
 
         $this->invariants->assertValid($destination);
         $this->logCrewRedeployed(
@@ -766,6 +791,7 @@ final class CrewMovementService
             $destinationClientId ?? $assignment->client_id,
             $occurredAt,
             $actorId,
+            $signoff,
         );
 
         return $destination;
@@ -1003,6 +1029,16 @@ final class CrewMovementService
             ->get();
     }
 
+    /**
+     * @param  array{
+     *     planned_signoff_at: CarbonInterface|null,
+     *     planned_signoff_source: CrewPlannedSignoffSource|null,
+     *     planned_signoff_override_reason: string|null,
+     *     tour_of_duty_days: int|null,
+     *     tour_of_duty_source: string|null
+     * }  $signoff
+     * @param  array<string, mixed>  $sourceContext
+     */
     private function logVesselTransferred(
         CrewAssignment $source,
         CrewAssignment $destination,
@@ -1010,6 +1046,8 @@ final class CrewMovementService
         int $destinationVesselId,
         CarbonInterface $occurredAt,
         ?int $actorId,
+        array $signoff,
+        array $sourceContext = [],
     ): void {
         activity()
             ->performedOn($destination)
@@ -1022,7 +1060,14 @@ final class CrewMovementService
                 'destination_assignment_id' => $destination->id,
                 'source_vessel_id' => $sourceVesselId,
                 'destination_vessel_id' => $destinationVesselId,
+                'destination_rank_id' => $destination->rank_id,
                 'occurred_at' => $occurredAt->toDateTimeString(),
+                'tour_of_duty_days' => $signoff['tour_of_duty_days'],
+                'tour_of_duty_source' => $signoff['tour_of_duty_source'],
+                'planned_signoff_at' => $signoff['planned_signoff_at']?->toDateTimeString(),
+                'planned_signoff_source' => $signoff['planned_signoff_source']?->value,
+                'planned_signoff_override_reason' => $signoff['planned_signoff_override_reason'],
+                ...$sourceContext,
             ])
             ->tap(function ($activity) use ($source): void {
                 $activity->company_id = $source->company_id;
@@ -1030,6 +1075,15 @@ final class CrewMovementService
             ->log('Crew vessel transferred');
     }
 
+    /**
+     * @param  array{
+     *     planned_signoff_at: CarbonInterface|null,
+     *     planned_signoff_source: CrewPlannedSignoffSource|null,
+     *     planned_signoff_override_reason: string|null,
+     *     tour_of_duty_days: int|null,
+     *     tour_of_duty_source: string|null
+     * }|null  $signoff
+     */
     private function logCrewRedeployed(
         CrewAssignment $source,
         CrewAssignment $destination,
@@ -1038,11 +1092,12 @@ final class CrewMovementService
         ?int $destinationClientId,
         CarbonInterface $occurredAt,
         ?int $actorId,
+        ?array $signoff = null,
     ): void {
         activity()
             ->performedOn($destination)
             ->causedBy($actorId)
-            ->withProperties([
+            ->withProperties(array_filter([
                 'event' => 'crew_redeployed',
                 'company_id' => $source->company_id,
                 'employee_id' => $source->employee_id,
@@ -1050,13 +1105,127 @@ final class CrewMovementService
                 'destination_assignment_id' => $destination->id,
                 'starting_phase' => $startingPhase->value,
                 'destination_vessel_id' => $destinationVesselId,
+                'destination_rank_id' => $destination->rank_id,
                 'destination_client_id' => $destinationClientId,
                 'occurred_at' => $occurredAt->toDateTimeString(),
-            ])
+                'tour_of_duty_days' => $signoff['tour_of_duty_days'] ?? null,
+                'tour_of_duty_source' => $signoff['tour_of_duty_source'] ?? null,
+                'planned_signoff_at' => ($signoff['planned_signoff_at'] ?? null)?->toDateTimeString(),
+                'planned_signoff_source' => ($signoff['planned_signoff_source'] ?? null)?->value,
+                'planned_signoff_override_reason' => $signoff['planned_signoff_override_reason'] ?? null,
+            ], fn ($value) => $value !== null))
             ->tap(function ($activity) use ($source): void {
                 $activity->company_id = $source->company_id;
             })
             ->log('Crew redeployed');
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{
+     *     planned_signoff_at: CarbonInterface|null,
+     *     planned_signoff_source: CrewPlannedSignoffSource|null,
+     *     planned_signoff_override_reason: string|null,
+     *     tour_of_duty_days: int|null,
+     *     tour_of_duty_source: string|null
+     * }
+     */
+    private function resolveOnVesselTourSignoff(
+        int $companyId,
+        int $rankId,
+        CarbonInterface $actualJoinAt,
+        array $payload,
+        ?CarbonInterface $existingPlannedSignoff = null,
+        ?int $overrideDays = null,
+    ): array {
+        $resolvedOverrideDays = $overrideDays;
+
+        if ($resolvedOverrideDays === null
+            && isset($payload['tour_of_duty_days'])
+            && filled($payload['tour_of_duty_days'])) {
+            $resolvedOverrideDays = (int) $payload['tour_of_duty_days'];
+        }
+
+        $tour = $this->tourOfDutyResolver->resolve(
+            $companyId,
+            $rankId,
+            $actualJoinAt,
+            $resolvedOverrideDays,
+        );
+
+        return $this->signoffApplier->apply(
+            $tour,
+            $payload,
+            $existingPlannedSignoff,
+            $actualJoinAt,
+        );
+    }
+
+    /**
+     * @param  array{
+     *     planned_signoff_at: CarbonInterface|null,
+     *     planned_signoff_source: CrewPlannedSignoffSource|null,
+     *     planned_signoff_override_reason: string|null,
+     *     tour_of_duty_days: int|null,
+     *     tour_of_duty_source: string|null
+     * }  $signoff
+     */
+    private function persistTourSnapshot(
+        CrewAssignment $assignment,
+        array $signoff,
+        ?int $actorId,
+    ): void {
+        $assignment->update([
+            'planned_signoff_at' => $signoff['planned_signoff_at'],
+            'tour_of_duty_days' => $signoff['tour_of_duty_days'],
+            'tour_of_duty_source' => $signoff['tour_of_duty_source'],
+            'planned_signoff_source' => $signoff['planned_signoff_source'],
+            'planned_signoff_override_reason' => $signoff['planned_signoff_override_reason'],
+            'updated_by' => $actorId,
+        ]);
+
+        $phase = $assignment->currentPhase;
+
+        if ($phase !== null) {
+            $phase->update([
+                'planned_end_at' => $signoff['planned_signoff_at'],
+            ]);
+        }
+    }
+
+    /**
+     * @param  array{
+     *     planned_signoff_at: CarbonInterface|null,
+     *     planned_signoff_source: CrewPlannedSignoffSource|null,
+     *     planned_signoff_override_reason: string|null,
+     *     tour_of_duty_days: int|null,
+     *     tour_of_duty_source: string|null
+     * }  $signoff
+     */
+    private function logTourOfDutyApplied(
+        CrewAssignment $assignment,
+        array $signoff,
+        CarbonInterface $actualJoinAt,
+        ?int $actorId,
+    ): void {
+        activity()
+            ->performedOn($assignment)
+            ->causedBy($actorId)
+            ->withProperties([
+                'event' => 'tour_of_duty_applied',
+                'company_id' => $assignment->company_id,
+                'assignment_id' => $assignment->id,
+                'tour_of_duty_days' => $signoff['tour_of_duty_days'],
+                'tour_of_duty_source' => $signoff['tour_of_duty_source'],
+                'planned_signoff_at' => $signoff['planned_signoff_at']?->toDateTimeString(),
+                'planned_signoff_source' => $signoff['planned_signoff_source']?->value,
+                'planned_signoff_override_reason' => $signoff['planned_signoff_override_reason'],
+                'actual_join_at' => $actualJoinAt->toDateTimeString(),
+            ])
+            ->tap(function ($activity) use ($assignment): void {
+                $activity->company_id = $assignment->company_id;
+            })
+            ->log('Tour of Duty snapshot applied on vessel join');
     }
 
     private function reloadLocked(int $companyId, int $assignmentId): CrewAssignment
