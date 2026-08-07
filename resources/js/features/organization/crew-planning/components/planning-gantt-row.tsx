@@ -1,6 +1,13 @@
 import { useDroppable } from '@dnd-kit/core';
-import type { MouseEvent, ReactElement } from 'react';
+import type { CSSProperties, MouseEvent, ReactElement } from 'react';
 import { cn } from '@/lib/utils';
+import {
+    assignBarsToLanes,
+    laneBarHeight,
+    laneCountForBars,
+    laneTopOffset,
+    rowHeightForLaneCount,
+} from '../lib/assign-bars-to-lanes';
 import {
     barPositionStyle,
     dateFromPointerRatio,
@@ -19,6 +26,7 @@ import {
     projectionExceptionLabel,
 } from './projection-overlay';
 
+/** Historic single-lane default; multi-lane rows use rowHeightForLaneCount(). */
 export const ROW_HEIGHT = 48;
 export const RANK_LABEL_WIDTH = 112;
 
@@ -102,6 +110,11 @@ export function PlanningGanttRow({
         ? projectionExceptionLabel(projection.status)
         : null;
     const manningRequired = projection?.required_count ?? requiredCount ?? null;
+    const laneCount = laneCountForBars(bars);
+    const rowHeight = rowHeightForLaneCount(laneCount);
+    const barHeight = laneBarHeight(laneCount);
+    const lanedBars = assignBarsToLanes(bars);
+    const dropTarget = { vesselId, rankId };
 
     const handleBackgroundClick = (e: MouseEvent<HTMLDivElement>): void => {
         if (!can.create || !onRowClick || isDraggingBar) {
@@ -113,7 +126,7 @@ export function PlanningGanttRow({
         if (
             target.closest('[data-radix-popper-content-wrapper]') ??
             target.closest('[data-projection-band]') ??
-            target.closest('.absolute')
+            target.closest('[data-planning-bar]')
         ) {
             return;
         }
@@ -128,6 +141,9 @@ export function PlanningGanttRow({
         <div
             ref={setDropRef}
             data-row-key={rowKey}
+            data-vessel-id={vesselId}
+            data-rank-id={rankId}
+            data-lane-count={laneCount}
             className={cn(
                 'group relative flex border-b border-border/50 bg-background',
                 isHighlighted && 'bg-amber-50/50 dark:bg-amber-950/30',
@@ -135,7 +151,7 @@ export function PlanningGanttRow({
                 can.create && 'hover:bg-muted/30 dark:hover:bg-muted/20',
             )}
             style={{
-                height: ROW_HEIGHT,
+                height: rowHeight,
                 minWidth: timelineMinWidth + RANK_LABEL_WIDTH,
             }}
         >
@@ -194,6 +210,7 @@ export function PlanningGanttRow({
                         className="absolute inset-0 z-0 cursor-crosshair"
                         title={`Click to plan assignment on ${rankName}`}
                         onClick={handleBackgroundClick}
+                        data-row-drop-target={`${dropTarget.vesselId}:${dropTarget.rankId}`}
                     />
                 ) : null}
 
@@ -213,13 +230,23 @@ export function PlanningGanttRow({
                 ) : null}
 
                 <div className="relative z-10 h-full overflow-hidden">
-                    {bars.map((bar) => {
-                        const style = barPositionStyle(
+                    {lanedBars.map(({ bar, lane }) => {
+                        const horizontal = barPositionStyle(
                             bar.start,
                             bar.end,
                             rangeFrom,
                             rangeTo,
                         );
+
+                        if ('display' in horizontal) {
+                            return null;
+                        }
+
+                        const style: CSSProperties = {
+                            ...horizontal,
+                            top: laneTopOffset(lane, laneCount),
+                            height: barHeight,
+                        };
                         const isBarHighlighted =
                             lowerSearch !== '' &&
                             bar.employee_name

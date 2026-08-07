@@ -31,8 +31,12 @@ export function ReadOnlyAssignmentBar({
         <Popover>
             <PopoverTrigger asChild>
                 <div
+                    data-planning-bar={bar.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${bar.employee_name}${bar.rank_name ? `, ${bar.rank_name}` : ''}`}
                     className={cn(
-                        'absolute top-1.5 bottom-1.5 flex items-center gap-1.5 rounded-md px-2 text-xs font-medium text-foreground',
+                        'absolute flex items-center gap-1.5 overflow-hidden rounded-md px-2 text-xs font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                         barSurfaceClass(bar),
                         highlighted && 'ring-2 ring-amber-400 ring-offset-1',
                     )}
