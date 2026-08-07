@@ -260,9 +260,79 @@ Planning never starts movement, completes source P4, creates Sea Service, or cre
 
 ### Deferred
 
-- Phase 2B: projected vessel manning / coverage gaps
+- Phase 2B.2+: projected manning UI / dashboard cards
 - Phase 2C: transfer / redeployment Tour behaviour
 - Phase 3: notifications (email, push, in-app, escalation)
+
+## Phase 2B.1 — Projected Vessel Manning Engine
+
+Read-only Support query: `CrewProjectedManningQuery`. Derives coverage from existing Crew Assignments, P4 phases, Crew Planning rows, relief links (`relieves_crew_assignment_id`), and company-scoped `VesselManning`. No projection table; no mutations.
+
+### Data sources
+
+| Input | Use |
+|-------|-----|
+| `VesselManning` | Required count per vessel + rank |
+| P4 `actual_start_at` / `actual_end_at` | Actual onboard intervals and authoritative dates |
+| Assignment `planned_join_at` / `planned_signoff_at` | Forecast when actuals absent |
+| P4 `planned_end_at` | Forecast leave fallback |
+| Planning `planned_join_date` / `planned_leave_date` | Planning-only joins; lowest precedence when linked |
+
+### Join precedence
+
+1. P4 `actual_start_at`
+2. Assignment `planned_join_at`
+3. Linked / planning-only `planned_join_date`
+
+Vacant Planning (`employee_id` null) does not increase headcount. Soft-deleted Planning and cancelled assignments are excluded. Linked Planning + Assignment count once (assignment wins).
+
+### Leave / sign-off precedence
+
+1. P4 `actual_end_at`
+2. Assignment `planned_signoff_at`
+3. P4 `planned_end_at`
+4. Planning `planned_leave_date`
+5. Open-ended (remains onboard through the horizon)
+
+Planned Sign-Off is forecast-only; it never completes P4, creates Sea Service, or payroll actuals.
+
+### Same-day ordering
+
+Company-local calendar days. Event **display** order on a shared date is join before sign-off. Min/max/gap/overlap are calculated from the **net end-of-day count** after all events for that date are applied, so a one-for-one handover does not create false overlap.
+
+### Actual vs projected counts at range start
+
+| Field | Meaning |
+|-------|---------|
+| `actual_onboard_at_start` | Only actual P4 intervals (`actual_start_at` ≤ `from`, and `actual_end_at` null or ≥ `from`). Forecast leave dates never reduce this count. |
+| `projected_count_at_start` | Forecast coverage at `from` using actual end when present, otherwise planned sign-off / planned end / Planning leave |
+| `starting_count` | Compatibility alias of `projected_count_at_start` |
+
+Overdue Planning rows and pre-P4 Draft/planned assignments are **not** actual onboard. They may still contribute to `projected_count_at_start` when their resolved join ≤ `from` and leave is open or ≥ `from`. An open actual P4 with a planned sign-off already before `from` remains `actual_onboard_at_start = 1` and `projected_count_at_start = 0`. Planned Sign-Off is never Actual Disembarkation.
+
+### Repeatable P4 phases
+
+Each On Vessel phase with `actual_start_at` becomes its own projection segment (ordered by `sequence`). Assignment/Planning forecast dates are used only when they do not duplicate an actual P4 segment (typically Draft/Active with no actual P4 yet).
+
+### Completed / P5 / P6
+
+Completed assignments contribute historical actual P4 intervals only — never stale planned joins or Planning-driven future joins. Active P5/P6 may contribute historical P4 intervals but never projected fallback joins. Cancelled assignments remain excluded.
+
+### Tenant-safe relations
+
+Trusted `companyId` is enforced independently on Vessel Manning, assignments, phases, linked Planning, and employees. Malformed cross-company relations are omitted and their IDs are not exposed on events.
+
+### Relief
+
+Uses Phase 2A Planning relief links. Late relief → gap between source leave and relief join; early relief → overlap/excess. Historical P5/P6 / cancelled / completed linked relief follow assignment P4 history and status exclusions, not readiness labels alone.
+
+### Summary overlap
+
+`summary.overlap_positions` counts rows where `has_overlap` is true (not only when primary status is `overlap`).
+
+### Deferred UI
+
+Projected Manning screens, Planning overlays, and dashboard cards are out of scope for 2B.1.
 
 
 ## Sea service
