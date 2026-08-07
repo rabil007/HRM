@@ -3,6 +3,7 @@
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Enums\CrewProjectedManningEventType;
 use App\Enums\CrewProjectedManningStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
@@ -66,6 +67,26 @@ it('counts current onboard from actual P4 coverage at range start', function () 
         ->and($item['required_count'])->toBe(1)
         ->and($item['current_gap'])->toBe(0)
         ->and($item['status'])->toBe(CrewProjectedManningStatus::Covered->value);
+});
+
+it('keeps actual onboard when planned sign-off is before the projection range', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $ctx = makeProjectedManningPosition($fixtures, 'Forecast Leave Before From Vessel');
+    $assignment = makeActiveOnVesselAssignment($ctx['company'], $ctx['employee'], $ctx['rank'], $ctx['vessel'], [
+        'planned_signoff_at' => '2026-07-25 00:00:00',
+    ]);
+    $assignment->currentPhase->update([
+        'actual_start_at' => '2026-06-01 08:00:00',
+        'actual_end_at' => null,
+    ]);
+
+    $item = firstProjectedItem(projectManning($ctx, '2026-08-01', '2026-08-31'));
+
+    expect($item['actual_onboard_at_start'])->toBe(1)
+        ->and($item['projected_count_at_start'])->toBe(0)
+        ->and($item['starting_count'])->toBe(0)
+        ->and(collect($item['events'])->where('type', CrewProjectedManningEventType::SignOff->value))->toBeEmpty()
+        ->and(collect($item['events'])->where('employee_id', $ctx['employee']->id))->toBeEmpty();
 });
 
 it('produces current gap when Vessel Manning has no crew', function () {

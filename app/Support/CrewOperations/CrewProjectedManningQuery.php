@@ -235,7 +235,8 @@ final class CrewProjectedManningQuery
      * @param  list<int>  $linkedAssignmentIds
      * @return Collection<string, Collection<int, array{
      *     join: string,
-     *     leave: string|null,
+     *     actual_end: string|null,
+     *     projected_leave: string|null,
      *     is_actual: bool,
      *     employee_id: int|null,
      *     crew_assignment_id: int|null,
@@ -292,7 +293,8 @@ final class CrewProjectedManningQuery
 
             $byKey->get($key)->push([
                 'join' => $planning->planned_join_date->toDateString(),
-                'leave' => $planning->planned_leave_date?->toDateString(),
+                'actual_end' => null,
+                'projected_leave' => $planning->planned_leave_date?->toDateString(),
                 'is_actual' => false,
                 'employee_id' => (int) $employee->id,
                 'crew_assignment_id' => null,
@@ -307,7 +309,8 @@ final class CrewProjectedManningQuery
     /**
      * @return list<array{
      *     join: string,
-     *     leave: string|null,
+     *     actual_end: string|null,
+     *     projected_leave: string|null,
      *     is_actual: bool,
      *     employee_id: int|null,
      *     crew_assignment_id: int|null,
@@ -366,13 +369,16 @@ final class CrewProjectedManningQuery
 
             $hasActualP4 = true;
             $join = $this->toCompanyDate($phase->actual_start_at, $timezone);
-            $leave = $phase->actual_end_at !== null
+            $actualEnd = $phase->actual_end_at !== null
                 ? $this->toCompanyDate($phase->actual_end_at, $timezone)
-                : $this->resolveForecastLeave($assignment, $phase, $planning, $timezone);
+                : null;
+            $projectedLeave = $actualEnd
+                ?? $this->resolveForecastLeave($assignment, $phase, $planning, $timezone);
 
             $segments[] = [
                 'join' => $join,
-                'leave' => $leave,
+                'actual_end' => $actualEnd,
+                'projected_leave' => $projectedLeave,
                 'is_actual' => true,
                 'employee_id' => $employeeId,
                 'crew_assignment_id' => (int) $assignment->id,
@@ -393,7 +399,8 @@ final class CrewProjectedManningQuery
 
         $segments[] = [
             'join' => $join,
-            'leave' => $this->resolveForecastLeave($assignment, null, $planning, $timezone),
+            'actual_end' => null,
+            'projected_leave' => $this->resolveForecastLeave($assignment, null, $planning, $timezone),
             'is_actual' => false,
             'employee_id' => $employeeId,
             'crew_assignment_id' => (int) $assignment->id,
@@ -463,7 +470,8 @@ final class CrewProjectedManningQuery
     /**
      * @param  Collection<int, array{
      *     join: string,
-     *     leave: string|null,
+     *     actual_end: string|null,
+     *     projected_leave: string|null,
      *     is_actual: bool,
      *     employee_id: int|null,
      *     crew_assignment_id: int|null,
@@ -489,26 +497,37 @@ final class CrewProjectedManningQuery
 
         foreach ($segments as $segment) {
             $join = $segment['join'];
-            $leave = $segment['leave'];
-            $coversStart = $join <= $fromDate && ($leave === null || $leave >= $fromDate);
+            $actualEnd = $segment['actual_end'];
+            $projectedLeave = $segment['projected_leave'];
 
-            if ($coversStart) {
+            // Operational truth: forecast leave never clears actual onboard.
+            if ($segment['is_actual']
+                && $join <= $fromDate
+                && ($actualEnd === null || $actualEnd >= $fromDate)) {
+                $actualOnboard++;
+            }
+
+            $projectedCoversStart = $join <= $fromDate
+                && ($projectedLeave === null || $projectedLeave >= $fromDate);
+
+            if ($projectedCoversStart) {
                 $projectedAtStart++;
 
-                if ($segment['is_actual']) {
-                    $actualOnboard++;
-                }
-
-                if ($leave === null) {
+                if ($projectedLeave === null) {
                     $hasOpenEnded = true;
-                } elseif ($leave >= $fromDate && $leave <= $toDate) {
-                    $events[] = $this->event($leave, CrewProjectedManningEventType::SignOff, $segment);
+                } elseif ($projectedLeave >= $fromDate && $projectedLeave <= $toDate) {
+                    $events[] = $this->event(
+                        $projectedLeave,
+                        CrewProjectedManningEventType::SignOff,
+                        $segment,
+                    );
                 }
 
                 continue;
             }
 
-            if ($leave !== null && $leave < $fromDate) {
+            // Forecast already ended before the range — no projected events in range.
+            if ($join <= $fromDate && $projectedLeave !== null && $projectedLeave < $fromDate) {
                 continue;
             }
 
@@ -517,12 +536,20 @@ final class CrewProjectedManningQuery
             }
 
             if ($join > $fromDate && $join <= $toDate) {
-                $events[] = $this->event($join, CrewProjectedManningEventType::Join, $segment);
+                $events[] = $this->event(
+                    $join,
+                    CrewProjectedManningEventType::Join,
+                    $segment,
+                );
 
-                if ($leave === null) {
+                if ($projectedLeave === null) {
                     $hasOpenEnded = true;
-                } elseif ($leave >= $fromDate && $leave <= $toDate) {
-                    $events[] = $this->event($leave, CrewProjectedManningEventType::SignOff, $segment);
+                } elseif ($projectedLeave >= $fromDate && $projectedLeave <= $toDate) {
+                    $events[] = $this->event(
+                        $projectedLeave,
+                        CrewProjectedManningEventType::SignOff,
+                        $segment,
+                    );
                 }
             }
         }
