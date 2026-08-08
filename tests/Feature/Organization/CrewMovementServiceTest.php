@@ -198,6 +198,7 @@ test('planned sign-off does not close p4 and confirm preserves planned sign-off'
 
     $assignment = $service->perform($company->id, $id, CrewMovementAction::PlanSignoff, [
         'planned_signoff_at' => '2026-06-15 00:00:00',
+        'planned_signoff_override_reason' => 'Operational crew change plan updated',
     ], $user->id);
 
     expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
