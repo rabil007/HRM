@@ -16,19 +16,15 @@ function rank(
     overrides: Partial<{
         id: number;
         name: string;
-        global_tour_of_duty_days: number | null;
-        company_tour_of_duty_days: number | null;
+        max_tour_of_duty_days: number | null;
         resolved_tour_of_duty_days: number | null;
-        resolved_tour_of_duty_source: string | null;
     }> = {},
 ) {
     return {
         id: 1,
         name: 'Chief Officer',
-        global_tour_of_duty_days: 90,
-        company_tour_of_duty_days: null,
+        max_tour_of_duty_days: 90,
         resolved_tour_of_duty_days: 90,
-        resolved_tour_of_duty_source: 'global_rank_default',
         ...overrides,
     };
 }
@@ -53,7 +49,6 @@ function baseForm(
         planned_signoff_at: '2026-10-01',
         planned_travel_at: '',
         reason: '',
-        tour_of_duty_days: '',
         planned_signoff_choice: 'tour_of_duty',
         planned_signoff_override_reason: 'stale reason',
         ...overrides,
@@ -72,8 +67,8 @@ describe('defaultDestinationTourSignoffChoice', () => {
         assert.equal(
             defaultDestinationTourSignoffChoice(
                 rank({
+                    max_tour_of_duty_days: null,
                     resolved_tour_of_duty_days: null,
-                    resolved_tour_of_duty_source: null,
                 }),
             ),
             'manual_override',
@@ -83,7 +78,7 @@ describe('defaultDestinationTourSignoffChoice', () => {
     it('never returns existing_plan for destination assignments', () => {
         const withTour = defaultDestinationTourSignoffChoice(rank());
         const withoutTour = defaultDestinationTourSignoffChoice(
-            rank({ resolved_tour_of_duty_days: null }),
+            rank({ max_tour_of_duty_days: null, resolved_tour_of_duty_days: null }),
         );
 
         assert.notEqual(withTour, 'existing_plan');
@@ -99,8 +94,8 @@ describe('nextSignoffChoiceForRankChange', () => {
                 nextRank: rank({
                     id: 2,
                     name: 'Second Officer',
+                    max_tour_of_duty_days: 60,
                     resolved_tour_of_duty_days: 60,
-                    resolved_tour_of_duty_source: 'company_rank_policy',
                 }),
                 hasManualOverrideInput: false,
             }),
@@ -112,7 +107,7 @@ describe('nextSignoffChoiceForRankChange', () => {
         assert.equal(
             nextSignoffChoiceForRankChange({
                 previousChoice: 'manual_override',
-                nextRank: rank({ resolved_tour_of_duty_days: 60 }),
+                nextRank: rank({ max_tour_of_duty_days: 60, resolved_tour_of_duty_days: 60 }),
                 hasManualOverrideInput: true,
             }),
             'manual_override',
@@ -124,8 +119,8 @@ describe('nextSignoffChoiceForRankChange', () => {
             nextSignoffChoiceForRankChange({
                 previousChoice: 'tour_of_duty',
                 nextRank: rank({
+                    max_tour_of_duty_days: null,
                     resolved_tour_of_duty_days: null,
-                    resolved_tour_of_duty_source: null,
                 }),
                 hasManualOverrideInput: false,
             }),
@@ -199,19 +194,6 @@ describe('normalizeTourSignoffPayload', () => {
         assert.equal(payload.planned_signoff_override_reason, 'Client request');
     });
 
-    it('omits empty tour_of_duty_days', () => {
-        const payload = normalizeTourSignoffPayload(
-            baseForm({
-                action: 'join_vessel',
-                tour_of_duty_days: '',
-                planned_signoff_choice: 'tour_of_duty',
-            }),
-            'join_vessel',
-        );
-
-        assert.equal('tour_of_duty_days' in payload, false);
-    });
-
     it('preserves join vessel existing_plan behaviour', () => {
         const payload = normalizeTourSignoffPayload(
             baseForm({
@@ -235,7 +217,6 @@ describe('normalizeTourSignoffPayload', () => {
                     action: 'redeploy',
                     starting_phase,
                     planned_signoff_choice: 'tour_of_duty',
-                    tour_of_duty_days: 60,
                     planned_signoff_override_reason: 'stale',
                     planned_signoff_at:
                         starting_phase === 'p0' ? '2026-10-01' : '2026-12-01',
@@ -243,7 +224,6 @@ describe('normalizeTourSignoffPayload', () => {
                 'redeploy',
             );
 
-            assert.equal('tour_of_duty_days' in payload, false);
             assert.equal('planned_signoff_choice' in payload, false);
             assert.equal('planned_signoff_override_reason' in payload, false);
 
@@ -263,13 +243,11 @@ describe('normalizeTourSignoffPayload', () => {
                 action: 'redeploy',
                 starting_phase: 'p4',
                 planned_signoff_choice: 'tour_of_duty',
-                tour_of_duty_days: '',
             }),
             'redeploy',
         );
 
         assert.equal(payload.planned_signoff_choice, 'tour_of_duty');
-        assert.equal('tour_of_duty_days' in payload, false);
         assert.equal('planned_signoff_at' in payload, false);
     });
 });
@@ -277,7 +255,6 @@ describe('normalizeTourSignoffPayload', () => {
 describe('clearedDirectP4TourFields', () => {
     it('clears stale Tour payload when leaving P4', () => {
         assert.deepEqual(clearedDirectP4TourFields(), {
-            tour_of_duty_days: '',
             planned_signoff_choice: 'manual_override',
             planned_signoff_override_reason: '',
         });
@@ -294,8 +271,8 @@ describe('actionUsesDirectP4TourSignoff', () => {
                         rank({ id: 10, resolved_tour_of_duty_days: 60 }),
                         rank({
                             id: 11,
+                            max_tour_of_duty_days: null,
                             resolved_tour_of_duty_days: null,
-                            resolved_tour_of_duty_source: null,
                         }),
                     ],
                     10,
@@ -309,8 +286,8 @@ describe('actionUsesDirectP4TourSignoff', () => {
                     [
                         rank({
                             id: 11,
+                            max_tour_of_duty_days: null,
                             resolved_tour_of_duty_days: null,
-                            resolved_tour_of_duty_source: null,
                         }),
                     ],
                     11,

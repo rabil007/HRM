@@ -30,8 +30,7 @@ final class CrewJoinVesselSignoffApplier
      *     planned_signoff_at: CarbonInterface|null,
      *     planned_signoff_source: CrewPlannedSignoffSource|null,
      *     planned_signoff_override_reason: string|null,
-     *     tour_of_duty_days: int|null,
-     *     tour_of_duty_source: string|null
+     *     tour_of_duty_days: int|null
      * }
      */
     public function apply(
@@ -112,7 +111,6 @@ final class CrewJoinVesselSignoffApplier
                 ? $reason
                 : null,
             'tour_of_duty_days' => $tour->tourOfDutyDays,
-            'tour_of_duty_source' => $tour->tourOfDutySource?->value,
         ];
     }
 

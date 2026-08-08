@@ -3,9 +3,7 @@
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewPlannedSignoffSource;
-use App\Enums\CrewTourOfDutySource;
 use App\Models\CrewPlanningAssignment;
-use App\Models\CrewRankPolicy;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Support\CrewMovements\CrewMovementService;
@@ -23,13 +21,6 @@ beforeEach(function () {
     ]);
     $this->vessel = makeCrewMovementVessel('E2E Tour Vessel');
     $this->service = app(CrewMovementService::class);
-
-    CrewRankPolicy::query()->create([
-        'company_id' => $this->company->id,
-        'rank_id' => $this->rank->id,
-        'tour_of_duty_days' => 75,
-        'is_active' => true,
-    ]);
 });
 
 function advanceToReadyForE2ETour(CrewMovementService $service, int $companyId, int $assignmentId, int $userId): void
@@ -46,7 +37,7 @@ function advanceToReadyForE2ETour(CrewMovementService $service, int $companyId, 
     ], $userId);
 }
 
-it('uses company policy tour suggestion on join vessel', function () {
+it('uses Rank Master tour suggestion on join vessel', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
         'rank_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
@@ -65,15 +56,14 @@ it('uses company policy tour suggestion on join vessel', function () {
 
     $assignment->refresh()->load('currentPhase', 'planningAssignment');
 
-    expect($assignment->tour_of_duty_days)->toBe(75)
-        ->and($assignment->tour_of_duty_source)->toBe(CrewTourOfDutySource::CompanyRankPolicy)
+    expect($assignment->tour_of_duty_days)->toBe(90)
         ->and($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::TourOfDuty)
-        ->and($assignment->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-10-26')
-        ->and($assignment->currentPhase?->planned_end_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-10-26')
+        ->and($assignment->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-10')
+        ->and($assignment->currentPhase?->planned_end_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-10')
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
         ->and($assignment->currentPhase?->actual_end_at)->toBeNull()
         ->and(EmployeeSeaService::query()->where('employee_id', $this->employee->id)->exists())->toBeFalse()
-        ->and($assignment->planningAssignment?->planned_leave_date?->toDateString())->toBe('2026-10-26');
+        ->and($assignment->planningAssignment?->planned_leave_date?->toDateString())->toBe('2026-11-10');
 });
 
 it('keeps existing planning leave when existing_plan is chosen', function () {
@@ -97,8 +87,7 @@ it('keeps existing planning leave when existing_plan is chosen', function () {
 
     expect($assignment->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-08')
         ->and($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::ExistingPlan)
-        ->and($assignment->tour_of_duty_days)->toBe(75)
-        ->and($assignment->tour_of_duty_source)->toBe(CrewTourOfDutySource::CompanyRankPolicy);
+        ->and($assignment->tour_of_duty_days)->toBe(90);
 });
 
 it('stores manual override with required reason', function () {
@@ -133,10 +122,10 @@ it('stores manual override with required reason', function () {
     expect($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::ManualOverride)
         ->and($assignment->planned_signoff_override_reason)->toBe('Client requested earlier relief')
         ->and($assignment->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-09-30')
-        ->and($assignment->tour_of_duty_days)->toBe(75);
+        ->and($assignment->tour_of_duty_days)->toBe(90);
 });
 
-it('keeps snapshotted tour after later rank and company policy changes', function () {
+it('keeps snapshotted tour after later Rank Master changes', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
         'rank_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
@@ -152,15 +141,11 @@ it('keeps snapshotted tour after later rank and company policy changes', functio
     ], $this->user->id);
 
     $this->rank->update(['max_tour_of_duty_days' => 120]);
-    CrewRankPolicy::query()
-        ->where('company_id', $this->company->id)
-        ->where('rank_id', $this->rank->id)
-        ->update(['tour_of_duty_days' => 150]);
 
     $assignment->refresh();
 
-    expect($assignment->tour_of_duty_days)->toBe(75)
-        ->and($assignment->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-10-26');
+    expect($assignment->tour_of_duty_days)->toBe(90)
+        ->and($assignment->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-10');
 
     $otherEmployee = Employee::factory()->forCompany($this->company)->create([
         'rank_id' => $this->rank->id,
@@ -181,7 +166,7 @@ it('keeps snapshotted tour after later rank and company policy changes', functio
         'planned_signoff_choice' => 'tour_of_duty',
     ], $this->user->id);
 
-    expect($future->fresh()->tour_of_duty_days)->toBe(150)
+    expect($future->fresh()->tour_of_duty_days)->toBe(120)
         ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeTrue()
         ->and(EmployeeSeaService::query()->count())->toBe(0);
 });

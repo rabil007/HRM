@@ -87,9 +87,6 @@ export function CrewTourProgressDisplay({
                 {signoffDate ? (
                     <span>Sign-off {formatDisplayDate(signoffDate)}</span>
                 ) : null}
-                {progress.tour_of_duty_source_label ? (
-                    <span>· {progress.tour_of_duty_source_label}</span>
-                ) : null}
             </div>
 
             {progress.tour_status_label ? (

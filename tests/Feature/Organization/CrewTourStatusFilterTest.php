@@ -4,7 +4,6 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewPlannedSignoffSource;
-use App\Enums\CrewTourOfDutySource;
 use App\Enums\CrewTourStatus;
 use App\Models\Employee;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
@@ -24,7 +23,6 @@ it('filters current crew by tour status overdue', function () {
         $vessel,
         [
             'tour_of_duty_days' => 90,
-            'tour_of_duty_source' => CrewTourOfDutySource::GlobalRankDefault->value,
             'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
             'planned_signoff_at' => $today->subDays(3)->toDateTimeString(),
         ],
@@ -42,7 +40,6 @@ it('filters current crew by tour status overdue', function () {
         $otherVessel,
         [
             'tour_of_duty_days' => 90,
-            'tour_of_duty_source' => CrewTourOfDutySource::GlobalRankDefault->value,
             'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
             'planned_signoff_at' => $today->addDays(60)->toDateTimeString(),
         ],
@@ -68,7 +65,6 @@ it('presenter returns tour progress with negative remaining days', function () {
         $vessel,
         [
             'tour_of_duty_days' => 90,
-            'tour_of_duty_source' => CrewTourOfDutySource::CompanyRankPolicy->value,
             'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
             'planned_signoff_at' => '2026-08-10 00:00:00',
         ],
@@ -125,7 +121,6 @@ it('adds missing tour and overdue tour attention warnings', function () {
         makeCrewMovementVessel('Attention Overdue Vessel'),
         [
             'tour_of_duty_days' => 90,
-            'tour_of_duty_source' => CrewTourOfDutySource::GlobalRankDefault->value,
             'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
             'planned_signoff_at' => $today->subDays(2)->toDateTimeString(),
         ],

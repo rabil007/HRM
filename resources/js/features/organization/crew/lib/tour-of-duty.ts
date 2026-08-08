@@ -1,53 +1,13 @@
 import type { CrewAssignmentFormOptions } from '../types';
 
-export const TOUR_OF_DUTY_SOURCE_LABELS: Record<string, string> = {
-    global_rank_default: 'Global Rank Default',
-    company_rank_policy: 'Company Rank Policy',
-    assignment_override: 'Assignment Override',
-};
-
 export type CrewRankTourOption = CrewAssignmentFormOptions['ranks'][number];
-
-export function tourSourceLabel(source: string | null | undefined): string {
-    if (!source) {
-        return 'Not configured';
-    }
-
-    return TOUR_OF_DUTY_SOURCE_LABELS[source] ?? source;
-}
 
 export function resolveJoinTourDays(
     rank: CrewRankTourOption | undefined,
-    overrideDays: number | null | '' | undefined,
 ): number | null {
-    if (
-        overrideDays !== null &&
-        overrideDays !== '' &&
-        overrideDays !== undefined &&
-        Number(overrideDays) > 0
-    ) {
-        return Number(overrideDays);
-    }
+    const days = rank?.max_tour_of_duty_days ?? rank?.resolved_tour_of_duty_days;
 
-    const resolved = rank?.resolved_tour_of_duty_days;
-
-    return resolved != null && resolved > 0 ? resolved : null;
-}
-
-export function resolveJoinTourSource(
-    rank: CrewRankTourOption | undefined,
-    overrideDays: number | null | '' | undefined,
-): string | null {
-    if (
-        overrideDays !== null &&
-        overrideDays !== '' &&
-        overrideDays !== undefined &&
-        Number(overrideDays) > 0
-    ) {
-        return 'assignment_override';
-    }
-
-    return rank?.resolved_tour_of_duty_source ?? null;
+    return days != null && days > 0 ? days : null;
 }
 
 /** Calendar-day addition for display-only suggested sign-off (backend is authoritative). */

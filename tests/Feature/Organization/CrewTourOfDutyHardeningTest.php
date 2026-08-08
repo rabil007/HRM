@@ -4,14 +4,10 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewPlannedSignoffSource;
-use App\Enums\CrewTourOfDutySource;
 use App\Enums\CrewTourStatus;
-use App\Models\CrewRankPolicy;
 use App\Models\Employee;
-use App\Models\Rank;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
-use App\Support\CrewMovements\CrewTourOfDutyResolver;
 use App\Support\CrewMovements\CrewTourProgress;
 use App\Support\CrewMovements\CrewTourStatusQuery;
 use App\Support\CrewMovements\CurrentCrewQuery;
@@ -48,7 +44,6 @@ it('uses cumulative within-N-day filters matching daily pulse sign-off counts', 
             makeCrewMovementVessel("Cumulative {$slot['label']} Vessel"),
             [
                 'tour_of_duty_days' => 90,
-                'tour_of_duty_source' => CrewTourOfDutySource::GlobalRankDefault->value,
                 'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
                 'planned_signoff_at' => $today->addDays($slot['offset'])->toDateTimeString(),
             ],
@@ -112,7 +107,6 @@ it('does not mark due-today assignments as overdue at midday', function () {
         makeCrewMovementVessel('Due Today Midday Vessel'),
         [
             'tour_of_duty_days' => 90,
-            'tour_of_duty_source' => CrewTourOfDutySource::GlobalRankDefault->value,
             'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
             'planned_signoff_at' => $today->toDateTimeString(),
         ],
@@ -141,7 +135,6 @@ it('freezes completed p4 progress at actual end and suppresses active tour alert
         makeCrewMovementVessel('Completed Tour Vessel'),
         [
             'tour_of_duty_days' => 90,
-            'tour_of_duty_source' => CrewTourOfDutySource::GlobalRankDefault->value,
             'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
             'planned_signoff_at' => '2026-08-10 00:00:00',
             'status' => CrewAssignmentStatus::Completed->value,
@@ -174,43 +167,4 @@ it('freezes completed p4 progress at actual end and suppresses active tour alert
         ->and($codes)->not->toContain('planned_signoff_overdue');
 
     CarbonImmutable::setTestNow();
-});
-
-it('keeps rank policy preview tenant-isolated when resolving from preloaded maps', function () {
-    $fixtures = makeCrewAssignmentFixtures();
-    $other = makeCrewAssignmentFixtures();
-    $rank = Rank::query()->create([
-        'name' => 'Hardening Isolation Rank '.uniqid(),
-        'is_active' => true,
-        'max_tour_of_duty_days' => 90,
-    ]);
-
-    CrewRankPolicy::query()->create([
-        'company_id' => $fixtures['company']->id,
-        'rank_id' => $rank->id,
-        'tour_of_duty_days' => 75,
-        'is_active' => true,
-    ]);
-    CrewRankPolicy::query()->create([
-        'company_id' => $other['company']->id,
-        'rank_id' => $rank->id,
-        'tour_of_duty_days' => 120,
-        'is_active' => true,
-    ]);
-
-    $resolver = new CrewTourOfDutyResolver;
-    $companyA = $resolver->companyPolicyDaysByRankId((int) $fixtures['company']->id);
-    $companyB = $resolver->companyPolicyDaysByRankId((int) $other['company']->id);
-
-    $previewA = $resolver->previewForRank((int) $fixtures['company']->id, $rank, $companyA);
-    $previewB = $resolver->previewForRank((int) $other['company']->id, $rank, $companyB);
-
-    expect($previewA['company_tour_of_duty_days'])->toBe(75)
-        ->and($previewA['resolved_tour_of_duty_days'])->toBe(75)
-        ->and($previewB['company_tour_of_duty_days'])->toBe(120)
-        ->and($previewB['resolved_tour_of_duty_days'])->toBe(120)
-        ->and($companyA[$rank->id] ?? null)->toBe(75)
-        ->and($companyB[$rank->id] ?? null)->toBe(120)
-        ->and(array_key_exists($rank->id, $companyA))->toBeTrue()
-        ->and($companyA)->not->toEqual($companyB);
 });

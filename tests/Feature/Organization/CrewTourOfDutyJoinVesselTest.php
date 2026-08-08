@@ -4,9 +4,7 @@ use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewPlannedSignoffSource;
-use App\Enums\CrewTourOfDutySource;
 use App\Models\CrewPlanningAssignment;
-use App\Models\CrewRankPolicy;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Support\CrewMovements\CrewMovementService;
@@ -55,7 +53,6 @@ it('stores tour snapshot and suggested planned sign-off on join vessel', functio
     $assignment->refresh()->load('currentPhase', 'phases', 'planningAssignment');
 
     expect($assignment->tour_of_duty_days)->toBe(90)
-        ->and($assignment->tour_of_duty_source)->toBe(CrewTourOfDutySource::GlobalRankDefault)
         ->and($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::TourOfDuty)
         ->and($assignment->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-10')
         ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
@@ -131,14 +128,7 @@ it('stores manual override source and reason', function () {
         ->and($assignment->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-10-01');
 });
 
-it('keeps snapshotted tour days after rank and company policy change', function () {
-    CrewRankPolicy::query()->create([
-        'company_id' => $this->company->id,
-        'rank_id' => $this->rank->id,
-        'tour_of_duty_days' => 90,
-        'is_active' => true,
-    ]);
-
+it('keeps snapshotted tour days after Rank Master change', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
         'rank_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
@@ -157,10 +147,6 @@ it('keeps snapshotted tour days after rank and company policy change', function 
     expect($assignment->tour_of_duty_days)->toBe(90);
 
     $this->rank->update(['max_tour_of_duty_days' => 120]);
-    CrewRankPolicy::query()
-        ->where('company_id', $this->company->id)
-        ->where('rank_id', $this->rank->id)
-        ->update(['tour_of_duty_days' => 150]);
 
     $assignment->refresh();
     expect($assignment->tour_of_duty_days)->toBe(90)
@@ -186,8 +172,7 @@ it('keeps snapshotted tour days after rank and company policy change', function 
     ], $this->user->id);
 
     $future->refresh();
-    expect($future->tour_of_duty_days)->toBe(150)
-        ->and($future->tour_of_duty_source)->toBe(CrewTourOfDutySource::CompanyRankPolicy);
+    expect($future->tour_of_duty_days)->toBe(120);
 });
 
 it('does not create sea service or complete p4 from generated planned sign-off', function () {

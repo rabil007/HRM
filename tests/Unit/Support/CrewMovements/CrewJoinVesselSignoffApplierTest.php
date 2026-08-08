@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\CrewPlannedSignoffSource;
-use App\Enums\CrewTourOfDutySource;
 use App\Support\CrewMovements\CrewJoinVesselSignoffApplier;
 use App\Support\CrewMovements\CrewTourOfDutyResult;
 use Carbon\CarbonImmutable;
@@ -15,7 +14,6 @@ function makeTourResult(?int $days = 90, string $timezone = 'Asia/Dubai'): CrewT
 
     return new CrewTourOfDutyResult(
         tourOfDutyDays: $days,
-        tourOfDutySource: $days !== null ? CrewTourOfDutySource::GlobalRankDefault : null,
         suggestedPlannedSignoffAt: $suggested,
         timezone: $timezone,
     );

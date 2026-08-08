@@ -75,7 +75,6 @@ use App\Http\Controllers\Organization\CrewOperationsSettingsController;
 use App\Http\Controllers\Organization\CrewPlanningAssignmentController;
 use App\Http\Controllers\Organization\CrewPlanningController;
 use App\Http\Controllers\Organization\CrewProjectedManningController;
-use App\Http\Controllers\Organization\CrewRankPolicyController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\DepartmentController;
 use App\Http\Controllers\Organization\DocumentBulkCompanyFilesDeleteController;
@@ -430,16 +429,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'index'])->middleware('can:crew_operations.planning.view')->name('organization.crew-operations.settings.index');
     Route::put('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'update'])->middleware('can:crew_operations.planning.update')->name('organization.crew-operations.settings.update');
-
-    Route::get('organization/crew-operations/rank-policies', [CrewRankPolicyController::class, 'index'])
-        ->middleware('can:crew_operations.rank_policies.view')
-        ->name('organization.crew-operations.rank-policies.index');
-    Route::put('organization/crew-operations/rank-policies', [CrewRankPolicyController::class, 'upsert'])
-        ->middleware('can:crew_operations.rank_policies.update')
-        ->name('organization.crew-operations.rank-policies.upsert');
-    Route::delete('organization/crew-operations/rank-policies/{policy}', [CrewRankPolicyController::class, 'destroy'])
-        ->middleware('can:crew_operations.rank_policies.update')
-        ->name('organization.crew-operations.rank-policies.destroy');
 
     Route::get('payroll/overview', PayrollOverviewController::class)->middleware('can:payroll.overview.view')->name('payroll.overview');
     Route::get('payroll', [PayrollController::class, 'index'])->name('payroll.index');

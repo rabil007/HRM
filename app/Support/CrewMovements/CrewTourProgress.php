@@ -15,8 +15,6 @@ use Carbon\CarbonInterface;
  *
  * @phpstan-type TourProgressArray array{
  *     tour_of_duty_days: int|null,
- *     tour_of_duty_source: string|null,
- *     tour_of_duty_source_label: string|null,
  *     planned_signoff_source: string|null,
  *     planned_signoff_source_label: string|null,
  *     days_onboard: int|null,
@@ -49,14 +47,11 @@ final class CrewTourProgress
         $tourDays = $assignment->tour_of_duty_days !== null
             ? (int) $assignment->tour_of_duty_days
             : null;
-        $tourSource = $assignment->tour_of_duty_source;
         $signoffSource = $assignment->planned_signoff_source;
         $plannedSignoff = $assignment->planned_signoff_at;
 
         $empty = [
             'tour_of_duty_days' => $tourDays,
-            'tour_of_duty_source' => $tourSource?->value,
-            'tour_of_duty_source_label' => $tourSource?->label(),
             'planned_signoff_source' => $signoffSource?->value,
             'planned_signoff_source_label' => $signoffSource?->label(),
             'days_onboard' => null,
@@ -109,8 +104,6 @@ final class CrewTourProgress
 
         return [
             'tour_of_duty_days' => $tourDays,
-            'tour_of_duty_source' => $tourSource?->value,
-            'tour_of_duty_source_label' => $tourSource?->label(),
             'planned_signoff_source' => $signoffSource?->value,
             'planned_signoff_source_label' => $signoffSource?->label(),
             'days_onboard' => $daysOnboard,

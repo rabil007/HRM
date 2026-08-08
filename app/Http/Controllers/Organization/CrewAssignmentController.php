@@ -22,7 +22,6 @@ use App\Support\CrewMovements\CrewAssignmentPagePermissions;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewMovementService;
-use App\Support\CrewMovements\CrewTourOfDutyResolver;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use App\Support\Pagination\ResolvesPerPage;
@@ -350,33 +349,22 @@ class CrewAssignmentController extends Controller
      * @return list<array{
      *     id: int,
      *     name: string,
-     *     global_tour_of_duty_days: int|null,
-     *     company_tour_of_duty_days: int|null,
-     *     resolved_tour_of_duty_days: int|null,
-     *     resolved_tour_of_duty_source: string|null
+     *     max_tour_of_duty_days: int|null,
+     *     resolved_tour_of_duty_days: int|null
      * }>
      */
     private function activeRanksWithTour(int $companyId): array
     {
-        $resolver = new CrewTourOfDutyResolver;
-        $policyDaysByRankId = $resolver->companyPolicyDaysByRankId($companyId);
-
         return Rank::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'max_tour_of_duty_days'])
-            ->map(function (Rank $rank) use ($resolver, $companyId, $policyDaysByRankId): array {
-                $preview = $resolver->previewForRank($companyId, $rank, $policyDaysByRankId);
-
-                return [
-                    'id' => $preview['rank_id'],
-                    'name' => $preview['rank_name'],
-                    'global_tour_of_duty_days' => $preview['global_tour_of_duty_days'],
-                    'company_tour_of_duty_days' => $preview['company_tour_of_duty_days'],
-                    'resolved_tour_of_duty_days' => $preview['resolved_tour_of_duty_days'],
-                    'resolved_tour_of_duty_source' => $preview['resolved_tour_of_duty_source'],
-                ];
-            })
+            ->map(fn (Rank $rank): array => [
+                'id' => $rank->id,
+                'name' => $rank->name,
+                'max_tour_of_duty_days' => $rank->max_tour_of_duty_days !== null ? (int) $rank->max_tour_of_duty_days : null,
+                'resolved_tour_of_duty_days' => $rank->max_tour_of_duty_days !== null ? (int) $rank->max_tour_of_duty_days : null,
+            ])
             ->values()
             ->all();
     }

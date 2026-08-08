@@ -182,11 +182,6 @@ const baseSidebarData: SidebarData = {
                     url: '/organization/crew-operations/settings',
                     icon: Settings,
                 },
-                {
-                    title: 'Rank Tour Policies',
-                    url: '/organization/crew-operations/rank-policies',
-                    icon: ShieldCheck,
-                },
             ],
         },
         {
@@ -410,13 +405,6 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(
                                 permissions,
                                 'crew_operations.planning.view',
-                            )
-                                ? item
-                                : null;
-                        case '/organization/crew-operations/rank-policies':
-                            return has(
-                                permissions,
-                                'crew_operations.rank_policies.view',
                             )
                                 ? item
                                 : null;

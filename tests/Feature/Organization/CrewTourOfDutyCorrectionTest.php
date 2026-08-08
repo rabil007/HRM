@@ -2,7 +2,6 @@
 
 use App\Enums\CrewMovementCorrectionStatus;
 use App\Enums\CrewPlannedSignoffSource;
-use App\Enums\CrewTourOfDutySource;
 use App\Models\CrewPlanningAssignment;
 use App\Models\User;
 use App\Support\CrewMovements\Corrections\ApproveCrewMovementCorrection;
@@ -43,7 +42,6 @@ it('recalculates tour-derived planned sign-off when approved p4 start changes', 
         $vessel,
         [
             'tour_of_duty_days' => 90,
-            'tour_of_duty_source' => CrewTourOfDutySource::GlobalRankDefault->value,
             'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
             'planned_signoff_at' => '2026-04-01 00:00:00',
         ],
@@ -120,7 +118,6 @@ it('preserves manual planned sign-off when p4 start is corrected', function () {
         $vessel,
         [
             'tour_of_duty_days' => 90,
-            'tour_of_duty_source' => CrewTourOfDutySource::GlobalRankDefault->value,
             'planned_signoff_source' => CrewPlannedSignoffSource::ManualOverride->value,
             'planned_signoff_at' => '2026-03-15 00:00:00',
             'planned_signoff_override_reason' => 'Contract end',
@@ -170,7 +167,6 @@ it('preserves existing_plan sign-off when p4 start is corrected', function () {
         $vessel,
         [
             'tour_of_duty_days' => 75,
-            'tour_of_duty_source' => CrewTourOfDutySource::CompanyRankPolicy->value,
             'planned_signoff_source' => CrewPlannedSignoffSource::ExistingPlan->value,
             'planned_signoff_at' => '2026-11-08 00:00:00',
         ],
@@ -222,7 +218,6 @@ it('rolls back tour recalculation when approval fails after apply', function () 
         $vessel,
         [
             'tour_of_duty_days' => 90,
-            'tour_of_duty_source' => CrewTourOfDutySource::GlobalRankDefault->value,
             'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
             'planned_signoff_at' => '2026-04-01 00:00:00',
         ],

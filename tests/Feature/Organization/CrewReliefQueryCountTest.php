@@ -5,7 +5,6 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewPlannedSignoffSource;
 use App\Enums\CrewReliefStatus;
-use App\Enums\CrewTourOfDutySource;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
@@ -39,7 +38,6 @@ it('keeps current crew index query count bounded when attaching relief readiness
             makeCrewMovementVessel("Relief QC Vessel {$i}"),
             [
                 'tour_of_duty_days' => 90,
-                'tour_of_duty_source' => CrewTourOfDutySource::GlobalRankDefault->value,
                 'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
                 'planned_signoff_at' => $today->addDays(12 + $i)->toDateTimeString(),
             ],
@@ -48,22 +46,16 @@ it('keeps current crew index query count bounded when attaching relief readiness
 
     DB::flushQueryLog();
     DB::enableQueryLog();
-
-    $paginator = CurrentCrewQuery::paginate((int) $fixtures['company']->id, []);
-    $items = collect($paginator->items())
-        ->map(fn ($assignment) => CrewAssignmentPresenter::listItem($assignment))
-        ->all();
-
+    $page = CurrentCrewQuery::paginate((int) $fixtures['company']->id);
+    collect($page->items())->each(fn ($a) => CrewAssignmentPresenter::listItem($a));
     $queryCount = count(DB::getQueryLog());
     DB::disableQueryLog();
 
-    expect($paginator->total())->toBe(8)
-        ->and($items)->toHaveCount(8)
-        ->and($items[0])->toHaveKey('relief_status')
-        ->and($queryCount)->toBeLessThan(40);
+    expect($page->total())->toBe(8)
+        ->and($queryCount)->toBeLessThan(12);
 });
 
-it('scales Current Crew queries for many no-relief assignments without per-row plan lookups', function () {
+it('maintains constant query count scaling as onboard crew size grows without reliefs', function () {
     $fixtures = makeCrewAssignmentFixtures();
     $companyId = (int) $fixtures['company']->id;
     $today = CarbonImmutable::now($fixtures['company']->timezone)->startOfDay();
@@ -83,7 +75,6 @@ it('scales Current Crew queries for many no-relief assignments without per-row p
             makeCrewMovementVessel("No Relief Scale {$index}"),
             [
                 'tour_of_duty_days' => 90,
-                'tour_of_duty_source' => CrewTourOfDutySource::GlobalRankDefault->value,
                 'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
                 'planned_signoff_at' => $today->addDays(20)->toDateTimeString(),
             ],

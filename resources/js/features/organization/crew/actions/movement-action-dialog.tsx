@@ -109,7 +109,6 @@ function buildInitialForm(
                 : (context.planned_signoff_at ?? ''),
         planned_travel_at: '',
         reason: '',
-        tour_of_duty_days: '',
         planned_signoff_choice: resolveInitialSignoffChoice(
             action,
             context,

@@ -7,7 +7,6 @@ use App\Enums\CrewOperationalAlertType;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewPlannedSignoffSource;
-use App\Enums\CrewTourOfDutySource;
 use App\Models\CrewOperationalAlert;
 use App\Models\CrewOperationsSetting;
 use App\Models\CrewPlanningAssignment;
@@ -150,7 +149,6 @@ test('signoff overdue creates a company scoped alert', function () {
         makeCrewMovementVessel('Overdue Alert Vessel'),
         [
             'tour_of_duty_days' => 90,
-            'tour_of_duty_source' => CrewTourOfDutySource::GlobalRankDefault->value,
             'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
             'planned_signoff_at' => '2026-08-01 00:00:00',
         ],

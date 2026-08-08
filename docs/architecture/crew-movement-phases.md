@@ -22,7 +22,6 @@ Employee Sea Service
 | **CrewAssignment** | One mobilisation cycle (P0–P6). |
 | **CrewAssignmentPhase** | Ordered occurrence of a phase on that cycle. |
 | **EmployeeSeaService** | Historical sea time created from completed P4 phases. |
-| **CrewRankPolicy** | Company-scoped Tour of Duty override per rank (does not mutate global Rank). |
 
 ## P0–P6
 
@@ -37,16 +36,13 @@ Employee Sea Service
 | P5 | Demobilisation Standby |
 | P6 | Home / Redeployment |
 
-## Tour of Duty (Phase 1)
+## Tour of Duty
 
-When Join Vessel creates active P4, the system may resolve a Tour of Duty and suggest Planned Sign-Off.
+When Join Vessel creates active P4, the system resolves Tour of Duty directly from Global Rank Master (`ranks.max_tour_of_duty_days`) and suggests Planned Sign-Off.
 
-### Resolution precedence
+### Resolution
 
-1. Assignment-specific override entered during Join Vessel (`assignment_override`)
-2. Active company rank policy (`company_rank_policy`)
-3. Global `ranks.max_tour_of_duty_days` (`global_rank_default`)
-4. No automatic calculation
+Tour of Duty is global per Rank (`ranks.max_tour_of_duty_days`). There are no company policies or assignment overrides.
 
 ### Calculation (company timezone)
 
@@ -68,7 +64,7 @@ Display percentage may be clamped to 0–100; remaining days stay negative when 
 
 ### Snapshot behaviour
 
-After P4 join, `crew_assignments.tour_of_duty_days` and `tour_of_duty_source` are snapshotted. Later changes to Rank or company policy do **not** rewrite existing assignments. New joins use the latest rules.
+After P4 join, `crew_assignments.tour_of_duty_days` stores an integer snapshot. Later changes to Rank Master do **not** rewrite existing assignments. New joins use the latest Rank Master value.
 
 ### Planned versus actual
 
@@ -89,22 +85,6 @@ If no Tour exists and no Planned Sign-Off is entered (and no explicit manual cho
 ### Tour status filters vs dashboard counts
 
 `due_within_7_days`, `due_within_14_days`, and `due_within_30_days` Current Crew filters are **cumulative** (include due today and nearer windows) so they match Crew Operations dashboard “within N days” cards. Exclusive internal buckets remain only for analytics rollups. `due_today` stays independently filterable. Planned sign-off overdue uses company-local calendar dates so due-today assignments are never also overdue.
-
-### Company rank policies
-
-Manage under Crew Operations → Rank Tour Policies (`crew_operations.rank_policies.view|update`). Clearing an override soft-deletes the policy and sets `is_active = false`. Re-creating the same company + rank restores the soft-deleted row and updates `tour_of_duty_days` (unique `company_id + rank_id` is preserved). Cross-company deleted rows are never restored.
-
-### Permission mapping for Rank Tour Policies
-
-Roles are company-scoped and managed via Organization → Roles. `PermissionsSeeder` grants:
-
-| Existing role capability | Granted |
-|--------------------------|---------|
-| `crew_operations.planning.update` | `rank_policies.view` + `rank_policies.update` |
-| `crew_operations.planning.view` or `overview.view` (without planning.update) | `rank_policies.view` only |
-| Neither | unchanged |
-
-The seeded `Owner` role continues to receive all permissions when `AdminSeeder` runs (`syncPermissions` of the full catalog).
 
 ### Correction recalculation
 
@@ -205,8 +185,6 @@ crew_operations.corrections.view
 crew_operations.corrections.request
 crew_operations.corrections.approve
 crew_operations.corrections.override
-crew_operations.rank_policies.view
-crew_operations.rank_policies.update
 audit.view
 ```
 

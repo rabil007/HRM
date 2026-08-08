@@ -104,7 +104,6 @@ class PerformCrewMovementActionRequest extends FormRequest
             $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
             $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)];
-            $baseRules['tour_of_duty_days'] = ['nullable', 'integer', 'min:1', 'max:365'];
             $baseRules['planned_signoff_choice'] = [
                 'nullable',
                 'string',
@@ -125,7 +124,6 @@ class PerformCrewMovementActionRequest extends FormRequest
             $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
             $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)];
-            $baseRules['tour_of_duty_days'] = ['nullable', 'integer', 'min:1', 'max:365'];
             $baseRules['planned_signoff_choice'] = [
                 'nullable',
                 'string',
@@ -167,13 +165,6 @@ class PerformCrewMovementActionRequest extends FormRequest
             ];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
             $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)];
-            $baseRules['tour_of_duty_days'] = [
-                Rule::excludeIf(fn () => $this->input('starting_phase') !== CrewPhaseCode::OnVessel->value),
-                'nullable',
-                'integer',
-                'min:1',
-                'max:365',
-            ];
             $baseRules['planned_signoff_choice'] = [
                 Rule::excludeIf(fn () => $this->input('starting_phase') !== CrewPhaseCode::OnVessel->value),
                 'nullable',

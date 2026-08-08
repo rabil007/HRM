@@ -10,9 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
     resolveJoinTourDays,
-    resolveJoinTourSource,
     suggestedPlannedSignoffDate,
-    tourSourceLabel,
 } from '@/features/organization/crew/lib/tour-of-duty';
 import type { CrewRankTourOption } from '@/features/organization/crew/lib/tour-signoff';
 import type { CrewMovementActionFormData } from '@/features/organization/crew/types';
@@ -37,14 +35,7 @@ export function TourSignoffFields({
     /** e.g. "destination rank" for transfer/redeploy copy */
     tourContextLabel?: string;
 }): ReactElement {
-    const tourDays = resolveJoinTourDays(
-        selectedRank,
-        form.data.tour_of_duty_days,
-    );
-    const tourSource = resolveJoinTourSource(
-        selectedRank,
-        form.data.tour_of_duty_days,
-    );
+    const tourDays = resolveJoinTourDays(selectedRank);
     const suggestedSignoff =
         occurredDate && tourDays != null
             ? suggestedPlannedSignoffDate(occurredDate, tourDays)
@@ -74,7 +65,7 @@ export function TourSignoffFields({
                     </p>
                     {tourDays != null ? (
                         <p className="mt-1 text-sm text-muted-foreground">
-                            {tourDays} days · {tourSourceLabel(tourSource)}
+                            {tourDays} days · Based on Rank Master
                         </p>
                     ) : (
                         <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
@@ -82,36 +73,6 @@ export function TourSignoffFields({
                             {tourContextLabel}.
                         </p>
                     )}
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor={`${idPrefix}-tour-override`}>
-                        Assignment override (optional)
-                    </Label>
-                    <Input
-                        id={`${idPrefix}-tour-override`}
-                        type="number"
-                        min={1}
-                        max={365}
-                        placeholder="Use rank default"
-                        value={
-                            form.data.tour_of_duty_days === null
-                                ? ''
-                                : form.data.tour_of_duty_days
-                        }
-                        onChange={(event) => {
-                            const value = event.target.value;
-
-                            form.setData(
-                                'tour_of_duty_days',
-                                value === '' ? '' : Number(value),
-                            );
-                        }}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                        Override the rank Tour of Duty for this assignment only.
-                    </p>
-                    <InputError message={form.errors.tour_of_duty_days} />
                 </div>
 
                 {hasTourSuggestion ? (

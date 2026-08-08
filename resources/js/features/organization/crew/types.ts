@@ -5,8 +5,6 @@ import type {
 
 export type CrewTourProgressFields = {
     tour_of_duty_days: number | null;
-    tour_of_duty_source: string | null;
-    tour_of_duty_source_label: string | null;
     planned_signoff_source: string | null;
     planned_signoff_source_label: string | null;
     days_onboard: number | null;
@@ -257,10 +255,8 @@ export interface CrewAssignmentFormOptions {
     ranks: Array<{
         id: number;
         name: string;
-        global_tour_of_duty_days: number | null;
-        company_tour_of_duty_days: number | null;
-        resolved_tour_of_duty_days: number | null;
-        resolved_tour_of_duty_source: string | null;
+        max_tour_of_duty_days?: number | null;
+        resolved_tour_of_duty_days?: number | null;
     }>;
     vessels: Array<{ id: number; name: string }>;
     clients: Array<{ id: number; name: string }>;
@@ -414,7 +410,6 @@ export interface CrewMovementActionFormData {
     planned_signoff_at: string;
     planned_travel_at: string;
     reason: string;
-    tour_of_duty_days: number | null | '';
     planned_signoff_choice:
         | 'tour_of_duty'
         | 'existing_plan'

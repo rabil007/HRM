@@ -148,7 +148,6 @@ export function RedeployForm({
 
                             next.planned_signoff_choice =
                                 defaultDestinationTourSignoffChoice(rank);
-                            next.tour_of_duty_days = '';
                             next.planned_signoff_override_reason = '';
                             next.planned_signoff_at = '';
                         } else {

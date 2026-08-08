@@ -6,7 +6,6 @@ use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewPlannedSignoffSource;
 use App\Enums\CrewReliefRisk;
 use App\Enums\CrewReliefStatus;
-use App\Enums\CrewTourOfDutySource;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
@@ -26,7 +25,6 @@ it('presenter includes relief readiness fields for on-vessel assignments', funct
         $vessel,
         [
             'tour_of_duty_days' => 90,
-            'tour_of_duty_source' => CrewTourOfDutySource::GlobalRankDefault->value,
             'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
             'planned_signoff_at' => $today->addDays(10)->toDateTimeString(),
         ],

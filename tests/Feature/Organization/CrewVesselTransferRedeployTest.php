@@ -5,11 +5,9 @@ use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewPlannedSignoffSource;
-use App\Enums\CrewTourOfDutySource;
 use App\Exceptions\CrewMovementException;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
-use App\Models\CrewRankPolicy;
 use App\Models\EmployeeSeaService;
 use App\Models\Rank;
 use App\Models\Vessel;
@@ -421,7 +419,6 @@ test('direct transfer applies destination rank tour snapshot without copying sou
         ->and($destination->previous_assignment_id)->toBe($source->id)
         ->and($destination->rank_id)->toBe($destinationRank->id)
         ->and($destination->tour_of_duty_days)->toBe(60)
-        ->and($destination->tour_of_duty_source)->toBe(CrewTourOfDutySource::GlobalRankDefault)
         ->and($destination->planned_signoff_source)->toBe(CrewPlannedSignoffSource::TourOfDuty)
         ->and($destination->planned_signoff_at?->timezone($company->timezone)->toDateString())->toBe('2026-09-09')
         ->and($destination->currentPhase?->planned_end_at?->timezone($company->timezone)->toDateString())->toBe('2026-09-09')
@@ -443,17 +440,11 @@ test('direct transfer applies destination rank tour snapshot without copying sou
             ->exists())->toBeFalse();
 });
 
-test('direct transfer applies company rank tour policy and supports tour override', function () {
+test('direct transfer applies Rank Master tour suggestion', function () {
     [$source, $fixtures] = makeOnVesselSourceAssignment();
     ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
-    $rank->update(['max_tour_of_duty_days' => 90]);
-    CrewRankPolicy::query()->create([
-        'company_id' => $company->id,
-        'rank_id' => $rank->id,
-        'tour_of_duty_days' => 45,
-        'is_active' => true,
-    ]);
-    $destinationVessel = makeCrewMovementVessel('Policy Transfer Dest '.uniqid());
+    $rank->update(['max_tour_of_duty_days' => 45]);
+    $destinationVessel = makeCrewMovementVessel('Rank Master Transfer Dest '.uniqid());
 
     $destination = transferRedeployService()->perform(
         $company->id,
@@ -469,31 +460,7 @@ test('direct transfer applies company rank tour policy and supports tour overrid
     );
 
     expect($destination->tour_of_duty_days)->toBe(45)
-        ->and($destination->tour_of_duty_source)->toBe(CrewTourOfDutySource::CompanyRankPolicy)
         ->and($destination->planned_signoff_at?->timezone($company->timezone)->toDateString())->toBe('2026-08-25');
-
-    [$source2, $fixtures2] = makeOnVesselSourceAssignment();
-    ['company' => $company2, 'rank' => $rank2, 'user' => $user2] = $fixtures2;
-    $rank2->update(['max_tour_of_duty_days' => 90]);
-    $dest2 = makeCrewMovementVessel('Override Transfer Dest '.uniqid());
-
-    $overridden = transferRedeployService()->perform(
-        $company2->id,
-        $source2->id,
-        CrewMovementAction::TransferVessel,
-        [
-            'occurred_at' => '2026-07-11 12:00:00',
-            'vessel_id' => $dest2->id,
-            'rank_id' => $rank2->id,
-            'tour_of_duty_days' => 30,
-            'planned_signoff_choice' => 'tour_of_duty',
-        ],
-        $user2->id,
-    );
-
-    expect($overridden->tour_of_duty_days)->toBe(30)
-        ->and($overridden->tour_of_duty_source)->toBe(CrewTourOfDutySource::AssignmentOverride)
-        ->and($overridden->planned_signoff_at?->timezone($company2->timezone)->toDateString())->toBe('2026-08-10');
 });
 
 test('direct transfer supports manual planned sign-off override and rolls back on invalid tour choice', function () {
@@ -569,7 +536,6 @@ test('direct p4 redeploy applies fresh tour while pre-p4 redeploy does not', fun
     ], $user->id);
 
     expect($p4Destination->tour_of_duty_days)->toBe(90)
-        ->and($p4Destination->tour_of_duty_source)->toBe(CrewTourOfDutySource::GlobalRankDefault)
         ->and($p4Destination->planned_signoff_source)->toBe(CrewPlannedSignoffSource::TourOfDuty)
         ->and($p4Destination->currentPhase?->planned_end_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-13');
 
@@ -589,7 +555,6 @@ test('direct p4 redeploy applies fresh tour while pre-p4 redeploy does not', fun
     ], $user2->id);
 
     expect($preP4->tour_of_duty_days)->toBeNull()
-        ->and($preP4->tour_of_duty_source)->toBeNull()
         ->and($preP4->planned_signoff_source)->toBeNull()
         ->and($preP4->currentPhase?->phase_code)->toBe(CrewPhaseCode::ReadyToJoin);
 

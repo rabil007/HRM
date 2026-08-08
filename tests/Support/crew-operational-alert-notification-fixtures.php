@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\CrewPlannedSignoffSource;
-use App\Enums\CrewTourOfDutySource;
 use App\Support\CrewOperations\CrewOperationsSettings;
 
 function enableCrewNotificationsForUser(int $companyId, int $userId, array $overrides = []): void
@@ -32,7 +31,6 @@ function createOverdueAssignmentForAlerts(array $fixtures): mixed
         makeCrewMovementVessel('Notify Vessel '.fake()->unique()->numerify('###')),
         [
             'tour_of_duty_days' => 90,
-            'tour_of_duty_source' => CrewTourOfDutySource::GlobalRankDefault->value,
             'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
             'planned_signoff_at' => '2026-08-01 00:00:00',
         ],

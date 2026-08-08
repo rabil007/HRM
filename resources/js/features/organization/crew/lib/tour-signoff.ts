@@ -10,10 +10,9 @@ export type CrewRankTourOption = CrewAssignmentFormOptions['ranks'][number];
 export function rankHasResolvedTour(
     rank: CrewRankTourOption | undefined,
 ): boolean {
-    return (
-        rank?.resolved_tour_of_duty_days != null &&
-        rank.resolved_tour_of_duty_days > 0
-    );
+    const days = rank?.max_tour_of_duty_days ?? rank?.resolved_tour_of_duty_days;
+
+    return days != null && days > 0;
 }
 
 /** Default sign-off choice for a new destination assignment (no existing_plan). */
@@ -101,7 +100,6 @@ export function normalizeTourSignoffPayload(
     const payload: TourSignoffPayload = { ...data };
 
     if (action === 'redeploy' && data.starting_phase !== 'p4') {
-        delete payload.tour_of_duty_days;
         delete payload.planned_signoff_choice;
         delete payload.planned_signoff_override_reason;
 
@@ -125,21 +123,14 @@ export function normalizeTourSignoffPayload(
         payload.planned_signoff_override_reason = '';
     }
 
-    if (data.tour_of_duty_days === '' || data.tour_of_duty_days === null) {
-        delete payload.tour_of_duty_days;
-    }
-
     return payload;
 }
 
 export function clearedDirectP4TourFields(): Pick<
     CrewMovementActionFormData,
-    | 'tour_of_duty_days'
-    | 'planned_signoff_choice'
-    | 'planned_signoff_override_reason'
+    'planned_signoff_choice' | 'planned_signoff_override_reason'
 > {
     return {
-        tour_of_duty_days: '',
         planned_signoff_choice: 'manual_override',
         planned_signoff_override_reason: '',
     };
