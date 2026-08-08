@@ -197,3 +197,54 @@ it('does not create sea service or complete p4 from generated planned sign-off',
         ->and(EmployeeSeaService::query()->count())->toBe(0)
         ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeTrue();
 });
+
+it('requires a reason when performing active P4 plan_signoff action', function () {
+    $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
+        'rank_id' => $this->rank->id,
+        'vessel_id' => $this->vessel->id,
+    ], $this->user->id);
+
+    advanceToReadyForTourJoin($this->service, $this->company->id, $assignment->id, $this->user->id);
+
+    $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
+        'occurred_at' => '2026-08-12 10:00:00',
+        'vessel_id' => $this->vessel->id,
+        'rank_id' => $this->rank->id,
+        'planned_signoff_choice' => 'tour_of_duty',
+    ], $this->user->id);
+
+    expect(fn () => $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::PlanSignoff, [
+        'planned_signoff_at' => '2026-11-25',
+    ], $this->user->id))->toThrow(ValidationException::class);
+});
+
+it('updates planned sign-off with manual override source and reason during plan_signoff', function () {
+    $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
+        'rank_id' => $this->rank->id,
+        'vessel_id' => $this->vessel->id,
+    ], $this->user->id);
+
+    advanceToReadyForTourJoin($this->service, $this->company->id, $assignment->id, $this->user->id);
+
+    $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
+        'occurred_at' => '2026-08-12 10:00:00',
+        'vessel_id' => $this->vessel->id,
+        'rank_id' => $this->rank->id,
+        'planned_signoff_choice' => 'tour_of_duty',
+    ], $this->user->id);
+
+    $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::PlanSignoff, [
+        'planned_signoff_at' => '2026-11-25',
+        'planned_signoff_override_reason' => 'Vessel operational schedule extension',
+    ], $this->user->id);
+
+    $assignment->refresh()->load('currentPhase', 'planningAssignment');
+
+    expect($assignment->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-25')
+        ->and($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::ManualOverride)
+        ->and($assignment->planned_signoff_override_reason)->toBe('Vessel operational schedule extension')
+        ->and($assignment->currentPhase?->planned_end_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-25')
+        ->and($assignment->planningAssignment?->planned_leave_date?->toDateString())->toBe('2026-11-25')
+        ->and($assignment->currentPhase?->actual_end_at)->toBeNull()
+        ->and(EmployeeSeaService::query()->count())->toBe(0);
+});

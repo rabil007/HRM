@@ -111,7 +111,9 @@ class PerformCrewMovementActionRequest extends FormRequest
             ];
             $baseRules['planned_signoff_at'] = ['nullable', 'date'];
             $baseRules['planned_signoff_override_reason'] = [
-                Rule::requiredIf(fn () => $this->input('planned_signoff_choice') === 'manual_override'),
+                Rule::requiredIf(fn () => $this->input('planned_signoff_choice') === 'manual_override'
+                    || (! in_array($this->input('planned_signoff_choice'), ['tour_of_duty', 'existing_plan'], true) && $this->filled('planned_signoff_at'))
+                ),
                 'nullable',
                 'string',
                 'max:1000',
@@ -131,7 +133,9 @@ class PerformCrewMovementActionRequest extends FormRequest
             ];
             $baseRules['planned_signoff_at'] = ['nullable', 'date'];
             $baseRules['planned_signoff_override_reason'] = [
-                Rule::requiredIf(fn () => $this->input('planned_signoff_choice') === 'manual_override'),
+                Rule::requiredIf(fn () => $this->input('planned_signoff_choice') === 'manual_override'
+                    || (! in_array($this->input('planned_signoff_choice'), ['tour_of_duty', 'existing_plan'], true) && $this->filled('planned_signoff_at'))
+                ),
                 'nullable',
                 'string',
                 'max:1000',
@@ -174,7 +178,9 @@ class PerformCrewMovementActionRequest extends FormRequest
             $baseRules['planned_signoff_at'] = ['nullable', 'date'];
             $baseRules['planned_signoff_override_reason'] = [
                 Rule::requiredIf(fn () => $this->input('starting_phase') === CrewPhaseCode::OnVessel->value
-                    && $this->input('planned_signoff_choice') === 'manual_override'),
+                    && ($this->input('planned_signoff_choice') === 'manual_override'
+                        || (! in_array($this->input('planned_signoff_choice'), ['tour_of_duty', 'existing_plan'], true) && $this->filled('planned_signoff_at')))
+                ),
                 'nullable',
                 'string',
                 'max:1000',
@@ -192,6 +198,7 @@ class PerformCrewMovementActionRequest extends FormRequest
 
         if ($action === 'plan_signoff') {
             $baseRules['planned_signoff_at'] = ['required', 'date'];
+            $baseRules['planned_signoff_override_reason'] = ['required', 'string', 'max:1000'];
         }
 
         if ($action === 'travel_home') {
@@ -263,6 +270,8 @@ class PerformCrewMovementActionRequest extends FormRequest
             if (in_array($action, ['join_vessel', 'transfer_vessel'], true)
                 || ($action === 'redeploy' && $this->input('starting_phase') === CrewPhaseCode::OnVessel->value)) {
                 $choice = (string) $this->input('planned_signoff_choice', '');
+                $isManualSignoff = $choice === 'manual_override'
+                    || (! in_array($choice, ['tour_of_duty', 'existing_plan'], true) && $this->filled('planned_signoff_at'));
 
                 if ($choice === 'existing_plan') {
                     if ($action === 'join_vessel' && $assignment->planned_signoff_at === null) {
@@ -287,7 +296,7 @@ class PerformCrewMovementActionRequest extends FormRequest
                     );
                 }
 
-                if ($choice === 'manual_override' && ! $this->filled('planned_signoff_override_reason')) {
+                if ($isManualSignoff && ! $this->filled('planned_signoff_override_reason')) {
                     $validator->errors()->add(
                         'planned_signoff_override_reason',
                         'A reason is required when entering another Planned Sign-Off date.',
@@ -319,6 +328,13 @@ class PerformCrewMovementActionRequest extends FormRequest
             }
 
             if ($action === 'plan_signoff') {
+                if (! $this->filled('planned_signoff_override_reason')) {
+                    $validator->errors()->add(
+                        'planned_signoff_override_reason',
+                        'A reason is required when entering another Planned Sign-Off date.',
+                    );
+                }
+
                 $actualJoin = $assignment->phases
                     ->filter(fn ($phase) => $phase->phase_code === CrewPhaseCode::OnVessel)
                     ->sortByDesc('sequence')

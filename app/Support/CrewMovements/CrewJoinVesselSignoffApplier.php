@@ -57,8 +57,8 @@ final class CrewJoinVesselSignoffApplier
             $planned = $existingPlannedSignoff;
             $source = CrewPlannedSignoffSource::ExistingPlan;
         } elseif ($choice === self::CHOICE_MANUAL) {
-            if ($explicitChoice) {
-                // Explicit manual override is authoritative: date + reason are required.
+            if ($explicitChoice || (isset($payload['planned_signoff_at']) && filled($payload['planned_signoff_at']))) {
+                // Manual override requires date + reason.
                 $planned = $this->parseManualDate($payload, $tour->timezone);
                 $source = CrewPlannedSignoffSource::ManualOverride;
                 $reason = $overrideReason;
@@ -68,11 +68,6 @@ final class CrewJoinVesselSignoffApplier
                         'planned_signoff_override_reason' => 'A reason is required when entering another Planned Sign-Off date.',
                     ]);
                 }
-            } elseif (isset($payload['planned_signoff_at']) && filled($payload['planned_signoff_at'])) {
-                // Legacy callers that omit planned_signoff_choice but send a date.
-                $planned = $this->parseManualDate($payload, $tour->timezone);
-                $source = CrewPlannedSignoffSource::ManualOverride;
-                $reason = $overrideReason;
             } else {
                 // No tour and no date: allow join with a missing Planned Sign-Off warning.
                 $planned = null;

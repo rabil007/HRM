@@ -69,7 +69,21 @@ it('stores explicit manual override with date and reason', function () {
         ->and($result['planned_signoff_override_reason'])->toBe('Client request');
 });
 
-it('allows legacy omitted choice with a date without requiring a reason', function () {
+it('requires override reason when legacy omitted choice payload includes a date', function () {
+    $applier = new CrewJoinVesselSignoffApplier;
+    $joinAt = CarbonImmutable::parse('2026-08-12 10:00:00', 'Asia/Dubai');
+
+    expect(fn () => $applier->apply(
+        makeTourResult(),
+        [
+            'planned_signoff_at' => '2026-10-01',
+        ],
+        null,
+        $joinAt,
+    ))->toThrow(ValidationException::class);
+});
+
+it('allows legacy omitted choice payload with a date and reason', function () {
     $applier = new CrewJoinVesselSignoffApplier;
     $joinAt = CarbonImmutable::parse('2026-08-12 10:00:00', 'Asia/Dubai');
 
@@ -77,6 +91,7 @@ it('allows legacy omitted choice with a date without requiring a reason', functi
         makeTourResult(),
         [
             'planned_signoff_at' => '2026-10-01',
+            'planned_signoff_override_reason' => 'Legacy reason',
         ],
         null,
         $joinAt,
@@ -84,7 +99,7 @@ it('allows legacy omitted choice with a date without requiring a reason', functi
 
     expect($result['planned_signoff_source'])->toBe(CrewPlannedSignoffSource::ManualOverride)
         ->and($result['planned_signoff_at']?->toDateString())->toBe('2026-10-01')
-        ->and($result['planned_signoff_override_reason'])->toBeNull();
+        ->and($result['planned_signoff_override_reason'])->toBe('Legacy reason');
 });
 
 it('allows join without sign-off when no tour and no explicit manual choice', function () {

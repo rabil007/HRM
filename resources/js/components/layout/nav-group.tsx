@@ -239,8 +239,7 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
 
         if (
             item.url === '/organization/crew-operations' &&
-            (path.startsWith('/organization/crew-operations/settings') ||
-                path.startsWith('/organization/crew-operations/rank-policies'))
+            path.startsWith('/organization/crew-operations/settings')
         ) {
             return false;
         }

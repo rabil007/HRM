@@ -15,19 +15,39 @@ export function suggestedPlannedSignoffDate(
     joinDate: string,
     tourDays: number,
 ): string | null {
-    if (!joinDate || tourDays <= 0) {
+    if (
+        !joinDate ||
+        typeof tourDays !== 'number' ||
+        tourDays <= 0 ||
+        !Number.isInteger(tourDays)
+    ) {
         return null;
     }
 
-    const date = new Date(`${joinDate}T12:00:00`);
-
-    if (Number.isNaN(date.getTime())) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(joinDate.slice(0, 10));
+    if (!match) {
         return null;
     }
 
-    date.setDate(date.getDate() + tourDays);
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1;
+    const day = parseInt(match[3], 10);
 
-    return date.toISOString().slice(0, 10);
+    if (month < 0 || month > 11 || day < 1 || day > 31) {
+        return null;
+    }
+
+    const utcDate = new Date(Date.UTC(year, month, day + tourDays, 12, 0, 0));
+
+    if (Number.isNaN(utcDate.getTime())) {
+        return null;
+    }
+
+    const y = utcDate.getUTCFullYear();
+    const m = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(utcDate.getUTCDate()).padStart(2, '0');
+
+    return `${y}-${m}-${d}`;
 }
 
 export const CREW_TOUR_STATUS_FILTER_OPTIONS = [

@@ -21,6 +21,7 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Transactional crew movement engine.
@@ -418,6 +419,16 @@ final class CrewMovementService
             );
         }
 
+        $reason = isset($payload['planned_signoff_override_reason'])
+            ? trim((string) $payload['planned_signoff_override_reason'])
+            : '';
+
+        if ($reason === '') {
+            throw ValidationException::withMessages([
+                'planned_signoff_override_reason' => 'A reason is required when entering another Planned Sign-Off date.',
+            ]);
+        }
+
         $planned = $this->parseTimestamp($assignment->company_id, (string) $payload['planned_signoff_at']);
 
         $current->update([
@@ -427,9 +438,7 @@ final class CrewMovementService
         $assignment->update([
             'planned_signoff_at' => $planned,
             'planned_signoff_source' => CrewPlannedSignoffSource::ManualOverride,
-            'planned_signoff_override_reason' => isset($payload['planned_signoff_override_reason'])
-                ? trim((string) $payload['planned_signoff_override_reason'])
-                : ($assignment->planned_signoff_override_reason ?? 'Updated via Plan Sign-Off'),
+            'planned_signoff_override_reason' => $reason,
             'updated_by' => $actorId,
         ]);
 
