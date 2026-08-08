@@ -27,6 +27,27 @@ export function barPositionStyle(
     end: string,
     rangeFrom: Date,
     rangeTo: Date,
+    isOpenEnded = false,
+): { left: string; width: string } | { display: 'none' } {
+    return assignmentBarPositionStyle(
+        start,
+        end,
+        rangeFrom,
+        rangeTo,
+        isOpenEnded,
+    );
+}
+
+/**
+ * Returns CSS left%/width% positioning for a crew assignment or planning bar within [rangeFrom, rangeTo],
+ * where `end` (planned sign-off date) is treated as an exclusive boundary.
+ */
+export function assignmentBarPositionStyle(
+    start: string,
+    end: string,
+    rangeFrom: Date,
+    rangeTo: Date,
+    isOpenEnded = false,
 ): { left: string; width: string } | { display: 'none' } {
     const rangeFromMs = toUtcDateMs(rangeFrom);
     const rangeToMs = toUtcDateMs(rangeTo) + 86400000;
@@ -37,7 +58,39 @@ export function barPositionStyle(
     }
 
     const startMs = parseIsoToUtcMs(start);
-    const endMs = parseIsoToUtcMs(end) + 86400000;
+    const endMs = parseIsoToUtcMs(end) + (isOpenEnded ? 86400000 : 0);
+
+    const left = Math.max(0, ((startMs - rangeFromMs) / totalMs) * 100);
+    const right = Math.min(100, ((endMs - rangeFromMs) / totalMs) * 100);
+    const width = right - left;
+
+    if (width <= 0) {
+        return { display: 'none' };
+    }
+
+    return { left: `${left}%`, width: `${width}%` };
+}
+
+/**
+ * Returns CSS left%/width% positioning for an inclusive calendar period [from, to] within [rangeFrom, rangeTo],
+ * such as a projection exception overlay band where `to` extends through the end of that calendar day.
+ */
+export function inclusivePeriodPositionStyle(
+    from: string,
+    to: string,
+    rangeFrom: Date,
+    rangeTo: Date,
+): { left: string; width: string } | { display: 'none' } {
+    const rangeFromMs = toUtcDateMs(rangeFrom);
+    const rangeToMs = toUtcDateMs(rangeTo) + 86400000;
+    const totalMs = rangeToMs - rangeFromMs;
+
+    if (totalMs <= 0) {
+        return { display: 'none' };
+    }
+
+    const startMs = parseIsoToUtcMs(from);
+    const endMs = parseIsoToUtcMs(to) + 86400000;
 
     const left = Math.max(0, ((startMs - rangeFromMs) / totalMs) * 100);
     const right = Math.min(100, ((endMs - rangeFromMs) / totalMs) * 100);
@@ -110,9 +163,12 @@ export function daysBetween(start: string, end: string): number {
     return Math.round((endMs - startMs) / 86400000);
 }
 
-/** Inclusive assignment length from planned join through planned leave. */
+/**
+ * Assignment length in days from planned join (inclusive) to planned leave / sign-off (exclusive boundary).
+ * Planned leave / sign-off is an exclusive boundary.
+ */
 export function assignmentDurationDays(start: string, end: string): number {
-    return daysBetween(start, end) + 1;
+    return daysBetween(start, end);
 }
 
 /** Shifts both start and end by dayDelta days, preserving duration. */

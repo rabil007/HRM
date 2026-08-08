@@ -5,7 +5,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { barPositionStyle } from '../lib/planning-gantt-math';
+import { inclusivePeriodPositionStyle } from '../lib/planning-gantt-math';
 import {
     bandAriaLabel,
     periodTitle,
@@ -46,7 +46,7 @@ export function ProjectionOverlay({
             data-projection-overlay={projection.row_key}
         >
             {periods.map((period) => {
-                const style = barPositionStyle(
+                const style = inclusivePeriodPositionStyle(
                     period.from,
                     period.to,
                     rangeFrom,

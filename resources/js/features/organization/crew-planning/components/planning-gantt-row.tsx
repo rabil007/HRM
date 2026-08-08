@@ -236,6 +236,7 @@ export function PlanningGanttRow({
                             bar.end,
                             rangeFrom,
                             rangeTo,
+                            bar.is_open_ended,
                         );
 
                         if ('display' in horizontal) {

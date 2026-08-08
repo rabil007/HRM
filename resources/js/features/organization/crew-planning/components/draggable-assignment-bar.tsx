@@ -147,7 +147,13 @@ export function DraggableAssignmentBar({
             optimisticEndRef.current = newEnd;
             setLiveDates({ start: newStart, end: newEnd });
             setLiveStyle({
-                ...barPositionStyle(newStart, newEnd, rangeFrom, rangeTo),
+                ...barPositionStyle(
+                    newStart,
+                    newEnd,
+                    rangeFrom,
+                    rangeTo,
+                    bar.is_open_ended,
+                ),
                 top: style.top,
                 height: style.height,
             });
