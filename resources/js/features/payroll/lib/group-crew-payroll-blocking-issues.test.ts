@@ -96,8 +96,7 @@ describe('groupCrewPayrollBlockingIssues', () => {
                 employee_id: 246,
                 employee_name: 'FRANKLINE MESAPE EBONG',
                 code: 'incomplete_movement_range',
-                message:
-                    'Incomplete movement dates.',
+                message: 'Incomplete movement dates.',
                 pay_category: 'sign_on_standby',
             }),
         ];
@@ -107,10 +106,7 @@ describe('groupCrewPayrollBlockingIssues', () => {
         assert.equal(groups.length, 1);
         assert.equal(groups[0].occurrenceCount, 1);
         assert.equal(groups[0].code, 'incomplete_movement_range');
-        assert.equal(
-            groups[0].message,
-            'Incomplete movement dates.',
-        );
+        assert.equal(groups[0].message, 'Incomplete movement dates.');
     });
 
     it('groups warning issues separately from blocking issues by code', () => {
@@ -119,8 +115,7 @@ describe('groupCrewPayrollBlockingIssues', () => {
                 employee_id: 246,
                 employee_name: 'FRANKLINE MESAPE EBONG',
                 code: 'incomplete_movement_range',
-                message:
-                    'Incomplete movement dates.',
+                message: 'Incomplete movement dates.',
                 pay_category: 'sign_on_standby',
             }),
         ];

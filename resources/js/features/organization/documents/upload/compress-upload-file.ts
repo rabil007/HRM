@@ -31,9 +31,7 @@ export function sanitizeUploadFilename(filename: string): string {
         base
             .replace(/['"`´’‘]/g, '')
             .replace(/[^\w.\- ()[\]]+/gu, '-')
-            .replace(/[- ]{2,}/g, (match) =>
-                match.includes('-') ? '-' : ' ',
-            )
+            .replace(/[- ]{2,}/g, (match) => (match.includes('-') ? '-' : ' '))
             .replace(/^[\s.-]+|[\s.-]+$/g, '') || 'document';
 
     const safeExtension = extension.replace(/[^.\w]+/g, '');

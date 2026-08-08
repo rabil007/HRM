@@ -2,14 +2,20 @@ import { Users, UserCheck, UserPlus, Building2 } from 'lucide-react';
 import { departments, employees } from '@/routes/organization';
 import { DashboardMetricCard } from '../components/dashboard-metric-card';
 import { DashboardSection } from '../components/dashboard-section';
-import type { EmployeeAnalytics, OrganizationSnapshot } from '../dashboard-types';
+import type {
+    EmployeeAnalytics,
+    OrganizationSnapshot,
+} from '../dashboard-types';
 
 type WorkforceSectionProps = {
     analytics?: EmployeeAnalytics;
     snapshot?: OrganizationSnapshot;
 };
 
-export function WorkforceSection({ analytics, snapshot }: WorkforceSectionProps) {
+export function WorkforceSection({
+    analytics,
+    snapshot,
+}: WorkforceSectionProps) {
     if (!analytics) {
         return null;
     }

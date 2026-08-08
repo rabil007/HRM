@@ -75,6 +75,7 @@ export function EmployeeDocumentMobileCard({
                     ) {
                         return;
                     }
+
                     router.visit(viewHref);
                 }}
                 role="button"
@@ -114,7 +115,7 @@ export function EmployeeDocumentMobileCard({
 
                 {/* Name + type */}
                 <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold leading-snug text-foreground">
+                    <p className="truncate text-sm leading-snug font-semibold text-foreground">
                         {doc.document_name}
                     </p>
                     <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">

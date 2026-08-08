@@ -79,7 +79,11 @@ function AssignmentBarPopoverContent({
     const isVacant = bar.employee_id === null;
     const sourceLabel =
         bar.planning_kind_label ??
-        (bar.is_assigned ? 'Assigned' : 'Planned relief');
+        (bar.is_assigned
+            ? 'Crew Assigned'
+            : bar.relieves_crew_assignment_id
+              ? 'Relief Planned'
+              : 'Planned Crew');
 
     return (
         <>

@@ -60,13 +60,7 @@ type VesselPageCan = {
     view_manning: boolean;
 };
 
-function Field({
-    label,
-    value,
-}: {
-    label: string;
-    value: ReactNode;
-}) {
+function Field({ label, value }: { label: string; value: ReactNode }) {
     return (
         <div className="flex items-center justify-between gap-3 px-6 py-4">
             <div className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/80 uppercase">
@@ -98,8 +92,14 @@ export default function VesselDetailsPage({
     const form = useForm({
         name: vessel.name,
         vessel_type_id: vessel.vessel_type_id as number | '',
-        grt: vessel.grt !== null && vessel.grt !== undefined ? String(vessel.grt) : '',
-        bhp: vessel.bhp !== null && vessel.bhp !== undefined ? String(vessel.bhp) : '',
+        grt:
+            vessel.grt !== null && vessel.grt !== undefined
+                ? String(vessel.grt)
+                : '',
+        bhp:
+            vessel.bhp !== null && vessel.bhp !== undefined
+                ? String(vessel.bhp)
+                : '',
         official_no: vessel.official_no ?? '',
         call_sign: vessel.call_sign ?? '',
         imo_no: vessel.imo_no ?? '',
@@ -156,9 +156,7 @@ export default function VesselDetailsPage({
                     ? null
                     : form.data.call_sign.trim(),
             imo_no:
-                form.data.imo_no.trim() === ''
-                    ? null
-                    : form.data.imo_no.trim(),
+                form.data.imo_no.trim() === '' ? null : form.data.imo_no.trim(),
             is_active: form.data.is_active,
             redirect_to: 'show',
             ...(hasCertificate ? { certificate: form.data.certificate } : {}),
@@ -479,7 +477,9 @@ export default function VesselDetailsPage({
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="show-official_no">Official No</Label>
+                            <Label htmlFor="show-official_no">
+                                Official No
+                            </Label>
                             <Input
                                 id="show-official_no"
                                 value={form.data.official_no}
@@ -496,7 +496,9 @@ export default function VesselDetailsPage({
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="show-call_sign">Call Sign</Label>
+                                <Label htmlFor="show-call_sign">
+                                    Call Sign
+                                </Label>
                                 <Input
                                     id="show-call_sign"
                                     value={form.data.call_sign}

@@ -13,9 +13,12 @@ export function PayrollSection({ summary }: PayrollSectionProps) {
         return null;
     }
 
-    const formattedLastPaidTotal = summary.last_paid_period_total !== null
-        ? summary.last_paid_period_total.toLocaleString('en-US', { minimumFractionDigits: 2 })
-        : null;
+    const formattedLastPaidTotal =
+        summary.last_paid_period_total !== null
+            ? summary.last_paid_period_total.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+              })
+            : null;
 
     return (
         <DashboardSection
@@ -41,15 +44,23 @@ export function PayrollSection({ summary }: PayrollSectionProps) {
                     subtitle="Requires review or approval"
                     icon={Clock}
                     iconColor="text-amber-500"
-                    badgeText={summary.processing_periods > 0 ? 'Pending' : 'Clear'}
-                    badgeVariant={summary.processing_periods > 0 ? 'warning' : 'success'}
+                    badgeText={
+                        summary.processing_periods > 0 ? 'Pending' : 'Clear'
+                    }
+                    badgeVariant={
+                        summary.processing_periods > 0 ? 'warning' : 'success'
+                    }
                     href={payrollIndex.url({ query: { status: 'processing' } })}
                 />
 
                 <DashboardMetricCard
                     title="Last Paid Period"
                     value={summary.last_paid_period_name || 'None'}
-                    subtitle={formattedLastPaidTotal ? `Total Net: ${formattedLastPaidTotal}` : 'No completed payouts'}
+                    subtitle={
+                        formattedLastPaidTotal
+                            ? `Total Net: ${formattedLastPaidTotal}`
+                            : 'No completed payouts'
+                    }
                     icon={CheckCircle}
                     iconColor="text-emerald-500"
                     href={payrollIndex.url({ query: { status: 'paid' } })}

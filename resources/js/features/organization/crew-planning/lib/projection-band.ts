@@ -32,21 +32,34 @@ export function periodTitle(
 ): string {
     if (period.gap > 0) {
         return [
-            'Projected gap',
-            `Required: ${requiredCount}`,
-            `Projected: ${period.projected_count}`,
+            'Manning shortfall',
+            `Required crew: ${requiredCount}`,
+            `Available: ${period.projected_count}`,
             `Short: ${period.gap}`,
             `${formatIsoDisplay(period.from)} → ${formatIsoDisplay(period.to)}`,
         ].join('\n');
     }
 
     return [
-        'Projected overlap',
-        `Required: ${requiredCount}`,
-        `Projected: ${period.projected_count}`,
-        `Excess: ${period.excess}`,
+        'Relief overlap',
+        `Required crew: ${requiredCount}`,
+        `Available: ${period.projected_count}`,
+        `Extra: ${period.excess}`,
         `${formatIsoDisplay(period.from)} → ${formatIsoDisplay(period.to)}`,
     ].join('\n');
+}
+
+export function projectionExceptionLabel(status: string): string | null {
+    switch (status) {
+        case 'current_gap':
+            return 'Manning Shortfall';
+        case 'future_gap':
+            return 'Future Shortfall';
+        case 'overlap':
+            return 'Relief Overlap';
+        default:
+            return null;
+    }
 }
 
 export function bandAriaLabel(
@@ -57,7 +70,7 @@ export function bandAriaLabel(
     const detail = periodTitle(period, requiredCount).replaceAll('\n', '. ');
 
     if (mode === 'create') {
-        return `Plan crew for projected gap starting ${period.from}. ${detail}`;
+        return `Plan crew for manning shortfall starting ${period.from}. ${detail}`;
     }
 
     return detail;

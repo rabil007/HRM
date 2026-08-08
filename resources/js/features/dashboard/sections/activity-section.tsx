@@ -20,22 +20,34 @@ export function ActivitySection({ summary }: ActivitySectionProps) {
             actionLabel="View Audit Trail"
             actionHref={activityLogs.url()}
         >
-            <div className="rounded-xl bg-card border border-border/50 shadow-sm divide-y divide-border/40">
+            <div className="divide-y divide-border/40 rounded-xl border border-border/50 bg-card shadow-sm">
                 {summary.recent.map((item) => (
-                    <div key={item.id} className="p-3.5 flex items-center justify-between gap-3 text-xs hover:bg-muted/20 transition-colors">
-                        <div className="space-y-0.5 min-w-0">
+                    <div
+                        key={item.id}
+                        className="flex items-center justify-between gap-3 p-3.5 text-xs transition-colors hover:bg-muted/20"
+                    >
+                        <div className="min-w-0 space-y-0.5">
                             <div className="flex items-center gap-2">
-                                <span className="font-semibold text-foreground">{item.causer_name}</span>
-                                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+                                <span className="font-semibold text-foreground">
+                                    {item.causer_name}
+                                </span>
+                                <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                                     {item.subject_type}
                                 </span>
                             </div>
-                            <p className="text-muted-foreground truncate">{item.description}</p>
+                            <p className="truncate text-muted-foreground">
+                                {item.description}
+                            </p>
                         </div>
 
-                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0 font-mono">
+                        <div className="flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground">
                             <Clock className="h-3 w-3" />
-                            {item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                            {item.created_at
+                                ? new Date(item.created_at).toLocaleTimeString(
+                                      [],
+                                      { hour: '2-digit', minute: '2-digit' },
+                                  )
+                                : ''}
                         </div>
                     </div>
                 ))}

@@ -2,7 +2,10 @@ import { ShieldCheck, FileText, AlertTriangle, Clock } from 'lucide-react';
 import { documents } from '@/routes/organization';
 import { DashboardMetricCard } from '../components/dashboard-metric-card';
 import { DashboardSection } from '../components/dashboard-section';
-import type { DocumentCompliance, DocumentHealthSlice } from '../dashboard-types';
+import type {
+    DocumentCompliance,
+    DocumentHealthSlice,
+} from '../dashboard-types';
 
 type ComplianceSectionProps = {
     compliance?: DocumentCompliance;
@@ -14,7 +17,8 @@ export function ComplianceSection({ compliance }: ComplianceSectionProps) {
         return null;
     }
 
-    const validityRate = compliance.uploaded_document_validity ?? compliance.compliance_rate;
+    const validityRate =
+        compliance.uploaded_document_validity ?? compliance.compliance_rate;
 
     return (
         <DashboardSection
@@ -30,7 +34,11 @@ export function ComplianceSection({ compliance }: ComplianceSectionProps) {
                     value={`${validityRate}%`}
                     subtitle={`${compliance.total_documents} total uploaded documents`}
                     icon={ShieldCheck}
-                    iconColor={validityRate >= 90 ? 'text-emerald-500' : 'text-amber-500'}
+                    iconColor={
+                        validityRate >= 90
+                            ? 'text-emerald-500'
+                            : 'text-amber-500'
+                    }
                     badgeText={validityRate >= 90 ? 'Healthy' : 'Needs Action'}
                     badgeVariant={validityRate >= 90 ? 'success' : 'warning'}
                     href={documents.url()}
@@ -53,7 +61,9 @@ export function ComplianceSection({ compliance }: ComplianceSectionProps) {
                     subtitle={`${compliance.expiring_30} expiring within 30 days`}
                     icon={Clock}
                     iconColor="text-amber-500"
-                    badgeVariant={compliance.expiring_7 > 0 ? 'warning' : 'default'}
+                    badgeVariant={
+                        compliance.expiring_7 > 0 ? 'warning' : 'default'
+                    }
                     href={documents.url({ query: { expiry: 'expiring_7' } })}
                 />
 

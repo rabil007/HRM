@@ -56,27 +56,27 @@ describe('projectionBandMode', () => {
 });
 
 describe('periodTitle', () => {
-    it('describes projected gaps for inspection', () => {
+    it('describes projected gaps for inspection with plain terminology', () => {
         assert.equal(
             periodTitle(gapPeriod(), 2),
             [
-                'Projected gap',
-                'Required: 2',
-                'Projected: 0',
+                'Manning shortfall',
+                'Required crew: 2',
+                'Available: 0',
                 'Short: 1',
                 '10-08-2026 → 14-08-2026',
             ].join('\n'),
         );
     });
 
-    it('describes projected overlaps for inspection', () => {
+    it('describes projected overlaps for inspection with plain terminology', () => {
         assert.equal(
             periodTitle(overlapPeriod(), 1),
             [
-                'Projected overlap',
-                'Required: 1',
-                'Projected: 2',
-                'Excess: 1',
+                'Relief overlap',
+                'Required crew: 1',
+                'Available: 2',
+                'Extra: 1',
                 '18-08-2026 → 19-08-2026',
             ].join('\n'),
         );

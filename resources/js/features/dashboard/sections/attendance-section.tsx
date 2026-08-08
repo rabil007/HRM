@@ -1,4 +1,10 @@
-import { Clock, CheckCircle2, AlertCircle, CalendarX, UserCheck } from 'lucide-react';
+import {
+    Clock,
+    CheckCircle2,
+    AlertCircle,
+    CalendarX,
+    UserCheck,
+} from 'lucide-react';
 import { overview as attendanceOverview } from '@/routes/attendance';
 import { index as attendanceRecordsIndex } from '@/routes/attendance/records';
 import { DashboardMetricCard } from '../components/dashboard-metric-card';
@@ -31,7 +37,9 @@ export function AttendanceSection({ analytics }: AttendanceSectionProps) {
                     iconColor="text-emerald-500"
                     badgeText="Distinct"
                     badgeVariant="success"
-                    href={attendanceRecordsIndex.url({ query: { date: 'today' } })}
+                    href={attendanceRecordsIndex.url({
+                        query: { date: 'today' },
+                    })}
                 />
 
                 <DashboardMetricCard
@@ -40,7 +48,9 @@ export function AttendanceSection({ analytics }: AttendanceSectionProps) {
                     subtitle={`${analytics.events_today || analytics.attendance_events_today || 0} total events today`}
                     icon={CheckCircle2}
                     iconColor="text-blue-500"
-                    href={attendanceRecordsIndex.url({ query: { date: 'today' } })}
+                    href={attendanceRecordsIndex.url({
+                        query: { date: 'today' },
+                    })}
                 />
 
                 <DashboardMetricCard
@@ -49,8 +59,12 @@ export function AttendanceSection({ analytics }: AttendanceSectionProps) {
                     subtitle="Arrived after shift threshold"
                     icon={AlertCircle}
                     iconColor="text-amber-500"
-                    badgeVariant={analytics.late_today > 0 ? 'warning' : 'default'}
-                    href={attendanceRecordsIndex.url({ query: { status: 'late' } })}
+                    badgeVariant={
+                        analytics.late_today > 0 ? 'warning' : 'default'
+                    }
+                    href={attendanceRecordsIndex.url({
+                        query: { status: 'late' },
+                    })}
                 />
 
                 <DashboardMetricCard
@@ -59,8 +73,12 @@ export function AttendanceSection({ analytics }: AttendanceSectionProps) {
                     subtitle="Unexcused absence"
                     icon={CalendarX}
                     iconColor="text-rose-500"
-                    badgeVariant={analytics.absent_today > 0 ? 'danger' : 'default'}
-                    href={attendanceRecordsIndex.url({ query: { status: 'absent' } })}
+                    badgeVariant={
+                        analytics.absent_today > 0 ? 'danger' : 'default'
+                    }
+                    href={attendanceRecordsIndex.url({
+                        query: { status: 'absent' },
+                    })}
                 />
             </div>
         </DashboardSection>

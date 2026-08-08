@@ -9,56 +9,54 @@ import {
 import { cn } from '@/lib/utils';
 import {
     deployedBarSurfaceClass,
+    plannedBarSurfaceClass,
     plannedReliefBarSurfaceClass,
-    vacantBarSurfaceClass,
 } from '../lib/assignment-bar-styles';
 
 const LEGEND_ITEMS = [
     {
-        label: 'Assignment Created',
-        description:
-            'Planning row already linked to a crew assignment — typically on-vessel or mobilising.',
+        label: 'Crew Assigned',
+        description: 'A crew assignment already exists for this person.',
         surfaceClass: deployedBarSurfaceClass,
         labelClass: 'text-emerald-700 dark:text-emerald-300',
         swatchRingClass: 'ring-emerald-500/45 dark:ring-emerald-400/55',
     },
     {
-        label: 'Planned Relief',
-        description:
-            'Successor crew planned to relieve an onboard assignment after sign-off.',
+        label: 'Relief Planned',
+        description: 'Replacement crew is planned to take over this position.',
         surfaceClass: plannedReliefBarSurfaceClass,
         labelClass: 'text-sky-700 dark:text-sky-300',
         swatchRingClass: 'ring-sky-500/45 dark:ring-sky-400/55',
     },
     {
-        label: 'Planned',
-        description: 'Planned crew with no relief link and no assignment yet.',
-        surfaceClass: plannedReliefBarSurfaceClass,
-        labelClass: 'text-sky-700/80 dark:text-sky-300/80',
-        swatchRingClass: 'ring-sky-500/30 dark:ring-sky-400/35',
-    },
-    {
-        label: 'Vacant Slot',
-        description: 'Open planning slot with no employee assigned yet.',
-        surfaceClass: vacantBarSurfaceClass,
-        labelClass: 'text-muted-foreground',
-        swatchRingClass: 'ring-muted-foreground/30',
+        label: 'Planned Crew',
+        description: 'Crew is planned, but no assignment has been created yet.',
+        surfaceClass: plannedBarSurfaceClass,
+        labelClass: 'text-indigo-700 dark:text-indigo-300',
+        swatchRingClass: 'ring-indigo-500/45 dark:ring-indigo-400/55',
     },
 ] as const;
 
 const PROJECTION_LEGEND_ITEMS = [
     {
-        label: 'Projected Gap',
-        description:
-            'Vessel/rank is projected short versus Vessel Manning required count for this date range.',
+        label: 'Current Manning Shortfall',
+        description: 'The vessel is short of the required crew right now.',
         surfaceClass: 'bg-destructive/20 dark:bg-destructive/25',
         labelClass: 'text-destructive',
         swatchRingClass: 'ring-destructive/40',
     },
     {
-        label: 'Projected Overlap',
+        label: 'Future Manning Shortfall',
         description:
-            'Projected coverage exceeds required count (early relief / overlap).',
+            'This position will become short after planned sign-off unless relief is arranged.',
+        surfaceClass: 'bg-destructive/20 dark:bg-destructive/25',
+        labelClass: 'text-destructive',
+        swatchRingClass: 'ring-destructive/40',
+    },
+    {
+        label: 'Relief Overlap',
+        description:
+            'More crew than required are planned at the same time, usually for handover.',
         surfaceClass: 'bg-amber-500/20 dark:bg-amber-400/25',
         labelClass: 'text-amber-700 dark:text-amber-300',
         swatchRingClass: 'ring-amber-500/40',
@@ -96,10 +94,10 @@ export function PlanningLegend({
                     align="start"
                     className="max-w-xs"
                 >
-                    Timeline bar kinds show vacant slots, planned crew, planned
-                    relief, and assignments already created from planning.
+                    Timeline bar kinds show crew assigned, relief planned, and
+                    planned crew.
                     {canProjection
-                        ? ' Projected gap and overlap bands come from Vessel Manning coverage.'
+                        ? ' Projected shortfall and overlap bands come from Vessel Manning coverage.'
                         : ''}
                 </TooltipContent>
             </Tooltip>

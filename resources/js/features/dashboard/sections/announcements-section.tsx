@@ -28,7 +28,9 @@ export function AnnouncementsSection({ summary }: AnnouncementsSectionProps) {
                     subtitle={`${summary.total} total announcements`}
                     icon={CheckCircle2}
                     iconColor="text-emerald-500"
-                    href={announcementsIndex.url({ query: { status: 'published' } })}
+                    href={announcementsIndex.url({
+                        query: { status: 'published' },
+                    })}
                 />
 
                 <DashboardMetricCard
@@ -37,7 +39,9 @@ export function AnnouncementsSection({ summary }: AnnouncementsSectionProps) {
                     subtitle="Upcoming automated broadcasts"
                     icon={Clock}
                     iconColor="text-blue-500"
-                    href={announcementsIndex.url({ query: { status: 'scheduled' } })}
+                    href={announcementsIndex.url({
+                        query: { status: 'scheduled' },
+                    })}
                 />
 
                 <DashboardMetricCard
@@ -46,9 +50,17 @@ export function AnnouncementsSection({ summary }: AnnouncementsSectionProps) {
                     subtitle="Broadcast errors requiring retry"
                     icon={AlertTriangle}
                     iconColor="text-rose-500"
-                    badgeText={summary.failed_deliveries > 0 ? 'Delivery Error' : 'All Sent'}
-                    badgeVariant={summary.failed_deliveries > 0 ? 'danger' : 'success'}
-                    href={announcementsIndex.url({ query: { tab: 'deliveries' } })}
+                    badgeText={
+                        summary.failed_deliveries > 0
+                            ? 'Delivery Error'
+                            : 'All Sent'
+                    }
+                    badgeVariant={
+                        summary.failed_deliveries > 0 ? 'danger' : 'success'
+                    }
+                    href={announcementsIndex.url({
+                        query: { tab: 'deliveries' },
+                    })}
                 />
 
                 <DashboardMetricCard

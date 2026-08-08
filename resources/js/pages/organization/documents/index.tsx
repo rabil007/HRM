@@ -7,6 +7,7 @@ import { DocumentsActiveFilters } from '@/features/organization/documents/docume
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
+import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
 import { DocumentsIndexDocumentBulkActions } from '@/features/organization/documents/index/documents-index-document-bulk-actions';
 import { DocumentsIndexDocumentsTable } from '@/features/organization/documents/index/documents-index-documents-table';
 import { DocumentsIndexFolderGrid } from '@/features/organization/documents/index/documents-index-folder-grid';
@@ -27,7 +28,6 @@ import type {
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { useDocumentsIndexFilters } from '@/features/organization/documents/use-documents-index-filters';
 import { FolderShareLinksModal } from '@/features/organization/documents/whatsapp-share';
-import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';

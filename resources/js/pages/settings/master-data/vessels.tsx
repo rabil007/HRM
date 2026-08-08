@@ -190,9 +190,7 @@ export default function Vessels({
                     ? null
                     : form.data.call_sign.trim(),
             imo_no:
-                form.data.imo_no.trim() === ''
-                    ? null
-                    : form.data.imo_no.trim(),
+                form.data.imo_no.trim() === '' ? null : form.data.imo_no.trim(),
             is_active: form.data.is_active,
             ...(hasCertificate ? { certificate: form.data.certificate } : {}),
         };
@@ -390,7 +388,7 @@ export default function Vessels({
 
                 <div className="overflow-hidden rounded-xl border border-border/60">
                     <div className="overflow-x-auto">
-                        <table className="min-w-[1280px] w-full border-collapse text-sm">
+                        <table className="w-full min-w-[1280px] border-collapse text-sm">
                             <thead>
                                 <tr className="bg-muted/30 text-left text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
                                     <th className="px-4 py-3">Name</th>

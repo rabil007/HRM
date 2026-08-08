@@ -37,18 +37,32 @@ export function LeaveSection({ summary }: LeaveSectionProps) {
                     subtitle="Company-wide pending requests"
                     icon={Clock}
                     iconColor="text-amber-500"
-                    href={leaveRequestsIndex.url({ query: { status: 'pending' } })}
+                    href={leaveRequestsIndex.url({
+                        query: { status: 'pending' },
+                    })}
                 />
 
                 <DashboardMetricCard
                     title="Awaiting My Approval"
                     value={summary.awaiting_my_approval}
-                    subtitle={summary.oldest_pending_date ? `Oldest: ${summary.oldest_pending_date}` : 'No backlog'}
+                    subtitle={
+                        summary.oldest_pending_date
+                            ? `Oldest: ${summary.oldest_pending_date}`
+                            : 'No backlog'
+                    }
                     icon={AlertCircle}
                     iconColor="text-purple-500"
-                    badgeText={summary.awaiting_my_approval > 0 ? 'Action Needed' : undefined}
-                    badgeVariant={summary.awaiting_my_approval > 0 ? 'warning' : 'default'}
-                    href={leaveRequestsIndex.url({ query: { view: 'awaiting_my_approval' } })}
+                    badgeText={
+                        summary.awaiting_my_approval > 0
+                            ? 'Action Needed'
+                            : undefined
+                    }
+                    badgeVariant={
+                        summary.awaiting_my_approval > 0 ? 'warning' : 'default'
+                    }
+                    href={leaveRequestsIndex.url({
+                        query: { view: 'awaiting_my_approval' },
+                    })}
                 />
 
                 <DashboardMetricCard

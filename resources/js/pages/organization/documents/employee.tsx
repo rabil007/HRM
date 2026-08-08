@@ -485,7 +485,7 @@ export default function EmployeeDocumentsBrowse({
                             />
                             <label
                                 htmlFor="mobile-select-all"
-                                className="cursor-pointer select-none text-xs text-muted-foreground"
+                                className="cursor-pointer text-xs text-muted-foreground select-none"
                             >
                                 Select all ({filteredDocuments.length})
                             </label>

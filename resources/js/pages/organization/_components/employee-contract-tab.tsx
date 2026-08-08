@@ -1444,8 +1444,8 @@ export function EmployeeContractTab({
                                         ))}
                                     </AppSelect>
                                     <p className="text-[11px] text-muted-foreground">
-                                        The sponsor that applies during
-                                        this contract's effective period
+                                        The sponsor that applies during this
+                                        contract's effective period
                                         {isFieldRequired('company_visa_type_id')
                                             ? ''
                                             : ' (optional)'}

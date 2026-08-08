@@ -132,17 +132,4 @@ export function ProjectionOverlay({
     );
 }
 
-export function projectionExceptionLabel(
-    status: PlanningProjectionRow['status'],
-): string | null {
-    switch (status) {
-        case 'current_gap':
-            return 'Gap';
-        case 'future_gap':
-            return 'Future gap';
-        case 'overlap':
-            return 'Overlap';
-        default:
-            return null;
-    }
-}
+export { projectionExceptionLabel } from '../lib/projection-band';

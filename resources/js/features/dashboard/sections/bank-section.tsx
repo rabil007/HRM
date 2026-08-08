@@ -47,8 +47,14 @@ export function BankSection({ summary }: BankSectionProps) {
                     subtitle="Active employees without bank account"
                     icon={AlertCircle}
                     iconColor="text-amber-500"
-                    badgeText={summary.no_account_employees > 0 ? 'Incomplete' : 'Ready'}
-                    badgeVariant={summary.no_account_employees > 0 ? 'warning' : 'success'}
+                    badgeText={
+                        summary.no_account_employees > 0
+                            ? 'Incomplete'
+                            : 'Ready'
+                    }
+                    badgeVariant={
+                        summary.no_account_employees > 0 ? 'warning' : 'success'
+                    }
                     href={noAccount.url()}
                 />
 

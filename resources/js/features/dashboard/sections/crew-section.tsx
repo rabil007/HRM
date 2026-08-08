@@ -14,7 +14,8 @@ export function CrewSection({ summary }: CrewSectionProps) {
     }
 
     const inHomeValue = summary.in_home ?? summary.at_home;
-    const updatesRequired = summary.movement_updates_required ?? summary.needs_update;
+    const updatesRequired =
+        summary.movement_updates_required ?? summary.needs_update;
 
     return (
         <DashboardSection
@@ -31,7 +32,9 @@ export function CrewSection({ summary }: CrewSectionProps) {
                     subtitle={`Out of ${summary.total} total crew members`}
                     icon={Navigation}
                     iconColor="text-cyan-500"
-                    href={crewAssignmentsIndex.url({ query: { status: 'on_vessel' } })}
+                    href={crewAssignmentsIndex.url({
+                        query: { status: 'on_vessel' },
+                    })}
                 />
 
                 <DashboardMetricCard
@@ -40,7 +43,9 @@ export function CrewSection({ summary }: CrewSectionProps) {
                     subtitle={`${summary.ready_to_join} ready to join vessel`}
                     icon={Home}
                     iconColor="text-blue-500"
-                    href={crewAssignmentsIndex.url({ query: { status: 'in_home' } })}
+                    href={crewAssignmentsIndex.url({
+                        query: { status: 'in_home' },
+                    })}
                 />
 
                 <DashboardMetricCard
@@ -51,7 +56,9 @@ export function CrewSection({ summary }: CrewSectionProps) {
                     iconColor="text-rose-500"
                     badgeText={updatesRequired > 0 ? 'Critical' : 'Updated'}
                     badgeVariant={updatesRequired > 0 ? 'danger' : 'success'}
-                    href={crewAssignmentsIndex.url({ query: { filter: 'needs_update' } })}
+                    href={crewAssignmentsIndex.url({
+                        query: { filter: 'needs_update' },
+                    })}
                 />
 
                 <DashboardMetricCard
@@ -60,8 +67,12 @@ export function CrewSection({ summary }: CrewSectionProps) {
                     subtitle={`${summary.overdue_at_home} overdue at home`}
                     icon={Clock}
                     iconColor="text-amber-500"
-                    badgeVariant={summary.planned_signoffs_due > 0 ? 'warning' : 'default'}
-                    href={crewAssignmentsIndex.url({ query: { filter: 'signoffs_due' } })}
+                    badgeVariant={
+                        summary.planned_signoffs_due > 0 ? 'warning' : 'default'
+                    }
+                    href={crewAssignmentsIndex.url({
+                        query: { filter: 'signoffs_due' },
+                    })}
                 />
             </div>
         </DashboardSection>

@@ -209,9 +209,9 @@ final class CrewPlanningGanttQuery
     {
         return match ($kind) {
             'vacant_slot' => 'Vacant Slot',
-            'planned_relief' => 'Planned Relief',
-            'assignment_created' => 'Assignment Created',
-            default => 'Planned',
+            'planned_relief' => 'Relief Planned',
+            'assignment_created' => 'Crew Assigned',
+            default => 'Planned Crew',
         };
     }
 
