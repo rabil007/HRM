@@ -52,6 +52,9 @@ class CrewAssignment extends Model
         'remarks',
         'created_by',
         'updated_by',
+        'voided_at',
+        'voided_by',
+        'void_reason',
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -77,6 +80,9 @@ class CrewAssignment extends Model
                 'previous_assignment_id',
                 'source',
                 'remarks',
+                'voided_at',
+                'voided_by',
+                'void_reason',
             ])
             ->logOnlyDirty();
     }
@@ -97,6 +103,7 @@ class CrewAssignment extends Model
             'previous_assignment_id' => 'integer',
             'created_by' => 'integer',
             'updated_by' => 'integer',
+            'voided_by' => 'integer',
             'status' => CrewAssignmentStatus::class,
             'planned_join_at' => 'datetime',
             'planned_signoff_at' => 'datetime',
@@ -106,6 +113,7 @@ class CrewAssignment extends Model
             'planned_travel_at' => 'datetime',
             'started_at' => 'datetime',
             'closed_at' => 'datetime',
+            'voided_at' => 'datetime',
         ];
     }
 
@@ -213,6 +221,16 @@ class CrewAssignment extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function voidedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'voided_by');
+    }
+
+    public function isVoided(): bool
+    {
+        return $this->voided_at !== null || $this->trashed();
     }
 
     /**

@@ -145,7 +145,32 @@ Email, browser Web Push, in-app notification feeds, escalation, and Announcement
 | `start_demob_standby` | helper into P5 |
 | `travel_home` | P5 → P6 |
 | `close_assignment` | P6 → Completed |
-| `cancel_assignment` | Draft/Active → Cancelled |
+| `cancel_assignment` | Draft/Active → Cancelled (not from active P4) |
+| `void_erroneous_assignment` | Privileged admin cleanup (any P0–P6; separate route) |
+
+## Void Erroneous Assignment
+
+**Void** is not Cancel.
+
+| | Cancel Assignment | Void Erroneous Assignment |
+|--|-------------------|---------------------------|
+| Meaning | Legitimate assignment stopped | Assignment / movement entered by mistake |
+| Typical use | Client cancelled; mobilisation abandoned | Wrong employee, duplicate, erroneous progression |
+| Permission | `crew_operations.assignments.cancel` | `crew_operations.assignments.void` |
+| Phases | Not from active P4 | May be attempted from any P0–P6 |
+| Result | Status `Cancelled` (record remains) | Soft-delete + void metadata; removed from active ops |
+| Fake movements | Does not invent disembarkation | Does not invent disembarkation |
+
+Void requires the dedicated permission **and** passes `CrewAssignmentVoidGuard`. Downstream blockers include:
+
+- `payroll_applied` / `payroll_protected` — Applied, Approved/Submitted timeline prep, paid/approved work allocations, or timesheet segments
+- `sea_service_exists` — linked `EmployeeSeaService` (never cascade-deleted)
+- `linked_assignment_exists` — transfer/redeploy children via `previous_assignment_id`
+- `already_voided` — already voided / soft-deleted
+
+HTTP: `POST /organization/crew/{assignment}/void` (`organization.crew-assignments.void`) via `VoidCrewAssignment` Support action (transaction + `lockForUpdate()`). Linked assignment-derived planning bars are soft-deleted; phase history is retained under the soft-deleted assignment.
+
+See also [crew-movement-corrections.md](./crew-movement-corrections.md).
 
 ## Linked assignment actions
 
@@ -175,6 +200,7 @@ crew_operations.assignments.create
 crew_operations.assignments.update
 crew_operations.movements.perform
 crew_operations.assignments.cancel
+crew_operations.assignments.void
 crew_operations.corrections.view
 crew_operations.corrections.request
 crew_operations.corrections.approve

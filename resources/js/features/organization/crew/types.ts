@@ -318,6 +318,7 @@ export interface CrewAssignmentPagePermissions {
     update: boolean;
     perform_movement: boolean;
     cancel: boolean;
+    void: boolean;
     view_audit: boolean;
     request_correction: boolean;
     view_corrections: boolean;

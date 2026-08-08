@@ -130,6 +130,7 @@ use App\Http\Controllers\Organization\TrainingsImportController;
 use App\Http\Controllers\Organization\TrainingsIndexController;
 use App\Http\Controllers\Organization\UserController;
 use App\Http\Controllers\Organization\VesselManningController;
+use App\Http\Controllers\Organization\VoidCrewAssignmentController;
 use App\Http\Controllers\Payroll\ApplyCrewTimesheetPreparationController;
 use App\Http\Controllers\Payroll\ApproveCrewTimesheetPreparationController;
 use App\Http\Controllers\Payroll\ClearManualImportCrewTimesheetsController;
@@ -405,6 +406,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/crew/{assignment}/edit', [CrewAssignmentController::class, 'edit'])->middleware('can:crew_operations.assignments.update')->name('organization.crew-assignments.edit');
     Route::put('organization/crew/{assignment}', [CrewAssignmentController::class, 'update'])->middleware('can:crew_operations.assignments.update')->name('organization.crew-assignments.update');
     Route::post('organization/crew/{assignment}/actions', CrewMovementActionController::class)->name('organization.crew-assignments.perform-action');
+    Route::post('organization/crew/{assignment}/void', VoidCrewAssignmentController::class)
+        ->middleware('can:crew_operations.assignments.void')
+        ->name('organization.crew-assignments.void');
     Route::post('organization/crew/{assignment}/corrections', [CrewMovementCorrectionController::class, 'store'])
         ->middleware('can:crew_operations.corrections.request')
         ->name('organization.crew-assignments.corrections.store');

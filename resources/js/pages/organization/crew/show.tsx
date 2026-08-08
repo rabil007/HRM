@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
+import { VoidErroneousAssignmentDialog } from '@/features/organization/crew/actions/void-erroneous-assignment-dialog';
 import { CrewMetadataField } from '@/features/organization/crew/components/crew-metadata-field';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { CrewPhaseProgress } from '@/features/organization/crew/components/crew-phase-progress';
@@ -89,6 +90,7 @@ export default function CrewAssignmentShow({
     can: CrewAssignmentPagePermissions;
 }) {
     const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = useState(false);
+    const [isVoidDialogOpen, setIsVoidDialogOpen] = useState(false);
     const showMovementActions =
         (can.perform_movement || can.cancel) &&
         assignment.available_actions.length > 0;
@@ -155,6 +157,16 @@ export default function CrewAssignmentShow({
                                     }
                                     formOptions={form_options}
                                 />
+                            ) : null}
+                            {can.void ? (
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    className="h-12 rounded-xl px-5"
+                                    onClick={() => setIsVoidDialogOpen(true)}
+                                >
+                                    Void Erroneous Assignment
+                                </Button>
                             ) : null}
                             {can.update ? (
                                 <Button
@@ -819,6 +831,12 @@ export default function CrewAssignmentShow({
                     formOptions={form_options}
                 />
             ) : null}
+
+            <VoidErroneousAssignmentDialog
+                open={isVoidDialogOpen}
+                onOpenChange={setIsVoidDialogOpen}
+                assignment={assignment}
+            />
         </>
     );
 }

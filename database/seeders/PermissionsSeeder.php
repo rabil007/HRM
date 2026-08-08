@@ -280,6 +280,7 @@ class PermissionsSeeder extends Seeder
             'crew_operations.assignments.update',
             'crew_operations.movements.perform',
             'crew_operations.assignments.cancel',
+            'crew_operations.assignments.void',
 
             'crew_operations.corrections.view',
             'crew_operations.corrections.request',
@@ -340,6 +341,7 @@ class PermissionsSeeder extends Seeder
         }
 
         $this->grantCrewRankPolicyPermissionsToExistingRoles();
+        $this->grantCrewAssignmentVoidPermissionToExistingRoles();
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
@@ -395,6 +397,42 @@ class PermissionsSeeder extends Seeder
             if ($grantIds !== []) {
                 $role->permissions()->syncWithoutDetaching($grantIds);
             }
+        }
+    }
+
+    /**
+     * Privileged void: grant only to high-trust roles that already manage roles
+     * (same convention as crew_operations.corrections.override).
+     *
+     * The seeded Owner role continues to receive all permissions via AdminSeeder::syncPermissions.
+     */
+    private function grantCrewAssignmentVoidPermissionToExistingRoles(): void
+    {
+        $voidPermission = Permission::query()
+            ->where('guard_name', 'web')
+            ->where('name', 'crew_operations.assignments.void')
+            ->first();
+
+        if ($voidPermission === null) {
+            return;
+        }
+
+        $roles = Role::query()
+            ->where('guard_name', 'web')
+            ->get();
+
+        foreach ($roles as $role) {
+            $names = $role->permissions()->pluck('name');
+
+            if (! $names->contains('roles.update')) {
+                continue;
+            }
+
+            if ($names->contains('crew_operations.assignments.void')) {
+                continue;
+            }
+
+            $role->permissions()->syncWithoutDetaching([$voidPermission->id]);
         }
     }
 }
