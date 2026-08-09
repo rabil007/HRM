@@ -337,16 +337,15 @@ Uses Phase 2A Planning relief links. Late relief → gap between source leave an
 
 `summary.overlap_positions` counts rows where `has_overlap` is true (not only when primary status is `overlap`).
 
-## Phase 2B.2 — Projected Manning UI
+## Phase 2B.2 — Projected Manning Engine & Surface Integration
 
-Dedicated Crew Operations page at `/organization/crew-operations/projected-manning` (`organization.crew-operations.projected-manning`).
+There is **no standalone Projected Manning page**. Projected manning is an internal calculation engine (`CrewProjectedManningQuery`) that drives operational insights across Crew Operations:
 
-- Thin controller: trusted `current_company_id`, filter validation, calls `CrewProjectedManningQuery`, returns Inertia props.
-- Permission: `crew_operations.vessel_manning.view` (Plan Crew action UX gated by `crew_operations.planning.view` **and** `crew_operations.planning.create`).
-- Filters (URL query, shareable): `horizon` 30/60/90 (default 30), `vessel_id`, `rank_id` — foreign vessel/rank IDs not present in company `VesselManning` are rejected by validation.
-- Range: `from` = company-local today; `to` derived server-side as `from + horizon days`.
-- UI shows summary cards, vessel/rank rows (actual vs projected clearly labeled), expandable period/event detail, and **Plan Crew** links into existing Crew Planning with `open_create=1` plus vessel/rank/date query prefills.
-- React does not recalculate gaps, status, or counts — server values only.
+- **Vessel Manning** (`/organization/vessel-manning`) configures required vessel/rank headcount.
+- **Projected Manning Engine** (`CrewProjectedManningQuery`) calculates required vs actual/projected crew, gaps, and overlaps.
+- **Crew Planning** (`/organization/crew-planning`) visually displays projected gap and overlap overlays on the Gantt timeline.
+- **Crew Operations Overview** (`/organization/crew-operations`) surfaces projected risk analytics and action items, linking directly into Crew Planning.
+- **Operational Alerts** (`ProjectedManningGap`) detect projected shortfall conditions and resolve URLs to Crew Planning (with Overview/Vessel Manning fallbacks).
 
 ### Deferred (still later)
 
@@ -359,18 +358,18 @@ Crew Operations landing page (`/organization/crew-operations`) is an **operation
 
 ### Sections
 
-1. **Header / quick actions** — Current Crew, Planning, Projected Manning (permission-gated; Settings is not a primary daily action).
+1. **Header / quick actions** — Current Crew, Planning (permission-gated; Settings is not a primary daily action).
 2. **Daily Pulse** (max 4) — Onboard Now (actual P4), Joins Next 7 Days, Sign-offs Next 7 Days (+ overdue secondary), Coverage Risks (`current now · upcoming projected`).
 3. **Action Required** — bounded (≤10) urgency-ordered items: current manning gap → overdue sign-off → due today no relief → critical relief → imminent not-ready relief → projected future gap → overdue corrections → needs update → over-home.
 4. **Next 7 Days** — compact join/sign-off day list + Open Crew Planning.
-5. **Manning & Relief Risks** — bounded mixed list with explicit Actual / Projected / Relief kinds + View Projected Manning.
+5. **Manning & Relief Risks** — bounded mixed list with explicit Actual / Projected / Relief kinds + Open Crew Planning.
 
 ### Projected manning
 
 - Still calculated only via `CrewProjectedManningQuery` (company-local today → +30 days).
 - `projected_manning` is `null` without `crew_operations.vessel_manning.view`.
 - Used for Coverage Risks upcoming, Action Required future-gap rows, and projected risk rows — not a large KPI card on the landing page.
-- Detailed UI remains `/organization/crew-operations/projected-manning`.
+- Projected manning calculations surface through Crew Planning overlays, Overview risks, and operational alert delivery; there is no standalone page.
 
 ### Removed from landing presentation
 

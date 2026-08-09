@@ -578,7 +578,7 @@ test('vessel and projected dashboard links remain gated by vessel manning permis
             'vessel' => $gapVessel->id,
         ]))
         ->and($projectedGap)->not->toBeNull()
-        ->and($projectedGap['href'])->toBe(route('organization.crew-operations.projected-manning', [
+        ->and($projectedGap['href'])->toBe(route('organization.crew-planning.index', [
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
         ]));
@@ -594,7 +594,7 @@ test('vessel and projected dashboard links remain gated by vessel manning permis
     expect($actualRisk)->not->toBeNull()
         ->and($actualRisk['href'])->toContain('/vessel-manning/')
         ->and($projectedRisk)->not->toBeNull()
-        ->and($projectedRisk['href'])->toContain('/projected-manning')
+        ->and($projectedRisk['href'])->toContain('/crew-planning')
         ->and($reliefRisk)->not->toBeNull()
         ->and($reliefRisk['href'])->toBeNull()
         ->and($reliefRisk['employee_name'])->toBeNull();

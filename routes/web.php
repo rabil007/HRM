@@ -74,7 +74,6 @@ use App\Http\Controllers\Organization\CrewOperationsDashboardController;
 use App\Http\Controllers\Organization\CrewOperationsSettingsController;
 use App\Http\Controllers\Organization\CrewPlanningAssignmentController;
 use App\Http\Controllers\Organization\CrewPlanningController;
-use App\Http\Controllers\Organization\CrewProjectedManningController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\DepartmentController;
 use App\Http\Controllers\Organization\DocumentBulkCompanyFilesDeleteController;
@@ -377,10 +376,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('organization/users/{user}/memberships/{company}', [UserController::class, 'destroyMembership'])->middleware('can:users.update')->name('organization.users.memberships.destroy');
 
     Route::get('organization/crew-operations', CrewOperationsDashboardController::class)->middleware('can:crew_operations.overview.view')->name('organization.crew-operations.index');
-
-    Route::get('organization/crew-operations/projected-manning', CrewProjectedManningController::class)
-        ->middleware('can:crew_operations.vessel_manning.view')
-        ->name('organization.crew-operations.projected-manning');
 
     Route::get('organization/reports/crew-movement-history', [CrewMovementHistoryController::class, 'index'])
         ->middleware('can:reports.crew_movement_history.view')

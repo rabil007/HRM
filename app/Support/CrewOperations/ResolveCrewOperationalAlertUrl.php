@@ -29,13 +29,46 @@ final class ResolveCrewOperationalAlertUrl
                     $alert,
                 ),
                 CrewOperationalAlertType::CurrentManningGap => $this->vesselManning($user, $alert),
-                CrewOperationalAlertType::ProjectedManningGap => $user->can('crew_operations.vessel_manning.view')
-                    ? route('organization.crew-operations.projected-manning')
-                    : $this->fallbackOverview($user),
+                CrewOperationalAlertType::ProjectedManningGap => $this->projectedManningGap($user, $alert),
             };
         } finally {
             $registrar->setPermissionsTeamId($previousTeamId);
         }
+    }
+
+    private function projectedManningGap(User $user, CrewOperationalAlert $alert): ?string
+    {
+        if ($user->can('crew_operations.planning.view')) {
+            $params = [];
+            $vesselId = $alert->context['vessel_id'] ?? null;
+            $rankId = $alert->context['rank_id'] ?? null;
+
+            if (is_numeric($vesselId)) {
+                $params['vessel_id'] = (int) $vesselId;
+            }
+
+            if (is_numeric($rankId)) {
+                $params['rank_id'] = (int) $rankId;
+            }
+
+            return route('organization.crew-planning.index', $params);
+        }
+
+        if ($user->can('crew_operations.overview.view')) {
+            return route('organization.crew-operations.index');
+        }
+
+        if ($user->can('crew_operations.vessel_manning.view')) {
+            $vesselId = $alert->context['vessel_id'] ?? null;
+
+            if (is_numeric($vesselId)) {
+                return route('organization.vessel-manning.show', ['vessel' => (int) $vesselId]);
+            }
+
+            return route('organization.vessel-manning.index');
+        }
+
+        return null;
     }
 
     private function assignmentOrCurrentCrew(User $user, CrewOperationalAlert $alert): ?string

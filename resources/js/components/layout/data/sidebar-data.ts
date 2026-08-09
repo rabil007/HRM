@@ -30,7 +30,6 @@ import {
     BarChart3,
     FilePenLine,
     ShieldCheck,
-    Layers3,
 } from 'lucide-react';
 import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import { dashboard } from '@/routes';
@@ -42,7 +41,6 @@ import {
     training,
 } from '@/routes/organization';
 import { index as crewMovementCorrections } from '@/routes/organization/crew-movement-corrections';
-import { projectedManning as projectedManningRoute } from '@/routes/organization/crew-operations';
 import { index as crewMovementHistory } from '@/routes/organization/reports/crew-movement-history';
 import type { SidebarData } from '../types';
 
@@ -166,11 +164,6 @@ const baseSidebarData: SidebarData = {
                     title: 'Vessel Manning',
                     url: '/organization/vessel-manning',
                     icon: Anchor,
-                },
-                {
-                    title: 'Projected Manning',
-                    url: projectedManningRoute.url(),
-                    icon: Layers3,
                 },
                 {
                     title: 'Movement Corrections',
@@ -380,13 +373,6 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 ? item
                                 : null;
                         case '/organization/vessel-manning':
-                            return has(
-                                permissions,
-                                'crew_operations.vessel_manning.view',
-                            )
-                                ? item
-                                : null;
-                        case projectedManningRoute.url():
                             return has(
                                 permissions,
                                 'crew_operations.vessel_manning.view',

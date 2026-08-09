@@ -419,7 +419,7 @@ final class CrewOperationsDashboardAnalytics
                         $position['maximum_gap'],
                     ),
                     'meta' => $position['next_gap_date'],
-                    'href' => route('organization.crew-operations.projected-manning', [
+                    'href' => route('organization.crew-planning.index', [
                         'vessel_id' => $position['vessel_id'],
                         'rank_id' => $position['rank_id'],
                     ]),
@@ -603,7 +603,7 @@ final class CrewOperationsDashboardAnalytics
                     'rank_id' => (int) $position['rank_id'],
                     'rank_name' => (string) $position['rank_name'],
                     'when' => $position['next_gap_date'] ?? 'Upcoming',
-                    'href' => route('organization.crew-operations.projected-manning', [
+                    'href' => route('organization.crew-planning.index', [
                         'vessel_id' => $position['vessel_id'],
                         'rank_id' => $position['rank_id'],
                     ]),

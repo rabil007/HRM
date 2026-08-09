@@ -13,7 +13,7 @@ import {
 import type { CrewOperationsManningReliefRisk } from '@/features/organization/crew-operations/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import { projectedManning as projectedManningRoute } from '@/routes/organization/crew-operations';
+import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
 
 function riskVariant(
     kind: CrewOperationsManningReliefRisk['kind'],
@@ -77,10 +77,10 @@ function ManningReliefRiskRowContent({
 
 export function ManningReliefRisksCard({
     risks,
-    canViewProjected,
+    canViewPlanning,
 }: {
     risks: CrewOperationsManningReliefRisk[];
-    canViewProjected: boolean;
+    canViewPlanning: boolean;
 }): ReactElement {
     return (
         <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/2">
@@ -95,15 +95,15 @@ export function ManningReliefRisksCard({
                             readiness — kept distinct
                         </CardDescription>
                     </div>
-                    {canViewProjected ? (
+                    {canViewPlanning ? (
                         <Button
                             variant="outline"
                             size="sm"
                             className="h-8 rounded-lg text-xs"
                             asChild
                         >
-                            <Link href={projectedManningRoute.url()}>
-                                View Projected Manning
+                            <Link href={crewPlanningIndex.url()}>
+                                Open Crew Planning
                             </Link>
                         </Button>
                     ) : null}

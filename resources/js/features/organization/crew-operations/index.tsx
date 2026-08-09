@@ -2,7 +2,6 @@ import { Link, usePoll } from '@inertiajs/react';
 import {
     CalendarDays,
     CalendarRange,
-    Layers3,
     LayoutDashboard,
     Users,
 } from 'lucide-react';
@@ -16,7 +15,6 @@ import { NextSevenDaysCard } from '@/features/organization/crew-operations/compo
 import type { CrewOperationsDashboardProps } from '@/features/organization/crew-operations/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { index as crewAssignmentsIndex } from '@/routes/organization/crew-assignments';
-import { projectedManning as projectedManningRoute } from '@/routes/organization/crew-operations';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
 
 export type { CrewOperationsDashboardProps } from '@/features/organization/crew-operations/types';
@@ -83,18 +81,7 @@ export function CrewOperationsDashboardContent({
                             </Link>
                         </Button>
                     ) : null}
-                    {can.vessel_manning ? (
-                        <Button
-                            variant="outline"
-                            className="rounded-xl glass-card"
-                            asChild
-                        >
-                            <Link href={projectedManningRoute.url()}>
-                                <Layers3 className="mr-2 h-4 w-4" />
-                                Projected Manning
-                            </Link>
-                        </Button>
-                    ) : null}
+
                 </div>
             </div>
 
@@ -113,7 +100,7 @@ export function CrewOperationsDashboardContent({
 
             <ManningReliefRisksCard
                 risks={manningReliefRisks}
-                canViewProjected={can.vessel_manning}
+                canViewPlanning={can.planning}
             />
         </Main>
     );
