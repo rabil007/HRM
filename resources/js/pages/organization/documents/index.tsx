@@ -2,12 +2,14 @@ import { Head } from '@inertiajs/react';
 import { Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Main } from '@/components/layout/main';
+import { PageHeader } from '@/components/page-header';
 import { SearchBar } from '@/components/search-bar';
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
+import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
 import { DocumentsIndexDocumentBulkActions } from '@/features/organization/documents/index/documents-index-document-bulk-actions';
 import { DocumentsIndexDocumentsTable } from '@/features/organization/documents/index/documents-index-documents-table';
 import { DocumentsIndexFolderGrid } from '@/features/organization/documents/index/documents-index-folder-grid';
@@ -28,7 +30,6 @@ import type {
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { useDocumentsIndexFilters } from '@/features/organization/documents/use-documents-index-filters';
 import { FolderShareLinksModal } from '@/features/organization/documents/whatsapp-share';
-import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
@@ -275,38 +276,15 @@ export default function DocumentsIndex({
     return (
         <Main>
             <Head
-                title={section === 'library' ? 'Documents library' : 'Documents'}
+                title={
+                    section === 'library'
+                        ? 'Documents library'
+                        : 'Documents overview'
+                }
             />
 
-            <DocumentsModuleNav active={section} />
-
-            <DocumentsBreadcrumbs
-                items={[
-                    {
-                        title:
-                            section === 'library'
-                                ? 'Library'
-                                : 'Overview',
-                    },
-                ]}
-            />
-
-            <DocumentsSummaryCards
-                summary={summary}
-                activeExpiry={initialExpiry}
-                onSelect={onExpiryChange}
-            />
-
-            <DocumentsActiveFilters
-                expiryFilter={initialExpiry}
-                search={initialSearch}
-                departmentSelected={Boolean(department_tree_selected_id)}
-                onClearExpiry={() => onExpiryChange('all')}
-                onClearSearch={() => onSearchChange('')}
-                onClearDepartment={() => onDepartmentChange(null)}
-            />
-
-            <div className="sticky top-0 z-20 -mx-1 mb-8 border-b border-border/80 bg-background/95 px-1 pb-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 dark:border-white/5">
+            <div className="sticky top-0 z-20 -mx-1 mb-6 space-y-4 border-b border-border/80 bg-background/95 px-1 pb-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 dark:border-white/5">
+                <DocumentsModuleNav active={section} className="mb-0" />
                 <SearchBar
                     placeholder="Search employee, document no, file name..."
                     value={searchInput}
@@ -329,7 +307,7 @@ export default function DocumentsIndex({
                     }
                 />
                 {isSearching ? (
-                    <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Loader2
                             className="h-3.5 w-3.5 animate-spin"
                             aria-hidden
@@ -338,6 +316,39 @@ export default function DocumentsIndex({
                     </p>
                 ) : null}
             </div>
+
+            <DocumentsBreadcrumbs
+                items={[
+                    {
+                        title: section === 'library' ? 'Library' : 'Overview',
+                    },
+                ]}
+            />
+
+            <PageHeader
+                title={section === 'library' ? 'Library' : 'Overview'}
+                description={
+                    section === 'library'
+                        ? 'Browse employee document folders, compliance filters, and file actions.'
+                        : 'Documents centre summary, expiry attention, and quick access into the library.'
+                }
+                className="mb-6"
+            />
+
+            <DocumentsSummaryCards
+                summary={summary}
+                activeExpiry={initialExpiry}
+                onSelect={onExpiryChange}
+            />
+
+            <DocumentsActiveFilters
+                expiryFilter={initialExpiry}
+                search={initialSearch}
+                departmentSelected={Boolean(department_tree_selected_id)}
+                onClearExpiry={() => onExpiryChange('all')}
+                onClearSearch={() => onSearchChange('')}
+                onClearDepartment={() => onDepartmentChange(null)}
+            />
 
             <DocumentsIndexDocumentBulkActions
                 selectedDocumentIds={selectedDocumentIds}

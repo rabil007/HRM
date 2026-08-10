@@ -214,7 +214,9 @@ function SidebarMenuCollapsedDropdown({
 }
 
 function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
-    const path = href.split('?')[0];
+    const [path, queryString = ''] = href.split('?');
+    const params = new URLSearchParams(queryString);
+    const bulkView = params.get('view');
 
     if ('url' in item && item.url) {
         if (
@@ -256,18 +258,37 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
         }
 
         if (item.url === '/organization/documents/generate') {
-            return (
-                path === item.url ||
+            if (path === item.url) {
+                return true;
+            }
+
+            if (
                 path === '/organization/documents/bulk' ||
                 path.startsWith('/organization/documents/bulk/')
+            ) {
+                return bulkView !== 'signatures' && bulkView !== 'history';
+            }
+
+            return false;
+        }
+
+        if (item.url === '/organization/documents/requests') {
+            return (
+                path === item.url ||
+                (path === '/organization/documents/bulk' &&
+                    bulkView === 'signatures')
             );
         }
 
-        if (
-            item.url === '/organization/documents/requests' ||
-            item.url === '/organization/documents/activity' ||
-            item.url === '/organization/documents/templates'
-        ) {
+        if (item.url === '/organization/documents/activity') {
+            return (
+                path === item.url ||
+                (path === '/organization/documents/bulk' &&
+                    bulkView === 'history')
+            );
+        }
+
+        if (item.url === '/organization/documents/templates') {
             return path === item.url;
         }
 
@@ -280,12 +301,13 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
     }
 
     return (
-        !!item?.items?.some(
-            (i) =>
-                i.url &&
-                (i.url === path ||
-                    (i.url !== '/' && path.startsWith(`${i.url}/`))),
-        ) ||
+        !!item?.items?.some((i) => {
+            if (!i.url) {
+                return false;
+            }
+
+            return checkIsActive(href, i as NavItem, false);
+        }) ||
         (mainNav &&
             path.split('/')[1] !== '' &&
             path.split('/')[1] === item?.url?.split('/')[1])

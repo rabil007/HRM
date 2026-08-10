@@ -335,7 +335,8 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             const filteredSub = item.items.filter((sub) => {
                                 if (
                                     sub.url === documents.url() ||
-                                    sub.url === '/organization/documents/library'
+                                    sub.url ===
+                                        '/organization/documents/library'
                                 ) {
                                     return has(permissions, 'documents.view');
                                 }

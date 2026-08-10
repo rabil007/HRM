@@ -63,6 +63,11 @@ import {
     canRegenerateSignatureAlignment,
 } from '@/features/organization/documents/bulk/bulk-signatures-table';
 import { SignatureStatusBadge } from '@/features/organization/documents/bulk/signature-status-badge';
+import {
+    DocumentsModuleNav,
+    documentsSectionFromView,
+    documentsUrlForView,
+} from '@/features/organization/documents/documents-module-nav';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { downloadBinaryExport } from '@/features/organization/documents/shared/download-binary-export';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
@@ -74,11 +79,6 @@ import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import documentRoutes from '@/routes/organization/documents';
-import {
-    DocumentsModuleNav,
-    documentsSectionFromView,
-    documentsUrlForView,
-} from '@/features/organization/documents/documents-module-nav';
 import { EMPTY_BULK_DOCUMENT_FILTERS } from './types';
 import type {
     BulkDocumentFilters,

@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { cn } from '@/lib/utils';
+import { documents } from '@/routes/organization';
 import {
     activity as documentsActivity,
     generate as documentsGenerate,
@@ -7,7 +8,6 @@ import {
     requests as documentsRequests,
     templates as documentsTemplates,
 } from '@/routes/organization/documents';
-import { documents } from '@/routes/organization';
 
 export type DocumentsModuleSection =
     | 'overview'
@@ -78,8 +78,10 @@ function canAccess(
 
 export function DocumentsModuleNav({
     active,
+    className,
 }: {
     active: DocumentsModuleSection;
+    className?: string;
 }) {
     const page = usePage<{ auth?: { permissions?: string[] } }>();
     const permissions = page.props.auth?.permissions ?? [];
@@ -95,7 +97,7 @@ export function DocumentsModuleNav({
     return (
         <nav
             aria-label="Documents sections"
-            className="mb-6 overflow-x-auto"
+            className={cn('mb-6 overflow-x-auto', className)}
         >
             <div className="inline-flex min-w-full gap-1 rounded-xl border border-border/40 bg-muted/40 p-1 sm:min-w-0">
                 {items.map((item) => {
@@ -109,7 +111,7 @@ export function DocumentsModuleNav({
                             className={cn(
                                 'shrink-0 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors',
                                 isActive
-                                    ? 'bg-background text-foreground shadow-sm'
+                                    ? 'bg-background text-foreground shadow-sm ring-1 ring-border/60'
                                     : 'text-muted-foreground hover:text-foreground',
                             )}
                             aria-current={isActive ? 'page' : undefined}
