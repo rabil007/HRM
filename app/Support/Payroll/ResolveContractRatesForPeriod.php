@@ -24,13 +24,17 @@ final class ResolveContractRatesForPeriod
         $category = $contract->payroll_category ?? PayrollCategory::Office;
         $structure = $contract->resolvedSalaryStructure();
         $columnMap = ContractSalaryComponentCatalog::legacyColumnMap($category, $structure);
-        $components = $this->resolveEffectiveComponents->handle($contract, $asOf);
+        $resolved = $this->resolveEffectiveComponents->resolve($contract, $asOf);
 
         $rates = [];
 
         foreach ($columnMap as $column => $code) {
-            $rates[$column] = $this->amountFor($components, $code) ?? $contract->{$column};
+            $amount = $this->amountFor($resolved['components'], $code);
+            $rates[$column] = $amount ?? ($resolved['has_revision_history'] ? null : $contract->{$column});
         }
+
+        $rates['salary_revision_id'] = $resolved['revision']?->id;
+        $rates['salary_resolution_issue'] = $resolved['issue'];
 
         return $rates;
     }

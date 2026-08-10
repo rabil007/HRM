@@ -647,13 +647,15 @@ test('authorized users can approve office pay period after payroll generation', 
         'end_date' => '2026-06-05',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
 
     $contract = EmployeeContract::factory()->create([
         'employee_id' => $employee->id,
         'company_id' => $company->id,
         'payroll_category' => PayrollCategory::Office,
         'status' => 'active',
+        'start_date' => '2020-01-01',
+        'end_date' => null,
         'basic_salary' => 10000,
     ]);
 

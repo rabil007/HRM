@@ -24,11 +24,11 @@ test('soft-deleted salary revision history blocks baseline fallback', function (
         'supplementary_allowance' => 0,
     ], '2026-06-01', 'June rates');
 
-    $revision = $contract->fresh()->salaryRevisions()->first();
+    $revisions = $contract->fresh()->salaryRevisions()->get();
 
-    expect($revision)->not->toBeNull();
+    expect($revisions)->not->toBeEmpty();
 
-    $revision->delete();
+    $revisions->each->delete();
 
     $resolved = app(ResolveCrewContractForWorkDate::class)
         ->resolveSalaryRevision($contract->fresh(['salaryRevisions']), '2026-06-25');

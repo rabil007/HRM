@@ -96,6 +96,35 @@ final class ResolveCrewContractForPayrollPeriod
             ->count() > 1;
     }
 
+    /**
+     * @param  list<int>  $employeeIds
+     * @return list<int>
+     */
+    public function ambiguousEmployeeIds(PayrollPeriod $period, array $employeeIds): array
+    {
+        $employeeIds = array_values(array_unique(array_map(intval(...), $employeeIds)));
+
+        if ($employeeIds === []) {
+            return [];
+        }
+
+        $periodStart = $period->start_date?->toDateString();
+        $periodEnd = $period->end_date?->toDateString();
+
+        return EmployeeContract::query()
+            ->where('company_id', (int) $period->company_id)
+            ->whereIn('employee_id', $employeeIds)
+            ->where('payroll_category', PayrollCategory::Crew)
+            ->get()
+            ->filter(fn (EmployeeContract $contract): bool => $this->overlapsPeriod($contract, $periodStart, $periodEnd))
+            ->groupBy(fn (EmployeeContract $contract): int => (int) $contract->employee_id)
+            ->filter(fn (Collection $contracts): bool => $contracts->count() > 1)
+            ->keys()
+            ->map(intval(...))
+            ->values()
+            ->all();
+    }
+
     public function resolveSalaryStructure(Employee|int $employee, PayrollPeriod $period): ContractSalaryStructure
     {
         return $this->resolve($employee, $period)?->resolvedSalaryStructure()

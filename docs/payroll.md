@@ -78,9 +78,23 @@ For a regular full-month period (`start_date` = first day of month and `end_date
 
 Enforced by unique `regular_period_key` plus create-time validation. Off-cycle or correction date ranges (non full-month) keep a null `regular_period_key` and remain allowed.
 
+### Historical contract and salary resolution
+
+Payroll salary is resolved from the earning or payment period date, not from the date payroll happens to be generated. A future salary revision therefore never changes an older payroll period.
+
+- Office and Monthly Crew payroll use the contract covering the payroll period start, then the latest non-deleted salary revision whose `effective_from` is on or before that date.
+- Office contract selection is company-, employee-, category-, and date-scoped. A missing or overlapping Office contract blocks that employee instead of selecting the present-day active contract.
+- Daily Crew movement pay continues to resolve the exact contract and salary revision independently for every work date. Prior-period arrears keep those day-level contract, revision, and rate snapshots.
+- Daily Crew overtime has no separate earned date, so it remains rated from the salary package applicable to the payment period. Additions and deductions remain direct payment-period amounts.
+- Current contract salary mirroring remains the source for current employee/profile displays, but mirrored contract fields are never treated as evidence of historical salary.
+- A contract that has never had salary revision history may use its legacy baseline salary components. Once any revision history exists, including soft-deleted history, payroll blocks with `missing_historical_salary_revision` when no non-deleted revision covers the historical date.
+- Revision lines are the complete salary package for their effective month. A missing historical component is shown as unavailable and is not filled from a current/future contract column.
+
+When a legacy contract with reliable salary values receives its first revision for a later month, the existing package is preserved as a baseline revision effective from the contract start month before the requested revision is created. Both rows are written atomically. No baseline is invented when the contract has no reliable salary values or start date, and contracts that already have revision history never receive another baseline.
+
 ## Office payroll
 
-`GenerateOfficePayroll` selects active employees whose current contract is categorized as office payroll. Each employee needs an active basic monthly salary component; housing, transport, and other monthly components are optional.
+`GenerateOfficePayroll` selects active employees with an Office contract covering the payroll period start. It blocks ambiguous overlaps and resolves that contract's historical salary package for the same date. Each employee needs an active basic monthly salary component; housing, transport, and other monthly components are optional.
 
 Calculation inputs include:
 

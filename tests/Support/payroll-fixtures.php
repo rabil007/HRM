@@ -67,7 +67,7 @@ function createOfficeEmployeeWithContract(
     float $transport,
     float $other,
 ): Employee {
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create([
         'employee_no' => $employeeNo,
         'status' => 'active',
     ]);
@@ -77,6 +77,8 @@ function createOfficeEmployeeWithContract(
         'company_id' => $company->id,
         'payroll_category' => PayrollCategory::Office,
         'status' => 'active',
+        'start_date' => '2020-01-01',
+        'end_date' => null,
         'basic_salary' => $basic,
         'housing_allowance' => $housing,
         'transport_allowance' => $transport,
@@ -145,6 +147,8 @@ function createCrewMonthlyEmployeeWithContract(
         'payroll_category' => PayrollCategory::Crew,
         'salary_structure' => ContractSalaryStructure::Monthly,
         'status' => 'active',
+        'start_date' => '2020-01-01',
+        'end_date' => null,
         'basic_salary' => $basic,
         'housing_allowance' => $housing,
         'transport_allowance' => $transport,

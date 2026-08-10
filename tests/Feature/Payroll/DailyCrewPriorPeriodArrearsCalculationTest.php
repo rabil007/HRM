@@ -8,6 +8,9 @@ use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Enums\PayrollWorkAllocationStatus;
 use App\Enums\PayrollWorkPeriodClassification;
+use App\Enums\SalaryComponentCode;
+use App\Models\ContractSalaryRevision;
+use App\Models\ContractSalaryRevisionLine;
 use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetSegment;
 use App\Models\PayrollPeriod;
@@ -336,9 +339,22 @@ test('missing historical salary revision blocks generation for prior-period days
         'salary_structure' => ContractSalaryStructure::Daily,
     ]);
 
-    app(ApplyContractSalaryRevision::class)->handle($contract->fresh(), [
-        'basic_salary' => 220,
-    ], '2026-07-01', 'July only');
+    $revision = ContractSalaryRevision::factory()->create([
+        'company_id' => $company->id,
+        'contract_id' => $contract->id,
+        'employee_id' => $employee->id,
+        'effective_from' => '2026-07-01',
+    ]);
+    ContractSalaryRevisionLine::factory()->create([
+        'company_id' => $company->id,
+        'revision_id' => $revision->id,
+        'component_code' => SalaryComponentCode::Basic,
+        'rate_type' => SalaryComponentCode::Basic->defaultRateTypeFor(
+            PayrollCategory::Crew,
+            ContractSalaryStructure::Daily,
+        ),
+        'amount' => 220,
+    ]);
 
     $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
         'start_date' => '2026-07-01',
@@ -445,9 +461,9 @@ test('soft-deleted salary revision history blocks baseline fallback', function (
         'basic_salary' => 180,
     ], '2026-06-01', 'June rates');
 
-    $revision = $contract->fresh()->salaryRevisions()->first();
-    expect($revision)->not->toBeNull();
-    $revision->delete();
+    $revisions = $contract->fresh()->salaryRevisions()->get();
+    expect($revisions)->not->toBeEmpty();
+    $revisions->each->delete();
 
     $resolved = app(ResolveCrewContractForWorkDate::class)
         ->resolveSalaryRevision($contract->fresh(['salaryRevisions']), '2026-06-25');

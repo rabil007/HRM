@@ -602,20 +602,24 @@ test('office pay period lists only office employees', function () {
         'end_date' => '2026-07-31',
     ]);
 
-    $crewEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $crewEmployee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
     EmployeeContract::factory()->create([
         'employee_id' => $crewEmployee->id,
         'company_id' => $company->id,
         'payroll_category' => PayrollCategory::Crew,
         'status' => 'active',
+        'start_date' => '2020-01-01',
+        'end_date' => null,
     ]);
 
-    $officeEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $officeEmployee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
     EmployeeContract::factory()->create([
         'employee_id' => $officeEmployee->id,
         'company_id' => $company->id,
         'payroll_category' => PayrollCategory::Office,
         'status' => 'active',
+        'start_date' => '2020-01-01',
+        'end_date' => null,
     ]);
 
     $this->withSession(['current_company_id' => $company->id])

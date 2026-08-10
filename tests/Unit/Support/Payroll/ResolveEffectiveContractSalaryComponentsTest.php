@@ -4,6 +4,8 @@ use App\Enums\PayrollCategory;
 use App\Enums\SalaryComponentCode;
 use App\Enums\SalaryComponentStatus;
 use App\Models\ContractSalaryComponent;
+use App\Models\ContractSalaryRevision;
+use App\Models\ContractSalaryRevisionLine;
 use App\Models\EmployeeContract;
 use App\Support\Contracts\Actions\ApplyContractSalaryRevision;
 use App\Support\Payroll\ResolveEffectiveContractSalaryComponents;
@@ -83,4 +85,79 @@ test('resolve falls back to contract salary components when no revisions exist',
 
     expect($basic)->not->toBeNull()
         ->and((float) $basic->amount)->toBe(9000.0);
+});
+
+test('resolve returns a structured error when only a future revision exists', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $contract = EmployeeContract::factory()->create([
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Office,
+        'basic_salary' => 9000,
+        'status' => 'active',
+    ]);
+
+    ContractSalaryComponent::factory()->create([
+        'company_id' => $company->id,
+        'contract_id' => $contract->id,
+        'component_code' => SalaryComponentCode::Basic,
+        'amount' => 9000,
+        'status' => SalaryComponentStatus::Active,
+    ]);
+
+    $revision = ContractSalaryRevision::factory()->create([
+        'company_id' => $company->id,
+        'contract_id' => $contract->id,
+        'employee_id' => $contract->employee_id,
+        'effective_from' => '2026-08-01',
+    ]);
+
+    ContractSalaryRevisionLine::factory()->create([
+        'company_id' => $company->id,
+        'revision_id' => $revision->id,
+        'component_code' => SalaryComponentCode::Basic,
+        'amount' => 10000,
+    ]);
+
+    $resolved = app(ResolveEffectiveContractSalaryComponents::class)
+        ->resolve($contract->fresh(['salaryComponents']), Carbon::parse('2026-07-01'));
+
+    expect($resolved['components'])->toBeEmpty()
+        ->and($resolved['revision'])->toBeNull()
+        ->and($resolved['has_revision_history'])->toBeTrue()
+        ->and($resolved['issue']['code'])->toBe('missing_historical_salary_revision');
+});
+
+test('soft deleted revision history never reactivates legacy fallback', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $contract = EmployeeContract::factory()->create([
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Office,
+        'basic_salary' => 9000,
+        'status' => 'active',
+    ]);
+
+    ContractSalaryComponent::factory()->create([
+        'company_id' => $company->id,
+        'contract_id' => $contract->id,
+        'component_code' => SalaryComponentCode::Basic,
+        'amount' => 9000,
+        'status' => SalaryComponentStatus::Active,
+    ]);
+
+    $revision = ContractSalaryRevision::factory()->create([
+        'company_id' => $company->id,
+        'contract_id' => $contract->id,
+        'employee_id' => $contract->employee_id,
+        'effective_from' => '2026-01-01',
+    ]);
+    $revision->delete();
+
+    $resolved = app(ResolveEffectiveContractSalaryComponents::class)
+        ->resolve($contract->fresh(['salaryComponents']), Carbon::parse('2026-07-01'));
+
+    expect($resolved['components'])->toBeEmpty()
+        ->and($resolved['revision'])->toBeNull()
+        ->and($resolved['issue']['code'])->toBe('missing_historical_salary_revision');
 });

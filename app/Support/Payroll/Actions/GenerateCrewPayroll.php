@@ -167,7 +167,7 @@ final class GenerateCrewPayroll
             $resolvedContracts = $this->resolveContract->resolveMany(
                 $lockedPeriod,
                 $employees->pluck('id')->map(intval(...))->all(),
-                ['salaryComponents', 'salaryRevisions.lines'],
+                ['salaryComponents', 'salaryRevisionHistory.lines'],
             );
 
             $currencyCode = CompanyCurrency::codeForCompany((int) $lockedPeriod->company_id);

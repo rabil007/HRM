@@ -8,6 +8,7 @@ use App\Models\ContractSalaryRevision;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Support\Contracts\Actions\ApplyContractSalaryRevision;
+use App\Support\Contracts\Actions\MirrorLatestContractSalaryRevision;
 use App\Support\Contracts\Actions\UpsertEmployeeContract;
 use Carbon\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -151,6 +152,88 @@ test('storing a future-month salary revision does not update the contract yet', 
     expect($revision)->not->toBeNull()
         ->and($revision->effective_from->toDateString())->toBe('2026-03-01')
         ->and((float) $contract->fresh()->basic_salary)->toBe(1000.0);
+});
+
+test('first future revision preserves a legacy contract salary baseline exactly once', function () {
+    Carbon::setTestNow('2026-07-15');
+
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['contracts.salary_revisions.create']);
+
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $contract = EmployeeContract::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'start_date' => '2024-01-15',
+        'end_date' => null,
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Office,
+        'basic_salary' => 8000,
+        'housing_allowance' => 2000,
+        'transport_allowance' => 500,
+        'other_allowances' => 100,
+    ]);
+
+    expect($contract->salaryRevisions()->withTrashed()->exists())->toBeFalse();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.employees.contracts.salary-revisions.store', [
+            'employee' => $employee,
+            'employeeContract' => $contract,
+        ]), [
+            'effective_from' => '2026-08',
+            'reason' => 'August increase',
+            'basic_salary' => 9000,
+            'housing_allowance' => 2500,
+            'transport_allowance' => 600,
+            'other_allowances' => 150,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $revisions = $contract->salaryRevisions()->with('lines')->orderBy('version')->get();
+    $baselineAmounts = $revisions[0]->lines->mapWithKeys(
+        fn ($line): array => [$line->component_code->value => (float) $line->amount],
+    );
+    $futureAmounts = $revisions[1]->lines->mapWithKeys(
+        fn ($line): array => [$line->component_code->value => (float) $line->amount],
+    );
+
+    expect($revisions)->toHaveCount(2)
+        ->and($revisions[0]->effective_from->toDateString())->toBe('2024-01-01')
+        ->and($revisions[0]->reason)->toBe('Historical contract salary baseline')
+        ->and($baselineAmounts[SalaryComponentCode::Basic->value])->toBe(8000.0)
+        ->and($baselineAmounts[SalaryComponentCode::Housing->value])->toBe(2000.0)
+        ->and($revisions[1]->effective_from->toDateString())->toBe('2026-08-01')
+        ->and($futureAmounts[SalaryComponentCode::Basic->value])->toBe(9000.0)
+        ->and($futureAmounts[SalaryComponentCode::Housing->value])->toBe(2500.0)
+        ->and((float) $contract->fresh()->basic_salary)->toBe(8000.0)
+        ->and((float) $contract->fresh()->housing_allowance)->toBe(2000.0);
+
+    app(ApplyContractSalaryRevision::class)->handle(
+        $contract->fresh(),
+        [
+            'basic_salary' => 9500,
+            'housing_allowance' => 2750,
+            'transport_allowance' => 650,
+            'other_allowances' => 175,
+        ],
+        '2026-09-01',
+        'September increase',
+        $user->id,
+    );
+
+    expect($contract->salaryRevisions()->count())->toBe(3)
+        ->and($contract->salaryRevisions()->where('reason', 'Historical contract salary baseline')->count())->toBe(1);
+
+    Carbon::setTestNow('2026-08-10');
+    app(MirrorLatestContractSalaryRevision::class)->handle($contract->fresh());
+
+    expect((float) $contract->fresh()->basic_salary)->toBe(9000.0)
+        ->and((float) $contract->fresh()->housing_allowance)->toBe(2500.0);
+
+    Carbon::setTestNow();
 });
 
 test('mid-month effective_from is normalized to the first of the month', function () {

@@ -19,6 +19,10 @@ use Illuminate\Validation\ValidationException;
  */
 final class ResolveCrewContractForWorkDate
 {
+    public function __construct(
+        private readonly ResolveEffectiveContractSalaryComponents $resolveEffectiveComponents,
+    ) {}
+
     /**
      * @param  Collection<int, EmployeeContract>|null  $contracts
      * @return array{contract: EmployeeContract, issue: null}|array{contract: null, issue: array{code: string, message: string}}
@@ -125,7 +129,7 @@ final class ResolveCrewContractForWorkDate
             ->where('payroll_category', PayrollCategory::Crew)
             ->with([
                 'salaryComponents',
-                'salaryRevisions' => fn ($query) => $query->withoutTrashed()->with('lines'),
+                'salaryRevisionHistory' => fn ($query) => $query->with('lines'),
             ])
             ->get();
     }
@@ -141,50 +145,15 @@ final class ResolveCrewContractForWorkDate
      */
     public function resolveSalaryRevision(EmployeeContract $contract, CarbonInterface|string $workDate): array
     {
-        $date = CarbonImmutable::parse($workDate)->toDateString();
+        $resolved = $this->resolveEffectiveComponents->resolve(
+            $contract,
+            CarbonImmutable::parse($workDate),
+        );
 
-        $revisions = $contract->relationLoaded('salaryRevisions')
-            ? $contract->salaryRevisions->reject(fn (ContractSalaryRevision $item): bool => $item->trashed())
-            : $contract->salaryRevisions()->withoutTrashed()->with('lines')->get();
-
-        if ($revisions->isEmpty()) {
-            $hasEverHadRevisions = $contract->salaryRevisions()
-                ->withTrashed()
-                ->exists();
-
-            if ($hasEverHadRevisions) {
-                return [
-                    'revision' => null,
-                    'issue' => [
-                        'code' => 'missing_historical_salary_revision',
-                        'message' => "No valid salary revision covers work date {$date} for contract #{$contract->id}.",
-                    ],
-                ];
-            }
-
-            return ['revision' => null, 'issue' => null];
-        }
-
-        $revision = $revisions
-            ->filter(fn (ContractSalaryRevision $item) => $item->effective_from !== null
-                && $item->effective_from->toDateString() <= $date)
-            ->sortBy([
-                ['effective_from', 'desc'],
-                ['version', 'desc'],
-            ])
-            ->first();
-
-        if ($revision === null) {
-            return [
-                'revision' => null,
-                'issue' => [
-                    'code' => 'missing_historical_salary_revision',
-                    'message' => "No salary revision covers work date {$date} for contract #{$contract->id}.",
-                ],
-            ];
-        }
-
-        return ['revision' => $revision, 'issue' => null];
+        return [
+            'revision' => $resolved['revision'],
+            'issue' => $resolved['issue'],
+        ];
     }
 
     private function coversDate(EmployeeContract $contract, string $date): bool

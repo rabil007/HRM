@@ -327,7 +327,7 @@ test('office payroll generation reports detailed errors for employees missing co
 
     createOfficeEmployeeWithContract($company, 'OFF-OK', 10000, 0, 0, 0);
 
-    $missingBasicEmployee = Employee::factory()->forCompany($company)->create([
+    $missingBasicEmployee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create([
         'name' => 'Abdellah Bellymani',
         'employee_no' => 'DEMO-OFFSHORE-CV',
         'status' => 'active',
@@ -338,6 +338,8 @@ test('office payroll generation reports detailed errors for employees missing co
         'company_id' => $company->id,
         'payroll_category' => PayrollCategory::Office,
         'status' => 'active',
+        'start_date' => '2020-01-01',
+        'end_date' => null,
         'basic_salary' => 0,
     ]);
 

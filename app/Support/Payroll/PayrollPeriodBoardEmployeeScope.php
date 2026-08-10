@@ -31,10 +31,11 @@ final class PayrollPeriodBoardEmployeeScope
     ): void {
         $payrollCategory = $period->payroll_category ?? PayrollCategory::Crew;
 
-        $query->whereIn(
-            'employees.id',
-            PayrollEmployeeQuery::activeQuery($companyId, $payrollCategory)->select('employees.id'),
-        );
+        $periodEmployees = $payrollCategory === PayrollCategory::Office
+            ? PayrollEmployeeQuery::forPeriod($period, PayrollCategory::Office)
+            : PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew);
+
+        $query->whereIn('employees.id', $periodEmployees->select('employees.id'));
 
         self::applySearch($query, $search);
 

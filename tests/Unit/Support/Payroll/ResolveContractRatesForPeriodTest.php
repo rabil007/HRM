@@ -1,6 +1,9 @@
 <?php
 
 use App\Enums\PayrollCategory;
+use App\Enums\SalaryComponentCode;
+use App\Models\ContractSalaryRevision;
+use App\Models\ContractSalaryRevisionLine;
 use App\Models\EmployeeContract;
 use App\Support\Contracts\Actions\ApplyContractSalaryRevision;
 use App\Support\Payroll\ResolveContractRatesForPeriod;
@@ -63,4 +66,37 @@ test('board rates fall back to contract columns when no revisions exist', functi
     expect((float) $rates['basic_salary'])->toBe(50.0)
         ->and((float) $rates['site_allowance'])->toBe(300.0)
         ->and((float) $rates['supplementary_allowance'])->toBe(50.0);
+});
+
+test('board rates never fill a missing historical component from current contract columns', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $contract = EmployeeContract::factory()->create([
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Office,
+        'basic_salary' => 10000,
+        'housing_allowance' => 2500,
+        'status' => 'active',
+    ]);
+
+    $revision = ContractSalaryRevision::factory()->create([
+        'company_id' => $company->id,
+        'contract_id' => $contract->id,
+        'employee_id' => $contract->employee_id,
+        'effective_from' => '2026-07-01',
+    ]);
+
+    ContractSalaryRevisionLine::factory()->create([
+        'company_id' => $company->id,
+        'revision_id' => $revision->id,
+        'component_code' => SalaryComponentCode::Basic,
+        'amount' => 9000,
+    ]);
+
+    $rates = app(ResolveContractRatesForPeriod::class)
+        ->handle($contract, Carbon::parse('2026-07-01'));
+
+    expect((float) $rates['basic_salary'])->toBe(9000.0)
+        ->and($rates['housing_allowance'])->toBeNull()
+        ->and($rates['salary_resolution_issue'])->toBeNull();
 });

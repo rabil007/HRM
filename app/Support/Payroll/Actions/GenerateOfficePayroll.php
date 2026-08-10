@@ -16,6 +16,7 @@ use App\Support\Payroll\OfficePayrollCalculator;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\PayrollGenerationError;
 use App\Support\Payroll\ResolveEffectiveContractSalaryComponents;
+use App\Support\Payroll\ResolveOfficeContractForPayrollPeriod;
 use App\Support\Payroll\ResolvePayrollRecordSnapshot;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,7 @@ final class GenerateOfficePayroll
         private readonly OfficeLeavePeriodSummary $leavePeriodSummary,
         private readonly RecalculateOfficePayroll $recalculateOfficePayroll,
         private readonly ResolveEffectiveContractSalaryComponents $resolveEffectiveComponents,
+        private readonly ResolveOfficeContractForPayrollPeriod $resolveContract,
     ) {}
 
     public function handle(PayrollPeriod $period, array $excludedEmployeeIds = [], array $employeeDates = []): GeneratePayrollResult
@@ -48,22 +50,23 @@ final class GenerateOfficePayroll
 
         $workingDaysInPeriod = (int) $period->start_date->diffInDays($period->end_date) + 1;
 
-        $employeesQuery = PayrollEmployeeQuery::activeQuery($period->company_id, PayrollCategory::Office);
+        $employeesQuery = PayrollEmployeeQuery::forPeriod($period, PayrollCategory::Office);
 
         if (! empty($excludedEmployeeIds)) {
             $employeesQuery->whereNotIn('employees.id', $excludedEmployeeIds);
         }
 
         $employees = $employeesQuery->with([
-            'currentContract.salaryComponents',
-            'currentContract.salaryRevisions' => fn ($query) => $query
-                ->with('lines')
-                ->orderByDesc('effective_from')
-                ->orderByDesc('version'),
             'primaryBankAccount',
         ])
             ->orderBy('employees.name')
             ->get();
+
+        $resolvedContracts = $this->resolveContract->resolveMany(
+            $period,
+            $employees->pluck('id')->map(intval(...))->all(),
+            ['salaryComponents', 'salaryRevisionHistory.lines'],
+        );
 
         $employeeIds = $employees->pluck('id')->map(fn ($id) => (int) $id)->all();
         $leaveByEmployee = $this->leavePeriodSummary->forEmployees(
@@ -80,6 +83,7 @@ final class GenerateOfficePayroll
         DB::transaction(function () use (
             $period,
             $employees,
+            $resolvedContracts,
             $leaveByEmployee,
             $emptyLeaveSummary,
             $workingDaysInPeriod,
@@ -96,12 +100,13 @@ final class GenerateOfficePayroll
             }
             foreach ($employees as $employee) {
                 /** @var Employee $employee */
-                $contract = $employee->currentContract;
+                $contractResult = $resolvedContracts->get((int) $employee->id);
+                $contract = $contractResult['contract'] ?? null;
 
                 if ($contract === null) {
                     $errors[] = PayrollGenerationError::forEmployee(
                         $employee,
-                        'No active office contract found.',
+                        $contractResult['issue']['message'] ?? 'No Office contract found for the payroll period.',
                         'contract',
                     );
 

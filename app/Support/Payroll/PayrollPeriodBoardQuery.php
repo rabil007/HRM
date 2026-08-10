@@ -13,6 +13,8 @@ final class PayrollPeriodBoardQuery
 {
     public function __construct(
         private readonly OfficeLeavePeriodSummary $leavePeriodSummary,
+        private readonly ResolveCrewContractForPayrollPeriod $resolveCrewContract,
+        private readonly ResolveOfficeContractForPayrollPeriod $resolveOfficeContract,
     ) {}
 
     /**
@@ -28,7 +30,9 @@ final class PayrollPeriodBoardQuery
         $payrollCategory = $period->payroll_category ?? PayrollCategory::Crew;
         $filters ??= new PayrollPeriodBoardFilters;
 
-        $query = PayrollEmployeeQuery::activeQuery($companyId, $payrollCategory);
+        $query = $payrollCategory === PayrollCategory::Office
+            ? PayrollEmployeeQuery::forPeriod($period, PayrollCategory::Office)
+            : PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew);
 
         $query->with([
             'department.parent:id,name',
@@ -38,24 +42,6 @@ final class PayrollPeriodBoardQuery
         if ($payrollCategory === PayrollCategory::Crew) {
             $query->with([
                 'primaryBankAccount.bank:id,name',
-                'currentContract' => fn ($q) => $q->select([
-                    'employee_contracts.id',
-                    'employee_contracts.employee_id',
-                    'employee_contracts.payroll_category',
-                    'employee_contracts.salary_structure',
-                    'employee_contracts.basic_salary',
-                    'employee_contracts.housing_allowance',
-                    'employee_contracts.transport_allowance',
-                    'employee_contracts.other_allowances',
-                    'employee_contracts.supplementary_allowance',
-                    'employee_contracts.site_allowance',
-                ])->with([
-                    'salaryRevisions' => fn ($revisions) => $revisions
-                        ->with('lines')
-                        ->orderByDesc('effective_from')
-                        ->orderByDesc('version'),
-                    'salaryComponents',
-                ]),
                 'crewTimesheets' => fn ($timesheetQuery) => $timesheetQuery
                     ->where('period_id', $period->id)
                     ->with(['segments.assignment', 'segments.vessel', 'segments.client', 'segments.rank']),
@@ -65,22 +51,6 @@ final class PayrollPeriodBoardQuery
         if ($payrollCategory === PayrollCategory::Office) {
             $query->with([
                 'primaryBankAccount.bank:id,name',
-                'currentContract' => fn ($q) => $q->select([
-                    'employee_contracts.id',
-                    'employee_contracts.employee_id',
-                    'employee_contracts.payroll_category',
-                    'employee_contracts.salary_structure',
-                    'employee_contracts.basic_salary',
-                    'employee_contracts.housing_allowance',
-                    'employee_contracts.transport_allowance',
-                    'employee_contracts.other_allowances',
-                ])->with([
-                    'salaryRevisions' => fn ($revisions) => $revisions
-                        ->with('lines')
-                        ->orderByDesc('effective_from')
-                        ->orderByDesc('version'),
-                    'salaryComponents',
-                ]),
             ]);
         }
 
@@ -90,6 +60,22 @@ final class PayrollPeriodBoardQuery
             ->orderBy('employees.name')
             ->paginate($perPage)
             ->withQueryString();
+
+        $employeeIds = $paginator->getCollection()->pluck('id')->map(intval(...))->all();
+        $resolvedContracts = $payrollCategory === PayrollCategory::Crew
+            ? $this->resolveCrewContract->resolveMany(
+                $period,
+                $employeeIds,
+                ['salaryComponents', 'salaryRevisionHistory.lines'],
+            )
+            : $this->resolveOfficeContract->resolveMany(
+                $period,
+                $employeeIds,
+                ['salaryComponents', 'salaryRevisionHistory.lines'],
+            );
+        $ambiguousCrewEmployeeIds = $payrollCategory === PayrollCategory::Crew
+            ? $this->resolveCrewContract->ambiguousEmployeeIds($period, $employeeIds)
+            : [];
 
         $leaveByEmployee = $payrollCategory === PayrollCategory::Office
             ? $this->leavePeriodSummary->forEmployees(
@@ -103,17 +89,48 @@ final class PayrollPeriodBoardQuery
             ? $this->leavePeriodSummary->empty($companyId)
             : null;
 
-        return $paginator->through(function (Employee $employee) use ($period, $payrollCategory, $leaveByEmployee, $emptyLeaveSummary) {
+        return $paginator->through(function (Employee $employee) use (
+            $period,
+            $payrollCategory,
+            $leaveByEmployee,
+            $emptyLeaveSummary,
+            $resolvedContracts,
+            $ambiguousCrewEmployeeIds,
+        ) {
+            $contractIssue = null;
+
+            if ($payrollCategory === PayrollCategory::Crew) {
+                $contract = $resolvedContracts->get((int) $employee->id);
+
+                if (in_array((int) $employee->id, $ambiguousCrewEmployeeIds, true)) {
+                    $contract = null;
+                    $contractIssue = [
+                        'code' => 'overlapping_historical_contracts',
+                        'message' => 'Multiple Crew contracts overlap this payroll period.',
+                    ];
+                }
+            } else {
+                $contractResult = $resolvedContracts->get((int) $employee->id);
+                $contract = $contractResult['contract'] ?? null;
+                $contractIssue = $contractResult['issue'] ?? null;
+            }
+
+            $employee->setRelation('currentContract', $contract);
+
             if ($payrollCategory === PayrollCategory::Crew) {
                 /** @var CrewTimesheet|null $timesheet */
                 $timesheet = $employee->crewTimesheets->first();
 
-                return CrewTimesheetResource::toBoardRow(
+                $row = CrewTimesheetResource::toBoardRow(
                     $employee,
                     $timesheet,
                     $period->id,
                     $period->start_date,
                 );
+
+                $row['contract_resolution_issue'] = $contractIssue;
+
+                return $row;
             }
 
             $summary = $leaveByEmployee->get(
@@ -121,12 +138,16 @@ final class PayrollPeriodBoardQuery
                 $emptyLeaveSummary,
             );
 
-            return OfficePayrollBoardRow::toArray(
+            $row = OfficePayrollBoardRow::toArray(
                 $employee,
                 $period->id,
                 $summary,
                 $period->start_date,
             );
+
+            $row['contract_resolution_issue'] = $contractIssue;
+
+            return $row;
         });
     }
 
@@ -141,10 +162,10 @@ final class PayrollPeriodBoardQuery
     ): array {
         $filters ??= new PayrollPeriodBoardFilters;
 
-        $query = PayrollEmployeeQuery::activeQuery(
-            $companyId,
-            $period->payroll_category ?? PayrollCategory::Crew,
-        );
+        $payrollCategory = $period->payroll_category ?? PayrollCategory::Crew;
+        $query = $payrollCategory === PayrollCategory::Office
+            ? PayrollEmployeeQuery::forPeriod($period, PayrollCategory::Office)
+            : PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew);
 
         PayrollPeriodBoardEmployeeScope::apply($query, $companyId, $period, $search, $filters);
 

@@ -18,6 +18,7 @@ final class MirrorLatestContractSalaryRevision
     public function handle(EmployeeContract $contract): void
     {
         $latest = ContractSalaryRevision::query()
+            ->where('company_id', $contract->company_id)
             ->where('contract_id', $contract->id)
             ->whereDate('effective_from', '<=', today()->toDateString())
             ->with('lines')
