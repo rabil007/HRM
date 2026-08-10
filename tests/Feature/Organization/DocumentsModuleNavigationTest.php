@@ -108,7 +108,7 @@ test('templates section is available to documents viewers without removing setti
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/documents/templates')
             ->where('section', 'templates')
-            ->has('document_types')
+            ->has('system_templates')
             ->where('can.configure_placement', false)
             ->where('can.manage_document_types', false)
         );

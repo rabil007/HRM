@@ -17,12 +17,7 @@ import { index as documentTypesSettings } from '@/routes/settings/master-data/do
 
 type Props = {
     section: 'templates';
-    system_templates?: Array<{
-        key: string;
-        label: string;
-        supports_esignature: boolean;
-    }>;
-    document_types?: Array<{
+    system_templates: Array<{
         key: string;
         label: string;
         supports_esignature: boolean;
@@ -34,12 +29,8 @@ type Props = {
     };
 };
 
-export default function DocumentTemplates({
-    system_templates,
-    document_types,
-    can,
-}: Props) {
-    const templates = system_templates ?? document_types ?? [];
+export default function DocumentTemplates({ system_templates, can }: Props) {
+    const templates = system_templates;
 
     return (
         <>

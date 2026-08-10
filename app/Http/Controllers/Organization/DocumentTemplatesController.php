@@ -29,7 +29,6 @@ class DocumentTemplatesController extends Controller
         return Inertia::render('organization/documents/templates', [
             'section' => 'templates',
             'system_templates' => $systemTemplates,
-            'document_types' => $systemTemplates,
             'can' => [
                 'configure_placement' => $user?->can('settings.application.view') ?? false,
                 'update_placement' => $user?->can('settings.application.update') ?? false,
