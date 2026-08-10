@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Organization;
 
+use App\Exceptions\CrewMovementException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\CrewPlanning\StoreCrewPlanningAssignmentRequest;
 use App\Http\Requests\Organization\CrewPlanning\UpdateCrewPlanningAssignmentRequest;
 use App\Models\CrewPlanningAssignment;
+use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use App\Support\CrewPlanning\SaveCrewPlanningAssignment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,6 +44,31 @@ class CrewPlanningAssignmentController extends Controller
         $save->update($assignment, $companyId, $request->validated());
 
         return back()->with('success', 'Assignment updated.');
+    }
+
+    public function createCrewAssignment(
+        Request $request,
+        CrewPlanningAssignment $assignment,
+        CreateCrewAssignmentFromPlanning $createAssignment,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_if($assignment->company_id !== $companyId, 404);
+
+        if (! $request->user()?->can('crew_operations.assignments.create')) {
+            abort(403);
+        }
+
+        try {
+            $newAssignment = $createAssignment->handle($assignment, (int) $request->user()->id);
+        } catch (CrewMovementException $exception) {
+            throw ValidationException::withMessages([
+                'error' => $exception->getMessage(),
+            ]);
+        }
+
+        return redirect()
+            ->route('organization.crew-assignments.show', $newAssignment)
+            ->with('success', 'Crew assignment created from planning.');
     }
 
     public function destroy(Request $request, CrewPlanningAssignment $assignment): RedirectResponse

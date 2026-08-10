@@ -174,7 +174,10 @@ function AssignmentBarPopoverContent({
                     </p>
                 ) : null}
             </div>
-            {can.update || can.delete || bar.is_assigned ? (
+            {can.update ||
+            can.delete ||
+            bar.is_assigned ||
+            (can.create_assignment && bar.employee_id !== null) ? (
                 <div className="border-t px-4 pb-3">
                     <AssignmentBarActions
                         bar={bar}

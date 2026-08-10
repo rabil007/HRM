@@ -104,6 +104,7 @@ export type PlanningPagePermissions = {
     update: boolean;
     delete: boolean;
     projection: boolean;
+    create_assignment?: boolean;
 };
 
 export type PlanningProjectionStatus =

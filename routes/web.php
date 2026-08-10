@@ -390,7 +390,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('organization/crew-planning', [CrewPlanningController::class, 'index'])->middleware('can:crew_operations.planning.view')->name('organization.crew-planning.index');
     Route::post('organization/crew-planning/assignments', [CrewPlanningAssignmentController::class, 'store'])->middleware('can:crew_operations.planning.create')->name('organization.crew-planning.assignments.store');
+    Route::post('organization/crew-planning/assignments/{assignment}/create-crew-assignment', [CrewPlanningAssignmentController::class, 'createCrewAssignment'])->middleware('can:crew_operations.assignments.create')->name('organization.crew-planning.assignments.create-crew-assignment');
     Route::put('organization/crew-planning/assignments/{assignment}', [CrewPlanningAssignmentController::class, 'update'])->middleware('can:crew_operations.planning.update')->name('organization.crew-planning.assignments.update');
+
     Route::delete('organization/crew-planning/assignments/{assignment}', [CrewPlanningAssignmentController::class, 'destroy'])->middleware('can:crew_operations.planning.delete')->name('organization.crew-planning.assignments.destroy');
 
     Route::get('organization/crew', [CrewAssignmentController::class, 'index'])->middleware('can:crew_operations.assignments.view')->name('organization.crew-assignments.index');

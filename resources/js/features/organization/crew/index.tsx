@@ -320,7 +320,9 @@ export function CurrentCrewContent({
                                             ? editAssignment.url(assignment.id)
                                             : undefined
                                     }
-                                    canUpdate={can.update && assignment.is_editable}
+                                    canUpdate={
+                                        can.update && assignment.is_editable
+                                    }
                                     canPerformMovement={can.perform_movement}
                                     canCancel={can.cancel}
                                     formOptions={formOptions}
