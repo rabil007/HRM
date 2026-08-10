@@ -54,7 +54,13 @@ class CrewMovementAttentionQuery
             ];
         }
 
-        if ($current !== null && $current->actual_start_at !== null) {
+        // P4 On Vessel is expected to remain active for the full Tour of Duty.
+        // The generic stale-phase threshold is meaningless for P4 — attention
+        // for an active On Vessel phase is governed exclusively by Tour of Duty
+        // conditions (see the dedicated block below).
+        if ($current !== null
+            && $current->actual_start_at !== null
+            && $current->phase_code !== CrewPhaseCode::OnVessel) {
             $daysInPhase = $current->actual_start_at->diffInDays($now);
             if ($daysInPhase > self::PHASE_STALE_DAYS) {
                 $warnings[] = [
