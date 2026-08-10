@@ -10,7 +10,8 @@ export type CrewRankTourOption = CrewAssignmentFormOptions['ranks'][number];
 export function rankHasResolvedTour(
     rank: CrewRankTourOption | undefined,
 ): boolean {
-    const days = rank?.max_tour_of_duty_days ?? rank?.resolved_tour_of_duty_days;
+    const days =
+        rank?.max_tour_of_duty_days ?? rank?.resolved_tour_of_duty_days;
 
     return days != null && days > 0;
 }

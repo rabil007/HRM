@@ -78,7 +78,10 @@ describe('defaultDestinationTourSignoffChoice', () => {
     it('never returns existing_plan for destination assignments', () => {
         const withTour = defaultDestinationTourSignoffChoice(rank());
         const withoutTour = defaultDestinationTourSignoffChoice(
-            rank({ max_tour_of_duty_days: null, resolved_tour_of_duty_days: null }),
+            rank({
+                max_tour_of_duty_days: null,
+                resolved_tour_of_duty_days: null,
+            }),
         );
 
         assert.notEqual(withTour, 'existing_plan');
@@ -107,7 +110,10 @@ describe('nextSignoffChoiceForRankChange', () => {
         assert.equal(
             nextSignoffChoiceForRankChange({
                 previousChoice: 'manual_override',
-                nextRank: rank({ max_tour_of_duty_days: 60, resolved_tour_of_duty_days: 60 }),
+                nextRank: rank({
+                    max_tour_of_duty_days: 60,
+                    resolved_tour_of_duty_days: 60,
+                }),
                 hasManualOverrideInput: true,
             }),
             'manual_override',

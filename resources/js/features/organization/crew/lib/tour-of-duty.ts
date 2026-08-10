@@ -5,7 +5,8 @@ export type CrewRankTourOption = CrewAssignmentFormOptions['ranks'][number];
 export function resolveJoinTourDays(
     rank: CrewRankTourOption | undefined,
 ): number | null {
-    const days = rank?.max_tour_of_duty_days ?? rank?.resolved_tour_of_duty_days;
+    const days =
+        rank?.max_tour_of_duty_days ?? rank?.resolved_tour_of_duty_days;
 
     return days != null && days > 0 ? days : null;
 }
@@ -25,6 +26,7 @@ export function suggestedPlannedSignoffDate(
     }
 
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(joinDate.slice(0, 10));
+
     if (!match) {
         return null;
     }

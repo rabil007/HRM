@@ -88,8 +88,7 @@ export function PlanSignoffForm({
 
             <div className="space-y-2">
                 <Label htmlFor="movement-plan-signoff-reason">
-                    Override reason{' '}
-                    <span className="text-destructive">*</span>
+                    Override reason <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
                     id="movement-plan-signoff-reason"

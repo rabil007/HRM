@@ -44,6 +44,7 @@ describe('barPositionStyle (Exclusive End Boundary)', () => {
         );
 
         assert.notDeepEqual(style, { display: 'none' });
+
         if ('left' in style) {
             // 13 days from June 1 to June 14 = (13 / 92) * 100%
             const expectedLeft = (13 / 92) * 100;
@@ -70,6 +71,7 @@ describe('barPositionStyle (Exclusive End Boundary)', () => {
         );
 
         assert.notDeepEqual(style, { display: 'none' });
+
         if ('left' in style) {
             // 1 day width out of 92 days
             const expectedWidth = (1 / 92) * 100;
@@ -90,6 +92,7 @@ describe('barPositionStyle (Exclusive End Boundary)', () => {
             rangeTo,
         );
         assert.notDeepEqual(leftClipped, { display: 'none' });
+
         if ('left' in leftClipped) {
             assert.equal(leftClipped.left, '0%');
         }
@@ -102,6 +105,7 @@ describe('barPositionStyle (Exclusive End Boundary)', () => {
             rangeTo,
         );
         assert.notDeepEqual(rightClipped, { display: 'none' });
+
         if ('width' in rightClipped) {
             // 16 days remaining in timeline out of 92
             const expectedWidth = ((92 - 75) / 92) * 100;
@@ -131,6 +135,7 @@ describe('barPositionStyle (Exclusive End Boundary)', () => {
         );
 
         assert.notDeepEqual(openEndedStyle, { display: 'none' });
+
         if ('left' in openEndedStyle) {
             // June 14 to end of August 31 (79 days out of 92)
             const expectedWidth = (79 / 92) * 100;
@@ -155,6 +160,7 @@ describe('inclusivePeriodPositionStyle (Projection Overlay)', () => {
         );
 
         assert.notDeepEqual(style, { display: 'none' });
+
         if ('left' in style) {
             // 5 full calendar days (10, 11, 12, 13, 14) out of 92
             const expectedWidth = (5 / 92) * 100;
