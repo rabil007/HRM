@@ -25,6 +25,7 @@ use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -301,17 +302,17 @@ class CrewAssignmentController extends Controller
             ]);
         }
 
-        $updateData = array_filter([
-            'rank_id' => $validated['rank_id'] ?? null,
-            'client_id' => $validated['client_id'] ?? null,
-            'vessel_id' => $validated['vessel_id'] ?? null,
-            'company_visa_type_id' => $validated['company_visa_type_id'] ?? null,
-            'planned_join_at' => $validated['planned_join_at'] ?? null,
-            'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
-            'planned_travel_at' => $validated['planned_travel_at'] ?? null,
-            'remarks' => $validated['remarks'] ?? null,
-            'updated_by' => $request->user()?->id,
-        ], fn ($v) => $v !== null);
+        $updateData = Arr::only($validated, [
+            'rank_id',
+            'client_id',
+            'vessel_id',
+            'company_visa_type_id',
+            'planned_join_at',
+            'planned_signoff_at',
+            'planned_travel_at',
+            'remarks',
+        ]);
+        $updateData['updated_by'] = $request->user()?->id;
 
         DB::transaction(function () use ($assignment, $updateData): void {
             $assignment->update($updateData);

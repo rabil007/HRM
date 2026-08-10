@@ -3,7 +3,9 @@
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Models\Client;
 use App\Models\Company;
+use App\Models\CompanyVisaType;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
@@ -387,4 +389,85 @@ test('15. P4 Request Correction still works', function () {
         ->assertRedirect();
 
     expect($p4->corrections()->where('status', 'pending')->exists())->toBeTrue();
+});
+
+test('16. clearing optional fields persists null in database', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
+    $vessel = makeCrewMovementVessel('Clear Fields Vessel');
+    $client = Client::query()->create(['name' => 'Clear Client '.Str::uuid(), 'is_active' => true]);
+    $visa = CompanyVisaType::query()->create(['name' => 'Clear Visa '.Str::uuid(), 'is_active' => true]);
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'client_id' => $client->id,
+        'company_visa_type_id' => $visa->id,
+        'planned_join_at' => '2026-08-01',
+        'planned_signoff_at' => '2026-11-01',
+        'planned_travel_at' => '2026-11-05',
+        'remarks' => 'Original remarks',
+    ], $user->id);
+
+    expect($assignment->vessel_id)->toBe($vessel->id)
+        ->and($assignment->rank_id)->toBe($rank->id)
+        ->and($assignment->client_id)->toBe($client->id)
+        ->and($assignment->company_visa_type_id)->toBe($visa->id)
+        ->and($assignment->planned_join_at->toDateString())->toBe('2026-08-01')
+        ->and($assignment->planned_signoff_at->toDateString())->toBe('2026-11-01')
+        ->and($assignment->planned_travel_at->toDateString())->toBe('2026-11-05')
+        ->and($assignment->remarks)->toBe('Original remarks');
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-assignments.update', $assignment), [
+            'vessel_id' => null,
+            'rank_id' => null,
+            'client_id' => null,
+            'company_visa_type_id' => null,
+            'planned_join_at' => null,
+            'planned_signoff_at' => null,
+            'planned_travel_at' => null,
+            'remarks' => null,
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    $fresh = $assignment->fresh();
+
+    expect($fresh->vessel_id)->toBeNull()
+        ->and($fresh->rank_id)->toBeNull()
+        ->and($fresh->client_id)->toBeNull()
+        ->and($fresh->company_visa_type_id)->toBeNull()
+        ->and($fresh->planned_join_at)->toBeNull()
+        ->and($fresh->planned_signoff_at)->toBeNull()
+        ->and($fresh->planned_travel_at)->toBeNull()
+        ->and($fresh->remarks)->toBeNull()
+        ->and($fresh->updated_by)->toBe($user->id);
+});
+
+test('17. partial update preserves omitted fields without nulling them', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
+    $vessel = makeCrewMovementVessel('Omitted Field Vessel');
+    $client = Client::query()->create(['name' => 'Omitted Client '.Str::uuid(), 'is_active' => true]);
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'client_id' => $client->id,
+        'planned_join_at' => '2026-08-01',
+        'remarks' => 'Initial remarks',
+    ], $user->id);
+
+    // Submit partial payload omitting vessel_id, rank_id, client_id, planned_join_at
+    $this->actingAs($user)
+        ->put(route('organization.crew-assignments.update', $assignment), [
+            'remarks' => 'Updated remarks only',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    $fresh = $assignment->fresh();
+
+    expect($fresh->remarks)->toBe('Updated remarks only')
+        ->and($fresh->vessel_id)->toBe($vessel->id)
+        ->and($fresh->rank_id)->toBe($rank->id)
+        ->and($fresh->client_id)->toBe($client->id)
+        ->and($fresh->planned_join_at->toDateString())->toBe('2026-08-01');
 });
