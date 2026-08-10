@@ -65,6 +65,7 @@ class CrewAssignmentPresenter
             'actual_disembarkation_at' => self::latestOnVesselPhase($assignment)?->actual_end_at?->toDateString(),
             'created_at' => $assignment->created_at?->toDateString(),
             'company_timezone' => $timezone,
+            'is_editable' => CrewAssignmentEditability::isEditable($assignment),
             ...$tourProgress,
             ...$relief->toArray(),
             'warnings' => is_array($assignment->attention_warnings)
@@ -186,6 +187,7 @@ class CrewAssignmentPresenter
             'created_at' => $assignment->created_at?->toDateString(),
             'updated_at' => $assignment->updated_at?->toDateString(),
             'company_timezone' => $timezone,
+            'is_editable' => CrewAssignmentEditability::isEditable($assignment),
             ...$tourProgress,
             ...$relief->toArray(),
             'relieves' => $relieves,

@@ -95,6 +95,7 @@ export interface CrewAssignmentListItem
     assignment_no: string;
     status: string;
     status_label: string;
+    is_editable: boolean;
     employee: {
         id: number;
         name: string;
@@ -139,6 +140,7 @@ export interface CrewAssignmentDetail
     assignment_no: string;
     status: string;
     status_label: string;
+    is_editable: boolean;
     employee: {
         id: number;
         name: string;

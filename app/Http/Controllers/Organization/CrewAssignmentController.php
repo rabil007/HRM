@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers\Organization;
 
-use App\Enums\CrewAssignmentStatus;
-use App\Enums\CrewPhaseCode;
 use App\Exceptions\CrewMovementException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\StoreCrewAssignmentRequest;
@@ -18,6 +16,7 @@ use App\Models\Vessel;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionPresenter;
 use App\Support\CrewMovements\CrewAssignmentAccess;
+use App\Support\CrewMovements\CrewAssignmentEditability;
 use App\Support\CrewMovements\CrewAssignmentPagePermissions;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
@@ -244,6 +243,12 @@ class CrewAssignmentController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         CrewAssignmentAccess::assertInCompany($assignment, $companyId);
 
+        if (! CrewAssignmentEditability::isEditable($assignment)) {
+            return redirect()
+                ->route('organization.crew-assignments.show', $assignment)
+                ->with('error', 'This assignment can no longer be edited directly. Use Movement Actions or Request Correction.');
+        }
+
         $assignment->load([
             'employee',
             'rank',
@@ -290,18 +295,7 @@ class CrewAssignmentController extends Controller
 
         $validated = $request->validated();
 
-        $current = $assignment->currentPhase;
-        $preJoinPhases = [
-            CrewPhaseCode::PreMobilisation,
-            CrewPhaseCode::TravelIn,
-            CrewPhaseCode::JoinStandby,
-            CrewPhaseCode::Training,
-            CrewPhaseCode::ReadyToJoin,
-        ];
-        $canUpdateAll = $assignment->status === CrewAssignmentStatus::Draft
-            || ($current !== null && in_array($current->phase_code, $preJoinPhases, true));
-
-        if (! $canUpdateAll) {
+        if (! CrewAssignmentEditability::isEditable($assignment)) {
             throw ValidationException::withMessages([
                 'error' => 'Only draft assignments or those before P4 can be updated.',
             ]);

@@ -168,7 +168,7 @@ export default function CrewAssignmentShow({
                                     Void Erroneous Assignment
                                 </Button>
                             ) : null}
-                            {can.update ? (
+                            {can.update && assignment.is_editable ? (
                                 <Button
                                     type="button"
                                     variant="outline"

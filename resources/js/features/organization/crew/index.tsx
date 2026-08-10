@@ -316,11 +316,11 @@ export function CurrentCrewContent({
                                     assignment={assignment}
                                     viewHref={showAssignment.url(assignment.id)}
                                     editHref={
-                                        can.update
+                                        can.update && assignment.is_editable
                                             ? editAssignment.url(assignment.id)
                                             : undefined
                                     }
-                                    canUpdate={can.update}
+                                    canUpdate={can.update && assignment.is_editable}
                                     canPerformMovement={can.perform_movement}
                                     canCancel={can.cancel}
                                     formOptions={formOptions}

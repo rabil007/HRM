@@ -170,6 +170,10 @@ correct_movement
 
 Movement field corrections use a dedicated approval workflow instead of `correct_movement`. See [crew-movement-corrections.md](./crew-movement-corrections.md).
 
+## Generic Assignment Editing
+
+Generic Crew Assignment editing is limited to Draft/pre-P4 preparation. Once P4 begins, planned sign-off changes use Plan Sign-Off, historical field changes use Movement Corrections, and actual operational changes use movement actions.
+
 ## Permissions
 
 Use Spatie permission names:
