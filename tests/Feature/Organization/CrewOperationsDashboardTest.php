@@ -564,6 +564,7 @@ test('vessel and projected dashboard links remain gated by vessel manning permis
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('can.vessel_manning', true)
+            ->where('can.planning', false)
             ->where('can.assignments', false)
         );
 
@@ -578,13 +579,17 @@ test('vessel and projected dashboard links remain gated by vessel manning permis
             'vessel' => $gapVessel->id,
         ]))
         ->and($projectedGap)->not->toBeNull()
-        ->and($projectedGap['href'])->toBe(route('organization.crew-planning.index', [
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-        ]));
+        ->and($projectedGap['href'])->toBe(route('organization.vessel-manning.show', [
+            'vessel' => $vessel->id,
+        ]))
+        ->and($projectedGap['href'])->not->toContain('/crew-planning');
 
     expect($actions->every(
         fn (array $item): bool => ! crewOperationsHrefTargetsAssignments($item['href'] ?? null),
+    ))->toBeTrue();
+
+    expect($actions->every(
+        fn (array $item): bool => ! crewOperationsHrefTargetsCrewPlanning($item['href'] ?? null),
     ))->toBeTrue();
 
     $actualRisk = $risks->firstWhere('kind', 'actual');
@@ -594,10 +599,64 @@ test('vessel and projected dashboard links remain gated by vessel manning permis
     expect($actualRisk)->not->toBeNull()
         ->and($actualRisk['href'])->toContain('/vessel-manning/')
         ->and($projectedRisk)->not->toBeNull()
-        ->and($projectedRisk['href'])->toContain('/crew-planning')
+        ->and($projectedRisk['href'])->toBe(route('organization.vessel-manning.show', [
+            'vessel' => $vessel->id,
+        ]))
+        ->and($projectedRisk['href'])->not->toContain('/crew-planning')
         ->and($reliefRisk)->not->toBeNull()
         ->and($reliefRisk['href'])->toBeNull()
         ->and($reliefRisk['employee_name'])->toBeNull();
+});
+
+test('projected future gap links prefer crew planning when planning view is granted', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.overview.view',
+        'crew_operations.vessel_manning.view',
+        'crew_operations.planning.view',
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 1,
+    ]);
+
+    $timezone = CompanyTimezone::forCompanyId((int) $company->id);
+    $from = CarbonImmutable::now($timezone)->toDateString();
+    $plannedSignoff = CarbonImmutable::parse($from, $timezone)->addDays(12)->startOfDay();
+
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel, [
+        'planned_signoff_at' => $plannedSignoff->toDateTimeString(),
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.vessel_manning', true)
+            ->where('can.planning', true)
+        );
+
+    $actions = collect($response->inertiaProps('action_required'));
+    $risks = collect($response->inertiaProps('manning_relief_risks'));
+
+    $projectedGap = $actions->firstWhere('type', 'projected_future_gap');
+    $projectedRisk = $risks->firstWhere('kind', 'projected');
+
+    $expectedPlanningHref = route('organization.crew-planning.index', [
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+    ]);
+
+    expect($projectedGap)->not->toBeNull()
+        ->and($projectedGap['href'])->toBe($expectedPlanningHref)
+        ->and($projectedRisk)->not->toBeNull()
+        ->and($projectedRisk['href'])->toBe($expectedPlanningHref)
+        ->and($projectedRisk['vessel_id'])->toBe($vessel->id)
+        ->and($projectedRisk['rank_id'])->toBe($rank->id);
 });
 
 test('employee action rows omit employee show links without employees view', function () {
@@ -646,4 +705,9 @@ test('employee action rows omit employee show links without employees view', fun
 function crewOperationsHrefTargetsAssignments(mixed $href): bool
 {
     return is_string($href) && str_contains($href, '/crew-assignments');
+}
+
+function crewOperationsHrefTargetsCrewPlanning(mixed $href): bool
+{
+    return is_string($href) && str_contains($href, '/crew-planning');
 }

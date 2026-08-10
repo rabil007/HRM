@@ -89,12 +89,15 @@ final class CrewOperationsDashboardAnalytics
             canViewCorrections: $permissions['corrections_view'],
             canViewAssignments: $permissions['assignments'],
             canViewEmployees: $user?->can('employees.view') ?? false,
+            canViewPlanning: $permissions['planning'],
+            canViewVesselManning: $permissions['vessel_manning'],
         );
         $manningReliefRisks = $this->manningReliefRisks(
             manningGapItems: $manningGaps['items'],
             projectedManning: $projectedManning,
             reliefResolved: $reliefResolved,
             companyId: $companyId,
+            canViewPlanning: $permissions['planning'],
             canViewVesselManning: $permissions['vessel_manning'],
             canViewAssignments: $permissions['assignments'],
         );
@@ -286,6 +289,8 @@ final class CrewOperationsDashboardAnalytics
         bool $canViewCorrections,
         bool $canViewAssignments,
         bool $canViewEmployees,
+        bool $canViewPlanning,
+        bool $canViewVesselManning,
     ): array {
         $items = [];
 
@@ -419,10 +424,12 @@ final class CrewOperationsDashboardAnalytics
                         $position['maximum_gap'],
                     ),
                     'meta' => $position['next_gap_date'],
-                    'href' => route('organization.crew-planning.index', [
-                        'vessel_id' => $position['vessel_id'],
-                        'rank_id' => $position['rank_id'],
-                    ]),
+                    'href' => $this->projectedGapHref(
+                        $canViewPlanning,
+                        $canViewVesselManning,
+                        (int) $position['vessel_id'],
+                        (int) $position['rank_id'],
+                    ),
                 ];
             }
         }
@@ -560,6 +567,7 @@ final class CrewOperationsDashboardAnalytics
         ?array $projectedManning,
         Collection $reliefResolved,
         int $companyId,
+        bool $canViewPlanning,
         bool $canViewVesselManning,
         bool $canViewAssignments,
     ): array {
@@ -603,10 +611,12 @@ final class CrewOperationsDashboardAnalytics
                     'rank_id' => (int) $position['rank_id'],
                     'rank_name' => (string) $position['rank_name'],
                     'when' => $position['next_gap_date'] ?? 'Upcoming',
-                    'href' => route('organization.crew-planning.index', [
-                        'vessel_id' => $position['vessel_id'],
-                        'rank_id' => $position['rank_id'],
-                    ]),
+                    'href' => $this->projectedGapHref(
+                        $canViewPlanning,
+                        $canViewVesselManning,
+                        (int) $position['vessel_id'],
+                        (int) $position['rank_id'],
+                    ),
                     'employee_name' => null,
                 ];
             }
@@ -671,6 +681,32 @@ final class CrewOperationsDashboardAnalytics
         }
 
         return $items;
+    }
+
+    private function projectedGapHref(
+        bool $canViewPlanning,
+        bool $canViewVesselManning,
+        int $vesselId,
+        int $rankId,
+    ): ?string {
+        if ($canViewPlanning) {
+            return route('organization.crew-planning.index', [
+                'vessel_id' => $vesselId,
+                'rank_id' => $rankId,
+            ]);
+        }
+
+        if ($canViewVesselManning) {
+            if ($vesselId > 0) {
+                return route('organization.vessel-manning.show', [
+                    'vessel' => $vesselId,
+                ]);
+            }
+
+            return route('organization.vessel-manning.index');
+        }
+
+        return null;
     }
 
     /**
