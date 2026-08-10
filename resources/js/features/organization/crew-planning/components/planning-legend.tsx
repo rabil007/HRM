@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -20,6 +21,7 @@ const LEGEND_ITEMS = [
         surfaceClass: deployedBarSurfaceClass,
         labelClass: 'text-emerald-700 dark:text-emerald-300',
         swatchRingClass: 'ring-emerald-500/45 dark:ring-emerald-400/55',
+        isMarker: false,
     },
     {
         label: 'Relief Planned',
@@ -27,6 +29,7 @@ const LEGEND_ITEMS = [
         surfaceClass: plannedReliefBarSurfaceClass,
         labelClass: 'text-sky-700 dark:text-sky-300',
         swatchRingClass: 'ring-sky-500/45 dark:ring-sky-400/55',
+        isMarker: false,
     },
     {
         label: 'Planned Crew',
@@ -34,6 +37,7 @@ const LEGEND_ITEMS = [
         surfaceClass: plannedBarSurfaceClass,
         labelClass: 'text-indigo-700 dark:text-indigo-300',
         swatchRingClass: 'ring-indigo-500/45 dark:ring-indigo-400/55',
+        isMarker: false,
     },
 ] as const;
 
@@ -44,14 +48,16 @@ const PROJECTION_LEGEND_ITEMS = [
         surfaceClass: 'bg-destructive/20 dark:bg-destructive/25',
         labelClass: 'text-destructive',
         swatchRingClass: 'ring-destructive/40',
+        isMarker: false,
     },
     {
         label: 'Future Manning Shortfall',
         description:
             'This position will become short after planned sign-off unless relief is arranged.',
-        surfaceClass: 'bg-destructive/20 dark:bg-destructive/25',
+        surfaceClass: 'bg-destructive/15 text-destructive',
         labelClass: 'text-destructive',
-        swatchRingClass: 'ring-destructive/40',
+        swatchRingClass: '',
+        isMarker: true,
     },
     {
         label: 'Relief Overlap',
@@ -60,6 +66,7 @@ const PROJECTION_LEGEND_ITEMS = [
         surfaceClass: 'bg-amber-500/20 dark:bg-amber-400/25',
         labelClass: 'text-amber-700 dark:text-amber-300',
         swatchRingClass: 'ring-amber-500/40',
+        isMarker: false,
     },
 ] as const;
 
@@ -97,7 +104,7 @@ export function PlanningLegend({
                     Timeline bar kinds show crew assigned, relief planned, and
                     planned crew.
                     {canProjection
-                        ? ' Projected shortfall and overlap bands come from Vessel Manning coverage.'
+                        ? ' Projected shortfall markers and overlap bands come from Vessel Manning coverage.'
                         : ''}
                 </TooltipContent>
             </Tooltip>
@@ -113,14 +120,24 @@ export function PlanningLegend({
                                 role="listitem"
                                 className="flex cursor-help items-center gap-1.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >
-                                <span
-                                    className={cn(
-                                        'inline-block h-2.5 w-7 shrink-0 rounded-sm ring-1 ring-offset-1 ring-offset-background',
-                                        item.surfaceClass,
-                                        item.swatchRingClass,
-                                    )}
-                                    aria-hidden
-                                />
+                                {item.isMarker ? (
+                                    <span
+                                        className="inline-flex h-4 items-center gap-0.5 rounded-md border border-destructive/40 bg-destructive/15 px-1 text-[9px] font-semibold text-destructive shadow-2xs dark:border-destructive/50 dark:bg-destructive/25 dark:text-destructive-foreground"
+                                        aria-hidden
+                                    >
+                                        <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                                        Marker
+                                    </span>
+                                ) : (
+                                    <span
+                                        className={cn(
+                                            'inline-block h-2.5 w-7 shrink-0 rounded-sm ring-1 ring-offset-1 ring-offset-background',
+                                            item.surfaceClass,
+                                            item.swatchRingClass,
+                                        )}
+                                        aria-hidden
+                                    />
+                                )}
                                 <span
                                     className={cn(
                                         'text-xs font-medium',

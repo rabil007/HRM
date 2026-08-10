@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { PlanningProjectionPeriod } from '../types.ts';
-import { periodTitle, projectionBandMode } from './projection-band.ts';
+import {
+    bandAriaLabel,
+    isFutureGapPeriod,
+    periodTitle,
+    projectionBandMode,
+} from './projection-band.ts';
 
 function gapPeriod(
     overrides: Partial<PlanningProjectionPeriod> = {},
@@ -28,6 +33,31 @@ function overlapPeriod(
         ...overrides,
     };
 }
+
+describe('isFutureGapPeriod', () => {
+    it('identifies future gap periods relative to today date', () => {
+        const today = new Date('2026-08-10T00:00:00Z');
+
+        assert.equal(
+            isFutureGapPeriod(gapPeriod({ from: '2026-08-10' }), today),
+            false,
+        );
+        assert.equal(
+            isFutureGapPeriod(gapPeriod({ from: '2026-08-09' }), today),
+            false,
+        );
+        assert.equal(
+            isFutureGapPeriod(gapPeriod({ from: '2026-08-11' }), today),
+            true,
+        );
+    });
+
+    it('returns false for overlap or non-gap periods', () => {
+        const today = new Date('2026-08-10T00:00:00Z');
+
+        assert.equal(isFutureGapPeriod(overlapPeriod(), today), false);
+    });
+});
 
 describe('projectionBandMode', () => {
     it('marks create-enabled projected gaps as actionable', () => {
@@ -56,15 +86,32 @@ describe('projectionBandMode', () => {
 });
 
 describe('periodTitle', () => {
-    it('describes projected gaps for inspection with plain terminology', () => {
+    it('describes current projected gaps for inspection with plain terminology', () => {
         assert.equal(
-            periodTitle(gapPeriod(), 2),
+            periodTitle(gapPeriod(), 2, false),
             [
                 'Manning shortfall',
                 'Required crew: 2',
                 'Available: 0',
                 'Short: 1',
                 '10-08-2026 → 14-08-2026',
+            ].join('\n'),
+        );
+    });
+
+    it('describes future projected gaps with Future Manning Shortfall header', () => {
+        assert.equal(
+            periodTitle(
+                gapPeriod({ from: '2026-10-10', to: '2026-10-31' }),
+                1,
+                true,
+            ),
+            [
+                'Future Manning Shortfall',
+                'Required crew: 1',
+                'Available: 0',
+                'Short: 1',
+                '10-10-2026 → 31-10-2026',
             ].join('\n'),
         );
     });
@@ -80,5 +127,20 @@ describe('periodTitle', () => {
                 '18-08-2026 → 19-08-2026',
             ].join('\n'),
         );
+    });
+});
+
+describe('bandAriaLabel', () => {
+    it('includes Future Manning Shortfall title in aria label for future gaps', () => {
+        const period = gapPeriod({ from: '2026-10-10', to: '2026-10-31' });
+        const label = bandAriaLabel(period, 1, 'create', true);
+
+        assert.ok(
+            label.includes(
+                'Plan crew for manning shortfall starting 2026-10-10',
+            ),
+        );
+        assert.ok(label.includes('Future Manning Shortfall'));
+        assert.ok(label.includes('Required crew: 1'));
     });
 });

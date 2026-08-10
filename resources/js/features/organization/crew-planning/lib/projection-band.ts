@@ -14,6 +14,25 @@ function formatIsoDisplay(value: string): string {
     return `${day}-${month}-${year}`;
 }
 
+export function isFutureGapPeriod(
+    period: PlanningProjectionPeriod,
+    today: Date,
+): boolean {
+    if (period.gap <= 0) {
+        return false;
+    }
+
+    const todayUtcMs = Date.UTC(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+    );
+    const [y, m, d] = period.from.split('-').map(Number);
+    const periodFromUtcMs = Date.UTC(y, m - 1, d);
+
+    return periodFromUtcMs > todayUtcMs;
+}
+
 export function projectionBandMode(
     period: PlanningProjectionPeriod,
     canCreate: boolean,
@@ -29,10 +48,15 @@ export function projectionBandMode(
 export function periodTitle(
     period: PlanningProjectionPeriod,
     requiredCount: number,
+    isFuture = false,
 ): string {
     if (period.gap > 0) {
+        const header = isFuture
+            ? 'Future Manning Shortfall'
+            : 'Manning shortfall';
+
         return [
-            'Manning shortfall',
+            header,
             `Required crew: ${requiredCount}`,
             `Available: ${period.projected_count}`,
             `Short: ${period.gap}`,
@@ -66,8 +90,12 @@ export function bandAriaLabel(
     period: PlanningProjectionPeriod,
     requiredCount: number,
     mode: ProjectionBandMode,
+    isFuture = false,
 ): string {
-    const detail = periodTitle(period, requiredCount).replaceAll('\n', '. ');
+    const detail = periodTitle(period, requiredCount, isFuture).replaceAll(
+        '\n',
+        '. ',
+    );
 
     if (mode === 'create') {
         return `Plan crew for manning shortfall starting ${period.from}. ${detail}`;

@@ -219,6 +219,7 @@ export function PlanningGanttRow({
                         projection={projection}
                         rangeFrom={rangeFrom}
                         rangeTo={rangeTo}
+                        today={today}
                         canCreate={can.create}
                         onGapClick={
                             onGapClick
