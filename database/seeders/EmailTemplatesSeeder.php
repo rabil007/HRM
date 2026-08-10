@@ -20,6 +20,7 @@ class EmailTemplatesSeeder extends Seeder
         self::seedBulkSalaryDeclarationTemplate();
         self::seedBulkSalaryDeclarationSignReminderTemplate();
         self::seedBulkSalaryCertificateTemplate();
+        self::seedCrewOperationalAlertDigestTemplate();
     }
 
     /**
@@ -389,5 +390,55 @@ This password reset link will expire in {{expire_minutes}} minutes.
 
 If you did not request a password reset, no further action is required.
 TEXT;
+    }
+
+    public static function seedCrewOperationalAlertDigestTemplate(): EmailTemplate
+    {
+        $existing = EmailTemplate::withTrashed()->where('slug', 'crew_operational_alert_digest')->first();
+
+        if ($existing !== null) {
+            if ($existing->trashed()) {
+                $existing->restore();
+            }
+
+            return $existing->fresh() ?? $existing;
+        }
+
+        return EmailTemplate::query()->create([
+            'slug' => 'crew_operational_alert_digest',
+            'label' => 'Crew Operations alert digest',
+            'category' => EmailTemplateCategory::Notification,
+            'to_preset' => null,
+            'cc_preset' => null,
+            'dispatch_at' => null,
+            'subject' => 'Crew Operations — {{alert_count}} items require attention',
+            'body_html' => self::crewOperationalAlertDigestBody(),
+            'enabled' => true,
+            'include_company_footer' => true,
+            'is_default' => false,
+            'sort_order' => 5,
+        ])->fresh();
+    }
+
+    private static function crewOperationalAlertDigestBody(): string
+    {
+        return <<<'HTML'
+<p style="margin:0 0 16px;"><strong>Crew Operations Alert Summary</strong></p>
+<p style="margin:0 0 16px;">{{alert_count}} items require attention.</p>
+<p style="margin:0 0 16px;color:#6b7280;font-size:13px;">Generated: {{generated_at}}</p>
+<div style="margin:0 0 24px;">
+{{alerts_table}}
+</div>
+<table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto 24px;">
+    <tr>
+        <td class="email-btn-cell" align="center" style="border-radius:12px;background-color:#2563eb;">
+            <a href="{{crew_operations_url}}" class="email-btn-link" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;border-radius:12px;background-color:#2563eb;border:1px solid #2563eb;">
+                Open Crew Operations
+            </a>
+        </td>
+    </tr>
+</table>
+<p style="margin:0;color:#6b7280;font-size:12px;">You are receiving this message because you are configured as a Crew Operations notification recipient.</p>
+HTML;
     }
 }

@@ -5,6 +5,7 @@ namespace App\Support\Email;
 use App\Models\Company;
 use App\Models\EmailTemplate;
 use App\Services\Settings\SettingService;
+use App\Support\CrewOperations\CrewOperationalAlertDigestPresenter;
 use Illuminate\Support\Facades\View;
 
 final class EmailTemplatePreview
@@ -66,6 +67,12 @@ final class EmailTemplatePreview
             ),
             'document_expiry_alert' => $this->renderDocumentExpiryAlert($organizationName, $includeCompanyFooter),
             'document_share' => $this->renderDocumentShare($organizationName, $renderedSubject, $renderedBody, $includeCompanyFooter),
+            'crew_operational_alert_digest' => $this->renderCrewOperationalAlertDigest(
+                subject: $renderedSubject,
+                organizationName: $organizationName,
+                bodyHtml: $renderedBody,
+                includeCompanyFooter: $includeCompanyFooter,
+            ),
             default => $this->renderPlainPreview($renderedSubject, $renderedBody, $includeCompanyFooter),
         };
 
@@ -206,7 +213,26 @@ final class EmailTemplatePreview
             '{{period_name}}' => now()->format('F Y'),
             '{{net_salary}}' => '12,500.00',
             '{{rejection_reason}}' => 'Resource planning constraints during this period.',
+            '{{alert_count}}' => '4',
+            '{{generated_at}}' => now()->format('d M Y H:i'),
+            '{{highest_severity}}' => 'CRITICAL',
+            '{{crew_operations_url}}' => url('/organization/crew-operations'),
+            '{{alerts_table}}' => CrewOperationalAlertDigestPresenter::sampleTable(),
         ];
+    }
+
+    private function renderCrewOperationalAlertDigest(
+        string $subject,
+        string $organizationName,
+        string $bodyHtml,
+        bool $includeCompanyFooter,
+    ): string {
+        return View::make('mail.crew-operational-alert-digest', [
+            'subjectLine' => $subject,
+            'organizationName' => $organizationName,
+            'bodyHtml' => $bodyHtml,
+            'includeCompanyFooter' => $includeCompanyFooter,
+        ])->render();
     }
 
     /**

@@ -1,35 +1,38 @@
 # Crew operational alerts — email delivery
 
-Email for Crew operational alerts is an automatic extension of the in-app / Web Push notification path. There is **no company Email toggle** and no separate recipient-by-email configuration under Crew Settings.
+Email for Crew operational alerts is an automatic extension of the in-app / Web Push notification path. There is **no company Email toggle** and no separate recipient-by-email configuration under Crew Settings. Email content and template presentation are managed centrally via the **Email Templates** system under **Settings → Email Templates**.
 
 ## Behaviour
 
-- Phase 3A persists alerts and company notification settings (ON/OFF, selected users, alert types).
-- Phase 3B adds recipient/read rows, unified bell, and browser push.
-- Phase 3C adds an email delivery ledger (`crew_operational_alert_email_deliveries`) and queued send jobs.
+- **Alert Reconciliation**: Detects meaningful alert events (newly detected alert, reactivation of a resolved alert, or meaningful severity escalation).
+- **Per-Alert Delivery Ledger**: Creates individual `CrewOperationalAlertEmailDelivery` records for each `(crew_operational_alert_id, user_id, notification_version)` tuple to preserve deduplication and per-alert audit evidence.
+- **Recipient Grouping & Digesting**: Queued delivery records from a reconciliation run are grouped by `(company_id, user_id)` and dispatched as **ONE consolidated digest email** per recipient per reconciliation execution.
+- **Timing**: Digest emails are triggered immediately after reconciliation completes (per execution run). Time-sensitive critical alerts are not delayed to a once-daily schedule.
 
 Existing Crew notification configuration remains authoritative:
 
 - Crew Notifications master ON/OFF
-- selected active company-member users
-- five alert-type toggles
+- Selected active company-member users
+- Five alert-type toggles
 
-## When email is attempted
+## Delivery Pipeline
 
 ```text
 Meaningful notification_version event
     ↓
-company Crew Notifications enabled
+Company Crew Notifications enabled & alert type enabled
     ↓
-alert type enabled
+Selected active recipient with usable email
     ↓
-user is a selected recipient with active membership
+Per-alert delivery ledger row created (Queued)
     ↓
-user has a usable email address
+Grouped by (company_id, user_id) after transaction commit
     ↓
-application SMTP is configured (MailSettingsService)
+ONE DeliverCrewOperationalAlertEmailJob per recipient
     ↓
-queue DeliverCrewOperationalAlertEmailJob (afterCommit)
+Permission-aware digest rendering via EmailTemplate (crew_operational_alert_digest)
+    ↓
+ONE Email sent → all queued delivery rows updated to Sent
 ```
 
 Email is generated for the same events as Web Push:
@@ -40,42 +43,59 @@ Email is generated for the same events as Web Push:
 
 Email is **not** sent for unchanged reconciliation, ordinary `last_detected_at` refresh, or resolution.
 
-## Deduplication
+## Email Template Integration
 
-Ledger unique key: `(crew_operational_alert_id, user_id, notification_version)`.
+- **Slug**: `crew_operational_alert_digest`
+- **Category**: `EmailTemplateCategory::Notification` (`notification`)
+- **UI Location**: Appears under **Settings → Email Templates → Notifications → Crew Operations alert digest**.
+- **Customization & Seeding**: Seeded via `EmailTemplatesSeeder::seedCrewOperationalAlertDigestTemplate()`. Soft-deleted matching templates are restored without clobbering administrator-customized subject or body HTML.
+- **Template Variables**: Supports `{{company_name}}`, `{{alert_count}}`, `{{generated_at}}`, `{{highest_severity}}`, `{{alerts_table}}`, and `{{crew_operations_url}}`.
+- **Enabled State**: If `crew_operational_alert_digest.enabled = false`, the email channel suppresses sending without affecting DB alert persistence, in-app alerts, or Web Push notifications.
 
-Concurrent reconciliation catches unique violations and does not double-queue.
+## Permission-Aware Presentation & Privacy
 
-## Privacy
+The digest presenter (`CrewOperationalAlertDigestPresenter`) renders alert rows in a clean HTML table according to the recipient user's permissions within that specific company (`PermissionRegistrar::setPermissionsTeamId($companyId)`):
 
-Subject: `Crew Operations requires attention`
+- **Assignments Permission (`crew_operations.assignments.view`)**: If authorized, includes employee name, employee number, vessel, rank, sign-off date, and remaining/overdue days, with deep-link URL to assignment detail. If unauthorized, displays a privacy-safe generic row ("A Crew Operations item requires review.") without exposing crew or assignment data.
+- **Vessel Manning Permission (`crew_operations.vessel_manning.view` / `crew_operations.overview.view`)**: If authorized, includes vessel, rank, and manning shortage details.
+- **Deep Links**: Resolved per-user via `ResolveCrewOperationalAlertUrl`. If unauthorized for specific destinations, generic authorized links or no links are presented.
 
-The subject and body must not include employee names, vessel names, ranks, assignment numbers, or document identifiers. A generic severity indicator may appear. Detail is only available after opening OMS-HRM with normal authorization.
+## Deduplication & Audit Ledger
 
-CTA label: `Open OMS-HRM` — destination from `ResolveCrewOperationalAlertUrl`. If that returns `null`, the CTA is omitted (no unauthorized deep link).
+- **Ledger Unique Key**: `(crew_operational_alert_id, user_id, notification_version)`.
+- Concurrent reconciliation catches unique constraint violations and avoids double-queueing.
+- Every alert/version in a digest batch maintains its own `CrewOperationalAlertEmailDelivery` row for exact audit history.
+- Successful send updates all included queued delivery rows to `status = Sent`, `sent_at = now()`.
 
-## SMTP and retries
+## SMTP, Retries, and Error Handling
 
 - Uses existing application SMTP via `MailSettingsService` (stored settings take precedence over `.env`).
-- Does not introduce another SMTP configuration UI.
-- Transport failures increment `attempt_count` / `last_attempt_at`, log safe context (company/user/delivery ids + exception class only), and rethrow for Laravel retry.
-- After retries are exhausted, status becomes Failed with `email_transport_exhausted`.
+- Transport failures increment `attempt_count` / `last_attempt_at`, log safe context (company/user/delivery IDs + exception class only), and rethrow for Laravel queue backoff retries `[30, 60, 120]`.
+- After retries are exhausted, all applicable queued delivery rows are marked `Failed` with `failure_category = 'email_transport_exhausted'`.
 - Failure records and logs must not store SMTP passwords or raw exception messages that may contain credentials.
 
 SMTP transport cannot guarantee exactly-once delivery after an ambiguous network failure; the ledger prevents normal duplicate queueing/reconciliation.
 
-## Tenancy and permissions
+## Tenancy Isolation
 
-- `company_id` comes from trusted persisted alert / reconciliation context.
-- Being selected as a recipient does not grant Crew page permissions.
+- `company_id` is enforced strictly from trusted persisted alert / reconciliation context.
+- Digest grouping key is `(company_id, user_id)`. Alerts across different companies for the same user are never combined in a single email.
 - Cross-company memberships are rejected for queueing and job execution.
 
-## Related files
+## Relationship with Web Push and In-App Notifications
 
+- Web Push and email delivery queues run independently for the same `notification_version` events.
+- In-app notification bell and unread/read state remain unchanged.
+
+## Related Files
+
+- Presenter: `app/Support/CrewOperations/CrewOperationalAlertDigestPresenter.php`
 - Queue: `app/Support/CrewOperations/QueueCrewOperationalAlertEmails.php`
 - Job: `app/Jobs/DeliverCrewOperationalAlertEmailJob.php`
 - Mailable: `app/Mail/CrewOperationalAlertEmailMail.php`
-- View: `resources/views/mail/crew-operational-alert.blade.php`
-- Reconcile integration: `app/Support/CrewOperations/ReconcileCrewOperationalAlerts.php`
+- Blade View: `resources/views/mail/crew-operational-alert-digest.blade.php`
+- Seeder: `database/seeders/EmailTemplatesSeeder.php`
+- Preview: `app/Support/Email/EmailTemplatePreview.php`
+- Reconcile Integration: `app/Support/CrewOperations/ReconcileCrewOperationalAlerts.php`
 - SMTP: `app/Services/Settings/MailSettingsService.php`
-- Browser Push companion: [Crew operational alerts Web Push](./crew-operational-alerts-web-push.md)
+- Browser Push Companion: [Crew operational alerts Web Push](./crew-operational-alerts-web-push.md)

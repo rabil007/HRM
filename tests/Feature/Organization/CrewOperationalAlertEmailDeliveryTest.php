@@ -282,7 +282,7 @@ test('email job marks sent and respects stale business state', function () {
     );
 
     Mail::assertSent(CrewOperationalAlertEmailMail::class, function (CrewOperationalAlertEmailMail $mail) use ($user): bool {
-        expect($mail->envelope()->subject)->toBe('Crew Operations requires attention')
+        expect($mail->envelope()->subject)->toContain('Crew Operations')
             ->and($mail->envelope()->subject)->not->toContain('Notify Vessel')
             ->and($mail->hasTo($user->email))->toBeTrue();
 

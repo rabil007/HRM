@@ -44,6 +44,7 @@ final class QueueCrewOperationalAlertEmails
         }
 
         $queuedIds = [];
+        $userDeliveries = [];
 
         $alerts = CrewOperationalAlert::query()
             ->where('company_id', $companyId)
@@ -80,14 +81,16 @@ final class QueueCrewOperationalAlertEmails
 
                 if ($delivery !== null) {
                     $queuedIds[] = (int) $delivery->id;
+                    $userDeliveries[(int) $recipient->user_id][] = (int) $delivery->id;
                 }
             }
         }
 
-        if ($queuedIds !== []) {
-            DB::afterCommit(function () use ($queuedIds): void {
-                foreach ($queuedIds as $deliveryId) {
-                    DeliverCrewOperationalAlertEmailJob::dispatch($deliveryId);
+        if ($userDeliveries !== []) {
+            $grouped = $userDeliveries;
+            DB::afterCommit(function () use ($companyId, $grouped): void {
+                foreach ($grouped as $userId => $deliveryIds) {
+                    DeliverCrewOperationalAlertEmailJob::dispatch($deliveryIds, $companyId, $userId);
                 }
             });
         }
