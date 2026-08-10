@@ -668,7 +668,7 @@ test('employee can be created and updated with hire_date on the employee record'
     expect($employee->fresh()->hire_date?->toDateString())->toBe('2024-05-20');
 });
 
-test('employee can be created and updated with company_visa_type_id', function () {
+test('employee can be created with company_visa_type_id and profile update preserves sponsor', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -745,10 +745,10 @@ test('employee can be created and updated with company_visa_type_id', function (
         'company_visa_type_id' => $groupSponsored->id,
     ])->assertRedirect(route('organization.employees.show', $employee));
 
-    expect($employee->fresh()->company_visa_type_id)->toBe($groupSponsored->id);
+    expect($employee->fresh()->company_visa_type_id)->toBe($companyVisaType->id);
 });
 
-test('employee can update company_visa_type_id when visa_type_id is hidden in template', function () {
+test('employee profile update does not change sponsor managed via active contract', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -807,7 +807,7 @@ test('employee can update company_visa_type_id when visa_type_id is hidden in te
         'company_visa_type_id' => $group->id,
     ])->assertRedirect(route('organization.employees.show', $employee));
 
-    expect($employee->fresh()->company_visa_type_id)->toBe($group->id);
+    expect($employee->fresh()->company_visa_type_id)->toBe($oms->id);
 });
 
 test('employee salary payment method can be updated', function () {

@@ -1,4 +1,5 @@
 import { MasterDataNameActivePage } from '@/components/settings/master-data-name-active-page';
+import type { PaginationMeta } from '@/types/pagination';
 
 type CompanyVisaType = {
     id: number;
@@ -8,8 +9,12 @@ type CompanyVisaType = {
 
 export default function CompanyVisaTypes({
     company_visa_types,
+    pagination,
+    search = '',
 }: {
     company_visa_types: CompanyVisaType[];
+    pagination: PaginationMeta;
+    search?: string;
 }) {
     return (
         <MasterDataNameActivePage
@@ -19,6 +24,8 @@ export default function CompanyVisaTypes({
             resource="company-visa-types"
             baseUrl="/settings/master-data/company-visa-types"
             items={company_visa_types}
+            pagination={pagination}
+            search={search}
             entityLabel="sponsor"
             searchPlaceholder="Search sponsors..."
             createButtonLabel="Add sponsor"

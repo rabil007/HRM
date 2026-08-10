@@ -10,15 +10,15 @@ import {
 import type { DragEvent, ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
-    importMethod as importSeaServices,
-    importPreview as importSeaServicesPreview,
-    importTemplate as importSeaServicesTemplate,
-} from '@/actions/App/Http/Controllers/Organization/SeaServicesImportController';
-import {
     importMethod as importEmployeeSeaServices,
     importPreview as importEmployeeSeaServicesPreview,
     importTemplate as importEmployeeSeaServicesTemplate,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeSeaServiceController';
+import {
+    importMethod as importSeaServices,
+    importPreview as importSeaServicesPreview,
+    importTemplate as importSeaServicesTemplate,
+} from '@/actions/App/Http/Controllers/Organization/SeaServicesImportController';
 import { SearchBar } from '@/components/search-bar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -488,9 +488,7 @@ export function SeaServicesImportDialog({
                                             <TableRow>
                                                 <TableCell
                                                     colSpan={
-                                                        isEmployeeScoped
-                                                            ? 7
-                                                            : 9
+                                                        isEmployeeScoped ? 7 : 9
                                                     }
                                                     className="py-8 text-center text-sm text-muted-foreground"
                                                 >
@@ -517,8 +515,7 @@ export function SeaServicesImportDialog({
                                                         </>
                                                     ) : null}
                                                     <TableCell>
-                                                        {row.vessel_type ??
-                                                            '—'}
+                                                        {row.vessel_type ?? '—'}
                                                     </TableCell>
                                                     <TableCell>
                                                         {row.vessel ?? '—'}
@@ -526,7 +523,7 @@ export function SeaServicesImportDialog({
                                                     <TableCell>
                                                         {row.rank ?? '—'}
                                                     </TableCell>
-                                                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                                                    <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
                                                         {row.start_date ?? '—'}{' '}
                                                         → {row.end_date ?? '—'}
                                                     </TableCell>

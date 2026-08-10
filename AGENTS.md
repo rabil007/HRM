@@ -129,6 +129,7 @@ This project has domain-specific skills available. You MUST activate the relevan
 
 - Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
 - Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test --compact` with a specific filename or filter.
+- Do not run `migrate:fresh`, `db:wipe`, or other destructive resets on the Herd app database. Pest uses sqlite `:memory:` via `phpunit.xml`; see `.cursor/rules/database-safety.mdc`.
 
 === inertia-laravel/core rules ===
 

@@ -18,6 +18,11 @@ class CrewAssignmentPresenter
     {
         $current = $assignment->currentPhase;
         $timezone = self::companyTimezone($assignment);
+        $tourProgress = (new CrewTourProgress)->forAssignment($assignment, null, $timezone);
+        // Dynamic request-scoped values are stored via Eloquent attributes; do not use property_exists.
+        $relief = $assignment->relief_readiness instanceof CrewReliefReadinessResult
+            ? $assignment->relief_readiness
+            : (new CrewReliefReadinessResolver)->forSourceAssignment($assignment, null, null, $timezone);
 
         return [
             'id' => $assignment->id,
@@ -60,11 +65,13 @@ class CrewAssignmentPresenter
             'actual_disembarkation_at' => self::latestOnVesselPhase($assignment)?->actual_end_at?->toDateString(),
             'created_at' => $assignment->created_at?->toDateString(),
             'company_timezone' => $timezone,
-            'warnings' => property_exists($assignment, 'attention_warnings')
+            ...$tourProgress,
+            ...$relief->toArray(),
+            'warnings' => is_array($assignment->attention_warnings)
                 ? $assignment->attention_warnings
-                : CrewMovementAttentionQuery::forAssignment($assignment),
+                : CrewMovementAttentionQuery::forAssignment($assignment, $tourProgress),
             'available_actions' => CrewMovementAvailableActions::for($assignment),
-            'movement_context' => self::movementContext($assignment),
+            'movement_context' => self::movementContext($assignment, $tourProgress),
         ];
     }
 
@@ -77,6 +84,18 @@ class CrewAssignmentPresenter
         $timezone = self::companyTimezone($assignment);
         $onVesselPhase = self::latestOnVesselPhase($assignment);
         $trainingPhase = self::latestPhase($assignment, CrewPhaseCode::Training);
+        $tourProgress = (new CrewTourProgress)->forAssignment($assignment, null, $timezone);
+        $reliefResolver = new CrewReliefReadinessResolver;
+        $relief = $reliefResolver->forPreloadedPlan(
+            $assignment,
+            $reliefResolver->findActiveReliefPlan(
+                (int) $assignment->company_id,
+                (int) $assignment->id,
+            ),
+            null,
+            $timezone,
+        );
+        $relieves = self::relievesContext($assignment);
 
         $phaseTimeline = $assignment->phases
             ->map(function ($phase) {
@@ -167,8 +186,11 @@ class CrewAssignmentPresenter
             'created_at' => $assignment->created_at?->toDateString(),
             'updated_at' => $assignment->updated_at?->toDateString(),
             'company_timezone' => $timezone,
+            ...$tourProgress,
+            ...$relief->toArray(),
+            'relieves' => $relieves,
             'phase_timeline' => $phaseTimeline,
-            'warnings' => CrewMovementAttentionQuery::forAssignment($assignment),
+            'warnings' => CrewMovementAttentionQuery::forAssignment($assignment, $tourProgress),
             'available_actions' => CrewMovementAvailableActions::for($assignment),
             'planning_assignment_id' => $assignment->planningAssignment?->id,
             'previous_assignment' => $assignment->previousAssignment ? [
@@ -195,19 +217,21 @@ class CrewAssignmentPresenter
                     ])
                     ->all()
                 : [],
-            'movement_context' => self::movementContext($assignment),
+            'movement_context' => self::movementContext($assignment, $tourProgress),
         ];
     }
 
     /**
+     * @param  array<string, mixed>|null  $tourProgress
      * @return array<string, mixed>
      */
-    public static function movementContext(CrewAssignment $assignment): array
+    public static function movementContext(CrewAssignment $assignment, ?array $tourProgress = null): array
     {
         $timezone = self::companyTimezone($assignment);
         $current = $assignment->currentPhase;
         $onVesselPhase = self::latestOnVesselPhase($assignment);
         $trainingPhase = self::latestPhase($assignment, CrewPhaseCode::Training);
+        $tourProgress ??= (new CrewTourProgress)->forAssignment($assignment, null, $timezone);
 
         return [
             'assignment_id' => $assignment->id,
@@ -249,12 +273,58 @@ class CrewAssignmentPresenter
             'training_started_at' => self::formatDateTime($trainingPhase?->actual_start_at, $timezone),
             'training_expected_completion_at' => $trainingPhase?->planned_end_at?->toDateString(),
             'company_timezone' => $timezone,
+            ...$tourProgress,
         ];
     }
 
     private static function companyTimezone(CrewAssignment $assignment): string
     {
         return (string) ($assignment->company?->timezone ?? config('app.timezone', 'UTC'));
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function relievesContext(CrewAssignment $assignment): ?array
+    {
+        $planning = $assignment->planningAssignment;
+
+        if ($planning === null || $planning->relieves_crew_assignment_id === null) {
+            return null;
+        }
+
+        $source = $planning->relationLoaded('relievedAssignment')
+            ? $planning->relievedAssignment
+            : $planning->relievedAssignment()->with(['employee', 'vessel', 'rank'])->first();
+
+        if ($source === null || (int) $source->company_id !== (int) $assignment->company_id) {
+            return null;
+        }
+
+        $timezone = self::companyTimezone($source);
+
+        return [
+            'planning_assignment_id' => (int) $planning->id,
+            'source_assignment_id' => (int) $source->id,
+            'source_assignment_no' => $source->assignment_no,
+            'source_employee' => $source->employee ? [
+                'id' => $source->employee->id,
+                'name' => $source->employee->name,
+                'employee_no' => $source->employee->employee_no,
+            ] : null,
+            'source_vessel' => $source->vessel ? [
+                'id' => $source->vessel->id,
+                'name' => $source->vessel->name,
+            ] : null,
+            'source_rank' => $source->rank ? [
+                'id' => $source->rank->id,
+                'name' => $source->rank->name,
+            ] : null,
+            'source_planned_signoff_at' => $source->planned_signoff_at
+                ?->copy()
+                ->timezone($timezone)
+                ->toDateString(),
+        ];
     }
 
     private static function latestOnVesselPhase(CrewAssignment $assignment): ?CrewAssignmentPhase

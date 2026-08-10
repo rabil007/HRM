@@ -113,8 +113,10 @@ test('generate crew payroll does not multiply read queries per employee', functi
         ->and(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(12)
         ->and($queryCount)->toBeLessThan(80);
 
+    // Allocation release checks, currency snapshot, and contract resolution add a small
+    // fixed SELECT overhead beyond the pre-allocation generate path.
     $selectQueries = $queries->filter(fn (array $query): bool => str_starts_with(strtolower(trim($query['query'])), 'select'));
-    expect($selectQueries->count())->toBeLessThan(40);
+    expect($selectQueries->count())->toBeLessThan(50);
 });
 
 test('generation preview public payload omits employee id arrays', function () {

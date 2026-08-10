@@ -24,6 +24,10 @@ class UpdateVesselRequest extends FormRequest
             'vessel_type_id' => ['required', 'integer', Rule::exists('vessel_types', 'id')],
             'grt' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'bhp' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
+            'official_no' => ['nullable', 'string', 'max:100'],
+            'call_sign' => ['nullable', 'string', 'max:100'],
+            'imo_no' => ['nullable', 'string', 'max:100'],
+            'certificate' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'is_active' => ['nullable', 'boolean'],
         ];
     }

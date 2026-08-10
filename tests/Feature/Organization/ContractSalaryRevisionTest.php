@@ -20,7 +20,7 @@ test('creating a contract with salary creates version 1 revision', function () {
         'contracts.view',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create([
         'status' => 'active',
     ]);
 
@@ -56,7 +56,7 @@ test('storing a salary revision for the current month updates contract component
         'contracts.view',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
     $contract = app(UpsertEmployeeContract::class)->handle(
         $company->id,
         $employee,
@@ -113,7 +113,7 @@ test('storing a future-month salary revision does not update the contract yet', 
         'contracts.view',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
     $contract = app(UpsertEmployeeContract::class)->handle(
         $company->id,
         $employee,
@@ -160,7 +160,7 @@ test('mid-month effective_from is normalized to the first of the month', functio
     $this->actingAs($user);
     grantCompanyPermissions($user, $company, ['contracts.salary_revisions.update']);
 
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
     $contract = app(UpsertEmployeeContract::class)->handle(
         $company->id,
         $employee,
@@ -208,7 +208,7 @@ test('duplicate salary revision for the same month is rejected', function () {
     $this->actingAs($user);
     grantCompanyPermissions($user, $company, ['contracts.salary_revisions.create']);
 
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
     $contract = app(UpsertEmployeeContract::class)->handle(
         $company->id,
         $employee,
@@ -245,7 +245,7 @@ test('users without salary revision permission cannot store revisions', function
     $this->actingAs($user);
     grantCompanyPermissions($user, $company, ['contracts.view', 'contracts.update']);
 
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
     $contract = EmployeeContract::factory()->create([
         'employee_id' => $employee->id,
         'company_id' => $company->id,
@@ -280,7 +280,7 @@ test('authorized user can delete a salary revision when more than one exists', f
     $this->actingAs($user);
     grantCompanyPermissions($user, $company, ['contracts.salary_revisions.delete']);
 
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
     $contract = app(UpsertEmployeeContract::class)->handle(
         $company->id,
         $employee,
@@ -331,7 +331,7 @@ test('users without update permission cannot update revisions', function () {
         'contracts.salary_revisions.view',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
     $contract = app(UpsertEmployeeContract::class)->handle(
         $company->id,
         $employee,
@@ -375,7 +375,7 @@ test('users without delete permission cannot delete revisions', function () {
         'contracts.salary_revisions.view',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
     $contract = app(UpsertEmployeeContract::class)->handle(
         $company->id,
         $employee,
@@ -424,7 +424,7 @@ test('employee profile exposes salary revisions tab and revision data', function
         'contracts.salary_revisions.delete',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
     $contract = app(UpsertEmployeeContract::class)->handle(
         $company->id,
         $employee,

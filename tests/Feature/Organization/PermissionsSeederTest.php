@@ -35,9 +35,11 @@ test('permissions seeder creates expected permissions and is idempotent', functi
     expect(Permission::query()->where('name', 'company.document-settings.update')->exists())->toBeFalse();
     expect(Permission::query()->where('name', 'platform.settings.view')->exists())->toBeFalse();
     expect(Permission::query()->where('name', 'platform.settings.update')->exists())->toBeFalse();
+    expect(Permission::query()->where('name', 'crew_operations.rank_policies.view')->exists())->toBeFalse();
+    expect(Permission::query()->where('name', 'crew_operations.rank_policies.update')->exists())->toBeFalse();
 });
 
-test('roles page does not expose a platform permission group after seeding', function () {
+test('roles page does not expose a platform or rank policies permission group after seeding', function () {
     Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
 
     $user = User::factory()->create();
@@ -88,7 +90,9 @@ test('roles page does not expose a platform permission group after seeding', fun
                 return $names->contains('settings.application.view')
                     && $names->contains('settings.application.update')
                     && ! $names->contains('platform.settings.view')
-                    && ! $names->contains('platform.settings.update');
+                    && ! $names->contains('platform.settings.update')
+                    && ! $names->contains('crew_operations.rank_policies.view')
+                    && ! $names->contains('crew_operations.rank_policies.update');
             }),
         );
 });

@@ -152,48 +152,8 @@ export default function DocumentShow({
                     }
                 />
 
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-                    <div className="min-w-0 space-y-6">
-                        <Card className="border-border/80 dark:border-white/10">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-base">
-                                    Preview
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <DocumentPreviewPanel
-                                    document={{
-                                        title: doc.title,
-                                        document_type_label:
-                                            doc.document_type_label,
-                                        file_url: doc.file_url,
-                                        mime_type: doc.mime_type,
-                                        can_preview: doc.can_preview,
-                                    }}
-                                    className="h-[min(70vh,820px)] min-h-[420px]"
-                                />
-                            </CardContent>
-                        </Card>
-
-                        <Card className="border-border/80 dark:border-white/10">
-                            <CardHeader className="pb-3">
-                                <div className="flex items-center gap-2">
-                                    <History className="h-4 w-4 text-muted-foreground" />
-                                    <CardTitle className="text-base">
-                                        Version history
-                                    </CardTitle>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <DocumentVersionHistory
-                                    versions={doc.versions}
-                                    showDownload={can.download}
-                                />
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    <Card className="h-fit border-border/80 dark:border-white/10">
+                <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+                    <Card className="order-first h-fit border-border/80 xl:order-last dark:border-white/10">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-base">Details</CardTitle>
                         </CardHeader>
@@ -266,6 +226,46 @@ export default function DocumentShow({
                             ) : null}
                         </CardContent>
                     </Card>
+
+                    <div className="order-last min-w-0 space-y-4 sm:space-y-6 xl:order-first">
+                        <Card className="border-border/80 dark:border-white/10">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">
+                                    Preview
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <DocumentPreviewPanel
+                                    document={{
+                                        title: doc.title,
+                                        document_type_label:
+                                            doc.document_type_label,
+                                        file_url: doc.file_url,
+                                        mime_type: doc.mime_type,
+                                        can_preview: doc.can_preview,
+                                    }}
+                                    className="h-[min(60vh,820px)] min-h-[260px] sm:min-h-[420px]"
+                                />
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-border/80 dark:border-white/10">
+                            <CardHeader className="pb-3">
+                                <div className="flex items-center gap-2">
+                                    <History className="h-4 w-4 text-muted-foreground" />
+                                    <CardTitle className="text-base">
+                                        Version history
+                                    </CardTitle>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <DocumentVersionHistory
+                                    versions={doc.versions}
+                                    showDownload={can.download}
+                                />
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
 
                 {can_view_audit ? (

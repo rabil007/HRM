@@ -51,7 +51,7 @@ export function DocumentsIndexDocumentsTable({
 
     return (
         <div className="space-y-4">
-            <OrganizationDataTable minWidth="min-w-[1080px]" compact>
+            <OrganizationDataTable minWidth="min-w-[640px]" compact>
                 <TableHeader>
                     <DataTableHeaderRow>
                         {selectionMode ? (

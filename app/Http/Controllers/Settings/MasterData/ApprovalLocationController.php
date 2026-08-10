@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings\MasterData;
 
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreApprovalLocationRequest;
 use App\Http\Requests\Settings\MasterData\UpdateApprovalLocationRequest;
 use App\Models\ApprovalLocation;
@@ -13,16 +14,23 @@ use Inertia\Inertia;
 
 class ApprovalLocationController extends Controller
 {
+    use PaginatesMasterDataIndex;
     use ReturnsQuickCreateJson;
 
     public function index()
     {
-        $approvalLocations = ApprovalLocation::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'is_active']);
+        $page = $this->paginateMasterDataIndex(
+            request(),
+            ApprovalLocation::query()
+                ->orderBy('name')
+                ->select(['id', 'name', 'is_active']),
+            ['name'],
+        );
 
         return Inertia::render('settings/master-data/approval-locations', [
-            'approval_locations' => $approvalLocations,
+            'approval_locations' => $page['items'],
+            'pagination' => $page['pagination'],
+            'search' => $page['search'],
         ]);
     }
 

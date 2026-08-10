@@ -33,7 +33,7 @@ export function EmployeeFolderItem({
     return (
         <div
             className={cn(
-                'group relative flex min-h-[11.5rem] w-full flex-col items-center rounded-xl border border-transparent',
+                'group relative flex min-h-[9rem] w-full flex-col items-center rounded-xl border border-transparent sm:min-h-[11.5rem]',
                 'transition-[border-color,box-shadow,background-color] duration-150',
                 'hover:border-border hover:bg-muted/25 hover:shadow-sm dark:hover:border-white/10',
                 selected &&
@@ -59,20 +59,20 @@ export function EmployeeFolderItem({
                 })}
                 title={`${employee.employee_name} (${employee.employee_no})`}
                 className={cn(
-                    'flex h-full min-h-[11.5rem] w-full flex-col items-center justify-center gap-2 rounded-xl px-2 py-3 text-center sm:px-3 sm:py-4',
+                    'flex h-full min-h-[9rem] w-full flex-col items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-center sm:min-h-[11.5rem] sm:gap-2 sm:px-3 sm:py-4',
                     'cursor-pointer',
                     'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
                 )}
             >
                 <Folder
-                    className="h-16 w-16 shrink-0 text-amber-400/95 drop-shadow-sm transition-transform duration-150 group-hover:scale-[1.03] group-hover:text-amber-300 sm:h-[4.25rem] sm:w-[4.25rem]"
+                    className="h-12 w-12 shrink-0 text-amber-400/95 drop-shadow-sm transition-transform duration-150 group-hover:scale-[1.03] group-hover:text-amber-300 sm:h-16 sm:w-16"
                     strokeWidth={1.15}
                     fill="currentColor"
                     fillOpacity={0.2}
                     aria-hidden
                 />
                 <div className="flex w-full min-w-0 flex-col items-center gap-0.5">
-                    <span className="line-clamp-2 w-full text-sm leading-snug font-semibold text-foreground">
+                    <span className="line-clamp-2 w-full text-xs leading-snug font-semibold text-foreground sm:text-sm">
                         {employee.employee_name}
                     </span>
                     <span className="w-full truncate font-mono text-[11px] text-muted-foreground/75">

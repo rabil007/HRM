@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings\MasterData;
 
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreReligionRequest;
 use App\Http\Requests\Settings\MasterData\UpdateReligionRequest;
 use App\Models\Religion;
@@ -13,16 +14,23 @@ use Inertia\Inertia;
 
 class ReligionController extends Controller
 {
+    use PaginatesMasterDataIndex;
     use ReturnsQuickCreateJson;
 
     public function index()
     {
-        $religions = Religion::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'is_active']);
+        $page = $this->paginateMasterDataIndex(
+            request(),
+            Religion::query()
+                ->orderBy('name')
+                ->select(['id', 'name', 'is_active']),
+            ['name'],
+        );
 
         return Inertia::render('settings/master-data/religions', [
-            'religions' => $religions,
+            'religions' => $page['items'],
+            'pagination' => $page['pagination'],
+            'search' => $page['search'],
         ]);
     }
 

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useMasterDataCrud } from '@/hooks/use-master-data-crud';
+import type { PaginationMeta } from '@/types/pagination';
 
 type Country = {
     id: number;
@@ -33,12 +34,21 @@ const initialForm: CountryFormData = {
     is_active: true,
 };
 
-export default function Countries({ countries }: { countries: Country[] }) {
+export default function Countries({
+    countries,
+    pagination,
+    search = '',
+}: {
+    countries: Country[];
+    pagination: PaginationMeta;
+    search?: string;
+}) {
     const can = useSettingsMasterDataCan('countries');
 
     const {
-        query,
-        setQuery,
+        searchInput,
+        onSearchChange,
+        paginationProps,
         sheetOpen,
         setSheetOpen,
         deleteOpen,
@@ -56,10 +66,8 @@ export default function Countries({ countries }: { countries: Country[] }) {
         items: countries,
         baseUrl: '/settings/master-data/countries',
         initialForm,
-        filterItem: (country, q) =>
-            country.code.toLowerCase().includes(q) ||
-            country.name.toLowerCase().includes(q) ||
-            (country.dial_code ?? '').toLowerCase().includes(q),
+        search,
+        pagination,
         toFormData: (country) => ({
             code: country.code,
             name: country.name,
@@ -80,8 +88,10 @@ export default function Countries({ countries }: { countries: Country[] }) {
             title="Countries"
             description="Manage country codes used across the system."
             searchPlaceholder="Search by code, name, dial code..."
-            query={query}
-            onQueryChange={setQuery}
+            searchInput={searchInput}
+            onSearchChange={onSearchChange}
+            pagination={paginationProps}
+            paginationLabel="countries"
             canCreate={can.create}
             createButtonLabel="Add country"
             onCreate={openCreate}

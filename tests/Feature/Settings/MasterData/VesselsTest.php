@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests cannot access vessels page', function () {
     $this->get('/settings/master-data/vessels')->assertRedirect(route('login'));
@@ -252,4 +254,214 @@ test('deleting a vessel is blocked when referenced by crew assignment records', 
         ->delete("/settings/master-data/vessels/{$vessel->id}")
         ->assertRedirect(route('settings.master-data.vessels.index'))
         ->assertSessionHasErrors('name');
+});
+
+test('authorized users can store vessel identification and certificate', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'VCF',
+        'name' => 'Vessel Cert Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'VCF',
+        'name' => 'Vessel Cert Currency',
+        'symbol' => 'C$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Vessel Cert Co',
+        'slug' => 'vessel-cert-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $vesselType = VesselType::query()->create([
+        'name' => 'PSV',
+        'is_active' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.vessels.view',
+        'settings.master-data.vessels.create',
+        'settings.master-data.vessels.update',
+    ]);
+
+    $certificate = UploadedFile::fake()->create('vessel-cert.pdf', 120, 'application/pdf');
+
+    $this->post('/settings/master-data/vessels', [
+        'name' => 'MV Certificate',
+        'vessel_type_id' => $vesselType->id,
+        'grt' => 3200,
+        'bhp' => 8000,
+        'official_no' => 'OFF-1001',
+        'call_sign' => 'A6XYZ',
+        'imo_no' => '9123456',
+        'certificate' => $certificate,
+        'is_active' => true,
+    ])->assertRedirect(route('settings.master-data.vessels.index'));
+
+    $vessel = Vessel::query()->where('name', 'MV Certificate')->first();
+    expect($vessel)->not->toBeNull()
+        ->and($vessel->official_no)->toBe('OFF-1001')
+        ->and($vessel->call_sign)->toBe('A6XYZ')
+        ->and($vessel->imo_no)->toBe('9123456')
+        ->and($vessel->certificate_path)->not->toBeNull()
+        ->and($vessel->certificate_original_filename)->toBe('vessel-cert.pdf')
+        ->and($vessel->certificate_mime_type)->not->toBeNull()
+        ->and($vessel->certificate_checksum)->not->toBe('');
+
+    Storage::disk('public')->assertExists($vessel->certificate_path);
+
+    $this->get('/settings/master-data/vessels')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/vessels')
+            ->has('vessels', 1)
+            ->has('pagination')
+            ->where('pagination.total', 1)
+            ->where('search', '')
+            ->where('vessels.0.official_no', 'OFF-1001')
+            ->where('vessels.0.call_sign', 'A6XYZ')
+            ->where('vessels.0.imo_no', '9123456')
+            ->where('vessels.0.certificate_original_filename', 'vessel-cert.pdf')
+            ->whereNot('vessels.0.certificate_url', null)
+        );
+
+    $previousPath = $vessel->certificate_path;
+
+    $this->put("/settings/master-data/vessels/{$vessel->id}", [
+        'name' => 'MV Certificate',
+        'vessel_type_id' => $vesselType->id,
+        'grt' => 3200,
+        'bhp' => 8000,
+        'official_no' => 'OFF-1001',
+        'call_sign' => 'A6XYZ',
+        'imo_no' => '9123456',
+        'is_active' => true,
+    ])->assertRedirect(route('settings.master-data.vessels.index'));
+
+    $vessel->refresh();
+    expect($vessel->certificate_path)->toBe($previousPath);
+
+    $replacement = UploadedFile::fake()->create('vessel-cert-v2.pdf', 140, 'application/pdf');
+
+    $this->put("/settings/master-data/vessels/{$vessel->id}", [
+        'name' => 'MV Certificate',
+        'vessel_type_id' => $vesselType->id,
+        'grt' => 3200,
+        'bhp' => 8000,
+        'official_no' => 'OFF-2002',
+        'call_sign' => 'A6ABC',
+        'imo_no' => '9654321',
+        'certificate' => $replacement,
+        'is_active' => true,
+    ])->assertRedirect(route('settings.master-data.vessels.index'));
+
+    $vessel->refresh();
+    expect($vessel->official_no)->toBe('OFF-2002')
+        ->and($vessel->call_sign)->toBe('A6ABC')
+        ->and($vessel->imo_no)->toBe('9654321')
+        ->and($vessel->certificate_original_filename)->toBe('vessel-cert-v2.pdf')
+        ->and($vessel->certificate_path)->not->toBe($previousPath);
+
+    Storage::disk('public')->assertExists($vessel->certificate_path);
+    Storage::disk('public')->assertMissing($previousPath);
+});
+
+test('authorized users can view vessel details page', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'VSH',
+        'name' => 'Vessel Show Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'VSH',
+        'name' => 'Vessel Show Currency',
+        'symbol' => 'S$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Vessel Show Co',
+        'slug' => 'vessel-show-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $vesselType = VesselType::query()->create([
+        'name' => 'AHTS Show',
+        'is_active' => true,
+    ]);
+
+    $vessel = Vessel::query()->create([
+        'name' => 'MV Detail',
+        'vessel_type_id' => $vesselType->id,
+        'grt' => 1200,
+        'bhp' => 5000,
+        'official_no' => 'OFF-SHOW',
+        'call_sign' => 'A6SHOW',
+        'imo_no' => '9000001',
+        'is_active' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.vessels.view',
+        'settings.master-data.vessels.update',
+        'audit.view',
+    ]);
+
+    $this->get("/settings/master-data/vessels/{$vessel->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/vessel')
+            ->where('vessel.id', $vessel->id)
+            ->where('vessel.name', 'MV Detail')
+            ->where('vessel.official_no', 'OFF-SHOW')
+            ->where('vessel.call_sign', 'A6SHOW')
+            ->where('vessel.imo_no', '9000001')
+            ->where('summary.manning_ranks', 0)
+            ->where('summary.sea_services', 0)
+            ->where('summary.active_crew', 0)
+            ->where('can.update', true)
+            ->where('can_view_audit', true)
+            ->has('recent_activity')
+            ->has('vessel_types')
+        );
+});
+
+test('guests cannot view vessel details page', function () {
+    $vesselType = VesselType::query()->create([
+        'name' => 'Guest Type',
+        'is_active' => true,
+    ]);
+
+    $vessel = Vessel::query()->create([
+        'name' => 'Guest Vessel',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    $this->get("/settings/master-data/vessels/{$vessel->id}")
+        ->assertRedirect(route('login'));
 });

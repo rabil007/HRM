@@ -123,6 +123,17 @@ class EmployeeFactory extends Factory
         });
     }
 
+    /**
+     * Remove the factory's default active contract so tests can control
+     * contract timelines without tripping overlap validation.
+     */
+    public function withoutDefaultContract(): static
+    {
+        return $this->afterCreating(function (Employee $employee): void {
+            EmployeeContract::query()->where('employee_id', $employee->id)->delete();
+        });
+    }
+
     public function forCompany(Company $company): static
     {
         return $this->state([

@@ -1,0 +1,33 @@
+---
+description: Protect the Herd app database from destructive Artisan and ad-hoc scripts
+alwaysApply: true
+---
+
+# Database safety (Herd app DB)
+
+Pest already uses an isolated in-memory SQLite database via `phpunit.xml` (`DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:`). That does **not** protect the Laravel Herd MySQL/MariaDB database used by the running app (`.env` `DB_DATABASE`, typically `oms_hrm`).
+
+## Never run against the app database
+
+Unless the user **explicitly** requests it in the current message, do **not** run:
+
+- `php artisan migrate:fresh`
+- `php artisan migrate:refresh`
+- `php artisan db:wipe`
+- `php artisan schema:drop*`
+- Any equivalent `Artisan::call(...)` / tinker / one-off PHP script that drops or recreates schema on the default connection
+- Truncating or deleting all rows from production-like local tables to “reset” fixtures
+
+## Safe defaults
+
+- Use **Pest** + `RefreshDatabase` (or existing test DB) for fixtures, query-count measurement, and experiments.
+- Prefer `php artisan test --compact path/to/Test.php` with a temporary `dump()` inside a test if you need runtime numbers; remove the dump before committing.
+- Inspect schema with Boost `database-schema`, `php artisan db:show`, or read-only queries — not by wiping.
+- Use `php artisan migrate` only when applying new migrations the user asked for; never pair it with fresh/wipe unless requested.
+
+## If fixtures are needed outside Pest
+
+Do not invent a parallel bootstrap that calls `migrate:fresh`. Either:
+
+1. Add or extend a Pest test, or
+2. Ask the user before any destructive DB command on the Herd connection.

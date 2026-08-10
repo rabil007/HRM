@@ -169,6 +169,7 @@ test('plan signoff updates existing planning row leave date', function () {
 
     $service->perform($company->id, $assignment->id, CrewMovementAction::PlanSignoff, [
         'planned_signoff_at' => '2026-06-15 00:00:00',
+        'planned_signoff_override_reason' => 'Operational crew change plan updated',
     ], $user->id);
 
     $planning = CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->first();
@@ -189,7 +190,9 @@ test('confirm disembarkation replaces leave date and syncs sea service atomicall
         'occurred_at' => '2026-01-10 12:00:00',
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
+        'planned_signoff_choice' => 'manual_override',
         'planned_signoff_at' => '2026-06-15 00:00:00',
+        'planned_signoff_override_reason' => 'Operational crew change plan updated',
     ], $user->id);
 
     $service->perform($company->id, $assignment->id, CrewMovementAction::ConfirmDisembarkation, [

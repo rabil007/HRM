@@ -1,6 +1,5 @@
 import type { ReactElement } from 'react';
 import InputError from '@/components/input-error';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -10,8 +9,14 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    findRankTourOption,
+    hasManualOverrideInput,
+    nextSignoffChoiceForRankChange,
+} from '@/features/organization/crew/lib/tour-signoff';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
+import { TourSignoffFields } from './tour-signoff-fields';
 
 export function TransferVesselForm({
     form,
@@ -21,10 +26,25 @@ export function TransferVesselForm({
     firstFieldRef,
 }: MovementActionFormProps): ReactElement {
     const transferDate = form.data.occurred_at.slice(0, 10);
-    const signoffBeforeTransfer =
-        form.data.planned_signoff_at &&
-        transferDate &&
-        form.data.planned_signoff_at < transferDate;
+    const selectedRank = findRankTourOption(
+        formOptions?.ranks,
+        form.data.rank_id,
+    );
+
+    const setDestinationRank = (rankId: number | null): void => {
+        const nextRank = findRankTourOption(formOptions?.ranks, rankId);
+        const planned_signoff_choice = nextSignoffChoiceForRankChange({
+            previousChoice: form.data.planned_signoff_choice,
+            nextRank,
+            hasManualOverrideInput: hasManualOverrideInput(form.data),
+        });
+
+        form.setData({
+            ...form.data,
+            rank_id: rankId,
+            planned_signoff_choice,
+        });
+    };
 
     return (
         <div className="space-y-4">
@@ -109,8 +129,7 @@ export function TransferVesselForm({
                             <Select
                                 value={form.data.rank_id?.toString() ?? ''}
                                 onValueChange={(value) =>
-                                    form.setData(
-                                        'rank_id',
+                                    setDestinationRank(
                                         value ? Number(value) : null,
                                     )
                                 }
@@ -201,26 +220,14 @@ export function TransferVesselForm({
                 </>
             ) : null}
 
-            <div className="space-y-2">
-                <Label htmlFor="transfer-planned-signoff">
-                    Planned Sign-Off (optional)
-                </Label>
-                <Input
-                    id="transfer-planned-signoff"
-                    type="date"
-                    value={form.data.planned_signoff_at}
-                    min={transferDate || undefined}
-                    onChange={(event) =>
-                        form.setData('planned_signoff_at', event.target.value)
-                    }
-                />
-                {signoffBeforeTransfer ? (
-                    <p className="text-sm text-destructive">
-                        The planned sign-off cannot be before the transfer date.
-                    </p>
-                ) : null}
-                <InputError message={form.errors.planned_signoff_at} />
-            </div>
+            <TourSignoffFields
+                form={form}
+                selectedRank={selectedRank}
+                occurredDate={transferDate}
+                allowExistingPlan={false}
+                idPrefix="transfer"
+                tourContextLabel="the destination rank"
+            />
 
             <div className="space-y-2">
                 <Label htmlFor="transfer-remarks">Remarks (optional)</Label>

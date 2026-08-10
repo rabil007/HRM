@@ -13,17 +13,22 @@ use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
+use App\Support\Payroll\AssertCrewPayrollCalculationFreshness;
 use App\Support\Payroll\BuildCrewPayrollGenerationPreview;
+use App\Support\Payroll\BuildDailyCrewPayrollAllocationPlan;
 use App\Support\Payroll\CrewMonthlyPayrollCalculator;
 use App\Support\Payroll\CrewOvertimeMonthlySalary;
 use App\Support\Payroll\CrewPayrollCalculator;
 use App\Support\Payroll\GeneratePayrollResult;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\PayrollGenerationError;
+use App\Support\Payroll\PersistPayrollWorkAllocations;
 use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
 use App\Support\Payroll\ResolveEffectiveContractSalaryComponents;
 use App\Support\Payroll\ResolvePayrollRecordSnapshot;
+use App\Support\Settings\CompanyCurrency;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 final class GenerateCrewPayroll
@@ -35,6 +40,9 @@ final class GenerateCrewPayroll
         private readonly ResolveEffectiveContractSalaryComponents $resolveEffectiveComponents,
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
         private readonly BuildCrewPayrollGenerationPreview $buildPreview,
+        private readonly BuildDailyCrewPayrollAllocationPlan $buildAllocationPlan,
+        private readonly PersistPayrollWorkAllocations $persistAllocations,
+        private readonly AssertCrewPayrollCalculationFreshness $calculationFreshness,
     ) {}
 
     public function handle(PayrollPeriod $period, array $excludedEmployeeIds = []): GeneratePayrollResult
@@ -162,6 +170,8 @@ final class GenerateCrewPayroll
                 ['salaryComponents', 'salaryRevisions.lines'],
             );
 
+            $currencyCode = CompanyCurrency::codeForCompany((int) $lockedPeriod->company_id);
+
             foreach ($employees as $employee) {
                 /** @var Employee $employee */
                 $contract = $resolvedContracts->get((int) $employee->id);
@@ -193,17 +203,39 @@ final class GenerateCrewPayroll
                     }
                 }
 
+                $existing = $existingRecords->get((int) $employee->id);
+                $ignorePayrollRecordId = ($existing !== null && ! $existing->trashed())
+                    ? (int) $existing->id
+                    : null;
+
+                $allocationPlan = null;
+
                 try {
-                    $recordAttributes = $salaryStructure === ContractSalaryStructure::Monthly
-                        ? $this->buildMonthlyRecordAttributes($employee, $contract, $timesheet, $workingDaysInPeriod, $lockedPeriod)
-                        : $this->buildDailyRecordAttributes($employee, $contract, $timesheet, $workingDaysInPeriod, $lockedPeriod);
+                    if ($salaryStructure === ContractSalaryStructure::Monthly) {
+                        $recordAttributes = $this->buildMonthlyRecordAttributes(
+                            $employee,
+                            $contract,
+                            $timesheet,
+                            $workingDaysInPeriod,
+                            $lockedPeriod,
+                            $currencyCode,
+                        );
+                    } else {
+                        [$recordAttributes, $allocationPlan] = $this->buildDailyRecordAttributes(
+                            $employee,
+                            $contract,
+                            $timesheet,
+                            $workingDaysInPeriod,
+                            $lockedPeriod,
+                            $ignorePayrollRecordId,
+                            $currencyCode,
+                        );
+                    }
                 } catch (ValidationException $exception) {
                     $errors[] = PayrollGenerationError::fromValidationException($employee, $exception);
 
                     continue;
                 }
-
-                $existing = $existingRecords->get((int) $employee->id);
 
                 if ($existing !== null) {
                     if ($existing->trashed()) {
@@ -212,13 +244,41 @@ final class GenerateCrewPayroll
 
                     $existing->fill($recordAttributes);
                     $existing->save();
+                    $record = $existing;
                 } else {
-                    PayrollRecord::query()->create([
+                    $record = PayrollRecord::query()->create([
                         'company_id' => $lockedPeriod->company_id,
                         'employee_id' => $employee->id,
                         'period_id' => $lockedPeriod->id,
                         ...$recordAttributes,
                     ]);
+                }
+
+                if ($allocationPlan !== null) {
+                    // Uniqueness conflicts surface as ValidationException from Persist
+                    // and abort the outer transaction so no partial record remains.
+                    $this->persistAllocations->replaceForRecord(
+                        $lockedPeriod,
+                        $record,
+                        $allocationPlan['days'],
+                        $timesheet->id ? (int) $timesheet->id : null,
+                    );
+
+                    if ((int) ($allocationPlan['payable_prior_days'] ?? 0) > 0) {
+                        activity()
+                            ->performedOn($record)
+                            ->withProperties([
+                                'event' => 'crew_payroll_prior_period_arrears_included',
+                                'company_id' => (int) $lockedPeriod->company_id,
+                                'payroll_period_id' => (int) $lockedPeriod->id,
+                                'payroll_record_id' => (int) $record->id,
+                                'employee_id' => (int) $employee->id,
+                                'requested_prior_days' => (int) ($allocationPlan['requested_prior_days'] ?? 0),
+                                'payable_prior_days' => (int) $allocationPlan['payable_prior_days'],
+                                'excluded_already_paid_count' => count($allocationPlan['excluded_already_paid'] ?? []),
+                            ])
+                            ->log('Prior-period arrears included in crew payroll');
+                    }
                 }
 
                 $generatedCount++;
@@ -286,8 +346,9 @@ final class GenerateCrewPayroll
     }
 
     /**
-     * Soft-delete draft payroll rows for skipped employees. Never touches
-     * approved/paid records or finalized periods.
+     * Soft-delete draft payroll rows for skipped/excluded employees.
+     * Releases reserved allocation locks first so work dates become available again.
+     * Never touches approved/paid records or finalized periods.
      *
      * @param  list<int>  $employeeIds
      */
@@ -296,6 +357,9 @@ final class GenerateCrewPayroll
         if ($employeeIds === [] || ! $period->canGenerateCrewPayroll()) {
             return;
         }
+
+        // Excluded and not-ready employees must release reserved date locks before soft-delete.
+        $this->persistAllocations->releaseReservedForEmployees($period, $employeeIds);
 
         PayrollRecord::query()
             ->where('company_id', $period->company_id)
@@ -322,7 +386,7 @@ final class GenerateCrewPayroll
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
      */
     private function buildDailyRecordAttributes(
         Employee $employee,
@@ -330,13 +394,38 @@ final class GenerateCrewPayroll
         CrewTimesheet $timesheet,
         int $workingDaysInPeriod,
         PayrollPeriod $period,
+        ?int $ignorePayrollRecordId = null,
+        ?string $currencyCode = null,
     ): array {
-        $calculated = $this->calculator->calculate(
-            $timesheet,
-            $this->resolveEffectiveComponents->handle($contract, $period->start_date),
-            CrewOvertimeMonthlySalary::STANDARD_PERIOD_DAYS,
-            $workingDaysInPeriod,
-        );
+        $timesheet->loadMissing(['segments']);
+
+        $components = $this->resolveEffectiveComponents->handle($contract, $period->start_date);
+        $hasMovementLines = $timesheet->segments->isNotEmpty();
+
+        $allocationPlan = null;
+
+        if ($hasMovementLines) {
+            $allocationPlan = $this->buildAllocationPlan->handleOrFail(
+                $period,
+                $timesheet,
+                $ignorePayrollRecordId,
+            );
+
+            $calculated = $this->calculator->calculate(
+                $timesheet,
+                $components,
+                CrewOvertimeMonthlySalary::STANDARD_PERIOD_DAYS,
+                $workingDaysInPeriod,
+                $allocationPlan,
+            );
+        } else {
+            $calculated = $this->calculator->calculate(
+                $timesheet,
+                $components,
+                CrewOvertimeMonthlySalary::STANDARD_PERIOD_DAYS,
+                $workingDaysInPeriod,
+            );
+        }
 
         $breakdown = $calculated['calculation_breakdown'];
         $breakdown['base'] = [
@@ -345,8 +434,18 @@ final class GenerateCrewPayroll
             'bonus' => (float) $calculated['bonus'],
             'other_deductions' => (float) $calculated['other_deductions'],
         ];
+        $breakdown['currency_code'] = $currencyCode ?? CompanyCurrency::codeForCompany((int) $period->company_id);
 
-        return [
+        if ($allocationPlan !== null) {
+            $timesheet->loadMissing(['segments']);
+            $breakdown['source_fingerprint'] = $this->calculationFreshness->fingerprint(
+                $timesheet,
+                $timesheet->segments,
+                $allocationPlan['days'] ?? [],
+            );
+        }
+
+        $attributes = [
             ...ResolvePayrollRecordSnapshot::from($employee, $contract),
             'payroll_category' => PayrollCategory::Crew,
             'salary_payment_method' => $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer,
@@ -371,6 +470,15 @@ final class GenerateCrewPayroll
             'calculation_breakdown' => $breakdown,
             'status' => 'draft',
         ];
+
+        static $hasCurrencyColumn = null;
+        $hasCurrencyColumn ??= Schema::hasColumn('payroll_records', 'currency_code');
+
+        if ($hasCurrencyColumn) {
+            $attributes['currency_code'] = $breakdown['currency_code'];
+        }
+
+        return [$attributes, $allocationPlan];
     }
 
     /**
@@ -382,6 +490,7 @@ final class GenerateCrewPayroll
         CrewTimesheet $timesheet,
         int $workingDaysInPeriod,
         PayrollPeriod $period,
+        ?string $currencyCode = null,
     ): array {
         $calculated = $this->monthlyCalculator->calculate(
             $timesheet,
@@ -401,8 +510,9 @@ final class GenerateCrewPayroll
             'unpaid_leave_deduction' => (float) $calculated['unpaid_leave_deduction'],
             'other_deductions' => (float) $calculated['other_deductions'],
         ];
+        $breakdown['currency_code'] = $currencyCode ?? CompanyCurrency::codeForCompany((int) $period->company_id);
 
-        return [
+        $attributes = [
             ...ResolvePayrollRecordSnapshot::from($employee, $contract),
             'payroll_category' => PayrollCategory::Crew,
             'salary_payment_method' => $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer,
@@ -427,5 +537,14 @@ final class GenerateCrewPayroll
             'calculation_breakdown' => $breakdown,
             'status' => 'draft',
         ];
+
+        static $hasCurrencyColumn = null;
+        $hasCurrencyColumn ??= Schema::hasColumn('payroll_records', 'currency_code');
+
+        if ($hasCurrencyColumn) {
+            $attributes['currency_code'] = $breakdown['currency_code'];
+        }
+
+        return $attributes;
     }
 }

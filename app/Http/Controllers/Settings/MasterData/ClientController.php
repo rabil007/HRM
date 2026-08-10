@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings\MasterData;
 
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\ImportClientsRequest;
 use App\Http\Requests\Settings\MasterData\StoreClientRequest;
 use App\Http\Requests\Settings\MasterData\UpdateClientRequest;
@@ -16,16 +17,23 @@ use Inertia\Response as InertiaResponse;
 
 class ClientController extends Controller
 {
+    use PaginatesMasterDataIndex;
     use ReturnsQuickCreateJson;
 
     public function index(): InertiaResponse
     {
-        $clients = Client::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'is_active']);
+        $page = $this->paginateMasterDataIndex(
+            request(),
+            Client::query()
+                ->orderBy('name')
+                ->select(['id', 'name', 'is_active']),
+            ['name'],
+        );
 
         return Inertia::render('settings/master-data/clients', [
-            'clients' => $clients,
+            'clients' => $page['items'],
+            'pagination' => $page['pagination'],
+            'search' => $page['search'],
         ]);
     }
 

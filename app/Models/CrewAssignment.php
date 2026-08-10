@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementCorrectionStatus;
+use App\Enums\CrewPlannedSignoffSource;
 use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\CrewAssignmentFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -38,6 +39,9 @@ class CrewAssignment extends Model
         'current_phase_id',
         'planned_join_at',
         'planned_signoff_at',
+        'tour_of_duty_days',
+        'planned_signoff_source',
+        'planned_signoff_override_reason',
         'planned_travel_at',
         'started_at',
         'closed_at',
@@ -46,6 +50,9 @@ class CrewAssignment extends Model
         'remarks',
         'created_by',
         'updated_by',
+        'voided_at',
+        'voided_by',
+        'void_reason',
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -61,12 +68,18 @@ class CrewAssignment extends Model
                 'current_phase_id',
                 'planned_join_at',
                 'planned_signoff_at',
+                'tour_of_duty_days',
+                'planned_signoff_source',
+                'planned_signoff_override_reason',
                 'planned_travel_at',
                 'started_at',
                 'closed_at',
                 'previous_assignment_id',
                 'source',
                 'remarks',
+                'voided_at',
+                'voided_by',
+                'void_reason',
             ])
             ->logOnlyDirty();
     }
@@ -87,12 +100,16 @@ class CrewAssignment extends Model
             'previous_assignment_id' => 'integer',
             'created_by' => 'integer',
             'updated_by' => 'integer',
+            'voided_by' => 'integer',
             'status' => CrewAssignmentStatus::class,
             'planned_join_at' => 'datetime',
             'planned_signoff_at' => 'datetime',
+            'tour_of_duty_days' => 'integer',
+            'planned_signoff_source' => CrewPlannedSignoffSource::class,
             'planned_travel_at' => 'datetime',
             'started_at' => 'datetime',
             'closed_at' => 'datetime',
+            'voided_at' => 'datetime',
         ];
     }
 
@@ -158,6 +175,16 @@ class CrewAssignment extends Model
     }
 
     /**
+     * Planning rows that relieve this onboard assignment.
+     *
+     * @return HasMany<CrewPlanningAssignment, $this>
+     */
+    public function reliefPlanningAssignments(): HasMany
+    {
+        return $this->hasMany(CrewPlanningAssignment::class, 'relieves_crew_assignment_id');
+    }
+
+    /**
      * @return HasMany<CrewMovementCorrection, $this>
      */
     public function corrections(): HasMany
@@ -190,6 +217,16 @@ class CrewAssignment extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function voidedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'voided_by');
+    }
+
+    public function isVoided(): bool
+    {
+        return $this->voided_at !== null || $this->trashed();
     }
 
     /**

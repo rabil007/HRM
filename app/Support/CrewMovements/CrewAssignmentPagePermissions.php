@@ -13,6 +13,7 @@ class CrewAssignmentPagePermissions
      *     update: bool,
      *     perform_movement: bool,
      *     cancel: bool,
+     *     void: bool,
      *     view_audit: bool
      * }
      */
@@ -24,6 +25,7 @@ class CrewAssignmentPagePermissions
             'update' => $user?->can('crew_operations.assignments.update') ?? false,
             'perform_movement' => $user?->can('crew_operations.movements.perform') ?? false,
             'cancel' => $user?->can('crew_operations.assignments.cancel') ?? false,
+            'void' => $user?->can('crew_operations.assignments.void') ?? false,
             'view_audit' => $user?->can('audit.view') ?? false,
             'request_correction' => $user?->can('crew_operations.corrections.request') ?? false,
             'view_corrections' => $user?->can('crew_operations.corrections.view') ?? false,

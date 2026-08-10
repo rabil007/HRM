@@ -8,6 +8,8 @@ import type {
     GanttBar,
     GanttVesselGroup,
     PlanningPagePermissions,
+    PlanningProjection,
+    PlanningProjectionPeriod,
 } from '../types';
 import { PlanningGanttRow, RANK_LABEL_WIDTH } from './planning-gantt-row';
 
@@ -20,11 +22,18 @@ type Props = {
     search: string;
     highlightedRowKey: string | null;
     can: PlanningPagePermissions;
+    projection?: PlanningProjection | null;
+    showCoverage?: boolean;
     onRowClick?: (
         rowKey: string,
         vesselId: number,
         rankId: number,
         estimatedDate: string,
+    ) => void;
+    onGapClick?: (
+        vesselId: number,
+        rankId: number,
+        period: PlanningProjectionPeriod,
     ) => void;
     onEditBar?: (bar: GanttBar) => void;
     onDeleteBar?: (bar: GanttBar) => void;
@@ -91,7 +100,10 @@ export function PlanningGantt({
     search,
     highlightedRowKey,
     can,
+    projection = null,
+    showCoverage = false,
     onRowClick,
+    onGapClick,
     onEditBar,
     onDeleteBar,
 }: Props): ReactElement {
@@ -114,12 +126,18 @@ export function PlanningGantt({
         barsByRow.set(bar.row_key, existing);
     }
 
+    const projectionByRow = new Map(
+        (projection?.rows ?? []).map((row) => [row.row_key, row]),
+    );
+
     const lowerSearch = search.toLowerCase();
 
     if (rows.length === 0) {
         return (
             <div className="flex flex-1 items-center justify-center py-24 text-sm text-muted-foreground">
-                No planned assignments in this date range.
+                {showCoverage
+                    ? 'No vessels or ranks to display for this range.'
+                    : 'No planned assignments in this date range.'}
             </div>
         );
     }
@@ -255,6 +273,7 @@ export function PlanningGantt({
                                     rankName={rank.rank_name}
                                     vesselId={vessel.vessel_id}
                                     rankId={rank.rank_id}
+                                    requiredCount={rank.required_count}
                                     bars={rowBars}
                                     rangeFrom={rangeFrom}
                                     rangeTo={rangeTo}
@@ -265,7 +284,13 @@ export function PlanningGantt({
                                     }
                                     timelineMinWidth={timelineMinWidth}
                                     can={can}
+                                    projection={
+                                        projectionByRow.get(rank.row_key) ??
+                                        null
+                                    }
+                                    showCoverage={showCoverage}
                                     onRowClick={onRowClick}
+                                    onGapClick={onGapClick}
                                     onEditBar={onEditBar}
                                     onDeleteBar={onDeleteBar}
                                 />

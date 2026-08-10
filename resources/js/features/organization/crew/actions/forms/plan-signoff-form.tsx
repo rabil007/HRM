@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { formatDisplayDate } from '@/lib/format-date';
 import { formatDaysOnboard } from '../../format-days-in-phase';
 import type { MovementActionFormProps } from './movement-form-shared';
@@ -83,6 +84,29 @@ export function PlanSignoffForm({
                     </p>
                 ) : null}
                 <InputError message={form.errors.planned_signoff_at} />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="movement-plan-signoff-reason">
+                    Override reason{' '}
+                    <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                    id="movement-plan-signoff-reason"
+                    value={form.data.planned_signoff_override_reason}
+                    onChange={(event) =>
+                        form.setData(
+                            'planned_signoff_override_reason',
+                            event.target.value,
+                        )
+                    }
+                    rows={2}
+                    required
+                    aria-required="true"
+                />
+                <InputError
+                    message={form.errors.planned_signoff_override_reason}
+                />
             </div>
         </div>
     );

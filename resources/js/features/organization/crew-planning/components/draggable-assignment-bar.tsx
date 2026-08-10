@@ -77,10 +77,10 @@ export function DraggableAssignmentBar({
         e.preventDefault();
         e.stopPropagation();
 
-        const rowEl = containerRef.current?.closest(
-            '[data-row-key]',
+        const timelineEl = containerRef.current?.closest(
+            '[data-timeline-container]',
         ) as HTMLDivElement | null;
-        const containerWidth = rowEl?.clientWidth ?? window.innerWidth;
+        const containerWidth = timelineEl?.clientWidth ?? window.innerWidth;
 
         dragRef.current = {
             mode,
@@ -146,9 +146,17 @@ export function DraggableAssignmentBar({
             optimisticStartRef.current = newStart;
             optimisticEndRef.current = newEnd;
             setLiveDates({ start: newStart, end: newEnd });
-            setLiveStyle(
-                barPositionStyle(newStart, newEnd, rangeFrom, rangeTo),
-            );
+            setLiveStyle({
+                ...barPositionStyle(
+                    newStart,
+                    newEnd,
+                    rangeFrom,
+                    rangeTo,
+                    bar.is_open_ended,
+                ),
+                top: style.top,
+                height: style.height,
+            });
         };
 
         const onUp = (): void => {
@@ -213,10 +221,14 @@ export function DraggableAssignmentBar({
             <PopoverTrigger asChild>
                 <div
                     ref={containerRef}
+                    data-planning-bar={bar.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${bar.employee_name}${bar.rank_name ? `, ${bar.rank_name}` : ''}`}
                     className={cn(
-                        'absolute top-1.5 bottom-1.5 rounded-md',
+                        'absolute overflow-hidden rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                         surfaceClass,
-                        'group/bar flex items-stretch overflow-hidden',
+                        'group/bar flex items-stretch',
                         isDragging && 'scale-[1.01] opacity-80 shadow-lg',
                         highlighted && 'ring-2 ring-amber-400 ring-offset-1',
                     )}

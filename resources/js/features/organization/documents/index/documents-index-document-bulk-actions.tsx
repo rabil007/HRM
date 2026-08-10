@@ -111,9 +111,8 @@ export function DocumentsIndexDocumentBulkActions({
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [shareLinksModalOpen, setShareLinksModalOpen] = useState(false);
-    const [actionEmployee, setActionEmployee] = useState<EmployeeSummary | null>(
-        null,
-    );
+    const [actionEmployee, setActionEmployee] =
+        useState<EmployeeSummary | null>(null);
     const [whatsappTemplateDocument, setWhatsappTemplateDocument] = useState<{
         id: number;
         name: string;

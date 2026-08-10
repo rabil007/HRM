@@ -89,3 +89,4 @@ After PHP changes: `vendor/bin/pint --dirty --format agent`
 - Deleting tests without approval.
 - Testing implementation details over HTTP/Inertia behavior.
 - Skipping `grantCompanyPermissions()` in org-scoped feature tests.
+- Using `migrate:fresh` / `db:wipe` / tinker on the Herd app DB to create fixtures or measure queries — Pest already isolates via sqlite `:memory:` in `phpunit.xml`. See `.cursor/rules/database-safety.mdc`.

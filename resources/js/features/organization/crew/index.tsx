@@ -53,6 +53,13 @@ function normalizeFilters(
         planned_signoff_to: String(filters.planned_signoff_to ?? ''),
         movement_attention: Boolean(filters.movement_attention),
         include_completed: Boolean(filters.include_completed),
+        tour_status: String(filters.tour_status ?? ''),
+        relief_status: String(filters.relief_status ?? ''),
+        relief_risk: String(filters.relief_risk ?? ''),
+        relief_not_ready: Boolean(filters.relief_not_ready),
+        signoff_within_14_no_relief: Boolean(
+            filters.signoff_within_14_no_relief,
+        ),
     };
 }
 
@@ -126,6 +133,11 @@ export function CurrentCrewContent({
         filters.planned_signoff_to,
         filters.movement_attention ? '1' : '',
         filters.include_completed ? '1' : '',
+        filters.tour_status,
+        filters.relief_status,
+        filters.relief_risk,
+        filters.relief_not_ready ? '1' : '',
+        filters.signoff_within_14_no_relief ? '1' : '',
     ].filter(Boolean).length;
 
     const hasActiveQuery =
@@ -263,7 +275,7 @@ export function CurrentCrewContent({
             ) : (
                 <>
                     <OrganizationDataTable
-                        minWidth="min-w-[1280px]"
+                        minWidth="min-w-[1480px]"
                         tableClassName="table-fixed"
                     >
                         <TableHeader>
@@ -286,10 +298,13 @@ export function CurrentCrewContent({
                                 <DataTableHead className="w-[140px]">
                                     Plan Dates
                                 </DataTableHead>
+                                <DataTableHead className="w-[180px]">
+                                    Relief
+                                </DataTableHead>
                                 <DataTableHead className="w-[130px]">
                                     Status
                                 </DataTableHead>
-                                <DataTableHead className="w-[120px]">
+                                <DataTableHead className="w-[160px]">
                                     Actions
                                 </DataTableHead>
                             </DataTableHeaderRow>

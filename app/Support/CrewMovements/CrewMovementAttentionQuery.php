@@ -4,6 +4,7 @@ namespace App\Support\CrewMovements;
 
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
+use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 
 class CrewMovementAttentionQuery
@@ -13,6 +14,7 @@ class CrewMovementAttentionQuery
     private const DRAFT_STALE_DAYS = 7;
 
     /**
+     * @param  array<string, mixed>|null  $tourProgress  Precomputed Tour progress to avoid recalculation.
      * @return list<array{
      *     code: string,
      *     severity: string,
@@ -21,11 +23,13 @@ class CrewMovementAttentionQuery
      *     date: string|null
      * }>
      */
-    public static function forAssignment(CrewAssignment $assignment): array
+    public static function forAssignment(CrewAssignment $assignment, ?array $tourProgress = null): array
     {
         $warnings = [];
         $current = $assignment->currentPhase;
-        $now = now($assignment->company->timezone ?? 'UTC');
+        $timezone = (string) ($assignment->company?->timezone ?? config('app.timezone', 'UTC'));
+        $now = now($timezone);
+        $todayLocal = $now->toDateString();
 
         if ($assignment->status === CrewAssignmentStatus::Draft && $assignment->created_at) {
             $age = $assignment->created_at->diffInDays($now);
@@ -66,7 +70,7 @@ class CrewMovementAttentionQuery
         if ($assignment->planned_join_at
             && $assignment->status === CrewAssignmentStatus::Active
             && $current?->phase_code !== CrewPhaseCode::OnVessel
-            && $assignment->planned_join_at->isBefore($now)) {
+            && $assignment->planned_join_at->copy()->timezone($timezone)->toDateString() < $todayLocal) {
             $warnings[] = [
                 'code' => 'planned_join_overdue',
                 'severity' => 'critical',
@@ -76,9 +80,12 @@ class CrewMovementAttentionQuery
             ];
         }
 
+        // Compare company-local calendar dates so midnight planned sign-off
+        // due today is not treated as overdue later the same day.
         if ($assignment->planned_signoff_at
             && $current?->phase_code === CrewPhaseCode::OnVessel
-            && $assignment->planned_signoff_at->isBefore($now)) {
+            && $current->status === CrewPhaseStatus::Active
+            && $assignment->planned_signoff_at->copy()->timezone($timezone)->toDateString() < $todayLocal) {
             $warnings[] = [
                 'code' => 'planned_signoff_overdue',
                 'severity' => 'critical',
@@ -111,6 +118,87 @@ class CrewMovementAttentionQuery
             }
         }
 
+        if ($assignment->status === CrewAssignmentStatus::Active
+            && $current?->phase_code === CrewPhaseCode::OnVessel
+            && $current->status === CrewPhaseStatus::Active) {
+            $progress = $tourProgress ?? (new CrewTourProgress)->forAssignment($assignment, null, $timezone);
+            $tourStatus = $progress['tour_status'] ?? null;
+            $hasTourWarning = false;
+
+            if ($tourStatus === 'overdue') {
+                $hasTourWarning = true;
+                $warnings[] = [
+                    'code' => 'tour_overdue',
+                    'severity' => 'critical',
+                    'label' => 'Tour Overdue',
+                    'message' => sprintf(
+                        'Tour of Duty overdue by %d day(s)',
+                        abs((int) ($progress['remaining_tour_days'] ?? 0)),
+                    ),
+                    'date' => $assignment->planned_signoff_at?->toDateString(),
+                ];
+            } elseif ($tourStatus === 'due_today') {
+                $hasTourWarning = true;
+                $warnings[] = [
+                    'code' => 'tour_due_today',
+                    'severity' => 'critical',
+                    'label' => 'Tour Due Today',
+                    'message' => 'Planned Sign-Off is due today',
+                    'date' => $assignment->planned_signoff_at?->toDateString(),
+                ];
+            } elseif ($tourStatus === 'due_within_7_days') {
+                $hasTourWarning = true;
+                $warnings[] = [
+                    'code' => 'tour_due_within_7_days',
+                    'severity' => 'critical',
+                    'label' => 'Tour Due Soon',
+                    'message' => sprintf(
+                        'Planned Sign-Off in %d day(s)',
+                        (int) ($progress['remaining_tour_days'] ?? 0),
+                    ),
+                    'date' => $assignment->planned_signoff_at?->toDateString(),
+                ];
+            } elseif ($tourStatus === 'due_within_14_days') {
+                $hasTourWarning = true;
+                $warnings[] = [
+                    'code' => 'tour_due_within_14_days',
+                    'severity' => 'warning',
+                    'label' => 'Tour Due Within 14 Days',
+                    'message' => sprintf(
+                        'Planned Sign-Off in %d day(s)',
+                        (int) ($progress['remaining_tour_days'] ?? 0),
+                    ),
+                    'date' => $assignment->planned_signoff_at?->toDateString(),
+                ];
+            } elseif ($tourStatus === 'missing_tour_rule') {
+                $hasTourWarning = true;
+                $warnings[] = [
+                    'code' => 'missing_tour_of_duty',
+                    'severity' => 'warning',
+                    'label' => 'Missing Tour of Duty',
+                    'message' => 'No Tour of Duty was applied for this assignment',
+                    'date' => null,
+                ];
+            } elseif ($tourStatus === 'missing_signoff') {
+                $hasTourWarning = true;
+                $warnings[] = [
+                    'code' => 'missing_planned_signoff',
+                    'severity' => 'warning',
+                    'label' => 'Missing Planned Sign-Off',
+                    'message' => 'Active On Vessel assignment has no Planned Sign-Off',
+                    'date' => null,
+                ];
+            }
+
+            // Prefer Tour-specific warnings over the generic planned_signoff_overdue.
+            if ($hasTourWarning) {
+                $warnings = array_values(array_filter(
+                    $warnings,
+                    fn (array $warning): bool => $warning['code'] !== 'planned_signoff_overdue',
+                ));
+            }
+        }
+
         return $warnings;
     }
 
@@ -126,7 +214,7 @@ class CrewMovementAttentionQuery
         $assignments = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereIn('status', [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active])
-            ->with(['currentPhase', 'company'])
+            ->with(['currentPhase', 'company', 'phases'])
             ->get();
 
         $byPhase = [];

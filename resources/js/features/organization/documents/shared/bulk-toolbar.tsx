@@ -36,7 +36,7 @@ export function DocumentsBulkToolbar({
     return (
         <div
             className={cn(
-                'mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5',
+                'mb-4 flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 sm:px-4',
                 'animate-in duration-200 fade-in slide-in-from-top-1',
                 className,
             )}
@@ -71,7 +71,7 @@ export function DocumentsBulkToolbar({
             >
                 Clear
             </Button>
-            <div className="ml-auto flex flex-wrap items-center gap-2">
+            <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-0.5 sm:ml-auto sm:flex-wrap sm:overflow-visible sm:pb-0">
                 {actions}
             </div>
         </div>

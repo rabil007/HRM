@@ -5,12 +5,17 @@ namespace App\Support\Payroll\Actions;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Support\Payroll\PersistPayrollWorkAllocations;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 final class RevertPayrollPeriodToDraft
 {
+    public function __construct(
+        private readonly PersistPayrollWorkAllocations $persistAllocations,
+    ) {}
+
     public function handle(PayrollPeriod $period, bool $clearTimesheets = false): PayrollPeriod
     {
         if (! $period->canRevertToDraft()) {
@@ -27,6 +32,8 @@ final class RevertPayrollPeriodToDraft
                         Storage::disk('local')->delete($record->payslip_path);
                     }
                 });
+
+            $this->persistAllocations->releaseReservedForPeriod($period);
 
             $period->payrollRecords()->forceDelete();
             $period->salaryInputs()->forceDelete();

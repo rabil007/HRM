@@ -82,6 +82,12 @@ export function useCrewIndexFilters({
             planned_signoff_to: initialFilters.planned_signoff_to || undefined,
             movement_attention: initialFilters.movement_attention || undefined,
             include_completed: initialFilters.include_completed || undefined,
+            tour_status: initialFilters.tour_status || undefined,
+            relief_status: initialFilters.relief_status || undefined,
+            relief_risk: initialFilters.relief_risk || undefined,
+            relief_not_ready: initialFilters.relief_not_ready || undefined,
+            signoff_within_14_no_relief:
+                initialFilters.signoff_within_14_no_relief || undefined,
             per_page: perPage,
         }),
         [initialSearch, initialFilters, perPage],
@@ -177,6 +183,12 @@ export function useCrewIndexFilters({
                 planned_signoff_to: next.planned_signoff_to || undefined,
                 movement_attention: next.movement_attention || undefined,
                 include_completed: next.include_completed || undefined,
+                tour_status: next.tour_status || undefined,
+                relief_status: next.relief_status || undefined,
+                relief_risk: next.relief_risk || undefined,
+                relief_not_ready: next.relief_not_ready || undefined,
+                signoff_within_14_no_relief:
+                    next.signoff_within_14_no_relief || undefined,
                 per_page: perPage,
                 page: 1,
             });

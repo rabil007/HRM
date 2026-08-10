@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import type { LucideIcon} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { ArrowUpRight } from 'lucide-react';
 
 type DashboardMetricCardProps = {
@@ -32,9 +32,9 @@ export function DashboardMetricCard({
     };
 
     const cardContent = (
-        <div className="group relative flex flex-col justify-between rounded-xl bg-card p-5 border border-border/50 shadow-sm transition-all duration-200 hover:shadow-md hover:border-border">
+        <div className="group relative flex flex-col justify-between rounded-xl border border-border/50 bg-card p-5 shadow-sm transition-all duration-200 hover:border-border hover:shadow-md">
             <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                     {title}
                 </span>
                 <div className={`rounded-lg bg-muted/60 p-2.5 ${iconColor}`}>
@@ -56,16 +56,14 @@ export function DashboardMetricCard({
                     )}
                 </div>
                 {subtitle && (
-                    <p className="text-xs text-muted-foreground">
-                        {subtitle}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{subtitle}</p>
                 )}
             </div>
 
             {href && (
-                <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-xs font-medium text-primary group-hover:underline">
+                <div className="mt-3 flex items-center justify-between border-t border-border/40 pt-2 text-xs font-medium text-primary group-hover:underline">
                     <span>View details</span>
-                    <ArrowUpRight className="h-3.5 w-3.5 opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                    <ArrowUpRight className="h-3.5 w-3.5 opacity-70 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100" />
                 </div>
             )}
         </div>

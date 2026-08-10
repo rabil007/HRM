@@ -103,6 +103,7 @@ test('plan signoff does not close on-vessel phase', function () {
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
             'action' => CrewMovementAction::PlanSignoff->value,
             'planned_signoff_at' => '2026-06-15',
+            'planned_signoff_override_reason' => 'Operational crew change plan updated',
         ])
         ->assertRedirect(route('organization.crew-assignments.show', $assignment));
 
@@ -250,6 +251,21 @@ test('planned signoff before actual join is rejected', function () {
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
             'action' => CrewMovementAction::PlanSignoff->value,
             'planned_signoff_at' => '2025-12-01',
+            'planned_signoff_override_reason' => 'Operational crew change plan updated',
         ])
         ->assertSessionHasErrors('planned_signoff_at');
+});
+
+test('plan signoff requires override reason', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
+    $vessel = makeCrewMovementVessel('Missing Reason Vessel');
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.show', $assignment))
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::PlanSignoff->value,
+            'planned_signoff_at' => '2026-06-15',
+        ])
+        ->assertSessionHasErrors('planned_signoff_override_reason');
 });

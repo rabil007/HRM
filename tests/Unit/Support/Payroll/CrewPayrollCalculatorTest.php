@@ -156,6 +156,83 @@ test('crew payroll calculator returns zero pay and full leave days when employee
         ->and($result['leave_days'])->toBe(30.0);
 });
 
+test('crew payroll calculator ignores incomplete flat-field category days and present days', function () {
+    $timesheet = new CrewTimesheet([
+        'sign_on_standby_from' => null,
+        'sign_on_standby_to' => '2026-07-05',
+        'sign_on_standby_days' => 9,
+        'onsite_from' => '2026-07-16',
+        'onsite_to' => '2026-07-20',
+        'onsite_days' => 5,
+        'overtime_hours' => 0,
+        'additional_amount' => 0,
+        'deduction_amount' => 0,
+    ]);
+    $timesheet->setRelation('segments', collect());
+
+    $components = Collection::make([
+        makeCalculatorComponent(SalaryComponentCode::Basic, 100),
+        makeCalculatorComponent(SalaryComponentCode::SiteAllowance, 50),
+        makeCalculatorComponent(SalaryComponentCode::SupplementaryAllowance, 25),
+    ]);
+
+    $result = (new CrewPayrollCalculator(new CrewOvertimePay))->calculate(
+        $timesheet,
+        $components,
+        30,
+        30,
+    );
+
+    expect($result['present_days'])->toBe(5.0)
+        ->and($result['calculation_breakdown']['sign_on_standby_days'])->toBe(0.0)
+        ->and($result['calculation_breakdown']['sign_on_standby_pay'])->toBe(0.0)
+        ->and($result['calculation_breakdown']['onsite_days'])->toBe(5.0)
+        ->and($result['calculation_breakdown']['onsite_pay'])->toBe(500.0)
+        ->and($result['gross_salary'])->toBe('875.00');
+});
+
+test('crew payroll calculator supports overtime addition and deduction only rows without movement dates', function () {
+    $overtimeOnly = new CrewTimesheet([
+        'overtime_hours' => 10,
+        'additional_amount' => 0,
+        'deduction_amount' => 0,
+    ]);
+    $overtimeOnly->setRelation('segments', collect());
+
+    $additionOnly = new CrewTimesheet([
+        'overtime_hours' => 0,
+        'additional_amount' => 125,
+        'deduction_amount' => 0,
+    ]);
+    $additionOnly->setRelation('segments', collect());
+
+    $deductionOnly = new CrewTimesheet([
+        'overtime_hours' => 0,
+        'additional_amount' => 0,
+        'deduction_amount' => 40,
+    ]);
+    $deductionOnly->setRelation('segments', collect());
+
+    $components = Collection::make([
+        makeCalculatorComponent(SalaryComponentCode::Basic, 100),
+        makeCalculatorComponent(SalaryComponentCode::SiteAllowance, 50),
+        makeCalculatorComponent(SalaryComponentCode::SupplementaryAllowance, 25),
+    ]);
+
+    $calculator = new CrewPayrollCalculator(new CrewOvertimePay);
+
+    $overtimeResult = $calculator->calculate($overtimeOnly, $components, 30, 30);
+    $additionResult = $calculator->calculate($additionOnly, $components, 30, 30);
+    $deductionResult = $calculator->calculate($deductionOnly, $components, 30, 30);
+
+    expect($overtimeResult['present_days'])->toBe(0.0)
+        ->and((float) $overtimeResult['overtime_pay'])->toBeGreaterThan(0)
+        ->and($additionResult['present_days'])->toBe(0.0)
+        ->and($additionResult['gross_salary'])->toBe('125.00')
+        ->and($deductionResult['present_days'])->toBe(0.0)
+        ->and($deductionResult['net_salary'])->toBe('-40.00');
+});
+
 test('crew payroll calculator allows missing basic daily rate when there is no payable activity', function () {
     $timesheet = new CrewTimesheet([
         'sign_on_standby_days' => 0,

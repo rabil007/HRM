@@ -41,6 +41,19 @@ export type CrewOperationalSource =
     | 'monthly_crew'
     | 'not_entered';
 
+export type CrewPayrollGenerationPreviewIssue = {
+    employee_id: number | null;
+    employee_name: string | null;
+    code: string;
+    message: string;
+    work_date?: string | null;
+    from_date?: string | null;
+    to_date?: string | null;
+    pay_category?: string | null;
+    contract_id?: number | null;
+    salary_revision_id?: number | null;
+};
+
 export type CrewPayrollGenerationPreview = {
     ready: boolean;
     can_generate: boolean;
@@ -52,13 +65,10 @@ export type CrewPayrollGenerationPreview = {
     awaiting_approval_count: number;
     excluded_employee_ids?: number[];
     excluded_count: number;
-    blocking_issues: Array<{
-        employee_id: number | null;
-        employee_name: string | null;
-        code: string;
-        message: string;
-    }>;
+    blocking_issues: CrewPayrollGenerationPreviewIssue[];
     blocking_count: number;
+    warning_issues: CrewPayrollGenerationPreviewIssue[];
+    warning_count: number;
     applied_preparation_id: number | null;
     applied_preparation_version: number | null;
     period_blocking_reason: string | null;

@@ -2,8 +2,10 @@
 
 use App\Enums\CrewTimesheetApprovalStatus;
 use App\Enums\CrewTimesheetMode;
+use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetSource;
 use App\Models\CrewTimesheet;
+use App\Models\CrewTimesheetSegment;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\Actions\GenerateCrewPayroll;
@@ -258,7 +260,7 @@ test('approved invalid timesheet is blocking and prevents generation', function 
 
     expect($preview->ready)->toBeFalse()
         ->and($preview->blockingCount)->toBe(1)
-        ->and($preview->blockingIssues[0]['code'])->toBe('invalid_approved_timesheet');
+        ->and($preview->blockingIssues[0]['code'])->toBe('invalid_movement_range');
 
     expect(fn () => app(GenerateCrewPayroll::class)->handle($period))
         ->toThrow(ValidationException::class);
@@ -289,6 +291,100 @@ test('broken crew operations linkage is blocking', function () {
 
     expect($preview->blockingCount)->toBe(1)
         ->and($preview->blockingIssues[0]['code'])->toBe('crew_operations_linkage');
+});
+
+test('daily allocation plan issues block generation preview with work date context', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+    $employee = createCrewEmployeeWithContract($company, 'PREV-ALLOC-1', 100, 50, 25);
+    $employee->contracts()->update([
+        'start_date' => '2026-07-15',
+        'end_date' => '2026-12-31',
+    ]);
+
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'source' => CrewTimesheetSource::Manual,
+        'approval_status' => CrewTimesheetApprovalStatus::Approved,
+        'onsite_from' => '2026-07-01',
+        'onsite_to' => '2026-07-05',
+        'onsite_days' => 5,
+    ]);
+
+    CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $timesheet->id,
+        'sequence' => 1,
+        'source' => CrewTimesheetSource::Manual,
+        'pay_category' => CrewTimesheetPayCategory::Onsite,
+        'from_date' => '2026-07-01',
+        'to_date' => '2026-07-05',
+        'days' => 5,
+    ]);
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id);
+
+    expect($preview->ready)->toBeFalse()
+        ->and($preview->blockingCount)->toBeGreaterThan(0)
+        ->and($preview->blockingIssues[0]['code'])->toBe('missing_historical_contract')
+        ->and($preview->blockingIssues[0])->toHaveKeys(['work_date', 'from_date', 'to_date', 'pay_category'])
+        ->and($preview->blockingIssues[0]['work_date'])->toBe('2026-07-01')
+        ->and($preview->blockingIssues[0]['pay_category'])->toBe('onsite');
+});
+
+test('serialized preview collapses one-issue-per-work-date entries into a single range per employee', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+    $employee = createCrewEmployeeWithContract($company, 'PREV-ALLOC-2', 100, 50, 25);
+    $employee->contracts()->update([
+        'start_date' => '2026-07-15',
+        'end_date' => '2026-12-31',
+    ]);
+
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'source' => CrewTimesheetSource::Manual,
+        'approval_status' => CrewTimesheetApprovalStatus::Approved,
+        'onsite_from' => '2026-07-01',
+        'onsite_to' => '2026-07-05',
+        'onsite_days' => 5,
+    ]);
+
+    CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $timesheet->id,
+        'sequence' => 1,
+        'source' => CrewTimesheetSource::Manual,
+        'pay_category' => CrewTimesheetPayCategory::Onsite,
+        'from_date' => '2026-07-01',
+        'to_date' => '2026-07-05',
+        'days' => 5,
+    ]);
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id);
+
+    expect($preview->blockingCount)->toBe(5);
+
+    $payload = $preview->toArray();
+
+    expect($payload['blocking_issues'])->toHaveCount(1)
+        ->and($payload['blocking_issues'][0]['employee_id'])->toBe($employee->id)
+        ->and($payload['blocking_issues'][0]['code'])->toBe('missing_historical_contract')
+        ->and($payload['blocking_issues'][0]['message'])->toContain('2026-07-01')
+        ->and($payload['blocking_issues'][0]['message'])->toContain('2026-07-05')
+        ->and($payload['blocking_issues'][0]['message'])->toContain('5 days');
 });
 
 test('generation preview endpoint returns structured preview', function () {

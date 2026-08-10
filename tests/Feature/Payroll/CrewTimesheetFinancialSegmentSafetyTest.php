@@ -935,3 +935,60 @@ test('blank flat operational keys do not rebuild or wipe existing segments', fun
     expect((float) $updated->overtime_hours)->toBe(8.0)
         ->and(CrewTimesheetSegment::query()->whereIn('id', $fixtures['segmentIds'])->count())->toBe(2);
 });
+
+test('restored soft-deleted timesheet clears explicit null operational dates while updating overtime', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.create',
+        'payroll.crew_timesheets.update',
+        'payroll.crew_timesheets.view',
+        'payroll.periods.view',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+    $employee = createCrewEmployeeWithContract($company, 'CLR-'.uniqid(), 100, 50, 25);
+
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'source' => CrewTimesheetSource::Import,
+        'approval_status' => CrewTimesheetApprovalStatus::Approved,
+        'approved_at' => now(),
+        'approved_by' => $user->id,
+        'sign_on_standby_from' => '2026-07-01',
+        'sign_on_standby_to' => '1900-04-01',
+        'sign_on_standby_days' => 1,
+        'overtime_hours' => 10,
+    ]);
+
+    $timesheet->delete();
+
+    $updated = app(UpsertCrewTimesheet::class)->handle(
+        $period,
+        $employee,
+        [
+            'sign_on_standby_from' => null,
+            'sign_on_standby_to' => null,
+            'sign_on_standby_days' => null,
+            'onsite_from' => null,
+            'onsite_to' => null,
+            'onsite_days' => null,
+            'sign_off_standby_from' => null,
+            'sign_off_standby_to' => null,
+            'sign_off_standby_days' => null,
+            'overtime_hours' => 92,
+            'source' => CrewTimesheetSource::Import->value,
+        ],
+        $user->id,
+    );
+
+    expect($updated->trashed())->toBeFalse()
+        ->and($updated->sign_on_standby_from)->toBeNull()
+        ->and($updated->sign_on_standby_to)->toBeNull()
+        ->and($updated->sign_on_standby_days)->toBeNull()
+        ->and((float) $updated->overtime_hours)->toBe(92.0);
+});

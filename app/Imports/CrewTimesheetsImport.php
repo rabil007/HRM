@@ -177,7 +177,15 @@ final class CrewTimesheetsImport
         }
 
         if (is_numeric($value)) {
-            return Carbon::instance(ExcelDate::excelToDateTimeObject((float) $value))->toDateString();
+            $converted = Carbon::instance(ExcelDate::excelToDateTimeObject((float) $value));
+
+            // Reject Excel serials that are almost certainly non-dates (e.g. overtime
+            // hours typed into a date column → 1900-xx-xx). Real payroll dates are far later.
+            if ($converted->year < 1970) {
+                return null;
+            }
+
+            return $converted->toDateString();
         }
 
         return $this->parseDateString(trim((string) $value));

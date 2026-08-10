@@ -71,7 +71,7 @@ export function DocumentsSummaryCards({
     onSelect: (expiry: ExpiryFilter) => void;
 }) {
     return (
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5 lg:gap-4">
             {SUMMARY_ITEMS.map((item) => {
                 const isActive = item.expiry === activeExpiry;
                 const label =
@@ -94,7 +94,7 @@ export function DocumentsSummaryCards({
                                 isActive && item.activeClass,
                             )}
                         >
-                            <CardContent className="p-4">
+                            <CardContent className="p-3 sm:p-4">
                                 <p className="text-[11px] font-semibold tracking-wide text-muted-foreground/80 uppercase">
                                     {label}
                                 </p>

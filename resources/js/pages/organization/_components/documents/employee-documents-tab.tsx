@@ -6,6 +6,7 @@ import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Orga
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TabsContent } from '@/components/ui/tabs';
+import { EmployeeDocumentMobileCard } from '@/features/organization/documents/employee-document-mobile-card';
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
@@ -178,123 +179,191 @@ export function EmployeeDocumentsTab({
                     </div>
                 }
             >
-                <EmployeeRecordsTable className="min-w-[980px]">
-                    <thead>
-                        <tr className={employeeRecordsTableHeadClass()}>
-                            {selectionMode ? (
+                <div className="hidden sm:block">
+                    <EmployeeRecordsTable className="min-w-[980px]">
+                        <thead>
+                            <tr className={employeeRecordsTableHeadClass()}>
+                                {selectionMode ? (
+                                    <th
+                                        className={cn(
+                                            employeeRecordsTableThClass(),
+                                            'w-10 px-3 first:pl-3',
+                                        )}
+                                    >
+                                        <Checkbox
+                                            checked={
+                                                allDocumentsSelected
+                                                    ? true
+                                                    : documentsPartiallySelected
+                                                      ? 'indeterminate'
+                                                      : false
+                                            }
+                                            onCheckedChange={toggleAllDocuments}
+                                            aria-label="Select all documents"
+                                        />
+                                    </th>
+                                ) : null}
                                 <th
                                     className={cn(
                                         employeeRecordsTableThClass(),
-                                        'w-10 px-3 first:pl-3',
+                                        'min-w-[240px]',
                                     )}
                                 >
-                                    <Checkbox
-                                        checked={
-                                            allDocumentsSelected
-                                                ? true
-                                                : documentsPartiallySelected
-                                                  ? 'indeterminate'
-                                                  : false
-                                        }
-                                        onCheckedChange={toggleAllDocuments}
-                                        aria-label="Select all documents"
-                                    />
+                                    File
                                 </th>
-                            ) : null}
-                            <th
-                                className={cn(
-                                    employeeRecordsTableThClass(),
-                                    'min-w-[240px]',
-                                )}
-                            >
-                                File
-                            </th>
-                            <th
-                                className={cn(
-                                    employeeRecordsTableThClass(),
-                                    'hidden md:table-cell',
-                                )}
-                            >
-                                Document no.
-                            </th>
-                            <th
-                                className={cn(
-                                    employeeRecordsTableThClass(),
-                                    'hidden md:table-cell',
-                                )}
-                            >
-                                Issue date
-                            </th>
-                            <th
-                                className={cn(
-                                    employeeRecordsTableThClass(),
-                                    'hidden lg:table-cell',
-                                )}
-                            >
-                                Expiry
-                            </th>
-                            <th
-                                className={cn(
-                                    employeeRecordsTableThClass(),
-                                    'hidden lg:table-cell',
-                                )}
-                            >
-                                Status
-                            </th>
-                            <th
-                                className={cn(
-                                    employeeRecordsTableThClass(),
-                                    'hidden xl:table-cell',
-                                )}
-                            >
-                                Uploaded
-                            </th>
-                            <EmployeeRecordsActionsHeader className="min-w-54" />
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {documents.map((doc) => {
-                            const browseDoc = toBrowseItem(doc);
-                            const viewHref = hasEmployeeId
-                                ? buildDocumentShowUrl(employeeId, doc.id, {
-                                      from: 'profile',
-                                  })
-                                : '#';
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'hidden md:table-cell',
+                                    )}
+                                >
+                                    Document no.
+                                </th>
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'hidden md:table-cell',
+                                    )}
+                                >
+                                    Issue date
+                                </th>
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'hidden lg:table-cell',
+                                    )}
+                                >
+                                    Expiry
+                                </th>
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'hidden lg:table-cell',
+                                    )}
+                                >
+                                    Status
+                                </th>
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'hidden xl:table-cell',
+                                    )}
+                                >
+                                    Uploaded
+                                </th>
+                                <EmployeeRecordsActionsHeader className="min-w-54" />
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {documents.map((doc) => {
+                                const browseDoc = toBrowseItem(doc);
+                                const viewHref = hasEmployeeId
+                                    ? buildDocumentShowUrl(employeeId, doc.id, {
+                                          from: 'profile',
+                                      })
+                                    : '#';
 
-                            return (
-                                <EmployeeDocumentTableRow
-                                    key={doc.id}
-                                    doc={browseDoc}
-                                    viewHref={viewHref}
-                                    canDownload={can.documents_download}
-                                    canUpload={can.documents_upload}
-                                    canDelete={can.documents_delete}
-                                    onEdit={
-                                        hasEmployeeId
-                                            ? () => setEditDoc(doc)
-                                            : undefined
-                                    }
-                                    onReplace={
-                                        hasEmployeeId
-                                            ? () => setReplaceDoc(doc)
-                                            : undefined
-                                    }
-                                    onDelete={
-                                        hasEmployeeId
-                                            ? () => setDeleteDocId(doc.id)
-                                            : undefined
-                                    }
-                                    selectionMode={selectionMode}
-                                    selected={isDocumentSelected(doc.id)}
-                                    onSelectedChange={() =>
-                                        toggleDocument(doc.id)
-                                    }
-                                />
-                            );
-                        })}
-                    </tbody>
-                </EmployeeRecordsTable>
+                                return (
+                                    <EmployeeDocumentTableRow
+                                        key={doc.id}
+                                        doc={browseDoc}
+                                        viewHref={viewHref}
+                                        canDownload={can.documents_download}
+                                        canUpload={can.documents_upload}
+                                        canDelete={can.documents_delete}
+                                        onEdit={
+                                            hasEmployeeId
+                                                ? () => setEditDoc(doc)
+                                                : undefined
+                                        }
+                                        onReplace={
+                                            hasEmployeeId
+                                                ? () => setReplaceDoc(doc)
+                                                : undefined
+                                        }
+                                        onDelete={
+                                            hasEmployeeId
+                                                ? () => setDeleteDocId(doc.id)
+                                                : undefined
+                                        }
+                                        selectionMode={selectionMode}
+                                        selected={isDocumentSelected(doc.id)}
+                                        onSelectedChange={() =>
+                                            toggleDocument(doc.id)
+                                        }
+                                    />
+                                );
+                            })}
+                        </tbody>
+                    </EmployeeRecordsTable>
+                </div>
             </EmployeeRecordsPanel>
+
+            {/* ── Mobile card list (phones only, outside the scrolling panel) ── */}
+            {documents.length > 0 ? (
+                <div className="mt-4 flex flex-col gap-3 sm:hidden">
+                    {/* Mobile select-all bar */}
+                    {selectionMode ? (
+                        <div className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-muted/20 px-3 py-2 dark:border-white/8">
+                            <Checkbox
+                                checked={
+                                    allDocumentsSelected
+                                        ? true
+                                        : documentsPartiallySelected
+                                          ? 'indeterminate'
+                                          : false
+                                }
+                                onCheckedChange={toggleAllDocuments}
+                                aria-label="Select all documents"
+                                id="profile-mobile-select-all"
+                            />
+                            <label
+                                htmlFor="profile-mobile-select-all"
+                                className="cursor-pointer text-xs text-muted-foreground select-none"
+                            >
+                                Select all ({documents.length})
+                            </label>
+                        </div>
+                    ) : null}
+                    {documents.map((doc) => {
+                        const browseDoc = toBrowseItem(doc);
+                        const viewHref = hasEmployeeId
+                            ? buildDocumentShowUrl(employeeId, doc.id, {
+                                  from: 'profile',
+                              })
+                            : '#';
+
+                        return (
+                            <EmployeeDocumentMobileCard
+                                key={doc.id}
+                                doc={browseDoc}
+                                viewHref={viewHref}
+                                canDownload={can.documents_download}
+                                canUpload={can.documents_upload}
+                                canDelete={can.documents_delete}
+                                selectionMode={selectionMode}
+                                selected={isDocumentSelected(doc.id)}
+                                onSelectedChange={() => toggleDocument(doc.id)}
+                                onEdit={
+                                    hasEmployeeId
+                                        ? () => setEditDoc(doc)
+                                        : undefined
+                                }
+                                onReplace={
+                                    hasEmployeeId
+                                        ? () => setReplaceDoc(doc)
+                                        : undefined
+                                }
+                                onDelete={
+                                    hasEmployeeId
+                                        ? () => setDeleteDocId(doc.id)
+                                        : undefined
+                                }
+                            />
+                        );
+                    })}
+                </div>
+            ) : null}
 
             <UploadDocumentDialog
                 open={uploadOpen}

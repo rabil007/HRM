@@ -13,6 +13,7 @@ import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useMasterDataCrud } from '@/hooks/use-master-data-crud';
 import { firstValidationError } from '@/lib/first-validation-error';
 import { toast } from '@/lib/toast';
+import type { PaginationMeta } from '@/types/pagination';
 
 type Bank = {
     id: number;
@@ -46,15 +47,20 @@ const initialForm: BankFormData = {
 export default function Banks({
     banks,
     countries,
+    pagination,
+    search = '',
 }: {
     banks: Bank[];
     countries: CountryOption[];
+    pagination: PaginationMeta;
+    search?: string;
 }) {
     const can = useSettingsMasterDataCan('banks');
 
     const {
-        query,
-        setQuery,
+        searchInput,
+        onSearchChange,
+        paginationProps,
         sheetOpen,
         setSheetOpen,
         deleteOpen,
@@ -72,10 +78,8 @@ export default function Banks({
         items: banks,
         baseUrl: '/settings/master-data/banks',
         initialForm,
-        filterItem: (bank, q) =>
-            bank.name.toLowerCase().includes(q) ||
-            (bank.uae_routing_code_agent_id ?? '').toLowerCase().includes(q) ||
-            (bank.country?.name ?? '').toLowerCase().includes(q),
+        search,
+        pagination,
         toFormData: (bank) => ({
             name: bank.name,
             uae_routing_code_agent_id: bank.uae_routing_code_agent_id ?? '',
@@ -111,8 +115,10 @@ export default function Banks({
             title="Banks"
             description="Manage banks and routing identifiers used across the system."
             searchPlaceholder="Search banks..."
-            query={query}
-            onQueryChange={setQuery}
+            searchInput={searchInput}
+            onSearchChange={onSearchChange}
+            pagination={paginationProps}
+            paginationLabel="banks"
             canCreate={can.create}
             createButtonLabel="Add bank"
             onCreate={openCreate}

@@ -58,6 +58,11 @@ class CrewAssignmentController extends Controller
             'planned_join_to' => $request->query('planned_join_to'),
             'planned_signoff_from' => $request->query('planned_signoff_from'),
             'planned_signoff_to' => $request->query('planned_signoff_to'),
+            'tour_status' => trim((string) $request->query('tour_status', '')),
+            'relief_status' => trim((string) $request->query('relief_status', '')),
+            'relief_risk' => trim((string) $request->query('relief_risk', '')),
+            'relief_not_ready' => filter_var($request->query('relief_not_ready', false), FILTER_VALIDATE_BOOLEAN),
+            'signoff_within_14_no_relief' => filter_var($request->query('signoff_within_14_no_relief', false), FILTER_VALIDATE_BOOLEAN),
             'movement_attention' => filter_var($request->query('movement_attention', false), FILTER_VALIDATE_BOOLEAN),
             'include_completed' => filter_var($request->query('include_completed', false), FILTER_VALIDATE_BOOLEAN),
             'sort' => $request->query('sort', 'created_at'),
@@ -87,6 +92,11 @@ class CrewAssignmentController extends Controller
                 'planned_join_to' => $filters['planned_join_to'] ? (string) $filters['planned_join_to'] : '',
                 'planned_signoff_from' => $filters['planned_signoff_from'] ? (string) $filters['planned_signoff_from'] : '',
                 'planned_signoff_to' => $filters['planned_signoff_to'] ? (string) $filters['planned_signoff_to'] : '',
+                'tour_status' => $filters['tour_status'],
+                'relief_status' => $filters['relief_status'],
+                'relief_risk' => $filters['relief_risk'],
+                'relief_not_ready' => (bool) $filters['relief_not_ready'],
+                'signoff_within_14_no_relief' => (bool) $filters['signoff_within_14_no_relief'],
                 'movement_attention' => (bool) $filters['movement_attention'],
                 'include_completed' => (bool) $filters['include_completed'],
             ],
@@ -94,7 +104,7 @@ class CrewAssignmentController extends Controller
             'filter_options' => $filterOptions,
             'form_options' => [
                 'employees' => [],
-                'ranks' => $this->activeRanks(),
+                'ranks' => $this->activeRanksWithTour($companyId),
                 'vessels' => $this->activeVessels(),
                 'clients' => $this->activeClients(),
                 'visa_types' => $this->activeVisaTypes(),
@@ -192,7 +202,9 @@ class CrewAssignmentController extends Controller
             'currentPhase',
             'phases.pendingCorrections',
             'phases.corrections' => fn ($query) => $query->where('status', 'approved')->latest('decided_at'),
-            'planningAssignment',
+            'planningAssignment.relievedAssignment.employee',
+            'planningAssignment.relievedAssignment.vessel',
+            'planningAssignment.relievedAssignment.rank',
             'previousAssignment:id,assignment_no,status,vessel_id,source,closed_at',
             'previousAssignment.vessel:id,name',
             'nextAssignments:id,assignment_no,status,vessel_id,source,previous_assignment_id,started_at',
@@ -215,7 +227,7 @@ class CrewAssignmentController extends Controller
             'recent_activity' => $recentActivity,
             'form_options' => [
                 'employees' => [],
-                'ranks' => $this->activeRanks(),
+                'ranks' => $this->activeRanksWithTour($companyId),
                 'vessels' => $this->activeVessels(),
                 'clients' => $this->activeClients(),
                 'visa_types' => $this->activeVisaTypes(),
@@ -327,6 +339,32 @@ class CrewAssignmentController extends Controller
             ->orderBy('name')
             ->get(['id', 'name'])
             ->map(fn (Rank $rank) => ['id' => $rank->id, 'name' => $rank->name])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Rank options enriched with Tour of Duty resolution for Join Vessel.
+     *
+     * @return list<array{
+     *     id: int,
+     *     name: string,
+     *     max_tour_of_duty_days: int|null,
+     *     resolved_tour_of_duty_days: int|null
+     * }>
+     */
+    private function activeRanksWithTour(int $companyId): array
+    {
+        return Rank::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'max_tour_of_duty_days'])
+            ->map(fn (Rank $rank): array => [
+                'id' => $rank->id,
+                'name' => $rank->name,
+                'max_tour_of_duty_days' => $rank->max_tour_of_duty_days !== null ? (int) $rank->max_tour_of_duty_days : null,
+                'resolved_tour_of_duty_days' => $rank->max_tour_of_duty_days !== null ? (int) $rank->max_tour_of_duty_days : null,
+            ])
             ->values()
             ->all();
     }

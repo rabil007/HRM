@@ -48,7 +48,9 @@ export function TrainingSection({ summary }: TrainingSectionProps) {
                     subtitle={`${summary.expiring_30} expiring in 30 days`}
                     icon={Clock}
                     iconColor="text-amber-500"
-                    badgeVariant={summary.expiring_7 > 0 ? 'warning' : 'default'}
+                    badgeVariant={
+                        summary.expiring_7 > 0 ? 'warning' : 'default'
+                    }
                     href={training.url({ query: { status: 'expiring_7' } })}
                 />
 

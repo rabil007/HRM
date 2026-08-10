@@ -3,6 +3,20 @@ import type {
     CrewMovementCorrectionListItem,
 } from '@/features/organization/crew-movement-corrections/types';
 
+export type CrewTourProgressFields = {
+    tour_of_duty_days: number | null;
+    planned_signoff_source: string | null;
+    planned_signoff_source_label: string | null;
+    days_onboard: number | null;
+    current_duty_day: number | null;
+    remaining_tour_days: number | null;
+    tour_progress_percent: number | null;
+    tour_progress_display_percent: number | null;
+    tour_status: string | null;
+    tour_status_label: string | null;
+    tour_status_severity: string | null;
+};
+
 export type CrewMovementContext = {
     assignment_id: number;
     assignment_no: string;
@@ -33,9 +47,50 @@ export type CrewMovementContext = {
     training_started_at: string | null;
     training_expected_completion_at: string | null;
     company_timezone: string;
+} & CrewTourProgressFields;
+
+export type CrewReliefEmployee = {
+    id: number;
+    name: string;
+    employee_no: string | null;
 };
 
-export interface CrewAssignmentListItem {
+export type CrewReliefPhase = {
+    code: string;
+    label: string;
+    status: string;
+};
+
+export type CrewReliefFields = {
+    relief_status: string | null;
+    relief_status_label: string | null;
+    relief_action_label: string | null;
+    relief_risk: string | null;
+    relief_risk_label: string | null;
+    relief_employee: CrewReliefEmployee | null;
+    relief_planning_assignment_id: number | null;
+    relief_crew_assignment_id: number | null;
+    relief_planned_join_date: string | null;
+    relief_phase: CrewReliefPhase | null;
+    relief_phase_code: string | null;
+    relief_phase_label: string | null;
+    relief_phase_status: string | null;
+    source_planned_signoff_date: string | null;
+    days_until_signoff: number | null;
+};
+
+export type CrewRelievesContext = {
+    planning_assignment_id: number;
+    source_assignment_id: number;
+    source_assignment_no: string;
+    source_employee: CrewReliefEmployee | null;
+    source_vessel: { id: number; name: string } | null;
+    source_rank: { id: number; name: string } | null;
+    source_planned_signoff_at: string | null;
+};
+
+export interface CrewAssignmentListItem
+    extends CrewTourProgressFields, CrewReliefFields {
     id: number;
     assignment_no: string;
     status: string;
@@ -78,7 +133,8 @@ export interface CrewAssignmentListItem {
     movement_context: CrewMovementContext;
 }
 
-export interface CrewAssignmentDetail {
+export interface CrewAssignmentDetail
+    extends CrewTourProgressFields, CrewReliefFields {
     id: number;
     assignment_no: string;
     status: string;
@@ -113,7 +169,6 @@ export interface CrewAssignmentDetail {
         started_at?: string | null;
     } | null;
     days_in_phase: number | null;
-    days_onboard?: number | null;
     days_in_training?: number | null;
     planned_join_at: string | null;
     planned_signoff_at: string | null;
@@ -131,6 +186,7 @@ export interface CrewAssignmentDetail {
     warnings: CrewAssignmentWarning[];
     available_actions: string[];
     planning_assignment_id: number | null;
+    relieves: CrewRelievesContext | null;
     previous_assignment: {
         id: number;
         assignment_no: string;
@@ -196,7 +252,12 @@ export interface CrewAssignmentFormOptions {
         employee_no: string | null;
         rank_id: number | null;
     }>;
-    ranks: Array<{ id: number; name: string }>;
+    ranks: Array<{
+        id: number;
+        name: string;
+        max_tour_of_duty_days?: number | null;
+        resolved_tour_of_duty_days?: number | null;
+    }>;
     vessels: Array<{ id: number; name: string }>;
     clients: Array<{ id: number; name: string }>;
     visa_types: Array<{ id: number; name: string }>;
@@ -209,6 +270,11 @@ export interface CrewAssignmentSummary {
     by_phase: Record<string, number>;
 }
 
+export type CrewFilterOption = {
+    value: string;
+    label: string;
+};
+
 export interface CrewAssignmentFilterOptions {
     vessels: Array<{ id: number; name: string }>;
     ranks: Array<{ id: number; name: string }>;
@@ -218,6 +284,8 @@ export interface CrewAssignmentFilterOptions {
         name: string;
         employee_no: string | null;
     }>;
+    relief_statuses?: CrewFilterOption[];
+    relief_risks?: CrewFilterOption[];
 }
 
 export interface CrewAssignmentFilters {
@@ -233,6 +301,11 @@ export interface CrewAssignmentFilters {
     planned_signoff_to: string;
     movement_attention: boolean;
     include_completed: boolean;
+    tour_status: string;
+    relief_status: string;
+    relief_risk: string;
+    relief_not_ready: boolean;
+    signoff_within_14_no_relief: boolean;
 }
 
 export interface CrewAssignmentPagePermissions {
@@ -241,6 +314,7 @@ export interface CrewAssignmentPagePermissions {
     update: boolean;
     perform_movement: boolean;
     cancel: boolean;
+    void: boolean;
     view_audit: boolean;
     request_correction: boolean;
     view_corrections: boolean;
@@ -336,4 +410,9 @@ export interface CrewMovementActionFormData {
     planned_signoff_at: string;
     planned_travel_at: string;
     reason: string;
+    planned_signoff_choice:
+        | 'tour_of_duty'
+        | 'existing_plan'
+        | 'manual_override';
+    planned_signoff_override_reason: string;
 }

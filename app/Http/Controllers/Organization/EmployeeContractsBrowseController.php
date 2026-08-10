@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
+use App\Models\CompanyVisaType;
 use App\Models\Employee;
 use App\Support\Contracts\ContractAccess;
 use App\Support\Contracts\ContractEmployeeBrowseQuery;
@@ -31,6 +32,10 @@ class EmployeeContractsBrowseController extends Controller
             'template_contract_fields' => $resolved['fields']['employee_contracts'] ?? null,
             'back' => ContractShowBackNavigation::resolve($request),
             'can' => ContractPagePermissions::for($request->user()),
+            'company_visa_types' => CompanyVisaType::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name']),
         ]);
     }
 }

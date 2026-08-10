@@ -16,6 +16,7 @@ Laravel 13 + Inertia v3 + React 19 monolith with company-scoped Spatie permissio
 - Use Wayfinder for frontend routes and actions; do not hardcode application URLs.
 - Add or update the smallest relevant Pest test for every behavior change.
 - Run `vendor/bin/pint --dirty --format agent` after PHP edits and the relevant frontend checks after TypeScript edits.
+- Never run `migrate:fresh`, `migrate:refresh`, `db:wipe`, or other destructive DB resets against the Herd app database unless the user explicitly requests it. Use Pest/`RefreshDatabase` (sqlite `:memory:` in `phpunit.xml`) for fixtures and measurements.
 
 ## Context routing
 

@@ -1,6 +1,5 @@
 import type { ReactElement } from 'react';
 import InputError from '@/components/input-error';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -13,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatDisplayDate } from '@/lib/format-date';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
+import { TourSignoffFields } from './tour-signoff-fields';
 
 export function JoinVesselForm({
     form,
@@ -22,10 +22,9 @@ export function JoinVesselForm({
     firstFieldRef,
 }: MovementActionFormProps): ReactElement {
     const joinDate = form.data.occurred_at.slice(0, 10);
-    const signoffBeforeJoin =
-        form.data.planned_signoff_at &&
-        joinDate &&
-        form.data.planned_signoff_at < joinDate;
+    const selectedRank = formOptions?.ranks.find(
+        (rank) => rank.id === form.data.rank_id,
+    );
 
     return (
         <div className="space-y-4">
@@ -222,31 +221,15 @@ export function JoinVesselForm({
                 </>
             ) : null}
 
-            <div className="space-y-2">
-                <Label htmlFor="movement-planned-signoff">
-                    Planned Sign-Off (optional)
-                </Label>
-                <Input
-                    id="movement-planned-signoff"
-                    type="date"
-                    value={form.data.planned_signoff_at}
-                    min={joinDate || undefined}
-                    onChange={(event) =>
-                        form.setData('planned_signoff_at', event.target.value)
-                    }
-                />
-                <p className="text-xs text-muted-foreground">
-                    Expected leave date only. It does not disembark the
-                    employee.
-                </p>
-                {signoffBeforeJoin ? (
-                    <p className="text-sm text-destructive">
-                        The planned sign-off cannot be before the actual vessel
-                        join date.
-                    </p>
-                ) : null}
-                <InputError message={form.errors.planned_signoff_at} />
-            </div>
+            <TourSignoffFields
+                form={form}
+                selectedRank={selectedRank}
+                occurredDate={joinDate}
+                existingPlannedSignoffAt={context.planned_signoff_at}
+                allowExistingPlan
+                idPrefix="movement"
+                tourContextLabel="this rank"
+            />
 
             <div className="space-y-2">
                 <Label htmlFor="movement-join-remarks">

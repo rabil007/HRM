@@ -43,6 +43,10 @@ final class ContractsImport
 
     private const COL_CREW_NOTE = 'J';
 
+    private const COL_OFFICE_COMPANY_VISA_TYPE = 'L';
+
+    private const COL_CREW_COMPANY_VISA_TYPE = 'K';
+
     /**
      * @return list<array<string, mixed>>
      */
@@ -73,6 +77,13 @@ final class ContractsImport
                 'note' => $this->stringValue(
                     $sheet,
                     $payrollCategory === PayrollCategory::Office ? self::COL_OFFICE_NOTE : self::COL_CREW_NOTE,
+                    $rowNumber,
+                ),
+                'company_visa_type' => $this->stringValue(
+                    $sheet,
+                    $payrollCategory === PayrollCategory::Office
+                        ? self::COL_OFFICE_COMPANY_VISA_TYPE
+                        : self::COL_CREW_COMPANY_VISA_TYPE,
                     $rowNumber,
                 ),
             ];
@@ -126,6 +137,7 @@ final class ContractsImport
                 'Transport Allowance',
                 'Other Allowances',
                 'Note',
+                'Sponsor',
             ];
         }
 
@@ -134,6 +146,7 @@ final class ContractsImport
             'Supplementary Allowance',
             'Site Allowance',
             'Note',
+            'Sponsor',
         ];
     }
 

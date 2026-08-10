@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import Heading from '@/components/heading';
+import { Pagination } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -11,8 +12,8 @@ type MasterDataListShellProps = {
     title: string;
     description: string;
     searchPlaceholder: string;
-    query: string;
-    onQueryChange: (value: string) => void;
+    searchInput: string;
+    onSearchChange: (value: string) => void;
     canCreate: boolean;
     createButtonLabel: string;
     onCreate: () => void;
@@ -30,6 +31,18 @@ type MasterDataListShellProps = {
     onConfirmDelete: () => void;
     deleteContentClassName?: string;
     searchInputClassName?: string;
+    pagination: {
+        currentPage: number;
+        lastPage: number;
+        from: number | null;
+        to: number | null;
+        total: number;
+        perPage: number;
+        onPerPageChange: (perPage: number) => void;
+        onPageChange: (page: number) => void;
+    };
+    paginationLabel?: string;
+    headerActions?: ReactNode;
 };
 
 export function MasterDataListShell({
@@ -37,8 +50,8 @@ export function MasterDataListShell({
     title,
     description,
     searchPlaceholder,
-    query,
-    onQueryChange,
+    searchInput,
+    onSearchChange,
     canCreate,
     createButtonLabel,
     onCreate,
@@ -56,6 +69,9 @@ export function MasterDataListShell({
     onConfirmDelete,
     deleteContentClassName,
     searchInputClassName,
+    pagination,
+    paginationLabel = 'results',
+    headerActions,
 }: MasterDataListShellProps) {
     return (
         <>
@@ -71,17 +87,22 @@ export function MasterDataListShell({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
                         <Input
-                            value={query}
+                            value={searchInput}
                             onChange={(event) =>
-                                onQueryChange(event.target.value)
+                                onSearchChange(event.target.value)
                             }
                             placeholder={searchPlaceholder}
                             className={searchInputClassName}
                         />
                     </div>
-                    {canCreate ? (
-                        <Button onClick={onCreate}>{createButtonLabel}</Button>
-                    ) : null}
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        {headerActions}
+                        {canCreate ? (
+                            <Button onClick={onCreate}>
+                                {createButtonLabel}
+                            </Button>
+                        ) : null}
+                    </div>
                 </div>
 
                 <div className="overflow-hidden rounded-xl border border-border/60">
@@ -99,6 +120,8 @@ export function MasterDataListShell({
                         </div>
                     </div>
                 </div>
+
+                <Pagination {...pagination} label={paginationLabel} />
             </div>
 
             {sheet}

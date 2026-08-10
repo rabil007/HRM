@@ -12,6 +12,11 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
+import {
+    defaultDestinationTourSignoffChoice,
+    findRankTourOption,
+    normalizeTourSignoffPayload,
+} from '@/features/organization/crew/lib/tour-signoff';
 import { cn } from '@/lib/utils';
 import { performAction } from '@/routes/organization/crew-assignments';
 import type {
@@ -44,9 +49,42 @@ function defaultDateTimeLocal(): string {
     return now.toISOString().slice(0, 16);
 }
 
+function resolveJoinSignoffChoice(
+    context: CrewMovementContext,
+    formOptions?: CrewAssignmentFormOptions,
+): CrewMovementActionFormData['planned_signoff_choice'] {
+    if (context.planned_signoff_at) {
+        return 'existing_plan';
+    }
+
+    return defaultDestinationTourSignoffChoice(
+        findRankTourOption(formOptions?.ranks, context.rank_id),
+    );
+}
+
+function resolveInitialSignoffChoice(
+    action: CrewMovementAction,
+    context: CrewMovementContext,
+    formOptions?: CrewAssignmentFormOptions,
+): CrewMovementActionFormData['planned_signoff_choice'] {
+    if (action === 'join_vessel') {
+        return resolveJoinSignoffChoice(context, formOptions);
+    }
+
+    if (action === 'transfer_vessel') {
+        return defaultDestinationTourSignoffChoice(
+            findRankTourOption(formOptions?.ranks, context.rank_id),
+        );
+    }
+
+    // Redeploy opens on P0 — Tour fields are excluded until starting_phase = p4.
+    return 'manual_override';
+}
+
 function buildInitialForm(
     action: CrewMovementAction,
     context: CrewMovementContext,
+    formOptions?: CrewAssignmentFormOptions,
 ): CrewMovementActionFormData {
     const config = getMovementActionConfig(action);
     const nextPhase = config.nextPhaseOptions?.[0]?.value ?? '';
@@ -66,9 +104,17 @@ function buildInitialForm(
         client_id: context.client_id,
         company_visa_type_id: context.visa_type_id,
         planned_signoff_at:
-            action === 'redeploy' ? '' : (context.planned_signoff_at ?? ''),
+            action === 'redeploy' || action === 'transfer_vessel'
+                ? ''
+                : (context.planned_signoff_at ?? ''),
         planned_travel_at: '',
         reason: '',
+        planned_signoff_choice: resolveInitialSignoffChoice(
+            action,
+            context,
+            formOptions,
+        ),
+        planned_signoff_override_reason: '',
     };
 }
 
@@ -140,7 +186,11 @@ export function MovementActionDialog({
         null,
     );
     const form = useForm<CrewMovementActionFormData>(
-        buildInitialForm(action ?? 'approve_mobilisation', movementContext),
+        buildInitialForm(
+            action ?? 'approve_mobilisation',
+            movementContext,
+            formOptions,
+        ),
     );
 
     useEffect(() => {
@@ -149,7 +199,7 @@ export function MovementActionDialog({
         }
 
         form.clearErrors();
-        form.setData(buildInitialForm(action, movementContext));
+        form.setData(buildInitialForm(action, movementContext, formOptions));
         // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when dialog opens for an action
     }, [open, action, movementContext.assignment_id]);
 
@@ -175,7 +225,7 @@ export function MovementActionDialog({
         }
 
         form.transform((data) => {
-            const payload = { ...data };
+            let payload = { ...data };
 
             if (action === 'send_to_training') {
                 payload.planned_start_at = data.occurred_at;
@@ -186,13 +236,10 @@ export function MovementActionDialog({
                     .planned_travel_at;
             }
 
-            if (action === 'redeploy' && data.starting_phase === 'p0') {
-                payload.vessel_id = null;
-                payload.rank_id = null;
-                payload.client_id = null;
-                payload.company_visa_type_id = null;
-                payload.planned_signoff_at = '';
-            }
+            payload = normalizeTourSignoffPayload(
+                payload,
+                action,
+            ) as CrewMovementActionFormData;
 
             return payload;
         });

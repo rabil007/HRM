@@ -10,7 +10,7 @@ test('mirror effective salary revisions command applies revisions that became ef
     Carbon::setTestNow('2026-02-10');
 
     ['company' => $company] = makePayrollFixtures();
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
 
     $contract = app(UpsertEmployeeContract::class)->handle(
         $company->id,
@@ -53,7 +53,7 @@ test('mirror effective salary revisions command ignores still-future revisions',
     Carbon::setTestNow('2026-02-10');
 
     ['company' => $company] = makePayrollFixtures();
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
 
     $contract = app(UpsertEmployeeContract::class)->handle(
         $company->id,
@@ -93,8 +93,8 @@ test('mirror effective salary revisions command can be limited to a single compa
     ['company' => $companyA] = makePayrollFixtures();
     ['company' => $companyB] = makePayrollFixtures();
 
-    $employeeA = Employee::factory()->forCompany($companyA)->create(['status' => 'active']);
-    $employeeB = Employee::factory()->forCompany($companyB)->create(['status' => 'active']);
+    $employeeA = Employee::factory()->forCompany($companyA)->withoutDefaultContract()->create(['status' => 'active']);
+    $employeeB = Employee::factory()->forCompany($companyB)->withoutDefaultContract()->create(['status' => 'active']);
 
     $contractA = app(UpsertEmployeeContract::class)->handle(
         $companyA->id,

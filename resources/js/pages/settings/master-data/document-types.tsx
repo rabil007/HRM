@@ -7,9 +7,10 @@ import {
     Loader2,
     Upload,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
 import Heading from '@/components/heading';
+import { Pagination } from '@/components/pagination';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     AlertDialog,
@@ -41,11 +42,13 @@ import {
 } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import {
     firstValidationError,
     hasFlashSuccess,
 } from '@/lib/first-validation-error';
 import { cn } from '@/lib/utils';
+import type { PaginationMeta } from '@/types/pagination';
 
 type DocumentType = {
     id: number;
@@ -55,12 +58,22 @@ type DocumentType = {
 
 export default function DocumentTypes({
     document_types,
+    pagination,
+    search = '',
 }: {
     document_types: DocumentType[];
+    pagination: PaginationMeta;
+    search?: string;
 }) {
     const can = useSettingsMasterDataCan('document-types');
 
-    const [query, setQuery] = useState('');
+    const list = useServerPaginationFilters({
+        url: '/settings/master-data/document-types',
+        search,
+        filters: {},
+        pagination,
+    });
+
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [current, setCurrent] = useState<DocumentType | null>(null);
@@ -76,15 +89,7 @@ export default function DocumentTypes({
         is_active: true,
     });
 
-    const rows = useMemo(() => {
-        const q = query.trim().toLowerCase();
-
-        if (!q) {
-            return document_types;
-        }
-
-        return document_types.filter((d) => d.title.toLowerCase().includes(q));
-    }, [document_types, query]);
+    const rows = document_types;
 
     const openCreate = () => {
         setCurrent(null);
@@ -270,8 +275,10 @@ export default function DocumentTypes({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
                         <Input
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
+                            value={list.searchInput}
+                            onChange={(e) =>
+                                list.onSearchChange(e.target.value)
+                            }
                             placeholder="Search by title…"
                         />
                     </div>
@@ -351,6 +358,8 @@ export default function DocumentTypes({
                         </div>
                     </div>
                 </div>
+
+                <Pagination {...list.paginationProps} label="document types" />
             </div>
 
             <Dialog

@@ -4,22 +4,31 @@ namespace App\Http\Controllers\Settings\MasterData;
 
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\ImportVesselsRequest;
 use App\Http\Requests\Settings\MasterData\StoreVesselRequest;
 use App\Http\Requests\Settings\MasterData\UpdateVesselRequest;
 use App\Models\CrewAssignment;
 use App\Models\EmployeeSeaService;
 use App\Models\Vessel;
+use App\Models\VesselManning;
 use App\Models\VesselType;
+use App\Support\Activity\RecentActivityQuery;
+use App\Support\Vessels\StoresVesselCertificate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 class VesselController extends Controller
 {
+    use PaginatesMasterDataIndex;
     use ReturnsQuickCreateJson;
+
+    public function __construct(private StoresVesselCertificate $certificateStore) {}
 
     public function index(): InertiaResponse
     {
@@ -27,40 +36,173 @@ class VesselController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $vessels = Vessel::query()
-            ->with(['vesselType:id,name'])
-            ->orderBy('name')
-            ->get([
-                'id',
-                'name',
-                'vessel_type_id',
-                'grt',
-                'bhp',
-                'is_active',
-            ]);
+        $page = $this->paginateMasterDataIndex(
+            request(),
+            Vessel::query()
+                ->with(['vesselType:id,name'])
+                ->orderBy('name')
+                ->select([
+                    'id',
+                    'name',
+                    'vessel_type_id',
+                    'grt',
+                    'bhp',
+                    'official_no',
+                    'call_sign',
+                    'imo_no',
+                    'certificate_path',
+                    'certificate_original_filename',
+                    'is_active',
+                ]),
+            ['name', 'official_no', 'call_sign', 'imo_no', 'vesselType.name'],
+            function (Vessel $vessel): array {
+                return [
+                    'id' => $vessel->id,
+                    'name' => $vessel->name,
+                    'vessel_type_id' => $vessel->vessel_type_id,
+                    'vessel_type' => $vessel->vesselType
+                        ? [
+                            'id' => $vessel->vesselType->id,
+                            'name' => $vessel->vesselType->name,
+                        ]
+                        : null,
+                    'grt' => $vessel->grt,
+                    'bhp' => $vessel->bhp,
+                    'official_no' => $vessel->official_no,
+                    'call_sign' => $vessel->call_sign,
+                    'imo_no' => $vessel->imo_no,
+                    'certificate_original_filename' => $vessel->certificate_original_filename,
+                    'certificate_url' => $this->certificateUrl($vessel->certificate_path),
+                    'is_active' => $vessel->is_active,
+                ];
+            },
+        );
 
         return Inertia::render('settings/master-data/vessels', [
-            'vessels' => $vessels,
+            'vessels' => $page['items'],
             'vessel_types' => $vesselTypes,
+            'pagination' => $page['pagination'],
+            'search' => $page['search'],
+        ]);
+    }
+
+    public function show(Request $request, Vessel $vessel): InertiaResponse
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+
+        $vessel->load(['vesselType:id,name']);
+
+        $vesselTypes = VesselType::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $user = $request->user();
+
+        return Inertia::render('settings/master-data/vessel', [
+            'vessel' => [
+                'id' => $vessel->id,
+                'name' => $vessel->name,
+                'vessel_type_id' => $vessel->vessel_type_id,
+                'vessel_type' => $vessel->vesselType
+                    ? [
+                        'id' => $vessel->vesselType->id,
+                        'name' => $vessel->vesselType->name,
+                    ]
+                    : null,
+                'grt' => $vessel->grt,
+                'bhp' => $vessel->bhp,
+                'official_no' => $vessel->official_no,
+                'call_sign' => $vessel->call_sign,
+                'imo_no' => $vessel->imo_no,
+                'certificate_original_filename' => $vessel->certificate_original_filename,
+                'certificate_url' => $this->certificateUrl($vessel->certificate_path),
+                'is_active' => (bool) $vessel->is_active,
+                'created_at' => $vessel->created_at?->toIso8601String(),
+                'updated_at' => $vessel->updated_at?->toIso8601String(),
+            ],
+            'vessel_types' => $vesselTypes,
+            'summary' => [
+                'manning_ranks' => VesselManning::query()
+                    ->where('company_id', $companyId)
+                    ->where('vessel_id', $vessel->id)
+                    ->count(),
+                'sea_services' => EmployeeSeaService::query()
+                    ->where('company_id', $companyId)
+                    ->where('vessel_id', $vessel->id)
+                    ->count(),
+                'active_crew' => CrewAssignment::query()
+                    ->where('company_id', $companyId)
+                    ->where('vessel_id', $vessel->id)
+                    ->active()
+                    ->count(),
+            ],
+            'can' => [
+                'update' => $user?->can('settings.master-data.vessels.update') ?? false,
+                'delete' => $user?->can('settings.master-data.vessels.delete') ?? false,
+                'view_manning' => $user?->can('crew_operations.vessel_manning.view') ?? false,
+            ],
+            'recent_activity' => RecentActivityQuery::for(
+                $user,
+                $companyId,
+                Vessel::class,
+                $vessel->id,
+            ),
+            'can_view_audit' => $user?->can('audit.view') ?? false,
         ]);
     }
 
     public function store(StoreVesselRequest $request): JsonResponse|RedirectResponse
     {
-        $data = $request->validated();
+        $data = $request->safe()->except(['certificate']);
         $data['is_active'] = $data['is_active'] ?? true;
+        $data['official_no'] = $this->nullableString($data['official_no'] ?? null);
+        $data['call_sign'] = $this->nullableString($data['call_sign'] ?? null);
+        $data['imo_no'] = $this->nullableString($data['imo_no'] ?? null);
 
-        return $this->createOrReturnExistingQuickCreate(
-            $request,
-            Vessel::class,
-            $data,
-            redirect()->route('settings.master-data.vessels.index'),
-        );
+        if ($request->wantsJson()) {
+            return $this->createOrReturnExistingQuickCreate(
+                $request,
+                Vessel::class,
+                $data,
+                redirect()->route('settings.master-data.vessels.index'),
+            );
+        }
+
+        $vessel = Vessel::query()->create($data);
+
+        if ($request->hasFile('certificate')) {
+            $vessel->update(
+                $this->certificateStore->store(
+                    $request->file('certificate'),
+                    (int) $vessel->id,
+                ),
+            );
+        }
+
+        return redirect()->route('settings.master-data.vessels.index');
     }
 
     public function update(UpdateVesselRequest $request, Vessel $vessel): RedirectResponse
     {
-        $vessel->update($request->validated());
+        $data = $request->safe()->except(['certificate']);
+        $data['official_no'] = $this->nullableString($data['official_no'] ?? null);
+        $data['call_sign'] = $this->nullableString($data['call_sign'] ?? null);
+        $data['imo_no'] = $this->nullableString($data['imo_no'] ?? null);
+
+        $vessel->update($data);
+
+        if ($request->hasFile('certificate')) {
+            $vessel->update(
+                $this->certificateStore->replace(
+                    $vessel->fresh() ?? $vessel,
+                    $request->file('certificate'),
+                ),
+            );
+        }
+
+        if ($request->input('redirect_to') === 'show') {
+            return redirect()->route('settings.master-data.vessels.show', $vessel);
+        }
 
         return redirect()->route('settings.master-data.vessels.index');
     }
@@ -233,5 +375,25 @@ class VesselController extends Controller
         return redirect()
             ->route('settings.master-data.vessels.index')
             ->with('success', $message);
+    }
+
+    private function certificateUrl(?string $path): ?string
+    {
+        if ($path === null || $path === '') {
+            return null;
+        }
+
+        return Storage::disk('public')->url($path);
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $trimmed = trim((string) $value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 }

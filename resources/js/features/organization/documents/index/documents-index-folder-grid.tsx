@@ -104,7 +104,7 @@ export function DocumentsIndexFolderGrid({
                 )}
                 aria-busy={isSearching}
             >
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] sm:gap-5">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] sm:gap-5">
                     {employees.map((employee) => (
                         <EmployeeFolderItem
                             key={employee.employee_id}

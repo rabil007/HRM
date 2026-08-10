@@ -8,7 +8,6 @@ use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
 use App\Models\CrewTimesheet;
-use App\Models\CrewTimesheetSegment;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Support\Attendance\CalculateLeaveRequestDays;
@@ -25,6 +24,7 @@ final class UpsertCrewTimesheet
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
         private readonly ApplyManualImportTimesheetAutoApproval $autoApproval,
         private readonly SyncCrewTimesheetParentFromSegments $syncParentFromSegments,
+        private readonly PersistCrewTimesheetMovements $persistMovements,
     ) {}
 
     private const OPERATIONAL_KEYS = [
@@ -168,6 +168,27 @@ final class UpsertCrewTimesheet
                     'source' => $existing?->source ?? $source,
                 ];
 
+                // Explicit operational keys (including null) clear stale movement dates after
+                // soft-delete restore. Omitted keys still preserve existing values for
+                // true financial-only autosaves.
+                foreach ([
+                    'sign_on_standby_from',
+                    'sign_on_standby_to',
+                    'sign_on_standby_days',
+                    'onsite_from',
+                    'onsite_to',
+                    'onsite_days',
+                    'sign_off_standby_from',
+                    'sign_off_standby_to',
+                    'sign_off_standby_days',
+                ] as $operationalKey) {
+                    if (array_key_exists($operationalKey, $data)) {
+                        $attributes[$operationalKey] = $data[$operationalKey] !== ''
+                            ? $data[$operationalKey]
+                            : null;
+                    }
+                }
+
                 if ($this->autoApproval->shouldAutoApprove($source)) {
                     $attributes = array_merge(
                         $attributes,
@@ -210,8 +231,12 @@ final class UpsertCrewTimesheet
             $timesheet = $this->persistTimesheet($period, $employee, $existing, $attributes);
 
             if ($isDaily) {
-                $this->syncManualImportSegments($timesheet, $data, $source);
-                $timesheet = $this->syncParentFromSegments->handle($timesheet->fresh() ?? $timesheet);
+                $this->syncManualImportSegments($timesheet, $period, $data, $source, $approvedByUserId);
+                // Parent present-day totals come from current-period segment portions only.
+                $timesheet = $this->syncParentFromSegments->handle(
+                    $timesheet->fresh(['segments', 'period']) ?? $timesheet,
+                    $period,
+                );
             }
 
             return $timesheet;
@@ -255,21 +280,22 @@ final class UpsertCrewTimesheet
      */
     private function syncManualImportSegments(
         CrewTimesheet $timesheet,
+        PayrollPeriod $period,
         array $data,
         CrewTimesheetSource $source,
+        ?int $actorId,
     ): void {
         $segmentRows = $this->normalizeSegmentRows($data);
 
-        $existingQuery = CrewTimesheetSegment::query()
-            ->where('company_id', $timesheet->company_id)
-            ->where('crew_timesheet_id', $timesheet->id)
-            ->whereIn('source', [
-                CrewTimesheetSource::Manual->value,
-                CrewTimesheetSource::Import->value,
-            ]);
-
         if ($segmentRows === []) {
-            if ((clone $existingQuery)->exists()) {
+            $hasManualImportMovements = $timesheet->segments()
+                ->whereIn('source', [
+                    CrewTimesheetSource::Manual->value,
+                    CrewTimesheetSource::Import->value,
+                ])
+                ->exists();
+
+            if ($hasManualImportMovements) {
                 throw ValidationException::withMessages([
                     'segments' => 'At least one valid movement period is required when updating operational dates.',
                 ]);
@@ -278,30 +304,13 @@ final class UpsertCrewTimesheet
             return;
         }
 
-        $existingQuery
-            ->lockForUpdate()
-            ->get()
-            ->each
-            ->delete();
-
-        $sequence = 1;
-
-        foreach ($segmentRows as $row) {
-            CrewTimesheetSegment::query()->create([
-                'company_id' => $timesheet->company_id,
-                'crew_timesheet_id' => $timesheet->id,
-                'sequence' => $sequence++,
-                'pay_category' => $row['pay_category'],
-                'from_date' => $row['from_date'],
-                'to_date' => $row['to_date'],
-                'days' => $row['days'],
-                'source' => $source,
-                'vessel_id' => $row['vessel_id'] ?? null,
-                'client_id' => $row['client_id'] ?? null,
-                'rank_id' => $row['rank_id'] ?? null,
-                'remarks' => $row['remarks'] ?? null,
-            ]);
-        }
+        $this->persistMovements->handle(
+            $timesheet,
+            $period,
+            $segmentRows,
+            $source,
+            $actorId,
+        );
     }
 
     /**

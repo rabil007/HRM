@@ -1,4 +1,10 @@
-import { FileSignature, CheckCircle2, Clock, AlertTriangle, UserX } from 'lucide-react';
+import {
+    FileSignature,
+    CheckCircle2,
+    Clock,
+    AlertTriangle,
+    UserX,
+} from 'lucide-react';
 import { contracts } from '@/routes/organization';
 import { noContract } from '@/routes/organization/contracts';
 import { DashboardMetricCard } from '../components/dashboard-metric-card';
@@ -49,8 +55,14 @@ export function ContractsSection({ summary }: ContractsSectionProps) {
                     subtitle="Active employees missing contract"
                     icon={AlertTriangle}
                     iconColor="text-rose-500"
-                    badgeText={summary.no_contract_employees > 0 ? 'Missing' : 'Complete'}
-                    badgeVariant={summary.no_contract_employees > 0 ? 'danger' : 'success'}
+                    badgeText={
+                        summary.no_contract_employees > 0
+                            ? 'Missing'
+                            : 'Complete'
+                    }
+                    badgeVariant={
+                        summary.no_contract_employees > 0 ? 'danger' : 'success'
+                    }
                     href={noContract.url()}
                 />
 

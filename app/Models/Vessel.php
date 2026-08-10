@@ -24,6 +24,11 @@ class Vessel extends Model
                 'vessel_type_id',
                 'grt',
                 'bhp',
+                'official_no',
+                'call_sign',
+                'imo_no',
+                'certificate_path',
+                'certificate_original_filename',
                 'is_active',
             ])
             ->logOnlyDirty();

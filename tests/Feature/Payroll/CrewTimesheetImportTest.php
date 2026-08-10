@@ -451,6 +451,33 @@ test('crew timesheet import clears typed salary input when column is blank', fun
         ->exists())->toBeFalse();
 });
 
+test('crew timesheet import rejects pre-1970 excel serials in date columns as empty', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.import',
+    ]);
+
+    // Excel serial 92 ≈ 1900-04-01 — typical when overtime hours land in a date column.
+    $file = makeCrewTimesheetImportFile($company->id, [
+        [
+            'employee_no' => '3088',
+            'name' => 'FRANKLINE',
+            'sign_on_standby_from' => '01-07-2026',
+            'sign_on_standby_to' => 92,
+            'overtime_hours' => 92,
+        ],
+    ]);
+
+    $parsed = app(CrewTimesheetsImport::class)->parse($file, $company->id);
+
+    expect($parsed['rows'])->toHaveCount(1)
+        ->and($parsed['rows'][0]['sign_on_standby_from'])->toBe('2026-07-01')
+        ->and($parsed['rows'][0]['sign_on_standby_to'])->toBeNull()
+        ->and((float) $parsed['rows'][0]['overtime_hours'])->toBe(92.0);
+});
+
 test('crew timesheet import accepts roster-only files without salary or remarks columns', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);

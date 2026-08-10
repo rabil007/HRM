@@ -3,6 +3,9 @@
 namespace App\Support\CrewMovements;
 
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewReliefRisk;
+use App\Enums\CrewReliefStatus;
+use App\Enums\CrewTourStatus;
 use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
@@ -83,6 +86,35 @@ class CurrentCrewQuery
             $query->where('planned_signoff_at', '<=', $filters['planned_signoff_to']);
         }
 
+        if (! empty($filters['tour_status'])) {
+            (new CrewTourStatusQuery)->applyFilter(
+                $query,
+                (string) $filters['tour_status'],
+                $companyId,
+            );
+        }
+
+        $reliefQuery = new CrewReliefStatusQuery;
+
+        if (! empty($filters['relief_status'])) {
+            $reliefQuery->applyStatusFilter($query, (string) $filters['relief_status'], $companyId);
+        }
+
+        if (! empty($filters['relief_risk'])) {
+            $reliefQuery->applyRiskFilter($query, (string) $filters['relief_risk'], $companyId);
+        }
+
+        if (! empty($filters['relief_not_ready'])) {
+            $reliefQuery->applyNotReadyFilter($query, $companyId);
+        }
+
+        if (! empty($filters['signoff_within_14_no_relief'])) {
+            $query->whereIn(
+                'id',
+                $reliefQuery->matchingIds($companyId, within14NoRelief: true),
+            );
+        }
+
         if (! empty($filters['movement_attention'])) {
             $query->with(['currentPhase', 'company']);
         }
@@ -114,13 +146,31 @@ class CurrentCrewQuery
             'currentPhase',
             'phases',
             'companyVisaType',
-            'planningAssignment',
+            'planningAssignment.relievedAssignment.employee',
+            'planningAssignment.relievedAssignment.vessel',
+            'planningAssignment.relievedAssignment.rank',
             'company',
         ]);
 
         $perPage = self::resolvePerPage($filters['per_page'] ?? null);
 
         $paginator = $query->paginate($perPage)->withQueryString();
+
+        $plans = (new CrewReliefPlanningLoader)->forSourceAssignmentIds(
+            $companyId,
+            $paginator->getCollection()->pluck('id')->all(),
+        );
+        $resolver = new CrewReliefReadinessResolver;
+
+        $paginator->getCollection()->transform(function (CrewAssignment $assignment) use ($plans, $resolver) {
+            // null from the loader means confirmed no active plan — do not re-query.
+            $assignment->relief_readiness = $resolver->forPreloadedPlan(
+                $assignment,
+                $plans->get((int) $assignment->id),
+            );
+
+            return $assignment;
+        });
 
         if (! empty($filters['movement_attention'])) {
             $paginator->getCollection()->transform(function (CrewAssignment $assignment) {
@@ -141,7 +191,10 @@ class CurrentCrewQuery
      *     vessels: list<array{id: int, name: string}>,
      *     ranks: list<array{id: int, name: string}>,
      *     clients: list<array{id: int, name: string}>,
-     *     employees: list<array{id: int, name: string, employee_no: string|null}>
+     *     employees: list<array{id: int, name: string, employee_no: string|null}>,
+     *     tour_statuses: list<array{value: string, label: string}>,
+     *     relief_statuses: list<array{value: string, label: string}>,
+     *     relief_risks: list<array{value: string, label: string}>
      * }
      */
     public static function filterOptions(int $companyId): array
@@ -177,6 +230,27 @@ class CurrentCrewQuery
                     'id' => $e->id,
                     'name' => $e->name,
                     'employee_no' => $e->employee_no,
+                ])
+                ->values()
+                ->all(),
+            'tour_statuses' => collect(CrewTourStatus::filterable())
+                ->map(fn (CrewTourStatus $status): array => [
+                    'value' => $status->value,
+                    'label' => $status->label(),
+                ])
+                ->values()
+                ->all(),
+            'relief_statuses' => collect(CrewReliefStatus::filterable())
+                ->map(fn (CrewReliefStatus $status): array => [
+                    'value' => $status->value,
+                    'label' => $status->label(),
+                ])
+                ->values()
+                ->all(),
+            'relief_risks' => collect(CrewReliefRisk::filterable())
+                ->map(fn (CrewReliefRisk $risk): array => [
+                    'value' => $risk->value,
+                    'label' => $risk->label(),
                 ])
                 ->values()
                 ->all(),

@@ -7,6 +7,7 @@ use App\Http\Requests\Organization\Employee\BulkDestroyEmployeeSeaServicesReques
 use App\Http\Requests\Organization\Employee\ImportEmployeeSeaServiceRequest;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
+use App\Models\Vessel;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Employees\SeaServiceDuration;
 use App\Support\SeaServices\SeaServiceImportOrchestrator;

@@ -37,6 +37,11 @@ class CrewAssignmentPolicy
         return $user->can('crew_operations.assignments.cancel');
     }
 
+    public function void(User $user, CrewAssignment $assignment): bool
+    {
+        return $user->can('crew_operations.assignments.void');
+    }
+
     public function viewAudit(User $user): bool
     {
         return $user->can('audit.view');

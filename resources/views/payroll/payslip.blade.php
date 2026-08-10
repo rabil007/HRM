@@ -98,6 +98,13 @@
             font-weight: bold;
             padding-top: 10px;
         }
+        .line-detail {
+            display: block;
+            font-size: 8pt;
+            color: #555;
+            margin-top: 2px;
+            line-height: 1.35;
+        }
 
         .summary-wrapper {
             width: 100%;
@@ -222,7 +229,12 @@
         <tbody>
             @foreach ($earnings as $line)
                 <tr>
-                    <td>{{ $line['label'] }}</td>
+                    <td>
+                        {{ $line['label'] }}
+                        @if(!empty($line['detail']))
+                            <span class="line-detail">{{ $line['detail'] }}</span>
+                        @endif
+                    </td>
                     <td class="amount">{{ $line['amount'] }}</td>
                 </tr>
             @endforeach

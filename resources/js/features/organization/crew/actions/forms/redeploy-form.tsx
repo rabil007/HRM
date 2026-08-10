@@ -10,9 +10,17 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    clearedDirectP4TourFields,
+    defaultDestinationTourSignoffChoice,
+    findRankTourOption,
+    hasManualOverrideInput,
+    nextSignoffChoiceForRankChange,
+} from '@/features/organization/crew/lib/tour-signoff';
 import { CREW_PHASE_LABELS } from '../../types';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
+import { TourSignoffFields } from './tour-signoff-fields';
 
 const REDEPLOY_STARTING_PHASES = [
     { value: 'p0', label: CREW_PHASE_LABELS.p0 },
@@ -35,10 +43,37 @@ export function RedeployForm({
     const showDestinationFields = ['p1', 'p2a', 'p3', 'p4'].includes(
         startingPhase,
     );
+    const showDirectP4Tour = startingPhase === 'p4';
+    const showForecastSignoff = ['p1', 'p2a', 'p3'].includes(startingPhase);
+    const selectedRank = findRankTourOption(
+        formOptions?.ranks,
+        form.data.rank_id,
+    );
     const signoffBeforeRedeploy =
         form.data.planned_signoff_at &&
         redeployDate &&
         form.data.planned_signoff_at < redeployDate;
+
+    const setDestinationRank = (rankId: number | null): void => {
+        if (!showDirectP4Tour) {
+            form.setData('rank_id', rankId);
+
+            return;
+        }
+
+        const nextRank = findRankTourOption(formOptions?.ranks, rankId);
+        const planned_signoff_choice = nextSignoffChoiceForRankChange({
+            previousChoice: form.data.planned_signoff_choice,
+            nextRank,
+            hasManualOverrideInput: hasManualOverrideInput(form.data),
+        });
+
+        form.setData({
+            ...form.data,
+            rank_id: rankId,
+            planned_signoff_choice,
+        });
+    };
 
     return (
         <div className="space-y-4">
@@ -88,13 +123,47 @@ export function RedeployForm({
                             next.client_id = null;
                             next.company_visa_type_id = null;
                             next.planned_signoff_at = '';
-                        } else if (
-                            !['p1', 'p2a', 'p3', 'p4'].includes(startingPhase)
-                        ) {
-                            next.vessel_id = context.vessel_id;
-                            next.rank_id = context.rank_id;
-                            next.client_id = context.client_id;
-                            next.company_visa_type_id = context.visa_type_id;
+                            Object.assign(next, clearedDirectP4TourFields());
+                        } else if (value === 'p4') {
+                            if (
+                                !['p1', 'p2a', 'p3', 'p4'].includes(
+                                    startingPhase,
+                                )
+                            ) {
+                                next.vessel_id = context.vessel_id;
+                                next.rank_id = context.rank_id;
+                                next.client_id = context.client_id;
+                                next.company_visa_type_id =
+                                    context.visa_type_id;
+                            }
+
+                            const rankId =
+                                next.rank_id !== undefined
+                                    ? next.rank_id
+                                    : form.data.rank_id;
+                            const rank = findRankTourOption(
+                                formOptions?.ranks,
+                                rankId,
+                            );
+
+                            next.planned_signoff_choice =
+                                defaultDestinationTourSignoffChoice(rank);
+                            next.planned_signoff_override_reason = '';
+                            next.planned_signoff_at = '';
+                        } else {
+                            if (
+                                !['p1', 'p2a', 'p3', 'p4'].includes(
+                                    startingPhase,
+                                )
+                            ) {
+                                next.vessel_id = context.vessel_id;
+                                next.rank_id = context.rank_id;
+                                next.client_id = context.client_id;
+                                next.company_visa_type_id =
+                                    context.visa_type_id;
+                            }
+
+                            Object.assign(next, clearedDirectP4TourFields());
                         }
 
                         form.setData({ ...form.data, ...next });
@@ -175,8 +244,7 @@ export function RedeployForm({
                             <Select
                                 value={form.data.rank_id?.toString() ?? ''}
                                 onValueChange={(value) =>
-                                    form.setData(
-                                        'rank_id',
+                                    setDestinationRank(
                                         value ? Number(value) : null,
                                     )
                                 }
@@ -267,7 +335,18 @@ export function RedeployForm({
                 </>
             ) : null}
 
-            {startingPhase !== 'p0' ? (
+            {showDirectP4Tour ? (
+                <TourSignoffFields
+                    form={form}
+                    selectedRank={selectedRank}
+                    occurredDate={redeployDate}
+                    allowExistingPlan={false}
+                    idPrefix="redeploy"
+                    tourContextLabel="the destination rank"
+                />
+            ) : null}
+
+            {showForecastSignoff ? (
                 <div className="space-y-2">
                     <Label htmlFor="redeploy-planned-signoff">
                         Planned Sign-Off (optional)
@@ -290,6 +369,10 @@ export function RedeployForm({
                             redeployment date.
                         </p>
                     ) : null}
+                    <p className="text-xs text-muted-foreground">
+                        Forecast only. Tour of Duty is set when the assignment
+                        joins the vessel.
+                    </p>
                     <InputError message={form.errors.planned_signoff_at} />
                 </div>
             ) : null}

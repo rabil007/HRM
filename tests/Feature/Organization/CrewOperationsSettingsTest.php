@@ -105,6 +105,8 @@ test('authorized users can view the crew operations settings index', function ()
             ->where('crew_settings.pool_department_ids', [$dept->id])
             ->where('crew_settings.max_home_days', 30)
             ->where('crew_settings.sync_sea_service', true)
+            ->where('crew_settings.notifications_enabled', false)
+            ->has('notification_users')
         );
 });
 
@@ -128,6 +130,13 @@ test('authorized user can update crew operations settings', function () {
             'pool_department_ids' => [$dept->id],
             'max_home_days' => 45,
             'sync_sea_service' => true,
+            'notifications_enabled' => false,
+            'notification_recipient_user_ids' => [],
+            'alert_signoff_overdue' => true,
+            'alert_signoff_no_relief' => true,
+            'alert_relief_not_ready' => true,
+            'alert_current_manning_gap' => true,
+            'alert_projected_manning_gap' => true,
         ])
         ->assertRedirect();
 
@@ -136,7 +145,8 @@ test('authorized user can update crew operations settings', function () {
     expect($setting)->not->toBeNull()
         ->and($setting->pool_department_ids)->toBe([$dept->id])
         ->and($setting->max_home_days)->toBe(45)
-        ->and($setting->sync_sea_service)->toBeTrue();
+        ->and($setting->sync_sea_service)->toBeTrue()
+        ->and($setting->notifications_enabled)->toBeFalse();
 });
 
 test('clearing pool department settings works', function () {
@@ -166,6 +176,13 @@ test('clearing pool department settings works', function () {
             'pool_department_ids' => [],
             'max_home_days' => 30,
             'sync_sea_service' => true,
+            'notifications_enabled' => false,
+            'notification_recipient_user_ids' => [],
+            'alert_signoff_overdue' => true,
+            'alert_signoff_no_relief' => true,
+            'alert_relief_not_ready' => true,
+            'alert_current_manning_gap' => true,
+            'alert_projected_manning_gap' => true,
         ])
         ->assertRedirect();
 
@@ -185,6 +202,13 @@ test('users without update permission cannot change settings', function () {
             'pool_department_ids' => [],
             'max_home_days' => 30,
             'sync_sea_service' => false,
+            'notifications_enabled' => false,
+            'notification_recipient_user_ids' => [],
+            'alert_signoff_overdue' => true,
+            'alert_signoff_no_relief' => true,
+            'alert_relief_not_ready' => true,
+            'alert_current_manning_gap' => true,
+            'alert_projected_manning_gap' => true,
         ])
         ->assertForbidden();
 });
@@ -209,6 +233,13 @@ test('settings reject departments from another company', function () {
             'pool_department_ids' => [$foreignDept->id],
             'max_home_days' => 30,
             'sync_sea_service' => true,
+            'notifications_enabled' => false,
+            'notification_recipient_user_ids' => [],
+            'alert_signoff_overdue' => true,
+            'alert_signoff_no_relief' => true,
+            'alert_relief_not_ready' => true,
+            'alert_current_manning_gap' => true,
+            'alert_projected_manning_gap' => true,
         ])
         ->assertSessionHasErrors(['pool_department_ids.0']);
 });
@@ -233,6 +264,13 @@ test('disabling sea service sync is logged with old and new values', function ()
             'pool_department_ids' => [],
             'max_home_days' => 30,
             'sync_sea_service' => false,
+            'notifications_enabled' => false,
+            'notification_recipient_user_ids' => [],
+            'alert_signoff_overdue' => true,
+            'alert_signoff_no_relief' => true,
+            'alert_relief_not_ready' => true,
+            'alert_current_manning_gap' => true,
+            'alert_projected_manning_gap' => true,
         ])
         ->assertRedirect();
 

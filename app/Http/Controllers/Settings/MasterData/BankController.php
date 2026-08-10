@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings\MasterData;
 
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreBankRequest;
 use App\Http\Requests\Settings\MasterData\UpdateBankRequest;
 use App\Models\Bank;
@@ -15,6 +16,7 @@ use Inertia\Inertia;
 
 class BankController extends Controller
 {
+    use PaginatesMasterDataIndex;
     use ReturnsQuickCreateJson;
 
     public function index()
@@ -23,20 +25,26 @@ class BankController extends Controller
             ->orderBy('name')
             ->get(['id', 'code', 'name']);
 
-        $banks = Bank::query()
-            ->with(['country:id,name,code'])
-            ->orderBy('name')
-            ->get([
-                'id',
-                'name',
-                'uae_routing_code_agent_id',
-                'country_id',
-                'is_active',
-            ]);
+        $page = $this->paginateMasterDataIndex(
+            request(),
+            Bank::query()
+                ->with(['country:id,name,code'])
+                ->orderBy('name')
+                ->select([
+                    'id',
+                    'name',
+                    'uae_routing_code_agent_id',
+                    'country_id',
+                    'is_active',
+                ]),
+            ['name', 'uae_routing_code_agent_id', 'country.name', 'country.code'],
+        );
 
         return Inertia::render('settings/master-data/banks', [
-            'banks' => $banks,
+            'banks' => $page['items'],
             'countries' => $countries,
+            'pagination' => $page['pagination'],
+            'search' => $page['search'],
         ]);
     }
 

@@ -10,7 +10,7 @@ import { useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     store as storeAssignment,
     update as updateAssignment,
@@ -38,6 +38,9 @@ import type {
     PlanningOption,
     PlanningPagePermissions,
     PlanningPoolEmployee,
+    PlanningProjection,
+    PlanningProjectionPeriod,
+    PlanningReliefPrefill,
     RowDropData,
     TreeVessel,
 } from './types';
@@ -70,6 +73,8 @@ type Props = {
     ranks: PlanningOption[];
     employees: PlanningPoolEmployee[];
     can: PlanningPagePermissions;
+    projection?: PlanningProjection | null;
+    relief_prefill?: PlanningReliefPrefill | null;
 };
 
 export function CrewPlanningContent({
@@ -82,15 +87,19 @@ export function CrewPlanningContent({
     ranks,
     employees,
     can,
+    projection = null,
+    relief_prefill: reliefPrefill = null,
 }: Props): ReactElement {
     const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState(filters.search ?? '');
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [showCoverage, setShowCoverage] = useState(can.projection);
     const [dialogState, setDialogState] =
         useState<AssignDialogState>(CLOSED_DIALOG);
     const [draggingEmployee, setDraggingEmployee] =
         useState<CrewDragData | null>(null);
     const ganttRef = useRef<HTMLDivElement | null>(null);
+    const prefillAppliedRef = useRef(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -138,6 +147,30 @@ export function CrewPlanningContent({
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [],
     );
+
+    useEffect(() => {
+        if (!reliefPrefill?.open_create || prefillAppliedRef.current) {
+            return;
+        }
+
+        if (!can.create) {
+            return;
+        }
+
+        prefillAppliedRef.current = true;
+        openCreate(
+            reliefPrefill.vessel_id != null
+                ? String(reliefPrefill.vessel_id)
+                : '',
+            reliefPrefill.rank_id != null ? String(reliefPrefill.rank_id) : '',
+            reliefPrefill.planned_join_date ?? '',
+            '',
+            reliefPrefill.relieves_crew_assignment_id != null
+                ? String(reliefPrefill.relieves_crew_assignment_id)
+                : '',
+            reliefPrefill.relieves_employee_name ?? '',
+        );
+    }, [can.create, openCreate, reliefPrefill]);
 
     const openCreateForRow = useCallback(
         (
@@ -257,6 +290,17 @@ export function CrewPlanningContent({
         [openCreateForRow],
     );
 
+    const handleGapClick = useCallback(
+        (
+            vesselId: number,
+            rankId: number,
+            period: PlanningProjectionPeriod,
+        ): void => {
+            openCreateForRow(vesselId, rankId, period.from);
+        },
+        [openCreateForRow],
+    );
+
     const handleDragEnd = useCallback(
         (event: DragEndEvent): void => {
             setDraggingEmployee(null);
@@ -342,7 +386,11 @@ export function CrewPlanningContent({
                         today={today}
                     />
 
-                    <PlanningLegend />
+                    <PlanningLegend
+                        canProjection={can.projection}
+                        showCoverage={showCoverage}
+                        onShowCoverageChange={setShowCoverage}
+                    />
 
                     <div className="relative flex min-h-0 flex-1 overflow-hidden">
                         {sidebarOpen ? (
@@ -352,7 +400,7 @@ export function CrewPlanningContent({
                                         Vessels &amp; Ranks
                                     </p>
                                     <p className="mt-0.5 text-[11px] text-muted-foreground/55">
-                                        Select a planned rank to focus the
+                                        Select a vessel or rank to focus the
                                         timeline
                                     </p>
                                 </div>
@@ -385,7 +433,10 @@ export function CrewPlanningContent({
                                 search={searchInput}
                                 highlightedRowKey={selectedRowKey}
                                 can={can}
+                                projection={projection}
+                                showCoverage={can.projection && showCoverage}
                                 onRowClick={handleRowClick}
+                                onGapClick={handleGapClick}
                                 onEditBar={openEdit}
                                 onDeleteBar={handleDeleteBar}
                             />

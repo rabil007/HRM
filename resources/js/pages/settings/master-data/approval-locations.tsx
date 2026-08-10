@@ -1,4 +1,5 @@
 import { MasterDataNameActivePage } from '@/components/settings/master-data-name-active-page';
+import type { PaginationMeta } from '@/types/pagination';
 
 type ApprovalLocation = {
     id: number;
@@ -8,8 +9,12 @@ type ApprovalLocation = {
 
 export default function ApprovalLocations({
     approval_locations,
+    pagination,
+    search = '',
 }: {
     approval_locations: ApprovalLocation[];
+    pagination: PaginationMeta;
+    search?: string;
 }) {
     return (
         <MasterDataNameActivePage
@@ -19,6 +24,8 @@ export default function ApprovalLocations({
             resource="approval-locations"
             baseUrl="/settings/master-data/approval-locations"
             items={approval_locations}
+            pagination={pagination}
+            search={search}
             entityLabel="approval location"
             searchPlaceholder="Search approval locations..."
             createButtonLabel="Add approval location"

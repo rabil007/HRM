@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useMasterDataCrud } from '@/hooks/use-master-data-crud';
+import type { PaginationMeta } from '@/types/pagination';
 
 type Currency = {
     id: number;
@@ -33,12 +34,21 @@ const initialForm: CurrencyFormData = {
     is_active: true,
 };
 
-export default function Currencies({ currencies }: { currencies: Currency[] }) {
+export default function Currencies({
+    currencies,
+    pagination,
+    search = '',
+}: {
+    currencies: Currency[];
+    pagination: PaginationMeta;
+    search?: string;
+}) {
     const can = useSettingsMasterDataCan('currencies');
 
     const {
-        query,
-        setQuery,
+        searchInput,
+        onSearchChange,
+        paginationProps,
         sheetOpen,
         setSheetOpen,
         deleteOpen,
@@ -56,10 +66,8 @@ export default function Currencies({ currencies }: { currencies: Currency[] }) {
         items: currencies,
         baseUrl: '/settings/master-data/currencies',
         initialForm,
-        filterItem: (currency, q) =>
-            currency.code.toLowerCase().includes(q) ||
-            currency.name.toLowerCase().includes(q) ||
-            (currency.symbol ?? '').toLowerCase().includes(q),
+        search,
+        pagination,
         toFormData: (currency) => ({
             code: currency.code,
             name: currency.name,
@@ -80,8 +88,10 @@ export default function Currencies({ currencies }: { currencies: Currency[] }) {
             title="Currencies"
             description="Manage currency codes used across the system."
             searchPlaceholder="Search by code, name, symbol..."
-            query={query}
-            onQueryChange={setQuery}
+            searchInput={searchInput}
+            onSearchChange={onSearchChange}
+            pagination={paginationProps}
+            paginationLabel="currencies"
             canCreate={can.create}
             createButtonLabel="Add currency"
             onCreate={openCreate}
