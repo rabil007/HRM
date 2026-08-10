@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\Documents\DocumentsModuleAccess;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -14,16 +15,9 @@ class DocumentTemplatesController extends Controller
     {
         $user = $request->user();
 
-        abort_unless(
-            $user !== null && (
-                $user->can('documents.view')
-                || $user->can('bulk_documents.view')
-                || $user->can('settings.application.view')
-            ),
-            403,
-        );
+        abort_unless(DocumentsModuleAccess::canAccessSection($user, 'templates'), 403);
 
-        $types = collect(BulkDocumentTypeRegistry::definitions())
+        $systemTemplates = collect(BulkDocumentTypeRegistry::definitions())
             ->map(fn (array $definition): array => [
                 'key' => $definition['key'],
                 'label' => $definition['label'],
@@ -34,11 +28,12 @@ class DocumentTemplatesController extends Controller
 
         return Inertia::render('organization/documents/templates', [
             'section' => 'templates',
-            'document_types' => $types,
+            'system_templates' => $systemTemplates,
+            'document_types' => $systemTemplates,
             'can' => [
-                'configure_placement' => $user->can('settings.application.view'),
-                'update_placement' => $user->can('settings.application.update'),
-                'manage_document_types' => $user->can('settings.master-data.document-types.view'),
+                'configure_placement' => $user?->can('settings.application.view') ?? false,
+                'update_placement' => $user?->can('settings.application.update') ?? false,
+                'manage_document_types' => $user?->can('settings.master-data.document-types.view') ?? false,
             ],
         ]);
     }

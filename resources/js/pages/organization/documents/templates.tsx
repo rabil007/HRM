@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { ExternalLink, FilePenLine, Files } from 'lucide-react';
+import { ExternalLink, FilePenLine, Files, Sliders } from 'lucide-react';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Badge } from '@/components/ui/badge';
@@ -12,10 +12,17 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
+import { edit as applicationSettings } from '@/routes/application';
+import { index as documentTypesSettings } from '@/routes/settings/master-data/document-types';
 
 type Props = {
     section: 'templates';
-    document_types: Array<{
+    system_templates?: Array<{
+        key: string;
+        label: string;
+        supports_esignature: boolean;
+    }>;
+    document_types?: Array<{
         key: string;
         label: string;
         supports_esignature: boolean;
@@ -27,7 +34,13 @@ type Props = {
     };
 };
 
-export default function DocumentTemplates({ document_types, can }: Props) {
+export default function DocumentTemplates({
+    system_templates,
+    document_types,
+    can,
+}: Props) {
+    const templates = system_templates ?? document_types ?? [];
+
     return (
         <>
             <Head title="Document templates" />
@@ -49,7 +62,7 @@ export default function DocumentTemplates({ document_types, can }: Props) {
                     </p>
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-4 lg:grid-cols-3">
                     <Card className="glass-card">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-base">
@@ -68,13 +81,11 @@ export default function DocumentTemplates({ document_types, can }: Props) {
                                 <code className="text-xs">
                                     settings.application.view
                                 </code>
-                                ). It will move under Templates → Field
-                                Placement without removing existing placement
-                                data.
+                                ).
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            {document_types
+                            {templates
                                 .filter((type) => type.supports_esignature)
                                 .map((type) => (
                                     <div
@@ -95,7 +106,9 @@ export default function DocumentTemplates({ document_types, can }: Props) {
                                                 variant="outline"
                                                 className="rounded-xl"
                                             >
-                                                <Link href="/settings/application">
+                                                <Link
+                                                    href={applicationSettings.url()}
+                                                >
                                                     Open placement
                                                     <ExternalLink className="ml-2 h-3.5 w-3.5" />
                                                 </Link>
@@ -108,7 +121,7 @@ export default function DocumentTemplates({ document_types, can }: Props) {
                                         )}
                                     </div>
                                 ))}
-                            {document_types.every(
+                            {templates.every(
                                 (type) => !type.supports_esignature,
                             ) ? (
                                 <p className="text-sm text-muted-foreground">
@@ -121,27 +134,24 @@ export default function DocumentTemplates({ document_types, can }: Props) {
                     <Card className="glass-card">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-base">
-                                <Files className="h-4 w-4" />
-                                Document types
+                                <Sliders className="h-4 w-4" />
+                                System / legacy generation templates
                                 <Badge
                                     variant="outline"
                                     className="font-normal"
                                 >
-                                    Legacy
+                                    Registry
                                 </Badge>
                             </CardTitle>
                             <CardDescription>
-                                Master-data document types used by the employee
-                                library and generation flows (
-                                <code className="text-xs">
-                                    settings.master-data.document-types.view
-                                </code>
-                                ).
+                                System document generation definitions
+                                registered in code (e.g. Salary Declaration /
+                                Certificate).
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             <ul className="space-y-2 text-sm">
-                                {document_types.map((type) => (
+                                {templates.map((type) => (
                                     <li
                                         key={type.key}
                                         className="flex items-center justify-between rounded-lg border border-border/40 px-3 py-2"
@@ -155,13 +165,43 @@ export default function DocumentTemplates({ document_types, can }: Props) {
                                     </li>
                                 ))}
                             </ul>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="glass-card">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <Files className="h-4 w-4" />
+                                Document Types
+                                <Badge
+                                    variant="outline"
+                                    className="font-normal"
+                                >
+                                    Master Data
+                                </Badge>
+                            </CardTitle>
+                            <CardDescription>
+                                Master-data document classifications used for
+                                employee library uploads and tracking (
+                                <code className="text-xs">
+                                    settings.master-data.document-types.view
+                                </code>
+                                ).
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <p className="text-xs text-muted-foreground">
+                                Document Types define classification categories
+                                (e.g. Passport, Visa, Emirates ID), whereas
+                                templates define generation layouts.
+                            </p>
                             {can.manage_document_types ? (
                                 <Button
                                     asChild
                                     variant="outline"
                                     className="rounded-xl"
                                 >
-                                    <Link href="/settings/master-data/document-types">
+                                    <Link href={documentTypesSettings.url()}>
                                         Manage document types
                                         <ExternalLink className="ml-2 h-3.5 w-3.5" />
                                     </Link>

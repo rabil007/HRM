@@ -40,6 +40,13 @@ import {
     training,
 } from '@/routes/organization';
 import { index as crewMovementCorrections } from '@/routes/organization/crew-movement-corrections';
+import {
+    activity as documentsActivity,
+    generate as documentsGenerate,
+    library as documentsLibrary,
+    requests as documentsRequests,
+    templates as documentsTemplates,
+} from '@/routes/organization/documents';
 import { index as crewMovementHistory } from '@/routes/organization/reports/crew-movement-history';
 import type { SidebarData } from '../types';
 
@@ -131,23 +138,23 @@ const baseSidebarData: SidebarData = {
                         },
                         {
                             title: 'Library',
-                            url: '/organization/documents/library',
+                            url: documentsLibrary.url(),
                         },
                         {
                             title: 'Generate & Send',
-                            url: '/organization/documents/generate',
+                            url: documentsGenerate.url(),
                         },
                         {
                             title: 'Requests',
-                            url: '/organization/documents/requests',
+                            url: documentsRequests.url(),
                         },
                         {
                             title: 'Templates',
-                            url: '/organization/documents/templates',
+                            url: documentsTemplates.url(),
                         },
                         {
                             title: 'Activity',
-                            url: '/organization/documents/activity',
+                            url: documentsActivity.url(),
                         },
                     ],
                 },
@@ -335,19 +342,15 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             const filteredSub = item.items.filter((sub) => {
                                 if (
                                     sub.url === documents.url() ||
-                                    sub.url ===
-                                        '/organization/documents/library'
+                                    sub.url === documentsLibrary.url()
                                 ) {
                                     return has(permissions, 'documents.view');
                                 }
 
                                 if (
-                                    sub.url ===
-                                        '/organization/documents/generate' ||
-                                    sub.url ===
-                                        '/organization/documents/requests' ||
-                                    sub.url ===
-                                        '/organization/documents/activity'
+                                    sub.url === documentsGenerate.url() ||
+                                    sub.url === documentsRequests.url() ||
+                                    sub.url === documentsActivity.url()
                                 ) {
                                     return has(
                                         permissions,
@@ -355,10 +358,7 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                     );
                                 }
 
-                                if (
-                                    sub.url ===
-                                    '/organization/documents/templates'
-                                ) {
+                                if (sub.url === documentsTemplates.url()) {
                                     return (
                                         has(permissions, 'documents.view') ||
                                         has(

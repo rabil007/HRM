@@ -1,16 +1,46 @@
 # Document management
 
-Employee documents are stored per company and linked to employees. HR can browse by folder, manage files on the employee profile, and track expiry for compliance.
+Employee documents are stored per company and linked to employees. HR can browse by folder, manage files on the employee profile, track expiry for compliance, generate bulk document packages, review signature requests, and manage template placements.
+
+## Unified Documents navigation (Phase 1)
+
+The Documents module uses a unified section layout (`DocumentsModuleNav`) with permission-gated navigation:
+
+```text
+Documents
+├── Overview (/organization/documents)
+├── Library (/organization/documents/library)
+├── Generate & Send (/organization/documents/generate)
+├── Requests (/organization/documents/requests)
+├── Templates (/organization/documents/templates)
+└── Activity (/organization/documents/activity)
+```
 
 ## Routes
 
-| Path | Purpose | Permission |
-|------|---------|------------|
-| `/organization/documents` | Folder index + global search | `documents.view` |
+| Path | Section / Purpose | Permission |
+|------|-------------------|------------|
+| `/organization/documents` | **Overview**: Folder index + expiry summary cards + global search | `documents.view` |
+| `/organization/documents/library` | **Library**: Folder index / compliance table alias | `documents.view` |
+| `/organization/documents/generate` | **Generate & Send**: Bulk document package generation | `bulk_documents.view` |
+| `/organization/documents/requests` | **Requests**: Bulk e-signature requests & status | `bulk_documents.view` |
+| `/organization/documents/templates` | **Templates**: Bridge to existing template placement & Master Data | `documents.view` / `bulk_documents.view` / `settings.application.view` |
+| `/organization/documents/activity` | **Activity**: Document generation & delivery history | `bulk_documents.view` |
+| `/organization/documents/bulk` | **Legacy compatibility route**: Supports `?view=roster`, `?view=signatures`, `?view=history` | `bulk_documents.view` |
 | `/organization/documents/employees/{employee}` | Employee document browse | `documents.view` |
 | `/organization/employees/{employee}` (Documents tab) | Upload, edit, versions on profile | `documents.view` / `documents.upload` / `documents.delete` |
 
 Upload and CRUD on the profile use `organization.employees.documents.*` routes.
+
+## Templates bridge (Transitional)
+
+The **Templates** section (`/organization/documents/templates`) serves as an explicit transitional bridge to existing configuration screens before the full dynamic template designer arrives in Phase 2:
+
+- **Field placement**: Signature field placement for system generation templates, linking to Application settings (`/settings/application`).
+- **System / legacy generation templates**: Registry-backed generation definitions (e.g. Salary Declaration, Salary Certificate) registered in code.
+- **Document Types**: Classification categories used for employee library uploads, linking to Master Data settings (`/settings/master-data/document-types`).
+
+Document Types represent file classifications; Templates represent reusable generation definitions.
 
 ## Data model
 

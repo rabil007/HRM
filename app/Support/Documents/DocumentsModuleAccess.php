@@ -2,6 +2,8 @@
 
 namespace App\Support\Documents;
 
+use App\Models\User;
+
 /**
  * Resolves Documents module section visibility and a safe default landing path
  * for permission-aware navigation. Frontend can flags are UX only; route
@@ -10,11 +12,31 @@ namespace App\Support\Documents;
 final class DocumentsModuleAccess
 {
     /**
-     * @param  list<string>  $permissions
+     * @param  User|list<string>|null  $userOrPermissions
+     * @return list<string>
+     */
+    public static function extractPermissions(User|array|null $userOrPermissions): array
+    {
+        if ($userOrPermissions instanceof User) {
+            return array_values(array_filter([
+                $userOrPermissions->can('documents.view') ? 'documents.view' : null,
+                $userOrPermissions->can('bulk_documents.view') ? 'bulk_documents.view' : null,
+                $userOrPermissions->can('settings.application.view') ? 'settings.application.view' : null,
+                $userOrPermissions->can('settings.application.update') ? 'settings.application.update' : null,
+                $userOrPermissions->can('settings.master-data.document-types.view') ? 'settings.master-data.document-types.view' : null,
+            ]));
+        }
+
+        return $userOrPermissions ?? [];
+    }
+
+    /**
+     * @param  User|list<string>|null  $userOrPermissions
      * @return list<array{key: string, label: string, path: string}>
      */
-    public static function visibleSections(array $permissions): array
+    public static function visibleSections(User|array|null $userOrPermissions): array
     {
+        $permissions = self::extractPermissions($userOrPermissions);
         $has = static fn (string $permission): bool => in_array($permission, $permissions, true);
 
         $sections = [];
@@ -41,20 +63,34 @@ final class DocumentsModuleAccess
     }
 
     /**
-     * @param  list<string>  $permissions
+     * @param  User|list<string>|null  $userOrPermissions
      */
-    public static function defaultPath(array $permissions): ?string
+    public static function defaultPath(User|array|null $userOrPermissions): ?string
     {
-        $sections = self::visibleSections($permissions);
+        $sections = self::visibleSections($userOrPermissions);
 
         return $sections[0]['path'] ?? null;
     }
 
     /**
-     * @param  list<string>  $permissions
+     * @param  User|list<string>|null  $userOrPermissions
      */
-    public static function canAccessModule(array $permissions): bool
+    public static function canAccessModule(User|array|null $userOrPermissions): bool
     {
-        return self::defaultPath($permissions) !== null;
+        return self::defaultPath($userOrPermissions) !== null;
+    }
+
+    /**
+     * @param  User|list<string>|null  $userOrPermissions
+     */
+    public static function canAccessSection(User|array|null $userOrPermissions, string $section): bool
+    {
+        foreach (self::visibleSections($userOrPermissions) as $s) {
+            if ($s['key'] === $section) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
