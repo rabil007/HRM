@@ -26,17 +26,22 @@ class ExportBulkDocumentSignatureEmployeesController extends Controller
             $documentTypeKey = 'salary_declaration';
         }
 
-        $query = $exportEmployees->query(
-            $companyId,
-            $documentTypeKey,
-            $request->signatureRequestIds(),
-        );
+        $employeeIds = $request->employeeIds();
+
+        $query = $employeeIds !== []
+            ? $exportEmployees->queryForEmployees($companyId, $employeeIds)
+            : $exportEmployees->query(
+                $companyId,
+                $documentTypeKey,
+                $request->signatureRequestIds(),
+            );
 
         abort_if($query->clone()->doesntExist(), 404, 'No employees found for the current selection.');
 
         $export = new BulkDocumentSignatureEmployeesExport($query);
         $timestamp = now()->format('Y-m-d_His');
-        $baseName = "{$documentTypeKey}-signature-employees-{$timestamp}";
+        $scope = $employeeIds !== [] ? 'employees' : 'signature-employees';
+        $baseName = "{$documentTypeKey}-{$scope}-{$timestamp}";
         $format = $request->exportFormat();
 
         if ($format === 'xlsx') {

@@ -24,6 +24,15 @@ final class ExportBulkDocumentSignatureEmployees
             ->values()
             ->all();
 
+        return $this->queryForEmployees($companyId, $employeeIds);
+    }
+
+    /**
+     * @param  list<int>  $employeeIds
+     * @return Builder<Employee>
+     */
+    public function queryForEmployees(int $companyId, array $employeeIds): Builder
+    {
         return Employee::query()
             ->where('company_id', $companyId)
             ->whereIn('id', $employeeIds)

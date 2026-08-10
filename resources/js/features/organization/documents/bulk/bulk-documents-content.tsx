@@ -614,6 +614,8 @@ export function BulkDocumentsContent({
         useState(false);
     const [isExportingSignatureEmployees, setIsExportingSignatureEmployees] =
         useState(false);
+    const [isExportingRosterEmployees, setIsExportingRosterEmployees] =
+        useState(false);
 
     const effectiveSignatureCount =
         matchingSignatureSelection?.total ?? selectedSignatureCount;
@@ -747,7 +749,6 @@ export function BulkDocumentsContent({
     ]);
 
     const showSelectAllMatchingSignatures =
-        can.review_signatures &&
         isAllSignaturesSelected &&
         matchingSignatureSelection === null &&
         pagination.total > selectedSignatureCount;
@@ -1232,6 +1233,40 @@ export function BulkDocumentsContent({
         document_type_key,
         effectiveSignatureRequestIds,
         isExportingSignatureEmployees,
+    ]);
+
+    const exportSelectedRosterEmployees = useCallback(async () => {
+        if (effectiveSelectedIds.length === 0 || isExportingRosterEmployees) {
+            return;
+        }
+
+        setIsExportingRosterEmployees(true);
+
+        try {
+            await downloadBinaryExport(
+                ExportBulkDocumentSignatureEmployeesController.url(),
+                {
+                    employee_ids: effectiveSelectedIds,
+                    document_type_key,
+                    format: 'xlsx',
+                },
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'bulk-employees.xlsx',
+                'Employee export failed. Please try again.',
+            );
+        } catch (error) {
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Employee export failed.',
+            );
+        } finally {
+            setIsExportingRosterEmployees(false);
+        }
+    }, [
+        document_type_key,
+        effectiveSelectedIds,
+        isExportingRosterEmployees,
     ]);
 
     const navigate = useCallback(
@@ -2093,6 +2128,24 @@ export function BulkDocumentsContent({
                         }
                         actions={
                             <>
+                                {effectiveSelectedCount > 0 ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={isExportingRosterEmployees}
+                                        onClick={() =>
+                                            void exportSelectedRosterEmployees()
+                                        }
+                                    >
+                                        {isExportingRosterEmployees ? (
+                                            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                            <FileDown className="mr-2 h-3.5 w-3.5" />
+                                        )}
+                                        Export
+                                    </Button>
+                                ) : null}
                                 {can.generate ? (
                                     <Button
                                         type="button"
@@ -2242,161 +2295,160 @@ export function BulkDocumentsContent({
                 </>
             ) : isSignaturesView ? (
                 <>
-                    {can.review_signatures ? (
-                        <DocumentsBulkToolbar
-                            count={effectiveSignatureCount}
-                            itemLabel="signature requests"
-                            onClear={clearSignatureSelectionState}
-                            selectAllMatching={
-                                showSelectAllMatchingSignatures
-                                    ? {
-                                          total: pagination.total,
-                                          onSelect: () =>
-                                              void handleSelectAllMatchingSignatures(),
-                                          loading:
-                                              isSelectingAllMatchingSignatures,
-                                      }
-                                    : undefined
-                            }
-                            selectAll={
-                                <Checkbox
-                                    checked={isSignatureHeaderCheckboxChecked}
-                                    onCheckedChange={handleToggleAllSignatures}
-                                    aria-label="Select all signature requests"
-                                />
-                            }
-                            actions={
-                                <>
-                                    {effectiveSignatureRequestIds.length > 0 ? (
+                    <DocumentsBulkToolbar
+                        count={effectiveSignatureCount}
+                        itemLabel="signature requests"
+                        onClear={clearSignatureSelectionState}
+                        selectAllMatching={
+                            showSelectAllMatchingSignatures
+                                ? {
+                                      total: pagination.total,
+                                      onSelect: () =>
+                                          void handleSelectAllMatchingSignatures(),
+                                      loading:
+                                          isSelectingAllMatchingSignatures,
+                                  }
+                                : undefined
+                        }
+                        selectAll={
+                            <Checkbox
+                                checked={isSignatureHeaderCheckboxChecked}
+                                onCheckedChange={handleToggleAllSignatures}
+                                aria-label="Select all signature requests"
+                            />
+                        }
+                        actions={
+                            <>
+                                {effectiveSignatureRequestIds.length > 0 ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={
+                                            isExportingSignatureEmployees
+                                        }
+                                        onClick={() =>
+                                            void exportSelectedSignatureEmployees()
+                                        }
+                                    >
+                                        {isExportingSignatureEmployees ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <FileDown className="mr-2 h-4 w-4" />
+                                        )}
+                                        Export
+                                    </Button>
+                                ) : null}
+                                {can.review_signatures &&
+                                approvableSelectedSignatureIds.length > 0 ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        disabled={isApprovingSignatures}
+                                        onClick={() => setApproveOpen(true)}
+                                    >
+                                        {isApprovingSignatures ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                                        )}
+                                        Approve (
+                                        {
+                                            approvableSelectedSignatureIds.length
+                                        }
+                                        )
+                                    </Button>
+                                ) : null}
+                                {can.download &&
+                                downloadableApprovedSignatureIds.length >
+                                    0 ? (
+                                    <>
                                         <Button
                                             type="button"
                                             size="sm"
                                             variant="outline"
                                             disabled={
-                                                isExportingSignatureEmployees
+                                                isDownloadingApprovedZip ||
+                                                isDownloadingApprovedPdf
                                             }
                                             onClick={() =>
-                                                void exportSelectedSignatureEmployees()
+                                                void downloadApprovedSignaturesZip()
                                             }
                                         >
-                                            {isExportingSignatureEmployees ? (
+                                            {isDownloadingApprovedZip ? (
                                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                             ) : (
-                                                <FileDown className="mr-2 h-4 w-4" />
+                                                <Download className="mr-2 h-4 w-4" />
                                             )}
-                                            Export
+                                            Download ZIP
                                         </Button>
-                                    ) : null}
-                                    {approvableSelectedSignatureIds.length >
-                                    0 ? (
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            disabled={isApprovingSignatures}
-                                            onClick={() => setApproveOpen(true)}
-                                        >
-                                            {isApprovingSignatures ? (
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                            )}
-                                            Approve (
-                                            {
-                                                approvableSelectedSignatureIds.length
-                                            }
-                                            )
-                                        </Button>
-                                    ) : null}
-                                    {can.download &&
-                                    downloadableApprovedSignatureIds.length >
-                                        0 ? (
-                                        <>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="outline"
-                                                disabled={
-                                                    isDownloadingApprovedZip ||
-                                                    isDownloadingApprovedPdf
-                                                }
-                                                onClick={() =>
-                                                    void downloadApprovedSignaturesZip()
-                                                }
-                                            >
-                                                {isDownloadingApprovedZip ? (
-                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <Download className="mr-2 h-4 w-4" />
-                                                )}
-                                                Download ZIP
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="outline"
-                                                disabled={
-                                                    isDownloadingApprovedZip ||
-                                                    isDownloadingApprovedPdf
-                                                }
-                                                onClick={() =>
-                                                    void downloadApprovedSignaturesPdf()
-                                                }
-                                            >
-                                                {isDownloadingApprovedPdf ? (
-                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <FileText className="mr-2 h-4 w-4" />
-                                                )}
-                                                Download PDF
-                                            </Button>
-                                        </>
-                                    ) : null}
-                                    {can.email &&
-                                    signature_filter ===
-                                        'awaiting_signature' ? (
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => {
-                                                setEmailIntent('reminder');
-                                                setEmailOpen(true);
-                                            }}
-                                            disabled={
-                                                effectiveSignatureEmployeeIds.length ===
-                                                0
-                                            }
-                                        >
-                                            <Mail className="mr-2 h-4 w-4" />
-                                            Send email
-                                        </Button>
-                                    ) : null}
-                                    {regenerableSelectedSignatureIds.length >
-                                    0 ? (
                                         <Button
                                             type="button"
                                             size="sm"
                                             variant="outline"
                                             disabled={
-                                                isRegeneratingAlignment ||
-                                                isSignatureRepairActive
+                                                isDownloadingApprovedZip ||
+                                                isDownloadingApprovedPdf
                                             }
-                                            onClick={
-                                                regenerateSelectedAlignment
+                                            onClick={() =>
+                                                void downloadApprovedSignaturesPdf()
                                             }
                                         >
-                                            {isRegeneratingAlignment ? (
+                                            {isDownloadingApprovedPdf ? (
                                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                             ) : (
-                                                <RotateCcw className="mr-2 h-4 w-4" />
+                                                <FileText className="mr-2 h-4 w-4" />
                                             )}
-                                            Regenerate alignment
+                                            Download PDF
                                         </Button>
-                                    ) : null}
-                                </>
-                            }
-                        />
-                    ) : null}
+                                    </>
+                                ) : null}
+                                {can.email &&
+                                signature_filter ===
+                                    'awaiting_signature' ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                            setEmailIntent('reminder');
+                                            setEmailOpen(true);
+                                        }}
+                                        disabled={
+                                            effectiveSignatureEmployeeIds.length ===
+                                            0
+                                        }
+                                    >
+                                        <Mail className="mr-2 h-4 w-4" />
+                                        Send email
+                                    </Button>
+                                ) : null}
+                                {can.review_signatures &&
+                                regenerableSelectedSignatureIds.length >
+                                    0 ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={
+                                            isRegeneratingAlignment ||
+                                            isSignatureRepairActive
+                                        }
+                                        onClick={
+                                            regenerateSelectedAlignment
+                                        }
+                                    >
+                                        {isRegeneratingAlignment ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <RotateCcw className="mr-2 h-4 w-4" />
+                                        )}
+                                        Regenerate alignment
+                                    </Button>
+                                ) : null}
+                            </>
+                        }
+                    />
 
                     <SignatureRepairProgressBanner
                         latestRepairRun={latest_signature_repair_run}
@@ -2406,7 +2458,7 @@ export function BulkDocumentsContent({
                         requests={signature_requests}
                         canReview={can.review_signatures}
                         canDownload={can.download}
-                        selectable={can.review_signatures}
+                        selectable
                         isSelected={isSignatureRowSelected}
                         isAllSelected={Boolean(
                             matchingSignatureSelection ||
