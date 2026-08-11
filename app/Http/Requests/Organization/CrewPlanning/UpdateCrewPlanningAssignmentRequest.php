@@ -20,8 +20,10 @@ class UpdateCrewPlanningAssignmentRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
         return [
-            'vessel_id' => ['sometimes', 'integer', Rule::exists('vessels', 'id')],
+            'vessel_id' => ['sometimes', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)],
             'rank_id' => ['sometimes', 'integer', Rule::exists('ranks', 'id')],
             'employee_id' => $this->crewPlanningEmployeeIdRule(),
             'planned_join_date' => ['sometimes', 'date'],

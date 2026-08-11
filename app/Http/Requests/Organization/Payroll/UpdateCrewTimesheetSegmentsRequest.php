@@ -64,6 +64,8 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
         // Vessel, Client, and Rank are intentional global masters (not company-owned).
         // Scope only to active records — see docs/payroll.md.
         return [
@@ -83,7 +85,7 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
             'segments.*.vessel_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('vessels', 'id')->where('is_active', true),
+                Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true),
             ],
             'segments.*.client_id' => [
                 'nullable',

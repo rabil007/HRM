@@ -172,3 +172,21 @@ test('phase filter works on crew assignments index', function () {
             ->has('assignments', 1)
             ->where('assignments.0.current_phase.code', 'p0'));
 });
+
+test('company A cannot create a crew assignment using company B vessel', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentOperationsFixtures();
+    ['company' => $otherCompany] = makeCrewAssignmentFixtures();
+
+    $otherVessel = makeCrewMovementVessel('Foreign Company B Vessel', $otherCompany);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $otherVessel->id,
+            'planned_join_at' => '2026-08-01',
+        ])
+        ->assertSessionHasErrors(['vessel_id']);
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});

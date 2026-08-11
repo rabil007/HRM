@@ -576,3 +576,49 @@ test('vessels index includes manning summary totals', function () {
             ->has('vessels.0.manning', 2)
         );
 });
+
+test('same vessel name can exist in different companies', function () {
+    ['user' => $user, 'company' => $company, 'otherCompany' => $otherCompany, 'vesselType' => $vesselType] = makeOrganizationVesselFixtures();
+
+    $vesselA = Vessel::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Ocean Star',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    $vesselB = Vessel::query()->create([
+        'company_id' => $otherCompany->id,
+        'name' => 'Ocean Star',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    expect($vesselA->id)->not->toBe($vesselB->id)
+        ->and($vesselA->name)->toBe('Ocean Star')
+        ->and($vesselB->name)->toBe('Ocean Star')
+        ->and((int) $vesselA->company_id)->toBe((int) $company->id)
+        ->and((int) $vesselB->company_id)->toBe((int) $otherCompany->id);
+});
+
+test('vessel type remains global and accessible across different companies', function () {
+    ['company' => $company, 'otherCompany' => $otherCompany, 'vesselType' => $vesselType] = makeOrganizationVesselFixtures();
+
+    $vesselA = Vessel::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Vessel A',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    $vesselB = Vessel::query()->create([
+        'company_id' => $otherCompany->id,
+        'name' => 'Vessel B',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    expect($vesselA->vessel_type_id)->toBe($vesselType->id)
+        ->and($vesselB->vessel_type_id)->toBe($vesselType->id)
+        ->and(Schema::hasColumn('vessel_types', 'company_id'))->toBeFalse();
+});

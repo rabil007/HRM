@@ -51,6 +51,7 @@ class PerformCrewMovementActionRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->attributes->get('current_company_id');
         $action = $this->input('action');
 
         $baseRules = [
@@ -100,7 +101,7 @@ class PerformCrewMovementActionRequest extends FormRequest
         ];
 
         if ($action === 'join_vessel') {
-            $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('is_active', true)];
+            $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)];
             $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
             $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)];
@@ -122,7 +123,7 @@ class PerformCrewMovementActionRequest extends FormRequest
         }
 
         if ($action === 'transfer_vessel') {
-            $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('is_active', true)];
+            $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)];
             $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
             $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)];
@@ -159,7 +160,7 @@ class PerformCrewMovementActionRequest extends FormRequest
                 Rule::requiredIf(fn () => $this->input('starting_phase') === CrewPhaseCode::OnVessel->value),
                 'nullable',
                 'integer',
-                Rule::exists('vessels', 'id')->where('is_active', true),
+                Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true),
             ];
             $baseRules['rank_id'] = [
                 Rule::requiredIf(fn () => $this->input('starting_phase') === CrewPhaseCode::OnVessel->value),

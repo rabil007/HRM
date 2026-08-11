@@ -31,7 +31,7 @@ class EmployeeSeaServiceController extends Controller
             $request,
             $employee,
             'employee_sea_services',
-            $this->seaServiceRules(),
+            $this->seaServiceRules($companyId),
         );
 
         $attributes = $this->seaServiceAttributes($companyId, $validated, null);
@@ -72,7 +72,7 @@ class EmployeeSeaServiceController extends Controller
             $request,
             $employee,
             'employee_sea_services',
-            $this->seaServiceRules(),
+            $this->seaServiceRules($companyId),
         );
 
         $attributes = $this->seaServiceAttributes($companyId, $validated, $seaService);
@@ -240,11 +240,11 @@ class EmployeeSeaServiceController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function seaServiceRules(): array
+    private function seaServiceRules(int $companyId): array
     {
         return [
             'vessel_type_id' => ['required', Rule::exists('vessel_types', 'id')->where('is_active', true)],
-            'vessel_id' => ['required', Rule::exists('vessels', 'id')->where('is_active', true)],
+            'vessel_id' => ['required', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)],
             'rank_id' => ['required', Rule::exists('ranks', 'id')->where('is_active', true)],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
