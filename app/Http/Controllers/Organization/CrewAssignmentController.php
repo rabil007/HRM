@@ -12,7 +12,6 @@ use App\Models\Course;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\Rank;
-use App\Models\Vessel;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionPresenter;
 use App\Support\CrewMovements\CrewAssignmentAccess;
@@ -24,6 +23,7 @@ use App\Support\CrewMovements\CrewMovementService;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -105,7 +105,7 @@ class CrewAssignmentController extends Controller
             'form_options' => [
                 'employees' => [],
                 'ranks' => $this->activeRanksWithTour($companyId),
-                'vessels' => $this->activeVessels(),
+                'vessels' => $this->activeVessels($companyId),
                 'clients' => $this->activeClients(),
                 'visa_types' => $this->activeVisaTypes(),
                 'courses' => $this->activeCourses(),
@@ -135,7 +135,7 @@ class CrewAssignmentController extends Controller
                 ->values()
                 ->all(),
             'ranks' => $this->activeRanks(),
-            'vessels' => $this->activeVessels(),
+            'vessels' => $this->activeVessels($companyId),
             'clients' => $this->activeClients(),
             'visa_types' => $this->activeVisaTypes(),
             'courses' => $this->activeCourses(),
@@ -228,7 +228,7 @@ class CrewAssignmentController extends Controller
             'form_options' => [
                 'employees' => [],
                 'ranks' => $this->activeRanksWithTour($companyId),
-                'vessels' => $this->activeVessels(),
+                'vessels' => $this->activeVessels($companyId),
                 'clients' => $this->activeClients(),
                 'visa_types' => $this->activeVisaTypes(),
                 'courses' => $this->activeCourses(),
@@ -274,7 +274,7 @@ class CrewAssignmentController extends Controller
                 ->values()
                 ->all(),
             'ranks' => $this->activeRanks(),
-            'vessels' => $this->activeVessels(),
+            'vessels' => $this->activeVessels($companyId),
             'clients' => $this->activeClients(),
             'visa_types' => $this->activeVisaTypes(),
             'courses' => $this->activeCourses(),
@@ -367,15 +367,9 @@ class CrewAssignmentController extends Controller
     /**
      * @return list<array{id: int, name: string}>
      */
-    private function activeVessels(): array
+    private function activeVessels(int $companyId): array
     {
-        return Vessel::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (Vessel $vessel) => ['id' => $vessel->id, 'name' => $vessel->name])
-            ->values()
-            ->all();
+        return ResolvesCompanyVessels::activeOptions($companyId);
     }
 
     /**

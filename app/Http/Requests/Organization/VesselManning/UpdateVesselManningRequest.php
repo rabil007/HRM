@@ -27,6 +27,11 @@ class UpdateVesselManningRequest extends FormRequest
         }
 
         $companyId = (int) $this->attributes->get('current_company_id');
+
+        if ((int) $vessel->company_id !== $companyId) {
+            return false;
+        }
+
         $requirements = $this->input('requirements', []);
 
         if (! is_array($requirements) || $requirements === []) {

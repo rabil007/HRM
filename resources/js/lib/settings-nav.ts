@@ -17,7 +17,6 @@ import {
     PiggyBank,
     Sailboat,
     Shield,
-    Ship,
     SlidersHorizontal,
     Users,
     Wallet,
@@ -157,13 +156,6 @@ export const SETTINGS_MASTER_DATA_ITEMS: SettingsNavItem[] = [
         permission: 'settings.master-data.vessel-types.view',
         icon: Sailboat,
         color: 'bg-sky-500/10 text-sky-600',
-    },
-    {
-        title: 'Vessels',
-        href: '/settings/master-data/vessels',
-        permission: 'settings.master-data.vessels.view',
-        icon: Ship,
-        color: 'bg-sky-500/10 text-sky-700',
     },
     {
         title: 'Ranks',

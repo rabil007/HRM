@@ -6,20 +6,20 @@ use App\Models\Rank;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use Illuminate\Support\Facades\Schema;
 
-test('crew master data tables do not use company_id columns', function () {
+test('crew master data tables keep ranks clients and visa types global while vessels are company owned', function () {
     expect(Schema::hasColumn('ranks', 'company_id'))->toBeFalse()
-        ->and(Schema::hasColumn('vessels', 'company_id'))->toBeFalse()
+        ->and(Schema::hasColumn('vessels', 'company_id'))->toBeTrue()
         ->and(Schema::hasColumn('clients', 'company_id'))->toBeFalse()
         ->and(Schema::hasColumn('company_visa_types', 'company_id'))->toBeFalse()
         ->and(Schema::hasColumn('employees', 'employee_no'))->toBeTrue()
         ->and(Schema::hasColumn('employees', 'employee_number'))->toBeFalse();
 });
 
-test('crew assignments filter options load global master data without company scoping', function () {
+test('crew assignments filter options load company vessels and global master data', function () {
     ['company' => $company] = makeCrewAssignmentFixtures();
 
     Rank::query()->create(['name' => 'Schema Rank '.uniqid(), 'is_active' => true]);
-    makeCrewMovementVessel('Schema Vessel');
+    makeCrewMovementVessel('Schema Vessel', $company);
     Client::query()->create(['name' => 'Schema Client '.uniqid(), 'is_active' => true]);
     CompanyVisaType::query()->create(['name' => 'Schema Visa '.uniqid(), 'is_active' => true]);
 

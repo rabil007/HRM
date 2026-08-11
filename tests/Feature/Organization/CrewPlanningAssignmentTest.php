@@ -54,7 +54,12 @@ function makeAssignmentFixtures(): array
     ]);
 
     $vesselType = VesselType::query()->create(['name' => 'AHTS-CPA', 'is_active' => true]);
-    $vessel = Vessel::query()->create(['name' => 'Assign Vessel Beta', 'vessel_type_id' => $vesselType->id, 'is_active' => true]);
+    $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Assign Vessel Beta',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
     $rank = Rank::query()->create(['name' => 'Engineer CPA', 'is_active' => true]);
 
     grantCompanyPermissions($user, $company, [
@@ -470,6 +475,7 @@ test('store rejects relief linked to an assignment on another vessel', function 
     ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
 
     $otherVessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'Other Relief Vessel',
         'vessel_type_id' => $vessel->vessel_type_id,
         'is_active' => true,

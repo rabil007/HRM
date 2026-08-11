@@ -164,6 +164,7 @@ test('employee show page includes sea services', function () {
     $showDuration = SeaServiceDuration::fromDates('2020-01-01', '2020-06-22');
 
     $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'MV Horizon',
         'vessel_type_id' => $vesselType->id,
         'is_active' => true,
@@ -269,6 +270,7 @@ test('users with permission can add update delete and reorder sea services', fun
     ]);
 
     $vesselAlpha = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'MV Alpha',
         'vessel_type_id' => $vesselA->id,
         'grt' => 1500.5,
@@ -277,6 +279,7 @@ test('users with permission can add update delete and reorder sea services', fun
     ]);
 
     $vesselAlphaPlus = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'MV Alpha Plus',
         'vessel_type_id' => $vesselAPlus->id,
         'is_active' => true,
@@ -399,6 +402,7 @@ test('store requires vessel id and rejects inactive vessel type', function () {
     ]);
 
     $inactiveTypeVessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'MV Inactive Type',
         'vessel_type_id' => $inactiveVesselType->id,
         'is_active' => true,
@@ -425,6 +429,7 @@ test('store requires vessel id and rejects inactive vessel type', function () {
     ])->assertSessionHasErrors('vessel_id');
 
     $activeVessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'MV Test',
         'vessel_type_id' => $activeVesselType->id,
         'is_active' => true,
@@ -555,6 +560,7 @@ test('sea service import appends rows for the employee from the shared template'
     ]);
 
     Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'MV North Star',
         'vessel_type_id' => $vesselType->id,
         'grt' => 42000,
@@ -647,6 +653,7 @@ test('sea service import accepts day-first date formats for multiple rows', func
 
     foreach (['BES SINCERE', 'CREST MARS', 'BES SAVVY'] as $vesselName) {
         Vessel::query()->create([
+            'company_id' => $company->id,
             'name' => $vesselName,
             'vessel_type_id' => $vesselType->id,
             'is_active' => true,
@@ -724,6 +731,7 @@ test('sea service import preview marks missing vessel type as invalid', function
     ]);
 
     Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'CREST MARS',
         'vessel_type_id' => VesselType::query()->create(['name' => 'Placeholder Type', 'is_active' => true])->id,
         'is_active' => true,
@@ -767,6 +775,7 @@ test('sea service import rejects rows for a different employee number', function
     $vesselType = VesselType::query()->create(['name' => 'Tanker', 'is_active' => true]);
     $rank = Rank::query()->create(['name' => 'Chief Officer', 'is_active' => true]);
     Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'MT Scope',
         'vessel_type_id' => $vesselType->id,
         'is_active' => true,

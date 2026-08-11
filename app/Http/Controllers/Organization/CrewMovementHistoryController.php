@@ -11,11 +11,11 @@ use App\Models\Company;
 use App\Models\CompanyVisaType;
 use App\Models\CrewAssignment;
 use App\Models\Rank;
-use App\Models\Vessel;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Reports\CrewMovementHistoryFilters;
 use App\Support\Reports\CrewMovementHistoryPagePermissions;
 use App\Support\Reports\CrewMovementHistoryQuery;
+use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -47,7 +47,7 @@ class CrewMovementHistoryController extends Controller
                 'phases' => collect(CrewPhaseCode::cases())
                     ->map(fn (CrewPhaseCode $phase) => ['value' => $phase->value, 'label' => $phase->label()])
                     ->all(),
-                'vessels' => $this->activeOptions(Vessel::query()),
+                'vessels' => ResolvesCompanyVessels::activeOptions($companyId),
                 'ranks' => $this->activeOptions(Rank::query()),
                 'clients' => $this->activeOptions(Client::query()),
                 'visa_types' => $this->activeOptions(CompanyVisaType::query()),

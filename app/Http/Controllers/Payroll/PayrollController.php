@@ -27,7 +27,6 @@ use App\Models\PayrollRecord;
 use App\Models\Rank;
 use App\Models\SalaryInput;
 use App\Models\SalaryInputType;
-use App\Models\Vessel;
 use App\Support\Contracts\ContractSalaryStructureFilter;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
@@ -66,6 +65,7 @@ use App\Support\Payroll\Services\CrewTimesheetImportOrchestrator;
 use App\Support\Payroll\Services\CrewTimesheetTemplateExporter;
 use App\Support\Payroll\Services\OfficePayrollSalarySheetExporter;
 use App\Support\Payroll\Wps\WpsExportPreview;
+use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -459,16 +459,7 @@ class PayrollController extends Controller
                 : 0,
             'movement_master_options' => $payrollPeriod->isCrew()
                 ? [
-                    'vessels' => Vessel::query()
-                        ->where('is_active', true)
-                        ->orderBy('name')
-                        ->get(['id', 'name'])
-                        ->map(fn (Vessel $vessel) => [
-                            'id' => $vessel->id,
-                            'name' => $vessel->name,
-                        ])
-                        ->values()
-                        ->all(),
+                    'vessels' => ResolvesCompanyVessels::activeOptions($companyId),
                     'clients' => Client::query()
                         ->where('is_active', true)
                         ->orderBy('name')

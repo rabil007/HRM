@@ -22,7 +22,11 @@ function crewOperationsHref(permissions: string[]): string {
         return '/organization/crew-planning';
     }
 
-    return '/organization/vessel-manning';
+    if (has(permissions, 'crew_operations.vessels.view')) {
+        return '/organization/vessels';
+    }
+
+    return '/organization/vessels';
 }
 
 function payrollHref(permissions: string[]): string {
@@ -75,6 +79,7 @@ export function getTopNavLinks(
             title: 'Crew Operations',
             href,
             isActive:
+                url.startsWith('/organization/vessels') ||
                 url.startsWith('/organization/vessel-manning') ||
                 url.startsWith('/organization/crew-planning') ||
                 url.startsWith('/organization/crew-operations') ||

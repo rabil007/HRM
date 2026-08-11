@@ -127,6 +127,7 @@ use App\Http\Controllers\Organization\TrainingsExportController;
 use App\Http\Controllers\Organization\TrainingsImportController;
 use App\Http\Controllers\Organization\TrainingsIndexController;
 use App\Http\Controllers\Organization\UserController;
+use App\Http\Controllers\Organization\VesselController;
 use App\Http\Controllers\Organization\VesselManningController;
 use App\Http\Controllers\Organization\VoidCrewAssignmentController;
 use App\Http\Controllers\Payroll\ApplyCrewTimesheetPreparationController;
@@ -384,9 +385,38 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:reports.crew_movement_history.export')
         ->name('organization.reports.crew-movement-history.export');
 
-    Route::get('organization/vessel-manning', [VesselManningController::class, 'index'])->middleware('can:crew_operations.vessel_manning.view')->name('organization.vessel-manning.index');
-    Route::get('organization/vessel-manning/{vessel}', [VesselManningController::class, 'show'])->middleware('can:crew_operations.vessel_manning.view')->name('organization.vessel-manning.show');
-    Route::put('organization/vessel-manning/{vessel}', [VesselManningController::class, 'update'])->name('organization.vessel-manning.update');
+    Route::get('organization/vessels/import/template', [VesselController::class, 'importTemplate'])
+        ->middleware('can:crew_operations.vessels.view')
+        ->name('organization.vessels.import.template');
+    Route::post('organization/vessels/import', [VesselController::class, 'import'])
+        ->middleware('can:crew_operations.vessels.create')
+        ->name('organization.vessels.import');
+    Route::get('organization/vessels', [VesselController::class, 'index'])
+        ->middleware('can:crew_operations.vessels.view')
+        ->name('organization.vessels.index');
+    Route::post('organization/vessels', [VesselController::class, 'store'])
+        ->middleware('can:crew_operations.vessels.create')
+        ->name('organization.vessels.store');
+    Route::get('organization/vessels/{vessel}', [VesselController::class, 'show'])
+        ->middleware('can:crew_operations.vessels.view')
+        ->name('organization.vessels.show');
+    Route::put('organization/vessels/{vessel}', [VesselController::class, 'update'])
+        ->middleware('can:crew_operations.vessels.update')
+        ->name('organization.vessels.update');
+    Route::delete('organization/vessels/{vessel}', [VesselController::class, 'destroy'])
+        ->middleware('can:crew_operations.vessels.delete')
+        ->name('organization.vessels.destroy');
+    Route::put('organization/vessels/{vessel}/manning', [VesselController::class, 'updateManning'])
+        ->name('organization.vessels.manning.update');
+
+    Route::get('organization/vessel-manning', [VesselManningController::class, 'index'])
+        ->middleware('can:crew_operations.vessel_manning.view')
+        ->name('organization.vessel-manning.index');
+    Route::get('organization/vessel-manning/{vessel}', [VesselManningController::class, 'show'])
+        ->middleware('can:crew_operations.vessel_manning.view')
+        ->name('organization.vessel-manning.show');
+    Route::put('organization/vessel-manning/{vessel}', [VesselManningController::class, 'update'])
+        ->name('organization.vessel-manning.update');
 
     Route::get('organization/crew-planning', [CrewPlanningController::class, 'index'])->middleware('can:crew_operations.planning.view')->name('organization.crew-planning.index');
     Route::post('organization/crew-planning/assignments', [CrewPlanningAssignmentController::class, 'store'])->middleware('can:crew_operations.planning.create')->name('organization.crew-planning.assignments.store');

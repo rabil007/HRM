@@ -242,6 +242,7 @@ test('cannot delete vessel type used by vessels in master data', function () {
     ]);
 
     Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'MV Linked',
         'vessel_type_id' => $vesselType->id,
         'is_active' => true,

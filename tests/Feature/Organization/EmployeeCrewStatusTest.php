@@ -19,7 +19,7 @@ use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
 use App\Support\Employees\EmployeeCrewStatusFilter;
 use Carbon\CarbonImmutable;
 
-function makeEmployeeCrewStatusVessel(string $name): Vessel
+function makeEmployeeCrewStatusVessel(string $name, Company $company): Vessel
 {
     $vesselType = VesselType::query()->firstOrCreate(
         ['name' => 'Employee Crew Status Test Type'],
@@ -27,8 +27,14 @@ function makeEmployeeCrewStatusVessel(string $name): Vessel
     );
 
     return Vessel::query()->firstOrCreate(
-        ['name' => $name],
-        ['vessel_type_id' => $vesselType->id, 'is_active' => true],
+        [
+            'company_id' => $company->id,
+            'name' => $name,
+        ],
+        [
+            'vessel_type_id' => $vesselType->id,
+            'is_active' => true,
+        ],
     );
 }
 
@@ -102,7 +108,7 @@ test('employee crew status resolver returns available when no assignment exists'
 test('employee crew status resolver returns on vessel with vessel name', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
 
-    $vessel = makeEmployeeCrewStatusVessel('MV Horizon');
+    $vessel = makeEmployeeCrewStatusVessel('MV Horizon', $company);
 
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
@@ -119,7 +125,7 @@ test('employee crew status resolver returns on vessel with vessel name', functio
 test('employee crew status resolver returns join standby during join standby phase', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
 
-    $vessel = makeEmployeeCrewStatusVessel('Vessel A');
+    $vessel = makeEmployeeCrewStatusVessel('Vessel A', $company);
 
     $assignment = CrewAssignment::query()->create([
         'company_id' => $company->id,
@@ -154,7 +160,7 @@ test('employee crew status resolver returns join standby during join standby pha
 test('employee crew status resolver returns in home with day count', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
 
-    $vessel = makeEmployeeCrewStatusVessel('Vessel A');
+    $vessel = makeEmployeeCrewStatusVessel('Vessel A', $company);
 
     $assignment = CrewAssignment::query()->create([
         'company_id' => $company->id,
@@ -180,7 +186,7 @@ test('employee crew status resolver returns in home with day count', function ()
 test('employee crew status resolver returns needs update when active assignment has no current phase', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
 
-    $vessel = makeEmployeeCrewStatusVessel('Vessel A');
+    $vessel = makeEmployeeCrewStatusVessel('Vessel A', $company);
 
     $assignment = CrewAssignment::query()->create([
         'company_id' => $company->id,
@@ -220,11 +226,11 @@ test('employee profile includes crew status available when employee has no assig
 test('employee profile includes crew status from latest assignment', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
 
-    $vessel = makeEmployeeCrewStatusVessel('Current Vessel');
+    $vessel = makeEmployeeCrewStatusVessel('Current Vessel', $company);
 
     makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
-    $olderVessel = makeEmployeeCrewStatusVessel('Older Vessel');
+    $olderVessel = makeEmployeeCrewStatusVessel('Older Vessel', $company);
     CrewAssignment::query()->create([
         'company_id' => $company->id,
         'assignment_no' => 'CA-'.now()->year.'-OLD',
@@ -273,7 +279,7 @@ test('employee profile hides crew status when disabled in profile template', fun
 
     $employee->update(['employee_profile_template_id' => $template->id]);
 
-    $vessel = makeEmployeeCrewStatusVessel('Vessel A');
+    $vessel = makeEmployeeCrewStatusVessel('Vessel A', $company);
     makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -301,7 +307,7 @@ test('employee profile includes crew status in profile fields when enabled in te
 
     $employee->update(['employee_profile_template_id' => $template->id]);
 
-    $vessel = makeEmployeeCrewStatusVessel('Vessel A');
+    $vessel = makeEmployeeCrewStatusVessel('Vessel A', $company);
     makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -329,7 +335,7 @@ test('employee directory includes crew status on cards when enabled in profile t
 
     $employee->update(['employee_profile_template_id' => $template->id]);
 
-    $vessel = makeEmployeeCrewStatusVessel('Vessel A');
+    $vessel = makeEmployeeCrewStatusVessel('Vessel A', $company);
     makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -355,7 +361,7 @@ test('employee directory omits crew status when disabled in profile template', f
 
     $employee->update(['employee_profile_template_id' => $template->id]);
 
-    $vessel = makeEmployeeCrewStatusVessel('Vessel A');
+    $vessel = makeEmployeeCrewStatusVessel('Vessel A', $company);
     makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -381,7 +387,7 @@ test('employee directory can filter by crew status', function () {
             'status' => 'active',
         ]);
 
-    $vessel = makeEmployeeCrewStatusVessel('Filter Vessel');
+    $vessel = makeEmployeeCrewStatusVessel('Filter Vessel', $company);
     makeActiveOnVesselAssignment($company, $onVesselEmployee, $rank, $vessel);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -406,7 +412,7 @@ test('employee directory can filter by crew status', function () {
 test('legacy crew status filter values do not match employees', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
 
-    $vessel = makeEmployeeCrewStatusVessel('Legacy Filter Vessel');
+    $vessel = makeEmployeeCrewStatusVessel('Legacy Filter Vessel', $company);
     makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -427,7 +433,7 @@ test('legacy crew status filter values do not match employees', function () {
 
 test('soft-deleted active assignment does not block available filter', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
-    $vessel = makeEmployeeCrewStatusVessel('Soft Deleted Active Vessel');
+    $vessel = makeEmployeeCrewStatusVessel('Soft Deleted Active Vessel', $company);
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
     $assignment->delete();
 
@@ -444,7 +450,7 @@ test('soft-deleted active assignment does not block available filter', function 
 
 test('soft-deleted draft assignment does not block available filter', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
-    $vessel = makeEmployeeCrewStatusVessel('Soft Deleted Draft Vessel');
+    $vessel = makeEmployeeCrewStatusVessel('Soft Deleted Draft Vessel', $company);
 
     $assignment = CrewAssignment::query()->create([
         'company_id' => $company->id,
@@ -465,7 +471,7 @@ test('soft-deleted draft assignment does not block available filter', function (
 
 test('soft-deleted completed assignment does not classify employee as in-home days', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
-    $vessel = makeEmployeeCrewStatusVessel('Soft Deleted Completed Vessel');
+    $vessel = makeEmployeeCrewStatusVessel('Soft Deleted Completed Vessel', $company);
 
     $assignment = CrewAssignment::query()->create([
         'company_id' => $company->id,
@@ -493,7 +499,7 @@ test('soft-deleted completed assignment does not classify employee as in-home da
 test('crew status filters ignore assignments from other companies', function () {
     ['company' => $company, 'employee' => $employee] = makeEmployeeCrewStatusFixtures();
     ['company' => $otherCompany, 'rank' => $otherRank] = makeCrewAssignmentFixtures();
-    $vessel = makeEmployeeCrewStatusVessel('Foreign Company Vessel');
+    $vessel = makeEmployeeCrewStatusVessel('Foreign Company Vessel', $otherCompany);
 
     CrewAssignment::query()->create([
         'company_id' => $otherCompany->id,
@@ -522,7 +528,7 @@ test('completed assignment status resolution eager loads vessels without lazy lo
     ]);
 
     foreach ($employees as $index => $employee) {
-        $vessel = makeEmployeeCrewStatusVessel("Completed Vessel {$index}");
+        $vessel = makeEmployeeCrewStatusVessel("Completed Vessel {$index}", $company);
         CrewAssignment::query()->create([
             'company_id' => $company->id,
             'assignment_no' => 'CA-'.now()->year.'-DONE'.$index,

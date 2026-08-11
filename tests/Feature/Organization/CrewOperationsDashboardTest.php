@@ -307,7 +307,7 @@ test('company B projected manning cannot appear on company A dashboard', functio
         'status' => 'active',
     ]);
 
-    $vesselB = makeCrewMovementVessel('Foreign Dashboard Vessel');
+    $vesselB = makeCrewMovementVessel('Foreign Dashboard Vessel', $companyB);
     $rankB = Rank::query()->create([
         'name' => 'Foreign Dashboard Rank '.uniqid(),
         'is_active' => true,
@@ -575,11 +575,11 @@ test('vessel and projected dashboard links remain gated by vessel manning permis
     $projectedGap = $actions->firstWhere('type', 'projected_future_gap');
 
     expect($currentGap)->not->toBeNull()
-        ->and($currentGap['href'])->toBe(route('organization.vessel-manning.show', [
+        ->and($currentGap['href'])->toBe(route('organization.vessels.show', [
             'vessel' => $gapVessel->id,
         ]))
         ->and($projectedGap)->not->toBeNull()
-        ->and($projectedGap['href'])->toBe(route('organization.vessel-manning.show', [
+        ->and($projectedGap['href'])->toBe(route('organization.vessels.show', [
             'vessel' => $vessel->id,
         ]))
         ->and($projectedGap['href'])->not->toContain('/crew-planning');
@@ -597,9 +597,11 @@ test('vessel and projected dashboard links remain gated by vessel manning permis
     $reliefRisk = $risks->firstWhere('kind', 'relief');
 
     expect($actualRisk)->not->toBeNull()
-        ->and($actualRisk['href'])->toContain('/vessel-manning/')
+        ->and($actualRisk['href'])->toBe(route('organization.vessels.show', [
+            'vessel' => $gapVessel->id,
+        ]))
         ->and($projectedRisk)->not->toBeNull()
-        ->and($projectedRisk['href'])->toBe(route('organization.vessel-manning.show', [
+        ->and($projectedRisk['href'])->toBe(route('organization.vessels.show', [
             'vessel' => $vessel->id,
         ]))
         ->and($projectedRisk['href'])->not->toContain('/crew-planning')

@@ -231,10 +231,10 @@ test('json quick-create returns id and label for vessels with vessel type contex
     ]);
 
     grantCompanyPermissions($user, $company, [
-        'settings.master-data.vessels.create',
+        'crew_operations.vessels.create',
     ]);
 
-    $this->postJson('/settings/master-data/vessels', [
+    $this->postJson(route('organization.vessels.store'), [
         'name' => 'MV Horizon',
         'vessel_type_id' => $vesselType->id,
         'is_active' => true,
@@ -246,6 +246,7 @@ test('json quick-create returns id and label for vessels with vessel type contex
         ]);
 
     expect(Vessel::query()
+        ->where('company_id', $company->id)
         ->where('name', 'MV Horizon')
         ->where('vessel_type_id', $vesselType->id)
         ->exists())->toBeTrue();

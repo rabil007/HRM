@@ -345,11 +345,11 @@ Uses Phase 2A Planning relief links. Late relief → gap between source leave an
 
 There is **no standalone Projected Manning page**. Projected manning is an internal calculation engine (`CrewProjectedManningQuery`) that drives operational insights across Crew Operations:
 
-- **Vessel Manning** (`/organization/vessel-manning`) configures required vessel/rank headcount.
+- **Vessels** (`/organization/vessels`) configure company-owned vessels and required vessel/rank headcount (manning) on the vessel show page.
 - **Projected Manning Engine** (`CrewProjectedManningQuery`) calculates required vs actual/projected crew, gaps, and overlaps.
 - **Crew Planning** (`/organization/crew-planning`) visually displays projected gap and overlap overlays on the Gantt timeline.
 - **Crew Operations Overview** (`/organization/crew-operations`) surfaces projected risk analytics and action items, linking directly into Crew Planning.
-- **Operational Alerts** (`ProjectedManningGap`) detect projected shortfall conditions and resolve URLs to Crew Planning (with Overview/Vessel Manning fallbacks).
+- **Operational Alerts** (`ProjectedManningGap`) detect projected shortfall conditions and resolve URLs to Crew Planning (with Overview/Vessels fallbacks).
 
 ### Deferred (still later)
 
@@ -466,7 +466,7 @@ Crew operational alerts appear in the existing notification bell alongside Annou
 | Push dedupe | `crew_operational_alert_push_deliveries` unique on `(alert_id, user_id, notification_version)` |
 | Version bumps | New alert, reactivation, and meaningful severity escalation increment `notification_version` and may push again |
 | Escalation | Sign-off/relief windows tighten severity (8–14 warning, ≤7 critical); current manning critical; projected gap warning |
-| Links | Permission-safe URLs to Current Crew / assignment, Vessel Manning, or Projected Manning |
+| Links | Permission-safe URLs to Current Crew / assignment, Vessels, or Projected Manning |
 | Jobs | `DeliverCrewOperationalAlertWebPushJob` afterCommit; re-checks company, membership, selection, alert activity, subscriptions |
 
 ### Deferred (still later)

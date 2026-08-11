@@ -58,6 +58,7 @@ function makeSeaServiceShowFixtures(): array
     ]);
 
     $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'MV Show '.uniqid(),
         'vessel_type_id' => $vesselType->id,
         'is_active' => true,

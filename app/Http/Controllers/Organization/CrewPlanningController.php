@@ -5,12 +5,12 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Models\CrewAssignment;
 use App\Models\Rank;
-use App\Models\Vessel;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewOperations\CrewProjectedManningQuery;
 use App\Support\CrewPlanning\CrewPlanningGanttQuery;
 use App\Support\CrewPlanning\CrewPlanningPagePermissions;
 use App\Support\CrewPlanning\CrewPlanningProjectionPresenter;
+use App\Support\Vessels\ResolvesCompanyVessels;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -80,7 +80,7 @@ class CrewPlanningController extends Controller
                 'search' => $search,
             ],
             'today' => CarbonImmutable::today()->toDateString(),
-            'vessels' => $this->activeVessels(),
+            'vessels' => $this->activeVessels($companyId),
             'ranks' => $this->activeRanks(),
             'employees' => CrewOperationsSettings::poolEmployees($companyId),
             'can' => $can,
@@ -174,13 +174,9 @@ class CrewPlanningController extends Controller
     /**
      * @return list<array{id: int, name: string}>
      */
-    private function activeVessels(): array
+    private function activeVessels(int $companyId): array
     {
-        return Vessel::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->all();
+        return ResolvesCompanyVessels::activeOptions($companyId);
     }
 
     /**

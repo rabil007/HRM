@@ -38,7 +38,14 @@ class EmployeeSeaServiceFactory extends Factory
                 ])->id;
             },
             'vessel_id' => static function (array $attributes): int {
+                $companyId = $attributes['company_id'] ?? null;
+
+                if ($companyId === null) {
+                    throw new \InvalidArgumentException('company_id must be set before vessel_id on EmployeeSeaServiceFactory.');
+                }
+
                 return Vessel::query()->create([
+                    'company_id' => $companyId,
                     'name' => fake()->unique()->words(3, true),
                     'vessel_type_id' => $attributes['vessel_type_id'],
                     'grt' => fake()->optional(0.7)->randomFloat(2, 100, 50000),

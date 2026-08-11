@@ -96,6 +96,7 @@ test('authenticated users can open printable offshore cv', function () {
     ]);
 
     $offshoreVessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'Najeeb 3000',
         'vessel_type_id' => $vesselType->id,
         'grt' => 4500,
@@ -117,6 +118,7 @@ test('authenticated users can open printable offshore cv', function () {
         ]);
 
     $onshoreVessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'Onshore Vessel',
         'vessel_type_id' => $vesselType->id,
         'is_active' => true,
@@ -224,6 +226,7 @@ test('offshore cv data includes all sea service rows in project history', functi
         ]);
 
     $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'Offshore Alpha',
         'vessel_type_id' => VesselType::query()->create(['name' => 'Type Offshore Alpha', 'is_active' => true])->id,
         'is_active' => true,
@@ -237,6 +240,7 @@ test('offshore cv data includes all sea service rows in project history', functi
         ]);
 
     $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'Seagoing Beta',
         'vessel_type_id' => VesselType::query()->create(['name' => 'Type Seagoing Beta', 'is_active' => true])->id,
         'is_active' => true,
@@ -295,6 +299,7 @@ test('offshore cv applied rank and offshore experience use different filters', f
         ]);
 
     $masterVessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'Master Vessel',
         'vessel_type_id' => VesselType::query()->create(['name' => 'Master Type', 'is_active' => true])->id,
         'is_active' => true,
@@ -313,6 +318,7 @@ test('offshore cv applied rank and offshore experience use different filters', f
         ]);
 
     $shadowVessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'Shadow Vessel',
         'vessel_type_id' => VesselType::query()->create(['name' => 'Shadow Type', 'is_active' => true])->id,
         'is_active' => true,
@@ -374,6 +380,7 @@ test('offshore cv applied rank is zero when no sea service matches employee rank
         ]);
 
     $shadowVessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'Shadow Vessel',
         'vessel_type_id' => VesselType::query()->create(['name' => 'Zero Rank Offshore Type', 'is_active' => true])->id,
         'is_active' => true,

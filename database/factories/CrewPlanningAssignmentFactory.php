@@ -26,8 +26,15 @@ class CrewPlanningAssignmentFactory extends Factory
         $leaveDate = fake()->dateTimeBetween($joinDate, '+6 months');
 
         return [
-            'vessel_id' => static function (): int {
+            'vessel_id' => static function (array $attributes): int {
+                $companyId = $attributes['company_id'] ?? null;
+
+                if ($companyId === null) {
+                    throw new \InvalidArgumentException('company_id must be set before vessel_id on CrewPlanningAssignmentFactory.');
+                }
+
                 return Vessel::query()->create([
+                    'company_id' => $companyId,
                     'name' => fake()->unique()->words(2, true).' Vessel',
                     'vessel_type_id' => VesselType::query()->create([
                         'name' => 'VT '.Str::uuid()->toString(),

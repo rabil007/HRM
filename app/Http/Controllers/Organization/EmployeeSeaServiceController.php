@@ -7,11 +7,11 @@ use App\Http\Requests\Organization\Employee\BulkDestroyEmployeeSeaServicesReques
 use App\Http\Requests\Organization\Employee\ImportEmployeeSeaServiceRequest;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Vessel;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Employees\SeaServiceDuration;
 use App\Support\SeaServices\SeaServiceImportOrchestrator;
 use App\Support\SeaServices\SeaServiceImportTemplateExporter;
+use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -34,7 +34,7 @@ class EmployeeSeaServiceController extends Controller
             $this->seaServiceRules(),
         );
 
-        $attributes = $this->seaServiceAttributes($validated, null);
+        $attributes = $this->seaServiceAttributes($companyId, $validated, null);
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
@@ -75,7 +75,7 @@ class EmployeeSeaServiceController extends Controller
             $this->seaServiceRules(),
         );
 
-        $attributes = $this->seaServiceAttributes($validated, $seaService);
+        $attributes = $this->seaServiceAttributes($companyId, $validated, $seaService);
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
@@ -256,7 +256,7 @@ class EmployeeSeaServiceController extends Controller
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
-    private function seaServiceAttributes(array $validated, ?EmployeeSeaService $existing = null): array
+    private function seaServiceAttributes(int $companyId, array $validated, ?EmployeeSeaService $existing = null): array
     {
         $startDate = EmployeeProfileTemplateRequestRules::persistedNullableValue(
             $validated,
@@ -296,7 +296,7 @@ class EmployeeSeaServiceController extends Controller
         );
 
         if ($vesselId !== null) {
-            $vessel = Vessel::query()->find($vesselId);
+            $vessel = ResolvesCompanyVessels::queryForCompany($companyId)->find($vesselId);
             if ($vessel !== null) {
                 $vesselTypeId = $vessel->vessel_type_id;
             }

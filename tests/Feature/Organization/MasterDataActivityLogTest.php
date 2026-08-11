@@ -3,6 +3,7 @@
 use App\Models\ApprovalLocation;
 use App\Models\Bank;
 use App\Models\Client;
+use App\Models\Company;
 use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Course;
@@ -44,9 +45,35 @@ test('activity log is recorded for master data creation', function (string $mode
     'vessel' => [
         Vessel::class,
         function () {
+            $country = Country::query()->create([
+                'code' => 'V'.fake()->unique()->numerify('##'),
+                'name' => 'Vessel Activity Land',
+                'dial_code' => '+971',
+                'is_active' => true,
+            ]);
+
+            $currency = Currency::query()->create([
+                'code' => 'V'.fake()->unique()->numerify('##'),
+                'name' => 'Vessel Activity Currency',
+                'symbol' => 'V$',
+                'is_active' => true,
+            ]);
+
+            $company = Company::query()->create([
+                'name' => 'Activity Vessel Co',
+                'slug' => 'activity-vessel-co-'.uniqid(),
+                'working_days' => [1, 2, 3, 4, 5],
+                'country_id' => $country->id,
+                'currency_id' => $currency->id,
+                'timezone' => 'Asia/Dubai',
+                'payroll_cycle' => 'monthly',
+                'status' => 'active',
+            ]);
+
             $type = VesselType::query()->create(['name' => 'Type '.uniqid(), 'is_active' => true]);
 
             return Vessel::query()->create([
+                'company_id' => $company->id,
                 'name' => 'Activity Vessel '.uniqid(),
                 'vessel_type_id' => $type->id,
                 'is_active' => true,

@@ -34,7 +34,7 @@ function makeOnVesselSourceAssignment(): array
     $fixtures = makeCrewAssignmentFixtures();
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = $fixtures;
     $rank->update(['max_tour_of_duty_days' => 90]);
-    $vessel = makeCrewMovementVessel('Transfer Source '.uniqid());
+    $vessel = makeCrewMovementVessel('Transfer Source '.uniqid(), $company);
     $service = transferRedeployService();
 
     $assignment = $service->createDraft($company->id, $employee->id, [
@@ -63,7 +63,7 @@ function makeOnVesselSourceAssignment(): array
 test('direct vessel transfer closes source p4 and starts destination in active p4', function () {
     [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = $fixtures;
-    $destinationVessel = makeCrewMovementVessel('Transfer Destination '.uniqid());
+    $destinationVessel = makeCrewMovementVessel('Transfer Destination '.uniqid(), $company);
 
     $destination = transferRedeployService()->perform(
         $company->id,
@@ -135,7 +135,7 @@ test('destination vessel must differ for transfer', function () {
 test('exact timestamp handoff is not a blocking overlap for transfer', function () {
     [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
     ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
-    $destinationVessel = makeCrewMovementVessel('Handoff Destination '.uniqid());
+    $destinationVessel = makeCrewMovementVessel('Handoff Destination '.uniqid(), $company);
 
     $destination = transferRedeployService()->perform(
         $company->id,
@@ -162,7 +162,7 @@ test('exact timestamp handoff is not a blocking overlap for transfer', function 
 test('crew assignments shows only the latest active assignment after transfer', function () {
     [$source, $fixtures] = makeOnVesselSourceAssignment();
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = $fixtures;
-    $destinationVessel = makeCrewMovementVessel('Crew Assignments Dest '.uniqid());
+    $destinationVessel = makeCrewMovementVessel('Crew Assignments Dest '.uniqid(), $company);
 
     $destination = transferRedeployService()->perform(
         $company->id,
@@ -186,7 +186,7 @@ test('crew assignments shows only the latest active assignment after transfer', 
 test('movement history preserves both linked assignments after transfer', function () {
     [$source, $fixtures] = makeOnVesselSourceAssignment();
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = $fixtures;
-    $destinationVessel = makeCrewMovementVessel('History Dest '.uniqid());
+    $destinationVessel = makeCrewMovementVessel('History Dest '.uniqid(), $company);
 
     $destination = transferRedeployService()->perform(
         $company->id,
@@ -312,10 +312,7 @@ test('cross-company destination vessel references are rejected on transfer', fun
     [$source, $fixtures] = makeOnVesselSourceAssignment();
     ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
     ['company' => $otherCompany] = makeCrewAssignmentFixtures();
-    $foreignVessel = makeCrewMovementVessel('Foreign Vessel '.uniqid());
-    // vessels are global masters; simulate inactive/cross misuse via invalid id path already covered.
-    // Use an inactive destination instead if vessels have no company_id.
-    $foreignVessel->update(['is_active' => false]);
+    $foreignVessel = makeCrewMovementVessel('Foreign Vessel '.uniqid(), $otherCompany);
 
     expect(fn () => transferRedeployService()->perform(
         $company->id,
@@ -327,7 +324,7 @@ test('cross-company destination vessel references are rejected on transfer', fun
             'rank_id' => $rank->id,
         ],
         $user->id,
-    ))->toThrow(CrewMovementException::class);
+    ))->toThrow(CrewMovementException::class, 'The selected vessel does not belong to this company.');
 });
 
 test('redeploy to p0 clears planned sign-off and does not require destination vessel', function () {
@@ -387,7 +384,7 @@ test('direct transfer applies destination rank tour snapshot without copying sou
         'is_active' => true,
         'max_tour_of_duty_days' => 60,
     ]);
-    $destinationVessel = makeCrewMovementVessel('Tour Transfer Dest '.uniqid());
+    $destinationVessel = makeCrewMovementVessel('Tour Transfer Dest '.uniqid(), $company);
 
     $source->refresh();
     $sourceTourDays = $source->tour_of_duty_days;
@@ -444,7 +441,7 @@ test('direct transfer applies Rank Master tour suggestion', function () {
     [$source, $fixtures] = makeOnVesselSourceAssignment();
     ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
     $rank->update(['max_tour_of_duty_days' => 45]);
-    $destinationVessel = makeCrewMovementVessel('Rank Master Transfer Dest '.uniqid());
+    $destinationVessel = makeCrewMovementVessel('Rank Master Transfer Dest '.uniqid(), $company);
 
     $destination = transferRedeployService()->perform(
         $company->id,
@@ -467,7 +464,7 @@ test('direct transfer supports manual planned sign-off override and rolls back o
     [$source, $fixtures] = makeOnVesselSourceAssignment();
     ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
     $rank->update(['max_tour_of_duty_days' => 90]);
-    $destinationVessel = makeCrewMovementVessel('Manual Transfer Dest '.uniqid());
+    $destinationVessel = makeCrewMovementVessel('Manual Transfer Dest '.uniqid(), $company);
 
     $destination = transferRedeployService()->perform(
         $company->id,
@@ -493,7 +490,7 @@ test('direct transfer supports manual planned sign-off override and rolls back o
     ['company' => $companyFail, 'rank' => $rankFail, 'user' => $userFail] = $fixturesFail;
     $rankFail->update(['max_tour_of_duty_days' => 90]);
     $beforeCount = CrewAssignment::query()->where('company_id', $companyFail->id)->count();
-    $destFail = makeCrewMovementVessel('Fail Transfer Dest '.uniqid());
+    $destFail = makeCrewMovementVessel('Fail Transfer Dest '.uniqid(), $companyFail);
 
     expect(fn () => transferRedeployService()->perform(
         $companyFail->id,
@@ -574,7 +571,7 @@ test('transfer projected manning reflects source loss and destination gain witho
     [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
     ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
     $rank->update(['max_tour_of_duty_days' => 90]);
-    $destinationVessel = makeCrewMovementVessel('Projection Transfer Dest '.uniqid());
+    $destinationVessel = makeCrewMovementVessel('Projection Transfer Dest '.uniqid(), $company);
 
     VesselManning::query()->create([
         'company_id' => $company->id,

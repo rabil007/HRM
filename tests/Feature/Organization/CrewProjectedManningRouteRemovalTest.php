@@ -83,7 +83,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Overview wh
     expect($url)->toBe(route('organization.crew-operations.index'));
 });
 
-test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Vessel Manning when user lacks planning and overview but has vessel manning view', function () {
+test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to vessels show when user lacks planning and overview but has vessel manning view', function () {
     ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeCrewOperationsFixtures();
 
     grantCompanyPermissions($user, $company, [
@@ -110,7 +110,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Vessel Mann
 
     $url = app(ResolveCrewOperationalAlertUrl::class)->forUser($user->fresh(), $alert);
 
-    expect($url)->toBe(route('organization.vessel-manning.show', ['vessel' => $vessel->id]));
+    expect($url)->toBe(route('organization.vessels.show', ['vessel' => $vessel->id]));
 });
 
 test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to null when user has no permissions', function () {

@@ -1263,11 +1263,7 @@ export function BulkDocumentsContent({
         } finally {
             setIsExportingRosterEmployees(false);
         }
-    }, [
-        document_type_key,
-        effectiveSelectedIds,
-        isExportingRosterEmployees,
-    ]);
+    }, [document_type_key, effectiveSelectedIds, isExportingRosterEmployees]);
 
     const navigate = useCallback(
         (
@@ -2305,8 +2301,7 @@ export function BulkDocumentsContent({
                                       total: pagination.total,
                                       onSelect: () =>
                                           void handleSelectAllMatchingSignatures(),
-                                      loading:
-                                          isSelectingAllMatchingSignatures,
+                                      loading: isSelectingAllMatchingSignatures,
                                   }
                                 : undefined
                         }
@@ -2324,9 +2319,7 @@ export function BulkDocumentsContent({
                                         type="button"
                                         size="sm"
                                         variant="outline"
-                                        disabled={
-                                            isExportingSignatureEmployees
-                                        }
+                                        disabled={isExportingSignatureEmployees}
                                         onClick={() =>
                                             void exportSelectedSignatureEmployees()
                                         }
@@ -2353,15 +2346,11 @@ export function BulkDocumentsContent({
                                             <CheckCircle2 className="mr-2 h-4 w-4" />
                                         )}
                                         Approve (
-                                        {
-                                            approvableSelectedSignatureIds.length
-                                        }
-                                        )
+                                        {approvableSelectedSignatureIds.length})
                                     </Button>
                                 ) : null}
                                 {can.download &&
-                                downloadableApprovedSignatureIds.length >
-                                    0 ? (
+                                downloadableApprovedSignatureIds.length > 0 ? (
                                     <>
                                         <Button
                                             type="button"
@@ -2404,8 +2393,7 @@ export function BulkDocumentsContent({
                                     </>
                                 ) : null}
                                 {can.email &&
-                                signature_filter ===
-                                    'awaiting_signature' ? (
+                                signature_filter === 'awaiting_signature' ? (
                                     <Button
                                         type="button"
                                         size="sm"
@@ -2424,8 +2412,7 @@ export function BulkDocumentsContent({
                                     </Button>
                                 ) : null}
                                 {can.review_signatures &&
-                                regenerableSelectedSignatureIds.length >
-                                    0 ? (
+                                regenerableSelectedSignatureIds.length > 0 ? (
                                     <Button
                                         type="button"
                                         size="sm"
@@ -2434,9 +2421,7 @@ export function BulkDocumentsContent({
                                             isRegeneratingAlignment ||
                                             isSignatureRepairActive
                                         }
-                                        onClick={
-                                            regenerateSelectedAlignment
-                                        }
+                                        onClick={regenerateSelectedAlignment}
                                     >
                                         {isRegeneratingAlignment ? (
                                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
