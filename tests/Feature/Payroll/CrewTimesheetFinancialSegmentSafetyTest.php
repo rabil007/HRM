@@ -629,6 +629,80 @@ test('segment save rejects inactive vessel client or rank masters', function () 
     expect(CrewTimesheetSegment::query()->whereIn('id', $fixtures['segmentIds'])->count())->toBe(2);
 });
 
+test('segment save rejects vessels from another company', function () {
+    $fixtures = makeMultiSegmentManualTimesheetFixtures();
+    ['company' => $otherCompany] = makeCrewAssignmentFixtures();
+    $foreignVessel = makeCrewMovementVessel('Foreign Timesheet Vessel', $otherCompany);
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->from(route('payroll.show', $fixtures['period']))
+        ->put(route('payroll.timesheets.segments', [
+            $fixtures['period'],
+            $fixtures['timesheet'],
+        ]), [
+            'segments' => [
+                [
+                    'pay_category' => 'onsite',
+                    'vessel_id' => $foreignVessel->id,
+                    'from_date' => '2026-07-01',
+                    'to_date' => '2026-07-10',
+                ],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('segments.0.vessel_id');
+
+    expect(CrewTimesheetSegment::query()->whereIn('id', $fixtures['segmentIds'])->count())->toBe(2)
+        ->and((int) $fixtures['timesheet']->fresh()->segments()->orderBy('sequence')->first()->vessel_id)
+        ->toBe((int) $fixtures['vesselA']->id);
+});
+
+test('timesheet store rejects segments that use another company vessel', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.create',
+        'payroll.crew_timesheets.update',
+        'payroll.crew_timesheets.view',
+        'payroll.periods.view',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+    $employee = createCrewEmployeeWithContract($company, 'FS-FOREIGN-'.uniqid(), 100, 50, 25);
+    ['company' => $otherCompany] = makeCrewAssignmentFixtures();
+    $foreignVessel = makeCrewMovementVessel('Foreign Store Vessel', $otherCompany);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from(route('payroll.show', $period))
+        ->post(route('payroll.timesheets.store', $period), [
+            'period_id' => $period->id,
+            'employee_id' => $employee->id,
+            'overtime_hours' => 0,
+            'additional_amount' => 0,
+            'deduction_amount' => 0,
+            'segments' => [
+                [
+                    'pay_category' => 'onsite',
+                    'vessel_id' => $foreignVessel->id,
+                    'from_date' => '2026-07-01',
+                    'to_date' => '2026-07-10',
+                ],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('segments.0.vessel_id');
+
+    expect(CrewTimesheet::query()
+        ->where('company_id', $company->id)
+        ->where('employee_id', $employee->id)
+        ->where('period_id', $period->id)
+        ->exists())->toBeFalse();
+});
+
 test('crew operations segments cannot be replaced manually via segment route', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     $fixtures['period']->update(['crew_timesheet_mode' => CrewTimesheetMode::Hybrid]);

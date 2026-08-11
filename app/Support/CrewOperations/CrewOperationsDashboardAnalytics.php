@@ -311,7 +311,7 @@ final class CrewOperationsDashboardAnalytics
                     $gap['required_count'],
                 ),
                 'meta' => null,
-                'href' => route('organization.vessel-manning.show', ['vessel' => $gap['vessel_id']]),
+                'href' => route('organization.vessels.show', ['vessel' => $gap['vessel_id']]),
             ];
         }
 
@@ -587,7 +587,7 @@ final class CrewOperationsDashboardAnalytics
                     'rank_id' => (int) $gap['rank_id'],
                     'rank_name' => (string) $gap['rank_name'],
                     'when' => 'Now',
-                    'href' => route('organization.vessel-manning.show', ['vessel' => $gap['vessel_id']]),
+                    'href' => route('organization.vessels.show', ['vessel' => $gap['vessel_id']]),
                     'employee_name' => null,
                 ];
             }
@@ -698,12 +698,12 @@ final class CrewOperationsDashboardAnalytics
 
         if ($canViewVesselManning) {
             if ($vesselId > 0) {
-                return route('organization.vessel-manning.show', [
+                return route('organization.vessels.show', [
                     'vessel' => $vesselId,
                 ]);
             }
 
-            return route('organization.vessel-manning.index');
+            return route('organization.vessels.index');
         }
 
         return null;

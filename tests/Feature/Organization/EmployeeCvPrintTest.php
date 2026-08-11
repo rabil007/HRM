@@ -274,6 +274,7 @@ test('adnoc cv includes sea service rows', function () {
 
     $vesselType = VesselType::query()->create(['name' => 'Test Type', 'is_active' => true]);
     $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'MV Test Vessel',
         'vessel_type_id' => $vesselType->id,
         'is_active' => true,
@@ -507,6 +508,7 @@ test('adnoc cv closing sections render after many sea service rows', function ()
 
     foreach (range(1, 20) as $i) {
         $vessel = Vessel::query()->create([
+            'company_id' => $company->id,
             'name' => "MV Vessel {$i}",
             'vessel_type_id' => $vesselType->id,
             'is_active' => true,

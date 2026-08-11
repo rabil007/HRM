@@ -27,6 +27,7 @@ use App\Support\Employees\ResolveEmployeeNavigation;
 use App\Support\Employees\Resources\EmployeeContractResource;
 use App\Support\Employees\Resources\EmployeeDetailResource;
 use App\Support\Employees\Resources\EmployeeDocumentResource;
+use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -281,7 +282,7 @@ final class EmployeeProfilePageData
             'sea_services' => $employeeId ? self::seaServiceBundle($companyId, $employeeId)['sea_services'] : [],
             'document_types' => self::documentTypes($companyId),
             'vessel_types' => $employeeId ? self::seaServiceBundle($companyId, $employeeId)['vessel_types'] : VesselType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])->map(fn (VesselType $v) => ['id' => $v->id, 'name' => $v->name])->all(),
-            'vessels' => $employeeId ? self::seaServiceBundle($companyId, $employeeId)['vessels'] : Vessel::query()->where('is_active', true)->with('vesselType:id,name')->orderBy('name')->get(['id', 'name', 'vessel_type_id', 'grt', 'bhp'])->map(fn (Vessel $v) => [
+            'vessels' => $employeeId ? self::seaServiceBundle($companyId, $employeeId)['vessels'] : ResolvesCompanyVessels::queryForCompany($companyId)->where('is_active', true)->with('vesselType:id,name')->orderBy('name')->get(['id', 'name', 'vessel_type_id', 'grt', 'bhp'])->map(fn (Vessel $v) => [
                 'id' => $v->id,
                 'name' => $v->name,
                 'vessel_type_id' => $v->vessel_type_id,
@@ -662,7 +663,7 @@ final class EmployeeProfilePageData
 
             $referencedVesselIds = $seaServiceModels->pluck('vessel_id')->unique()->filter()->values()->all();
 
-            $vessels = Vessel::query()
+            $vessels = ResolvesCompanyVessels::queryForCompany($companyId)
                 ->with('vesselType:id,name')
                 ->where(function ($query) use ($referencedVesselIds): void {
                     $query->where('is_active', true);

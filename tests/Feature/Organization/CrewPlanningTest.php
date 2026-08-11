@@ -63,6 +63,7 @@ function makeCrewPlanningFixtures(): array
     $vesselType = VesselType::query()->create(['name' => 'AHTS-CPL', 'is_active' => true]);
 
     $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'Planning Vessel Alpha',
         'vessel_type_id' => $vesselType->id,
         'is_active' => true,
@@ -432,6 +433,7 @@ test('vessel filter narrows rows, bars, and tree', function () {
     $vesselType = VesselType::query()->create(['name' => 'Other VT', 'is_active' => true]);
 
     $otherVessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'Other Vessel',
         'vessel_type_id' => $vesselType->id,
         'is_active' => true,
@@ -676,6 +678,7 @@ test('projection vessel and rank filters apply on planning index', function () {
     ]);
 
     $otherVessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'Projection Filter Vessel',
         'vessel_type_id' => $vessel->vessel_type_id,
         'is_active' => true,

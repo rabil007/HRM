@@ -25,7 +25,7 @@ import {
     Contact,
     CreditCard,
     GraduationCap,
-    Anchor,
+    Ship,
     Waves,
     BarChart3,
     FilePenLine,
@@ -161,9 +161,9 @@ const baseSidebarData: SidebarData = {
                     icon: CalendarRange,
                 },
                 {
-                    title: 'Vessel Manning',
-                    url: '/organization/vessel-manning',
-                    icon: Anchor,
+                    title: 'Vessels',
+                    url: '/organization/vessels',
+                    icon: Ship,
                 },
                 {
                     title: 'Movement Corrections',
@@ -265,6 +265,7 @@ function canViewCrewOperations(permissions: string[]): boolean {
     return (
         canViewCrewOperationsOverview(permissions) ||
         has(permissions, 'crew_operations.assignments.view') ||
+        has(permissions, 'crew_operations.vessels.view') ||
         has(permissions, 'crew_operations.vessel_manning.view') ||
         has(permissions, 'crew_operations.planning.view') ||
         has(permissions, 'crew_operations.corrections.view')
@@ -372,11 +373,15 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             )
                                 ? item
                                 : null;
-                        case '/organization/vessel-manning':
+                        case '/organization/vessels':
                             return has(
                                 permissions,
-                                'crew_operations.vessel_manning.view',
-                            )
+                                'crew_operations.vessels.view',
+                            ) ||
+                                has(
+                                    permissions,
+                                    'crew_operations.vessel_manning.view',
+                                )
                                 ? item
                                 : null;
                         case '/organization/crew-planning':

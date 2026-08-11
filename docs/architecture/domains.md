@@ -204,7 +204,7 @@ Examples (full list in seeder):
 | Employees | `employees.view`, `.create`, `.update`, `.delete`, `.export`, `.import`, sub-record `.manage` |
 | Documents | `documents.view`, `.download`, `.share`, `.upload`, `.delete` |
 | Contracts / bank / training | `contracts.*`, `bank_accounts.*`, `training.*` |
-| Crew | `crew_operations.deployments.*`, `crew_operations.overview.view`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*` |
+| Crew | `crew_operations.overview.view`, `crew_operations.vessels.*`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*`, `crew_operations.assignments.*` |
 | Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` (incl. `view_all`), `attendance.leave-approval-policies.*`, `attendance.leave-approval-settings.*` |
 | Payroll | `payroll.overview.view`, `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, payslip and WPS actions |
 | Bulk documents | `bulk_documents.view`, `.generate`, `.delete`, `.email`, `.signatures.review` |
@@ -548,34 +548,79 @@ Frontend `can.create|update|delete|export` on show/index.
 
 ---
 
-## Vessel Manning
+## Vessels (Crew Operations)
 
 ### Purpose
 
-Define required crew headcount by rank for each vessel (company-scoped). Example: Vessel A needs 1 Captain and 2 Welders; Vessel B may differ.
+Company-owned vessel registry and manning configuration live under **Crew Operations → Vessels**. Vessel Types remain global Settings → Master Data reference data.
+
+Ownership chain:
+
+`VesselType` (global) → `Vessel` (company) → `VesselManning` (company) → Crew Assignments / Planning
+
+`vessels` and `vessel_manning` remain separate tables. Existing vessel rows were backfilled to `company_id = 1` in a one-time migration (no permanent DB default of `1`). Vessel IDs were preserved in place.
 
 ### Main models
 
-- `VesselManning` — `company_id`, `vessel_id`, `rank_id`, `required_count`
-- Master data: `Vessel`, `Rank`, `VesselType`
+- `Vessel` — `company_id`, identification fields, soft deletes; unique `(company_id, name)`
+- `VesselManning` — `company_id`, `vessel_id`, `rank_id`, `required_count` (child of Vessel; must match vessel company)
+- Global reference: `VesselType`, `Rank`
 
 ### Controllers
 
-`VesselManningController` — index (vessel list + manning summary), update (sync requirements for one vessel)
+- `Organization\VesselController` — index, show, store, update, destroy, import
+- `Organization\VesselManningController` — compatibility redirects for legacy GET URLs; `update` syncs manning (`PUT .../vessels/{vessel}/manning` and legacy `PUT .../vessel-manning/{vessel}`)
 
-Support: `VesselManningIndexQuery`, `SyncVesselManning`
+Support: `VesselIndexQuery`, `ResolvesCompanyVessels`, `SyncVesselManning`, `StoresVesselCertificate`
 
 ### Pages / components
 
 | Path | Role |
 |------|------|
-| `pages/organization/vessel-manning/index.tsx` | Vessel list with manning summary |
-| `pages/organization/vessel-manning/show.tsx` | Vessel manning detail + edit sheet |
-| `features/organization/vessel-manning/vessel-manning-form-sheet.tsx` | Edit rank requirements per vessel |
+| `pages/organization/vessels/index.tsx` | Unified vessel list + manning summary |
+| `pages/organization/vessels/show.tsx` | Vessel details + manning requirements + activity |
+| `features/organization/vessels/*` | List, show, form sheet |
+| `features/organization/vessel-manning/components/vessel-manning-form-sheet.tsx` | Edit rank requirements (reused from Vessel show) |
+
+Legacy Settings Master Data vessel pages and Vessel Manning list pages are not active UIs; GET routes redirect into `/organization/vessels`.
 
 ### Permissions involved
 
-- `crew_operations.vessel_manning.view` — list
+- `crew_operations.vessels.view|create|update|delete` — vessel module CRUD
+- `crew_operations.vessel_manning.view|create|update|delete` — manning rows (still required to edit requirements)
+- Legacy `settings.master-data.vessels.*` kept for compatibility; roles are remapped to the new vessel permissions on migrate
+- Roles with `crew_operations.vessel_manning.view` also receive `crew_operations.vessels.view` so they can open the unified module
+
+### Tenant isolation
+
+Vessel selectors (assignments, planning, transfer/redeploy, sea service pickers, import, quick-create) resolve only `vessels.company_id = current_company_id`. Cross-company vessel IDs return 404 (or authorized Form Request denial for manning updates).
+
+---
+
+## Vessel Manning
+
+### Purpose
+
+Define required crew headcount by rank for each company-owned vessel. Example: Vessel A needs 1 Captain and 2 Welders; Vessel B may differ. Editing happens on the Vessel show page under Crew Operations → Vessels (not a standalone sidebar module).
+
+### Main models
+
+- `VesselManning` — `company_id`, `vessel_id`, `rank_id`, `required_count`
+- Parent: company-owned `Vessel`; global `Rank` / `VesselType`
+
+### Controllers
+
+`VesselManningController` — legacy GET redirects to vessels; update syncs requirements for one vessel via `SyncVesselManning`
+
+Support: `VesselManningIndexQuery`, `SyncVesselManning`
+
+### Pages / components
+
+Manning UI is embedded in `features/organization/vessels/show.tsx` using `VesselManningFormSheet`. Standalone `vessel-manning` page entrypoints remain only as unused legacy shells behind redirects.
+
+### Permissions involved
+
+- `crew_operations.vessel_manning.view` — view manning (and reach vessels via remapped `vessels.view`)
 - `crew_operations.vessel_manning.create` — add manning to a vessel with no existing rows
 - `crew_operations.vessel_manning.update` — change existing manning rows
 - `crew_operations.vessel_manning.delete` — clear all manning rows for a vessel
@@ -1020,7 +1065,7 @@ flowchart TB
 | Sea services | `/organization/sea-services` | `sea-services/index`, `employee`, `show` |
 | Crew deployments | `/organization/crew-deployments` | `crew-deployments/index`, `show` |
 | Crew operations / planning | `/organization/crew-operations`, `/organization/crew-planning` | `crew-operations/*`, `crew-planning/index` |
-| Vessel manning | `/organization/vessel-manning` | `vessel-manning/index`, `show` |
+| Vessel / manning | `/organization/vessels` | `vessels/index`, `show` (legacy `/organization/vessel-manning` redirects here) |
 | Attendance / leave | `/attendance/*` | `attendance/overview`, `records`, `calendar`, `types`, `leave-requests`, `leave-approval-policies`, `leave-approval-settings` |
 | Payroll | `/payroll/*` | `payroll/overview`, `index`, `show`, `records`, `salary-inputs` |
 | Hikvision | `/hikvision/persons`, `/hikvision/access-events` | `hikvision/persons`, `access-events` |

@@ -3,6 +3,9 @@
 namespace App\Models;
 
 use App\Models\Concerns\LogsActivityWithCompany;
+use Database\Factories\VesselFactory;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,6 +14,9 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class Vessel extends Model
 {
+    /** @use HasFactory<VesselFactory> */
+    use HasFactory;
+
     use LogsActivityWithCompany;
     use SoftDeletes;
 
@@ -20,6 +26,7 @@ class Vessel extends Model
     {
         return LogOptions::defaults()
             ->logOnly([
+                'company_id',
                 'name',
                 'vessel_type_id',
                 'grt',
@@ -37,11 +44,17 @@ class Vessel extends Model
     protected function casts(): array
     {
         return [
+            'company_id' => 'integer',
             'vessel_type_id' => 'integer',
             'grt' => 'decimal:2',
             'bhp' => 'integer',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     public function vesselType(): BelongsTo
@@ -62,6 +75,11 @@ class Vessel extends Model
     public function manning(): HasMany
     {
         return $this->hasMany(VesselManning::class);
+    }
+
+    public function scopeForCompany(Builder $query, int $companyId): Builder
+    {
+        return $query->where('company_id', $companyId);
     }
 
     public static function normalizeName(string $name): string

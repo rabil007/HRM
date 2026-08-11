@@ -10,7 +10,7 @@ use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\Rank;
-use App\Models\Vessel;
+use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -200,13 +200,7 @@ class CurrentCrewQuery
     public static function filterOptions(int $companyId): array
     {
         return [
-            'vessels' => Vessel::query()
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Vessel $v) => ['id' => $v->id, 'name' => $v->name])
-                ->values()
-                ->all(),
+            'vessels' => ResolvesCompanyVessels::activeOptions($companyId),
             'ranks' => Rank::query()
                 ->where('is_active', true)
                 ->orderBy('name')

@@ -54,7 +54,12 @@ function makeAssignmentFixtures(): array
     ]);
 
     $vesselType = VesselType::query()->create(['name' => 'AHTS-CPA', 'is_active' => true]);
-    $vessel = Vessel::query()->create(['name' => 'Assign Vessel Beta', 'vessel_type_id' => $vesselType->id, 'is_active' => true]);
+    $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Assign Vessel Beta',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
     $rank = Rank::query()->create(['name' => 'Engineer CPA', 'is_active' => true]);
 
     grantCompanyPermissions($user, $company, [
@@ -470,6 +475,7 @@ test('store rejects relief linked to an assignment on another vessel', function 
     ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
 
     $otherVessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'Other Relief Vessel',
         'vessel_type_id' => $vessel->vessel_type_id,
         'is_active' => true,
@@ -652,4 +658,39 @@ test('assignments reject employees without a profile rank', function () {
             'planned_leave_date' => '2027-08-31',
         ])
         ->assertSessionHasErrors(['employee_id']);
+});
+
+test('company A cannot create crew planning using company B vessel', function () {
+    ['user' => $user, 'company' => $company, 'otherCompany' => $otherCompany, 'rank' => $rank] = makeAssignmentFixtures();
+
+    $otherVessel = makeCrewMovementVessel('Foreign Vessel CP', $otherCompany);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.store'), [
+            'vessel_id' => $otherVessel->id,
+            'rank_id' => $rank->id,
+            'planned_join_date' => '2027-02-01',
+            'planned_leave_date' => '2027-08-31',
+        ])
+        ->assertSessionHasErrors(['vessel_id']);
+});
+
+test('company A cannot update crew planning using company B vessel', function () {
+    ['user' => $user, 'company' => $company, 'otherCompany' => $otherCompany, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
+
+    $otherVessel = makeCrewMovementVessel('Foreign Vessel CP 2', $otherCompany);
+
+    $assignment = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'planned_join_date' => '2027-02-01',
+        'planned_leave_date' => '2027-08-31',
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-planning.assignments.update', $assignment), [
+            'vessel_id' => $otherVessel->id,
+        ])
+        ->assertSessionHasErrors(['vessel_id']);
 });

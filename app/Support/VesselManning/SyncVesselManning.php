@@ -17,6 +17,8 @@ final class SyncVesselManning
         $companyId = (int) $company->id;
         $vesselId = (int) $vessel->id;
 
+        abort_unless((int) $vessel->company_id === $companyId, 404);
+
         /** @var Collection<int, array{rank_id: int, required_count: int}> $incoming */
         $incoming = collect($requirements)
             ->map(fn (array $row) => [

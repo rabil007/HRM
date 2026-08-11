@@ -72,9 +72,16 @@ function makeCrewAssignmentFixtures(): array
     return compact('user', 'company', 'employee', 'rank');
 }
 
-function makeCrewMovementVessel(string $name): Vessel
+function makeCrewMovementVessel(string $name, ?Company $company = null): Vessel
 {
+    $companyId = $company?->id ?? Company::query()->value('id');
+
+    if ($companyId === null) {
+        throw new RuntimeException('makeCrewMovementVessel requires an existing company.');
+    }
+
     return Vessel::query()->create([
+        'company_id' => $companyId,
         'name' => $name.' '.Str::uuid()->toString(),
         'vessel_type_id' => VesselType::query()->create([
             'name' => 'CM VT '.Str::uuid()->toString(),

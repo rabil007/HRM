@@ -126,7 +126,7 @@ class UpsertCrewTimesheetRequest extends FormRequest
             $rules['segments.*.vessel_id'] = [
                 'nullable',
                 'integer',
-                Rule::exists('vessels', 'id')->where('is_active', true),
+                Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true),
             ];
             $rules['segments.*.client_id'] = [
                 'nullable',

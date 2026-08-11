@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Rank;
-use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Pagination\ResolvesPerPage;
@@ -14,6 +13,7 @@ use App\Support\SeaServices\SeaServiceDirectoryFilters;
 use App\Support\SeaServices\SeaServiceDirectoryQuery;
 use App\Support\SeaServices\SeaServicePagePermissions;
 use App\Support\SeaServices\SeaServiceSummaryQuery;
+use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -55,11 +55,11 @@ class SeaServicesIndexController extends Controller
                 ->map(fn (VesselType $row) => ['id' => $row->id, 'name' => $row->name])
                 ->values()
                 ->all(),
-            'vessels' => Vessel::query()
+            'vessels' => ResolvesCompanyVessels::queryForCompany($companyId)
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'vessel_type_id'])
-                ->map(fn (Vessel $row) => [
+                ->map(fn ($row) => [
                     'id' => $row->id,
                     'name' => $row->name,
                     'vessel_type_id' => $row->vessel_type_id,

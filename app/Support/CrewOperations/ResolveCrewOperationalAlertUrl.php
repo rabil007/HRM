@@ -58,14 +58,14 @@ final class ResolveCrewOperationalAlertUrl
             return route('organization.crew-operations.index');
         }
 
-        if ($user->can('crew_operations.vessel_manning.view')) {
+        if ($this->canViewVesselsModule($user)) {
             $vesselId = $alert->context['vessel_id'] ?? null;
 
             if (is_numeric($vesselId)) {
-                return route('organization.vessel-manning.show', ['vessel' => (int) $vesselId]);
+                return route('organization.vessels.show', ['vessel' => (int) $vesselId]);
             }
 
-            return route('organization.vessel-manning.index');
+            return route('organization.vessels.index');
         }
 
         return null;
@@ -88,17 +88,23 @@ final class ResolveCrewOperationalAlertUrl
 
     private function vesselManning(User $user, CrewOperationalAlert $alert): ?string
     {
-        if (! $user->can('crew_operations.vessel_manning.view')) {
+        if (! $this->canViewVesselsModule($user)) {
             return $this->fallbackOverview($user);
         }
 
         $vesselId = $alert->context['vessel_id'] ?? null;
 
         if (is_numeric($vesselId)) {
-            return route('organization.vessel-manning.show', ['vessel' => (int) $vesselId]);
+            return route('organization.vessels.show', ['vessel' => (int) $vesselId]);
         }
 
-        return route('organization.vessel-manning.index');
+        return route('organization.vessels.index');
+    }
+
+    private function canViewVesselsModule(User $user): bool
+    {
+        return $user->can('crew_operations.vessels.view')
+            || $user->can('crew_operations.vessel_manning.view');
     }
 
     private function fallbackOverview(User $user): ?string

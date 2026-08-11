@@ -134,6 +134,7 @@ final class SeaServiceImportOrchestrator
             ->get(['id', 'name'])
             ->mapWithKeys(fn (VesselType $row) => [mb_strtolower(trim((string) $row->name)) => $row->id]);
         $vesselsByTypeAndName = Vessel::query()
+            ->where('company_id', $companyId)
             ->where('is_active', true)
             ->get(['id', 'name', 'vessel_type_id'])
             ->groupBy('vessel_type_id')

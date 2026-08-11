@@ -68,14 +68,16 @@ final class BackfillVesselsFromLegacyNames
         }
 
         $seaServiceRows = DB::table('employee_sea_services')
-            ->select(['id', 'employee_id', 'vessel_name', 'vessel_type_id', 'grt', 'bhp', 'end_date'])
+            ->select(['id', 'company_id', 'employee_id', 'vessel_name', 'vessel_type_id', 'grt', 'bhp', 'end_date'])
             ->whereNotNull('vessel_name')
             ->where('vessel_name', '!=', '')
             ->orderByDesc('end_date')
             ->orderByDesc('id')
             ->get();
 
-        $grouped = $seaServiceRows->groupBy(fn ($row) => Vessel::normalizeName((string) $row->vessel_name));
+        $grouped = $seaServiceRows->groupBy(function ($row) {
+            return ((int) $row->company_id).'|'.Vessel::normalizeName((string) $row->vessel_name);
+        });
 
         $fallbackTypeId = VesselType::query()->where('is_active', true)->orderBy('id')->value('id');
 
@@ -85,12 +87,15 @@ final class BackfillVesselsFromLegacyNames
         $vesselIdByNormalizedName = [];
         $vesselsToCreate = 0;
 
-        foreach ($grouped as $normalizedName => $rows) {
-            if ($normalizedName === '') {
+        foreach ($grouped as $groupKey => $rows) {
+            /** @var Collection<int, object> $rows */
+            $companyId = (int) $rows->first()->company_id;
+            $normalizedName = Vessel::normalizeName((string) $rows->first()->vessel_name);
+
+            if ($companyId <= 0 || $normalizedName === '') {
                 continue;
             }
 
-            /** @var Collection<int, object> $rows */
             $canonicalName = trim((string) $rows->first()->vessel_name);
             $typeId = $this->resolveMostFrequentTypeId($rows, $canonicalName, $typeConflicts);
             $grt = $this->resolveMostRecentDecimal($rows, 'grt', $canonicalName, $grtConflicts);
@@ -104,10 +109,10 @@ final class BackfillVesselsFromLegacyNames
                 continue;
             }
 
-            $existing = $this->findVesselByNormalizedName($normalizedName);
+            $existing = $this->findVesselByNormalizedName($companyId, $normalizedName);
 
             if ($existing !== null) {
-                $vesselIdByNormalizedName[$normalizedName] = $existing->id;
+                $vesselIdByNormalizedName[$groupKey] = $existing->id;
 
                 continue;
             }
@@ -115,12 +120,13 @@ final class BackfillVesselsFromLegacyNames
             $vesselsToCreate++;
 
             if ($dryRun) {
-                $vesselIdByNormalizedName[$normalizedName] = -1;
+                $vesselIdByNormalizedName[$groupKey] = -1;
 
                 continue;
             }
 
             $vessel = Vessel::query()->create([
+                'company_id' => $companyId,
                 'name' => $canonicalName,
                 'vessel_type_id' => $typeId,
                 'grt' => $grt,
@@ -128,16 +134,16 @@ final class BackfillVesselsFromLegacyNames
                 'is_active' => true,
             ]);
 
-            $vesselIdByNormalizedName[$normalizedName] = $vessel->id;
+            $vesselIdByNormalizedName[$groupKey] = $vessel->id;
         }
 
         $seaServicesLinked = 0;
         $seaServicesUnlinked = 0;
 
         foreach ($seaServiceRows as $row) {
-            $normalizedName = Vessel::normalizeName((string) $row->vessel_name);
+            $groupKey = ((int) $row->company_id).'|'.Vessel::normalizeName((string) $row->vessel_name);
 
-            if ($normalizedName === '' || ! isset($vesselIdByNormalizedName[$normalizedName])) {
+            if (! isset($vesselIdByNormalizedName[$groupKey])) {
                 $seaServicesUnlinked++;
 
                 continue;
@@ -148,7 +154,7 @@ final class BackfillVesselsFromLegacyNames
             if (! $dryRun) {
                 DB::table('employee_sea_services')
                     ->where('id', $row->id)
-                    ->update(['vessel_id' => $vesselIdByNormalizedName[$normalizedName]]);
+                    ->update(['vessel_id' => $vesselIdByNormalizedName[$groupKey]]);
             }
         }
 
@@ -168,9 +174,10 @@ final class BackfillVesselsFromLegacyNames
         return DB::getSchemaBuilder()->hasColumn('employee_sea_services', 'vessel_name');
     }
 
-    private function findVesselByNormalizedName(string $normalizedName): ?Vessel
+    private function findVesselByNormalizedName(int $companyId, string $normalizedName): ?Vessel
     {
         return Vessel::query()
+            ->where('company_id', $companyId)
             ->whereRaw('LOWER(TRIM(name)) = ?', [$normalizedName])
             ->first();
     }

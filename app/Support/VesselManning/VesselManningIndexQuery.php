@@ -17,6 +17,7 @@ final class VesselManningIndexQuery
     public static function paginate(int $companyId, string $search = '', ?int $vesselTypeId = null, int $perPage = 20): LengthAwarePaginator
     {
         return Vessel::query()
+            ->where('company_id', $companyId)
             ->with([
                 'vesselType:id,name',
                 'manning' => fn ($query) => $query
@@ -87,6 +88,7 @@ final class VesselManningIndexQuery
     public static function findForCompany(int $companyId, Vessel $vessel): ?Vessel
     {
         return Vessel::query()
+            ->where('company_id', $companyId)
             ->with([
                 'vesselType:id,name',
                 'manning' => fn ($query) => $query

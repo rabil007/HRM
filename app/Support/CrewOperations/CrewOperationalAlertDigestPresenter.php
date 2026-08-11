@@ -108,7 +108,7 @@ final class CrewOperationalAlertDigestPresenter
                 'title' => 'Current manning gap',
                 'type_label' => 'CurrentManningGap',
                 'details_html' => '<div style="font-weight:600;color:#18181b;">Sea Eagle · 2nd Officer</div><div style="color:#dc2626;font-size:12px;">Short 1 (1 of 2 onboard)</div>',
-                'action_url' => url('/organization/vessel-manning/1'),
+                'action_url' => url('/organization/vessels/1'),
             ],
             [
                 'severity_label' => 'WARNING',

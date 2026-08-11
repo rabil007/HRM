@@ -57,6 +57,7 @@ function makeSeaServicesExportFixtures(): array
     ]);
 
     $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'MV Export '.uniqid(),
         'vessel_type_id' => $vesselType->id,
         'is_active' => true,

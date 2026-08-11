@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Company;
 use App\Models\Rank;
 use App\Models\Vessel;
 use App\Models\VesselManning;
@@ -25,8 +26,15 @@ class VesselManningFactory extends Factory
             'company_id' => static function (): int {
                 throw new \InvalidArgumentException('company_id must be set via forCompany()');
             },
-            'vessel_id' => static function (): int {
+            'vessel_id' => static function (array $attributes): int {
+                $companyId = $attributes['company_id'] ?? null;
+
+                if ($companyId === null) {
+                    throw new \InvalidArgumentException('company_id must be set before vessel_id on VesselManningFactory.');
+                }
+
                 return Vessel::query()->create([
+                    'company_id' => $companyId,
                     'name' => fake()->unique()->words(2, true).' OSV',
                     'vessel_type_id' => VesselType::query()->create([
                         'name' => 'V '.Str::uuid()->toString(),

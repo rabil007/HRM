@@ -83,6 +83,7 @@ function makeCrewOperationsFixtures(): array
     ]);
 
     $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
         'name' => 'CO Vessel '.Str::uuid()->toString(),
         'vessel_type_id' => $vesselType->id,
         'is_active' => true,
