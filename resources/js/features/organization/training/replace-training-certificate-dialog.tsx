@@ -464,8 +464,11 @@ export function ReplaceTrainingCertificateDialog({
                                     return;
                                 }
 
+                                // Include existing course_id: it is default-required but
+                                // not editable in this dialog.
                                 if (
                                     !validateRequired({
+                                        course_id: training.course_id,
                                         issue_date: replaceForm.data.issue_date,
                                         expiry_date:
                                             replaceForm.data.expiry_date,

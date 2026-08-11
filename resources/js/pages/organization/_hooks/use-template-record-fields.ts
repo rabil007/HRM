@@ -80,16 +80,71 @@ export function useTemplateRecordFields(
     const validateRequired = useCallback(
         (formData: Record<string, unknown>): boolean => {
             const missing: string[] = [];
+            const fieldChecks: Array<{
+                field: string;
+                shown: boolean;
+                empty: boolean;
+                valueType: string;
+                valuePreview: string;
+            }> = [];
 
             for (const field of requiredFields) {
-                if (!showField(field)) {
+                const shown = showField(field);
+                const empty = isFieldValueEmpty(field, formData[field]);
+                const raw = formData[field];
+                fieldChecks.push({
+                    field,
+                    shown,
+                    empty,
+                    valueType: raw === null ? 'null' : typeof raw,
+                    valuePreview:
+                        raw === null || raw === undefined
+                            ? String(raw)
+                            : String(raw).slice(0, 80),
+                });
+
+                if (!shown) {
                     continue;
                 }
 
-                if (isFieldValueEmpty(field, formData[field])) {
+                if (empty) {
                     missing.push(field);
                 }
             }
+
+            // #region agent log
+            fetch(
+                'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Debug-Session-Id': 'c41b01',
+                    },
+                    body: JSON.stringify({
+                        sessionId: 'c41b01',
+                        runId: 'pre-fix',
+                        hypothesisId: 'A,B,C,D',
+                        location:
+                            'use-template-record-fields.ts:validateRequired',
+                        message: 'validateRequired result',
+                        data: {
+                            requiredFields: Array.from(requiredFields),
+                            formDataKeys: Object.keys(formData),
+                            fieldChecks,
+                            missing,
+                            passed: missing.length === 0,
+                            defaultRequiredFields,
+                            hasTemplateFields: Boolean(templateFields),
+                            templateFieldKeys: templateFields
+                                ? Object.keys(templateFields)
+                                : [],
+                        },
+                        timestamp: Date.now(),
+                    }),
+                },
+            ).catch(() => {});
+            // #endregion
 
             if (missing.length > 0) {
                 setMissingRequiredFields(new Set(missing));
@@ -105,7 +160,14 @@ export function useTemplateRecordFields(
 
             return true;
         },
-        [focusMissingField, isFieldValueEmpty, requiredFields, showField],
+        [
+            defaultRequiredFields,
+            focusMissingField,
+            isFieldValueEmpty,
+            requiredFields,
+            showField,
+            templateFields,
+        ],
     );
 
     const syncMissingFromFormData = useCallback(

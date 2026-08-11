@@ -95,6 +95,35 @@ export function isEmptyTemplateFieldValue(value: unknown): boolean {
 }
 
 /**
+ * Returns required visible field keys that are empty in `formData`.
+ * Callers that omit non-editable identity fields (e.g. replace dialogs)
+ * must still supply those values when they appear in the required set.
+ */
+export function collectMissingRequiredTemplateFields(
+    formData: Record<string, unknown>,
+    templateFields: Record<string, TemplateFieldConfig> | null | undefined,
+    defaultRequiredKeys: string[] = [],
+): string[] {
+    const requiredFields = getTemplateRequiredFieldKeys(
+        templateFields,
+        defaultRequiredKeys,
+    );
+    const missing: string[] = [];
+
+    for (const field of requiredFields) {
+        if (!isTemplateFieldVisible(templateFields, field)) {
+            continue;
+        }
+
+        if (isEmptyTemplateFieldValue(formData[field])) {
+            missing.push(field);
+        }
+    }
+
+    return missing;
+}
+
+/**
  * Drop record payload keys hidden by the assigned template. Request keys may
  * differ from template registry keys (e.g. certificate vs certificate_path).
  */

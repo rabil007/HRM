@@ -385,17 +385,128 @@ export function ReplaceDocumentDialog({
                                     return;
                                 }
 
-                                if (
-                                    !validateRequired({
-                                        document_number:
-                                            replaceForm.data.document_number,
-                                        issue_date: replaceForm.data.issue_date,
-                                        expiry_date:
-                                            replaceForm.data.expiry_date,
-                                    })
-                                ) {
+                                const validationPayload = {
+                                    document_type_id:
+                                        document.document_type_id,
+                                    document_number:
+                                        replaceForm.data.document_number,
+                                    issue_date: replaceForm.data.issue_date,
+                                    expiry_date: replaceForm.data.expiry_date,
+                                };
+
+                                // #region agent log
+                                fetch(
+                                    'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
+                                    {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-Debug-Session-Id': 'c41b01',
+                                        },
+                                        body: JSON.stringify({
+                                            sessionId: 'c41b01',
+                                            runId: 'pre-fix',
+                                            hypothesisId: 'A,C,E',
+                                            location:
+                                                'replace-document-dialog.tsx:Replace click',
+                                            message:
+                                                'Replace clicked with form snapshot',
+                                            data: {
+                                                documentId: document.id,
+                                                hasFile: Boolean(
+                                                    replaceForm.data.file,
+                                                ),
+                                                fileName:
+                                                    replaceForm.data.file
+                                                        ?.name ?? null,
+                                                fileSize:
+                                                    replaceForm.data.file
+                                                        ?.size ?? null,
+                                                validationPayload,
+                                                rawFormData: {
+                                                    document_number:
+                                                        replaceForm.data
+                                                            .document_number,
+                                                    issue_date:
+                                                        replaceForm.data
+                                                            .issue_date,
+                                                    expiry_date:
+                                                        replaceForm.data
+                                                            .expiry_date,
+                                                },
+                                                documentTypeId:
+                                                    document.document_type_id,
+                                                templateFieldKeys:
+                                                    templateFields
+                                                        ? Object.keys(
+                                                              templateFields,
+                                                          )
+                                                        : null,
+                                            },
+                                            timestamp: Date.now(),
+                                        }),
+                                    },
+                                ).catch(() => {});
+                                // #endregion
+
+                                // Include existing document_type_id: it is default-required
+                                // but not editable in this dialog.
+                                if (!validateRequired(validationPayload)) {
+                                    // #region agent log
+                                    fetch(
+                                        'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
+                                        {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type':
+                                                    'application/json',
+                                                'X-Debug-Session-Id': 'c41b01',
+                                            },
+                                            body: JSON.stringify({
+                                                sessionId: 'c41b01',
+                                                runId: 'pre-fix',
+                                                hypothesisId: 'A,B,C,D',
+                                                location:
+                                                    'replace-document-dialog.tsx:validation failed',
+                                                message:
+                                                    'Replace blocked by validateRequired',
+                                                data: {
+                                                    documentId: document.id,
+                                                },
+                                                timestamp: Date.now(),
+                                            }),
+                                        },
+                                    ).catch(() => {});
+                                    // #endregion
                                     return;
                                 }
+
+                                // #region agent log
+                                fetch(
+                                    'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
+                                    {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-Debug-Session-Id': 'c41b01',
+                                        },
+                                        body: JSON.stringify({
+                                            sessionId: 'c41b01',
+                                            runId: 'pre-fix',
+                                            hypothesisId: 'E',
+                                            location:
+                                                'replace-document-dialog.tsx:post start',
+                                            message:
+                                                'Validation passed; posting replace',
+                                            data: {
+                                                documentId: document.id,
+                                                employeeId,
+                                            },
+                                            timestamp: Date.now(),
+                                        }),
+                                    },
+                                ).catch(() => {});
+                                // #endregion
 
                                 replaceForm.clearErrors();
                                 replaceForm.transform((data) => ({
