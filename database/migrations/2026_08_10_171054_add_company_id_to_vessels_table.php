@@ -26,26 +26,24 @@ return new class extends Migration
 
     public function down(): void
     {
-        $duplicateNames = DB::table('vessels')
+        $duplicates = DB::table('vessels')
             ->select('name', DB::raw('COUNT(*) as total'))
             ->groupBy('name')
             ->having('total', '>', 1)
+            ->orderBy('name')
             ->pluck('name');
 
-        foreach ($duplicateNames as $name) {
-            $vessels = DB::table('vessels')
-                ->where('name', $name)
-                ->orderBy('id')
-                ->get(['id']);
+        if ($duplicates->isNotEmpty()) {
+            $examples = $duplicates->take(10)->implode(', ');
+            $more = $duplicates->count() > 10
+                ? ' (and '.($duplicates->count() - 10).' more)'
+                : '';
 
-            foreach ($vessels as $index => $vessel) {
-                if ($index > 0) {
-                    $suffix = ' ('.($index + 1).')';
-                    DB::table('vessels')
-                        ->where('id', $vessel->id)
-                        ->update(['name' => $name.$suffix]);
-                }
-            }
+            throw new RuntimeException(
+                'Cannot roll back company-owned vessels because duplicate vessel names exist across companies: '
+                .$examples.$more
+                .'. The old global vessels.name uniqueness constraint cannot be restored until duplicate names are manually resolved. Vessel names were not modified.'
+            );
         }
 
         Schema::table('vessels', function (Blueprint $table) {

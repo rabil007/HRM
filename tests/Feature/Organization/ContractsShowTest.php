@@ -68,6 +68,7 @@ test('authorized user can view contract detail with salary revisions', function 
         'basic_salary' => 100,
         'site_allowance' => 50,
         'supplementary_allowance' => 25,
+        'start_date' => '2026-01-01',
         'status' => 'active',
     ]);
 
