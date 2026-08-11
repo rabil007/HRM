@@ -327,6 +327,73 @@ test('cross-company destination vessel references are rejected on transfer', fun
     ))->toThrow(CrewMovementException::class, 'The selected vessel does not belong to this company.');
 });
 
+test('cross-company destination vessel references are rejected on join', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = $fixtures;
+    ['company' => $otherCompany] = makeCrewAssignmentFixtures();
+    $foreignVessel = makeCrewMovementVessel('Foreign Join Vessel '.uniqid(), $otherCompany);
+    $service = transferRedeployService();
+
+    $assignment = $service->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+    ], $user->id);
+    $id = $assignment->id;
+
+    $service->perform($company->id, $id, CrewMovementAction::ApproveMobilisation, [
+        'occurred_at' => '2026-07-01 08:00:00',
+    ], $user->id);
+    $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-07-01 12:00:00',
+        'next_phase' => 'p3',
+    ], $user->id);
+
+    expect(fn () => $service->perform(
+        $company->id,
+        $id,
+        CrewMovementAction::JoinVessel,
+        [
+            'occurred_at' => '2026-07-01 16:00:00',
+            'vessel_id' => $foreignVessel->id,
+            'rank_id' => $rank->id,
+            'planned_signoff_choice' => 'tour_of_duty',
+        ],
+        $user->id,
+    ))->toThrow(CrewMovementException::class, 'The selected vessel does not belong to this company.');
+
+    expect(CrewAssignment::query()->findOrFail($id)->vessel_id)->toBeNull();
+});
+
+test('cross-company destination vessel references are rejected on redeploy', function () {
+    [$source, $fixtures] = makeOnVesselSourceAssignment();
+    ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
+    ['company' => $otherCompany] = makeCrewAssignmentFixtures();
+    $foreignVessel = makeCrewMovementVessel('Foreign Redeploy Vessel '.uniqid(), $otherCompany);
+    $service = transferRedeployService();
+
+    $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2026-07-12 08:00:00',
+        'next_phase' => 'p5',
+    ], $user->id);
+
+    $beforeCount = CrewAssignment::query()->where('company_id', $company->id)->count();
+
+    expect(fn () => $service->perform(
+        $company->id,
+        $source->id,
+        CrewMovementAction::Redeploy,
+        [
+            'occurred_at' => '2026-07-15 09:00:00',
+            'starting_phase' => 'p4',
+            'vessel_id' => $foreignVessel->id,
+            'rank_id' => $rank->id,
+        ],
+        $user->id,
+    ))->toThrow(CrewMovementException::class, 'The selected vessel does not belong to this company.');
+
+    expect($source->fresh()->status)->toBe(CrewAssignmentStatus::Active)
+        ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe($beforeCount);
+});
+
 test('redeploy to p0 clears planned sign-off and does not require destination vessel', function () {
     [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
     ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;

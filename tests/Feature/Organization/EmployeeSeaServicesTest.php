@@ -444,6 +444,123 @@ test('store requires vessel id and rejects inactive vessel type', function () {
     ])->assertSessionHasErrors('end_date');
 });
 
+test('company A cannot create or update sea service using company B vessel', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TSV',
+        'name' => 'Testland Sea Vessel Tenant',
+        'dial_code' => '+993',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TSV',
+        'name' => 'Test Currency Sea Vessel Tenant',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme Sea Vessel Tenant',
+        'slug' => 'acme-sea-vessel-tenant',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Sea Vessel Tenant',
+        'slug' => 'other-sea-vessel-tenant',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP-SEA-TENANT',
+            'name' => 'Tenant Sailor',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'sea_services.view',
+        'sea_services.create',
+        'sea_services.update',
+    ]);
+
+    $vesselType = VesselType::query()->create([
+        'name' => 'Tenant Vessel Type',
+        'is_active' => true,
+    ]);
+
+    $ownVessel = Vessel::query()->create([
+        'company_id' => $company->id,
+        'name' => 'MV Own Tenant',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    $foreignVessel = Vessel::query()->create([
+        'company_id' => $otherCompany->id,
+        'name' => 'MV Foreign Tenant',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    $rank = Rank::query()->create([
+        'name' => 'Tenant Rank',
+        'is_active' => true,
+    ]);
+
+    $this->post(route('organization.employees.sea-services.store', $employee), [
+        'vessel_type_id' => $vesselType->id,
+        'vessel_id' => $foreignVessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-02-01',
+    ])->assertSessionHasErrors('vessel_id');
+
+    expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->exists())->toBeFalse();
+
+    $row = EmployeeSeaService::factory()->forEmployee($employee)->create([
+        'vessel_type_id' => $vesselType->id,
+        'vessel_id' => $ownVessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-02-01',
+    ]);
+
+    $this->put(route('organization.employees.sea-services.update', [$employee, $row]), [
+        'vessel_type_id' => $vesselType->id,
+        'vessel_id' => $foreignVessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-03-01',
+    ])->assertSessionHasErrors('vessel_id');
+
+    expect((int) $row->fresh()->vessel_id)->toBe((int) $ownVessel->id);
+});
+
 test('reorder rejects partial order lists', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

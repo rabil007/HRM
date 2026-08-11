@@ -190,3 +190,26 @@ test('company A cannot create a crew assignment using company B vessel', functio
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
+
+test('company A cannot update a crew assignment using company B vessel', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentOperationsFixtures();
+    ['company' => $otherCompany] = makeCrewAssignmentFixtures();
+
+    $ownVessel = makeCrewMovementVessel('Company A Vessel', $company);
+    $otherVessel = makeCrewMovementVessel('Foreign Company B Vessel Update', $otherCompany);
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $ownVessel->id,
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-assignments.update', $assignment), [
+            'rank_id' => $rank->id,
+            'vessel_id' => $otherVessel->id,
+            'planned_join_at' => '2026-08-01',
+        ])
+        ->assertSessionHasErrors(['vessel_id']);
+
+    expect((int) $assignment->fresh()->vessel_id)->toBe((int) $ownVessel->id);
+});

@@ -5,6 +5,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Vessel;
 use App\Models\VesselType;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -120,13 +121,29 @@ test('rolling back company-owned vessels succeeds when vessel names are globally
     $migration = vesselCompanyIdMigration();
     $migration->down();
 
+    $indexNames = collect(Schema::getIndexes('vessels'))->pluck('name');
+
     expect(Schema::hasColumn('vessels', 'company_id'))->toBeFalse()
         ->and(DB::table('vessels')->where('id', $vesselA->id)->value('name'))->toBe('Sea Eagle')
-        ->and(DB::table('vessels')->where('id', $vesselB->id)->value('name'))->toBe('Desert Falcon');
+        ->and(DB::table('vessels')->where('id', $vesselB->id)->value('name'))->toBe('Desert Falcon')
+        ->and($indexNames->contains('uq_vessel_records_name'))->toBeTrue()
+        ->and($indexNames->contains('uq_vessels_company_name'))->toBeFalse();
+
+    expect(fn () => DB::table('vessels')->insert([
+        'name' => 'Sea Eagle',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]))->toThrow(QueryException::class);
 
     $migration->up();
 
+    $restoredIndexNames = collect(Schema::getIndexes('vessels'))->pluck('name');
+
     expect(Schema::hasColumn('vessels', 'company_id'))->toBeTrue()
         ->and((int) DB::table('vessels')->where('id', $vesselA->id)->value('company_id'))->toBe(1)
-        ->and((int) DB::table('vessels')->where('id', $vesselB->id)->value('company_id'))->toBe(1);
+        ->and((int) DB::table('vessels')->where('id', $vesselB->id)->value('company_id'))->toBe(1)
+        ->and($restoredIndexNames->contains('uq_vessels_company_name'))->toBeTrue()
+        ->and($restoredIndexNames->contains('uq_vessel_records_name'))->toBeFalse();
 });
