@@ -49,12 +49,6 @@ final class PersistCrewTimesheetMovements
 
         $normalized = $this->normalizeRanges($ranges);
 
-        if ($normalized === []) {
-            throw ValidationException::withMessages([
-                'segments' => 'At least one valid movement period is required.',
-            ]);
-        }
-
         $existingSegments = CrewTimesheetSegment::query()
             ->where('company_id', $timesheet->company_id)
             ->where('crew_timesheet_id', $timesheet->id)
@@ -75,6 +69,15 @@ final class PersistCrewTimesheetMovements
 
         $previousSegmentCount = $existingSegments->count();
         $existingSegments->each->delete();
+
+        if ($normalized === []) {
+            return [
+                'segment_count' => 0,
+                'categories' => [],
+                'previous_segment_count' => $previousSegmentCount,
+                'previous_categories' => $previousCategories,
+            ];
+        }
 
         $segmentSequence = 1;
         $createdSegments = 0;

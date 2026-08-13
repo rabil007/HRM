@@ -527,7 +527,7 @@ test('payroll show exposes segment assignment values for the movement editor', f
             ->has('movement_master_options.ranks'));
 });
 
-test('empty segments array is rejected', function () {
+test('empty segments array clears all movement periods', function () {
     $fixtures = makeMultiSegmentManualTimesheetFixtures();
 
     $this->actingAs($fixtures['user'])
@@ -540,9 +540,10 @@ test('empty segments array is rejected', function () {
             'segments' => [],
         ])
         ->assertRedirect()
-        ->assertSessionHasErrors('segments');
+        ->assertSessionHasNoErrors();
 
-    expect($fixtures['timesheet']->fresh()->segments)->toHaveCount(2);
+    expect($fixtures['timesheet']->fresh()->segments)->toHaveCount(0);
+    expect((float) $fixtures['timesheet']->fresh()->onsite_days)->toBe(0.0);
 });
 
 test('overlapping segments are rejected before deletion', function () {

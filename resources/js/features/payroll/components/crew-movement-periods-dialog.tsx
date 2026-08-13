@@ -441,9 +441,7 @@ function CrewMovementPeriodsDialogBody({
 
     const removeSegment = (key: string) => {
         setSegments((previous) =>
-            previous.length <= 1
-                ? previous
-                : previous.filter((segment) => segment.key !== key),
+            previous.filter((segment) => segment.key !== key),
         );
         setAssignmentEditorKeys((previous) => {
             const next = new Set(previous);
@@ -734,7 +732,6 @@ function CrewMovementPeriodsDialogBody({
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            disabled={segments.length <= 1}
                                             onClick={() =>
                                                 removeSegment(segment.key)
                                             }

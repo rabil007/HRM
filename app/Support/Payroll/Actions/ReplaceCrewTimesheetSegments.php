@@ -95,19 +95,7 @@ final class ReplaceCrewTimesheetSegments
                 ]);
             }
 
-            if ($segments === []) {
-                throw ValidationException::withMessages([
-                    'segments' => 'At least one movement period is required.',
-                ]);
-            }
-
             $normalized = $this->normalizeSegments($segments);
-
-            if ($normalized === []) {
-                throw ValidationException::withMessages([
-                    'segments' => 'At least one valid movement period is required.',
-                ]);
-            }
 
             $source = CrewTimesheetSource::Manual;
             $persisted = $this->persistMovements->handle(

@@ -69,7 +69,7 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
         // Vessel, Client, and Rank are intentional global masters (not company-owned).
         // Scope only to active records — see docs/payroll.md.
         return [
-            'segments' => ['required', 'array', 'min:1'],
+            'segments' => ['present', 'array'],
             'segments.*.pay_category' => [
                 'required',
                 'string',
