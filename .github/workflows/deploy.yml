@@ -74,6 +74,22 @@ jobs:
           npm ci
           npm run build
 
+      - name: Test SSH connectivity
+        run: |
+          for attempt in 1 2 3; do
+            echo "SSH connectivity check attempt $attempt/3..."
+            if timeout 15 bash -c '</dev/tcp/82.198.227.207/65002'; then
+              echo "SSH port 82.198.227.207:65002 is reachable."
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "SSH port is not reachable yet; retrying in 10 seconds..."
+              sleep 10
+            fi
+          done
+          echo "ERROR: Cannot reach 82.198.227.207:65002 from this GitHub Actions runner."
+          exit 1
+
       - name: Upload build to server
         run: |
           rsync -avz -e "ssh -i ~/.ssh/id_ed25519 -p 65002 -o StrictHostKeyChecking=yes" public/build/ \
