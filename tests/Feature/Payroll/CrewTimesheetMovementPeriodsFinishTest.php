@@ -44,13 +44,11 @@ test('manual save accepts two onsite periods and nulls parent from/to', function
             'segments' => [
                 [
                     'pay_category' => CrewTimesheetPayCategory::Onsite->value,
-                    'vessel_id' => $vesselA->id,
                     'from_date' => '2026-07-01',
                     'to_date' => '2026-07-11',
                 ],
                 [
                     'pay_category' => CrewTimesheetPayCategory::Onsite->value,
-                    'vessel_id' => $vesselB->id,
                     'from_date' => '2026-07-20',
                     'to_date' => '2026-07-31',
                 ],

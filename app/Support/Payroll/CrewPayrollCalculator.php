@@ -102,7 +102,7 @@ final class CrewPayrollCalculator
         $siteRate = $this->activeAmount($components, SalaryComponentCode::SiteAllowance);
         $supplementaryRate = $this->activeAmount($components, SalaryComponentCode::SupplementaryAllowance);
 
-        $timesheet->loadMissing(['segments.assignment', 'segments.vessel', 'segments.client', 'segments.rank', 'period']);
+        $timesheet->loadMissing(['segments.assignment', 'period']);
 
         if ($timesheet->segments->isNotEmpty()) {
             // Never sum raw segment days when segments exist — prior-period portions would
@@ -272,9 +272,6 @@ final class CrewPayrollCalculator
 
         $timesheet->loadMissing([
             'segments.assignment',
-            'segments.vessel',
-            'segments.client',
-            'segments.rank',
         ]);
 
         /** @var list<array<string, mixed>> $days */
@@ -539,23 +536,44 @@ final class CrewPayrollCalculator
      */
     private function movementSegments(CrewTimesheet $timesheet): array
     {
-        return $timesheet->segments->map(fn ($segment) => [
-            'id' => $segment->id,
-            'sequence' => $segment->sequence,
-            'pay_category' => $segment->pay_category?->value,
-            'from_date' => $segment->from_date?->toDateString(),
-            'to_date' => $segment->to_date?->toDateString(),
-            'days' => (float) $segment->days,
-            'source' => $segment->source?->value,
-            'crew_assignment_id' => $segment->crew_assignment_id,
-            'assignment_no' => $segment->assignment?->assignment_no,
-            'vessel_id' => $segment->vessel_id,
-            'vessel_name' => $segment->vessel?->name,
-            'client_id' => $segment->client_id,
-            'client_name' => $segment->client?->name,
-            'rank_id' => $segment->rank_id,
-            'rank_name' => $segment->rank?->name,
-        ])->values()->all();
+        return collect($timesheet->segments)->map(function ($segment) {
+            $assignment = is_array($segment) ? ($segment['assignment'] ?? null) : $segment->assignment;
+
+            return [
+                'id' => is_array($segment) ? ($segment['id'] ?? null) : $segment->id,
+                'sequence' => is_array($segment) ? ($segment['sequence'] ?? null) : $segment->sequence,
+                'pay_category' => is_array($segment)
+                    ? ($segment['pay_category'] ?? null)
+                    : $segment->pay_category?->value,
+                'from_date' => is_array($segment)
+                    ? ($segment['from_date'] ?? null)
+                    : $segment->from_date?->toDateString(),
+                'to_date' => is_array($segment)
+                    ? ($segment['to_date'] ?? null)
+                    : $segment->to_date?->toDateString(),
+                'days' => is_array($segment)
+                    ? (float) ($segment['days'] ?? 0)
+                    : (float) $segment->days,
+                'source' => is_array($segment)
+                    ? ($segment['source'] ?? null)
+                    : $segment->source?->value,
+                'crew_assignment_id' => is_array($segment)
+                    ? ($segment['crew_assignment_id'] ?? null)
+                    : $segment->crew_assignment_id,
+                'assignment_no' => is_array($assignment)
+                    ? ($assignment['assignment_no'] ?? null)
+                    : $assignment?->assignment_no,
+                'vessel_name' => is_array($assignment)
+                    ? ($assignment['vessel_name'] ?? $assignment['vessel']['name'] ?? null)
+                    : $assignment?->vessel?->name,
+                'client_name' => is_array($assignment)
+                    ? ($assignment['client_name'] ?? $assignment['client']['name'] ?? null)
+                    : $assignment?->client?->name,
+                'rank_name' => is_array($assignment)
+                    ? ($assignment['rank_name'] ?? $assignment['rank']['name'] ?? null)
+                    : $assignment?->rank?->name,
+            ];
+        })->values()->all();
     }
 
     /**

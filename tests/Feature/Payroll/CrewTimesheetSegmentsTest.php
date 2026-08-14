@@ -9,6 +9,7 @@ use App\Enums\CrewTimesheetSource;
 use App\Models\CrewAssignment;
 use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetSegment;
+use App\Models\PayrollPeriod;
 use App\Models\User;
 use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
 use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
@@ -125,4 +126,52 @@ test('parent sync mirrors a single segment and nulls ranges for multiple segment
     expect($synced->onsite_from)->toBeNull()
         ->and($synced->onsite_to)->toBeNull()
         ->and((float) $synced->onsite_days)->toBe(23.0);
+});
+
+test('manual segment stores pay category, dates, days, and remarks without vessel, client, or rank columns', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.create',
+        'payroll.crew_timesheets.update',
+        'payroll.crew_timesheets.view',
+        'payroll.periods.view',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+    $employee = createCrewEmployeeWithContract($company, 'CRW-SEG-'.uniqid(), 100, 50, 25);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.timesheets.store', $period), [
+            'period_id' => $period->id,
+            'employee_id' => $employee->id,
+            'segments' => [
+                [
+                    'pay_category' => CrewTimesheetPayCategory::Onsite->value,
+                    'from_date' => '2026-07-01',
+                    'to_date' => '2026-07-15',
+                    'remarks' => 'Manual onsite period',
+                ],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $timesheet = CrewTimesheet::query()
+        ->where('company_id', $company->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    $segment = $timesheet?->segments()->first();
+
+    expect($segment)->not->toBeNull()
+        ->and($segment->pay_category)->toBe(CrewTimesheetPayCategory::Onsite)
+        ->and($segment->from_date->toDateString())->toBe('2026-07-01')
+        ->and($segment->to_date->toDateString())->toBe('2026-07-15')
+        ->and((float) $segment->days)->toBe(15.0)
+        ->and($segment->remarks)->toBe('Manual onsite period')
+        ->and($segment->crew_assignment_id)->toBeNull();
 });

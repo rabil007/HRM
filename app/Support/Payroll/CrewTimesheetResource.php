@@ -22,7 +22,7 @@ final class CrewTimesheetResource
             return null;
         }
 
-        $timesheet->loadMissing(['preparation', 'segments.assignment', 'segments.vessel', 'segments.client', 'segments.rank']);
+        $timesheet->loadMissing(['preparation', 'segments.assignment']);
         $operationallyLocked = $timesheet->isOperationallyLocked();
         $signOnDays = (float) ($timesheet->sign_on_standby_days ?? 0);
         $signOffDays = (float) ($timesheet->sign_off_standby_days ?? 0);
@@ -67,12 +67,6 @@ final class CrewTimesheetResource
                 'crew_assignment_id' => $segment->crew_assignment_id,
                 'assignment_no' => $segment->assignment?->assignment_no,
                 'crew_assignment_phase_id' => $segment->crew_assignment_phase_id,
-                'vessel_id' => $segment->vessel_id,
-                'vessel_name' => $segment->vessel?->name,
-                'client_id' => $segment->client_id,
-                'client_name' => $segment->client?->name,
-                'rank_id' => $segment->rank_id,
-                'rank_name' => $segment->rank?->name,
                 'remarks' => $segment->remarks,
             ])->values()->all(),
             'unpaid_leave_days' => $timesheet->unpaid_leave_days,

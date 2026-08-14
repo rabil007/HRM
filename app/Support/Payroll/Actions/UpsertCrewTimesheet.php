@@ -345,9 +345,6 @@ final class UpsertCrewTimesheet
                         is_string($from) ? $from : null,
                         is_string($to) ? $to : null,
                     ),
-                    'vessel_id' => $segment['vessel_id'] ?? null,
-                    'client_id' => $segment['client_id'] ?? null,
-                    'rank_id' => $segment['rank_id'] ?? null,
                     'remarks' => $segment['remarks'] ?? null,
                 ];
             }
@@ -377,9 +374,6 @@ final class UpsertCrewTimesheet
                     is_string($from) ? $from : null,
                     is_string($to) ? $to : null,
                 ),
-                'vessel_id' => null,
-                'client_id' => null,
-                'rank_id' => null,
                 'remarks' => null,
             ];
         }

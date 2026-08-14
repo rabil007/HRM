@@ -47,12 +47,6 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
                 }
             }
 
-            foreach (['vessel_id', 'client_id', 'rank_id'] as $field) {
-                if (($segment[$field] ?? null) === '' || ($segment[$field] ?? null) === null) {
-                    $segment[$field] = null;
-                }
-            }
-
             $segments[] = $segment;
         }
 
@@ -64,10 +58,6 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
      */
     public function rules(): array
     {
-        $companyId = (int) $this->attributes->get('current_company_id');
-
-        // Vessel, Client, and Rank are intentional global masters (not company-owned).
-        // Scope only to active records — see docs/payroll.md.
         return [
             'segments' => ['present', 'array'],
             'segments.*.pay_category' => [
@@ -82,21 +72,6 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
             'segments.*.from_date' => ['required', 'date'],
             'segments.*.to_date' => ['required', 'date'],
             'segments.*.days' => ['nullable', 'integer', 'min:0'],
-            'segments.*.vessel_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true),
-            ],
-            'segments.*.client_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('clients', 'id')->where('is_active', true),
-            ],
-            'segments.*.rank_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('ranks', 'id')->where('is_active', true),
-            ],
             'segments.*.remarks' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -216,9 +191,6 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
                 'days' => filled($from) && filled($to)
                     ? (int) round((new CalculateLeaveRequestDays)((string) $from, (string) $to))
                     : null,
-                'vessel_id' => $segment['vessel_id'] ?? null,
-                'client_id' => $segment['client_id'] ?? null,
-                'rank_id' => $segment['rank_id'] ?? null,
                 'remarks' => $segment['remarks'] ?? null,
             ];
         }, $segments);

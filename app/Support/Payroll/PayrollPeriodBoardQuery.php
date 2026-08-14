@@ -44,7 +44,7 @@ final class PayrollPeriodBoardQuery
                 'primaryBankAccount.bank:id,name',
                 'crewTimesheets' => fn ($timesheetQuery) => $timesheetQuery
                     ->where('period_id', $period->id)
-                    ->with(['segments.assignment', 'segments.vessel', 'segments.client', 'segments.rank']),
+                    ->with(['segments.assignment']),
             ]);
         }
 

@@ -64,12 +64,6 @@ class UpsertCrewTimesheetRequest extends FormRequest
                     }
                 }
 
-                foreach (['vessel_id', 'client_id', 'rank_id'] as $field) {
-                    if (($segment[$field] ?? null) === '' || ($segment[$field] ?? null) === null) {
-                        $segment[$field] = null;
-                    }
-                }
-
                 $segments[] = $segment;
             }
 
@@ -123,21 +117,6 @@ class UpsertCrewTimesheetRequest extends FormRequest
             $rules['segments.*.from_date'] = ['required', 'date'];
             $rules['segments.*.to_date'] = ['required', 'date'];
             $rules['segments.*.days'] = ['nullable', 'integer', 'min:0'];
-            $rules['segments.*.vessel_id'] = [
-                'nullable',
-                'integer',
-                Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true),
-            ];
-            $rules['segments.*.client_id'] = [
-                'nullable',
-                'integer',
-                Rule::exists('clients', 'id')->where('is_active', true),
-            ];
-            $rules['segments.*.rank_id'] = [
-                'nullable',
-                'integer',
-                Rule::exists('ranks', 'id')->where('is_active', true),
-            ];
             $rules['segments.*.remarks'] = ['nullable', 'string', 'max:1000'];
         } else {
             $rules['sign_on_standby_from'] = ['nullable', 'date'];
@@ -410,9 +389,6 @@ class UpsertCrewTimesheetRequest extends FormRequest
                         is_string($from) ? $from : null,
                         is_string($to) ? $to : null,
                     ),
-                    'vessel_id' => $segment['vessel_id'] ?? null,
-                    'client_id' => $segment['client_id'] ?? null,
-                    'rank_id' => $segment['rank_id'] ?? null,
                     'remarks' => $segment['remarks'] ?? null,
                 ];
             }, $validated['segments']);

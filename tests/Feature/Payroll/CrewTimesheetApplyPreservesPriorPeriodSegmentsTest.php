@@ -29,8 +29,6 @@ test('apply crew operations preparation preserves prior-period manual segment po
         'from_date' => '2026-06-25',
         'to_date' => '2026-07-15',
         'days' => 21,
-        'vessel_id' => $fixtures['vessel']->id,
-        'rank_id' => $fixtures['rank']->id,
     ]);
 
     app(ApplyCrewTimesheetPreparation::class)->handle(
@@ -53,8 +51,7 @@ test('apply crew operations preparation preserves prior-period manual segment po
 
     expect($priorManual)->not->toBeNull()
         ->and((float) $priorManual->days)->toBe(6.0)
-        ->and($priorManual->pay_category)->toBe(CrewTimesheetPayCategory::Onsite)
-        ->and((int) $priorManual->vessel_id)->toBe((int) $fixtures['vessel']->id);
+        ->and($priorManual->pay_category)->toBe(CrewTimesheetPayCategory::Onsite);
 
     $crewOps = $segments->where('source', CrewTimesheetSource::CrewOperations);
     expect($crewOps)->not->toBeEmpty();

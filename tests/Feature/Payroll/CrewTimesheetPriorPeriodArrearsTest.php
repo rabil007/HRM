@@ -69,9 +69,6 @@ function makePriorPeriodArrearsTimesheetFixtures(): array
         'from_date' => '2026-07-01',
         'to_date' => '2026-07-11',
         'days' => 11,
-        'vessel_id' => $vessel->id,
-        'client_id' => $client->id,
-        'rank_id' => $rank->id,
     ]);
 
     CrewTimesheetSegment::factory()->create([
@@ -83,9 +80,6 @@ function makePriorPeriodArrearsTimesheetFixtures(): array
         'from_date' => '2026-07-20',
         'to_date' => '2026-07-31',
         'days' => 12,
-        'vessel_id' => $vessel->id,
-        'client_id' => $client->id,
-        'rank_id' => $rank->id,
     ]);
 
     return [

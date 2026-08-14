@@ -108,7 +108,6 @@ export function PayrollShowContent({
     employee_stats,
     crew_timeline_preparation = null,
     clearable_timesheet_count = 0,
-    movement_master_options = null,
 }: PayrollShowProps) {
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -1279,13 +1278,6 @@ export function PayrollShowContent({
                         ) ?? movementPeriodsTarget.row
                     }
                     categoryGroup={movementPeriodsTarget.categoryGroup}
-                    masterOptions={
-                        movement_master_options ?? {
-                            vessels: [],
-                            clients: [],
-                            ranks: [],
-                        }
-                    }
                     canEdit={canEditTimesheets}
                     onBeforeSave={async () => {
                         const employeeId =

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from './template-record-defaults.ts';
 import {
     collectMissingRequiredTemplateFields,
     getTemplateRequiredFieldKeys,
 } from './template-field-visibility.ts';
+import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from './template-record-defaults.ts';
 
 describe('replace document required-field validation', () => {
     it('requires document_type_id by default when no template is assigned', () => {

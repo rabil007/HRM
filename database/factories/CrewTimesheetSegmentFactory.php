@@ -37,9 +37,6 @@ class CrewTimesheetSegmentFactory extends Factory
             'crew_assignment_id' => null,
             'crew_assignment_phase_id' => null,
             'crew_timesheet_preparation_line_id' => null,
-            'vessel_id' => null,
-            'client_id' => null,
-            'rank_id' => null,
             'remarks' => null,
         ];
     }

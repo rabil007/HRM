@@ -182,12 +182,6 @@ export type CrewTimesheetSegment = {
     crew_assignment_id: number | null;
     assignment_no: string | null;
     crew_assignment_phase_id: number | null;
-    vessel_id: number | null;
-    vessel_name: string | null;
-    client_id: number | null;
-    client_name: string | null;
-    rank_id: number | null;
-    rank_name: string | null;
     remarks: string | null;
 };
 
@@ -527,17 +521,6 @@ export type PayrollRecordsSummary = {
     total_overtime_hours: string;
 };
 
-export type MovementMasterOption = {
-    id: number;
-    name: string;
-};
-
-export type MovementMasterOptions = {
-    vessels: MovementMasterOption[];
-    clients: MovementMasterOption[];
-    ranks: MovementMasterOption[];
-};
-
 export type PayrollShowProps = {
     period: PayrollPeriod;
     leave_types?: LeaveTypeColumn[];
@@ -567,7 +550,6 @@ export type PayrollShowProps = {
     crew_timeline_preparation: CrewTimelinePreparationSummary | null;
     crew_timesheet_mode_options: CrewTimesheetModeOption[];
     clearable_timesheet_count: number;
-    movement_master_options?: MovementMasterOptions | null;
 };
 
 function formatAmount(value: string | null | undefined): string {

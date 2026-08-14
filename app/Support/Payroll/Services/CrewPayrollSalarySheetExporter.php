@@ -73,10 +73,9 @@ final class CrewPayrollSalarySheetExporter
             ->where('period_id', $period->id)
             ->whereIn('employee_id', $employeeIds)
             ->with([
-                'segments.assignment',
-                'segments.vessel',
-                'segments.client',
-                'segments.rank',
+                'segments.assignment.vessel',
+                'segments.assignment.client',
+                'segments.assignment.rank',
             ])
             ->get()
             ->keyBy('employee_id');
@@ -504,13 +503,15 @@ final class CrewPayrollSalarySheetExporter
      */
     private function segmentMovementRow(?Employee $employee, CrewTimesheetSegment $segment): array
     {
+        $assignment = $segment->assignment;
+
         return [
             'employee_no' => $employee?->employee_no,
             'name' => $employee?->name,
-            'assignment' => $segment->assignment?->assignment_no,
-            'vessel' => $segment->vessel?->name,
-            'client' => $segment->client?->name,
-            'rank' => $segment->rank?->name,
+            'assignment' => $assignment?->assignment_no,
+            'vessel' => $assignment?->vessel?->name,
+            'client' => $assignment?->client?->name,
+            'rank' => $assignment?->rank?->name,
             'category' => $segment->pay_category?->label(),
             'from' => $segment->from_date?->format('d-m-Y'),
             'to' => $segment->to_date?->format('d-m-Y'),

@@ -425,9 +425,6 @@ final class ApplyCrewTimesheetPreparation
                     'crew_assignment_id' => $segment->crew_assignment_id,
                     'crew_assignment_phase_id' => $segment->crew_assignment_phase_id,
                     'crew_timesheet_preparation_line_id' => null,
-                    'vessel_id' => $segment->vessel_id,
-                    'client_id' => $segment->client_id,
-                    'rank_id' => $segment->rank_id,
                     'remarks' => $segment->remarks,
                 ];
             }
@@ -461,9 +458,6 @@ final class ApplyCrewTimesheetPreparation
                 'crew_assignment_id' => $line->crew_assignment_id,
                 'crew_assignment_phase_id' => $line->crew_assignment_phase_id,
                 'crew_timesheet_preparation_line_id' => $line->id,
-                'vessel_id' => $assignment?->vessel_id,
-                'client_id' => $assignment?->client_id,
-                'rank_id' => $assignment?->rank_id,
                 'remarks' => $line->remarks,
             ]);
         }

@@ -98,9 +98,6 @@ final class PersistCrewTimesheetMovements
                     is_string($row['to_date']) ? $row['to_date'] : null,
                 ),
                 'source' => $source,
-                'vessel_id' => $row['vessel_id'],
-                'client_id' => $row['client_id'],
-                'rank_id' => $row['rank_id'],
                 'remarks' => $row['remarks'],
             ]);
             $createdSegments++;
@@ -149,9 +146,6 @@ final class PersistCrewTimesheetMovements
                     is_string($from) ? $from : null,
                     is_string($to) ? $to : null,
                 ),
-                'vessel_id' => $range['vessel_id'] ?? null,
-                'client_id' => $range['client_id'] ?? null,
-                'rank_id' => $range['rank_id'] ?? null,
                 'remarks' => $range['remarks'] ?? null,
                 'source_excel_row' => $range['source_excel_row'] ?? null,
                 'source_reference' => $range['source_reference'] ?? null,

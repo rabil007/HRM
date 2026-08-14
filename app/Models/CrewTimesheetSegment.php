@@ -35,9 +35,6 @@ class CrewTimesheetSegment extends Model
         'crew_assignment_id',
         'crew_assignment_phase_id',
         'crew_timesheet_preparation_line_id',
-        'vessel_id',
-        'client_id',
-        'rank_id',
         'remarks',
     ];
 
@@ -56,9 +53,6 @@ class CrewTimesheetSegment extends Model
                 'crew_assignment_id',
                 'crew_assignment_phase_id',
                 'crew_timesheet_preparation_line_id',
-                'vessel_id',
-                'client_id',
-                'rank_id',
                 'remarks',
             ])
             ->logOnlyDirty();
@@ -76,9 +70,6 @@ class CrewTimesheetSegment extends Model
             'crew_assignment_id' => 'integer',
             'crew_assignment_phase_id' => 'integer',
             'crew_timesheet_preparation_line_id' => 'integer',
-            'vessel_id' => 'integer',
-            'client_id' => 'integer',
-            'rank_id' => 'integer',
         ];
     }
 
@@ -105,20 +96,5 @@ class CrewTimesheetSegment extends Model
     public function preparationLine(): BelongsTo
     {
         return $this->belongsTo(CrewTimesheetPreparationLine::class, 'crew_timesheet_preparation_line_id');
-    }
-
-    public function vessel(): BelongsTo
-    {
-        return $this->belongsTo(Vessel::class);
-    }
-
-    public function client(): BelongsTo
-    {
-        return $this->belongsTo(Client::class);
-    }
-
-    public function rank(): BelongsTo
-    {
-        return $this->belongsTo(Rank::class);
     }
 }

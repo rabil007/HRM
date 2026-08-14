@@ -1,20 +1,6 @@
 import { router } from '@inertiajs/react';
-import {
-    Anchor,
-    BriefcaseBusiness,
-    CalendarDays,
-    CalendarRange,
-    ChevronDown,
-    ChevronUp,
-    Info,
-    Lock,
-    Plus,
-    Ship,
-    Trash2,
-    UserRound,
-} from 'lucide-react';
+import { CalendarDays, CalendarRange, Lock, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
 import { storeTimesheet } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
 import UpdateCrewTimesheetSegmentsController from '@/actions/App/Http/Controllers/Payroll/UpdateCrewTimesheetSegmentsController';
 import InputError from '@/components/input-error';
@@ -39,19 +25,14 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDisplayDate } from '@/lib/format-date';
-import { cn } from '@/lib/utils';
 import {
-    buildAssignmentSummaryFields,
     categoryGroupCategories,
     createEmptyMovementPeriodDraft,
     defaultCategoryForGroup,
     hiddenGroupSegmentDrafts,
     inclusiveMovementDays,
-    isAssignmentEditorOpen,
-    resolveDefaultAssignment,
     segmentDraftsFromTimesheet,
     splitMovementRangeAcrossPeriod,
-    toggleAssignmentEditor,
 } from '../lib/crew-movement-period-drafts';
 import type {
     MovementCategoryGroup,
@@ -60,7 +41,6 @@ import type {
 import type {
     CrewPayrollRow,
     CrewTimesheetSegment,
-    MovementMasterOptions,
     PayrollPeriod,
 } from '../types';
 
@@ -83,10 +63,11 @@ function ReadOnlySegmentTable({
                     aria-hidden
                 />
                 <p className="text-sm font-medium text-muted-foreground">
-                    No movement periods recorded
+                    No timesheet periods recorded
                 </p>
                 <p className="text-xs text-muted-foreground/70">
-                    Movement periods for this employee haven't been entered yet.
+                    Timesheet periods for this employee haven't been entered
+                    yet.
                 </p>
             </div>
         );
@@ -101,11 +82,6 @@ function ReadOnlySegmentTable({
                         <th className="px-3 py-2 font-semibold">From</th>
                         <th className="px-3 py-2 font-semibold">To</th>
                         <th className="px-3 py-2 font-semibold">Days</th>
-                        <th className="px-3 py-2 font-semibold">Vessel</th>
-                        <th className="px-3 py-2 font-semibold">
-                            Client / Project
-                        </th>
-                        <th className="px-3 py-2 font-semibold">Rank</th>
                         <th className="px-3 py-2 font-semibold">Assignment</th>
                         <th className="px-3 py-2 font-semibold">Remarks</th>
                     </tr>
@@ -132,21 +108,6 @@ function ReadOnlySegmentTable({
                             <td className="px-3 py-2.5 font-semibold tabular-nums">
                                 {segment.days ?? '—'}
                             </td>
-                            <td className="px-3 py-2.5 text-muted-foreground">
-                                {segment.vessel_name ?? (
-                                    <span className="italic">Not assigned</span>
-                                )}
-                            </td>
-                            <td className="px-3 py-2.5 text-muted-foreground">
-                                {segment.client_name ?? (
-                                    <span className="italic">Not assigned</span>
-                                )}
-                            </td>
-                            <td className="px-3 py-2.5 text-muted-foreground">
-                                {segment.rank_name ?? (
-                                    <span className="italic">Not assigned</span>
-                                )}
-                            </td>
                             <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">
                                 {segment.assignment_no ?? (
                                     <span className="font-sans italic">
@@ -165,134 +126,12 @@ function ReadOnlySegmentTable({
     );
 }
 
-function AssignmentSummary({
-    segment,
-    masterOptions,
-    editing,
-    onToggle,
-    segmentIndex,
-}: {
-    segment: MovementPeriodDraftSegment;
-    masterOptions: MovementMasterOptions;
-    editing: boolean;
-    onToggle: () => void;
-    segmentIndex: number;
-}) {
-    const fields = buildAssignmentSummaryFields(segment, masterOptions);
-
-    return (
-        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <BriefcaseBusiness
-                        className="h-4 w-4 shrink-0"
-                        aria-hidden
-                    />
-                    <span>Current Assignment</span>
-                </div>
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={onToggle}
-                    aria-expanded={editing}
-                    aria-controls={`assignment-fields-${segment.key}`}
-                >
-                    {editing ? (
-                        <ChevronUp className="h-4 w-4" aria-hidden />
-                    ) : (
-                        <ChevronDown className="h-4 w-4" aria-hidden />
-                    )}
-                    {editing ? 'Hide Assignment' : 'Change Assignment'}
-                </Button>
-            </div>
-
-            {!editing ? (
-                <dl className="grid gap-2 sm:grid-cols-3">
-                    {fields.map((field) => (
-                        <div key={field.label} className="space-y-0.5">
-                            <dt className="text-xs text-muted-foreground">
-                                {field.label}
-                            </dt>
-                            <dd
-                                className={cn(
-                                    'text-sm',
-                                    field.assigned
-                                        ? 'text-foreground'
-                                        : 'text-muted-foreground italic',
-                                )}
-                            >
-                                {field.value}
-                            </dd>
-                        </div>
-                    ))}
-                </dl>
-            ) : (
-                <p className="text-xs text-muted-foreground">
-                    Update vessel, client, or rank for movement period{' '}
-                    {segmentIndex + 1}. Clear a value with None.
-                </p>
-            )}
-        </div>
-    );
-}
-
-function OptionalMasterSelect({
-    label,
-    value,
-    options,
-    onChange,
-    error,
-    icon,
-}: {
-    label: string;
-    value: number | null;
-    options: MovementMasterOptions['vessels'];
-    onChange: (value: number | null) => void;
-    error?: string;
-    icon: ReactNode;
-}) {
-    return (
-        <div className="space-y-2">
-            <Label className="flex items-center gap-1.5">
-                {icon}
-                {label}
-            </Label>
-            <Select
-                value={value?.toString() ?? 'none'}
-                onValueChange={(next) =>
-                    onChange(next === 'none' ? null : Number(next))
-                }
-            >
-                <SelectTrigger>
-                    <SelectValue
-                        placeholder={`Optional ${label.toLowerCase()}...`}
-                    />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {options.map((option) => (
-                        <SelectItem
-                            key={option.id}
-                            value={option.id.toString()}
-                        >
-                            {option.name}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-            <InputError message={error} />
-        </div>
-    );
-}
-
 export function CrewMovementPeriodsDialog({
     open,
     onOpenChange,
     period,
     row,
     categoryGroup,
-    masterOptions,
     canEdit,
     onBeforeSave,
     onSaved,
@@ -302,7 +141,6 @@ export function CrewMovementPeriodsDialog({
     period: PayrollPeriod;
     row: CrewPayrollRow | null;
     categoryGroup: MovementCategoryGroup;
-    masterOptions: MovementMasterOptions;
     canEdit: boolean;
     onBeforeSave?: () => Promise<void> | void;
     onSaved?: () => void;
@@ -318,7 +156,6 @@ export function CrewMovementPeriodsDialog({
                 period={period}
                 row={row}
                 categoryGroup={categoryGroup}
-                masterOptions={masterOptions}
                 canEdit={canEdit}
                 onOpenChange={onOpenChange}
                 onBeforeSave={onBeforeSave}
@@ -332,7 +169,6 @@ function CrewMovementPeriodsDialogBody({
     period,
     row,
     categoryGroup,
-    masterOptions,
     canEdit,
     onOpenChange,
     onBeforeSave,
@@ -341,7 +177,6 @@ function CrewMovementPeriodsDialogBody({
     period: PayrollPeriod;
     row: CrewPayrollRow;
     categoryGroup: MovementCategoryGroup;
-    masterOptions: MovementMasterOptions;
     canEdit: boolean;
     onOpenChange: (open: boolean) => void;
     onBeforeSave?: () => Promise<void> | void;
@@ -366,9 +201,6 @@ function CrewMovementPeriodsDialogBody({
     const [segments, setSegments] = useState<MovementPeriodDraftSegment[]>(() =>
         segmentDraftsFromTimesheet(timesheet, categoryGroup),
     );
-    const [assignmentEditorKeys, setAssignmentEditorKeys] = useState<
-        Set<string>
-    >(() => new Set());
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -425,37 +257,26 @@ function CrewMovementPeriodsDialogBody({
     };
 
     const addSegment = () => {
-        setSegments((previous) => {
-            const assignment = resolveDefaultAssignment(previous, timesheet);
-
-            return [
-                ...previous,
-                createEmptyMovementPeriodDraft(
-                    `new-${Date.now()}-${previous.length}`,
-                    assignment,
-                    defaultCategoryForGroup(categoryGroup),
-                ),
-            ];
-        });
+        setSegments((previous) => [
+            ...previous,
+            createEmptyMovementPeriodDraft(
+                `new-${Date.now()}-${previous.length}`,
+                defaultCategoryForGroup(categoryGroup),
+            ),
+        ]);
     };
 
     const removeSegment = (key: string) => {
         setSegments((previous) =>
             previous.filter((segment) => segment.key !== key),
         );
-        setAssignmentEditorKeys((previous) => {
-            const next = new Set(previous);
-            next.delete(key);
-
-            return next;
-        });
     };
 
     const save = async (): Promise<void> => {
         if (hasDateAfterPeriodEnd) {
             setErrors({
                 segments:
-                    'Movement dates after the payroll period end are not allowed.',
+                    'Timesheet dates after the payroll period end are not allowed.',
             });
 
             return;
@@ -472,7 +293,7 @@ function CrewMovementPeriodsDialogBody({
                 financials:
                     error instanceof Error
                         ? error.message
-                        : 'Pending financial changes could not be saved. Movement periods were not updated.',
+                        : 'Pending financial changes could not be saved. Timesheet periods were not updated.',
             });
 
             return;
@@ -489,9 +310,6 @@ function CrewMovementPeriodsDialogBody({
 
         const segmentPayload = allSegments.map((segment) => ({
             pay_category: segment.pay_category,
-            vessel_id: segment.vessel_id,
-            client_id: segment.client_id,
-            rank_id: segment.rank_id,
             from_date: segment.from_date || null,
             to_date: segment.to_date || null,
             remarks: segment.remarks || null,
@@ -505,10 +323,6 @@ function CrewMovementPeriodsDialogBody({
             });
 
             setErrors(next);
-        };
-
-        const collapseAssignmentEditors = (): void => {
-            setAssignmentEditorKeys(new Set());
         };
 
         const latestTimesheet = rowRef.current.timesheet ?? timesheet;
@@ -527,7 +341,6 @@ function CrewMovementPeriodsDialogBody({
                     only: ['rows'],
                     onFinish: () => setProcessing(false),
                     onSuccess: () => {
-                        collapseAssignmentEditors();
                         onSaved?.();
                         onOpenChange(false);
                     },
@@ -550,7 +363,6 @@ function CrewMovementPeriodsDialogBody({
                 only: ['rows'],
                 onFinish: () => setProcessing(false),
                 onSuccess: () => {
-                    collapseAssignmentEditors();
                     onSaved?.();
                     onOpenChange(false);
                 },
@@ -569,7 +381,7 @@ function CrewMovementPeriodsDialogBody({
                                 className="h-5 w-5 text-muted-foreground"
                                 aria-hidden
                             />
-                            {groupLabel} Periods
+                            {groupLabel} Timesheet Periods
                         </DialogTitle>
                         <DialogDescription className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
                             <span className="font-medium text-foreground/80">
@@ -609,8 +421,8 @@ function CrewMovementPeriodsDialogBody({
                                 {segments.length}
                             </span>
                             {segments.length === 1
-                                ? 'movement period'
-                                : 'movement periods'}
+                                ? 'timesheet period'
+                                : 'timesheet periods'}
                         </span>
                         {totalDays > 0 ? (
                             <span className="flex items-center gap-1.5">
@@ -634,9 +446,9 @@ function CrewMovementPeriodsDialogBody({
                                     aria-hidden
                                 />
                                 <p>
-                                    Crew Operations data — movement periods are
-                                    read-only. Dates and assignment can only be
-                                    changed via the Crew Operations workflow.
+                                    Crew Operations data — timesheet periods are
+                                    read-only. Dates and assignment are managed
+                                    via the Crew Operations workflow.
                                 </p>
                             </div>
                         ) : null}
@@ -651,13 +463,8 @@ function CrewMovementPeriodsDialogBody({
                 ) : (
                     <div className="space-y-4">
                         <p className="text-sm text-muted-foreground">
-                            Add one row per movement leg. Dates and pay category
-                            are required. Vessel, client, and rank are optional
-                            — expand{' '}
-                            <strong className="font-medium text-foreground/80">
-                                Assignment
-                            </strong>{' '}
-                            to change them.
+                            Add one row for each payable timesheet period. Pay
+                            category and dates are required.
                         </p>
 
                         {segments.length === 0 ? (
@@ -667,12 +474,12 @@ function CrewMovementPeriodsDialogBody({
                                     aria-hidden
                                 />
                                 <p className="text-sm font-medium text-muted-foreground">
-                                    No movement periods yet
+                                    No timesheet periods yet
                                 </p>
                                 <p className="text-xs text-muted-foreground/70">
                                     Click{' '}
                                     <span className="font-medium">
-                                        Add Movement Period
+                                        Add Timesheet Period
                                     </span>{' '}
                                     below to get started.
                                 </p>
@@ -704,10 +511,6 @@ function CrewMovementPeriodsDialogBody({
                                         (segment.to_date !== '' &&
                                             segment.to_date >
                                                 (period.end_date ?? ''))));
-                            const assignmentOpen = isAssignmentEditorOpen(
-                                assignmentEditorKeys,
-                                segment.key,
-                            );
 
                             return (
                                 <div
@@ -735,7 +538,7 @@ function CrewMovementPeriodsDialogBody({
                                             onClick={() =>
                                                 removeSegment(segment.key)
                                             }
-                                            aria-label={`Remove movement period ${index + 1}`}
+                                            aria-label={`Remove timesheet period ${index + 1}`}
                                         >
                                             <Trash2 className="h-4 w-4" />
                                             Remove
@@ -744,13 +547,13 @@ function CrewMovementPeriodsDialogBody({
 
                                     <section
                                         className="space-y-3"
-                                        aria-labelledby={`movement-details-${segment.key}`}
+                                        aria-labelledby={`timesheet-details-${segment.key}`}
                                     >
                                         <h3
-                                            id={`movement-details-${segment.key}`}
+                                            id={`timesheet-details-${segment.key}`}
                                             className="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
                                         >
-                                            1. Movement Details
+                                            TIMESHEET DETAILS
                                         </h3>
 
                                         <div className="grid gap-3 sm:grid-cols-2">
@@ -817,7 +620,7 @@ function CrewMovementPeriodsDialogBody({
                                                     }
                                                     readOnly
                                                     className="tabular-nums"
-                                                    aria-label={`Calculated days for movement period ${index + 1}`}
+                                                    aria-label={`Calculated days for timesheet period ${index + 1}`}
                                                 />
                                             </div>
                                         </div>
@@ -917,10 +720,6 @@ function CrewMovementPeriodsDialogBody({
                                                 role="status"
                                                 className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-3 text-sm text-amber-900 dark:text-amber-100"
                                             >
-                                                <Info
-                                                    className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300"
-                                                    aria-hidden
-                                                />
                                                 <div className="space-y-1">
                                                     <p className="font-medium">
                                                         Days before the period
@@ -997,118 +796,6 @@ function CrewMovementPeriodsDialogBody({
                                             />
                                         </div>
                                     </section>
-
-                                    <section
-                                        className="space-y-3"
-                                        aria-labelledby={`assignment-${segment.key}`}
-                                    >
-                                        <h3
-                                            id={`assignment-${segment.key}`}
-                                            className="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                                        >
-                                            2. Assignment
-                                        </h3>
-
-                                        <AssignmentSummary
-                                            segment={segment}
-                                            masterOptions={masterOptions}
-                                            editing={assignmentOpen}
-                                            segmentIndex={index}
-                                            onToggle={() =>
-                                                setAssignmentEditorKeys(
-                                                    (previous) =>
-                                                        toggleAssignmentEditor(
-                                                            previous,
-                                                            segment.key,
-                                                            !assignmentOpen,
-                                                        ),
-                                                )
-                                            }
-                                        />
-
-                                        {assignmentOpen ? (
-                                            <div
-                                                id={`assignment-fields-${segment.key}`}
-                                                className="grid gap-3 sm:grid-cols-3"
-                                            >
-                                                <OptionalMasterSelect
-                                                    label="Vessel"
-                                                    value={segment.vessel_id}
-                                                    options={
-                                                        masterOptions.vessels
-                                                    }
-                                                    icon={
-                                                        <Ship
-                                                            className="h-3.5 w-3.5"
-                                                            aria-hidden
-                                                        />
-                                                    }
-                                                    onChange={(value) =>
-                                                        updateSegment(
-                                                            segment.key,
-                                                            'vessel_id',
-                                                            value,
-                                                        )
-                                                    }
-                                                    error={
-                                                        errors[
-                                                            `segments.${index}.vessel_id`
-                                                        ]
-                                                    }
-                                                />
-                                                <OptionalMasterSelect
-                                                    label="Client"
-                                                    value={segment.client_id}
-                                                    options={
-                                                        masterOptions.clients
-                                                    }
-                                                    icon={
-                                                        <Anchor
-                                                            className="h-3.5 w-3.5"
-                                                            aria-hidden
-                                                        />
-                                                    }
-                                                    onChange={(value) =>
-                                                        updateSegment(
-                                                            segment.key,
-                                                            'client_id',
-                                                            value,
-                                                        )
-                                                    }
-                                                    error={
-                                                        errors[
-                                                            `segments.${index}.client_id`
-                                                        ]
-                                                    }
-                                                />
-                                                <OptionalMasterSelect
-                                                    label="Rank"
-                                                    value={segment.rank_id}
-                                                    options={
-                                                        masterOptions.ranks
-                                                    }
-                                                    icon={
-                                                        <UserRound
-                                                            className="h-3.5 w-3.5"
-                                                            aria-hidden
-                                                        />
-                                                    }
-                                                    onChange={(value) =>
-                                                        updateSegment(
-                                                            segment.key,
-                                                            'rank_id',
-                                                            value,
-                                                        )
-                                                    }
-                                                    error={
-                                                        errors[
-                                                            `segments.${index}.rank_id`
-                                                        ]
-                                                    }
-                                                />
-                                            </div>
-                                        ) : null}
-                                    </section>
                                 </div>
                             );
                         })}
@@ -1119,7 +806,7 @@ function CrewMovementPeriodsDialogBody({
                             onClick={addSegment}
                         >
                             <Plus className="mr-2 h-4 w-4" />
-                            Add Movement Period
+                            Add Timesheet Period
                         </Button>
 
                         <InputError message={errors.financials} />
@@ -1147,7 +834,7 @@ function CrewMovementPeriodsDialogBody({
                         disabled={processing || hasDateAfterPeriodEnd}
                     >
                         {processing ? <Spinner className="mr-2" /> : null}
-                        Save movement periods
+                        Save Timesheet Periods
                     </Button>
                 ) : null}
             </DialogFooter>

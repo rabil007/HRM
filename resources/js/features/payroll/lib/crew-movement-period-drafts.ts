@@ -1,9 +1,4 @@
-import type {
-    CrewPayrollRow,
-    CrewTimesheetSegment,
-    MovementMasterOption,
-    MovementMasterOptions,
-} from '../types';
+import type { CrewPayrollRow, CrewTimesheetSegment } from '../types';
 
 export type MovementCategoryGroup = 'standby' | 'onsite';
 
@@ -28,27 +23,10 @@ export function defaultCategoryForGroup(group: MovementCategoryGroup): string {
 export type MovementPeriodDraftSegment = {
     key: string;
     pay_category: string;
-    vessel_id: number | null;
-    client_id: number | null;
-    rank_id: number | null;
     from_date: string;
     to_date: string;
     remarks: string;
 };
-
-export type ResolvedMovementAssignment = {
-    vessel_id: number | null;
-    client_id: number | null;
-    rank_id: number | null;
-};
-
-export type AssignmentSummaryField = {
-    label: string;
-    value: string;
-    assigned: boolean;
-};
-
-const NOT_ASSIGNED = 'Not assigned';
 
 export function inclusiveMovementDays(from: string, to: string): number | null {
     if (!from || !to || to < from) {
@@ -176,121 +154,13 @@ function previousCalendarDay(isoDate: string): string | null {
     return `${year}-${month}-${day}`;
 }
 
-export function masterOptionName(
-    options: MovementMasterOption[],
-    id: number | null,
-): string | null {
-    if (id === null) {
-        return null;
-    }
-
-    return options.find((option) => option.id === id)?.name ?? null;
-}
-
-export function formatAssignmentFieldValue(
-    name: string | null | undefined,
-): string {
-    if (name === null || name === undefined || name.trim() === '') {
-        return NOT_ASSIGNED;
-    }
-
-    return name;
-}
-
-export function buildAssignmentSummaryFields(
-    segment: Pick<
-        MovementPeriodDraftSegment,
-        'vessel_id' | 'client_id' | 'rank_id'
-    >,
-    masterOptions: MovementMasterOptions,
-): AssignmentSummaryField[] {
-    return [
-        {
-            label: 'Vessel',
-            value: formatAssignmentFieldValue(
-                masterOptionName(masterOptions.vessels, segment.vessel_id),
-            ),
-            assigned: segment.vessel_id !== null,
-        },
-        {
-            label: 'Client',
-            value: formatAssignmentFieldValue(
-                masterOptionName(masterOptions.clients, segment.client_id),
-            ),
-            assigned: segment.client_id !== null,
-        },
-        {
-            label: 'Rank',
-            value: formatAssignmentFieldValue(
-                masterOptionName(masterOptions.ranks, segment.rank_id),
-            ),
-            assigned: segment.rank_id !== null,
-        },
-    ];
-}
-
-export function resolveDefaultAssignment(
-    drafts: MovementPeriodDraftSegment[],
-    timesheet: CrewPayrollRow['timesheet'],
-): ResolvedMovementAssignment {
-    for (let index = drafts.length - 1; index >= 0; index -= 1) {
-        const draft = drafts[index];
-
-        if (
-            draft &&
-            (draft.vessel_id !== null ||
-                draft.client_id !== null ||
-                draft.rank_id !== null)
-        ) {
-            return {
-                vessel_id: draft.vessel_id,
-                client_id: draft.client_id,
-                rank_id: draft.rank_id,
-            };
-        }
-    }
-
-    const segments = timesheet?.segments ?? [];
-
-    for (let index = segments.length - 1; index >= 0; index -= 1) {
-        const segment = segments[index];
-
-        if (
-            segment &&
-            (segment.vessel_id !== null ||
-                segment.client_id !== null ||
-                segment.rank_id !== null)
-        ) {
-            return {
-                vessel_id: segment.vessel_id,
-                client_id: segment.client_id,
-                rank_id: segment.rank_id,
-            };
-        }
-    }
-
-    return {
-        vessel_id: null,
-        client_id: null,
-        rank_id: null,
-    };
-}
-
 export function createEmptyMovementPeriodDraft(
     key: string,
-    assignment: ResolvedMovementAssignment = {
-        vessel_id: null,
-        client_id: null,
-        rank_id: null,
-    },
     defaultCategory = 'onsite',
 ): MovementPeriodDraftSegment {
     return {
         key,
         pay_category: defaultCategory,
-        vessel_id: assignment.vessel_id,
-        client_id: assignment.client_id,
-        rank_id: assignment.rank_id,
         from_date: '',
         to_date: '',
         remarks: '',
@@ -324,11 +194,7 @@ export function segmentDraftsFromTimesheet(
             const defaultCat = visibleCategories[0] ?? 'onsite';
 
             return [
-                createEmptyMovementPeriodDraft(
-                    `new-${Date.now()}`,
-                    undefined,
-                    defaultCat,
-                ),
+                createEmptyMovementPeriodDraft(`new-${Date.now()}`, defaultCat),
             ];
         }
 
@@ -355,9 +221,6 @@ export function segmentDraftsFromTimesheet(
         drafts.push({
             key: `legacy-${category}`,
             pay_category: category,
-            vessel_id: null,
-            client_id: null,
-            rank_id: null,
             from_date: from ?? '',
             to_date: to ?? '',
             remarks: '',
@@ -380,11 +243,7 @@ export function segmentDraftsFromTimesheet(
         const defaultCat = group ? defaultCategoryForGroup(group) : 'onsite';
 
         drafts.push(
-            createEmptyMovementPeriodDraft(
-                `new-${Date.now()}`,
-                undefined,
-                defaultCat,
-            ),
+            createEmptyMovementPeriodDraft(`new-${Date.now()}`, defaultCat),
         );
     }
 
@@ -418,34 +277,8 @@ export function draftFromExistingSegment(
     return {
         key: `existing-${segment.id}-${index}`,
         pay_category: segment.pay_category ?? 'onsite',
-        vessel_id: segment.vessel_id,
-        client_id: segment.client_id,
-        rank_id: segment.rank_id,
         from_date: segment.from_date ?? '',
         to_date: segment.to_date ?? '',
         remarks: segment.remarks ?? '',
     };
-}
-
-export function isAssignmentEditorOpen(
-    openKeys: ReadonlySet<string>,
-    segmentKey: string,
-): boolean {
-    return openKeys.has(segmentKey);
-}
-
-export function toggleAssignmentEditor(
-    openKeys: ReadonlySet<string>,
-    segmentKey: string,
-    open: boolean,
-): Set<string> {
-    const next = new Set(openKeys);
-
-    if (open) {
-        next.add(segmentKey);
-    } else {
-        next.delete(segmentKey);
-    }
-
-    return next;
 }
