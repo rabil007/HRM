@@ -12,19 +12,21 @@ return new class extends Migration
             return;
         }
 
-        Schema::table('crew_timesheet_segments', function (Blueprint $table) {
+        $driver = Schema::getConnection()->getDriverName();
+
+        Schema::table('crew_timesheet_segments', function (Blueprint $table) use ($driver): void {
             if (Schema::hasColumn('crew_timesheet_segments', 'vessel_id')) {
-                $table->dropForeign(['vessel_id']);
+                $this->dropForeignForColumn($table, $driver, 'cts_vessel_fk', 'vessel_id');
                 $table->dropColumn('vessel_id');
             }
 
             if (Schema::hasColumn('crew_timesheet_segments', 'client_id')) {
-                $table->dropForeign(['client_id']);
+                $this->dropForeignForColumn($table, $driver, 'cts_client_fk', 'client_id');
                 $table->dropColumn('client_id');
             }
 
             if (Schema::hasColumn('crew_timesheet_segments', 'rank_id')) {
-                $table->dropForeign(['rank_id']);
+                $this->dropForeignForColumn($table, $driver, 'cts_rank_fk', 'rank_id');
                 $table->dropColumn('rank_id');
             }
         });
@@ -36,7 +38,7 @@ return new class extends Migration
             return;
         }
 
-        Schema::table('crew_timesheet_segments', function (Blueprint $table) {
+        Schema::table('crew_timesheet_segments', function (Blueprint $table): void {
             // Restore nullable columns. Note: Previously deleted manual/import values cannot be reconstructed.
             if (! Schema::hasColumn('crew_timesheet_segments', 'vessel_id')) {
                 $table->foreignId('vessel_id')
@@ -59,5 +61,24 @@ return new class extends Migration
                     ->restrictOnDelete();
             }
         });
+    }
+
+    private function dropForeignForColumn(Blueprint $table, string $driver, string $customName, string $columnName): void
+    {
+        if ($driver === 'sqlite') {
+            $table->dropForeign([$columnName]);
+
+            return;
+        }
+
+        try {
+            $table->dropForeign($customName);
+        } catch (Throwable) {
+            try {
+                $table->dropForeign([$columnName]);
+            } catch (Throwable) {
+                // Foreign key constraint already dropped or does not exist
+            }
+        }
     }
 };
