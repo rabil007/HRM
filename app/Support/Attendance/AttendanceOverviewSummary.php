@@ -4,6 +4,7 @@ namespace App\Support\Attendance;
 
 use App\Models\AttendanceRecord;
 use App\Models\LeaveRequest;
+use App\Support\Employees\ActiveEmployeeConstraint;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -46,10 +47,13 @@ final class AttendanceOverviewSummary
 
         // ── Attendance Records – this month ──────────────────────────────────
 
-        /** @var Collection<int, \stdClass> $monthlyStatusCounts */
-        $monthlyStatusCounts = AttendanceRecord::query()
+        $monthlyStatusQuery = AttendanceRecord::query()
             ->where('company_id', $companyId)
-            ->whereBetween('date', [$monthStart, $monthEnd])
+            ->whereBetween('date', [$monthStart, $monthEnd]);
+        ActiveEmployeeConstraint::whereHas($monthlyStatusQuery, $companyId);
+
+        /** @var Collection<int, \stdClass> $monthlyStatusCounts */
+        $monthlyStatusCounts = $monthlyStatusQuery
             ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
             ->pluck('count', 'status');
@@ -62,9 +66,12 @@ final class AttendanceOverviewSummary
         $thisMonthHoliday = (int) ($monthlyStatusCounts['holiday'] ?? 0);
         $thisMonthWeekend = (int) ($monthlyStatusCounts['weekend'] ?? 0);
 
-        $thisMonthAggregates = AttendanceRecord::query()
+        $thisMonthAggregatesQuery = AttendanceRecord::query()
             ->where('company_id', $companyId)
-            ->whereBetween('date', [$monthStart, $monthEnd])
+            ->whereBetween('date', [$monthStart, $monthEnd]);
+        ActiveEmployeeConstraint::whereHas($thisMonthAggregatesQuery, $companyId);
+
+        $thisMonthAggregates = $thisMonthAggregatesQuery
             ->selectRaw('AVG(hours_worked) as avg_hours, SUM(overtime_hours) as total_overtime, SUM(late_minutes) as total_late_minutes')
             ->first();
 
@@ -88,10 +95,13 @@ final class AttendanceOverviewSummary
 
         // ── Source breakdown (this month) ─────────────────────────────────────
 
-        /** @var Collection<int, \stdClass> $sourceCounts */
-        $sourceCounts = AttendanceRecord::query()
+        $sourceQuery = AttendanceRecord::query()
             ->where('company_id', $companyId)
-            ->whereBetween('date', [$monthStart, $monthEnd])
+            ->whereBetween('date', [$monthStart, $monthEnd]);
+        ActiveEmployeeConstraint::whereHas($sourceQuery, $companyId);
+
+        /** @var Collection<int, \stdClass> $sourceCounts */
+        $sourceCounts = $sourceQuery
             ->selectRaw('source, COUNT(*) as count')
             ->groupBy('source')
             ->pluck('count', 'source');

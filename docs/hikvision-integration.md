@@ -32,7 +32,7 @@ Morning and evening fetch commands run every minute. They dispatch only for conf
 
 ## Tenant isolation
 
-All list, sync, link, filter, and export operations scope by the active `current_company_id`. Cross-company employee–person links and person mutations are rejected. Historical access-event `company_id` does not change when an employee is relinked or moved. New persons, devices, groups, and events always require a positive `company_id`.
+All list, sync, link, filter, and export operations scope by the active `current_company_id`. Cross-company employee–person links and person mutations are rejected. **New** employee links require an active employee in the current company; existing links are not cleared when an employee later becomes inactive. Historical access-event `company_id` does not change when an employee is relinked or moved. New persons, devices, groups, and events always require a positive `company_id`. See [Active employee visibility](./architecture/active-employee-visibility.md).
 
 ## Legacy backfill
 

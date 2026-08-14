@@ -234,7 +234,7 @@ class AnnouncementController extends Controller
                 ->all(),
             'employees' => Employee::query()
                 ->where('company_id', $companyId)
-                ->where('status', 'active')
+                ->active()
                 ->orderBy('name')
                 ->limit(500)
                 ->get(['id', 'name', 'employee_no']),

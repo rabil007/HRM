@@ -8,6 +8,7 @@ use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewReliefRisk;
 use App\Enums\CrewReliefStatus;
 use App\Models\CrewAssignment;
+use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -163,8 +164,11 @@ final class CrewReliefStatusQuery
             ->whereHas('currentPhase', function (Builder $phase): void {
                 $phase->where('phase_code', CrewPhaseCode::OnVessel->value)
                     ->where('status', CrewPhaseStatus::Active->value);
-            })
-            ->get(['id', 'company_id', 'planned_signoff_at']);
+            });
+
+        ActiveEmployeeConstraint::whereHas($assignments, $companyId);
+
+        $assignments = $assignments->get(['id', 'company_id', 'planned_signoff_at']);
 
         $plans = $this->loader->forSourceAssignmentIds(
             $companyId,

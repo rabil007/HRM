@@ -30,6 +30,7 @@ final class SaveCrewPlanningAssignment
     public function create(int $companyId, array $attributes): CrewPlanningAssignment
     {
         return DB::transaction(function () use ($companyId, $attributes): CrewPlanningAssignment {
+            $this->assertEmployeeIsActive($companyId, $attributes);
             $this->assertReliefConstraints($companyId, $attributes);
 
             return CrewPlanningAssignment::query()->create([
@@ -72,12 +73,36 @@ final class SaveCrewPlanningAssignment
                     : $locked->employee_id,
             ];
 
+            $this->assertEmployeeIsActive($companyId, $merged);
             $this->assertReliefConstraints($companyId, $merged, (int) $locked->id);
 
             $locked->update($attributes);
 
             return $locked->fresh() ?? $locked;
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function assertEmployeeIsActive(int $companyId, array $attributes): void
+    {
+        $employeeId = $attributes['employee_id'] ?? null;
+
+        if ($employeeId === null || $employeeId === '') {
+            return;
+        }
+
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey((int) $employeeId)
+            ->first(['id', 'status']);
+
+        if ($employee === null || $employee->status !== 'active') {
+            throw ValidationException::withMessages([
+                'employee_id' => 'The selected employee must be an active employee in this company.',
+            ]);
+        }
     }
 
     /**

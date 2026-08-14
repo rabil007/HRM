@@ -28,6 +28,7 @@ class UpdateAttendanceRecordRequest extends FormRequest
             $this->route('attendance_record') instanceof AttendanceRecord
                 ? $this->route('attendance_record')->id
                 : null,
+            requireActiveEmployee: false,
         );
     }
 

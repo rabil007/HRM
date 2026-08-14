@@ -170,6 +170,7 @@ export type AuditDashboardSummary = {
 
 export type PersonalDashboard = {
     has_linked_employee: boolean;
+    is_active_workforce: boolean;
     employee: {
         id: number;
         name: string;

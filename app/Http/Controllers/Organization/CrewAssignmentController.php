@@ -123,7 +123,7 @@ class CrewAssignmentController extends Controller
         $formOptions = [
             'employees' => Employee::query()
                 ->where('company_id', $companyId)
-                ->where('status', 'active')
+                ->active()
                 ->orderBy('name')
                 ->get(['id', 'name', 'employee_no', 'rank_id'])
                 ->map(fn (Employee $e) => [
@@ -262,7 +262,7 @@ class CrewAssignmentController extends Controller
         $formOptions = [
             'employees' => Employee::query()
                 ->where('company_id', $companyId)
-                ->where('status', 'active')
+                ->active()
                 ->orderBy('name')
                 ->get(['id', 'name', 'employee_no', 'rank_id'])
                 ->map(fn (Employee $e) => [

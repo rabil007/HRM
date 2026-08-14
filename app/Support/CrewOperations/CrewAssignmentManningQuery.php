@@ -7,6 +7,7 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\VesselManning;
+use App\Support\Employees\ActiveEmployeeConstraint;
 use Carbon\CarbonImmutable;
 
 final class CrewAssignmentManningQuery
@@ -86,7 +87,7 @@ final class CrewAssignmentManningQuery
     {
         $counts = [];
 
-        CrewAssignment::query()
+        $query = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->where('status', CrewAssignmentStatus::Active)
             ->whereNotNull('vessel_id')
@@ -94,7 +95,11 @@ final class CrewAssignmentManningQuery
             ->whereHas('currentPhase', function ($query): void {
                 $query->where('phase_code', CrewPhaseCode::OnVessel)
                     ->where('status', CrewPhaseStatus::Active);
-            })
+            });
+
+        ActiveEmployeeConstraint::whereHas($query, $companyId);
+
+        $query
             ->get(['id', 'vessel_id', 'rank_id'])
             ->each(function (CrewAssignment $assignment) use (&$counts): void {
                 $key = self::vesselRankKey((int) $assignment->vessel_id, (int) $assignment->rank_id);
@@ -111,7 +116,7 @@ final class CrewAssignmentManningQuery
     {
         $counts = [];
 
-        CrewAssignment::query()
+        $query = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->where('status', CrewAssignmentStatus::Active)
             ->whereNotNull('vessel_id')
@@ -121,7 +126,11 @@ final class CrewAssignmentManningQuery
             ->whereHas('currentPhase', function ($query): void {
                 $query->where('phase_code', CrewPhaseCode::ReadyToJoin)
                     ->where('status', CrewPhaseStatus::Active);
-            })
+            });
+
+        ActiveEmployeeConstraint::whereHas($query, $companyId);
+
+        $query
             ->get(['id', 'vessel_id', 'rank_id'])
             ->each(function (CrewAssignment $assignment) use (&$counts): void {
                 $key = self::vesselRankKey((int) $assignment->vessel_id, (int) $assignment->rank_id);
@@ -138,7 +147,7 @@ final class CrewAssignmentManningQuery
     {
         $counts = [];
 
-        CrewAssignment::query()
+        $query = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->where('status', CrewAssignmentStatus::Active)
             ->whereNotNull('vessel_id')
@@ -148,7 +157,11 @@ final class CrewAssignmentManningQuery
             ->whereHas('currentPhase', function ($query): void {
                 $query->where('phase_code', CrewPhaseCode::OnVessel)
                     ->where('status', CrewPhaseStatus::Active);
-            })
+            });
+
+        ActiveEmployeeConstraint::whereHas($query, $companyId);
+
+        $query
             ->get(['id', 'vessel_id', 'rank_id'])
             ->each(function (CrewAssignment $assignment) use (&$counts): void {
                 $key = self::vesselRankKey((int) $assignment->vessel_id, (int) $assignment->rank_id);

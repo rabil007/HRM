@@ -6,6 +6,7 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
+use App\Support\Employees\ActiveEmployeeConstraint;
 
 class CrewMovementAttentionQuery
 {
@@ -219,7 +220,11 @@ class CrewMovementAttentionQuery
     {
         $assignments = CrewAssignment::query()
             ->where('company_id', $companyId)
-            ->whereIn('status', [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active])
+            ->whereIn('status', [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active]);
+
+        ActiveEmployeeConstraint::whereHas($assignments, $companyId);
+
+        $assignments = $assignments
             ->with(['currentPhase', 'company', 'phases'])
             ->get();
 

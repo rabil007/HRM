@@ -84,6 +84,29 @@ test('user can unlink employee from hikvision person', function () {
     expect($employee->fresh()->hikvision_person_id)->toBeNull();
 });
 
+test('linking hikvision person rejects inactive employees', function () {
+    $auth = User::factory()->create();
+    $employee = Employee::factory()->forCompany(hikvisionTestCompany())->inactive()->create();
+    $person = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
+        'person_id' => 'inactive-link-person-1',
+        'full_name' => 'Inactive Link Person',
+    ]);
+
+    grantCompanyPermissions($auth, $employee->company, [
+        'hikvision.persons.view',
+        'hikvision.persons.link',
+    ]);
+
+    $this->actingAs($auth)
+        ->put(route('hikvision.persons.employee.link', $person), [
+            'employee_id' => $employee->id,
+        ])
+        ->assertSessionHasErrors('employee_id');
+
+    expect($employee->fresh()->hikvision_person_id)->toBeNull();
+});
+
 test('user without link permission cannot update hikvision person employee link', function () {
     $auth = User::factory()->create();
     $employee = Employee::factory()->forCompany(hikvisionTestCompany())->create();

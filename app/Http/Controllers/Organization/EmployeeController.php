@@ -15,6 +15,7 @@ use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use App\Support\Employees\Actions\CreateEmployee;
 use App\Support\Employees\Actions\CreateEmployeeFromName;
+use App\Support\Employees\Actions\GuardEmployeeStatusTransition;
 use App\Support\Employees\Actions\SyncEmployeeWorkAssignments;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
@@ -298,7 +299,9 @@ class EmployeeController extends Controller
             }
         }
 
-        $data['status'] = $data['status'] ?? 'active';
+        $data['status'] = $data['status'] ?? $employee->status;
+
+        GuardEmployeeStatusTransition::assertCanLeaveActive($employee, (string) $data['status']);
 
         $approvalLocationIds = $data['approval_location_ids'] ?? null;
         $sssaOptionIds = $data['sssa_option_ids'] ?? null;
@@ -341,8 +344,12 @@ class EmployeeController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $employee->company_id === $companyId, 404);
 
+        $status = $request->validated('status');
+
+        GuardEmployeeStatusTransition::assertCanLeaveActive($employee, $status);
+
         $employee->update([
-            'status' => $request->validated('status'),
+            'status' => $status,
         ]);
 
         return redirect()

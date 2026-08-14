@@ -76,7 +76,9 @@ class DocumentBrowseQuery
             ->forCompany($companyId)
             ->when($employeeId !== null, fn ($q) => $q->where('employee_id', $employeeId));
 
-        $this->applyEmployeeDepartmentFilter($query, $companyId, $departmentId);
+        if ($employeeId === null) {
+            $this->applyOperationalEmployeeFilter($query, $companyId, $departmentId);
+        }
 
         $row = $query
             ->selectRaw('COUNT(*) as total_documents')
@@ -133,7 +135,7 @@ class DocumentBrowseQuery
 
         $query
             ->when($search !== '', fn (Builder $documentQuery) => $this->applyBrowseSearch($documentQuery, $search))
-            ->when($departmentId !== '', fn (Builder $documentQuery) => $this->applyEmployeeDepartmentFilter($documentQuery, $companyId, $departmentId))
+            ->tap(fn (Builder $documentQuery) => $this->applyOperationalEmployeeFilter($documentQuery, $companyId, $departmentId))
             ->orderByRaw('CASE WHEN expiry_date < ? THEN 0 ELSE 1 END', [$today])
             ->orderBy('expiry_date');
 
@@ -161,7 +163,7 @@ class DocumentBrowseQuery
             ->withCount('versions');
 
         $this->applyBrowseSearch($query, $search);
-        $this->applyEmployeeDepartmentFilter($query, $companyId, $departmentId);
+        $this->applyOperationalEmployeeFilter($query, $companyId, $departmentId);
 
         return $this->paginateBrowseDocuments(
             $query->latestUpload(),
@@ -207,15 +209,11 @@ class DocumentBrowseQuery
         });
     }
 
-    private function applyEmployeeDepartmentFilter(
+    private function applyOperationalEmployeeFilter(
         Builder $query,
         int $companyId,
-        string $departmentId,
+        string $departmentId = '',
     ): void {
-        if ($departmentId === '') {
-            return;
-        }
-
         $query->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $departmentId): void {
             EmployeeDirectoryQuery::applyAttributeFilters(
                 $employeeQuery,

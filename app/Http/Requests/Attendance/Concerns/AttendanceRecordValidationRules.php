@@ -4,6 +4,7 @@ namespace App\Http\Requests\Attendance\Concerns;
 
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
+use App\Support\Employees\ActiveCompanyEmployeeRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
 
@@ -12,15 +13,19 @@ trait AttendanceRecordValidationRules
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
-    protected function attendanceRecordFieldRules(?int $recordId = null): array
+    protected function attendanceRecordFieldRules(?int $recordId = null, bool $requireActiveEmployee = true): array
     {
         $companyId = (int) $this->attributes->get('current_company_id');
+
+        $employeeRule = $requireActiveEmployee
+            ? ActiveCompanyEmployeeRule::exists($companyId)
+            : Rule::exists(Employee::class, 'id')->where(fn ($query) => $query->where('company_id', $companyId));
 
         return [
             'employee_id' => [
                 'required',
                 'integer',
-                Rule::exists(Employee::class, 'id')->where(fn ($query) => $query->where('company_id', $companyId)),
+                $employeeRule,
             ],
             'date' => ['required', 'date'],
             'clock_in' => ['nullable', 'date'],

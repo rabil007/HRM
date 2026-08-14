@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Attendance\Concerns;
 
+use App\Support\Employees\ActiveCompanyEmployeeRule;
 use Illuminate\Validation\Rule;
 
 trait LeaveRequestValidationRules
@@ -17,9 +18,7 @@ trait LeaveRequestValidationRules
             'employee_id' => [
                 'required',
                 'integer',
-                Rule::exists('employees', 'id')->where(fn ($query) => $query
-                    ->where('company_id', $companyId)
-                    ->where('status', 'active')),
+                ActiveCompanyEmployeeRule::exists($companyId),
             ],
             'leave_type_id' => [
                 'required',

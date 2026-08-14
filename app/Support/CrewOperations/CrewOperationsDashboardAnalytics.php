@@ -18,6 +18,7 @@ use App\Support\CrewMovements\Corrections\CrewMovementCorrectionAge;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\CrewMovements\CrewReliefStatusQuery;
 use App\Support\CrewMovements\CrewTourStatusQuery;
+use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -128,14 +129,15 @@ final class CrewOperationsDashboardAnalytics
 
     private function onboardNowCount(int $companyId): int
     {
-        return CrewAssignment::query()
+        $query = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->where('status', CrewAssignmentStatus::Active)
             ->whereHas('currentPhase', function ($phase): void {
                 $phase->where('phase_code', CrewPhaseCode::OnVessel->value)
                     ->where('status', CrewPhaseStatus::Active->value);
-            })
-            ->count();
+            });
+
+        return ActiveEmployeeConstraint::whereHas($query, $companyId)->count();
     }
 
     private function joinsInWindow(
@@ -145,8 +147,11 @@ final class CrewOperationsDashboardAnalytics
     ): int {
         $planningJoins = CrewPlanningAssignment::query()
             ->where('company_id', $companyId)
-            ->whereBetween('planned_join_date', [$from->toDateString(), $to->toDateString()])
-            ->get(['id', 'crew_assignment_id', 'planned_join_date', 'employee_id']);
+            ->whereBetween('planned_join_date', [$from->toDateString(), $to->toDateString()]);
+
+        ActiveEmployeeConstraint::whereHas($planningJoins, $companyId);
+
+        $planningJoins = $planningJoins->get(['id', 'crew_assignment_id', 'planned_join_date', 'employee_id']);
 
         $linkedAssignmentIds = $planningJoins
             ->pluck('crew_assignment_id')
@@ -164,10 +169,11 @@ final class CrewOperationsDashboardAnalytics
                 $phase->where('phase_code', CrewPhaseCode::OnVessel->value)
                     ->whereNotNull('actual_start_at');
             })
-            ->when($linkedAssignmentIds !== [], fn ($q) => $q->whereNotIn('id', $linkedAssignmentIds))
-            ->count();
+            ->when($linkedAssignmentIds !== [], fn ($q) => $q->whereNotIn('id', $linkedAssignmentIds));
 
-        return $planningJoins->count() + $assignmentJoins;
+        ActiveEmployeeConstraint::whereHas($assignmentJoins, $companyId);
+
+        return $planningJoins->count() + $assignmentJoins->count();
     }
 
     /**
@@ -194,8 +200,11 @@ final class CrewOperationsDashboardAnalytics
         if ($canViewPlanning) {
             $planningJoins = CrewPlanningAssignment::query()
                 ->where('company_id', $companyId)
-                ->whereBetween('planned_join_date', [$from->toDateString(), $to->toDateString()])
-                ->get(['planned_join_date', 'crew_assignment_id']);
+                ->whereBetween('planned_join_date', [$from->toDateString(), $to->toDateString()]);
+
+            ActiveEmployeeConstraint::whereHas($planningJoins, $companyId);
+
+            $planningJoins = $planningJoins->get(['planned_join_date', 'crew_assignment_id']);
 
             foreach ($planningJoins as $row) {
                 $date = $row->planned_join_date?->toDateString();
@@ -224,8 +233,11 @@ final class CrewOperationsDashboardAnalytics
                 $phase->where('phase_code', CrewPhaseCode::OnVessel->value)
                     ->whereNotNull('actual_start_at');
             })
-            ->when($linkedAssignmentIds !== [], fn ($q) => $q->whereNotIn('id', $linkedAssignmentIds))
-            ->get(['planned_join_at']);
+            ->when($linkedAssignmentIds !== [], fn ($q) => $q->whereNotIn('id', $linkedAssignmentIds));
+
+        ActiveEmployeeConstraint::whereHas($assignmentJoins, $companyId);
+
+        $assignmentJoins = $assignmentJoins->get(['planned_join_at']);
 
         foreach ($assignmentJoins as $assignment) {
             $date = $assignment->planned_join_at?->toDateString();
@@ -244,8 +256,11 @@ final class CrewOperationsDashboardAnalytics
             ->whereHas('currentPhase', function ($phase): void {
                 $phase->where('phase_code', CrewPhaseCode::OnVessel->value)
                     ->where('status', CrewPhaseStatus::Active->value);
-            })
-            ->get(['planned_signoff_at']);
+            });
+
+        ActiveEmployeeConstraint::whereHas($signoffs, $companyId);
+
+        $signoffs = $signoffs->get(['planned_signoff_at']);
 
         foreach ($signoffs as $assignment) {
             $date = $assignment->planned_signoff_at?->toDateString();

@@ -49,6 +49,7 @@ export function PersonalSection({ data }: PersonalSectionProps) {
 
     const {
         employee,
+        is_active_workforce = true,
         attendance_today,
         my_leave_balances = [],
         my_leave_requests = [],
@@ -64,7 +65,13 @@ export function PersonalSection({ data }: PersonalSectionProps) {
             icon={User}
         >
             <div className="space-y-4">
-                {/* Top Summary Banner: Employee Info & Attendance Today */}
+                {!is_active_workforce && (
+                    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/8 p-4 text-sm text-amber-950 dark:text-amber-100">
+                        This employee record is no longer active. Historical
+                        payslips, documents, and leave remain available. Current
+                        attendance and leave requests are disabled.
+                    </div>
+                )}
                 <div className="grid gap-4 md:grid-cols-3">
                     <div className="flex items-center gap-3 rounded-2xl border border-primary/15 bg-linear-to-br from-primary/8 via-card to-card p-4 shadow-sm">
                         <div className="shrink-0 rounded-2xl bg-primary/10 p-3 text-primary">
@@ -134,12 +141,18 @@ export function PersonalSection({ data }: PersonalSectionProps) {
                                 </span>
                             </p>
                         </div>
-                        <Link
-                            href={leaveRequestsIndex.url()}
-                            className="text-xs font-semibold text-primary hover:underline"
-                        >
-                            Request Leave →
-                        </Link>
+                        {is_active_workforce ? (
+                            <Link
+                                href={leaveRequestsIndex.url()}
+                                className="text-xs font-semibold text-primary hover:underline"
+                            >
+                                Request Leave →
+                            </Link>
+                        ) : (
+                            <span className="text-xs text-muted-foreground">
+                                Leave requests disabled
+                            </span>
+                        )}
                     </div>
                 </div>
 

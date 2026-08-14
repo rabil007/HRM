@@ -4,6 +4,7 @@ namespace App\Support\BankAccounts;
 
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
+use App\Support\Employees\ActiveEmployeeConstraint;
 
 final class BankAccountSummaryQuery
 {
@@ -18,19 +19,25 @@ final class BankAccountSummaryQuery
      */
     public function forCompany(int $companyId): array
     {
-        $row = EmployeeBankAccount::query()
-            ->where('company_id', $companyId)
+        $accountsQuery = EmployeeBankAccount::query()
+            ->where('company_id', $companyId);
+
+        ActiveEmployeeConstraint::whereHas($accountsQuery, $companyId);
+
+        $row = $accountsQuery
             ->selectRaw('COUNT(*) as total_accounts')
             ->selectRaw('SUM(CASE WHEN is_primary = 1 THEN 1 ELSE 0 END) as primary_accounts')
             ->selectRaw('SUM(CASE WHEN is_primary = 0 THEN 1 ELSE 0 END) as secondary_accounts')
             ->first();
 
-        $ansariCount = EmployeeBankAccount::query()
+        $ansariQuery = EmployeeBankAccount::query()
             ->where('employee_bank_accounts.company_id', $companyId)
-            ->whereHas('employee', function ($query) {
-                $query->where('salary_payment_method', 'cash_ansari');
-            })
-            ->count();
+            ->whereHas('employee', function ($query) use ($companyId) {
+                ActiveEmployeeConstraint::apply($query, $companyId)
+                    ->where('salary_payment_method', 'cash_ansari');
+            });
+
+        $ansariCount = $ansariQuery->count();
 
         $noAccountCount = Employee::query()
             ->where('company_id', $companyId)

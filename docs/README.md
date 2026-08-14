@@ -25,6 +25,7 @@ Product and developer documentation for the Herd OMS-HRM application. These guid
 | [Architecture overview](./architecture/project-analysis.md) | Developers | Application structure, stack, risks, conventions |
 | [Domain map](./architecture/domains.md) | Product, developers | Core HR, documents, attendance, payroll, crew operations |
 | [Golden files](./architecture/golden-files.md) | Developers | Preferred implementation references |
+| [Active employee visibility](./architecture/active-employee-visibility.md) | Product, developers | Operational vs historical employee status filtering |
 | [Documentation audit](./DOCUMENTATION_AUDIT.md) | Maintainers | Historical May audit and July 2026 follow-up |
 
 ## Implemented module coverage

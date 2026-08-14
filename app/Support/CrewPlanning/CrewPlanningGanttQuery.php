@@ -3,6 +3,9 @@
 namespace App\Support\CrewPlanning;
 
 use App\Models\CrewPlanningAssignment;
+use App\Support\Employees\ActiveEmployeeConstraint;
+use App\Support\Settings\CompanyTimezone;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -375,6 +378,18 @@ final class CrewPlanningGanttQuery
             ->where(function (Builder $query) use ($from): void {
                 $query->where('planned_leave_date', '>=', $from)
                     ->orWhereNull('planned_leave_date');
+            })
+            ->where(function (Builder $query) use ($companyId): void {
+                $today = CarbonImmutable::now(CompanyTimezone::forCompanyId($companyId))->toDateString();
+
+                $query->whereNull('employee_id')
+                    ->orWhere(function (Builder $historical) use ($today): void {
+                        $historical->whereNotNull('planned_leave_date')
+                            ->where('planned_leave_date', '<', $today);
+                    })
+                    ->orWhere(function (Builder $operational) use ($companyId): void {
+                        ActiveEmployeeConstraint::whereHas($operational, $companyId);
+                    });
             })
             ->when($vesselId !== null, fn (Builder $query) => $query->where('vessel_id', $vesselId))
             ->when($rankId !== null, fn (Builder $query) => $query->where('rank_id', $rankId))

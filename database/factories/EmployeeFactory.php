@@ -173,4 +173,19 @@ class EmployeeFactory extends Factory
             'department_id' => $position->department_id,
         ]);
     }
+
+    public function inactive(): static
+    {
+        return $this->state([
+            'status' => 'inactive',
+        ]);
+    }
+
+    public function terminated(): static
+    {
+        return $this->state([
+            'status' => 'terminated',
+            'termination_date' => now()->toDateString(),
+        ]);
+    }
 }

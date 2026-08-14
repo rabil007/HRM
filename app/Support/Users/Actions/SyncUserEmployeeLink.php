@@ -33,6 +33,12 @@ class SyncUserEmployeeLink
                 ]);
             }
 
+            if ($employee->status !== 'active' && (int) $employee->user_id !== (int) $user->id) {
+                throw ValidationException::withMessages([
+                    'employee_id' => 'The selected employee must be active.',
+                ]);
+            }
+
             if ($employee->user_id !== null && (int) $employee->user_id !== $user->id) {
                 throw ValidationException::withMessages([
                     'employee_id' => 'This employee is already linked to another user.',

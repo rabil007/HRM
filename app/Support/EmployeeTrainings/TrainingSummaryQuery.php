@@ -2,8 +2,6 @@
 
 namespace App\Support\EmployeeTrainings;
 
-use App\Models\EmployeeTraining;
-
 final class TrainingSummaryQuery
 {
     /**
@@ -22,9 +20,10 @@ final class TrainingSummaryQuery
         $in15 = now()->addDays(15)->toDateString();
         $in30 = now()->addDays(30)->toDateString();
 
-        $query = $filters !== null
-            ? (new TrainingDirectoryQuery($companyId, $filters))->summaryQuery()
-            : EmployeeTraining::query()->where('employee_trainings.company_id', $companyId);
+        $query = (new TrainingDirectoryQuery(
+            $companyId,
+            $filters ?? new TrainingDirectoryFilters,
+        ))->summaryQuery();
 
         $row = $query
             ->selectRaw('COUNT(*) as total')

@@ -134,7 +134,7 @@ final class CrewProjectedManningQuery
                 'planningAssignment' => fn ($q) => $q->where('company_id', $companyId),
                 'employee' => fn ($q) => $q
                     ->where('company_id', $companyId)
-                    ->select(['id', 'company_id', 'name', 'employee_no']),
+                    ->select(['id', 'company_id', 'name', 'employee_no', 'status']),
             ])
             ->get([
                 'id',
@@ -159,7 +159,7 @@ final class CrewProjectedManningQuery
             ->with([
                 'employee' => fn ($q) => $q
                     ->where('company_id', $companyId)
-                    ->select(['id', 'company_id', 'name', 'employee_no']),
+                    ->select(['id', 'company_id', 'name', 'employee_no', 'status']),
             ])
             ->get([
                 'id',
@@ -285,6 +285,10 @@ final class CrewProjectedManningQuery
                 continue;
             }
 
+            if ($employee->status !== 'active') {
+                continue;
+            }
+
             $key = $this->key((int) $planning->vessel_id, (int) $planning->rank_id);
 
             if (! $byKey->has($key)) {
@@ -335,6 +339,13 @@ final class CrewProjectedManningQuery
             $employee = $assignment->relationLoaded('employee') ? $assignment->employee : null;
 
             if ($employee === null || (int) $employee->company_id !== $companyId) {
+                return [];
+            }
+
+            if (
+                in_array($assignment->status, [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active], true)
+                && $employee->status !== 'active'
+            ) {
                 return [];
             }
 

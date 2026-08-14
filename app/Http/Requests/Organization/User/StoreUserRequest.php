@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization\User;
 
 use App\Concerns\PasswordValidationRules;
+use App\Support\Employees\ActiveCompanyEmployeeRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -20,6 +21,8 @@ class StoreUserRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255'],
@@ -27,7 +30,7 @@ class StoreUserRequest extends FormRequest
             'avatar' => ['nullable', 'file', 'image', 'max:2048'],
             'role_id' => ['nullable', 'integer', 'exists:spatie_roles,id'],
             'status' => ['nullable', 'in:active,inactive,suspended'],
-            'employee_id' => ['nullable', 'integer'],
+            'employee_id' => ['nullable', 'integer', ActiveCompanyEmployeeRule::exists($companyId)],
             'use_employee_avatar' => ['sometimes', 'boolean'],
         ];
     }

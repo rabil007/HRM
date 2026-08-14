@@ -10,6 +10,7 @@ use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\Rank;
+use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,6 +37,8 @@ class CurrentCrewQuery
         } elseif (! $includeCompleted) {
             $query->whereIn('status', [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active]);
         }
+
+        self::constrainOperationalEmployees($query, $companyId, $includeCompleted, $statusFilter);
 
         if (! empty($filters['search'])) {
             $search = (string) $filters['search'];
@@ -217,7 +220,7 @@ class CurrentCrewQuery
                 ->all(),
             'employees' => Employee::query()
                 ->where('company_id', $companyId)
-                ->where('status', 'active')
+                ->active()
                 ->orderBy('name')
                 ->get(['id', 'name', 'employee_no'])
                 ->map(fn (Employee $e) => [
@@ -264,5 +267,45 @@ class CurrentCrewQuery
         }
 
         return min($perPage, self::MAX_PER_PAGE);
+    }
+
+    /**
+     * Current Draft/Active assignments require an active employee. Completed
+     * (and cancelled) history remains visible regardless of employee status.
+     *
+     * @param  Builder<CrewAssignment>  $query
+     */
+    private static function constrainOperationalEmployees(
+        Builder $query,
+        int $companyId,
+        bool $includeCompleted,
+        mixed $statusFilter,
+    ): void {
+        $status = is_string($statusFilter) && $statusFilter !== ''
+            ? CrewAssignmentStatus::tryFrom($statusFilter)
+            : null;
+
+        if (in_array($status, [CrewAssignmentStatus::Completed, CrewAssignmentStatus::Cancelled], true)) {
+            return;
+        }
+
+        if ($includeCompleted) {
+            $query->where(function (Builder $inner) use ($companyId): void {
+                $inner->whereIn('status', [
+                    CrewAssignmentStatus::Completed,
+                    CrewAssignmentStatus::Cancelled,
+                ])->orWhere(function (Builder $operational) use ($companyId): void {
+                    $operational->whereIn('status', [
+                        CrewAssignmentStatus::Draft,
+                        CrewAssignmentStatus::Active,
+                    ]);
+                    ActiveEmployeeConstraint::whereHas($operational, $companyId);
+                });
+            });
+
+            return;
+        }
+
+        ActiveEmployeeConstraint::whereHas($query, $companyId);
     }
 }

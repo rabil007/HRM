@@ -269,6 +269,11 @@ test('dashboard analytics exclude cross company records', function () {
             ->where('company_id', $companyA->id)
             ->whereDate('date', '2026-06-15')
             ->whereNotNull('clock_in')
+            ->whereHas('employee', fn ($query) => $query
+                ->where('company_id', $companyA->id)
+                ->active())
+            ->get()
+            ->unique('employee_id')
             ->count()
     )->and($payload['organization_snapshot']['branches'])->toBe(
         Branch::query()->where('company_id', $companyA->id)->count()

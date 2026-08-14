@@ -38,6 +38,7 @@ The operational dashboard is the main landing page at `/dashboard`. It provides 
   - **Attendance Metrics:** Counts distinct `employee_id`s for `present_today`, `late_today`, `absent_today`, `check_ins_today`, `check_outs_today` on today's date, while exposing `attendance_events_today` for total event count.
   - **Document Validity:** Terminology uses `uploaded_document_validity` / "Uploaded Document Validity" rate based on non-expired documents out of total uploaded documents.
   - **Distributions:** `employeesByDepartment` (top 6 + "Other") and `employeesByBranch` (top 4 + "Other") aggregate small values into "Other" so totals match total active workforce.
+  - **Active vs historical employees:** Current operational metrics (document compliance, attendance today, on-leave today, bank/training/crew pulse, missing contracts) count **active** employees only. Workforce **trends** remain hire/termination history and are not converted to active-only snapshots. See [Active employee visibility](./architecture/active-employee-visibility.md).
 
 ## Frontend Architecture
 

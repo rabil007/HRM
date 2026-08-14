@@ -303,7 +303,7 @@ test('immediate move step endpoint is removed and save persists step order', fun
         ->and($ordered[1]->approver_type->value)->toBe(LeaveApprovalApproverType::DepartmentManager->value);
 });
 
-test('leave approval settings can be updated with validation warnings', function () {
+test('leave approval settings reject an inactive default hr approver', function () {
     ['user' => $user, 'company' => $company] = makeLeaveApprovalPolicyFixtures();
     $inactive = Employee::factory()->forCompany($company)->create(['status' => 'inactive', 'user_id' => null]);
     $this->actingAs($user);
@@ -326,9 +326,7 @@ test('leave approval settings can be updated with validation warnings', function
         'notify_next_approver' => true,
         'notify_on_final_decision' => true,
         'copy_deciding_approver' => true,
-    ])
-        ->assertRedirect(route('attendance.leave-approval-settings.edit'))
-        ->assertSessionHas('warning');
+    ])->assertSessionHasErrors('default_hr_approver_employee_id');
 });
 
 test('cross-company leave approval policy is not visible', function () {

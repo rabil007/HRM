@@ -141,6 +141,7 @@ class HikvisionPersonController extends Controller
         $employee = Employee::query()
             ->where('company_id', $companyId)
             ->whereKey($employeeId)
+            ->active()
             ->first();
 
         if ($employee === null) {

@@ -27,6 +27,7 @@ final class EmployeeDirectoryQuery
         EmployeeDirectoryFilters $filters,
         bool $exceptDepartment = false,
         bool $exceptPosition = false,
+        bool $exceptStatus = false,
     ): void {
         $query
             ->where('company_id', $companyId)
@@ -50,7 +51,7 @@ final class EmployeeDirectoryQuery
             ->when(
                 $filters->status !== '',
                 fn (Builder $q) => $q->where('status', $filters->status),
-                fn (Builder $q) => $q->where('status', 'active'),
+                fn (Builder $q) => $exceptStatus ? $q : $q->where('status', 'active'),
             )
             ->when($filters->managerId, function (Builder $q) use ($companyId, $filters): void {
                 $departmentIds = ResolveDepartmentEffectiveManager::departmentIdsForManager(

@@ -181,12 +181,6 @@ final class SeaServiceImportOrchestrator
                     'field' => 'employee_no',
                     'message' => "Employee number {$employeeNo} was not found.",
                 ];
-            } elseif ($employee->status !== 'active') {
-                $rowErrors[] = [
-                    'row' => $rowNumber,
-                    'field' => 'employee_no',
-                    'message' => 'Employee is not active.',
-                ];
             }
 
             $hasData = $this->hasSeaServiceData($parsedRow);

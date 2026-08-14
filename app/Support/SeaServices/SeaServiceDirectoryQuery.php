@@ -159,6 +159,7 @@ final class SeaServiceDirectoryQuery
                     $directoryFilters,
                     exceptDepartment: false,
                     exceptPosition: true,
+                    exceptStatus: true,
                 );
             });
     }

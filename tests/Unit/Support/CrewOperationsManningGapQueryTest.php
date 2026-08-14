@@ -5,6 +5,7 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\Employee;
 use App\Models\VesselManning;
 use App\Support\CrewOperations\CrewOperationsManningGapQuery;
 use Carbon\CarbonImmutable;
@@ -94,6 +95,30 @@ test('manning gap query does not count assignments with completed P4 phase', fun
 
     expect($result['understaffed_positions'])->toBe(1)
         ->and($result['items'][0]['actual_count'])->toBe(0);
+});
+
+test('manning gap query does not count inactive employees onboard', function () {
+    ['company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    $vessel = makeCrewMovementVessel('Inactive Manning Vessel');
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 1,
+    ]);
+
+    $inactive = Employee::factory()->forCompany($company)->inactive()->create([
+        'rank_id' => $rank->id,
+    ]);
+    makeActiveOnVesselAssignment($company, $inactive, $rank, $vessel);
+
+    $result = CrewOperationsManningGapQuery::forCompany($company->id);
+
+    expect($result['understaffed_positions'])->toBe(1)
+        ->and($result['items'][0]['actual_count'])->toBe(0)
+        ->and($result['items'][0]['gap'])->toBe(1);
 });
 
 test('manning gap query is scoped to company', function () {

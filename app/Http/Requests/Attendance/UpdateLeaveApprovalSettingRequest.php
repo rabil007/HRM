@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Attendance;
 
+use App\Support\Employees\ActiveCompanyEmployeeRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateLeaveApprovalSettingRequest extends FormRequest
 {
@@ -23,9 +23,7 @@ class UpdateLeaveApprovalSettingRequest extends FormRequest
         $employeeRule = [
             'nullable',
             'integer',
-            Rule::exists('employees', 'id')->where(
-                fn ($query) => $query->where('company_id', $companyId)->whereNull('deleted_at'),
-            ),
+            ActiveCompanyEmployeeRule::exists($companyId),
         ];
 
         return [

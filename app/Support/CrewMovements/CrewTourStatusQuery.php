@@ -7,6 +7,7 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewTourStatus;
 use App\Models\CrewAssignment;
+use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -42,6 +43,8 @@ final class CrewTourStatusQuery
                 $phase->where('phase_code', CrewPhaseCode::OnVessel->value)
                     ->where('status', CrewPhaseStatus::Active->value);
             });
+
+        ActiveEmployeeConstraint::whereHas($query, $companyId);
 
         return match ($status) {
             CrewTourStatus::MissingTourRule => $query
@@ -101,8 +104,11 @@ final class CrewTourStatusQuery
             ->whereHas('currentPhase', function (Builder $phase) {
                 $phase->where('phase_code', CrewPhaseCode::OnVessel->value)
                     ->where('status', CrewPhaseStatus::Active->value);
-            })
-            ->get(['id', 'company_id', 'tour_of_duty_days', 'planned_signoff_at']);
+            });
+
+        ActiveEmployeeConstraint::whereHas($assignments, $companyId);
+
+        $assignments = $assignments->get(['id', 'company_id', 'tour_of_duty_days', 'planned_signoff_at']);
 
         $counts = [
             'due_within_30_days' => 0,

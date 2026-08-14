@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Hikvision;
 
+use App\Support\Employees\ActiveCompanyEmployeeRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class LinkHikvisionPersonEmployeeRequest extends FormRequest
 {
@@ -21,9 +21,7 @@ class LinkHikvisionPersonEmployeeRequest extends FormRequest
             'employee_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('employees', 'id')->where(
-                    fn ($query) => $query->where('company_id', $companyId),
-                ),
+                ActiveCompanyEmployeeRule::exists($companyId),
             ],
         ];
     }

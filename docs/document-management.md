@@ -36,6 +36,8 @@ Each folder shows:
 - Expired
 - Expiring in 30 / 15 / 7 days
 
+These operational counts, the folder grid, compliance table, and global search include **active employees only**. Per-employee browse and the profile Documents tab remain available for inactive/terminated employees. See [Active employee visibility](./architecture/active-employee-visibility.md).
+
 Clicking a card switches to a **compliance table** filtered by that bucket (server-side, paginated).
 
 ## Employee browse page

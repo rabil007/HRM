@@ -25,6 +25,7 @@ use App\Support\Contracts\ContractSummaryQuery;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\CrewOperations\CrewOperationsDashboardAnalytics;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
+use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\EmployeeTrainings\TrainingSummaryQuery;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
@@ -217,12 +218,15 @@ final class DashboardAnalytics
             $documentSummary = $this->documentBrowse->expirySummary($companyId);
 
             $timezone = CompanyTimezone::forCompanyId($companyId);
-            $uploadedThisMonth = (int) EmployeeDocument::query()
+            $uploadedThisMonthQuery = EmployeeDocument::query()
                 ->where('company_id', $companyId)
-                ->whereBetween('created_at', [now($timezone)->startOfMonth()->toDateTimeString(), now($timezone)->endOfMonth()->toDateTimeString()])
-                ->count();
+                ->whereBetween('created_at', [now($timezone)->startOfMonth()->toDateTimeString(), now($timezone)->endOfMonth()->toDateTimeString()]);
 
-            $totalEmployees = (int) Employee::query()->where('company_id', $companyId)->count();
+            ActiveEmployeeConstraint::whereHas($uploadedThisMonthQuery, $companyId);
+
+            $uploadedThisMonth = (int) $uploadedThisMonthQuery->count();
+
+            $totalEmployees = (int) Employee::query()->where('company_id', $companyId)->active()->count();
             $totalDocuments = $documentSummary['total_documents'];
             $expired = $documentSummary['expired'];
 
@@ -264,7 +268,11 @@ final class DashboardAnalytics
             $distinctRow = AttendanceRecord::query()
                 ->where('company_id', $companyId)
                 ->where('date', '>=', $todayDate)
-                ->where('date', '<', $tomorrowDate)
+                ->where('date', '<', $tomorrowDate);
+
+            ActiveEmployeeConstraint::whereHas($distinctRow, $companyId);
+
+            $distinctRow = $distinctRow
                 ->selectRaw('
                     COUNT(DISTINCT CASE WHEN clock_in IS NOT NULL THEN employee_id END) as check_ins_today,
                     COUNT(DISTINCT CASE WHEN clock_out IS NOT NULL THEN employee_id END) as check_outs_today,
@@ -321,19 +329,21 @@ final class DashboardAnalytics
             $today = now($timezone)->toDateString();
             $in7Days = now($timezone)->addDays(7)->toDateString();
 
-            $onLeaveToday = (int) LeaveRequest::query()
+            $onLeaveTodayQuery = LeaveRequest::query()
                 ->where('company_id', $companyId)
                 ->where('status', 'approved')
                 ->where('start_date', '<=', $today)
-                ->where('end_date', '>=', $today)
-                ->count();
+                ->where('end_date', '>=', $today);
+            ActiveEmployeeConstraint::whereHas($onLeaveTodayQuery, $companyId);
+            $onLeaveToday = (int) $onLeaveTodayQuery->count();
 
-            $upcomingThisWeek = (int) LeaveRequest::query()
+            $upcomingQuery = LeaveRequest::query()
                 ->where('company_id', $companyId)
                 ->where('status', 'approved')
                 ->where('start_date', '>', $today)
-                ->where('start_date', '<=', $in7Days)
-                ->count();
+                ->where('start_date', '<=', $in7Days);
+            ActiveEmployeeConstraint::whereHas($upcomingQuery, $companyId);
+            $upcomingThisWeek = (int) $upcomingQuery->count();
 
             $pendingQuery = LeaveRequest::query()->where('company_id', $companyId)->where('status', 'pending');
             $this->leaveRequestVisibility->applyIndexScope($pendingQuery, $user, $companyId);
@@ -620,11 +630,12 @@ final class DashboardAnalytics
 
             // Expired documents
             if ($user->can('documents.view')) {
-                $expiredDocs = (int) EmployeeDocument::query()
+                $expiredDocsQuery = EmployeeDocument::query()
                     ->where('company_id', $companyId)
                     ->whereNotNull('expiry_date')
-                    ->where('expiry_date', '<', $today)
-                    ->count();
+                    ->where('expiry_date', '<', $today);
+                ActiveEmployeeConstraint::whereHas($expiredDocsQuery, $companyId);
+                $expiredDocs = (int) $expiredDocsQuery->count();
 
                 if ($expiredDocs > 0) {
                     $items[] = [
@@ -639,12 +650,13 @@ final class DashboardAnalytics
                     ];
                 }
 
-                $expiring7Docs = (int) EmployeeDocument::query()
+                $expiring7Query = EmployeeDocument::query()
                     ->where('company_id', $companyId)
                     ->whereNotNull('expiry_date')
                     ->where('expiry_date', '>=', $today)
-                    ->where('expiry_date', '<=', now($timezone)->addDays(7)->toDateString())
-                    ->count();
+                    ->where('expiry_date', '<=', now($timezone)->addDays(7)->toDateString());
+                ActiveEmployeeConstraint::whereHas($expiring7Query, $companyId);
+                $expiring7Docs = (int) $expiring7Query->count();
 
                 if ($expiring7Docs > 0) {
                     $items[] = [
@@ -851,6 +863,7 @@ final class DashboardAnalytics
             if ($employee === null) {
                 return [
                     'has_linked_employee' => false,
+                    'is_active_workforce' => false,
                     'employee' => null,
                     'attendance_today' => null,
                     'recent_attendance' => [],
@@ -944,6 +957,7 @@ final class DashboardAnalytics
 
             return [
                 'has_linked_employee' => true,
+                'is_active_workforce' => $employee->status === 'active',
                 'employee' => [
                     'id' => $employee->id,
                     'name' => $employee->name,

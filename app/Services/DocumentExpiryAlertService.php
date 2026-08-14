@@ -175,6 +175,9 @@ class DocumentExpiryAlertService
                     'employee_documents.expiry_date',
                 );
             })
+            ->whereHas('employee', function ($employeeQuery) use ($companyId): void {
+                $employeeQuery->where('company_id', $companyId)->active();
+            })
             ->with(['employee:id,company_id,name,employee_no', 'documentType:id,title']);
     }
 
@@ -188,6 +191,9 @@ class DocumentExpiryAlertService
         return EmployeeDocument::query()
             ->forCompany($companyId)
             ->whereExpiringWithin($this->alertWindowDays())
+            ->whereHas('employee', function ($employeeQuery) use ($companyId): void {
+                $employeeQuery->where('company_id', $companyId)->active();
+            })
             ->with(['employee:id,company_id,name,employee_no', 'documentType:id,title']);
     }
 

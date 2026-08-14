@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Organization;
 
+use App\Support\Employees\ActiveCompanyEmployeeRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -24,9 +25,7 @@ class StoreCrewAssignmentRequest extends FormRequest
             'employee_id' => [
                 'required',
                 'integer',
-                Rule::exists('employees', 'id')
-                    ->where('company_id', $companyId)
-                    ->where('status', 'active'),
+                ActiveCompanyEmployeeRule::exists($companyId),
             ],
             'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)],

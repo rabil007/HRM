@@ -4,6 +4,7 @@ namespace App\Http\Requests\Attendance\Concerns;
 
 use App\Enums\LeaveApprovalApproverType;
 use App\Models\LeaveApprovalPolicy;
+use App\Support\Employees\ActiveCompanyEmployeeRule;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -24,9 +25,7 @@ trait LeaveApprovalPolicyValidationRules
             'steps.*.approver_employee_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('employees', 'id')->where(
-                    fn ($query) => $query->where('company_id', $companyId)->whereNull('deleted_at'),
-                ),
+                ActiveCompanyEmployeeRule::exists($companyId),
             ],
             'steps.*.is_required' => ['sometimes', 'boolean'],
         ];

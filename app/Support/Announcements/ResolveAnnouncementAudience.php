@@ -108,6 +108,7 @@ final class ResolveAnnouncementAudience
                 AnnouncementAudienceType::Employee => Employee::query()
                     ->where('company_id', $companyId)
                     ->whereKey($id)
+                    ->active()
                     ->exists(),
                 default => false,
             };
