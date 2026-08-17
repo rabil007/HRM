@@ -843,7 +843,7 @@ Integration secrets are server-side values. Inertia props expose masked placehol
 
 ### Purpose
 
-Application login accounts (Fortify): authentication, 2FA, avatar, status, company membership, role assignment, and optional link to an `Employee` record.
+Application login accounts (Fortify): authentication, 2FA, avatar, status, company membership, role assignment, and optional link to an `Employee` record. The User row is a global identity; tenancy is the membership, not `users.id`.
 
 ### Main models
 
@@ -883,8 +883,8 @@ Creating login from employee requires `users.create`.
 
 ### Important workflows
 
-1. **Create user** — assign role for current company team; optional employee link.
-2. **Memberships** — add/update/remove `company_user` rows for multi-company access.
+1. **Create user** — assign a role from the **active** company team; optional employee link. `users.update` may assign any role defined for that company; `roles.update` edits the matrix.
+2. **Memberships** — add/update/remove `company_user` rows for the **active** company only. Client `company_id` is ignored. Dual-company users must switch before administering another tenant. Platform access is not membership.
 3. **Employee link** — `SyncUserEmployeeLink` sets `employees.user_id`; optional avatar copy.
 4. **Authentication** — Fortify + optional 2FA; `last_login_at` recorded on login.
 

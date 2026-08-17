@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Organization;
 
 use App\Exports\UsersExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organization\User\DestroyUserMembershipRequest;
+use App\Http\Requests\Organization\User\StoreUserMembershipRequest;
 use App\Http\Requests\Organization\User\StoreUserRequest;
+use App\Http\Requests\Organization\User\UpdateUserMembershipRequest;
 use App\Http\Requests\Organization\User\UpdateUserRequest;
 use App\Http\Requests\Organization\User\UpdateUserStatusRequest;
 use App\Models\Company;
@@ -17,6 +20,7 @@ use App\Support\Users\Actions\CopyEmployeeAvatarToUser;
 use App\Support\Users\Actions\CreateOrganizationUser;
 use App\Support\Users\Actions\SyncUserEmployeeLink;
 use App\Support\Users\UserAvatar;
+use App\Support\Users\UserMembershipAccess;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +31,6 @@ use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Role as SpatieRole;
-use Spatie\Permission\PermissionRegistrar;
 
 class UserController extends Controller
 {
@@ -346,14 +349,11 @@ class UserController extends Controller
 
         $user->update($data);
 
-        app(PermissionRegistrar::class)->setPermissionsTeamId($companyId);
-        if (! empty($roleId)) {
-            $role = SpatieRole::query()->whereKey((int) $roleId)->firstOrFail();
-            abort_unless((int) $role->company_id === $companyId, 422);
-            $user->syncRoles([$role->name]);
-        } else {
-            $user->syncRoles([]);
-        }
+        UserMembershipAccess::syncRole(
+            $user,
+            $companyId,
+            ! empty($roleId) ? (int) $roleId : null,
+        );
 
         return redirect()
             ->route('organization.users')
@@ -386,69 +386,69 @@ class UserController extends Controller
             ->with('success', 'User status updated successfully.');
     }
 
-    public function storeMembership(Request $request, User $user)
+    public function storeMembership(StoreUserMembershipRequest $request, User $user)
     {
-        $data = $request->validate([
-            'company_id' => ['required', 'integer', 'exists:companies,id'],
-            'status' => ['nullable', 'in:active,inactive'],
-            'role_id' => ['nullable', 'integer', 'exists:spatie_roles,id'],
-        ]);
-
-        $companyId = (int) $data['company_id'];
+        $companyId = UserMembershipAccess::assertActiveCompany($request);
+        $data = $request->validated();
+        $status = (string) ($data['status'] ?? 'active');
+        $roleId = isset($data['role_id']) && $data['role_id'] !== null && $data['role_id'] !== ''
+            ? (int) $data['role_id']
+            : null;
 
         $user->companies()->syncWithoutDetaching([
             $companyId => [
-                'status' => (string) ($data['status'] ?? 'active'),
+                'status' => $status,
             ],
         ]);
 
-        if (! empty($data['role_id'] ?? null)) {
-            $role = SpatieRole::query()->whereKey((int) $data['role_id'])->firstOrFail();
-            abort_unless((int) $role->company_id === $companyId, 422);
-
-            app(PermissionRegistrar::class)->setPermissionsTeamId($companyId);
-            $user->syncRoles([$role->name]);
+        if ($roleId !== null) {
+            UserMembershipAccess::syncRole($user, $companyId, $roleId);
         }
+
+        UserMembershipAccess::log($request, $user, $companyId, 'added company membership', [
+            'status' => $status,
+            'role_id' => $roleId,
+        ]);
 
         return redirect()
             ->route('organization.users.show', $user)
             ->with('success', 'Membership added successfully.');
     }
 
-    public function updateMembership(Request $request, User $user, Company $company)
+    public function updateMembership(UpdateUserMembershipRequest $request, User $user, Company $company)
     {
-        $data = $request->validate([
-            'status' => ['required', 'in:active,inactive'],
-            'role_id' => ['nullable', 'integer', 'exists:spatie_roles,id'],
+        $companyId = (int) $company->id;
+        $data = $request->validated();
+        $status = (string) $data['status'];
+        $roleId = isset($data['role_id']) && $data['role_id'] !== null && $data['role_id'] !== ''
+            ? (int) $data['role_id']
+            : null;
+
+        $user->companies()->updateExistingPivot($companyId, [
+            'status' => $status,
         ]);
 
-        abort_unless($user->companies()->whereKey($company->id)->exists(), 404);
+        UserMembershipAccess::syncRole($user, $companyId, $roleId);
 
-        $user->companies()->updateExistingPivot($company->id, [
-            'status' => (string) $data['status'],
+        UserMembershipAccess::log($request, $user, $companyId, 'updated company membership', [
+            'status' => $status,
+            'role_id' => $roleId,
         ]);
-
-        app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
-
-        if (! empty($data['role_id'] ?? null)) {
-            $role = SpatieRole::query()->whereKey((int) $data['role_id'])->firstOrFail();
-            abort_unless((int) $role->company_id === (int) $company->id, 422);
-            $user->syncRoles([$role->name]);
-        } else {
-            $user->syncRoles([]);
-        }
 
         return redirect()
             ->route('organization.users.show', $user)
             ->with('success', 'Membership updated successfully.');
     }
 
-    public function destroyMembership(Request $request, User $user, Company $company)
+    public function destroyMembership(DestroyUserMembershipRequest $request, User $user, Company $company)
     {
-        $user->companies()->detach($company->id);
+        $companyId = (int) $company->id;
 
-        app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
-        $user->syncRoles([]);
+        $user->companies()->detach($companyId);
+
+        UserMembershipAccess::syncRole($user, $companyId, null);
+
+        UserMembershipAccess::log($request, $user, $companyId, 'removed company membership');
 
         return redirect()
             ->route('organization.users.show', $user)

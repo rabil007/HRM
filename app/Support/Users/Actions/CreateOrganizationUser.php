@@ -4,10 +4,9 @@ namespace App\Support\Users\Actions;
 
 use App\Models\User;
 use App\Support\Uploads\UploadedFileStorage;
+use App\Support\Users\UserMembershipAccess;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
-use Spatie\Permission\Models\Role as SpatieRole;
-use Spatie\Permission\PermissionRegistrar;
 
 final class CreateOrganizationUser
 {
@@ -43,15 +42,7 @@ final class CreateOrganizationUser
             $companyId => ['status' => 'active'],
         ]);
 
-        app(PermissionRegistrar::class)->setPermissionsTeamId($companyId);
-
-        if ($roleId !== null) {
-            $role = SpatieRole::query()->whereKey($roleId)->firstOrFail();
-            abort_unless((int) $role->company_id === $companyId, 422);
-            $user->syncRoles([$role->name]);
-        } else {
-            $user->syncRoles([]);
-        }
+        UserMembershipAccess::syncRole($user, $companyId, $roleId);
 
         return $user;
     }

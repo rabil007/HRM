@@ -47,7 +47,11 @@ class UpdateUserRequest extends FormRequest
                         ->whereNull('deleted_at');
                 }),
             ],
-            'role_id' => ['nullable', 'integer', 'exists:spatie_roles,id'],
+            'role_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('spatie_roles', 'id')->where(fn ($query) => $query->where('company_id', $companyId)),
+            ],
             'status' => ['nullable', 'in:active,inactive,suspended'],
         ];
     }

@@ -127,6 +127,22 @@ Company document signing assets (salary certificate signature/stamp/signatory) a
 
 Trusted tenant context is always `current_company_id` from middleware/session. Client-supplied `company_id` cannot authorize cross-company updates.
 
+## Users and memberships
+
+User rows are **global identities**. Company access is the `company_user` membership (plus the legacy `users.company_id` home-company rule). `users.*` is a Spatie **team** permission for the active company.
+
+Membership store/update/destroy are **active-company** operations, matching the Companies registry:
+
+- Trusted company is `current_company_id`. Client `company_id`, hidden fields, and the route `{company}` parameter cannot choose another tenant.
+- **Create** may attach a user who is not yet a member of the active company. The membership is always created for the active company.
+- **Update/destroy** require an existing membership in the active company. Cross-company targets are 404.
+- Dual-company administrators must **switch** before managing the other tenant. `platform_access` is not membership.
+- Role IDs are resolved in the active Spatie team (`spatie_roles.company_id`). A role from another company is rejected.
+
+Anyone with `users.update` in the active company may assign any role that exists **for that company**. Editing the role/permission matrix remains `roles.update`. This is the current product policy, not a wildcard across tenants.
+
+The Users directory lists people whose **home** `users.company_id` is the active company. It does not serialize other-company memberships or other-team roles.
+
 ### Ownership
 
 | Concern | Source |
