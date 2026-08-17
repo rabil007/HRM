@@ -39,7 +39,7 @@ export default function AppLayout({
                         </div>
                     )}
                     <TopNav links={navLinks} />
-                    <div className="ms-auto flex items-center space-x-4">
+                    <div className="ms-auto flex items-center gap-2 sm:gap-4">
                         <Search />
                         <AnnouncementNotificationBell />
                         <ThemeSwitch />
