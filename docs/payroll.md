@@ -543,7 +543,7 @@ All routes below are inside the authenticated and verified web group. Some use r
 | Method | Path | Route name | Effective authorization |
 |---|---|---|---|
 | POST | `/payroll/{payrollPeriod}/timesheets` | `payroll.timesheets.store` | `payroll.crew_timesheets.create` or `payroll.crew_timesheets.update` |
-| GET | `/payroll/{payrollPeriod}/timesheets/import/template` | `payroll.timesheets.import.template` | No dedicated permission check beyond authenticated access and company/category checks |
+| GET | `/payroll/{payrollPeriod}/timesheets/import/template` | `payroll.timesheets.import.template` | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
 | POST | `/payroll/{payrollPeriod}/timesheets/import/preview` | `payroll.timesheets.import.preview` | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
 | POST | `/payroll/{payrollPeriod}/timesheets/import` | `payroll.timesheets.import` | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
 | DELETE | `/payroll/{payrollPeriod}/crew-timesheets/manual-import` | `payroll.crew-timesheets.clear-manual-import` | `payroll.crew_timesheets.clear` |

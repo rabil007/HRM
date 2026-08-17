@@ -539,7 +539,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('payroll/{payrollPeriod}/salary-inputs', [SalaryInputController::class, 'store'])->name('payroll.salary-inputs.store');
     Route::put('payroll/{payrollPeriod}/salary-inputs/{salaryInput}', [SalaryInputController::class, 'update'])->name('payroll.salary-inputs.update');
     Route::delete('payroll/{payrollPeriod}/salary-inputs/{salaryInput}', [SalaryInputController::class, 'destroy'])->name('payroll.salary-inputs.destroy');
-    Route::post('payroll/{payrollPeriod}/recalculate', [SalaryInputController::class, 'recalculate'])->middleware('can:payroll.periods.recalculate')->name('payroll.recalculate');
+    Route::post('payroll/{payrollPeriod}/recalculate', [SalaryInputController::class, 'recalculate'])->name('payroll.recalculate');
     Route::post('payroll/{payrollPeriod}/revert-to-draft', [PayrollController::class, 'revertToDraft'])->middleware('can:payroll.periods.revert_to_draft')->name('payroll.revert-to-draft');
     Route::post('payroll/{payrollPeriod}/revert-to-approved', [PayrollController::class, 'revertToApproved'])->middleware('can:payroll.periods.revert_to_approved')->name('payroll.revert-to-approved');
     Route::post('payroll/{payrollPeriod}/revert-to-processing', [PayrollController::class, 'revertToProcessing'])->middleware('can:payroll.periods.revert_to_processing')->name('payroll.revert-to-processing');

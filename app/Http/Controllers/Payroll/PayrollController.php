@@ -724,6 +724,11 @@ class PayrollController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
         abort_unless($payrollPeriod->isCrew(), 404);
+        abort_unless(
+            request()->user()?->can('payroll.crew_timesheets.import')
+            || request()->user()?->can('payroll.crew_timesheets.create'),
+            403,
+        );
 
         $result = $exporter->export($companyId, $payrollPeriod);
 
