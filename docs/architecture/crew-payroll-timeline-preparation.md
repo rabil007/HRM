@@ -64,7 +64,11 @@ When `actual_end_at` is null on an active phase, the effective end is the earlie
 - selected cutoff date
 - company-local current date
 
-Future payable days are never generated.
+`CrewTimelinePhaseQuery::effectiveEndDate()` is the single authority for that bound. Company-local today comes from `CompanyTimezone`, never the server UTC date. A cutoff after today cannot authorize future payable days.
+
+The same bound clips **all** payable allocation, including completed phases whose `actual_end_at` is later. Historical payroll periods still allocate through their period end because that date is earlier than today. Periods that have not started yet produce no payable operational days.
+
+Future payable days are never generated. Existing preparation versions remain immutable snapshots; a new Prepare from Crew Operations creates a new version through the current effective end.
 
 ## Phase 1A schema
 
@@ -421,6 +425,7 @@ Hardening applied before production use. Manual / Excel and Monthly crew behavio
 
 - Phase 1A: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1ATest.php`
 - Phase 1B: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1BTest.php`
+- Effective-end clipping: `tests/Feature/Payroll/CrewTimesheetTimelineEffectiveEndTest.php`
 - Phase 1C: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1CTest.php`
 - Phase 1D: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1DTest.php`
 - Phase 1E: `tests/Feature/Payroll/CrewTimesheetModePhase1ETest.php`

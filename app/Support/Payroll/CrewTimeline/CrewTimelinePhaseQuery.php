@@ -23,8 +23,14 @@ final class CrewTimelinePhaseQuery
         PayrollPeriod $period,
         CarbonInterface $effectiveEnd,
     ): Collection {
+        $boundaries = $this->utcBoundaries($period, $effectiveEnd);
+
+        if ($boundaries === null) {
+            return collect();
+        }
+
+        [$periodStartUtc, $periodEndUtc] = $boundaries;
         $companyId = (int) $period->company_id;
-        [$periodStartUtc, $periodEndUtc] = $this->utcBoundaries($period, $effectiveEnd);
 
         return CrewAssignmentPhase::query()
             ->where('company_id', $companyId)
@@ -57,8 +63,14 @@ final class CrewTimelinePhaseQuery
         PayrollPeriod $period,
         CarbonInterface $effectiveEnd,
     ): Collection {
+        $boundaries = $this->utcBoundaries($period, $effectiveEnd);
+
+        if ($boundaries === null) {
+            return collect();
+        }
+
+        [$periodStartUtc, $periodEndUtc] = $boundaries;
         $companyId = (int) $period->company_id;
-        [$periodStartUtc, $periodEndUtc] = $this->utcBoundaries($period, $effectiveEnd);
 
         return CrewAssignmentPhase::query()
             ->where('company_id', $companyId)
@@ -92,36 +104,47 @@ final class CrewTimelinePhaseQuery
             ->get();
     }
 
+    /**
+     * Safe payroll allocation end: the earliest of payroll period end,
+     * company-local today, and an explicit cutoff when supplied.
+     *
+     * Future payable days are never generated. A user cutoff after today
+     * cannot authorize dates that have not occurred.
+     */
     public function effectiveEndDate(
         PayrollPeriod $period,
         ?CarbonInterface $cutoffDate,
     ): CarbonImmutable {
         $timezone = CompanyTimezone::forCompanyId((int) $period->company_id);
         $periodEnd = CarbonImmutable::parse($period->end_date->toDateString(), $timezone)->startOfDay();
+        $today = CarbonImmutable::now($timezone)->startOfDay();
+        $effectiveEnd = $periodEnd->lt($today) ? $periodEnd : $today;
 
-        if ($cutoffDate === null) {
-            return $periodEnd;
+        if ($cutoffDate !== null) {
+            $cutoff = CarbonImmutable::parse($cutoffDate->toDateString(), $timezone)->startOfDay();
+
+            if ($cutoff->lt($effectiveEnd)) {
+                $effectiveEnd = $cutoff;
+            }
         }
 
-        $cutoff = CarbonImmutable::parse($cutoffDate->toDateString(), $timezone)->startOfDay();
-
-        return $cutoff->lt($periodEnd) ? $cutoff : $periodEnd;
+        return $effectiveEnd;
     }
 
     /**
-     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}|null
      */
-    private function utcBoundaries(PayrollPeriod $period, CarbonInterface $effectiveEnd): array
+    private function utcBoundaries(PayrollPeriod $period, CarbonInterface $effectiveEnd): ?array
     {
         $timezone = CompanyTimezone::forCompanyId((int) $period->company_id);
 
-        $periodStartUtc = CarbonImmutable::parse($period->start_date->toDateString(), $timezone)
-            ->startOfDay()
-            ->utc();
-        $periodEndUtc = CarbonImmutable::parse($effectiveEnd->toDateString(), $timezone)
-            ->endOfDay()
-            ->utc();
+        $periodStart = CarbonImmutable::parse($period->start_date->toDateString(), $timezone)->startOfDay();
+        $periodEnd = CarbonImmutable::parse($effectiveEnd->toDateString(), $timezone)->startOfDay();
 
-        return [$periodStartUtc, $periodEndUtc];
+        if ($periodEnd->lt($periodStart)) {
+            return null;
+        }
+
+        return [$periodStart->utc(), $periodEnd->endOfDay()->utc()];
     }
 }
