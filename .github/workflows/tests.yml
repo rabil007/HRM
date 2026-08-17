@@ -38,7 +38,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Cache Composer dependencies
@@ -69,5 +69,8 @@ jobs:
       - name: Generate application key
         run: php artisan key:generate
 
-      - name: Run full CI checks
-        run: composer ci:check
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Run PHP tests
+        run: php artisan test --compact
