@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { Loader2, Search, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { index as planningIndex } from '@/actions/App/Http/Controllers/Organization/CrewPlanningController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import type {
     PlanningFilters,
     PlanningOption,
 } from '@/features/organization/crew-planning/types';
+import { useDebouncedSearchInput } from '@/hooks/use-debounced-search-input';
 
 function cleanParams(
     params: Record<string, string | number | boolean | null | undefined>,
@@ -36,18 +37,7 @@ export function OnboardPlanningFilters({
     ranks: PlanningOption[];
     perPage: number;
 }) {
-    const [pendingSearch, setPendingSearch] = useState<string | null>(null);
     const [isSearching, setIsSearching] = useState(false);
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const searchInput = pendingSearch ?? filters.search ?? '';
-
-    useEffect(() => {
-        return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-        };
-    }, []);
 
     const visit = useCallback(
         (
@@ -70,38 +60,38 @@ export function OnboardPlanningFilters({
                 ],
                 onFinish: () => {
                     setIsSearching(false);
-                    setPendingSearch(null);
                 },
             });
         },
         [],
     );
 
-    const baseParams = {
-        view: 'onboard-vessels',
-        search: filters.search || undefined,
-        vessel_id: filters.vessel_id ?? undefined,
-        rank_id: filters.rank_id ?? undefined,
-        from: filters.from || undefined,
-        to: filters.to || undefined,
-        per_page: perPage,
-    };
-
-    const onSearchChange = (value: string) => {
-        setPendingSearch(value);
-
-        if (debounceRef.current) {
-            clearTimeout(debounceRef.current);
-        }
-
-        debounceRef.current = setTimeout(() => {
+    const baseParams = useCallback(
+        () => ({
+            view: 'onboard-vessels',
+            search: filters.search || undefined,
+            vessel_id: filters.vessel_id ?? undefined,
+            rank_id: filters.rank_id ?? undefined,
+            from: filters.from || undefined,
+            to: filters.to || undefined,
+            per_page: perPage,
+        }),
+        [filters, perPage],
+    );
+    const submitSearch = useCallback(
+        (value: string) => {
             visit({
-                ...baseParams,
+                ...baseParams(),
                 search: value || undefined,
                 page: 1,
             });
-        }, 400);
-    };
+        },
+        [baseParams, visit],
+    );
+    const { searchInput, onSearchChange } = useDebouncedSearchInput(
+        filters.search ?? '',
+        submitSearch,
+    );
 
     return (
         <div className="flex flex-wrap items-center gap-2 border-b bg-background/95 px-4 py-2.5">
@@ -111,7 +101,7 @@ export function OnboardPlanningFilters({
                 }
                 onValueChange={(value) =>
                     visit({
-                        ...baseParams,
+                        ...baseParams(),
                         vessel_id: value === '' ? undefined : Number(value),
                         page: 1,
                     })
@@ -133,7 +123,7 @@ export function OnboardPlanningFilters({
                 value={filters.rank_id !== null ? String(filters.rank_id) : ''}
                 onValueChange={(value) =>
                     visit({
-                        ...baseParams,
+                        ...baseParams(),
                         rank_id: value === '' ? undefined : Number(value),
                         page: 1,
                     })

@@ -8,6 +8,7 @@ export function useDebouncedSearchInput(
 ): {
     searchInput: string;
     onSearchChange: (value: string) => void;
+    resetSearchInput: (value: string) => void;
 } {
     const [searchInput, setSearchInput] = useState(initialSearch);
     const [submittedSearch, setSubmittedSearch] = useState(initialSearch);
@@ -57,5 +58,16 @@ export function useDebouncedSearchInput(
         [debounceMs],
     );
 
-    return { searchInput, onSearchChange };
+    const resetSearchInput = useCallback((value: string) => {
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current);
+            debounceRef.current = null;
+        }
+
+        setSearchInput(value);
+        setSubmittedSearch(value);
+        setIsDebouncing(false);
+    }, []);
+
+    return { searchInput, onSearchChange, resetSearchInput };
 }

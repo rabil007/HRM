@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useDebouncedSearchInput } from '@/hooks/use-debounced-search-input';
 import { index } from '@/routes/organization/reports/crew-movement-history';
 import type { CrewMovementHistoryFilters } from './types';
 
@@ -18,19 +19,7 @@ export function useCrewMovementHistoryFilters(
     filters: CrewMovementHistoryFilters,
     perPage: number,
 ) {
-    const [pendingSearch, setPendingSearch] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const searchInput = pendingSearch ?? filters.search;
-
-    useEffect(
-        () => () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-        },
-        [],
-    );
 
     const visit = useCallback(
         (
@@ -50,7 +39,6 @@ export function useCrewMovementHistoryFilters(
                     only: ['assignments', 'pagination', 'summary', 'filters'],
                     onFinish: () => {
                         setIsLoading(false);
-                        setPendingSearch(null);
                     },
                 },
             );
@@ -58,21 +46,17 @@ export function useCrewMovementHistoryFilters(
         [filters, perPage],
     );
 
-    const changeSearch = useCallback(
+    const submitSearch = useCallback(
         (value: string) => {
-            setPendingSearch(value);
-
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-
-            debounceRef.current = setTimeout(
-                () => visit({ search: value, page: 1 }),
-                400,
-            );
+            visit({ search: value, page: 1 });
         },
         [visit],
     );
+    const {
+        searchInput,
+        onSearchChange: changeSearch,
+        resetSearchInput,
+    } = useDebouncedSearchInput(filters.search, submitSearch);
 
     const apply = useCallback(
         (next: Partial<CrewMovementHistoryFilters>) =>
@@ -81,7 +65,8 @@ export function useCrewMovementHistoryFilters(
     );
 
     const clear = useCallback(() => {
-        setPendingSearch('');
+        router.cancelAll();
+        resetSearchInput('');
         setIsLoading(true);
         router.get(
             index.url(),
@@ -91,11 +76,10 @@ export function useCrewMovementHistoryFilters(
                 replace: true,
                 onFinish: () => {
                     setIsLoading(false);
-                    setPendingSearch(null);
                 },
             },
         );
-    }, [perPage]);
+    }, [perPage, resetSearchInput]);
 
     const sort = useCallback(
         (column: string) =>

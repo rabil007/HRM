@@ -1,9 +1,10 @@
 import { router } from '@inertiajs/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type {
     ContractLifecycleFilter,
     ContractSalaryStructureFilter,
 } from '@/features/organization/contracts/types';
+import { useDebouncedSearchInput } from '@/hooks/use-debounced-search-input';
 
 function cleanParams(
     params: Record<string, string | number | null | undefined>,
@@ -38,18 +39,7 @@ export function useContractsIndexFilters({
     initialDepartmentId?: string;
     perPage?: number;
 }) {
-    const [pendingSearch, setPendingSearch] = useState<string | null>(null);
     const [isSearching, setIsSearching] = useState(false);
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const searchInput = pendingSearch ?? initialSearch;
-
-    useEffect(() => {
-        return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-        };
-    }, []);
 
     const baseParams = useCallback(
         () => ({
@@ -102,30 +92,25 @@ export function useContractsIndexFilters({
                 ],
                 onFinish: () => {
                     setIsSearching(false);
-                    setPendingSearch(null);
                 },
             });
         },
         [url],
     );
 
-    const onSearchChange = useCallback(
+    const submitSearch = useCallback(
         (value: string) => {
-            setPendingSearch(value);
-
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-
-            debounceRef.current = setTimeout(() => {
-                visit({
-                    ...baseParams(),
-                    search: value,
-                    page: null,
-                });
-            }, 400);
+            visit({
+                ...baseParams(),
+                search: value,
+                page: null,
+            });
         },
         [baseParams, visit],
+    );
+    const { searchInput, onSearchChange } = useDebouncedSearchInput(
+        initialSearch,
+        submitSearch,
     );
 
     const onLifecycleChange = useCallback(

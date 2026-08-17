@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useDebouncedSearchInput } from '@/hooks/use-debounced-search-input';
 
 export function useDebouncedInertiaSearch({
     url,
@@ -12,45 +13,29 @@ export function useDebouncedInertiaSearch({
     only: string[];
     debounceMs?: number;
 }) {
-    const [draftSearch, setDraftSearch] = useState<string | null>(null);
     const [isSearching, setIsSearching] = useState(false);
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const searchInput = draftSearch ?? initialSearch;
-
-    useEffect(() => {
-        return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-        };
-    }, []);
-
-    const onSearchChange = useCallback(
+    const submitSearch = useCallback(
         (value: string) => {
-            setDraftSearch(value);
-
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-
-            debounceRef.current = setTimeout(() => {
-                setIsSearching(true);
-                router.get(
-                    url,
-                    { search: value || undefined },
-                    {
-                        preserveState: true,
-                        replace: true,
-                        only,
-                        onFinish: () => {
-                            setIsSearching(false);
-                            setDraftSearch(null);
-                        },
+            setIsSearching(true);
+            router.get(
+                url,
+                { search: value || undefined },
+                {
+                    preserveState: true,
+                    replace: true,
+                    only,
+                    onFinish: () => {
+                        setIsSearching(false);
                     },
-                );
-            }, debounceMs);
+                },
+            );
         },
-        [debounceMs, only, url],
+        [only, url],
+    );
+    const { searchInput, onSearchChange } = useDebouncedSearchInput(
+        initialSearch,
+        submitSearch,
+        debounceMs,
     );
 
     return {

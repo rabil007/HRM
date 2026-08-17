@@ -1,9 +1,10 @@
 import { router } from '@inertiajs/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type {
     CrewAssignmentFilters,
     CurrentCrewView,
 } from '@/features/organization/crew/types';
+import { useDebouncedSearchInput } from '@/hooks/use-debounced-search-input';
 
 export type CrewSummaryFilter =
     | ''
@@ -60,18 +61,7 @@ export function useCrewIndexFilters({
     view: CurrentCrewView;
     perPage?: number;
 }) {
-    const [pendingSearch, setPendingSearch] = useState<string | null>(null);
     const [isSearching, setIsSearching] = useState(false);
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const searchInput = pendingSearch ?? initialSearch;
-
-    useEffect(() => {
-        return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-        };
-    }, []);
 
     const baseParams = useCallback(
         () => ({
@@ -115,30 +105,26 @@ export function useCrewIndexFilters({
                 only: [...PARTIAL_ONLY],
                 onFinish: () => {
                     setIsSearching(false);
-                    setPendingSearch(null);
                 },
             });
         },
         [url],
     );
 
-    const onSearchChange = useCallback(
+    const submitSearch = useCallback(
         (value: string) => {
-            setPendingSearch(value);
-
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-
-            debounceRef.current = setTimeout(() => {
-                visit({
-                    ...baseParams(),
-                    search: value || undefined,
-                    page: 1,
-                });
-            }, 300);
+            visit({
+                ...baseParams(),
+                search: value || undefined,
+                page: 1,
+            });
         },
         [baseParams, visit],
+    );
+    const { searchInput, onSearchChange } = useDebouncedSearchInput(
+        initialSearch,
+        submitSearch,
+        300,
     );
 
     const onSummaryFilterChange = useCallback(
