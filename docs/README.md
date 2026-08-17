@@ -12,6 +12,7 @@ Product and developer documentation for the Herd OMS-HRM application. These guid
 | [Document sharing](./document-sharing.md) | HR, developers | Share links, WhatsApp, bulk actions |
 | [Permissions](./permissions.md) | Admins, developers | Spatie permissions, documents, imports |
 | [Email configuration](./email-configuration.md) | Admins, developers | SMTP settings, test email |
+| [WhatsApp integration](./whatsapp-integration.md) | Admins, developers | Meta Cloud API settings, webhook verification, signed status callbacks |
 | [Announcement Web Push](./announcements-web-push.md) | Admins, developers | Browser push as an extension of in-app announcements |
 | [Document compliance Web Push](./document-compliance-web-push.md) | Admins, developers | Browser push for the daily document expiry summary |
 | [Hikvision integration](./hikvision-integration.md) | Admins, developers | Company settings, webhooks, scheduled syncs |

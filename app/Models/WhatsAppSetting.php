@@ -58,6 +58,21 @@ class WhatsAppSetting extends Model
         return $setting;
     }
 
+    public static function activeWebhookIntegration(): ?self
+    {
+        return self::query()
+            ->whereKey(1)
+            ->where('enabled', true)
+            ->first();
+    }
+
+    public function canAuthenticateWebhook(): bool
+    {
+        return filled($this->business_account_id)
+            && filled($this->phone_number_id)
+            && filled($this->app_secret);
+    }
+
     public function isConfigured(): bool
     {
         if (! $this->enabled) {

@@ -212,9 +212,11 @@ Route::middleware(['throttle:60,1', DenyFraming::class])->prefix('announcements/
 });
 
 Route::match(['get', 'post'], 'whatsapp/webhook', WhatsAppWebhookController::class)
+    ->withoutMiddleware('web')
     ->name('whatsapp.webhook');
 
 Route::match(['get', 'post'], 'webhooks/whatsapp', WhatsAppWebhookController::class)
+    ->withoutMiddleware('web')
     ->name('webhooks.whatsapp');
 
 Route::match(['get', 'post'], 'webhooks/hikvision', HikvisionWebhookController::class)

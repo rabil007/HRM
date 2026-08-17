@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\WhatsAppSetting;
 use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
+use App\Support\Settings\UpdateWhatsAppIntegrationSettings;
 use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -22,7 +23,10 @@ use RuntimeException;
 
 class WhatsAppIntegrationController extends Controller
 {
-    public function __construct(private WhatsAppService $whatsapp) {}
+    public function __construct(
+        private WhatsAppService $whatsapp,
+        private UpdateWhatsAppIntegrationSettings $updateSettings,
+    ) {}
 
     /**
      * @return array<string, mixed>|null
@@ -64,7 +68,15 @@ class WhatsAppIntegrationController extends Controller
 
     public function update(UpdateWhatsAppIntegrationRequest $request): RedirectResponse
     {
-        WhatsAppSetting::current()->storeFromValidated($request->settingsPayload());
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless($companyId > 0, 403);
+
+        $this->updateSettings->handle(
+            WhatsAppSetting::current(),
+            $request->settingsPayload(),
+            $request->user(),
+            $companyId,
+        );
 
         return back()->with('success', 'WhatsApp settings saved.');
     }

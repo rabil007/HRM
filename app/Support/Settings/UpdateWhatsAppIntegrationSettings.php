@@ -1,0 +1,55 @@
+<?php
+
+namespace App\Support\Settings;
+
+use App\Models\User;
+use App\Models\WhatsAppSetting;
+use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
+use Spatie\Activitylog\Models\Activity;
+
+final class UpdateWhatsAppIntegrationSettings
+{
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function handle(WhatsAppSetting $settings, array $data, User $actor, int $companyId): void
+    {
+        if ($companyId <= 0) {
+            throw new InvalidArgumentException('WhatsApp settings require a current company.');
+        }
+
+        DB::transaction(function () use ($settings, $data, $actor, $companyId): void {
+            $credentialKeys = collect([
+                'access_token',
+                'app_secret',
+                'webhook_verify_token',
+            ])->filter(fn (string $key): bool => filled($data[$key] ?? null))
+                ->values()
+                ->all();
+
+            $settings->storeFromValidated($data);
+
+            activity()
+                ->useLog('settings')
+                ->event('updated')
+                ->causedBy($actor)
+                ->performedOn($settings)
+                ->withProperties([
+                    'company_id' => $companyId,
+                    'business_account_id' => $settings->business_account_id,
+                    'phone_number_id' => $settings->phone_number_id,
+                    'app_id' => $settings->app_id,
+                    'enabled' => (bool) $settings->enabled,
+                    'credentials_updated' => $credentialKeys,
+                    'has_access_token' => filled($settings->access_token),
+                    'has_app_secret' => filled($settings->app_secret),
+                    'has_webhook_verify_token' => filled($settings->webhook_verify_token),
+                ])
+                ->tap(function (Activity $activity) use ($companyId): void {
+                    $activity->company_id = $companyId;
+                })
+                ->log('WhatsApp integration settings updated');
+        });
+    }
+}

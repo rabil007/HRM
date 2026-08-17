@@ -5,6 +5,7 @@ use App\Models\WhatsAppSetting;
 use App\Services\WhatsAppService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Spatie\Activitylog\Models\Activity;
 
 /**
  * @return array<string, mixed>
@@ -146,6 +147,43 @@ test('whatsapp secrets are kept when update omits them', function () {
     expect($settings->access_token)->toBe('keep-access-token')
         ->and($settings->app_secret)->toBe('keep-app-secret')
         ->and($settings->webhook_verify_token)->toBe('verify-token-abc');
+});
+
+test('whatsapp settings changes are audited without secret values', function () {
+    $user = User::factory()->create();
+    $company = setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.whatsapp.view',
+        'settings.integrations.whatsapp.update',
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('application.whatsapp.update'), whatsappSettingsUpdatePayload())
+        ->assertRedirect();
+
+    $activity = Activity::query()
+        ->where('company_id', $company->id)
+        ->where('subject_type', WhatsAppSetting::class)
+        ->where('description', 'WhatsApp integration settings updated')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull()
+        ->and((int) $activity->causer_id)->toBe($user->id)
+        ->and($activity->properties->get('credentials_updated'))->toBe([
+            'access_token',
+            'app_secret',
+            'webhook_verify_token',
+        ])
+        ->and($activity->properties->get('has_access_token'))->toBeTrue()
+        ->and($activity->properties->get('has_app_secret'))->toBeTrue()
+        ->and($activity->properties->get('has_webhook_verify_token'))->toBeTrue();
+
+    $serializedProperties = $activity->properties->toJson();
+
+    expect($serializedProperties)
+        ->not->toContain('test-access-token')
+        ->not->toContain('test-app-secret')
+        ->not->toContain('verify-token-abc');
 });
 
 test('whatsapp test connection returns success when meta api responds ok', function () {
