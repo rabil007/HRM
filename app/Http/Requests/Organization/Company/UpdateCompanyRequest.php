@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Organization\Company;
 
+use App\Models\Company;
+use App\Support\Companies\CompanyRegistryAccess;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -10,7 +12,17 @@ class UpdateCompanyRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user();
+        if (! $this->user()) {
+            return false;
+        }
+
+        $company = $this->route('company');
+
+        if ($company instanceof Company) {
+            CompanyRegistryAccess::assertRouteCompanyIsActive($this, $company);
+        }
+
+        return true;
     }
 
     /**

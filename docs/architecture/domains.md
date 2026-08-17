@@ -227,7 +227,7 @@ See [docs/permissions.md](../permissions.md) for document and import permission 
 
 ### Purpose
 
-Define tenant organizations: legal entity, locale (country, currency, timezone), payroll cycle, working days, branding, and status. Users with multi-company access switch between companies.
+Define tenant organizations: legal entity, locale (country, currency, timezone), payroll cycle, working days, branding, and status. Organization → Companies manages the **active** company only; it is not a global tenant registry. Users with multi-company access switch memberships, then manage that tenant.
 
 ### Main models
 
@@ -271,9 +271,9 @@ flowchart TB
 
 ### Important workflows
 
-1. **List / CRUD** — grid or table, export with filters.
-2. **Show** — overview + recent activity (`RecentActivityQuery`) when `audit.view`.
-3. **Switch** — user selects company in sidebar → session updated → permissions re-scoped.
+1. **List / CRUD** — the index and export show the **active** company only (filters/search apply to that row). Create still opens a new tenant and attaches the creator as Owner; switch to manage it.
+2. **Show / update / status / destroy** — the route-bound `Company` must match `current_company_id` or the request is 404. `companies.*` in the current Spatie team never authorizes another tenant.
+3. **Switch** — user selects a **membership** company in the sidebar → session updated → permissions re-scoped. Inaccessible IDs are 403. Platform access is not membership.
 
 ---
 

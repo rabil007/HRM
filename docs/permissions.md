@@ -121,6 +121,8 @@ These permissions are **team-scoped Spatie permissions**, even though the settin
 
 Company identity and regional values are managed on the Company record under **Organization → Companies**, gated by `companies.view` and `companies.update`.
 
+The Companies index, show, update, status, destroy, and export actions apply only to the **active** company (`current_company_id`). They are not a global tenant registry. `companies.*` granted in company A cannot list, read, or mutate company B. Other memberships are entered through company switch, which still requires an active `company_user` (or the legacy home-company rule). Platform access does not imply company membership.
+
 Company document signing assets (salary certificate signature/stamp/signatory) also use `companies.view` / `companies.update` on the company show page for the **active** company only.
 
 Trusted tenant context is always `current_company_id` from middleware/session. Client-supplied `company_id` cannot authorize cross-company updates.

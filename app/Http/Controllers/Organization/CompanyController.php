@@ -12,6 +12,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Companies\CompanyRegistryAccess;
 use App\Support\CompanyDocuments\CompanyDocumentAccess;
 use App\Support\CompanyDocuments\CompanyDocumentQuery;
 use App\Support\Pagination\ResolvesPerPage;
@@ -47,7 +48,7 @@ class CompanyController extends Controller
         $countries = Country::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name', 'dial_code']);
         $currencies = Currency::query()->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'symbol']);
 
-        $paginator = Company::query()
+        $paginator = CompanyRegistryAccess::queryForActiveCompany($request)
             ->with(['currency:id,code', 'country:id,code,name'])
             ->when($search, function ($query) use ($search): void {
                 $query->where(function ($inner) use ($search): void {
@@ -107,6 +108,8 @@ class CompanyController extends Controller
 
     public function show(Request $request, Company $company, CompanyDocumentAccess $documentAccess, CompanyDocumentQuery $documentQuery)
     {
+        CompanyRegistryAccess::assertRouteCompanyIsActive($request, $company);
+
         /** @var FilesystemAdapter $publicDisk */
         $publicDisk = Storage::disk('public');
         $countries = Country::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name', 'dial_code']);
@@ -233,6 +236,8 @@ class CompanyController extends Controller
 
     public function update(UpdateCompanyRequest $request, Company $company)
     {
+        CompanyRegistryAccess::assertRouteCompanyIsActive($request, $company);
+
         $data = $request->validated();
 
         foreach ($this->nullableCompanyFields() as $key) {
@@ -279,13 +284,17 @@ class CompanyController extends Controller
 
     public function updateStatus(UpdateCompanyStatusRequest $request, Company $company)
     {
+        CompanyRegistryAccess::assertRouteCompanyIsActive($request, $company);
+
         $company->update(['status' => $request->validated('status')]);
 
         return redirect()->route('organization.companies')->with('success', 'Company status updated successfully.');
     }
 
-    public function destroy(Company $company)
+    public function destroy(Request $request, Company $company)
     {
+        CompanyRegistryAccess::assertRouteCompanyIsActive($request, $company);
+
         $company->delete();
 
         return redirect()->route('organization.companies')->with('success', 'Company deleted successfully.');
@@ -302,7 +311,9 @@ class CompanyController extends Controller
         $hasEmail = filter_var($request->query('hasEmail', false), FILTER_VALIDATE_BOOL);
         $hasWebsite = filter_var($request->query('hasWebsite', false), FILTER_VALIDATE_BOOL);
 
-        $query = Company::query()->with(['country:id,code,name', 'currency:id,code'])->latest('id');
+        $query = CompanyRegistryAccess::queryForActiveCompany($request)
+            ->with(['country:id,code,name', 'currency:id,code'])
+            ->latest('id');
 
         if ($search !== '') {
             $query->where(function ($companyQuery) use ($search): void {
