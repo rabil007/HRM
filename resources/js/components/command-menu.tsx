@@ -52,13 +52,14 @@ function currentPageShortcut(url: string): WorkspaceShortcut {
 export function CommandMenu() {
     const { open, setOpen } = useSearch();
     const page = usePage();
-    const { auth, current_company_id: currentCompanyId } = page.props as unknown as {
-        auth?: {
-            user?: { id?: number };
-            permissions?: string[];
+    const { auth, current_company_id: currentCompanyId } =
+        page.props as unknown as {
+            auth?: {
+                user?: { id?: number };
+                permissions?: string[];
+            };
+            current_company_id?: number | null;
         };
-        current_company_id?: number | null;
-    };
     const sidebarData = React.useMemo(
         () => getSidebarData(auth?.permissions ?? []),
         [auth?.permissions],
