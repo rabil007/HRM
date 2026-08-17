@@ -40,7 +40,9 @@ function readState(key: string): StoredShortcuts {
         return {
             favorites: Array.isArray(parsed.favorites) ? parsed.favorites : [],
             recent: Array.isArray(parsed.recent) ? parsed.recent : [],
-            savedViews: Array.isArray(parsed.savedViews) ? parsed.savedViews : [],
+            savedViews: Array.isArray(parsed.savedViews)
+                ? parsed.savedViews
+                : [],
         };
     } catch {
         return emptyState;
@@ -51,7 +53,10 @@ export function useWorkspaceShortcuts(
     userId: number | null,
     companyId: number | null,
 ) {
-    const key = useMemo(() => storageKey(userId, companyId), [companyId, userId]);
+    const key = useMemo(
+        () => storageKey(userId, companyId),
+        [companyId, userId],
+    );
     const [state, setState] = useState<StoredShortcuts>(() => readState(key));
 
     useEffect(() => {
