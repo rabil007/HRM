@@ -185,3 +185,48 @@ test('approving completed p4 correction syncs sea service', function () {
         ->and($seaService->end_date->toDateString())->toBe($phase->actual_end_at->timezone($company->timezone)->toDateString())
         ->and($seaService->vessel_id)->toBe($assignment->vessel_id);
 });
+
+test('unrelated company user cannot cancel another users correction', function () {
+    ['correction' => $correction, 'company' => $company, 'phase' => $phase] = makePendingCorrectionPair();
+    $originalStart = $phase->actual_start_at->toIso8601String();
+
+    $stranger = User::factory()->create();
+    DB::table('company_user')->insert([
+        'company_id' => $company->id,
+        'user_id' => $stranger->id,
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    grantCompanyPermissions($stranger, $company, ['crew_operations.corrections.view']);
+
+    $this->actingAs($stranger)
+        ->withSession(['current_company_id' => $company->id])
+        ->from(route('organization.crew-movement-corrections.show', $correction))
+        ->post(route('organization.crew-movement-corrections.cancel', $correction))
+        ->assertRedirect(route('organization.crew-movement-corrections.show', $correction))
+        ->assertSessionHasErrors('correction');
+
+    $correction->refresh();
+    $phase->refresh();
+
+    expect($correction->status)->toBe(CrewMovementCorrectionStatus::Pending)
+        ->and($correction->decided_by)->toBeNull()
+        ->and($phase->actual_start_at->toIso8601String())->toBe($originalStart);
+});
+
+test('approved corrections cannot be cancelled', function () {
+    ['approver' => $approver, 'correction' => $correction] = makePendingCorrectionPair();
+
+    $this->actingAs($approver)
+        ->withSession(['current_company_id' => $correction->company_id])
+        ->post(route('organization.crew-movement-corrections.approve', $correction))
+        ->assertRedirect();
+
+    $this->actingAs($approver)
+        ->from(route('organization.crew-movement-corrections.show', $correction))
+        ->post(route('organization.crew-movement-corrections.cancel', $correction))
+        ->assertSessionHasErrors('correction');
+
+    expect($correction->fresh()->status)->toBe(CrewMovementCorrectionStatus::Approved);
+});

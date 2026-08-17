@@ -6,6 +6,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
 use Illuminate\Support\Str;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * @return array{user: User, companyA: Company, companyB: Company}
@@ -276,7 +277,22 @@ test('company switch rejects inaccessible companies', function () {
         ->post('/organization/companies/switch', ['company_id' => $companyB->id])
         ->assertForbidden();
 
-    expect(session('current_company_id'))->toBe($companyA->id);
+    expect(session('current_company_id'))->toBe($companyA->id)
+        ->and(app(PermissionRegistrar::class)->getPermissionsTeamId())->toBe($companyA->id);
+});
+
+test('dual-member can switch to the other accessible company', function () {
+    ['user' => $user, 'companyA' => $companyA, 'companyB' => $companyB] = makeCompanyAuthorizationPair();
+    grantCompanyPermissions($user, $companyA, ['companies.view']);
+    grantCompanyPermissions($user, $companyB, ['companies.view']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $companyA->id])
+        ->post('/organization/companies/switch', ['company_id' => $companyB->id])
+        ->assertRedirect();
+
+    expect(session('current_company_id'))->toBe($companyB->id)
+        ->and(app(PermissionRegistrar::class)->getPermissionsTeamId())->toBe($companyB->id);
 });
 
 test('platform access without membership cannot switch into a tenant', function () {

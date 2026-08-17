@@ -271,3 +271,39 @@ test('authenticated users can toggle branch status', function () {
         'status' => 'inactive',
     ]);
 });
+
+test('company A cannot show update or delete a company B branch', function () {
+    ['user' => $user, 'companyA' => $companyA, 'companyB' => $companyB] = makeCompanyAuthorizationPair();
+    grantCompanyPermissions($user, $companyA, ['branches.view', 'branches.update', 'branches.delete']);
+
+    $branchB = Branch::query()->create([
+        'company_id' => $companyB->id,
+        'name' => 'Beta HQ',
+        'code' => 'BHQ',
+        'city' => 'Sharjah',
+        'country' => 'UAE',
+        'status' => 'active',
+        'is_headquarters' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $companyA->id])
+        ->get("/organization/branches/{$branchB->id}")
+        ->assertNotFound();
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $companyA->id])
+        ->put("/organization/branches/{$branchB->id}", [
+            'name' => 'Hijacked',
+            'status' => 'inactive',
+        ])
+        ->assertNotFound();
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $companyA->id])
+        ->delete("/organization/branches/{$branchB->id}")
+        ->assertNotFound();
+
+    expect($branchB->fresh()->name)->toBe('Beta HQ')
+        ->and(Branch::query()->whereKey($branchB->id)->exists())->toBeTrue();
+});

@@ -48,5 +48,9 @@ test('foreign company cannot view or decide another company correction', functio
         ->post(route('organization.crew-movement-corrections.approve', $correction))
         ->assertNotFound();
 
+    $this->actingAs($intruder)
+        ->post(route('organization.crew-movement-corrections.cancel', $correction))
+        ->assertNotFound();
+
     expect($correction->fresh()->status)->toBe(CrewMovementCorrectionStatus::Pending);
 });

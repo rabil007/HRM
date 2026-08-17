@@ -11,7 +11,7 @@ The authoritative permission catalog is `database/seeders/PermissionsSeeder.php`
 3. Treat Inertia `can` props, shared `auth.permissions`, and hidden UI controls as presentation only.
 4. Add a test proving an authenticated user without the permission receives `403`.
 
-Most module routes use `middleware('can:permission.name')`, but coverage is not universal. Parts of payroll and operations remain known gaps. Their current lack of capability middleware is security debt, not a convention to copy.
+Most module routes use `middleware('can:permission.name')`. Some Payroll and operations endpoints instead use controller helpers, Form Requests, or Support access classes. That distributed model is intentional where documented (for example Payroll timesheet import template uses `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create`). Authenticated-only routes without a capability check remain exceptions to review, not a pattern to copy.
 
 Platform diagnostic surfaces (`/log`, `/jobs`, `/mysql`) are **not** tenant Spatie permissions. They use a separate user-level `users.platform_access` flag. See [Platform administration](#platform-administration).
 
@@ -123,6 +123,8 @@ Company identity and regional values are managed on the Company record under **O
 
 The Companies index, show, update, status, destroy, and export actions apply only to the **active** company (`current_company_id`). They are not a global tenant registry. `companies.*` granted in company A cannot list, read, or mutate company B. Other memberships are entered through company switch, which still requires an active `company_user` (or the legacy home-company rule). Platform access does not imply company membership.
 
+Company document files under `/organization/companies/{company}/documents` are **membership-based**, not active-company registry CRUD. `CompanyDocumentAccess` requires an active membership in the route `{company}` plus that company's `company_documents.*` team permissions. A dual-company user may open the other tenant's document library without switching; they still cannot use Companies registry routes for that tenant until they switch. This split is intentional.
+
 Company document signing assets (salary certificate signature/stamp/signatory) also use `companies.view` / `companies.update` on the company show page for the **active** company only.
 
 Trusted tenant context is always `current_company_id` from middleware/session. Client-supplied `company_id` cannot authorize cross-company updates.
@@ -139,9 +141,11 @@ Membership store/update/destroy are **active-company** operations, matching the 
 - Dual-company administrators must **switch** before managing the other tenant. `platform_access` is not membership.
 - Role IDs are resolved in the active Spatie team (`spatie_roles.company_id`). A role from another company is rejected.
 
-Anyone with `users.update` in the active company may assign any role that exists **for that company**. Editing the role/permission matrix remains `roles.update`. This is the current product policy, not a wildcard across tenants.
+Anyone with `users.update` in the active company may assign any role that exists **for that company**, including Owner. Editing the role/permission matrix remains `roles.update`. This is the current product policy, not a wildcard across tenants.
 
-The Users directory lists people whose **home** `users.company_id` is the active company. It does not serialize other-company memberships or other-team roles.
+The Users directory lists people whose **home** `users.company_id` is the active company. A person whose home company is A and who only has membership in B does not appear in B's directory, and B's user show/destroy URLs 404 while B is active. That is UX/data-model debt, not a cross-tenant leak. Membership store/update/destroy still manage B members while B is active.
+
+There is no last-Owner or self-membership-removal guard. Removing a membership detaches `company_user` and clears that team's role. The next request recovers through `SetCurrentCompany` (fallback to another accessible company, or no tenant). Product has not required a last-admin lock.
 
 ## Attendance records
 
