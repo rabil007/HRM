@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { AppNavigationControls } from '@/components/layout/app-navigation-controls';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
@@ -85,6 +86,7 @@ export function Header({ className, fixed, children, ...props }: HeaderProps) {
                     variant="outline"
                     className="max-md:scale-125"
                 />
+                <AppNavigationControls />
                 <Separator orientation="vertical" className="h-6" />
                 {children}
             </div>
