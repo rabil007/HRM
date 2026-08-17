@@ -23,6 +23,27 @@ const ORGANIZATION_VIEW_KEYS = [
     'roles:view',
 ] as const;
 
+const MOBILE_CARD_VIEW_KEYS = new Set<string>([
+    ...ORGANIZATION_VIEW_KEYS,
+    'employees:view',
+]);
+
+function mobileSafeView(
+    storageKey: string,
+    view: ViewPreference,
+): ViewPreference {
+    if (
+        typeof window !== 'undefined' &&
+        MOBILE_CARD_VIEW_KEYS.has(storageKey) &&
+        window.matchMedia('(max-width: 767px)').matches &&
+        view === 'list'
+    ) {
+        return 'grid';
+    }
+
+    return view;
+}
+
 export function setOrganizationDefaultView(next: ViewPreference): void {
     localStorage.setItem(DEFAULT_VIEW_STORAGE_KEY, next);
 
@@ -48,16 +69,16 @@ export function useViewPreference(
         const stored = localStorage.getItem(storageKey);
 
         if (isValid(stored)) {
-            return stored;
+            return mobileSafeView(storageKey, stored);
         }
 
         const globalDefault = localStorage.getItem(DEFAULT_VIEW_STORAGE_KEY);
 
         if (isValid(globalDefault)) {
-            return globalDefault;
+            return mobileSafeView(storageKey, globalDefault);
         }
 
-        return defaultValue;
+        return mobileSafeView(storageKey, defaultValue);
     };
 
     const setView = (next: ViewPreference) => {
