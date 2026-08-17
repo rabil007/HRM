@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Middleware\AddSecurityHeaders;
 use App\Http\Middleware\ApplyRememberedSessionLifetimeEarly;
 use App\Http\Middleware\ExtendRememberedSessionLifetime;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\LogFailedFileUploads;
+use App\Http\Middleware\RequirePrivilegedTwoFactor;
 use App\Http\Middleware\SetCurrentCompany;
 use App\Support\Uploads\FailedUploadLogger;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -42,9 +44,11 @@ return Application::configure(basePath: dirname(__DIR__))
             ExtendRememberedSessionLifetime::class,
             HandleAppearance::class,
             SetCurrentCompany::class,
+            RequirePrivilegedTwoFactor::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             LogFailedFileUploads::class,
+            AddSecurityHeaders::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
