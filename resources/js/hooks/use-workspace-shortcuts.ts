@@ -30,11 +30,13 @@ function readState(key: string): StoredShortcuts {
 
     try {
         const value = window.localStorage.getItem(key);
+
         if (!value) {
             return emptyState;
         }
 
         const parsed = JSON.parse(value) as Partial<StoredShortcuts>;
+
         return {
             favorites: Array.isArray(parsed.favorites) ? parsed.favorites : [],
             recent: Array.isArray(parsed.recent) ? parsed.recent : [],
