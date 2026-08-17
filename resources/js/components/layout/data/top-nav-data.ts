@@ -18,18 +18,33 @@ function crewOperationsHref(permissions: string[]): string {
         return '/organization/crew-operations';
     }
 
+    if (has(permissions, 'crew_operations.assignments.view')) {
+        return '/organization/crew';
+    }
+
     if (has(permissions, 'crew_operations.planning.view')) {
         return '/organization/crew-planning';
     }
 
-    if (has(permissions, 'crew_operations.vessels.view')) {
+    if (
+        has(permissions, 'crew_operations.vessels.view') ||
+        has(permissions, 'crew_operations.vessel_manning.view')
+    ) {
         return '/organization/vessels';
     }
 
-    return '/organization/vessels';
+    if (has(permissions, 'crew_operations.corrections.view')) {
+        return '/organization/crew-movement-corrections';
+    }
+
+    return '/organization/crew';
 }
 
 function payrollHref(permissions: string[]): string {
+    if (has(permissions, 'payroll.overview.view')) {
+        return '/payroll/overview';
+    }
+
     if (
         has(permissions, 'payroll.periods.view') ||
         has(permissions, 'payroll.crew_timesheets.view')
@@ -49,7 +64,7 @@ function payrollHref(permissions: string[]): string {
         return '/payroll/salary-inputs';
     }
 
-    return '/payroll/salary-inputs';
+    return '/payroll/overview';
 }
 
 export function getTopNavLinks(
