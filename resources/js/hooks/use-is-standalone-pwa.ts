@@ -25,6 +25,20 @@ function browserEnvironment(): StandalonePwaEnvironment | undefined {
     };
 }
 
+function matchesStandaloneDisplayMode(
+    matchMedia: StandalonePwaEnvironment['matchMedia'],
+): boolean {
+    if (typeof matchMedia !== 'function') {
+        return false;
+    }
+
+    try {
+        return matchMedia(standaloneDisplayModeQuery).matches === true;
+    } catch {
+        return false;
+    }
+}
+
 export function detectStandalonePwa(
     environment: StandalonePwaEnvironment | undefined,
 ): boolean {
@@ -32,11 +46,10 @@ export function detectStandalonePwa(
         return false;
     }
 
-    const matchesStandaloneDisplayMode =
-        environment.matchMedia?.(standaloneDisplayModeQuery).matches ?? false;
-    const isIosStandalone = environment.navigator?.standalone === true;
-
-    return matchesStandaloneDisplayMode || isIosStandalone;
+    return (
+        matchesStandaloneDisplayMode(environment.matchMedia) ||
+        environment.navigator?.standalone === true
+    );
 }
 
 function getStandalonePwaSnapshot(): boolean {
@@ -51,18 +64,23 @@ function subscribeToStandalonePwa(onStoreChange: () => void): () => void {
         return () => undefined;
     }
 
-    const displayMode = window.matchMedia(standaloneDisplayModeQuery);
+    try {
+        const displayMode = window.matchMedia(standaloneDisplayModeQuery);
 
-    if (typeof displayMode.addEventListener === 'function') {
-        displayMode.addEventListener('change', onStoreChange);
+        if (typeof displayMode.addEventListener === 'function') {
+            displayMode.addEventListener('change', onStoreChange);
 
-        return () => displayMode.removeEventListener('change', onStoreChange);
-    }
+            return () =>
+                displayMode.removeEventListener('change', onStoreChange);
+        }
 
-    if (typeof displayMode.addListener === 'function') {
-        displayMode.addListener(onStoreChange);
+        if (typeof displayMode.addListener === 'function') {
+            displayMode.addListener(onStoreChange);
 
-        return () => displayMode.removeListener(onStoreChange);
+            return () => displayMode.removeListener(onStoreChange);
+        }
+    } catch {
+        return () => undefined;
     }
 
     return () => undefined;

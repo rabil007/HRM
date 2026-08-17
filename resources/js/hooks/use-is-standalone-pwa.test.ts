@@ -38,4 +38,28 @@ describe('detectStandalonePwa', () => {
             false,
         );
     });
+
+    it('does not throw when matchMedia fails', () => {
+        assert.equal(
+            detectStandalonePwa({
+                matchMedia: () => {
+                    throw new Error('matchMedia unavailable');
+                },
+                navigator: { standalone: false },
+            }),
+            false,
+        );
+    });
+
+    it('still detects iOS standalone when matchMedia fails', () => {
+        assert.equal(
+            detectStandalonePwa({
+                matchMedia: () => {
+                    throw new Error('matchMedia unavailable');
+                },
+                navigator: { standalone: true },
+            }),
+            true,
+        );
+    });
 });
