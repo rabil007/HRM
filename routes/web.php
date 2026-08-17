@@ -74,6 +74,7 @@ use App\Http\Controllers\Organization\CrewOperationsDashboardController;
 use App\Http\Controllers\Organization\CrewOperationsSettingsController;
 use App\Http\Controllers\Organization\CrewPlanningAssignmentController;
 use App\Http\Controllers\Organization\CrewPlanningController;
+use App\Http\Controllers\Organization\CurrentCrewOnboardVesselsExportController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\DepartmentController;
 use App\Http\Controllers\Organization\DocumentBulkCompanyFilesDeleteController;
@@ -427,6 +428,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('organization/crew', [CrewAssignmentController::class, 'index'])->middleware('can:crew_operations.assignments.view')->name('organization.crew-assignments.index');
     Route::get('organization/crew/create', [CrewAssignmentController::class, 'create'])->middleware('can:crew_operations.assignments.create')->name('organization.crew-assignments.create');
+    Route::get('organization/crew/onboard-vessels/export', CurrentCrewOnboardVesselsExportController::class)
+        ->middleware('can:crew_operations.assignments.view')
+        ->name('organization.crew-assignments.onboard-vessels.export');
     Route::post('organization/crew', [CrewAssignmentController::class, 'store'])->middleware('can:crew_operations.assignments.create')->name('organization.crew-assignments.store');
     Route::get('organization/crew/{assignment}', [CrewAssignmentController::class, 'show'])->middleware('can:crew_operations.assignments.view')->name('organization.crew-assignments.show');
     Route::get('organization/crew/{assignment}/edit', [CrewAssignmentController::class, 'edit'])->middleware('can:crew_operations.assignments.update')->name('organization.crew-assignments.edit');

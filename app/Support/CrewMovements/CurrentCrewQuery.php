@@ -14,6 +14,7 @@ use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class CurrentCrewQuery
 {
@@ -40,6 +41,52 @@ class CurrentCrewQuery
 
         self::constrainOperationalEmployees($query, $companyId, $includeCompleted, $statusFilter);
 
+        if (! empty($filters['phase'])) {
+            $phase = (string) $filters['phase'];
+            $query->whereHas('currentPhase', fn (Builder $p) => $p->where('phase_code', $phase));
+        }
+
+        self::applySharedFilters($query, $companyId, $filters);
+
+        $sort = $filters['sort'] ?? 'created_at';
+        $direction = in_array($filters['direction'] ?? 'desc', ['asc', 'desc'], true)
+            ? ($filters['direction'] ?? 'desc')
+            : 'desc';
+
+        $allowedSorts = [
+            'created_at',
+            'assignment_no',
+            'planned_join_at',
+            'planned_signoff_at',
+            'status',
+        ];
+
+        if (! in_array($sort, $allowedSorts, true)) {
+            $sort = 'created_at';
+        }
+
+        $query->orderBy($sort, $direction);
+
+        self::eagerLoadForList($query);
+
+        $perPage = self::resolvePerPage($filters['per_page'] ?? null);
+
+        $paginator = $query->paginate($perPage)->withQueryString();
+
+        self::attachReliefReadiness($paginator->getCollection(), $companyId);
+
+        return $paginator;
+    }
+
+    /**
+     * Filters shared by Crew View and Vessel View (search, vessel, rank, client,
+     * dates, tour, relief, attention). Phase/status remain view-specific.
+     *
+     * @param  Builder<CrewAssignment>  $query
+     * @param  array<string, mixed>  $filters
+     */
+    public static function applySharedFilters(Builder $query, int $companyId, array $filters): void
+    {
         if (! empty($filters['search'])) {
             $search = (string) $filters['search'];
             $query->where(function (Builder $q) use ($search) {
@@ -50,11 +97,6 @@ class CurrentCrewQuery
                     ->orWhereHas('rank', fn (Builder $r) => $r->where('name', 'like', '%'.$search.'%'))
                     ->orWhereHas('client', fn (Builder $c) => $c->where('name', 'like', '%'.$search.'%'));
             });
-        }
-
-        if (! empty($filters['phase'])) {
-            $phase = (string) $filters['phase'];
-            $query->whereHas('currentPhase', fn (Builder $p) => $p->where('phase_code', $phase));
         }
 
         if (! empty($filters['vessel_id'])) {
@@ -121,26 +163,13 @@ class CurrentCrewQuery
         if (! empty($filters['movement_attention'])) {
             CrewMovementAttentionQuery::applyFilter($query, $companyId);
         }
+    }
 
-        $sort = $filters['sort'] ?? 'created_at';
-        $direction = in_array($filters['direction'] ?? 'desc', ['asc', 'desc'], true)
-            ? ($filters['direction'] ?? 'desc')
-            : 'desc';
-
-        $allowedSorts = [
-            'created_at',
-            'assignment_no',
-            'planned_join_at',
-            'planned_signoff_at',
-            'status',
-        ];
-
-        if (! in_array($sort, $allowedSorts, true)) {
-            $sort = 'created_at';
-        }
-
-        $query->orderBy($sort, $direction);
-
+    /**
+     * @param  Builder<CrewAssignment>  $query
+     */
+    public static function eagerLoadForList(Builder $query): void
+    {
         $query->with([
             'employee',
             'rank',
@@ -154,18 +183,20 @@ class CurrentCrewQuery
             'planningAssignment.relievedAssignment.rank',
             'company',
         ]);
+    }
 
-        $perPage = self::resolvePerPage($filters['per_page'] ?? null);
-
-        $paginator = $query->paginate($perPage)->withQueryString();
-
+    /**
+     * @param  Collection<int, CrewAssignment>  $assignments
+     */
+    public static function attachReliefReadiness(Collection $assignments, int $companyId): void
+    {
         $plans = (new CrewReliefPlanningLoader)->forSourceAssignmentIds(
             $companyId,
-            $paginator->getCollection()->pluck('id')->all(),
+            $assignments->pluck('id')->all(),
         );
         $resolver = new CrewReliefReadinessResolver;
 
-        $paginator->getCollection()->transform(function (CrewAssignment $assignment) use ($plans, $resolver) {
+        $assignments->transform(function (CrewAssignment $assignment) use ($plans, $resolver) {
             // null from the loader means confirmed no active plan — do not re-query.
             $assignment->relief_readiness = $resolver->forPreloadedPlan(
                 $assignment,
@@ -174,8 +205,6 @@ class CurrentCrewQuery
 
             return $assignment;
         });
-
-        return $paginator;
     }
 
     /**
@@ -243,7 +272,7 @@ class CurrentCrewQuery
         ];
     }
 
-    private static function resolvePerPage(?string $value): int
+    public static function resolvePerPage(mixed $value): int
     {
         if ($value === null || $value === '') {
             return self::DEFAULT_PER_PAGE;

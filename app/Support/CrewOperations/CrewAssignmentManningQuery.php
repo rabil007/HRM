@@ -7,6 +7,7 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\VesselManning;
+use App\Support\CrewMovements\CurrentOnboardCrewQuery;
 use App\Support\Employees\ActiveEmployeeConstraint;
 use Carbon\CarbonImmutable;
 
@@ -87,17 +88,8 @@ final class CrewAssignmentManningQuery
     {
         $counts = [];
 
-        $query = CrewAssignment::query()
-            ->where('company_id', $companyId)
-            ->where('status', CrewAssignmentStatus::Active)
-            ->whereNotNull('vessel_id')
-            ->whereNotNull('rank_id')
-            ->whereHas('currentPhase', function ($query): void {
-                $query->where('phase_code', CrewPhaseCode::OnVessel)
-                    ->where('status', CrewPhaseStatus::Active);
-            });
-
-        ActiveEmployeeConstraint::whereHas($query, $companyId);
+        $query = CurrentOnboardCrewQuery::applyConstraint(CrewAssignment::query(), $companyId)
+            ->whereNotNull('rank_id');
 
         $query
             ->get(['id', 'vessel_id', 'rank_id'])
@@ -147,19 +139,10 @@ final class CrewAssignmentManningQuery
     {
         $counts = [];
 
-        $query = CrewAssignment::query()
-            ->where('company_id', $companyId)
-            ->where('status', CrewAssignmentStatus::Active)
-            ->whereNotNull('vessel_id')
+        $query = CurrentOnboardCrewQuery::applyConstraint(CrewAssignment::query(), $companyId)
             ->whereNotNull('rank_id')
             ->whereNotNull('planned_signoff_at')
-            ->whereDate('planned_signoff_at', '>=', $today->toDateString())
-            ->whereHas('currentPhase', function ($query): void {
-                $query->where('phase_code', CrewPhaseCode::OnVessel)
-                    ->where('status', CrewPhaseStatus::Active);
-            });
-
-        ActiveEmployeeConstraint::whereHas($query, $companyId);
+            ->whereDate('planned_signoff_at', '>=', $today->toDateString());
 
         $query
             ->get(['id', 'vessel_id', 'rank_id'])

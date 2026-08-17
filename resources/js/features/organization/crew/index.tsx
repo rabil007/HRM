@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Filter, Loader2, Plus, Ship } from 'lucide-react';
+import { Download, Filter, Loader2, Plus, Ship } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -17,6 +17,8 @@ import { TableBody, TableHeader } from '@/components/ui/table';
 import { CrewAssignmentsTableRow } from '@/features/organization/crew/components/crew-assignments-table-row';
 import { CrewFiltersSheet } from '@/features/organization/crew/components/crew-filters-sheet';
 import { CrewSummaryCards } from '@/features/organization/crew/components/crew-summary-cards';
+import { CurrentCrewVesselView } from '@/features/organization/crew/components/current-crew-vessel-view';
+import { CurrentCrewViewSwitcher } from '@/features/organization/crew/components/current-crew-view-switcher';
 import type {
     CrewAssignmentFilterOptions,
     CrewAssignmentFilters,
@@ -24,10 +26,13 @@ import type {
     CrewAssignmentListItem,
     CrewAssignmentPagePermissions,
     CrewAssignmentSummary,
+    CurrentCrewView,
+    CurrentCrewVesselRow,
 } from '@/features/organization/crew/types';
 import { CREW_PHASE_LABELS } from '@/features/organization/crew/types';
 import { useCrewIndexFilters } from '@/features/organization/crew/use-crew-index-filters';
 import type { CrewSummaryFilter } from '@/features/organization/crew/use-crew-index-filters';
+import { buildListExportUrl } from '@/lib/build-list-export-url';
 import { cn } from '@/lib/utils';
 import {
     create as createAssignment,
@@ -35,6 +40,7 @@ import {
     index as crewAssignmentsIndex,
     show as showAssignment,
 } from '@/routes/organization/crew-assignments';
+import { exportMethod as exportOnboardVessels } from '@/routes/organization/crew-assignments/onboard-vessels';
 import type { PaginationMeta } from '@/types/pagination';
 
 function normalizeFilters(
@@ -82,7 +88,9 @@ function resolveActiveSummaryFilter(
 }
 
 export function CurrentCrewContent({
+    view = 'crew',
     assignments,
+    vessels = [],
     pagination,
     search: initialSearch,
     filters: rawFilters,
@@ -91,7 +99,9 @@ export function CurrentCrewContent({
     form_options: formOptions,
     can,
 }: {
+    view?: CurrentCrewView;
     assignments: CrewAssignmentListItem[];
+    vessels?: CurrentCrewVesselRow[];
     pagination: PaginationMeta;
     search: string;
     filters: Partial<CrewAssignmentFilters> | Record<string, unknown>;
@@ -103,6 +113,7 @@ export function CurrentCrewContent({
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const filters = useMemo(() => normalizeFilters(rawFilters), [rawFilters]);
     const activeSummaryFilter = resolveActiveSummaryFilter(filters);
+    const currentView: CurrentCrewView = view === 'vessel' ? 'vessel' : 'crew';
 
     const {
         searchInput,
@@ -113,10 +124,12 @@ export function CurrentCrewContent({
         onSheetFiltersChange,
         onResetFilters,
         onPageChange,
+        onViewChange,
     } = useCrewIndexFilters({
         url: crewAssignmentsIndex.url(),
         initialSearch,
         initialFilters: filters,
+        view: currentView,
         perPage: pagination.per_page,
     });
 
@@ -142,6 +155,15 @@ export function CurrentCrewContent({
 
     const hasActiveQuery =
         Boolean(searchInput.trim()) || activeFiltersCount > 0;
+    const isVesselView = currentView === 'vessel';
+    const isEmpty = isVesselView
+        ? vessels.length === 0
+        : assignments.length === 0;
+    const exportUrl = buildListExportUrl(exportOnboardVessels.url(), {
+        search: searchInput,
+        ...filters,
+        format: 'xlsx',
+    });
 
     const phaseChips = useMemo(() => {
         return Object.entries(CREW_PHASE_LABELS).map(([code, label]) => ({
@@ -157,14 +179,30 @@ export function CurrentCrewContent({
                 title="Crew Assignments"
                 description="Track mobilisation, vessel joins, and demobilisation in one operational board."
                 right={
-                    can.create ? (
-                        <Button
-                            onClick={() => router.visit(createAssignment.url())}
-                        >
-                            <Plus className="h-4 w-4" />
-                            New Assignment
-                        </Button>
-                    ) : undefined
+                    <div className="flex flex-wrap items-center gap-2">
+                        <CurrentCrewViewSwitcher
+                            value={currentView}
+                            onChange={onViewChange}
+                        />
+                        {isVesselView ? (
+                            <Button variant="outline" asChild>
+                                <a href={exportUrl}>
+                                    <Download className="h-4 w-4" />
+                                    Export Excel
+                                </a>
+                            </Button>
+                        ) : null}
+                        {can.create ? (
+                            <Button
+                                onClick={() =>
+                                    router.visit(createAssignment.url())
+                                }
+                            >
+                                <Plus className="h-4 w-4" />
+                                New Assignment
+                            </Button>
+                        ) : null}
+                    </div>
                 }
             />
 
@@ -240,23 +278,29 @@ export function CurrentCrewContent({
                 }
             />
 
-            {assignments.length === 0 ? (
+            {isEmpty ? (
                 <EmptyState
                     icon={
                         <Ship className="mx-auto mb-3 size-8 text-muted-foreground/50" />
                     }
                     title={
                         hasActiveQuery
-                            ? 'No matching crew assignments'
-                            : 'No active crew assignments'
+                            ? isVesselView
+                                ? 'No matching onboard vessels'
+                                : 'No matching crew assignments'
+                            : isVesselView
+                              ? 'No vessels with onboard crew'
+                              : 'No active crew assignments'
                     }
                     description={
                         hasActiveQuery
                             ? 'Try clearing search or filters to widen the board.'
-                            : 'Create a draft assignment to start mobilisation tracking.'
+                            : isVesselView
+                              ? 'Vessel View shows vessels with current active P4 onboard crew.'
+                              : 'Create a draft assignment to start mobilisation tracking.'
                     }
                     action={
-                        can.create && !hasActiveQuery ? (
+                        can.create && !hasActiveQuery && !isVesselView ? (
                             <Button
                                 onClick={() =>
                                     router.visit(createAssignment.url())
@@ -272,6 +316,25 @@ export function CurrentCrewContent({
                         ) : null
                     }
                 />
+            ) : isVesselView ? (
+                <>
+                    <CurrentCrewVesselView
+                        key={vessels.map((vessel) => vessel.id).join(',')}
+                        vessels={vessels}
+                    />
+
+                    {pagination.last_page > 1 ? (
+                        <Pagination
+                            currentPage={pagination.current_page}
+                            lastPage={pagination.last_page}
+                            perPage={pagination.per_page}
+                            total={pagination.total}
+                            from={pagination.from}
+                            to={pagination.to}
+                            onPageChange={onPageChange}
+                        />
+                    ) : null}
+                </>
             ) : (
                 <>
                     <OrganizationDataTable

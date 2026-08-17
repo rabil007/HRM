@@ -32,6 +32,7 @@ Current workforce pickers, create/update mutations, compliance widgets, and live
 | Leave dashboard on-leave-today / upcoming this week | Active employees |
 | Payroll generation / period employee board | Existing `PayrollEmployeeQuery` active + contract rules (unchanged) |
 | Current Crew (Draft/Active) | Assignment employee must be active |
+| Current Crew Vessel View and onboard Excel export | Active employees with current active P4 only |
 | Crew Operations dashboard pulse (onboard now, joins/sign-offs, attention) | Active employees |
 | Vessel manning actual onboard (active assignment + active P4 + active employee) | Active employees |
 | Crew planning pool and current/future Gantt bars | Active employees (vacant slots remain; past bars of inactive people remain) |

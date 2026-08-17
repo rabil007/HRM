@@ -7,11 +7,15 @@ import type {
     CrewAssignmentListItem,
     CrewAssignmentPagePermissions,
     CrewAssignmentSummary,
+    CurrentCrewView,
+    CurrentCrewVesselRow,
 } from '@/features/organization/crew/types';
 import type { PaginationMeta } from '@/types/pagination';
 
 export default function CrewAssignmentsIndex({
+    view = 'crew',
     assignments,
+    vessels = [],
     pagination,
     search,
     filters,
@@ -20,7 +24,9 @@ export default function CrewAssignmentsIndex({
     form_options,
     can,
 }: {
+    view?: CurrentCrewView;
     assignments: CrewAssignmentListItem[];
+    vessels?: CurrentCrewVesselRow[];
     pagination: PaginationMeta;
     search: string;
     filters: Partial<CrewAssignmentFilters> | Record<string, unknown>;
@@ -33,7 +39,9 @@ export default function CrewAssignmentsIndex({
         <>
             <Head title="Crew Assignments" />
             <CurrentCrewContent
+                view={view}
                 assignments={assignments}
+                vessels={vessels}
                 pagination={pagination}
                 search={search}
                 filters={filters}

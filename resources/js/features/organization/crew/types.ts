@@ -127,6 +127,7 @@ export interface CrewAssignmentListItem
     planned_join_at: string | null;
     planned_signoff_at: string | null;
     planned_travel_at?: string | null;
+    actual_join_at?: string | null;
     created_at: string | null;
     company_timezone?: string;
     warnings: CrewAssignmentWarning[];
@@ -288,6 +289,19 @@ export interface CrewAssignmentFilterOptions {
     }>;
     relief_statuses?: CrewFilterOption[];
     relief_risks?: CrewFilterOption[];
+}
+
+export type CurrentCrewView = 'crew' | 'vessel';
+
+export interface CurrentCrewVesselRow {
+    id: number;
+    name: string;
+    client_name: string | null;
+    onboard_count: number;
+    required_count: number;
+    gap: number;
+    coverage_label: string;
+    crew: CrewAssignmentListItem[];
 }
 
 export interface CrewAssignmentFilters {

@@ -1,6 +1,9 @@
 import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CrewAssignmentFilters } from '@/features/organization/crew/types';
+import type {
+    CrewAssignmentFilters,
+    CurrentCrewView,
+} from '@/features/organization/crew/types';
 
 export type CrewSummaryFilter =
     | ''
@@ -33,7 +36,9 @@ function cleanParams(
 }
 
 const PARTIAL_ONLY = [
+    'view',
     'assignments',
+    'vessels',
     'pagination',
     'search',
     'filters',
@@ -46,11 +51,13 @@ export function useCrewIndexFilters({
     url,
     initialSearch,
     initialFilters,
+    view,
     perPage = 15,
 }: {
     url: string;
     initialSearch: string;
     initialFilters: CrewAssignmentFilters;
+    view: CurrentCrewView;
     perPage?: number;
 }) {
     const [pendingSearch, setPendingSearch] = useState<string | null>(null);
@@ -68,6 +75,7 @@ export function useCrewIndexFilters({
 
     const baseParams = useCallback(
         () => ({
+            view: view === 'vessel' ? 'vessel' : undefined,
             search: initialSearch || undefined,
             phase: initialFilters.phase || undefined,
             status: initialFilters.status || undefined,
@@ -90,7 +98,7 @@ export function useCrewIndexFilters({
                 initialFilters.signoff_within_14_no_relief || undefined,
             per_page: perPage,
         }),
-        [initialSearch, initialFilters, perPage],
+        [view, initialSearch, initialFilters, perPage],
     );
 
     const visit = useCallback(
@@ -170,6 +178,7 @@ export function useCrewIndexFilters({
     const onSheetFiltersChange = useCallback(
         (next: CrewAssignmentFilters) => {
             visit({
+                view: view === 'vessel' ? 'vessel' : undefined,
                 search: initialSearch || undefined,
                 phase: next.phase || undefined,
                 status: next.status || undefined,
@@ -193,22 +202,34 @@ export function useCrewIndexFilters({
                 page: 1,
             });
         },
-        [initialSearch, perPage, visit],
+        [view, initialSearch, perPage, visit],
     );
 
     const onResetFilters = useCallback(() => {
         visit({
+            view: view === 'vessel' ? 'vessel' : undefined,
             search: initialSearch || undefined,
             per_page: perPage,
             page: 1,
         });
-    }, [initialSearch, perPage, visit]);
+    }, [view, initialSearch, perPage, visit]);
 
     const onPageChange = useCallback(
         (page: number) => {
             visit({
                 ...baseParams(),
                 page,
+            });
+        },
+        [baseParams, visit],
+    );
+
+    const onViewChange = useCallback(
+        (nextView: CurrentCrewView) => {
+            visit({
+                ...baseParams(),
+                view: nextView === 'vessel' ? 'vessel' : undefined,
+                page: 1,
             });
         },
         [baseParams, visit],
@@ -223,5 +244,6 @@ export function useCrewIndexFilters({
         onSheetFiltersChange,
         onResetFilters,
         onPageChange,
+        onViewChange,
     };
 }

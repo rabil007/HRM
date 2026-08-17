@@ -16,6 +16,33 @@ Employee Sea Service
 
 Current Crew, vessel manning actuals, the Crew Operations dashboard pulse, and current/future planning projections require the assignment employee to be **active**. Crew Movement History, completed assignments, and sea service retain inactive/terminated employees. See [Active employee visibility](./architecture/active-employee-visibility.md).
 
+## Current Crew views
+
+`/organization/crew` is the operational Current Crew board. It is **not** Crew Planning.
+
+| View | URL | Meaning |
+|------|-----|---------|
+| **Crew View** (default) | `/organization/crew` or `?view=crew` | Employee/assignment-oriented current assignments (Draft/Active unless filtered to history) |
+| **Vessel View** | `/organization/crew?view=vessel` | Vessel-oriented roster of **currently onboard** crew |
+
+Vessel View answers: which vessels currently have crew onboard, and who is onboard each vessel.
+
+A person is onboard only when all of the following are true:
+
+```text
+CrewAssignment.company_id = trusted current_company_id
+CrewAssignment.status = Active
+current phase = P4 On Vessel, status Active
+vessel_id is present
+employee is active in the current company
+```
+
+That rule is shared by Vessel View, vessel manning actual counts, and the Vessel View Excel export (`CurrentOnboardCrewQuery`). Planned assignments, P2/P3/P5/P6, and `vessel_id` alone are not evidence of being onboard.
+
+`planned_signoff_at` on an active P4 row is an operational forecast only. It does not disembark the employee.
+
+Vessel View paginates **vessels**, then loads the complete filtered onboard roster for those vessels. Excel export uses the same filtered dataset and is not limited to the current page.
+
 ## Domain model
 
 | Concept | Role |
