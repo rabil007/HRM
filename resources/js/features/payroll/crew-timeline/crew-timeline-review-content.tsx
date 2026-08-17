@@ -2,19 +2,24 @@ import { router } from '@inertiajs/react';
 import {
     CheckCircle2,
     FileSpreadsheet,
+    Loader2,
     RotateCcw,
     Send,
     Ship,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import PrepareCrewTimesheetTimelineController from '@/actions/App/Http/Controllers/Payroll/PrepareCrewTimesheetTimelineController';
 import { DetailsHeader } from '@/components/details-header';
+import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
+import { SearchBar } from '@/components/search-bar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/format-date';
 import { show as payrollShow } from '@/routes/payroll';
+import { show as crewTimelineShow } from '@/routes/payroll/crew-timeline';
 import { CrewTimelineApplyDialog } from './crew-timeline-apply-dialog';
 import { CrewTimelineApproveDialog } from './crew-timeline-approve-dialog';
 import { CrewTimelineEmployeeTable } from './crew-timeline-employee-table';
@@ -24,10 +29,8 @@ import { CrewTimelineSubmitDialog } from './crew-timeline-submit-dialog';
 import { CrewTimelineSummaryCards } from './crew-timeline-summary-cards';
 import { CrewTimelineWarningPanel } from './crew-timeline-warning-panel';
 import { CrewTimelineWorkflowSteps } from './crew-timeline-workflow-steps';
-import type {
-    CrewTimelineShowProps,
-    CrewTimelineWarningBreakdownItem,
-} from './types';
+import type { CrewTimelineShowProps } from './types';
+import { useCrewTimelineFilters } from './use-crew-timeline-filters';
 
 function actorLabel(user: { name: string } | null, at: string | null): string {
     if (!user && !at) {
@@ -44,7 +47,13 @@ export function CrewTimelineReviewContent({
     period,
     preparation,
     summary,
+    warning_breakdown,
     employees,
+    search: initialSearch,
+    filters,
+    department_tree,
+    department_tree_selected_id,
+    department_tree_selected_position_id,
     permissions,
 }: CrewTimelineShowProps) {
     const [submitOpen, setSubmitOpen] = useState(false);
@@ -53,32 +62,23 @@ export function CrewTimelineReviewContent({
     const [applyOpen, setApplyOpen] = useState(false);
     const [isPreparing, setIsPreparing] = useState(false);
 
-    const warningBreakdown = useMemo<CrewTimelineWarningBreakdownItem[]>(() => {
-        const byCode = new Map<string, CrewTimelineWarningBreakdownItem>();
+    const {
+        searchInput,
+        onSearchChange,
+        onDepartmentChange,
+        onPositionChange,
+    } = useCrewTimelineFilters({
+        url: crewTimelineShow.url([period.id, preparation.id]),
+        initialSearch,
+        filters,
+    });
 
-        for (const employee of employees) {
-            for (const line of employee.lines) {
-                if (!line.warning) {
-                    continue;
-                }
+    const filtersActive = Boolean(
+        initialSearch || filters.department_id || filters.position_id,
+    );
 
-                const existing = byCode.get(line.warning.code);
-
-                if (existing) {
-                    existing.count += 1;
-                } else {
-                    byCode.set(line.warning.code, {
-                        code: line.warning.code,
-                        label: line.warning.label,
-                        is_blocking: line.warning.is_blocking,
-                        count: 1,
-                    });
-                }
-            }
-        }
-
-        return Array.from(byCode.values()).sort((a, b) => b.count - a.count);
-    }, [employees]);
+    const departmentTreeSelectionCount =
+        filters.department_id || filters.position_id ? 1 : 0;
 
     const canPrepareNewVersion =
         permissions.prepare &&
@@ -200,7 +200,7 @@ export function CrewTimelineReviewContent({
                 <CrewTimelineWarningPanel
                     summary={summary}
                     isStale={preparation.is_stale}
-                    breakdown={warningBreakdown}
+                    breakdown={warning_breakdown}
                 />
 
                 {preparation.status === 'approved' ? (
@@ -305,7 +305,54 @@ export function CrewTimelineReviewContent({
                         </span>
                         <div className="h-px flex-1 bg-border/60" />
                     </div>
-                    <CrewTimelineEmployeeTable employees={employees} />
+
+                    <SearchBar
+                        placeholder="Search employee, assignment or vessel..."
+                        value={searchInput}
+                        onChange={onSearchChange}
+                        className="mb-4"
+                        right={
+                            <div className="flex items-center gap-3">
+                                {searchInput !== initialSearch ? (
+                                    <Loader2
+                                        className="size-4 animate-spin text-muted-foreground"
+                                        aria-hidden
+                                    />
+                                ) : null}
+                                <DepartmentFilterControls
+                                    department_tree={department_tree}
+                                    department_tree_selected_id={
+                                        department_tree_selected_id
+                                    }
+                                    department_tree_selected_position_id={
+                                        department_tree_selected_position_id
+                                    }
+                                    selectionCount={
+                                        departmentTreeSelectionCount
+                                    }
+                                    onSelectDepartment={onDepartmentChange}
+                                    onSelectPosition={onPositionChange}
+                                />
+                            </div>
+                        }
+                    />
+
+                    {employees.length === 0 ? (
+                        <EmptyState
+                            title={
+                                filtersActive
+                                    ? 'No matching employees'
+                                    : 'No preparation lines were generated.'
+                            }
+                            description={
+                                filtersActive
+                                    ? 'Try adjusting your search or department filter.'
+                                    : undefined
+                            }
+                        />
+                    ) : (
+                        <CrewTimelineEmployeeTable employees={employees} />
+                    )}
                 </div>
             </div>
 

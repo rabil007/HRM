@@ -160,127 +160,114 @@ export function CrewTimelineEmployeeTable({
                     </DataTableHeaderRow>
                 </TableHeader>
                 <TableBody>
-                    {employees.length === 0 ? (
-                        <TableRow className={dataTableBodyRowClass(false)}>
-                            <TableCell
-                                colSpan={11}
-                                className={dataTableCellClass()}
-                            >
-                                No preparation lines were generated.
+                    {employees.map((employee) => (
+                        <TableRow
+                            key={employee.employee_id}
+                            className={dataTableBodyRowClass(false)}
+                        >
+                            <TableCell className={dataTableCellClass()}>
+                                <div className="font-medium">
+                                    {employee.employee_name ?? '—'}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                    {employee.employee_number ?? '—'}
+                                </div>
                             </TableCell>
-                        </TableRow>
-                    ) : (
-                        employees.map((employee) => (
-                            <TableRow
-                                key={employee.employee_id}
-                                className={dataTableBodyRowClass(false)}
-                            >
-                                <TableCell className={dataTableCellClass()}>
-                                    <div className="font-medium">
-                                        {employee.employee_name ?? '—'}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                        {employee.employee_number ?? '—'}
-                                    </div>
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {employee.rank ?? '—'}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {(employee.assignment_count ?? 1) > 1 ? (
-                                        <div className="space-y-0.5">
-                                            <div className="font-medium">
-                                                {employee.assignment_count}{' '}
-                                                assignments
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {(employee.assignments ?? [])
-                                                    .map(
-                                                        (assignment) =>
-                                                            assignment.assignment_number,
-                                                    )
-                                                    .filter(Boolean)
-                                                    .join(' · ') || '—'}
-                                            </div>
+                            <TableCell className={dataTableCellClass()}>
+                                {employee.rank ?? '—'}
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                {(employee.assignment_count ?? 1) > 1 ? (
+                                    <div className="space-y-0.5">
+                                        <div className="font-medium">
+                                            {employee.assignment_count}{' '}
+                                            assignments
                                         </div>
-                                    ) : (
-                                        (employee.assignment_number ??
-                                        employee.assignments?.[0]
-                                            ?.assignment_number ??
-                                        '—')
-                                    )}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {(employee.assignment_count ?? 1) > 1 ? (
-                                        <div className="space-y-0.5 text-xs">
+                                        <div className="text-xs text-muted-foreground">
                                             {(employee.assignments ?? [])
                                                 .map(
                                                     (assignment) =>
-                                                        assignment.vessel,
+                                                        assignment.assignment_number,
                                                 )
                                                 .filter(Boolean)
-                                                .join(' → ') || '—'}
+                                                .join(' · ') || '—'}
                                         </div>
-                                    ) : (
-                                        (employee.vessel ??
-                                        employee.assignments?.[0]?.vessel ??
-                                        '—')
-                                    )}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    <PhaseRange
-                                        from={employee.sign_on_standby_from}
-                                        to={employee.sign_on_standby_to}
-                                        days={employee.sign_on_standby_days}
-                                    />
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    <PhaseRange
-                                        from={employee.onsite_from}
-                                        to={employee.onsite_to}
-                                        days={employee.onsite_days}
-                                    />
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    <PhaseRange
-                                        from={employee.sign_off_standby_from}
-                                        to={employee.sign_off_standby_to}
-                                        days={employee.sign_off_standby_days}
-                                    />
-                                </TableCell>
-                                <TableCell
-                                    className={`${dataTableCellClass()} tabular-nums`}
+                                    </div>
+                                ) : (
+                                    (employee.assignment_number ??
+                                    employee.assignments?.[0]
+                                        ?.assignment_number ??
+                                    '—')
+                                )}
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                {(employee.assignment_count ?? 1) > 1 ? (
+                                    <div className="space-y-0.5 text-xs">
+                                        {(employee.assignments ?? [])
+                                            .map(
+                                                (assignment) =>
+                                                    assignment.vessel,
+                                            )
+                                            .filter(Boolean)
+                                            .join(' → ') || '—'}
+                                    </div>
+                                ) : (
+                                    (employee.vessel ??
+                                    employee.assignments?.[0]?.vessel ??
+                                    '—')
+                                )}
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                <PhaseRange
+                                    from={employee.sign_on_standby_from}
+                                    to={employee.sign_on_standby_to}
+                                    days={employee.sign_on_standby_days}
+                                />
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                <PhaseRange
+                                    from={employee.onsite_from}
+                                    to={employee.onsite_to}
+                                    days={employee.onsite_days}
+                                />
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                <PhaseRange
+                                    from={employee.sign_off_standby_from}
+                                    to={employee.sign_off_standby_to}
+                                    days={employee.sign_off_standby_days}
+                                />
+                            </TableCell>
+                            <TableCell
+                                className={`${dataTableCellClass()} tabular-nums`}
+                            >
+                                <span className="font-semibold">
+                                    {employee.total_payable_days.toFixed(2)}
+                                </span>
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                <WarningCell
+                                    items={warningDetails(employee, true)}
+                                    tone="blocking"
+                                />
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                <WarningCell
+                                    items={warningDetails(employee, false)}
+                                    tone="info"
+                                />
+                            </TableCell>
+                            <TableCell className={dataTableActionsCellClass()}>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setSelected(employee)}
                                 >
-                                    <span className="font-semibold">
-                                        {employee.total_payable_days.toFixed(2)}
-                                    </span>
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    <WarningCell
-                                        items={warningDetails(employee, true)}
-                                        tone="blocking"
-                                    />
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    <WarningCell
-                                        items={warningDetails(employee, false)}
-                                        tone="info"
-                                    />
-                                </TableCell>
-                                <TableCell
-                                    className={dataTableActionsCellClass()}
-                                >
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setSelected(employee)}
-                                    >
-                                        View Details
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))
-                    )}
+                                    View Details
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    ))}
                 </TableBody>
             </OrganizationDataTable>
             <CrewTimelineLinesDialog

@@ -25,10 +25,20 @@ final class CrewTimesheetPreparationReviewResource
     public function toArray(
         PayrollPeriod $period,
         CrewTimesheetPreparation $preparation,
+        ?CrewTimesheetPreparationReviewFilters $filters = null,
     ): array {
         $isFresh = $this->freshnessChecker->isFresh($preparation, $period);
         $employees = $this->employeeSummaries($preparation);
         $summary = $this->summaryTotals($employees);
+        $warningBreakdown = $this->warningBreakdown($employees);
+
+        if ($filters !== null && $filters->isActive()) {
+            $employees = (new CrewTimesheetPreparationEmployeeFilter)->apply(
+                (int) $preparation->company_id,
+                $employees,
+                $filters,
+            );
+        }
 
         return [
             'period' => [
@@ -63,6 +73,7 @@ final class CrewTimesheetPreparationReviewResource
                 'decision_notes' => $preparation->decision_notes,
             ],
             'summary' => $summary,
+            'warning_breakdown' => $warningBreakdown,
             'employees' => $employees,
         ];
     }
@@ -627,6 +638,48 @@ final class CrewTimesheetPreparationReviewResource
             'blocking_warning_count' => $blocking,
             'informational_warning_count' => $informational,
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $employees
+     * @return list<array{code: string, label: string, is_blocking: bool, count: int}>
+     */
+    private function warningBreakdown(array $employees): array
+    {
+        $byCode = [];
+
+        foreach ($employees as $employee) {
+            foreach ($employee['lines'] ?? [] as $line) {
+                if (! is_array($line)) {
+                    continue;
+                }
+
+                $warning = $line['warning'] ?? null;
+
+                if (! is_array($warning) || ! isset($warning['code'])) {
+                    continue;
+                }
+
+                $code = (string) $warning['code'];
+
+                if (! isset($byCode[$code])) {
+                    $byCode[$code] = [
+                        'code' => $code,
+                        'label' => (string) ($warning['label'] ?? $code),
+                        'is_blocking' => (bool) ($warning['is_blocking'] ?? false),
+                        'count' => 0,
+                    ];
+                }
+
+                $byCode[$code]['count']++;
+            }
+        }
+
+        $items = array_values($byCode);
+
+        usort($items, fn (array $left, array $right): int => $right['count'] <=> $left['count']);
+
+        return $items;
     }
 
     /**

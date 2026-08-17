@@ -30,7 +30,7 @@ final class CrewTimesheetPreparationReviewQuery
                 'lines' => function ($query) use ($companyId): void {
                     $query->where('company_id', $companyId)
                         ->with([
-                            'employee:id,employee_no,name,position_id',
+                            'employee:id,employee_no,name,position_id,department_id',
                             'employee.position:id,title',
                             'assignment:id,assignment_no,vessel_id,rank_id,client_id,status,source,previous_assignment_id',
                             'assignment.vessel:id,name',

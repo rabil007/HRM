@@ -1,3 +1,5 @@
+import type { DepartmentTreeNode } from '@/features/organization/employees/types';
+
 export type CrewTimelineUserRef = {
     id: number;
     name: string;
@@ -185,11 +187,22 @@ export type CrewTimelinePagePermissions = {
     view_audit: boolean;
 };
 
+export type CrewTimelineReviewFilters = {
+    department_id: string;
+    position_id: string;
+};
+
 export type CrewTimelineShowProps = {
     period: CrewTimelinePeriod;
     preparation: CrewTimelinePreparation;
     summary: CrewTimelineSummary;
+    warning_breakdown: CrewTimelineWarningBreakdownItem[];
     employees: CrewTimelineEmployeeSummary[];
+    search: string;
+    filters: CrewTimelineReviewFilters;
+    department_tree: DepartmentTreeNode[];
+    department_tree_selected_id: number | null;
+    department_tree_selected_position_id: number | null;
     permissions: CrewTimelinePagePermissions;
 };
 
