@@ -103,4 +103,6 @@ A strict Content Security Policy is intentionally not introduced in this pass be
 
 ## CI quality gate
 
-The main test workflow now runs `composer ci:check`, covering frontend lint/format/types/tests/build plus PHP checks/tests. The linter workflow is read-only and fails on drift instead of rewriting source files inside CI.
+CI now uses Node 24, matching the current Puppeteer and pdf.js engine requirements. The main test workflow builds the frontend and runs the PHP test suite. The read-only quality workflow checks PHP formatting, Prettier formatting, TypeScript, and frontend tests.
+
+The repository currently has a pre-existing backlog of auto-fixable ESLint import-order violations. Until that backlog is cleaned in a dedicated formatting-only change, CI validates ESLint with `--fix-dry-run`: ESLint applies auto-fixes in memory only, writes nothing to the checkout, and still fails on non-auto-fixable lint errors. This prevents legacy style debt from blocking unrelated product changes while avoiding the previous CI behavior of rewriting source files.
