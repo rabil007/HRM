@@ -2,74 +2,58 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Platform\PlatformAudit;
+use App\Support\Platform\PlatformDatabaseCatalog;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
+use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DatabaseViewerController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): Response
     {
         $search = $request->input('search');
 
-        $tables = collect(DB::select('SHOW TABLES'))->map(function ($table) {
-            return array_values((array) $table)[0];
-        });
+        $tables = collect(PlatformDatabaseCatalog::listBrowsableTables());
 
-        if ($search) {
-            $tables = $tables->filter(function ($table) use ($search) {
-                return str_contains(strtolower($table), strtolower($search));
+        if (filled($search)) {
+            $needle = strtolower((string) $search);
+            $tables = $tables->filter(function (string $table) use ($needle): bool {
+                return str_contains($table, $needle);
             });
         }
 
         return Inertia::render('mysql/index', [
-            'tables' => $tables->values(),
+            'tables' => $tables->values()->all(),
             'filters' => $request->only('search'),
         ]);
     }
 
-    private function applyFilters($query, $columns, $search, $columnFilters)
+    public function show(Request $request, string $table): Response
     {
-        if ($search) {
-            $query->where(function ($q) use ($columns, $search) {
-                foreach ($columns as $column) {
-                    $q->orWhere($column, 'LIKE', "%{$search}%");
-                }
-            });
-        }
-
-        if (is_array($columnFilters)) {
-            foreach ($columnFilters as $column => $value) {
-                if ($value !== null && $value !== '' && in_array($column, $columns)) {
-                    $query->where($column, 'LIKE', "%{$value}%");
-                }
-            }
-        }
-
-        return $query;
-    }
-
-    public function show(Request $request, $table)
-    {
-        if (! Schema::hasTable($table)) {
-            abort(404);
-        }
-
-        $columns = Schema::getColumnListing($table);
+        $columns = $this->visibleColumnsFor($table);
         $search = $request->input('search');
         $sortBy = $request->input('sort_by');
         $sortDir = $request->input('sort_dir', 'asc');
         $columnFilters = $request->input('column_filters', []);
 
-        $query = DB::table($table);
+        $query = DB::table($table)->select($columns);
         $query = $this->applyFilters($query, $columns, $search, $columnFilters);
 
-        if ($sortBy && in_array($sortBy, $columns)) {
+        if (is_string($sortBy) && in_array($sortBy, $columns, true)) {
             $query->orderBy($sortBy, $sortDir === 'desc' ? 'desc' : 'asc');
         }
 
         $data = $query->paginate(50)->withQueryString();
+
+        PlatformAudit::record($request->user(), 'Browsed platform database table', [
+            'action' => 'platform.database.browse',
+            'table' => $table,
+            'has_search' => filled($search),
+        ]);
 
         return Inertia::render('mysql/show', [
             'tableName' => $table,
@@ -79,24 +63,26 @@ class DatabaseViewerController extends Controller
         ]);
     }
 
-    public function export(Request $request, $table)
+    public function export(Request $request, string $table): StreamedResponse
     {
-        if (! Schema::hasTable($table)) {
-            abort(404);
-        }
-
-        $columns = Schema::getColumnListing($table);
+        $columns = $this->visibleColumnsFor($table);
         $search = $request->input('search');
         $sortBy = $request->input('sort_by');
         $sortDir = $request->input('sort_dir', 'asc');
         $columnFilters = $request->input('column_filters', []);
 
-        $query = DB::table($table);
+        $query = DB::table($table)->select($columns);
         $query = $this->applyFilters($query, $columns, $search, $columnFilters);
 
-        if ($sortBy && in_array($sortBy, $columns)) {
+        if (is_string($sortBy) && in_array($sortBy, $columns, true)) {
             $query->orderBy($sortBy, $sortDir === 'desc' ? 'desc' : 'asc');
         }
+
+        PlatformAudit::record($request->user(), 'Exported platform database table', [
+            'action' => 'platform.database.export',
+            'table' => $table,
+            'has_search' => filled($search),
+        ]);
 
         $headers = [
             'Content-Type' => 'text/csv',
@@ -106,9 +92,8 @@ class DatabaseViewerController extends Controller
             'Expires' => '0',
         ];
 
-        $callback = function () use ($query, $columns) {
+        $callback = function () use ($query, $columns): void {
             $file = fopen('php://output', 'w');
-            // Add BOM for UTF-8 Excel compatibility
             fwrite($file, chr(0xEF).chr(0xBB).chr(0xBF));
             fputcsv($file, $columns);
 
@@ -127,39 +112,45 @@ class DatabaseViewerController extends Controller
         return response()->streamDownload($callback, "{$table}_export.csv", $headers);
     }
 
-    public function query()
+    /**
+     * @return list<string>
+     */
+    private function visibleColumnsFor(string $table): array
     {
-        return Inertia::render('mysql/query');
+        PlatformDatabaseCatalog::assertBrowsable($table);
+
+        $columns = PlatformDatabaseCatalog::visibleColumns($table);
+
+        if ($columns === []) {
+            abort(404);
+        }
+
+        return $columns;
     }
 
-    public function execute(Request $request)
+    /**
+     * @param  Builder  $query
+     * @param  list<string>  $columns
+     * @return Builder
+     */
+    private function applyFilters($query, array $columns, mixed $search, mixed $columnFilters)
     {
-        $request->validate([
-            'query' => 'required|string',
-        ]);
-
-        $sql = trim($request->input('query'));
-
-        try {
-            if (! preg_match('/^select\s/i', $sql)) {
-                throw new \Exception('Only SELECT queries are allowed for safety.');
-            }
-
-            $results = DB::select($sql);
-
-            $columns = [];
-            if (count($results) > 0) {
-                $columns = array_keys((array) $results[0]);
-            }
-
-            return back()->with([
-                'query_results' => [
-                    'columns' => $columns,
-                    'data' => $results,
-                ],
-            ]);
-        } catch (\Exception $e) {
-            return back()->withErrors(['query' => $e->getMessage()]);
+        if (filled($search)) {
+            $query->where(function ($q) use ($columns, $search): void {
+                foreach ($columns as $column) {
+                    $q->orWhere($column, 'LIKE', '%'.$search.'%');
+                }
+            });
         }
+
+        if (is_array($columnFilters)) {
+            foreach ($columnFilters as $column => $value) {
+                if ($value !== null && $value !== '' && in_array($column, $columns, true)) {
+                    $query->where($column, 'LIKE', '%'.$value.'%');
+                }
+            }
+        }
+
+        return $query;
     }
 }

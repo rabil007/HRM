@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\User;
 use App\Services\Settings\SettingService;
 use App\Support\Companies\ResolveCompanyAccess;
+use App\Support\Platform\PlatformAuthorization;
 use App\Support\Users\UserAvatar;
 use Closure;
 use Illuminate\Http\Request;
@@ -182,6 +183,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $this->formatAuthUser($request->user()),
                 'permissions' => $permissions,
                 'roles' => $roleNames,
+                'platform' => PlatformAuthorization::sharedFlags($user),
             ],
             'company_switcher_companies' => $companies,
             'current_company_id' => $currentCompanyId,

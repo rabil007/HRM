@@ -19,13 +19,33 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
+use Spatie\Activitylog\Models\Activity;
 
 test('guests cannot view job runs page', function () {
     $this->get(route('jobs.index'))->assertRedirect(route('login'));
 });
 
-test('authenticated users can view job runs history tab', function () {
+test('authenticated users without platform access cannot view job runs', function () {
     $user = User::factory()->create();
+
+    $this->actingAs($user)->get(route('jobs.index'))->assertForbidden();
+});
+
+test('tenant admins without platform access cannot view or mutate jobs', function () {
+    $user = User::factory()->create();
+    setupCompanyWithApplicationSettingsPermissions($user, [
+        'roles.update',
+        'settings.application.update',
+    ]);
+
+    $this->actingAs($user)->get(route('jobs.index'))->assertForbidden();
+    $this->actingAs($user)->post(route('jobs.failed.retry-all'))->assertForbidden();
+    $this->actingAs($user)->delete(route('jobs.failed.destroy-all'))->assertForbidden();
+});
+
+test('platform viewers can view job runs history tab', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
 
     $this->actingAs($user)
         ->get(route('jobs.index', ['tab' => 'history']))
@@ -41,6 +61,7 @@ test('authenticated users can view job runs history tab', function () {
             ->where('stats.failed_count', 0)
             ->where('stats.pending_count', 0)
             ->where('stats.avg_duration_ms', 0)
+            ->where('can.manage', false)
             ->has('registry'));
 });
 
@@ -61,6 +82,7 @@ test('job registry schedules reflect configured dispatch times and timezone', fu
 
 test('jobs page exposes scheduler timezone to the client', function () {
     $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
 
     $this->actingAs($user)
         ->get(route('jobs.index', ['tab' => 'registry']))
@@ -70,8 +92,9 @@ test('jobs page exposes scheduler timezone to the client', function () {
             ->has('registry'));
 });
 
-test('authenticated users can view failed and pending tabs', function () {
+test('platform viewers can view failed and pending tabs', function () {
     $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
 
     $this->actingAs($user)
         ->get(route('jobs.index', ['tab' => 'failed']))
@@ -167,8 +190,92 @@ test('queue job failure creates failed job run record', function () {
     expect(DB::table('job_runs')->where('correlation_id', $uuid)->value('status'))->toBe('failed');
 });
 
-test('authenticated users can retry a failed queue job', function () {
+test('failed and pending job payloads are not sent to the client', function () {
     $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
+    $uuid = (string) Str::uuid();
+
+    DB::table('failed_jobs')->insert([
+        'uuid' => $uuid,
+        'connection' => 'database',
+        'queue' => 'default',
+        'payload' => json_encode([
+            'displayName' => TestQueueJobForJobRuns::class,
+            'data' => ['secret' => 'should-not-leak'],
+        ]),
+        'exception' => "RuntimeException: failed\nstack with secrets",
+        'failed_at' => now(),
+    ]);
+
+    DB::table('jobs')->insert([
+        'queue' => 'default',
+        'payload' => json_encode([
+            'displayName' => TestQueueJobForJobRuns::class,
+            'data' => ['token' => 'should-not-leak'],
+        ]),
+        'attempts' => 0,
+        'reserved_at' => null,
+        'available_at' => now()->timestamp,
+        'created_at' => now()->timestamp,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('jobs.index', ['tab' => 'failed']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('failed_jobs', 1)
+            ->where('failed_jobs.0.uuid', $uuid)
+            ->has('failed_jobs.0.exception_summary')
+            ->missing('failed_jobs.0.payload')
+            ->missing('failed_jobs.0.exception'));
+
+    $this->actingAs($user)
+        ->get(route('jobs.index', ['tab' => 'pending']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('pending_jobs', 1)
+            ->missing('pending_jobs.0.payload'));
+});
+
+test('platform viewers cannot retry or delete queue jobs', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
+    $uuid = (string) Str::uuid();
+
+    DB::table('failed_jobs')->insert([
+        'uuid' => $uuid,
+        'connection' => 'database',
+        'queue' => 'default',
+        'payload' => json_encode(['displayName' => TestQueueJobForJobRuns::class]),
+        'exception' => 'RuntimeException: failed',
+        'failed_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('jobs.failed.retry', ['uuid' => $uuid]))
+        ->assertForbidden();
+    $this->actingAs($user)
+        ->post(route('jobs.failed.retry-all'))
+        ->assertForbidden();
+    $this->actingAs($user)
+        ->delete(route('jobs.failed.destroy', ['uuid' => $uuid]))
+        ->assertForbidden();
+    $this->actingAs($user)
+        ->delete(route('jobs.failed.destroy-all'))
+        ->assertForbidden();
+    $this->actingAs($user)
+        ->delete(route('jobs.history.destroy-all'))
+        ->assertForbidden();
+    $this->actingAs($user)
+        ->delete(route('jobs.pending.destroy-all'))
+        ->assertForbidden();
+
+    expect(DB::table('failed_jobs')->where('uuid', $uuid)->exists())->toBeTrue();
+});
+
+test('platform managers can retry a failed queue job', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
     $uuid = (string) Str::uuid();
 
     DB::table('failed_jobs')->insert([
@@ -185,10 +292,23 @@ test('authenticated users can retry a failed queue job', function () {
         ->post(route('jobs.failed.retry', ['uuid' => $uuid]))
         ->assertRedirect()
         ->assertSessionHas('success');
+
+    $activity = Activity::query()
+        ->where('log_name', 'platform')
+        ->where('description', 'Retried failed queue job')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull()
+        ->and((int) $activity->causer_id)->toBe($user->id)
+        ->and($activity->properties->get('action'))->toBe('platform.jobs.retry_failed')
+        ->and($activity->properties->get('uuid'))->toBe($uuid)
+        ->and($activity->properties->has('payload'))->toBeFalse();
 });
 
-test('authenticated users can retry all failed queue jobs', function () {
+test('platform managers can retry all failed queue jobs', function () {
     $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
     $uuid1 = (string) Str::uuid();
     $uuid2 = (string) Str::uuid();
 
@@ -218,8 +338,9 @@ test('authenticated users can retry all failed queue jobs', function () {
         ->assertSessionHas('success');
 });
 
-test('authenticated users can delete a failed queue job', function () {
+test('platform managers can delete a failed queue job', function () {
     $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
     $uuid = (string) Str::uuid();
 
     DB::table('failed_jobs')->insert([
@@ -240,8 +361,9 @@ test('authenticated users can delete a failed queue job', function () {
     expect(DB::table('failed_jobs')->where('uuid', $uuid)->exists())->toBeFalse();
 });
 
-test('authenticated users can delete all failed queue jobs', function () {
+test('platform managers can delete all failed queue jobs', function () {
     $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
     $uuid1 = (string) Str::uuid();
     $uuid2 = (string) Str::uuid();
 
@@ -273,8 +395,9 @@ test('authenticated users can delete all failed queue jobs', function () {
     expect(DB::table('failed_jobs')->count())->toBe(0);
 });
 
-test('authenticated users can delete a job run history record', function () {
+test('platform managers can delete a job run history record', function () {
     $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
     $uuid = (string) Str::uuid();
 
     $payload = json_encode([
@@ -307,8 +430,9 @@ test('authenticated users can delete a job run history record', function () {
     $this->assertSoftDeleted('job_runs', ['id' => $jobRunId]);
 });
 
-test('authenticated users can delete all job run history records', function () {
+test('platform managers can delete all job run history records', function () {
     $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
 
     DB::table('job_runs')->insert([
         [
@@ -351,8 +475,9 @@ test('authenticated users can delete all job run history records', function () {
         ->and(JobRun::onlyTrashed()->count())->toBe(2);
 });
 
-test('authenticated users can delete a pending queue job', function () {
+test('platform managers can delete a pending queue job', function () {
     $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
 
     $jobId = DB::table('jobs')->insertGetId([
         'queue' => 'default',
@@ -372,8 +497,9 @@ test('authenticated users can delete a pending queue job', function () {
     expect(DB::table('jobs')->where('id', $jobId)->exists())->toBeFalse();
 });
 
-test('authenticated users can delete all pending queue jobs', function () {
+test('platform managers can delete all pending queue jobs', function () {
     $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
 
     DB::table('jobs')->insert([
         [
@@ -401,6 +527,15 @@ test('authenticated users can delete all pending queue jobs', function () {
         ->assertSessionHas('success');
 
     expect(DB::table('jobs')->count())->toBe(0);
+
+    $activity = Activity::query()
+        ->where('log_name', 'platform')
+        ->where('description', 'Cleared pending queue jobs')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull()
+        ->and($activity->properties->get('action'))->toBe('platform.jobs.destroy_all_pending');
 });
 
 class TestQueueJobForJobRuns implements ShouldQueue

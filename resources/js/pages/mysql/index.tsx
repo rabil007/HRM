@@ -1,5 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import {
+    index as mysqlIndex,
+    show as mysqlShow,
+} from '@/actions/App/Http/Controllers/DatabaseViewerController';
 
 interface IndexProps {
     tables: string[];
@@ -14,7 +18,7 @@ export default function Index({ tables, filters }: IndexProps) {
     useEffect(() => {
         const timeout = setTimeout(() => {
             router.get(
-                '/mysql',
+                mysqlIndex.url(),
                 { search },
                 { preserveState: true, replace: true },
             );
@@ -31,12 +35,6 @@ export default function Index({ tables, filters }: IndexProps) {
                     <h1 className="text-3xl font-bold tracking-tight">
                         Database Tables
                     </h1>
-                    <Link
-                        href="/mysql/query"
-                        className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
-                    >
-                        SQL Playground
-                    </Link>
                 </div>
                 <div className="w-full sm:w-72">
                     <input
@@ -53,7 +51,7 @@ export default function Index({ tables, filters }: IndexProps) {
                 {tables.map((table) => (
                     <Link
                         key={table}
-                        href={`/mysql/${table}`}
+                        href={mysqlShow.url(table)}
                         className="block rounded border bg-white p-4 shadow-sm transition-shadow hover:bg-gray-50 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
                     >
                         <div className="text-lg font-medium break-all text-blue-600 dark:text-blue-400">

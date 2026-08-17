@@ -61,6 +61,9 @@ type Props = {
         modified_at: string;
         truncated: boolean;
     };
+    can: {
+        manage: boolean;
+    };
 };
 
 function formatBytes(bytes: number): string {
@@ -99,6 +102,7 @@ export default function ApplicationLogViewer({
     levels,
     filters,
     file_meta,
+    can,
 }: Props) {
     const form = useForm({
         file: filters.file ?? '',
@@ -226,28 +230,38 @@ export default function ApplicationLogViewer({
                                         Export
                                     </Button>
                                 )}
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-9 gap-1.5 border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-500"
-                                    disabled={isClearing || !selectedFileName}
-                                    onClick={() => setClearFileOpen(true)}
-                                >
-                                    <Trash2 className="size-3.5" />
-                                    Clear file
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="destructive"
-                                    className="h-9 gap-1.5"
-                                    disabled={isClearing}
-                                    onClick={() => setClearAllOpen(true)}
-                                >
-                                    <Trash2 className="size-3.5" />
-                                    Clear all logs
-                                </Button>
+                                {can.manage ? (
+                                    <>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-9 gap-1.5 border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-500"
+                                            disabled={
+                                                isClearing || !selectedFileName
+                                            }
+                                            onClick={() =>
+                                                setClearFileOpen(true)
+                                            }
+                                        >
+                                            <Trash2 className="size-3.5" />
+                                            Clear file
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="destructive"
+                                            className="h-9 gap-1.5"
+                                            disabled={isClearing}
+                                            onClick={() =>
+                                                setClearAllOpen(true)
+                                            }
+                                        >
+                                            <Trash2 className="size-3.5" />
+                                            Clear all logs
+                                        </Button>
+                                    </>
+                                ) : null}
                             </div>
                         ) : null}
 
@@ -500,27 +514,31 @@ export default function ApplicationLogViewer({
                 />
             </Main>
 
-            <ConfirmDeleteDialog
-                open={clearFileOpen}
-                onOpenChange={setClearFileOpen}
-                title="Clear this log file?"
-                description={`All entries in ${selectedFileName} will be permanently removed. The empty file will remain so Laravel can keep writing new logs.`}
-                confirmText={isClearing ? 'Clearing…' : 'Clear file'}
-                onConfirm={() => clearLogs('current')}
-                contentClassName="sm:max-w-md"
-                confirmButtonClassName="bg-red-600 text-white hover:bg-red-500"
-            />
+            {can.manage ? (
+                <>
+                    <ConfirmDeleteDialog
+                        open={clearFileOpen}
+                        onOpenChange={setClearFileOpen}
+                        title="Clear this log file?"
+                        description={`All entries in ${selectedFileName} will be permanently removed. The empty file will remain so Laravel can keep writing new logs.`}
+                        confirmText={isClearing ? 'Clearing…' : 'Clear file'}
+                        onConfirm={() => clearLogs('current')}
+                        contentClassName="sm:max-w-md"
+                        confirmButtonClassName="bg-red-600 text-white hover:bg-red-500"
+                    />
 
-            <ConfirmDeleteDialog
-                open={clearAllOpen}
-                onOpenChange={setClearAllOpen}
-                title="Clear all log files?"
-                description="Every laravel log file in storage/logs will be emptied. This cannot be undone."
-                confirmText={isClearing ? 'Clearing…' : 'Clear all logs'}
-                onConfirm={() => clearLogs('all')}
-                contentClassName="sm:max-w-md"
-                confirmButtonClassName="bg-red-600 text-white hover:bg-red-500"
-            />
+                    <ConfirmDeleteDialog
+                        open={clearAllOpen}
+                        onOpenChange={setClearAllOpen}
+                        title="Clear all log files?"
+                        description="Every laravel log file in storage/logs will be emptied. This cannot be undone."
+                        confirmText={isClearing ? 'Clearing…' : 'Clear all logs'}
+                        onConfirm={() => clearLogs('all')}
+                        contentClassName="sm:max-w-md"
+                        confirmButtonClassName="bg-red-600 text-white hover:bg-red-500"
+                    />
+                </>
+            ) : null}
         </>
     );
 }

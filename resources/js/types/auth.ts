@@ -10,8 +10,17 @@ export type User = {
     [key: string]: unknown;
 };
 
+export type PlatformAccess = {
+    view: boolean;
+    manage: boolean;
+    database: boolean;
+};
+
 export type Auth = {
     user: User;
+    permissions?: string[];
+    roles?: string[];
+    platform?: PlatformAccess;
 };
 
 export type TwoFactorSetupData = {

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Support\Logging\ApplicationLogReader;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Platform\PlatformAudit;
+use App\Support\Platform\PlatformAuthorization;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -49,6 +51,9 @@ class ApplicationLogController extends Controller
                 'q' => $validated['q'] ?? '',
             ],
             'file_meta' => $result['file'],
+            'can' => [
+                'manage' => PlatformAuthorization::canManage($request->user()),
+            ],
         ]);
     }
 
@@ -75,6 +80,11 @@ class ApplicationLogController extends Controller
                 $downloadName .= '.txt';
             }
 
+            PlatformAudit::record($request->user(), 'Exported application logs', [
+                'action' => 'platform.logs.export',
+                'file' => $fileName,
+            ]);
+
             return response()->download($path, $downloadName, [
                 'Content-Type' => 'text/plain',
             ]);
@@ -98,6 +108,11 @@ class ApplicationLogController extends Controller
                     return back()->with('error', 'No log files to clear.');
                 }
 
+                PlatformAudit::record($request->user(), 'Cleared application logs', [
+                    'action' => 'platform.logs.clear_all',
+                    'files_cleared' => $cleared,
+                ]);
+
                 $label = $cleared === 1 ? '1 log file' : "{$cleared} log files";
 
                 return redirect()
@@ -113,6 +128,11 @@ class ApplicationLogController extends Controller
 
             $fileName = $validated['file'] ?? $files[0]['name'];
             $reader->clearFile($fileName);
+
+            PlatformAudit::record($request->user(), 'Cleared application logs', [
+                'action' => 'platform.logs.clear_file',
+                'file' => $fileName,
+            ]);
 
             return redirect()
                 ->route('log', array_filter([

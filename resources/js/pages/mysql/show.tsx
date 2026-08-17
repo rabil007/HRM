@@ -1,5 +1,10 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import {
+    exportMethod as mysqlExport,
+    index as mysqlIndex,
+    show as mysqlShow,
+} from '@/actions/App/Http/Controllers/DatabaseViewerController';
 import {
     Dialog,
     DialogContent,
@@ -39,7 +44,7 @@ export default function Show({ tableName, columns, data, filters }: ShowProps) {
     useEffect(() => {
         const timeout = setTimeout(() => {
             router.get(
-                `/mysql/${tableName}`,
+                mysqlShow.url(tableName),
                 {
                     search,
                     sort_by: filters.sort_by,
@@ -61,7 +66,7 @@ export default function Show({ tableName, columns, data, filters }: ShowProps) {
         }
 
         router.get(
-            `/mysql/${tableName}`,
+            mysqlShow.url(tableName),
             {
                 search,
                 sort_by: column,
@@ -125,7 +130,7 @@ export default function Show({ tableName, columns, data, filters }: ShowProps) {
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
                     <Link
-                        href="/mysql"
+                        href={mysqlIndex.url()}
                         className="rounded bg-gray-200 px-3 py-1.5 font-medium text-gray-800 shadow-sm transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
                         title="Back to Tables"
                     >
@@ -153,15 +158,21 @@ export default function Show({ tableName, columns, data, filters }: ShowProps) {
                     </button>
 
                     <a
-                        href={`/mysql/${tableName}/export?search=${search || ''}&sort_by=${filters.sort_by || ''}&sort_dir=${filters.sort_dir || ''}&${new URLSearchParams(
-                            Object.entries(columnFilters).reduce(
-                                (acc, [k, v]) => ({
-                                    ...acc,
-                                    [`column_filters[${k}]`]: v,
-                                }),
-                                {},
-                            ),
-                        ).toString()}`}
+                        href={mysqlExport.url(tableName, {
+                            query: {
+                                search: search || '',
+                                sort_by: filters.sort_by || '',
+                                sort_dir: filters.sort_dir || '',
+                                ...Object.fromEntries(
+                                    Object.entries(columnFilters).map(
+                                        ([key, value]) => [
+                                            `column_filters[${key}]`,
+                                            value,
+                                        ],
+                                    ),
+                                ),
+                            },
+                        })}
                         target="_blank"
                         className="rounded bg-blue-600 px-4 py-2 text-sm font-medium whitespace-nowrap text-white shadow-sm transition-colors hover:bg-blue-700"
                     >

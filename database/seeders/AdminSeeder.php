@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\PlatformAccess;
 use App\Models\Company;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -32,6 +33,8 @@ class AdminSeeder extends Seeder
         $user->companies()->syncWithoutDetaching([
             $company->id => ['status' => 'active'],
         ]);
+
+        $user->forceFill(['platform_access' => PlatformAccess::Manage])->save();
 
         $role = Role::query()->firstOrCreate([
             'company_id' => $company->id,

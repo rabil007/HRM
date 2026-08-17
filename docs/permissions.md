@@ -11,7 +11,9 @@ The authoritative permission catalog is `database/seeders/PermissionsSeeder.php`
 3. Treat Inertia `can` props, shared `auth.permissions`, and hidden UI controls as presentation only.
 4. Add a test proving an authenticated user without the permission receives `403`.
 
-Most module routes use `middleware('can:permission.name')`, but coverage is not universal. Authenticated-only log/job/database routes and parts of payroll and operations remain known gaps. Their current lack of capability middleware is security debt, not a convention to copy.
+Most module routes use `middleware('can:permission.name')`, but coverage is not universal. Parts of payroll and operations remain known gaps. Their current lack of capability middleware is security debt, not a convention to copy.
+
+Platform diagnostic surfaces (`/log`, `/jobs`, `/mysql`) are **not** tenant Spatie permissions. They use a separate user-level `users.platform_access` flag. See [Platform administration](#platform-administration).
 
 Re-seed after changing the catalog:
 
@@ -115,7 +117,7 @@ Application Settings (platform-wide identity, branding, SMTP, and global e-signa
 | `settings.application.view` | View Application Settings for the entire OMS-HRM installation |
 | `settings.application.update` | Update Application Settings for the entire OMS-HRM installation |
 
-These permissions are global across the OMS-HRM installation. They are not company-scoped and must not be replaced with `companies.*`. The former `platform.settings.view` and `platform.settings.update` aliases have been removed as a duplicate permission family; grants were migrated onto `settings.application.*`.
+These permissions are **team-scoped Spatie permissions**, even though the settings themselves are installation-wide. Granting `settings.application.*` inside one company does **not** grant platform database, log, or queue tooling. Those surfaces use the separate platform administration flag below. They must not be replaced with `companies.*`. The former `platform.settings.view` and `platform.settings.update` aliases have been removed as a duplicate permission family; grants were migrated onto `settings.application.*`.
 
 Company identity and regional values are managed on the Company record under **Organization → Companies**, gated by `companies.view` and `companies.update`.
 
@@ -148,3 +150,39 @@ Hikvision administration additionally uses the `hikvision.*` permissions listed 
 Hikvision settings and records are additionally scoped to the active company; webhook callback identifiers resolve one company before signature verification.
 
 Credential permissions never imply that decrypted secrets may be sent to the browser. Settings responses expose masked placeholders and `has_*` flags, and empty secret submissions preserve the stored value.
+
+## Platform administration
+
+Tenant administration (Owner roles, `roles.update`, `companies.*`, `settings.application.*`) is **company-team scoped**. Spatie sets `company_id` as the permission team. A permission granted in one tenant must never unlock global/cross-tenant tooling.
+
+Platform administration is a separate user-level flag: `users.platform_access` (`view` or `manage`). It is **not** a Spatie permission, is **not** seeded in `PermissionsSeeder`, and is **not** mass-assignable on the User model. Granting a fake `platform.database.view` permission inside a company does nothing.
+
+| Capability | Who | Surfaces |
+|------------|-----|----------|
+| View | `platform_access = view` or `manage` | Application logs (`/log`, export). Queue/job history (`/jobs` GET). Database table browse/export (`/mysql`) only when the database viewer is enabled. |
+| Manage | `platform_access = manage` | Everything in View, plus clear logs, retry/delete failed jobs, delete history, and clear pending jobs. |
+
+Arbitrary SQL execution (`/mysql/query`) has been **removed**. Table browsing still exposes tenant data, so it remains platform-only. Credential/session/cache/queue-payload tables are hidden; secret-like columns (passwords, tokens, `app_settings.value`, payloads) are redacted even for platform users.
+
+### Assigning platform access
+
+Existing installations do not receive platform access automatically. Tenant Owner roles do **not** include it.
+
+- Fresh `AdminSeeder` grants `manage` only to `admin@example.com`.
+- Grant or revoke later with:
+
+```bash
+php artisan platform:access user@example.com view
+php artisan platform:access user@example.com manage
+php artisan platform:access user@example.com revoke
+```
+
+Frontend `auth.platform` flags (`view`, `manage`, `database`) are UX only. Route middleware `platform:view`, `platform:manage`, and `platform:database` is authoritative.
+
+### Database viewer production default
+
+When `PLATFORM_DATABASE_VIEWER_ENABLED` is unset, the viewer is enabled outside production and **disabled in production**. Set the env var to `true` or `false` to override.
+
+### Audit
+
+Meaningful platform actions write Spatie activity rows with log name `platform` and `scope=platform`. Logged metadata includes actor, action, table/file/job identifiers, IP, and user agent. Query result bodies, log file contents, and serialized job payloads are never stored in the audit record.

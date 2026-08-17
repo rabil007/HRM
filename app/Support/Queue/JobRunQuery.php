@@ -154,7 +154,7 @@ final class JobRunQuery
             'trigger' => $run->trigger,
             'context' => $run->context,
             'message' => $run->message,
-            'exception' => $run->exception,
+            'exception' => $this->truncateException((string) ($run->exception ?? '')),
             'started_at' => $run->started_at?->toIso8601String(),
             'finished_at' => $run->finished_at?->toIso8601String(),
             'duration_ms' => $run->duration_ms,
@@ -178,9 +178,7 @@ final class JobRunQuery
             'queue' => (string) $row->queue,
             'connection' => (string) $row->connection,
             'failed_at' => Carbon::parse((string) $row->failed_at)->toIso8601String(),
-            'exception' => $exception,
             'exception_summary' => $this->exceptionSummary($exception),
-            'payload' => is_array($payload) ? $payload : null,
         ];
     }
 
@@ -204,7 +202,6 @@ final class JobRunQuery
                 : null,
             'available_at' => Carbon::createFromTimestamp((int) $row->available_at)->toIso8601String(),
             'created_at' => Carbon::createFromTimestamp((int) $row->created_at)->toIso8601String(),
-            'payload' => is_array($payload) ? $payload : null,
         ];
     }
 
@@ -217,5 +214,14 @@ final class JobRunQuery
         }
 
         return mb_strlen($line) > 255 ? mb_substr($line, 0, 252).'...' : $line;
+    }
+
+    private function truncateException(string $exception): ?string
+    {
+        if ($exception === '') {
+            return null;
+        }
+
+        return mb_strlen($exception) > 2000 ? mb_substr($exception, 0, 1997).'...' : $exception;
     }
 }

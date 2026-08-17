@@ -228,19 +228,25 @@ Route::match(['get', 'post'], 'integrations/hikvision/webhook/{publicIntegration
     ->name('webhooks.hikvision');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('log', [ApplicationLogController::class, 'index'])->name('log');
-    Route::get('log/export', [ApplicationLogController::class, 'export'])->name('log.export');
-    Route::delete('log', [ApplicationLogController::class, 'destroy'])->name('log.clear');
+    Route::middleware('platform:view')->group(function () {
+        Route::get('log', [ApplicationLogController::class, 'index'])->name('log');
+        Route::get('log/export', [ApplicationLogController::class, 'export'])->name('log.export');
 
-    Route::get('jobs', [JobRunController::class, 'index'])->name('jobs.index');
-    Route::post('jobs/failed/retry-all', [JobRunController::class, 'retryAllFailed'])->name('jobs.failed.retry-all');
-    Route::delete('jobs/failed/clear-all', [JobRunController::class, 'destroyAllFailed'])->name('jobs.failed.destroy-all');
-    Route::post('jobs/failed/{uuid}/retry', [JobRunController::class, 'retryFailed'])->name('jobs.failed.retry');
-    Route::delete('jobs/failed/{uuid}', [JobRunController::class, 'destroyFailed'])->name('jobs.failed.destroy');
-    Route::delete('jobs/history/clear-all', [JobRunController::class, 'destroyAllHistory'])->name('jobs.history.destroy-all');
-    Route::delete('jobs/history/{jobRun}', [JobRunController::class, 'destroyHistory'])->name('jobs.history.destroy');
-    Route::delete('jobs/pending/clear-all', [JobRunController::class, 'destroyAllPending'])->name('jobs.pending.destroy-all');
-    Route::delete('jobs/pending/{id}', [JobRunController::class, 'destroyPending'])->name('jobs.pending.destroy');
+        Route::get('jobs', [JobRunController::class, 'index'])->name('jobs.index');
+    });
+
+    Route::middleware('platform:manage')->group(function () {
+        Route::delete('log', [ApplicationLogController::class, 'destroy'])->name('log.clear');
+
+        Route::post('jobs/failed/retry-all', [JobRunController::class, 'retryAllFailed'])->name('jobs.failed.retry-all');
+        Route::delete('jobs/failed/clear-all', [JobRunController::class, 'destroyAllFailed'])->name('jobs.failed.destroy-all');
+        Route::post('jobs/failed/{uuid}/retry', [JobRunController::class, 'retryFailed'])->name('jobs.failed.retry');
+        Route::delete('jobs/failed/{uuid}', [JobRunController::class, 'destroyFailed'])->name('jobs.failed.destroy');
+        Route::delete('jobs/history/clear-all', [JobRunController::class, 'destroyAllHistory'])->name('jobs.history.destroy-all');
+        Route::delete('jobs/history/{jobRun}', [JobRunController::class, 'destroyHistory'])->name('jobs.history.destroy');
+        Route::delete('jobs/pending/clear-all', [JobRunController::class, 'destroyAllPending'])->name('jobs.pending.destroy-all');
+        Route::delete('jobs/pending/{id}', [JobRunController::class, 'destroyPending'])->name('jobs.pending.destroy');
+    });
 
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::post('notification-settings/push-subscription', StorePushSubscriptionController::class)
@@ -971,10 +977,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:hikvision.events.fetch')
         ->name('hikvision.access-events.fetch');
 
-    Route::get('mysql', [DatabaseViewerController::class, 'index'])->name('mysql.index');
-    Route::get('mysql/query', [DatabaseViewerController::class, 'query'])->name('mysql.query');
-    Route::post('mysql/query/execute', [DatabaseViewerController::class, 'execute'])->name('mysql.execute');
-    Route::get('mysql/{table}', [DatabaseViewerController::class, 'show'])->name('mysql.show');
-    Route::get('mysql/{table}/export', [DatabaseViewerController::class, 'export'])->name('mysql.export');
+    Route::middleware('platform:database')->group(function () {
+        Route::get('mysql', [DatabaseViewerController::class, 'index'])->name('mysql.index');
+        Route::get('mysql/{table}', [DatabaseViewerController::class, 'show'])->name('mysql.show');
+        Route::get('mysql/{table}/export', [DatabaseViewerController::class, 'export'])->name('mysql.export');
+    });
 });
 require __DIR__.'/settings.php';

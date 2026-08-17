@@ -17,6 +17,8 @@ import {
     Calendar,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { index as applicationLogsIndex } from '@/actions/App/Http/Controllers/ApplicationLogController';
+import { index as mysqlIndex } from '@/actions/App/Http/Controllers/DatabaseViewerController';
 import {
     destroyAllFailed as destroyAllFailedJobs,
     destroyAllHistory as destroyAllHistoryRuns,
@@ -72,9 +74,7 @@ type FailedJob = {
     queue: string;
     connection: string;
     failed_at: string;
-    exception: string;
     exception_summary: string;
-    payload: Record<string, unknown> | null;
 };
 
 type PendingJob = {
@@ -85,7 +85,6 @@ type PendingJob = {
     reserved_at: string | null;
     available_at: string;
     created_at: string;
-    payload: Record<string, unknown> | null;
 };
 
 type RegistryItem = {
@@ -128,6 +127,11 @@ type Props = {
         q: string;
         date_from: string;
         date_to: string;
+    };
+    can: {
+        manage: boolean;
+        logs: boolean;
+        database: boolean;
     };
 };
 
@@ -205,6 +209,7 @@ export default function JobRunsViewer({
     registry,
     scheduler_timezone,
     filters,
+    can,
 }: Props) {
     const formatDateTime = (value: string | null | undefined) =>
         formatDisplayDateTimeInTimezone(value, scheduler_timezone);
@@ -422,30 +427,34 @@ export default function JobRunsViewer({
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                        <Button
-                            asChild
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-9 transition-colors duration-200"
-                        >
-                            <Link href="/log">
-                                <Terminal className="size-3.5" />
-                                Application logs
-                            </Link>
-                        </Button>
-                        <Button
-                            asChild
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-9 transition-colors duration-200"
-                        >
-                            <Link href="/mysql">
-                                <Database className="size-3.5" />
-                                MySQL viewer
-                            </Link>
-                        </Button>
+                        {can.logs ? (
+                            <Button
+                                asChild
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-9 transition-colors duration-200"
+                            >
+                                <Link href={applicationLogsIndex.url()}>
+                                    <Terminal className="size-3.5" />
+                                    Application logs
+                                </Link>
+                            </Button>
+                        ) : null}
+                        {can.database ? (
+                            <Button
+                                asChild
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-9 transition-colors duration-200"
+                            >
+                                <Link href={mysqlIndex.url()}>
+                                    <Database className="size-3.5" />
+                                    MySQL viewer
+                                </Link>
+                            </Button>
+                        ) : null}
                     </div>
                 </div>
 
@@ -584,7 +593,7 @@ export default function JobRunsViewer({
                                             ? 'Search name, message, exception, or correlation ID...'
                                             : tab === 'registry'
                                               ? 'Search name, class, signature, or purpose...'
-                                              : 'Search queue, payload, or exception...'
+                                              : 'Search queue or exception...'
                                     }
                                     className="h-10 rounded-xl border-border/40 bg-background/45 pl-9 transition-all duration-200 focus:border-primary/50"
                                 />
@@ -699,7 +708,7 @@ export default function JobRunsViewer({
                             : ''}
                     </span>
 
-                    {tab === 'failed' && failed_jobs.length > 0 && (
+                    {can.manage && tab === 'failed' && failed_jobs.length > 0 && (
                         <div className="flex gap-2">
                             <Button
                                 type="button"
@@ -725,7 +734,7 @@ export default function JobRunsViewer({
                         </div>
                     )}
 
-                    {tab === 'history' && stats.history_count > 0 && (
+                    {can.manage && tab === 'history' && stats.history_count > 0 && (
                         <Button
                             type="button"
                             size="sm"
@@ -738,7 +747,7 @@ export default function JobRunsViewer({
                         </Button>
                     )}
 
-                    {tab === 'pending' && pending_jobs.length > 0 && (
+                    {can.manage && tab === 'pending' && pending_jobs.length > 0 && (
                         <Button
                             type="button"
                             size="sm"
@@ -868,23 +877,25 @@ export default function JobRunsViewer({
                                                         ) : null}
                                                     </div>
                                                     <div className="flex items-center gap-2 self-start sm:self-center">
-                                                        <Button
-                                                            type="button"
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="h-8 border-red-500/30 text-red-500 transition-colors hover:bg-red-500/10"
-                                                            onClick={(
-                                                                event,
-                                                            ) => {
-                                                                event.stopPropagation();
-                                                                setDeleteHistoryId(
-                                                                    run.id,
-                                                                );
-                                                            }}
-                                                        >
-                                                            <Trash2 className="mr-1 size-3.5" />
-                                                            Delete
-                                                        </Button>
+                                                        {can.manage ? (
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="h-8 border-red-500/30 text-red-500 transition-colors hover:bg-red-500/10"
+                                                                onClick={(
+                                                                    event,
+                                                                ) => {
+                                                                    event.stopPropagation();
+                                                                    setDeleteHistoryId(
+                                                                        run.id,
+                                                                    );
+                                                                }}
+                                                            >
+                                                                <Trash2 className="mr-1 size-3.5" />
+                                                                Delete
+                                                            </Button>
+                                                        ) : null}
                                                         <Clock3 className="size-4 shrink-0 text-muted-foreground/40 transition-transform duration-200" />
                                                     </div>
                                                 </CardContent>
@@ -1106,98 +1117,43 @@ export default function JobRunsViewer({
                                                         </p>
                                                     </div>
                                                     <div className="flex gap-2">
-                                                        <Button
-                                                            type="button"
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="h-8 transition-colors"
-                                                            disabled={
-                                                                isRetrying
-                                                            }
-                                                            onClick={() =>
-                                                                retryFailed(
-                                                                    job.uuid,
-                                                                )
-                                                            }
-                                                        >
-                                                            <RotateCcw className="mr-1 size-3.5" />
-                                                            Retry
-                                                        </Button>
-                                                        <Button
-                                                            type="button"
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="h-8 border-red-500/30 text-red-500 transition-colors hover:bg-red-500/10"
-                                                            onClick={() =>
-                                                                setDeleteUuid(
-                                                                    job.uuid,
-                                                                )
-                                                            }
-                                                        >
-                                                            <Trash2 className="mr-1 size-3.5" />
-                                                            Delete
-                                                        </Button>
+                                                        {can.manage ? (
+                                                            <>
+                                                                <Button
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="h-8 transition-colors"
+                                                                    disabled={
+                                                                        isRetrying
+                                                                    }
+                                                                    onClick={() =>
+                                                                        retryFailed(
+                                                                            job.uuid,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <RotateCcw className="mr-1 size-3.5" />
+                                                                    Retry
+                                                                </Button>
+                                                                <Button
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="h-8 border-red-500/30 text-red-500 transition-colors hover:bg-red-500/10"
+                                                                    onClick={() =>
+                                                                        setDeleteUuid(
+                                                                            job.uuid,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Trash2 className="mr-1 size-3.5" />
+                                                                    Delete
+                                                                </Button>
+                                                            </>
+                                                        ) : null}
                                                     </div>
                                                 </div>
-                                                <Collapsible
-                                                    open={isOpen}
-                                                    onOpenChange={(open) =>
-                                                        setOpenId(
-                                                            open ? rowId : null,
-                                                        )
-                                                    }
-                                                >
-                                                    <div className="flex items-center gap-2">
-                                                        <CollapsibleTrigger className="text-xs font-medium text-primary hover:underline">
-                                                            {isOpen
-                                                                ? 'Hide details'
-                                                                : 'Show details'}
-                                                        </CollapsibleTrigger>
-                                                    </div>
-                                                    <CollapsibleContent className="space-y-4 pt-3">
-                                                        {job.payload ? (
-                                                            <div className="space-y-1.5">
-                                                                <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                                                                    <span>
-                                                                        Job
-                                                                        Payload
-                                                                    </span>
-                                                                    <CopyButton
-                                                                        text={JSON.stringify(
-                                                                            job.payload,
-                                                                            null,
-                                                                            2,
-                                                                        )}
-                                                                    />
-                                                                </div>
-                                                                <pre className="overflow-x-auto rounded-lg border border-border/30 bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
-                                                                    {JSON.stringify(
-                                                                        job.payload,
-                                                                        null,
-                                                                        2,
-                                                                    )}
-                                                                </pre>
-                                                            </div>
-                                                        ) : null}
-
-                                                        <div className="space-y-1.5">
-                                                            <div className="flex items-center justify-between text-xs font-semibold text-rose-500/80">
-                                                                <span>
-                                                                    Exception
-                                                                    Stack Trace
-                                                                </span>
-                                                                <CopyButton
-                                                                    text={
-                                                                        job.exception
-                                                                    }
-                                                                />
-                                                            </div>
-                                                            <pre className="overflow-x-auto rounded-lg border border-rose-500/10 bg-rose-500/5 p-3 font-mono text-[11px] leading-relaxed text-rose-500">
-                                                                {job.exception}
-                                                            </pre>
-                                                        </div>
-                                                    </CollapsibleContent>
-                                                </Collapsible>
                                             </CardContent>
                                         </Card>
                                     </Collapsible>
@@ -1290,54 +1246,24 @@ export default function JobRunsViewer({
                                                         </div>
                                                     </div>
                                                     <div className="flex gap-2 self-start sm:self-center">
-                                                        {job.payload && (
-                                                            <CollapsibleTrigger className="text-xs font-medium text-primary hover:underline">
-                                                                {isOpen
-                                                                    ? 'Hide payload'
-                                                                    : 'Show payload'}
-                                                            </CollapsibleTrigger>
-                                                        )}
-                                                        <Button
-                                                            type="button"
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="h-8 border-red-500/30 text-red-500 transition-colors hover:bg-red-500/10"
-                                                            onClick={() =>
-                                                                setDeletePendingId(
-                                                                    job.id,
-                                                                )
-                                                            }
-                                                        >
-                                                            <Trash2 className="mr-1 size-3.5" />
-                                                            Delete
-                                                        </Button>
+                                                        {can.manage ? (
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="h-8 border-red-500/30 text-red-500 transition-colors hover:bg-red-500/10"
+                                                                onClick={() =>
+                                                                    setDeletePendingId(
+                                                                        job.id,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Trash2 className="mr-1 size-3.5" />
+                                                                Delete
+                                                            </Button>
+                                                        ) : null}
                                                     </div>
                                                 </div>
-                                                {job.payload && (
-                                                    <CollapsibleContent className="pt-2">
-                                                        <div className="space-y-1.5">
-                                                            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                                                                <span>
-                                                                    Job Payload
-                                                                </span>
-                                                                <CopyButton
-                                                                    text={JSON.stringify(
-                                                                        job.payload,
-                                                                        null,
-                                                                        2,
-                                                                    )}
-                                                                />
-                                                            </div>
-                                                            <pre className="overflow-x-auto rounded-lg border border-border/30 bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
-                                                                {JSON.stringify(
-                                                                    job.payload,
-                                                                    null,
-                                                                    2,
-                                                                )}
-                                                            </pre>
-                                                        </div>
-                                                    </CollapsibleContent>
-                                                )}
                                             </CardContent>
                                         </Card>
                                     </Collapsible>
@@ -1595,65 +1521,69 @@ export default function JobRunsViewer({
                 )}
             </Main>
 
-            <ConfirmDeleteDialog
-                open={deleteUuid !== null}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setDeleteUuid(null);
-                    }
-                }}
-                title="Delete failed job?"
-                description="This removes the failed job record from the queue. It will not run again unless re-dispatched."
-                onConfirm={deleteFailed}
-            />
+            {can.manage ? (
+                <>
+                    <ConfirmDeleteDialog
+                        open={deleteUuid !== null}
+                        onOpenChange={(open) => {
+                            if (!open) {
+                                setDeleteUuid(null);
+                            }
+                        }}
+                        title="Delete failed job?"
+                        description="This removes the failed job record from the queue. It will not run again unless re-dispatched."
+                        onConfirm={deleteFailed}
+                    />
 
-            <ConfirmDeleteDialog
-                open={showDeleteAllConfirm}
-                onOpenChange={setShowDeleteAllConfirm}
-                title="Delete all failed jobs?"
-                description="This removes all failed job records from the queue. They will not run again unless re-dispatched."
-                onConfirm={deleteAllFailed}
-            />
+                    <ConfirmDeleteDialog
+                        open={showDeleteAllConfirm}
+                        onOpenChange={setShowDeleteAllConfirm}
+                        title="Delete all failed jobs?"
+                        description="This removes all failed job records from the queue. They will not run again unless re-dispatched."
+                        onConfirm={deleteAllFailed}
+                    />
 
-            <ConfirmDeleteDialog
-                open={deleteHistoryId !== null}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setDeleteHistoryId(null);
-                    }
-                }}
-                title="Delete job run history?"
-                description="This removes the selected history record. It does not affect pending or failed queue jobs."
-                onConfirm={deleteHistory}
-            />
+                    <ConfirmDeleteDialog
+                        open={deleteHistoryId !== null}
+                        onOpenChange={(open) => {
+                            if (!open) {
+                                setDeleteHistoryId(null);
+                            }
+                        }}
+                        title="Delete job run history?"
+                        description="This removes the selected history record. It does not affect pending or failed queue jobs."
+                        onConfirm={deleteHistory}
+                    />
 
-            <ConfirmDeleteDialog
-                open={showDeleteAllHistoryConfirm}
-                onOpenChange={setShowDeleteAllHistoryConfirm}
-                title="Clear all job run history?"
-                description="This removes every recorded job run from history. Pending and failed queue jobs are not affected."
-                onConfirm={deleteAllHistory}
-            />
+                    <ConfirmDeleteDialog
+                        open={showDeleteAllHistoryConfirm}
+                        onOpenChange={setShowDeleteAllHistoryConfirm}
+                        title="Clear all job run history?"
+                        description="This removes every recorded job run from history. Pending and failed queue jobs are not affected."
+                        onConfirm={deleteAllHistory}
+                    />
 
-            <ConfirmDeleteDialog
-                open={deletePendingId !== null}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setDeletePendingId(null);
-                    }
-                }}
-                title="Delete pending job?"
-                description="This removes the job from the queue before it runs. It will not run unless dispatched again."
-                onConfirm={deletePending}
-            />
+                    <ConfirmDeleteDialog
+                        open={deletePendingId !== null}
+                        onOpenChange={(open) => {
+                            if (!open) {
+                                setDeletePendingId(null);
+                            }
+                        }}
+                        title="Delete pending job?"
+                        description="This removes the job from the queue before it runs. It will not run unless dispatched again."
+                        onConfirm={deletePending}
+                    />
 
-            <ConfirmDeleteDialog
-                open={showDeleteAllPendingConfirm}
-                onOpenChange={setShowDeleteAllPendingConfirm}
-                title="Delete all pending jobs?"
-                description="This removes every job waiting in the queue. None of them will run unless dispatched again."
-                onConfirm={deleteAllPending}
-            />
+                    <ConfirmDeleteDialog
+                        open={showDeleteAllPendingConfirm}
+                        onOpenChange={setShowDeleteAllPendingConfirm}
+                        title="Delete all pending jobs?"
+                        description="This removes every job waiting in the queue. None of them will run unless dispatched again."
+                        onConfirm={deleteAllPending}
+                    />
+                </>
+            ) : null}
         </>
     );
 }

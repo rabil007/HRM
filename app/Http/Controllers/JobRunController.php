@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\JobRun;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Platform\PlatformAudit;
+use App\Support\Platform\PlatformAuthorization;
 use App\Support\Queue\JobRegistry;
 use App\Support\Queue\JobRunQuery;
 use App\Support\Settings\ApplicationTimezone;
@@ -100,10 +102,15 @@ class JobRunController extends Controller
                 'date_from' => $validated['date_from'] ?? '',
                 'date_to' => $validated['date_to'] ?? '',
             ],
+            'can' => [
+                'manage' => PlatformAuthorization::canManage($request->user()),
+                'logs' => PlatformAuthorization::canView($request->user()),
+                'database' => PlatformAuthorization::canViewDatabase($request->user()),
+            ],
         ]);
     }
 
-    public function retryFailed(string $uuid): RedirectResponse
+    public function retryFailed(Request $request, string $uuid): RedirectResponse
     {
         $exists = DB::table('failed_jobs')->where('uuid', $uuid)->exists();
 
@@ -113,10 +120,15 @@ class JobRunController extends Controller
 
         Artisan::call('queue:retry', ['id' => [$uuid]]);
 
+        PlatformAudit::record($request->user(), 'Retried failed queue job', [
+            'action' => 'platform.jobs.retry_failed',
+            'uuid' => $uuid,
+        ]);
+
         return back()->with('success', 'Failed job queued for retry.');
     }
 
-    public function retryAllFailed(): RedirectResponse
+    public function retryAllFailed(Request $request): RedirectResponse
     {
         $count = DB::table('failed_jobs')->count();
 
@@ -126,10 +138,15 @@ class JobRunController extends Controller
 
         Artisan::call('queue:retry', ['id' => ['all']]);
 
+        PlatformAudit::record($request->user(), 'Retried all failed queue jobs', [
+            'action' => 'platform.jobs.retry_all_failed',
+            'count' => $count,
+        ]);
+
         return back()->with('success', "All {$count} failed jobs queued for retry.");
     }
 
-    public function destroyFailed(string $uuid): RedirectResponse
+    public function destroyFailed(Request $request, string $uuid): RedirectResponse
     {
         $deleted = DB::table('failed_jobs')->where('uuid', $uuid)->delete();
 
@@ -137,10 +154,15 @@ class JobRunController extends Controller
             return back()->with('error', 'Failed job not found.');
         }
 
+        PlatformAudit::record($request->user(), 'Deleted failed queue job', [
+            'action' => 'platform.jobs.destroy_failed',
+            'uuid' => $uuid,
+        ]);
+
         return back()->with('success', 'Failed job removed.');
     }
 
-    public function destroyAllFailed(): RedirectResponse
+    public function destroyAllFailed(Request $request): RedirectResponse
     {
         $deleted = DB::table('failed_jobs')->delete();
 
@@ -148,17 +170,28 @@ class JobRunController extends Controller
             return back()->with('error', 'No failed jobs to remove.');
         }
 
+        PlatformAudit::record($request->user(), 'Deleted all failed queue jobs', [
+            'action' => 'platform.jobs.destroy_all_failed',
+            'count' => $deleted,
+        ]);
+
         return back()->with('success', "All {$deleted} failed jobs removed.");
     }
 
-    public function destroyHistory(JobRun $jobRun): RedirectResponse
+    public function destroyHistory(Request $request, JobRun $jobRun): RedirectResponse
     {
+        $jobRunId = $jobRun->id;
         $jobRun->delete();
+
+        PlatformAudit::record($request->user(), 'Deleted job run history', [
+            'action' => 'platform.jobs.destroy_history',
+            'job_run_id' => $jobRunId,
+        ]);
 
         return back()->with('success', 'Job run history removed.');
     }
 
-    public function destroyAllHistory(): RedirectResponse
+    public function destroyAllHistory(Request $request): RedirectResponse
     {
         $deleted = JobRun::query()->count();
 
@@ -168,10 +201,15 @@ class JobRunController extends Controller
 
         JobRun::query()->delete();
 
+        PlatformAudit::record($request->user(), 'Deleted all job run history', [
+            'action' => 'platform.jobs.destroy_all_history',
+            'count' => $deleted,
+        ]);
+
         return back()->with('success', "All {$deleted} job run history records removed.");
     }
 
-    public function destroyPending(int $id): RedirectResponse
+    public function destroyPending(Request $request, int $id): RedirectResponse
     {
         $deleted = DB::table('jobs')->where('id', $id)->delete();
 
@@ -179,16 +217,26 @@ class JobRunController extends Controller
             return back()->with('error', 'Pending job not found.');
         }
 
+        PlatformAudit::record($request->user(), 'Deleted pending queue job', [
+            'action' => 'platform.jobs.destroy_pending',
+            'job_id' => $id,
+        ]);
+
         return back()->with('success', 'Pending job removed.');
     }
 
-    public function destroyAllPending(): RedirectResponse
+    public function destroyAllPending(Request $request): RedirectResponse
     {
         $deleted = DB::table('jobs')->delete();
 
         if ($deleted === 0) {
             return back()->with('error', 'No pending jobs to remove.');
         }
+
+        PlatformAudit::record($request->user(), 'Cleared pending queue jobs', [
+            'action' => 'platform.jobs.destroy_all_pending',
+            'count' => $deleted,
+        ]);
 
         return back()->with('success', "All {$deleted} pending jobs removed.");
     }
