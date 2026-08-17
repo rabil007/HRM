@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AnnouncementDelivery;
 use App\Models\WhatsAppSetting;
 use App\Support\Announcements\Actions\RefreshAnnouncementDeliveryStatus;
+use App\Support\WhatsApp\WhatsAppWebhookSignature;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
@@ -19,6 +20,8 @@ class WhatsAppWebhookController extends Controller
             return $this->verify($request);
         }
 
+        $settings = WhatsAppSetting::current();
+        $this->assertAuthenticPost($request, $settings);
         $this->processStatuses($request);
 
         return response()->noContent();
@@ -41,6 +44,16 @@ class WhatsAppWebhookController extends Controller
         }
 
         return response($challenge, 200)->header('Content-Type', 'text/plain');
+    }
+
+    private function assertAuthenticPost(Request $request, WhatsAppSetting $settings): void
+    {
+        $secret = (string) ($settings->app_secret ?? '');
+        $signature = (string) $request->header('X-Hub-Signature-256', '');
+
+        if (! WhatsAppWebhookSignature::verify($secret, $request->getContent(), $signature)) {
+            abort(404);
+        }
     }
 
     private function processStatuses(Request $request): void
