@@ -1,67 +1,14 @@
 <?php
 
-use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
-use App\Enums\CrewPhaseStatus;
 use App\Exports\CurrentCrewOnboardVesselsExport;
-use App\Models\CrewAssignment;
-use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\VesselManning;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use Maatwebsite\Excel\Facades\Excel;
-
-/**
- * @param  array<string, mixed>  $overrides
- */
-function makeCurrentCrewPhaseAssignment(
-    $company,
-    $employee,
-    $rank,
-    $vessel,
-    CrewPhaseCode $phaseCode,
-    array $overrides = [],
-): CrewAssignment {
-    $started = CarbonImmutable::parse('2026-01-01 08:00:00', $company->timezone ?? 'UTC');
-
-    $assignment = CrewAssignment::query()->create(array_merge([
-        'company_id' => $company->id,
-        'assignment_no' => 'CA-VV-'.Str::upper(Str::random(6)),
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => $vessel->id,
-        'status' => CrewAssignmentStatus::Active,
-        'started_at' => $started,
-        'source' => 'manual',
-    ], $overrides));
-
-    $phase = CrewAssignmentPhase::query()->create([
-        'company_id' => $company->id,
-        'crew_assignment_id' => $assignment->id,
-        'phase_code' => $phaseCode,
-        'sequence' => 1,
-        'status' => CrewPhaseStatus::Active,
-        'actual_start_at' => $started,
-    ]);
-
-    $assignment->update(['current_phase_id' => $phase->id]);
-
-    return $assignment->fresh(['currentPhase', 'vessel', 'employee', 'rank']);
-}
-
-function makeCurrentCrewVesselViewFixtures(array $permissions = ['crew_operations.assignments.view']): array
-{
-    $fixtures = makeCrewAssignmentFixtures();
-    grantCompanyPermissions($fixtures['user'], $fixtures['company'], $permissions);
-    $fixtures['user']->update(['current_company_id' => $fixtures['company']->id]);
-    $fixtures['vessel'] = makeCrewMovementVessel('HAI DUONG 08', $fixtures['company']);
-
-    return $fixtures;
-}
 
 test('vessel view lists current active p4 crew under the vessel', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCurrentCrewVesselViewFixtures();
@@ -373,6 +320,90 @@ test('vessel view export includes filtered current p4 crew beyond the current pa
     );
 });
 
+test('vessel view export selected ids are revalidated and ignore invalid records', function () {
+    Excel::fake();
+
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCurrentCrewVesselViewFixtures();
+    $kept = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    $otherEmployee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'name' => 'OTHER ONBOARD',
+    ]);
+    $other = makeActiveOnVesselAssignment($company, $otherEmployee, $rank, $vessel);
+
+    $p3Employee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'name' => 'P3 NOT ONBOARD',
+    ]);
+    $p3 = makeCurrentCrewPhaseAssignment(
+        $company,
+        $p3Employee,
+        $rank,
+        $vessel,
+        CrewPhaseCode::ReadyToJoin,
+    );
+
+    $companyB = makeCrewAssignmentFixtures();
+    $foreign = makeActiveOnVesselAssignment(
+        $companyB['company'],
+        $companyB['employee'],
+        $companyB['rank'],
+        makeCrewMovementVessel('Foreign Vessel', $companyB['company']),
+    );
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.onboard-vessels.export', [
+            'format' => 'xlsx',
+            'scope' => 'selected',
+            'assignment_ids' => [$kept->id, $p3->id, $foreign->id, 0, 'abc', 999999],
+        ]))
+        ->assertOk();
+
+    Excel::assertDownloaded(
+        'current-crew-onboard-vessels-'.now()->toDateString().'.xlsx',
+        function (CurrentCrewOnboardVesselsExport $export) use ($kept, $other): bool {
+            $ids = $export->collection()->pluck('id')->all();
+
+            return $export->collection()->count() === 1
+                && $ids === [$kept->id]
+                && ! in_array($other->id, $ids, true);
+        },
+    );
+});
+
+test('vessel view export selected ids still respect active filters', function () {
+    Excel::fake();
+
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCurrentCrewVesselViewFixtures();
+    $vessel = makeCrewMovementVessel('Filter Vessel', $company);
+    $arief = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'name' => 'ARIEF POERNAMA',
+    ]);
+    $other = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'name' => 'OTHER CREW',
+    ]);
+    $ariefAssignment = makeActiveOnVesselAssignment($company, $arief, $rank, $vessel);
+    $otherAssignment = makeActiveOnVesselAssignment($company, $other, $rank, $vessel);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.onboard-vessels.export', [
+            'format' => 'xlsx',
+            'search' => 'ARIEF',
+            'scope' => 'selected',
+            'assignment_ids' => [$ariefAssignment->id, $otherAssignment->id],
+        ]))
+        ->assertOk();
+
+    Excel::assertDownloaded(
+        'current-crew-onboard-vessels-'.now()->toDateString().'.xlsx',
+        fn (CurrentCrewOnboardVesselsExport $export): bool => $export->collection()->count() === 1
+            && (int) $export->collection()->first()?->id === $ariefAssignment->id,
+    );
+});
+
 test('vessel view export requires assignment view permission', function () {
     ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
     $user->update(['current_company_id' => $company->id]);
@@ -428,4 +459,113 @@ test('crew view remains the default and is unchanged when view is omitted', func
             ->has('assignments', 1)
             ->has('vessels', 0)
             ->where('assignments.0.employee.id', $employee->id));
+});
+
+test('selected export scope does not fall back to all filtered when ids are empty', function () {
+    Excel::fake();
+
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCurrentCrewVesselViewFixtures();
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.index', ['view' => 'vessel']))
+        ->get(route('organization.crew-assignments.onboard-vessels.export', [
+            'format' => 'xlsx',
+            'scope' => 'selected',
+        ]))
+        ->assertRedirect(route('organization.crew-assignments.index', ['view' => 'vessel']))
+        ->assertSessionHasErrors('assignment_ids');
+});
+
+test('selected export scope with only invalid ids does not export the filtered set', function () {
+    Excel::fake();
+
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCurrentCrewVesselViewFixtures();
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.index', ['view' => 'vessel']))
+        ->get(route('organization.crew-assignments.onboard-vessels.export', [
+            'format' => 'xlsx',
+            'scope' => 'selected',
+            'assignment_ids' => [0, 'abc', 999999],
+        ]))
+        ->assertRedirect(route('organization.crew-assignments.index', ['view' => 'vessel']))
+        ->assertSessionHasErrors('assignment_ids');
+});
+
+test('all export scope ignores client assignment ids', function () {
+    Excel::fake();
+
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCurrentCrewVesselViewFixtures();
+    $kept = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+    $otherEmployee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'name' => 'SECOND ONBOARD',
+    ]);
+    $other = makeActiveOnVesselAssignment($company, $otherEmployee, $rank, $vessel);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.onboard-vessels.export', [
+            'format' => 'xlsx',
+            'scope' => 'all',
+            'assignment_ids' => [$kept->id],
+        ]))
+        ->assertOk();
+
+    Excel::assertDownloaded(
+        'current-crew-onboard-vessels-'.now()->toDateString().'.xlsx',
+        function (CurrentCrewOnboardVesselsExport $export) use ($kept, $other): bool {
+            $ids = $export->collection()->pluck('id')->all();
+
+            return $export->collection()->count() === 2
+                && in_array($kept->id, $ids, true)
+                && in_array($other->id, $ids, true);
+        },
+    );
+});
+
+test('selected export scope revalidates mixed valid p3 foreign and garbage ids', function () {
+    Excel::fake();
+
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCurrentCrewVesselViewFixtures();
+    $kept = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    $p3Employee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'name' => 'P3 NOT ONBOARD',
+    ]);
+    $p3 = makeCurrentCrewPhaseAssignment(
+        $company,
+        $p3Employee,
+        $rank,
+        $vessel,
+        CrewPhaseCode::ReadyToJoin,
+    );
+
+    $companyB = makeCrewAssignmentFixtures();
+    $foreign = makeActiveOnVesselAssignment(
+        $companyB['company'],
+        $companyB['employee'],
+        $companyB['rank'],
+        makeCrewMovementVessel('Foreign Vessel', $companyB['company']),
+    );
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.onboard-vessels.export', [
+            'format' => 'xlsx',
+            'scope' => 'selected',
+            'assignment_ids' => [$kept->id, $p3->id, $foreign->id, 0, 'abc', 999999],
+        ]))
+        ->assertOk();
+
+    Excel::assertDownloaded(
+        'current-crew-onboard-vessels-'.now()->toDateString().'.xlsx',
+        function (CurrentCrewOnboardVesselsExport $export) use ($kept): bool {
+            $ids = $export->collection()->pluck('id')->all();
+
+            return $export->collection()->count() === 1
+                && $ids === [$kept->id];
+        },
+    );
 });

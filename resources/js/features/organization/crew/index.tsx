@@ -1,5 +1,5 @@
-import { router } from '@inertiajs/react';
-import { Download, Filter, Loader2, Plus, Ship } from 'lucide-react';
+import { router, usePage } from '@inertiajs/react';
+import { Filter, Loader2, Plus, Ship } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -17,8 +17,9 @@ import { TableBody, TableHeader } from '@/components/ui/table';
 import { CrewAssignmentsTableRow } from '@/features/organization/crew/components/crew-assignments-table-row';
 import { CrewFiltersSheet } from '@/features/organization/crew/components/crew-filters-sheet';
 import { CrewSummaryCards } from '@/features/organization/crew/components/crew-summary-cards';
-import { CurrentCrewVesselView } from '@/features/organization/crew/components/current-crew-vessel-view';
 import { CurrentCrewViewSwitcher } from '@/features/organization/crew/components/current-crew-view-switcher';
+import { OnboardByVesselBoard } from '@/features/organization/crew/onboard-by-vessel/onboard-by-vessel-board';
+import { onboardSelectionResetKey } from '@/features/organization/crew/onboard-by-vessel/selection-reset-key';
 import type {
     CrewAssignmentFilterOptions,
     CrewAssignmentFilters,
@@ -32,7 +33,6 @@ import type {
 import { CREW_PHASE_LABELS } from '@/features/organization/crew/types';
 import { useCrewIndexFilters } from '@/features/organization/crew/use-crew-index-filters';
 import type { CrewSummaryFilter } from '@/features/organization/crew/use-crew-index-filters';
-import { buildListExportUrl } from '@/lib/build-list-export-url';
 import { cn } from '@/lib/utils';
 import {
     create as createAssignment,
@@ -40,7 +40,6 @@ import {
     index as crewAssignmentsIndex,
     show as showAssignment,
 } from '@/routes/organization/crew-assignments';
-import { exportMethod as exportOnboardVessels } from '@/routes/organization/crew-assignments/onboard-vessels';
 import type { PaginationMeta } from '@/types/pagination';
 
 function normalizeFilters(
@@ -159,10 +158,13 @@ export function CurrentCrewContent({
     const isEmpty = isVesselView
         ? vessels.length === 0
         : assignments.length === 0;
-    const exportUrl = buildListExportUrl(exportOnboardVessels.url(), {
+    const { current_company_id: currentCompanyId } = usePage().props as {
+        current_company_id?: number | null;
+    };
+    const vesselSelectionKey = onboardSelectionResetKey({
+        companyId: currentCompanyId,
         search: searchInput,
-        ...filters,
-        format: 'xlsx',
+        filters,
     });
 
     const phaseChips = useMemo(() => {
@@ -184,14 +186,6 @@ export function CurrentCrewContent({
                             value={currentView}
                             onChange={onViewChange}
                         />
-                        {isVesselView ? (
-                            <Button variant="outline" asChild>
-                                <a href={exportUrl}>
-                                    <Download className="h-4 w-4" />
-                                    Export Excel
-                                </a>
-                            </Button>
-                        ) : null}
                         {can.create ? (
                             <Button
                                 onClick={() =>
@@ -278,29 +272,51 @@ export function CurrentCrewContent({
                 }
             />
 
-            {isEmpty ? (
+            {isVesselView ? (
+                <OnboardByVesselBoard
+                    key={vesselSelectionKey}
+                    vessels={vessels}
+                    pagination={pagination}
+                    exportQuery={{ search: searchInput, ...filters }}
+                    onPageChange={onPageChange}
+                    emptyIcon={
+                        <Ship className="mx-auto mb-3 size-8 text-muted-foreground/50" />
+                    }
+                    emptyTitle={
+                        hasActiveQuery
+                            ? 'No matching onboard vessels'
+                            : 'No vessels with onboard crew'
+                    }
+                    emptyDescription={
+                        hasActiveQuery
+                            ? 'Try clearing search or filters to widen the board.'
+                            : 'Vessel View shows vessels with current active P4 onboard crew.'
+                    }
+                    emptyAction={
+                        hasActiveQuery ? (
+                            <Button variant="outline" onClick={onResetFilters}>
+                                Clear filters
+                            </Button>
+                        ) : null
+                    }
+                />
+            ) : isEmpty ? (
                 <EmptyState
                     icon={
                         <Ship className="mx-auto mb-3 size-8 text-muted-foreground/50" />
                     }
                     title={
                         hasActiveQuery
-                            ? isVesselView
-                                ? 'No matching onboard vessels'
-                                : 'No matching crew assignments'
-                            : isVesselView
-                              ? 'No vessels with onboard crew'
-                              : 'No active crew assignments'
+                            ? 'No matching crew assignments'
+                            : 'No active crew assignments'
                     }
                     description={
                         hasActiveQuery
                             ? 'Try clearing search or filters to widen the board.'
-                            : isVesselView
-                              ? 'Vessel View shows vessels with current active P4 onboard crew.'
-                              : 'Create a draft assignment to start mobilisation tracking.'
+                            : 'Create a draft assignment to start mobilisation tracking.'
                     }
                     action={
-                        can.create && !hasActiveQuery && !isVesselView ? (
+                        can.create && !hasActiveQuery ? (
                             <Button
                                 onClick={() =>
                                     router.visit(createAssignment.url())
@@ -316,25 +332,6 @@ export function CurrentCrewContent({
                         ) : null
                     }
                 />
-            ) : isVesselView ? (
-                <>
-                    <CurrentCrewVesselView
-                        key={vessels.map((vessel) => vessel.id).join(',')}
-                        vessels={vessels}
-                    />
-
-                    {pagination.last_page > 1 ? (
-                        <Pagination
-                            currentPage={pagination.current_page}
-                            lastPage={pagination.last_page}
-                            perPage={pagination.per_page}
-                            total={pagination.total}
-                            from={pagination.from}
-                            to={pagination.to}
-                            onPageChange={onPageChange}
-                        />
-                    ) : null}
-                </>
             ) : (
                 <>
                     <OrganizationDataTable

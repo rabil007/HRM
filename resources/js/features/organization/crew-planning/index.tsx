@@ -6,9 +6,8 @@ import {
     useSensors,
 } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
-import { useForm } from '@inertiajs/react';
-import { router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { router, useForm, usePage } from '@inertiajs/react';
+import { ChevronLeft, ChevronRight, Ship } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -16,12 +15,20 @@ import {
     update as updateAssignment,
     destroy as destroyAssignment,
 } from '@/actions/App/Http/Controllers/Organization/CrewPlanningAssignmentController';
+import { index as planningIndex } from '@/actions/App/Http/Controllers/Organization/CrewPlanningController';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
+import { Button } from '@/components/ui/button';
+import { OnboardByVesselBoard } from '@/features/organization/crew/onboard-by-vessel/onboard-by-vessel-board';
+import { onboardSelectionResetKey } from '@/features/organization/crew/onboard-by-vessel/selection-reset-key';
+import type { CurrentCrewVesselRow } from '@/features/organization/crew/types';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import type { PaginationMeta } from '@/types/pagination';
 import { AssignCrewSheet } from './components/assign-crew-sheet';
+import { CrewPlanningViewSwitcher } from './components/crew-planning-view-switcher';
 import { CrewPool } from './components/crew-pool';
+import { OnboardPlanningFilters } from './components/onboard-planning-filters';
 import { PlanningGantt } from './components/planning-gantt';
 import { PlanningLegend } from './components/planning-legend';
 import { PlanningToolbar } from './components/planning-toolbar';
@@ -32,6 +39,7 @@ import { ZoomProvider } from './lib/zoom-context';
 import type {
     AssignmentFormData,
     CrewDragData,
+    CrewPlanningView,
     GanttBar,
     GanttVesselGroup,
     PlanningFilters,
@@ -64,6 +72,7 @@ const CLOSED_DIALOG: AssignDialogState = {
 };
 
 type Props = {
+    view?: CrewPlanningView;
     rows: GanttVesselGroup[];
     bars: GanttBar[];
     tree: TreeVessel[];
@@ -75,9 +84,50 @@ type Props = {
     can: PlanningPagePermissions;
     projection?: PlanningProjection | null;
     relief_prefill?: PlanningReliefPrefill | null;
+    onboard_vessels?: CurrentCrewVesselRow[];
+    onboard_pagination?: PaginationMeta;
 };
 
+function visitPlanningView(
+    view: CrewPlanningView,
+    filters: PlanningFilters,
+): void {
+    const params: Record<string, string> = {};
+
+    if (view === 'onboard-vessels') {
+        params.view = 'onboard-vessels';
+    }
+
+    if (filters.vessel_id != null) {
+        params.vessel_id = String(filters.vessel_id);
+    }
+
+    if (filters.rank_id != null) {
+        params.rank_id = String(filters.rank_id);
+    }
+
+    if (filters.search) {
+        params.search = filters.search;
+    }
+
+    if (view === 'planning') {
+        if (filters.from) {
+            params.from = filters.from;
+        }
+
+        if (filters.to) {
+            params.to = filters.to;
+        }
+    }
+
+    router.get(planningIndex.url(), params, {
+        preserveState: false,
+        replace: false,
+    });
+}
+
 export function CrewPlanningContent({
+    view = 'planning',
     rows,
     bars,
     tree,
@@ -89,7 +139,21 @@ export function CrewPlanningContent({
     can,
     projection = null,
     relief_prefill: reliefPrefill = null,
+    onboard_vessels: onboardVessels = [],
+    onboard_pagination: onboardPagination = {
+        current_page: 1,
+        last_page: 1,
+        per_page: 15,
+        total: 0,
+        from: null,
+        to: null,
+    },
 }: Props): ReactElement {
+    const { current_company_id: currentCompanyId } = usePage().props as {
+        current_company_id?: number | null;
+    };
+    const currentView: CrewPlanningView =
+        view === 'onboard-vessels' ? 'onboard-vessels' : 'planning';
     const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState(filters.search ?? '');
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -355,6 +419,124 @@ export function CrewPlanningContent({
         [openCreateForRow, today, filters.from, filters.to, ranks],
     );
 
+    if (currentView === 'onboard-vessels') {
+        const hasActiveQuery =
+            Boolean(filters.search?.trim()) ||
+            filters.vessel_id != null ||
+            filters.rank_id != null;
+        const selectionKey = onboardSelectionResetKey({
+            companyId: currentCompanyId,
+            search: filters.search ?? '',
+            filters: {
+                vessel_id: filters.vessel_id,
+                rank_id: filters.rank_id,
+            },
+        });
+
+        return (
+            <Main>
+                <div className="border-b px-4 pt-5 pb-4">
+                    <PageHeader
+                        kicker="Crew Operations"
+                        title="Crew Planning"
+                        description="Actual current onboard crew by vessel — not planned Gantt state."
+                        right={
+                            <CrewPlanningViewSwitcher
+                                value={currentView}
+                                onChange={(next) =>
+                                    visitPlanningView(next, filters)
+                                }
+                                canViewOnboard={Boolean(can.view_assignments)}
+                            />
+                        }
+                    />
+                </div>
+
+                <OnboardPlanningFilters
+                    filters={filters}
+                    vessels={vessels}
+                    ranks={ranks}
+                    perPage={onboardPagination.per_page}
+                />
+
+                <div className="px-4 py-4">
+                    <OnboardByVesselBoard
+                        key={selectionKey}
+                        vessels={onboardVessels}
+                        pagination={onboardPagination}
+                        exportQuery={{
+                            search: filters.search,
+                            vessel_id: filters.vessel_id,
+                            rank_id: filters.rank_id,
+                        }}
+                        onPageChange={(page) => {
+                            const params: Record<string, string> = {
+                                view: 'onboard-vessels',
+                                page: String(page),
+                                per_page: String(onboardPagination.per_page),
+                            };
+
+                            if (filters.search) {
+                                params.search = filters.search;
+                            }
+
+                            if (filters.vessel_id != null) {
+                                params.vessel_id = String(filters.vessel_id);
+                            }
+
+                            if (filters.rank_id != null) {
+                                params.rank_id = String(filters.rank_id);
+                            }
+
+                            router.get(planningIndex.url(), params, {
+                                preserveState: true,
+                                preserveScroll: true,
+                                replace: true,
+                                only: [
+                                    'view',
+                                    'onboard_vessels',
+                                    'onboard_pagination',
+                                    'filters',
+                                    'can',
+                                ],
+                            });
+                        }}
+                        emptyIcon={
+                            <Ship className="mx-auto mb-3 size-8 text-muted-foreground/50" />
+                        }
+                        emptyTitle={
+                            hasActiveQuery
+                                ? 'No matching onboard vessels'
+                                : 'No vessels with onboard crew'
+                        }
+                        emptyDescription={
+                            hasActiveQuery
+                                ? 'Try clearing search or filters to widen the roster.'
+                                : 'Onboard by Vessel shows current active P4 crew, not planned joins.'
+                        }
+                        emptyAction={
+                            hasActiveQuery ? (
+                                <Button
+                                    variant="outline"
+                                    onClick={() =>
+                                        visitPlanningView('onboard-vessels', {
+                                            ...filters,
+                                            vessel_id: null,
+                                            rank_id: null,
+                                            search: '',
+                                        })
+                                    }
+                                >
+                                    Clear filters
+                                </Button>
+                            ) : null
+                        }
+                    />
+                </div>
+            </Main>
+        );
+    }
+
     return (
         <ZoomProvider>
             <DndContext
@@ -371,6 +553,17 @@ export function CrewPlanningContent({
                             kicker="Crew Operations"
                             title="Crew Planning"
                             description="Plan relief crew who will replace deployed crew after they leave the vessel."
+                            right={
+                                <CrewPlanningViewSwitcher
+                                    value={currentView}
+                                    onChange={(next) =>
+                                        visitPlanningView(next, filters)
+                                    }
+                                    canViewOnboard={Boolean(
+                                        can.view_assignments,
+                                    )}
+                                />
+                            }
                         />
                     </div>
 

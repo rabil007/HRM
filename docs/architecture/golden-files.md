@@ -468,7 +468,7 @@ End-to-end delete orchestration: confirm dialog, Wayfinder delete URL, condition
 
 **Files (pair):**
 
-- **Frontend:** `resources/js/pages/organization/documents/employee.tsx` + `resources/js/features/organization/documents/shared/use-bulk-selection.ts` + `resources/js/features/organization/documents/shared/bulk-toolbar.tsx`
+- **Frontend:** `resources/js/pages/organization/documents/employee.tsx` + `resources/js/hooks/use-record-selection.ts` + `resources/js/components/selection/selection-toolbar.tsx`
 - **Backend:** `app/Support/EmployeeDocuments/DocumentBulkActionService.php`
 
 **Why they are good examples**
@@ -477,15 +477,15 @@ Most complete bulk workflow: checkbox selection with select-all, sticky toolbar,
 
 **Important patterns to follow**
 
-- `useBulkSelection(visibleIds)` — tracks selection across visible rows; `toggleAll`, `clear`, `isPartiallySelected`.
-- `DocumentsBulkToolbar` — only renders when `count > 0`; actions passed as `ReactNode`.
+- `useRecordSelection(visibleIds)` — generic visible-row selection; `toggle`, `toggleAll` / `toggleVisible`, `select`, `deselect`, `clear`, `headerCheckboxState`.
+- `SelectionToolbar` — only renders when `count > 0`; actions passed as `ReactNode`. Domain modules own matching-selection and bulk actions.
 - `stopPropagation` on checkbox cells so row click still works.
 - Bulk delete: `router.delete` with `{ data: { document_ids } }` to bulk destroy route.
 - Backend deduplicates IDs, verifies count matches, scopes by company + employee.
 
 **What future code should imitate**
 
-- Reuse `useBulkSelection` + toolbar pattern for any multi-select list actions.
+- For pageable/selectable record lists, use `useRecordSelection` + `SelectionToolbar` instead of creating module-specific selection state.
 - Add Support service methods for bulk operations with strict ID validation—never delete by IDs without company scope check.
 
 ---

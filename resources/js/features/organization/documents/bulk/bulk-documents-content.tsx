@@ -36,6 +36,7 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
+import { SelectionToolbar } from '@/components/selection/selection-toolbar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -63,13 +64,12 @@ import {
     canRegenerateSignatureAlignment,
 } from '@/features/organization/documents/bulk/bulk-signatures-table';
 import { SignatureStatusBadge } from '@/features/organization/documents/bulk/signature-status-badge';
-import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { downloadBinaryExport } from '@/features/organization/documents/shared/download-binary-export';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
-import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { DepartmentEmployeeTree } from '@/features/organization/employees/components/department-employee-tree';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
+import { useRecordSelection } from '@/hooks/use-record-selection';
 import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -575,7 +575,7 @@ export function BulkDocumentsContent({
         toggle,
         toggleAll,
         clear,
-    } = useBulkSelection(employeeIds);
+    } = useRecordSelection(employeeIds);
 
     const signatureRequestIds = useMemo(
         () => signature_requests.map((request) => request.id),
@@ -591,7 +591,7 @@ export function BulkDocumentsContent({
         toggle: toggleSignature,
         toggleAll: toggleAllSignatures,
         clear: clearSignatureSelection,
-    } = useBulkSelection(signatureRequestIds);
+    } = useRecordSelection(signatureRequestIds);
 
     const [matchingSignatureSelection, setMatchingSignatureSelection] =
         useState<{
@@ -2101,7 +2101,7 @@ export function BulkDocumentsContent({
             {isRosterView ? (
                 <>
                     {/* Selection toolbar */}
-                    <DocumentsBulkToolbar
+                    <SelectionToolbar
                         count={effectiveSelectedCount}
                         itemLabel="employees"
                         onClear={clearSelection}
@@ -2291,7 +2291,7 @@ export function BulkDocumentsContent({
                 </>
             ) : isSignaturesView ? (
                 <>
-                    <DocumentsBulkToolbar
+                    <SelectionToolbar
                         count={effectiveSignatureCount}
                         itemLabel="signature requests"
                         onClear={clearSignatureSelectionState}

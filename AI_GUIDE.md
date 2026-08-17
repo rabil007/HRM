@@ -427,7 +427,7 @@ Copy patterns from these before inventing new ones. Full rationale: [docs/archit
 | Query Support | `app/Support/EmployeeDocuments/DocumentBrowseQuery.php` |
 | File upload | `app/Support/EmployeeDocuments/StoresEmployeeDocument.php` |
 | Delete flow | `features/organization/documents/shared/document-management-dialogs.tsx` |
-| Bulk actions | `pages/organization/documents/employee.tsx` + `use-bulk-selection.ts` |
+| Bulk actions | `pages/organization/documents/employee.tsx` + `hooks/use-record-selection.ts` |
 
 ---
 

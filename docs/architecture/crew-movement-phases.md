@@ -16,16 +16,20 @@ Employee Sea Service
 
 Current Crew, vessel manning actuals, the Crew Operations dashboard pulse, and current/future planning projections require the assignment employee to be **active**. Crew Movement History, completed assignments, and sea service retain inactive/terminated employees. See [Active employee visibility](./architecture/active-employee-visibility.md).
 
-## Current Crew views
+## Current Crew and Crew Planning views
 
-`/organization/crew` is the operational Current Crew board. It is **not** Crew Planning.
+`/organization/crew` is the operational Crew Assignments board. It is **not** Crew Planning.
 
-| View | URL | Meaning |
-|------|-----|---------|
-| **Crew View** (default) | `/organization/crew` or `?view=crew` | Employee/assignment-oriented current assignments (Draft/Active unless filtered to history) |
-| **Vessel View** | `/organization/crew?view=vessel` | Vessel-oriented roster of **currently onboard** crew |
+| Surface | URL | Meaning |
+|---------|-----|---------|
+| **Crew Assignments → Crew View** (default) | `/organization/crew` or `?view=crew` | Employee/assignment-oriented current assignments (Draft/Active unless filtered to history) |
+| **Crew Assignments → Vessel View** | `/organization/crew?view=vessel` | Operational vessel-first roster of **currently onboard** crew |
+| **Crew Planning → Planning** (default) | `/organization/crew-planning` or `?view=planning` | Planned/future vessel manning and movements (Gantt) |
+| **Crew Planning → Onboard by Vessel** | `/organization/crew-planning?view=onboard-vessels` | The same actual/current P4 vessel roster, shown beside planning workflows |
 
-Vessel View answers: which vessels currently have crew onboard, and who is onboard each vessel.
+Crew Planning **Planning** is planned/future state. Crew Planning **Onboard by Vessel** is reusable actual/current P4 operational state. It never derives onboard status from Gantt/planning records.
+
+Vessel View / Onboard by Vessel answers: which vessels currently have crew onboard, and who is onboard each vessel.
 
 A person is onboard only when all of the following are true:
 
@@ -37,11 +41,26 @@ vessel_id is present
 employee is active in the current company
 ```
 
-That rule is shared by Vessel View, vessel manning actual counts, and the Vessel View Excel export (`CurrentOnboardCrewQuery`). Planned assignments, P2/P3/P5/P6, and `vessel_id` alone are not evidence of being onboard.
+That rule is shared by Crew Assignments Vessel View, Crew Planning Onboard by Vessel, vessel manning actual counts, and the onboard Excel export (`CurrentOnboardCrewQuery`). Planned assignments, P2/P3/P5/P6, `vessel_id` alone, and Crew Planning Gantt bars are not evidence of being onboard.
 
 `planned_signoff_at` on an active P4 row is an operational forecast only. It does not disembark the employee.
 
-Vessel View paginates **vessels**, then loads the complete filtered onboard roster for those vessels. Excel export uses the same filtered dataset and is not limited to the current page.
+Both pages consume the same crew-domain roster (`OnboardByVesselBoard` / `CurrentCrewVesselQuery`). Parent rows are vessels. Each page loads the complete filtered onboard roster for those vessels — assignments are never paginated first.
+
+### Export intent
+
+Excel export uses the same filtered onboard dataset and is not limited to the current page.
+
+| Mode | Request | Result |
+|------|---------|--------|
+| `all_filtered` (nothing manually selected) | `scope=all` | Export the full filtered onboard set |
+| `selected` (one or more rows manually selected) | `scope=selected` + `assignment_ids[]` | Export only IDs that still match the authoritative filtered onboard query |
+
+Selected mode must never silently degrade into `all_filtered`. If every supplied ID is invalid after revalidation, export returns a validation error instead of exporting all matching crew.
+
+Manual selection is persistent across pagination (`allSelectedIds`). Search/filter changes remount the board and clear selection. Switching Planning ↔ Onboard by Vessel, or switching company, also clears selection.
+
+Selection uses the shared `useRecordSelection` hook. `selectedIds` remains the visible-page intersection (Bulk Documents). Onboard export uses `allSelectedIds`. Vessel checkboxes select/deselect that vessel’s loaded crew IDs without the hook knowing what a vessel is.
 
 ## Domain model
 

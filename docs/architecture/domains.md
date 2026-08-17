@@ -633,7 +633,7 @@ Manning UI is embedded in `features/organization/vessels/show.tsx` using `Vessel
 
 Plan employee assignments against vessels and expose an operational overview alongside deployment and manning data.
 
-Current Crew (`/organization/crew`) is operational state, not planning. **Crew View** lists current assignments; **Vessel View** (`?view=vessel`) groups currently onboard active P4 crew by vessel. See [Crew Movement Phases](./crew-movement-phases.md).
+Current Crew (`/organization/crew`) is operational state, not planning. **Crew View** lists current assignments; **Vessel View** (`?view=vessel`) groups currently onboard active P4 crew by vessel. Crew Planning (`/organization/crew-planning`) defaults to the Gantt; **Onboard by Vessel** (`?view=onboard-vessels`) reuses the same actual P4 vessel roster and does not treat planning records as onboard. See [Crew Movement Phases](./crew-movement-phases.md).
 
 ### Main artifacts
 

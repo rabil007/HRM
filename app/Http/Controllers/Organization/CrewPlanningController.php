@@ -5,19 +5,29 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Models\CrewAssignment;
 use App\Models\Rank;
+use App\Support\CrewMovements\CurrentCrewRequestFilters;
+use App\Support\CrewMovements\CurrentCrewVesselQuery;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewOperations\CrewProjectedManningQuery;
 use App\Support\CrewPlanning\CrewPlanningGanttQuery;
 use App\Support\CrewPlanning\CrewPlanningPagePermissions;
 use App\Support\CrewPlanning\CrewPlanningProjectionPresenter;
+use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CrewPlanningController extends Controller
 {
+    use ResolvesPerPage;
+
+    public const VIEW_PLANNING = 'planning';
+
+    public const VIEW_ONBOARD_VESSELS = 'onboard-vessels';
+
     public function __construct(
         private readonly CrewProjectedManningQuery $projectedManningQuery,
     ) {}
@@ -25,6 +35,7 @@ class CrewPlanningController extends Controller
     public function index(Request $request): Response
     {
         $companyId = (int) $request->attributes->get('current_company_id');
+        $view = $this->resolveView($request);
 
         $from = $this->resolveDate($request->query('from'), CarbonImmutable::now()->startOfMonth()->toDateString());
         $to = $this->resolveDate($request->query('to'), CarbonImmutable::now()->addMonths(2)->endOfMonth()->toDateString());
@@ -37,6 +48,40 @@ class CrewPlanningController extends Controller
 
         $search = trim((string) $request->query('search', ''));
         $can = CrewPlanningPagePermissions::for($request->user());
+
+        $shared = [
+            'view' => $view,
+            'filters' => [
+                'vessel_id' => $vesselId,
+                'rank_id' => $rankId,
+                'from' => $from,
+                'to' => $to,
+                'search' => $search,
+            ],
+            'today' => CarbonImmutable::today()->toDateString(),
+            'vessels' => $this->activeVessels($companyId),
+            'ranks' => $this->activeRanks(),
+            'can' => $can,
+        ];
+
+        if ($view === self::VIEW_ONBOARD_VESSELS) {
+            Gate::authorize('viewAny', CrewAssignment::class);
+
+            $onboardFilters = CurrentCrewRequestFilters::fromRequest($request);
+            $paginator = CurrentCrewVesselQuery::paginate($companyId, $onboardFilters);
+
+            return Inertia::render('organization/crew-planning/index', [
+                ...$shared,
+                'rows' => [],
+                'bars' => [],
+                'tree' => [],
+                'employees' => [],
+                'projection' => null,
+                'relief_prefill' => null,
+                'onboard_vessels' => $paginator->items(),
+                'onboard_pagination' => $this->paginationMeta($paginator),
+            ]);
+        }
 
         $projection = null;
         $projectionPositions = null;
@@ -55,6 +100,7 @@ class CrewPlanningController extends Controller
         }
 
         return Inertia::render('organization/crew-planning/index', [
+            ...$shared,
             'rows' => CrewPlanningGanttQuery::rows(
                 $companyId,
                 $from,
@@ -72,21 +118,26 @@ class CrewPlanningController extends Controller
                 $rankId,
                 $projectionPositions,
             ),
-            'filters' => [
-                'vessel_id' => $vesselId,
-                'rank_id' => $rankId,
-                'from' => $from,
-                'to' => $to,
-                'search' => $search,
-            ],
-            'today' => CarbonImmutable::today()->toDateString(),
-            'vessels' => $this->activeVessels($companyId),
-            'ranks' => $this->activeRanks(),
             'employees' => CrewOperationsSettings::poolEmployees($companyId),
-            'can' => $can,
             'projection' => $projection,
             'relief_prefill' => $this->reliefPrefill($request, $companyId),
+            'onboard_vessels' => [],
+            'onboard_pagination' => [
+                'current_page' => 1,
+                'last_page' => 1,
+                'per_page' => 15,
+                'total' => 0,
+                'from' => null,
+                'to' => null,
+            ],
         ]);
+    }
+
+    private function resolveView(Request $request): string
+    {
+        return $request->query('view') === self::VIEW_ONBOARD_VESSELS
+            ? self::VIEW_ONBOARD_VESSELS
+            : self::VIEW_PLANNING;
     }
 
     /**

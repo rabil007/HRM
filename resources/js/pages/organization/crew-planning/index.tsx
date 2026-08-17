@@ -1,6 +1,8 @@
 import { Head } from '@inertiajs/react';
+import type { CurrentCrewVesselRow } from '@/features/organization/crew/types';
 import { CrewPlanningContent } from '@/features/organization/crew-planning/index';
 import type {
+    CrewPlanningView,
     GanttBar,
     GanttVesselGroup,
     PlanningFilters,
@@ -11,8 +13,10 @@ import type {
     PlanningReliefPrefill,
     TreeVessel,
 } from '@/features/organization/crew-planning/types';
+import type { PaginationMeta } from '@/types/pagination';
 
 type Props = {
+    view?: CrewPlanningView;
     rows: GanttVesselGroup[];
     bars: GanttBar[];
     tree: TreeVessel[];
@@ -24,9 +28,12 @@ type Props = {
     can: PlanningPagePermissions;
     projection?: PlanningProjection | null;
     relief_prefill?: PlanningReliefPrefill | null;
+    onboard_vessels?: CurrentCrewVesselRow[];
+    onboard_pagination?: PaginationMeta;
 };
 
 export default function CrewPlanningIndex({
+    view = 'planning',
     rows,
     bars,
     tree,
@@ -38,11 +45,14 @@ export default function CrewPlanningIndex({
     can,
     projection = null,
     relief_prefill = null,
+    onboard_vessels = [],
+    onboard_pagination,
 }: Props) {
     return (
         <>
             <Head title="Crew Planning" />
             <CrewPlanningContent
+                view={view}
                 rows={rows}
                 bars={bars}
                 tree={tree}
@@ -54,6 +64,8 @@ export default function CrewPlanningIndex({
                 can={can}
                 projection={projection}
                 relief_prefill={relief_prefill}
+                onboard_vessels={onboard_vessels}
+                onboard_pagination={onboard_pagination}
             />
         </>
     );

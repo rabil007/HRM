@@ -127,3 +127,55 @@ function makeActiveOnVesselAssignment(
 
     return $assignment->fresh(['currentPhase', 'vessel', 'employee']);
 }
+
+/**
+ * @param  array<string, mixed>  $overrides
+ */
+function makeCurrentCrewPhaseAssignment(
+    Company $company,
+    Employee $employee,
+    Rank $rank,
+    Vessel $vessel,
+    CrewPhaseCode $phaseCode,
+    array $overrides = [],
+): CrewAssignment {
+    $started = CarbonImmutable::parse('2026-01-01 08:00:00', $company->timezone ?? 'UTC');
+
+    $assignment = CrewAssignment::query()->create(array_merge([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-VV-'.Str::upper(Str::random(6)),
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Active,
+        'started_at' => $started,
+        'source' => 'manual',
+    ], $overrides));
+
+    $phase = CrewAssignmentPhase::query()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'phase_code' => $phaseCode,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => $started,
+    ]);
+
+    $assignment->update(['current_phase_id' => $phase->id]);
+
+    return $assignment->fresh(['currentPhase', 'vessel', 'employee', 'rank']);
+}
+
+/**
+ * @param  list<string>  $permissions
+ * @return array{user: User, company: Company, employee: Employee, rank: Rank, vessel: Vessel}
+ */
+function makeCurrentCrewVesselViewFixtures(array $permissions = ['crew_operations.assignments.view']): array
+{
+    $fixtures = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], $permissions);
+    $fixtures['user']->update(['current_company_id' => $fixtures['company']->id]);
+    $fixtures['vessel'] = makeCrewMovementVessel('HAI DUONG 08', $fixtures['company']);
+
+    return $fixtures;
+}

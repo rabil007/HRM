@@ -11,7 +11,7 @@
         "lint": "eslint . --fix",
         "lint:check": "eslint .",
         "types:check": "tsc --noEmit",
-        "test:frontend": "node --experimental-strip-types --test resources/js/hooks/*.test.ts resources/js/features/payroll/lib/*.test.ts resources/js/features/organization/crew-planning/lib/*.test.ts resources/js/features/organization/crew/lib/*.test.ts resources/js/pages/organization/_lib/*.test.ts",
+        "test:frontend": "node --experimental-strip-types --test resources/js/hooks/*.test.ts resources/js/features/payroll/lib/*.test.ts resources/js/features/organization/crew-planning/lib/*.test.ts resources/js/features/organization/crew/lib/*.test.ts resources/js/features/organization/crew/onboard-by-vessel/*.test.ts resources/js/pages/organization/_lib/*.test.ts",
         "browsershot:install": "puppeteer browsers install chrome-headless-shell",
         "postinstall": "puppeteer browsers install chrome-headless-shell || true"
     },

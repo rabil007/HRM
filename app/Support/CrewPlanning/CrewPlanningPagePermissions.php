@@ -7,7 +7,7 @@ use App\Models\User;
 final class CrewPlanningPagePermissions
 {
     /**
-     * @return array{view: bool, create: bool, update: bool, delete: bool, projection: bool}
+     * @return array{view: bool, create: bool, update: bool, delete: bool, projection: bool, create_assignment: bool, view_assignments: bool}
      */
     public static function for(?User $user): array
     {
@@ -18,7 +18,7 @@ final class CrewPlanningPagePermissions
             'delete' => $user?->can('crew_operations.planning.delete') ?? false,
             'projection' => $user?->can('crew_operations.vessel_manning.view') ?? false,
             'create_assignment' => $user?->can('crew_operations.assignments.create') ?? false,
+            'view_assignments' => $user?->can('crew_operations.assignments.view') ?? false,
         ];
-
     }
 }

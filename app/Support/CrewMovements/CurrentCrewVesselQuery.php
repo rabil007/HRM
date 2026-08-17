@@ -73,12 +73,26 @@ final class CurrentCrewVesselQuery
     /**
      * All matching onboard assignments for export (not limited to the current page).
      *
+     * Optional assignment IDs are intersected with the authoritative filtered
+     * onboard query so client-supplied IDs cannot expand the result set.
+     *
+     * When $selectedOnly is true, the query is always restricted to the supplied
+     * IDs (an empty list matches nothing). Callers must not treat an empty
+     * selected result as "export all".
+     *
      * @param  array<string, mixed>  $filters
      * @return Collection<int, CrewAssignment>
      */
-    public static function exportAssignments(int $companyId, array $filters = []): Collection
+    public static function exportAssignments(int $companyId, array $filters = [], mixed $assignmentIds = [], bool $selectedOnly = false): Collection
     {
         $query = CurrentOnboardCrewQuery::assignments($companyId, $filters);
+
+        $selectedIds = self::sanitizeAssignmentIds($assignmentIds);
+
+        if ($selectedOnly || $selectedIds !== []) {
+            $query->whereIn('id', $selectedIds === [] ? [0] : $selectedIds);
+        }
+
         CurrentCrewQuery::eagerLoadForList($query);
 
         $assignments = $query
@@ -175,5 +189,18 @@ final class CurrentCrewVesselQuery
         }
 
         return 'Fully manned';
+    }
+
+    /**
+     * @return list<int>
+     */
+    public static function sanitizeAssignmentIds(mixed $raw): array
+    {
+        $ids = is_array($raw) ? $raw : (($raw === null || $raw === '') ? [] : [$raw]);
+
+        return array_values(array_unique(array_filter(
+            array_map(static fn (mixed $id): int => (int) $id, $ids),
+            static fn (int $id): bool => $id > 0,
+        )));
     }
 }

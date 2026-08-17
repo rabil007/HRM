@@ -72,6 +72,8 @@ export type TreeVessel = {
     ranks: TreeRank[];
 };
 
+export type CrewPlanningView = 'planning' | 'onboard-vessels';
+
 export type PlanningFilters = {
     vessel_id: number | null;
     rank_id: number | null;
@@ -105,6 +107,7 @@ export type PlanningPagePermissions = {
     delete: boolean;
     projection: boolean;
     create_assignment?: boolean;
+    view_assignments?: boolean;
 };
 
 export type PlanningProjectionStatus =
