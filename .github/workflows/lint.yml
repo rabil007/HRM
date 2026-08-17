@@ -47,9 +47,7 @@ jobs:
         run: npx eslint . --fix-dry-run
 
       - name: Check frontend formatting
-        run: |
-          npx prettier --write resources/js/components/command-menu.tsx resources/js/hooks/use-workspace-shortcuts.ts
-          git diff --exit-code -- resources/js/components/command-menu.tsx resources/js/hooks/use-workspace-shortcuts.ts
+        run: npm run format:check
 
       - name: Check TypeScript
         run: npm run types:check
