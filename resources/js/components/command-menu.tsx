@@ -20,10 +20,8 @@ import {
 } from '@/components/ui/command';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSearch } from '@/context/search-provider';
-import {
-    type WorkspaceShortcut,
-    useWorkspaceShortcuts,
-} from '@/hooks/use-workspace-shortcuts';
+import { useWorkspaceShortcuts } from '@/hooks/use-workspace-shortcuts';
+import type { WorkspaceShortcut } from '@/hooks/use-workspace-shortcuts';
 
 type GlobalSearchResult = {
     type: string;
@@ -77,13 +75,16 @@ export function CommandMenu() {
         if (!open) {
             setQuery('');
             setResults([]);
+
             return;
         }
 
         const term = query.trim();
+
         if (term.length < 2) {
             setResults([]);
             setIsSearching(false);
+
             return;
         }
 
