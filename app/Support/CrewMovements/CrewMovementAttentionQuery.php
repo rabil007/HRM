@@ -7,6 +7,8 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Support\Employees\ActiveEmployeeConstraint;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class CrewMovementAttentionQuery
 {
@@ -210,6 +212,35 @@ class CrewMovementAttentionQuery
     }
 
     /**
+     * Assignment IDs whose authoritative warning list is non-empty.
+     *
+     * Evaluates `forAssignment()` against the already-constrained candidate
+     * query so other Current Crew filters remain intersections, not afterthoughts.
+     * An empty match set uses `[0]` so `whereIn` never matches a real row.
+     *
+     * @param  Builder<CrewAssignment>  $query
+     * @return list<int>
+     */
+    public static function matchingIds(int $companyId, Builder $query): array
+    {
+        $ids = self::needingAttention(self::candidates($companyId, $query))
+            ->map(fn (CrewAssignment $assignment): int => (int) $assignment->id)
+            ->values()
+            ->all();
+
+        return $ids === [] ? [0] : $ids;
+    }
+
+    /**
+     * @param  Builder<CrewAssignment>  $query
+     * @return Builder<CrewAssignment>
+     */
+    public static function applyFilter(Builder $query, int $companyId): Builder
+    {
+        return $query->whereIn('id', self::matchingIds($companyId, $query));
+    }
+
+    /**
      * @return array{
      *     total: int,
      *     needs_attention: int,
@@ -218,32 +249,48 @@ class CrewMovementAttentionQuery
      */
     public static function summaryCounts(int $companyId): array
     {
-        $assignments = CrewAssignment::query()
+        $query = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereIn('status', [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active]);
 
-        ActiveEmployeeConstraint::whereHas($assignments, $companyId);
+        ActiveEmployeeConstraint::whereHas($query, $companyId);
 
-        $assignments = $assignments
-            ->with(['currentPhase', 'company', 'phases'])
-            ->get();
+        $assignments = self::candidates($companyId, $query);
 
         $byPhase = [];
-        $needsAttention = 0;
 
         foreach ($assignments as $assignment) {
             $phaseCode = $assignment->currentPhase?->phase_code?->value ?? 'unknown';
             $byPhase[$phaseCode] = ($byPhase[$phaseCode] ?? 0) + 1;
-
-            if (self::forAssignment($assignment) !== []) {
-                $needsAttention++;
-            }
         }
 
         return [
             'total' => $assignments->count(),
-            'needs_attention' => $needsAttention,
+            'needs_attention' => self::needingAttention($assignments)->count(),
             'by_phase' => $byPhase,
         ];
+    }
+
+    /**
+     * @param  Builder<CrewAssignment>  $query
+     * @return Collection<int, CrewAssignment>
+     */
+    private static function candidates(int $companyId, Builder $query): Collection
+    {
+        return (clone $query)
+            ->where('company_id', $companyId)
+            ->with(['currentPhase', 'company', 'phases'])
+            ->get();
+    }
+
+    /**
+     * @param  Collection<int, CrewAssignment>  $assignments
+     * @return Collection<int, CrewAssignment>
+     */
+    private static function needingAttention(Collection $assignments): Collection
+    {
+        return $assignments->filter(
+            fn (CrewAssignment $assignment): bool => self::forAssignment($assignment) !== [],
+        );
     }
 }

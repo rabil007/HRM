@@ -119,7 +119,7 @@ class CurrentCrewQuery
         }
 
         if (! empty($filters['movement_attention'])) {
-            $query->with(['currentPhase', 'company']);
+            CrewMovementAttentionQuery::applyFilter($query, $companyId);
         }
 
         $sort = $filters['sort'] ?? 'created_at';
@@ -174,17 +174,6 @@ class CurrentCrewQuery
 
             return $assignment;
         });
-
-        if (! empty($filters['movement_attention'])) {
-            $paginator->getCollection()->transform(function (CrewAssignment $assignment) {
-                $assignment->attention_warnings = CrewMovementAttentionQuery::forAssignment($assignment);
-
-                return $assignment;
-            });
-
-            $filtered = $paginator->getCollection()->filter(fn (CrewAssignment $a) => $a->attention_warnings !== []);
-            $paginator->setCollection($filtered->values());
-        }
 
         return $paginator;
     }
