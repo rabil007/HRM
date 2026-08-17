@@ -88,6 +88,11 @@ class AttendanceRecordController extends Controller
     {
         $data = $request->validated();
         $companyId = (int) $request->attributes->get('current_company_id');
+        $this->visibility->assertCanWriteForEmployee(
+            $request->user(),
+            $companyId,
+            (int) $data['employee_id'],
+        );
 
         $hoursWorked = $data['hours_worked'] ?? AttendanceRecord::calculateHoursWorked(
             isset($data['clock_in']) ? Carbon::parse($data['clock_in']) : null,
@@ -119,6 +124,11 @@ class AttendanceRecordController extends Controller
         $this->visibility->assertCanAccess($attendanceRecord, $request->user(), $companyId);
 
         $data = $request->validated();
+        $this->visibility->assertCanWriteForEmployee(
+            $request->user(),
+            $companyId,
+            (int) $data['employee_id'],
+        );
 
         $hoursWorked = $data['hours_worked'] ?? AttendanceRecord::calculateHoursWorked(
             isset($data['clock_in']) ? Carbon::parse($data['clock_in']) : null,

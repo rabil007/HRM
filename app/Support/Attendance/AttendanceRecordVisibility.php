@@ -67,4 +67,37 @@ final class AttendanceRecordVisibility
     {
         abort_unless($this->canAccess($record, $user, $companyId), 404);
     }
+
+    /**
+     * Create/update target employee. Managers may use any employee in the active
+     * company. Self-service users may only use their linked active-company Employee.
+     */
+    public function canWriteForEmployee(?User $user, int $companyId, int $employeeId): bool
+    {
+        if ($employeeId < 1) {
+            return false;
+        }
+
+        $employeeExistsInCompany = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employeeId)
+            ->exists();
+
+        if (! $employeeExistsInCompany) {
+            return false;
+        }
+
+        if ($this->canManageAll($user)) {
+            return true;
+        }
+
+        $linkedId = $this->linkedEmployeeId($user, $companyId);
+
+        return $linkedId !== null && $linkedId === $employeeId;
+    }
+
+    public function assertCanWriteForEmployee(?User $user, int $companyId, int $employeeId): void
+    {
+        abort_unless($this->canWriteForEmployee($user, $companyId, $employeeId), 404);
+    }
 }

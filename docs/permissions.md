@@ -143,6 +143,16 @@ Anyone with `users.update` in the active company may assign any role that exists
 
 The Users directory lists people whose **home** `users.company_id` is the active company. It does not serialize other-company memberships or other-team roles.
 
+## Attendance records
+
+`attendance.records.view|create|update|delete` are self-service for the authenticated user's **linked Employee in the active company**. `attendance.records.manage` enables same-company employee management (list, create, update, export). `employee_id` is not an authorization mechanism.
+
+- Self-service create/update may only target the linked active-company Employee. A coworker or Company B employee is 404, including when the payload is otherwise invalid.
+- Managers may select another **active-company** employee. Cross-company IDs remain 404.
+- Linked Employee in Company B does not authorize writes while `current_company_id` is Company A.
+- Hikvision/mobile sync remains a separate ingestion path and is not self-service HTTP.
+- `platform_access` does not grant tenant attendance management.
+
 ### Ownership
 
 | Concern | Source |

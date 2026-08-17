@@ -5,6 +5,7 @@ namespace App\Http\Requests\Attendance;
 use App\Http\Requests\Attendance\Concerns\AttendanceRecordValidationRules;
 use App\Http\Requests\Attendance\Concerns\ValidatesUniqueAttendanceRecord;
 use App\Models\AttendanceRecord;
+use App\Support\Attendance\AttendanceRecordVisibility;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
@@ -16,7 +17,19 @@ class StoreAttendanceRecordRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return (bool) $this->user()?->can('attendance.records.create');
+        if (! $this->user()?->can('attendance.records.create')) {
+            return false;
+        }
+
+        $companyId = (int) $this->attributes->get('current_company_id');
+
+        app(AttendanceRecordVisibility::class)->assertCanWriteForEmployee(
+            $this->user(),
+            $companyId,
+            (int) $this->input('employee_id'),
+        );
+
+        return true;
     }
 
     /**

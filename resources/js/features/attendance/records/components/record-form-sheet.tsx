@@ -23,7 +23,7 @@ export function RecordFormSheet({
     form,
     employees,
     statusOptions,
-    linkedEmployeeId,
+    linkedEmployeeId: _linkedEmployeeId,
     canManage,
     onSubmit,
 }: {
@@ -37,7 +37,7 @@ export function RecordFormSheet({
     canManage: boolean;
     onSubmit: () => void;
 }) {
-    const employeeLocked = !canManage && linkedEmployeeId !== null;
+    const employeeLocked = !canManage;
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>

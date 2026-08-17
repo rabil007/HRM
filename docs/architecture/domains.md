@@ -747,6 +747,9 @@ Also seed email templates when deploying notification changes: `php artisan db:s
 
 - `attendance.overview.view`
 - `attendance.records.view|create|update|delete|manage`
+
+`attendance.records.manage` is same-company HR/admin attendance. Without it, create/update/delete apply only to the user's linked Employee in the **active** company. `employee_id` from the client is not authorization. Cross-company employees are 404. Hikvision sync is separate ingestion.
+
 - `attendance.types.view|create|update|delete`
 - `attendance.leave-requests.view|view_all|create|update|delete|delete_any|approve`
 - `attendance.leave-approval-policies.view|create|update|delete`
