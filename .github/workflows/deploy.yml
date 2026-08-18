@@ -10,7 +10,7 @@ on:
 
 concurrency:
   group: deploy-main
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -109,13 +109,30 @@ jobs:
             u769441461@82.198.227.207:~/domains/overseas-ms.com/public_html/hrm/public/build/
 
       - name: Deploy Backend
+        env:
+          VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          ssh -i ~/.ssh/id_ed25519 -p 65002 -o StrictHostKeyChecking=yes u769441461@82.198.227.207 << 'EOF'
+          if [[ ! "$VALIDATED_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "ERROR: Invalid validated SHA format: $VALIDATED_SHA"
+            exit 1
+          fi
+
+          echo "Deploying revision ${VALIDATED_SHA:0:7} ($VALIDATED_SHA)..."
+
+          ssh -i ~/.ssh/id_ed25519 -p 65002 -o StrictHostKeyChecking=yes u769441461@82.198.227.207 "bash -s -- \"$VALIDATED_SHA\"" << 'EOF'
             set -e
+            TARGET_SHA="$1"
+
+            if [[ ! "$TARGET_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+              echo "ERROR: Invalid target SHA: $TARGET_SHA"
+              exit 1
+            fi
+
             cd ~/domains/overseas-ms.com/public_html/hrm || exit 1
 
-            git fetch origin main
-            git reset --hard origin/main
+            echo "Fetching and resetting to validated revision ${TARGET_SHA:0:7}..."
+            git fetch origin
+            git reset --hard "$TARGET_SHA"
 
             composer install --no-dev --optimize-autoloader
 
