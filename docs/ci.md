@@ -39,7 +39,7 @@ Do not rely on CI to rewrite files. The old `lint.yml` workflow used Pint/`npm r
 | Tool | Version |
 |------|---------|
 | PHP | 8.4 |
-| Node | 20 (lockfile via `npm ci`) |
+| Node | 22 (lockfile via `npm ci`) |
 Pest uses sqlite `:memory:` from `phpunit.xml` (not the Herd MySQL database). PHP memory is set to `1G` in `phpunit.xml` and in the CI `setup-php` step so ZIP/export tests do not exhaust the default 512MB limit.
 
 ## Triggers

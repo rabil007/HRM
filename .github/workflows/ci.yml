@@ -42,9 +42,15 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: package-lock.json
+
+      - name: Log runtime versions
+        run: |
+          node --version
+          npm --version
+          php --version
 
       - name: Get Composer cache directory
         id: composer-cache
