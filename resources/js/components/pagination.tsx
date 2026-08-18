@@ -115,38 +115,41 @@ export function Pagination({
                         className="h-9 rounded-lg px-3 text-sm"
                         disabled={currentPage === 1}
                         onClick={() => onPageChange(currentPage - 1)}
+                        aria-label="Previous page"
                     >
-                        <ChevronLeft className="mr-1 h-4 w-4" />
-                        Previous
+                        <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                        <span className="max-sm:sr-only">Previous</span>
                     </Button>
 
-                    {pages.map((p, i) =>
-                        p === '...' ? (
-                            <span
-                                key={`ellipsis-${i}`}
-                                className="px-1 text-xs text-muted-foreground select-none"
-                            >
-                                …
-                            </span>
-                        ) : (
-                            <Button
-                                key={p}
-                                type="button"
-                                variant={
-                                    p === currentPage ? 'default' : 'ghost'
-                                }
-                                size="icon"
-                                className="h-9 w-9 rounded-lg text-xs font-medium"
-                                onClick={() => onPageChange(p as number)}
-                                aria-label={`Page ${p}`}
-                                aria-current={
-                                    p === currentPage ? 'page' : undefined
-                                }
-                            >
-                                {p}
-                            </Button>
-                        ),
-                    )}
+                    <div className="hidden items-center gap-1 sm:flex">
+                        {pages.map((p, i) =>
+                            p === '...' ? (
+                                <span
+                                    key={`ellipsis-${i}`}
+                                    className="px-1 text-xs text-muted-foreground select-none"
+                                >
+                                    …
+                                </span>
+                            ) : (
+                                <Button
+                                    key={p}
+                                    type="button"
+                                    variant={
+                                        p === currentPage ? 'default' : 'ghost'
+                                    }
+                                    size="icon"
+                                    className="h-9 w-9 rounded-lg text-xs font-medium"
+                                    onClick={() => onPageChange(p as number)}
+                                    aria-label={`Page ${p}`}
+                                    aria-current={
+                                        p === currentPage ? 'page' : undefined
+                                    }
+                                >
+                                    {p}
+                                </Button>
+                            ),
+                        )}
+                    </div>
 
                     <Button
                         type="button"
@@ -154,9 +157,10 @@ export function Pagination({
                         className="h-9 rounded-lg px-3 text-sm"
                         disabled={currentPage === lastPage}
                         onClick={() => onPageChange(currentPage + 1)}
+                        aria-label="Next page"
                     >
-                        Next
-                        <ChevronRight className="ml-1 h-4 w-4" />
+                        <span className="max-sm:sr-only">Next</span>
+                        <ChevronRight className="ml-1 h-4 w-4 max-sm:ml-0" />
                     </Button>
                 </div>
             ) : null}

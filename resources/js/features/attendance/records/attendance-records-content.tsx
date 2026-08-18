@@ -21,8 +21,10 @@ import {
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
+import { MobileRecordList } from '@/components/mobile-record-list';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
+import { SearchBar } from '@/components/search-bar';
 import { TableRowActions } from '@/components/table-row-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,7 +38,13 @@ import {
 } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate, formatDisplayDateTime12h } from '@/lib/format-date';
+import {
+    DESKTOP_OPERATIONAL_TABLE_CLASS,
+    MOBILE_OPERATIONAL_LIST_CLASS,
+} from '@/lib/mobile-operational-list';
 import type { PaginationMeta } from '@/types/pagination';
+import { AttendanceRecordMobileCard } from './components/attendance-record-mobile-card';
+import { AttendanceRecordsFiltersSheet } from './components/attendance-records-filters-sheet';
 import { RecordDeleteDialog } from './components/record-delete-dialog';
 import { RecordFormSheet } from './components/record-form-sheet';
 import { RecordStatusBadge } from './components/record-status-badge';
@@ -89,6 +97,7 @@ export function AttendanceRecordsContent({
 
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [currentRecord, setCurrentRecord] = useState<AttendanceRecord | null>(
         null,
     );
@@ -255,7 +264,31 @@ export function AttendanceRecordsContent({
                 }
             />
 
-            <Card className="mb-6 border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/3">
+            <div className={MOBILE_OPERATIONAL_LIST_CLASS}>
+                <SearchBar
+                    placeholder="Search by employee…"
+                    value={list.searchInput}
+                    onChange={list.onSearchChange}
+                    right={
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
+                            onClick={() => setIsFiltersOpen(true)}
+                        >
+                            <Filter className="mr-2 h-4 w-4" />
+                            Filters
+                            {activeFilterCount ? (
+                                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
+                                    {activeFilterCount}
+                                </span>
+                            ) : null}
+                        </Button>
+                    }
+                />
+            </div>
+
+            <Card className="mb-6 hidden border-border/80 bg-muted/20 md:block dark:border-white/5 dark:bg-white/3">
                 <CardContent className="p-5">
                     <div className="mb-4 flex items-center gap-3">
                         <Filter className="h-4 w-4 text-muted-foreground/50" />
@@ -438,89 +471,131 @@ export function AttendanceRecordsContent({
                 />
             ) : (
                 <>
-                    <OrganizationDataTable>
-                        <TableHeader>
-                            <DataTableHeaderRow>
-                                <DataTableHead>Employee</DataTableHead>
-                                <DataTableHead>Date</DataTableHead>
-                                <DataTableHead>Clock in</DataTableHead>
-                                <DataTableHead>Clock out</DataTableHead>
-                                <DataTableHead>Hours</DataTableHead>
-                                <DataTableHead>Status</DataTableHead>
-                                <DataTableHead>Source</DataTableHead>
-                                <DataTableHead className="text-right">
-                                    Actions
-                                </DataTableHead>
-                            </DataTableHeaderRow>
-                        </TableHeader>
-                        <TableBody>
+                    <div className={MOBILE_OPERATIONAL_LIST_CLASS}>
+                        <MobileRecordList>
                             {records.map((record) => (
-                                <TableRow
+                                <AttendanceRecordMobileCard
                                     key={record.id}
-                                    className={dataTableBodyRowClass()}
-                                >
-                                    <TableCell
-                                        className={dataTableCellPrimaryClass()}
-                                    >
-                                        {record.employee?.name ?? '—'}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {formatDisplayDate(record.date)}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {formatDisplayDateTime12h(
-                                            record.clock_in,
-                                        )}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {formatDisplayDateTime12h(
-                                            record.clock_out,
-                                        )}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {record.hours_worked ?? '—'}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        <RecordStatusBadge
-                                            status={record.status}
-                                        />
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {record.clock_in || record.clock_out
-                                            ? (record.source ?? '—')
-                                            : '—'}
-                                    </TableCell>
-                                    <TableCell
-                                        className={dataTableActionsCellClass()}
-                                    >
-                                        <TableRowActions
-                                            actions={[
-                                                {
-                                                    label: 'Edit',
-                                                    icon: Pencil,
-                                                    onClick: () =>
-                                                        handleEdit(record),
-                                                    hidden: !can.update,
-                                                },
-                                                {
-                                                    label: 'Delete',
-                                                    icon: Trash2,
-                                                    variant: 'danger',
-                                                    onClick: () =>
-                                                        handleDelete(record),
-                                                    hidden: !can.delete,
-                                                },
-                                            ]}
-                                        />
-                                    </TableCell>
-                                </TableRow>
+                                    record={record}
+                                    can={can}
+                                    onEdit={handleEdit}
+                                    onDelete={handleDelete}
+                                />
                             ))}
-                        </TableBody>
-                    </OrganizationDataTable>
+                        </MobileRecordList>
+                    </div>
+
+                    <div className={DESKTOP_OPERATIONAL_TABLE_CLASS}>
+                        <OrganizationDataTable>
+                            <TableHeader>
+                                <DataTableHeaderRow>
+                                    <DataTableHead>Employee</DataTableHead>
+                                    <DataTableHead>Date</DataTableHead>
+                                    <DataTableHead>Clock in</DataTableHead>
+                                    <DataTableHead>Clock out</DataTableHead>
+                                    <DataTableHead>Hours</DataTableHead>
+                                    <DataTableHead>Status</DataTableHead>
+                                    <DataTableHead>Source</DataTableHead>
+                                    <DataTableHead className="text-right">
+                                        Actions
+                                    </DataTableHead>
+                                </DataTableHeaderRow>
+                            </TableHeader>
+                            <TableBody>
+                                {records.map((record) => (
+                                    <TableRow
+                                        key={record.id}
+                                        className={dataTableBodyRowClass()}
+                                    >
+                                        <TableCell
+                                            className={dataTableCellPrimaryClass()}
+                                        >
+                                            {record.employee?.name ?? '—'}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {formatDisplayDate(record.date)}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {formatDisplayDateTime12h(
+                                                record.clock_in,
+                                            )}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {formatDisplayDateTime12h(
+                                                record.clock_out,
+                                            )}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {record.hours_worked ?? '—'}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            <RecordStatusBadge
+                                                status={record.status}
+                                            />
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {record.clock_in || record.clock_out
+                                                ? (record.source ?? '—')
+                                                : '—'}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableActionsCellClass()}
+                                        >
+                                            <TableRowActions
+                                                actions={[
+                                                    {
+                                                        label: 'Edit',
+                                                        icon: Pencil,
+                                                        onClick: () =>
+                                                            handleEdit(record),
+                                                        hidden: !can.update,
+                                                    },
+                                                    {
+                                                        label: 'Delete',
+                                                        icon: Trash2,
+                                                        variant: 'danger',
+                                                        onClick: () =>
+                                                            handleDelete(
+                                                                record,
+                                                            ),
+                                                        hidden: !can.delete,
+                                                    },
+                                                ]}
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </OrganizationDataTable>
+                    </div>
 
                     <Pagination {...list.paginationProps} className="mt-6" />
                 </>
             )}
+
+            <AttendanceRecordsFiltersSheet
+                open={isFiltersOpen}
+                onOpenChange={setIsFiltersOpen}
+                value={filters}
+                employees={employees}
+                statusOptions={status_options}
+                sourceOptions={source_options}
+                showEmployeeFilter={can.manage}
+                onChange={applyFilters}
+                onReset={clearFilters}
+            />
 
             <RecordFormSheet
                 open={isSheetOpen}

@@ -22,6 +22,7 @@ alwaysApply: false
 | Show page header | `DetailsHeader` | `components/details-header.tsx` |
 | Empty lists | `EmptyState` | `components/empty-state.tsx` |
 | Pagination | `Pagination` | `components/pagination.tsx` |
+| Mobile operational lists | `MobileRecordList` | `components/mobile-record-list.tsx` |
 | Export | `ExportMenu` | `components/export-menu.tsx` |
 | Grid/table toggle | `ViewToggle` | `components/view-toggle.tsx` |
 | Field errors | `InputError` | `components/input-error.tsx` |

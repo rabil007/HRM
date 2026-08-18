@@ -38,7 +38,7 @@ export function PageHeader({
                 ) : null}
             </div>
             {right ? (
-                <div className="flex items-center gap-3">{right}</div>
+                <div className="flex flex-wrap items-center gap-3">{right}</div>
             ) : null}
         </div>
     );

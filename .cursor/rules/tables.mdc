@@ -71,3 +71,4 @@ Respect current filters via query string. Support `format=csv|xlsx|pdf`.
 - `@tanstack/react-table` or headless table libraries.
 - Client-side-only pagination for server-paginated lists.
 - Preview modals from list rows when a show page exists.
+- Replacing `OrganizationDataTable` globally. High-value operational indexes may render compact `MobileRecordList` cards below `md`; desktop/tablet keeps the table (see `docs/mobile-operational-lists.md`).

@@ -13,6 +13,7 @@ import {
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
 import { ListTableCrudActions } from '@/components/list-table-actions';
+import { MobileRecordList } from '@/components/mobile-record-list';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
@@ -45,6 +46,10 @@ import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filter
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { firstValidationError } from '@/lib/first-validation-error';
 import { formatDisplayDate } from '@/lib/format-date';
+import {
+    DESKTOP_OPERATIONAL_TABLE_CLASS,
+    MOBILE_OPERATIONAL_LIST_CLASS,
+} from '@/lib/mobile-operational-list';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
@@ -56,6 +61,7 @@ import { DepartmentEmployeeTree } from './components/department-employee-tree';
 import { EmployeeCard } from './components/employee-card';
 import { EmployeeExportDialog } from './components/employee-export-dialog';
 import type { EmployeeFilters } from './components/employee-filters-sheet';
+import { EmployeeMobileCard } from './components/employee-mobile-card';
 import type {
     BankOption,
     CompanyVisaTypeOption,
@@ -294,7 +300,9 @@ export function EmployeesContent({
                 onChange={list.onSearchChange}
                 right={
                     <>
-                        <ViewToggle value={view} onChange={setView} />
+                        <div className="hidden md:block">
+                            <ViewToggle value={view} onChange={setView} />
+                        </div>
                         {/* Desktop: Popover; Mobile: Sheet */}
                         <Popover
                             open={isDepartmentsPopoverOpen}
@@ -364,202 +372,262 @@ export function EmployeesContent({
                 }
             />
 
-            {view === 'grid' ? (
-                <div className="grid grid-cols-1 gap-6 p-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-                    {employees.map((employee) => (
-                        <EmployeeCard
-                            key={employee.id}
-                            employee={employee}
-                            showUrl={buildEmployeeShowUrl(
-                                employee.id,
-                                listQuery,
-                            )}
-                            onDelete={can.delete ? handleDelete : undefined}
-                        />
-                    ))}
-                </div>
-            ) : (
-                <OrganizationDataTable minWidth="min-w-[1720px]">
-                    <TableHeader>
-                        <DataTableHeaderRow>
-                            <DataTableHead className="pl-5">
-                                Employee
-                            </DataTableHead>
-                            <DataTableHead>Assignment</DataTableHead>
-                            <DataTableHead>Date of hire</DataTableHead>
-                            <DataTableHead>Emails</DataTableHead>
-                            <DataTableHead>Phones</DataTableHead>
-                            <DataTableHead>Personal</DataTableHead>
-                            <DataTableHead>Emergency</DataTableHead>
-                            <DataTableHead>Family</DataTableHead>
-                            <DataTableHead>Status</DataTableHead>
-                            <DataTableHead className="text-right">
-                                Actions
-                            </DataTableHead>
-                        </DataTableHeaderRow>
-                    </TableHeader>
-                    <TableBody>
-                        {employees.map((employee) => {
-                            const canToggle =
-                                can.update &&
-                                (employee.status === 'active' ||
-                                    employee.status === 'inactive');
-
-                            return (
-                                <TableRow
-                                    key={employee.id}
-                                    className={dataTableBodyRowClass()}
-                                    onClick={() =>
-                                        router.visit(
-                                            buildEmployeeShowUrl(
-                                                employee.id,
-                                                listQuery,
-                                            ),
-                                        )
-                                    }
-                                >
-                                    <TableCell
-                                        className={dataTableCellPrimaryClass()}
-                                    >
-                                        <div>{employee.name}</div>
-                                        <div className="text-xs text-muted-foreground/70">
-                                            {employee.employee_no}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        <div className="text-sm">
-                                            {employee.branch?.name ?? '—'}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground/70">
-                                            {employee.department?.name ?? '—'}
-                                            {employee.position?.title
-                                                ? ` • ${employee.position.title}`
-                                                : ''}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell
-                                        className={cn(
-                                            dataTableCellClass(),
-                                            'text-sm whitespace-nowrap',
-                                        )}
-                                    >
-                                        {formatDisplayDate(employee.hire_date)}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        <div className="truncate text-sm">
-                                            {employee.work_email ?? '—'}
-                                        </div>
-                                        <div className="truncate text-xs text-muted-foreground/70">
-                                            {employee.personal_email ?? '—'}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        <div className="text-sm">
-                                            {employee.phone ?? '—'}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground/70">
-                                            {employee.phone_home_country ?? '—'}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        <div className="text-sm">
-                                            {employee.gender_ref?.name ?? '—'}
-                                            {employee.marital_status
-                                                ? ` • ${employee.marital_status.charAt(0).toUpperCase() + employee.marital_status.slice(1)}`
-                                                : ''}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground/70">
-                                            {formatDisplayDate(
-                                                employee.date_of_birth,
-                                            )}
-                                            {employee.place_of_birth
-                                                ? ` • ${employee.place_of_birth}`
-                                                : ''}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground/70">
-                                            {employee.religion_ref?.name ?? '—'}
-                                            {employee.nationality_ref?.name
-                                                ? ` • ${employee.nationality_ref.name}`
-                                                : ''}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        <div className="text-sm">
-                                            {employee.emergency_contact ?? '—'}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground/70">
-                                            {employee.emergency_phone ?? '—'}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        <div className="text-sm">
-                                            {employee.spouse_name ?? '—'}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {canToggle ? (
-                                            <div className="flex items-center gap-2">
-                                                <Switch
-                                                    checked={
-                                                        employee.status ===
-                                                        'active'
-                                                    }
-                                                    onCheckedChange={(
-                                                        checked,
-                                                    ) =>
-                                                        toggleStatus(
-                                                            employee,
-                                                            checked,
-                                                        )
-                                                    }
-                                                    onClick={(e) =>
-                                                        e.stopPropagation()
-                                                    }
-                                                />
-                                                <span className="text-xs text-muted-foreground/80">
-                                                    {employee.status ===
-                                                    'active'
-                                                        ? 'Active'
-                                                        : 'Inactive'}
-                                                </span>
-                                            </div>
-                                        ) : (
-                                            <span className="text-xs text-muted-foreground/80">
-                                                {employee.status}
-                                            </span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell
-                                        className={dataTableActionsCellClass()}
-                                    >
-                                        <ListTableCrudActions
-                                            showEdit={false}
-                                            viewHref={buildEmployeeShowUrl(
-                                                employee.id,
-                                                listQuery,
-                                            )}
-                                            onDelete={
-                                                can.delete
-                                                    ? (e) => {
-                                                          e.stopPropagation();
-                                                          handleDelete(
-                                                              employee,
-                                                          );
-                                                      }
-                                                    : undefined
-                                            }
-                                        />
-                                    </TableCell>
-                                </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                </OrganizationDataTable>
-            )}
-
             {employees.length === 0 ? (
                 <EmptyState title="No employees found." />
-            ) : null}
+            ) : (
+                <>
+                    <div className={MOBILE_OPERATIONAL_LIST_CLASS}>
+                        <MobileRecordList>
+                            {employees.map((employee) => (
+                                <EmployeeMobileCard
+                                    key={employee.id}
+                                    employee={employee}
+                                    showUrl={buildEmployeeShowUrl(
+                                        employee.id,
+                                        listQuery,
+                                    )}
+                                    can={can}
+                                    onDelete={
+                                        can.delete ? handleDelete : undefined
+                                    }
+                                />
+                            ))}
+                        </MobileRecordList>
+                    </div>
+
+                    <div className={DESKTOP_OPERATIONAL_TABLE_CLASS}>
+                        {view === 'grid' ? (
+                            <div className="grid grid-cols-1 gap-6 p-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                                {employees.map((employee) => (
+                                    <EmployeeCard
+                                        key={employee.id}
+                                        employee={employee}
+                                        showUrl={buildEmployeeShowUrl(
+                                            employee.id,
+                                            listQuery,
+                                        )}
+                                        onDelete={
+                                            can.delete
+                                                ? handleDelete
+                                                : undefined
+                                        }
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <OrganizationDataTable minWidth="min-w-[1720px]">
+                                <TableHeader>
+                                    <DataTableHeaderRow>
+                                        <DataTableHead className="pl-5">
+                                            Employee
+                                        </DataTableHead>
+                                        <DataTableHead>
+                                            Assignment
+                                        </DataTableHead>
+                                        <DataTableHead>
+                                            Date of hire
+                                        </DataTableHead>
+                                        <DataTableHead>Emails</DataTableHead>
+                                        <DataTableHead>Phones</DataTableHead>
+                                        <DataTableHead>Personal</DataTableHead>
+                                        <DataTableHead>Emergency</DataTableHead>
+                                        <DataTableHead>Family</DataTableHead>
+                                        <DataTableHead>Status</DataTableHead>
+                                        <DataTableHead className="text-right">
+                                            Actions
+                                        </DataTableHead>
+                                    </DataTableHeaderRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {employees.map((employee) => {
+                                        const canToggle =
+                                            can.update &&
+                                            (employee.status === 'active' ||
+                                                employee.status === 'inactive');
+
+                                        return (
+                                            <TableRow
+                                                key={employee.id}
+                                                className={dataTableBodyRowClass()}
+                                                onClick={() =>
+                                                    router.visit(
+                                                        buildEmployeeShowUrl(
+                                                            employee.id,
+                                                            listQuery,
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                <TableCell
+                                                    className={dataTableCellPrimaryClass()}
+                                                >
+                                                    <div>{employee.name}</div>
+                                                    <div className="text-xs text-muted-foreground/70">
+                                                        {employee.employee_no}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableCellClass()}
+                                                >
+                                                    <div className="text-sm">
+                                                        {employee.branch
+                                                            ?.name ?? '—'}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground/70">
+                                                        {employee.department
+                                                            ?.name ?? '—'}
+                                                        {employee.position
+                                                            ?.title
+                                                            ? ` • ${employee.position.title}`
+                                                            : ''}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell
+                                                    className={cn(
+                                                        dataTableCellClass(),
+                                                        'text-sm whitespace-nowrap',
+                                                    )}
+                                                >
+                                                    {formatDisplayDate(
+                                                        employee.hire_date,
+                                                    )}
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableCellClass()}
+                                                >
+                                                    <div className="truncate text-sm">
+                                                        {employee.work_email ??
+                                                            '—'}
+                                                    </div>
+                                                    <div className="truncate text-xs text-muted-foreground/70">
+                                                        {employee.personal_email ??
+                                                            '—'}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableCellClass()}
+                                                >
+                                                    <div className="text-sm">
+                                                        {employee.phone ?? '—'}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground/70">
+                                                        {employee.phone_home_country ??
+                                                            '—'}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableCellClass()}
+                                                >
+                                                    <div className="text-sm">
+                                                        {employee.gender_ref
+                                                            ?.name ?? '—'}
+                                                        {employee.marital_status
+                                                            ? ` • ${employee.marital_status.charAt(0).toUpperCase() + employee.marital_status.slice(1)}`
+                                                            : ''}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground/70">
+                                                        {formatDisplayDate(
+                                                            employee.date_of_birth,
+                                                        )}
+                                                        {employee.place_of_birth
+                                                            ? ` • ${employee.place_of_birth}`
+                                                            : ''}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground/70">
+                                                        {employee.religion_ref
+                                                            ?.name ?? '—'}
+                                                        {employee
+                                                            .nationality_ref
+                                                            ?.name
+                                                            ? ` • ${employee.nationality_ref.name}`
+                                                            : ''}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableCellClass()}
+                                                >
+                                                    <div className="text-sm">
+                                                        {employee.emergency_contact ??
+                                                            '—'}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground/70">
+                                                        {employee.emergency_phone ??
+                                                            '—'}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableCellClass()}
+                                                >
+                                                    <div className="text-sm">
+                                                        {employee.spouse_name ??
+                                                            '—'}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableCellClass()}
+                                                >
+                                                    {canToggle ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <Switch
+                                                                checked={
+                                                                    employee.status ===
+                                                                    'active'
+                                                                }
+                                                                onCheckedChange={(
+                                                                    checked,
+                                                                ) =>
+                                                                    toggleStatus(
+                                                                        employee,
+                                                                        checked,
+                                                                    )
+                                                                }
+                                                                onClick={(e) =>
+                                                                    e.stopPropagation()
+                                                                }
+                                                            />
+                                                            <span className="text-xs text-muted-foreground/80">
+                                                                {employee.status ===
+                                                                'active'
+                                                                    ? 'Active'
+                                                                    : 'Inactive'}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-muted-foreground/80">
+                                                            {employee.status}
+                                                        </span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableActionsCellClass()}
+                                                >
+                                                    <ListTableCrudActions
+                                                        showEdit={false}
+                                                        viewHref={buildEmployeeShowUrl(
+                                                            employee.id,
+                                                            listQuery,
+                                                        )}
+                                                        onDelete={
+                                                            can.delete
+                                                                ? (e) => {
+                                                                      e.stopPropagation();
+                                                                      handleDelete(
+                                                                          employee,
+                                                                      );
+                                                                  }
+                                                                : undefined
+                                                        }
+                                                    />
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </OrganizationDataTable>
+                        )}
+                    </div>
+                </>
+            )}
 
             <Pagination {...list.paginationProps} label="employees" />
 

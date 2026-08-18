@@ -19,7 +19,12 @@ export function SearchBar({
     inputClassName?: string;
 }) {
     return (
-        <div className={cn('mb-8 flex items-center gap-4', className)}>
+        <div
+            className={cn(
+                'mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4',
+                className,
+            )}
+        >
             <div className="group relative min-w-0 flex-1">
                 <Search className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-foreground" />
                 <Input
@@ -32,7 +37,9 @@ export function SearchBar({
                     )}
                 />
             </div>
-            {right}
+            {right ? (
+                <div className="flex flex-wrap items-center gap-2">{right}</div>
+            ) : null}
         </div>
     );
 }

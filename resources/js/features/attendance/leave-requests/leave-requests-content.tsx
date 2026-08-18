@@ -19,6 +19,7 @@ import {
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
+import { MobileRecordList } from '@/components/mobile-record-list';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +35,10 @@ import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { formatDisplayDate } from '@/lib/format-date';
+import {
+    DESKTOP_OPERATIONAL_TABLE_CLASS,
+    MOBILE_OPERATIONAL_LIST_CLASS,
+} from '@/lib/mobile-operational-list';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
@@ -43,6 +48,7 @@ import { LeaveRequestCard } from './components/leave-request-card';
 import { LeaveRequestDeleteDialog } from './components/leave-request-delete-dialog';
 import { LeaveRequestFiltersSheet } from './components/leave-request-filters-sheet';
 import { LeaveRequestFormSheet } from './components/leave-request-form-sheet';
+import { LeaveRequestMobileCard } from './components/leave-request-mobile-card';
 import { LeaveRequestRejectDialog } from './components/leave-request-reject-dialog';
 import { LeaveRequestRowActions } from './components/leave-request-row-actions';
 import { LeaveRequestStatusBadge } from './components/leave-request-status-badge';
@@ -362,7 +368,9 @@ export function LeaveRequestsContent({
                 </div>
 
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <ViewToggle value={view} onChange={setView} />
+                    <div className="hidden md:block">
+                        <ViewToggle value={view} onChange={setView} />
+                    </div>
                     <Button
                         type="button"
                         variant="secondary"
@@ -380,95 +388,35 @@ export function LeaveRequestsContent({
                 </div>
             </div>
 
-            {view === 'grid' ? (
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                    {leave_requests.map((leaveRequest) => (
-                        <LeaveRequestCard
-                            key={leaveRequest.id}
-                            leaveRequest={leaveRequest}
-                            can={can}
-                            onEdit={handleEdit}
-                            onDelete={handleDelete}
-                            onAdministrativeDelete={handleAdministrativeDelete}
-                            onApprove={approve}
-                            onReject={handleReject}
-                            onCancel={handleCancel}
-                        />
-                    ))}
-                </div>
+            {leave_requests.length === 0 ? (
+                <EmptyState title="No leave requests found." />
             ) : (
-                <OrganizationDataTable minWidth="min-w-[1100px]">
-                    <TableHeader>
-                        <DataTableHeaderRow>
-                            <DataTableHead className="pl-5">
-                                Employee
-                            </DataTableHead>
-                            <DataTableHead>Type</DataTableHead>
-                            <DataTableHead>Start</DataTableHead>
-                            <DataTableHead>End</DataTableHead>
-                            <DataTableHead>Days</DataTableHead>
-                            <DataTableHead>Status</DataTableHead>
-                            <DataTableHead className="text-right">
-                                Actions
-                            </DataTableHead>
-                        </DataTableHeaderRow>
-                    </TableHeader>
-                    <TableBody>
-                        {leave_requests.map((leaveRequest) => (
-                            <TableRow
-                                key={leaveRequest.id}
-                                className={dataTableBodyRowClass()}
-                            >
-                                <TableCell
-                                    className={dataTableCellPrimaryClass()}
-                                >
-                                    {leaveRequest.employee?.name ?? '—'}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {leaveRequest.leave_type ? (
-                                        <Badge
-                                            variant="outline"
-                                            className="flex items-center gap-1 text-[10px] font-bold tracking-wider uppercase"
-                                            style={{
-                                                borderColor: `${leaveRequest.leave_type.color || '#94a3b8'}40`,
-                                                backgroundColor: `${leaveRequest.leave_type.color || '#94a3b8'}15`,
-                                                color:
-                                                    leaveRequest.leave_type
-                                                        .color || '#94a3b8',
-                                            }}
-                                        >
-                                            <span
-                                                className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-black/10 dark:border-white/10"
-                                                style={{
-                                                    backgroundColor:
-                                                        leaveRequest.leave_type
-                                                            .color ?? '#94a3b8',
-                                                }}
-                                            />
-                                            {leaveRequest.leave_type.code}
-                                        </Badge>
-                                    ) : (
-                                        '—'
-                                    )}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {formatDisplayDate(leaveRequest.start_date)}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {formatDisplayDate(leaveRequest.end_date)}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {leaveRequest.total_days}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    <LeaveRequestStatusBadge
-                                        status={leaveRequest.status}
-                                    />
-                                </TableCell>
-                                <TableCell
-                                    className={dataTableActionsCellClass()}
-                                >
-                                    <LeaveRequestRowActions
+                <>
+                    <div className={MOBILE_OPERATIONAL_LIST_CLASS}>
+                        <MobileRecordList>
+                            {leave_requests.map((leaveRequest) => (
+                                <LeaveRequestMobileCard
+                                    key={leaveRequest.id}
+                                    leaveRequest={leaveRequest}
+                                    onEdit={handleEdit}
+                                    onDelete={handleDelete}
+                                    onAdministrativeDelete={
+                                        handleAdministrativeDelete
+                                    }
+                                    onApprove={approve}
+                                    onReject={handleReject}
+                                    onCancel={handleCancel}
+                                />
+                            ))}
+                        </MobileRecordList>
+                    </div>
+
+                    <div className={DESKTOP_OPERATIONAL_TABLE_CLASS}>
+                        {view === 'grid' ? (
+                            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                                {leave_requests.map((leaveRequest) => (
+                                    <LeaveRequestCard
+                                        key={leaveRequest.id}
                                         leaveRequest={leaveRequest}
                                         can={can}
                                         onEdit={handleEdit}
@@ -480,16 +428,123 @@ export function LeaveRequestsContent({
                                         onReject={handleReject}
                                         onCancel={handleCancel}
                                     />
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </OrganizationDataTable>
+                                ))}
+                            </div>
+                        ) : (
+                            <OrganizationDataTable minWidth="min-w-[1100px]">
+                                <TableHeader>
+                                    <DataTableHeaderRow>
+                                        <DataTableHead className="pl-5">
+                                            Employee
+                                        </DataTableHead>
+                                        <DataTableHead>Type</DataTableHead>
+                                        <DataTableHead>Start</DataTableHead>
+                                        <DataTableHead>End</DataTableHead>
+                                        <DataTableHead>Days</DataTableHead>
+                                        <DataTableHead>Status</DataTableHead>
+                                        <DataTableHead className="text-right">
+                                            Actions
+                                        </DataTableHead>
+                                    </DataTableHeaderRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {leave_requests.map((leaveRequest) => (
+                                        <TableRow
+                                            key={leaveRequest.id}
+                                            className={dataTableBodyRowClass()}
+                                        >
+                                            <TableCell
+                                                className={dataTableCellPrimaryClass()}
+                                            >
+                                                {leaveRequest.employee?.name ??
+                                                    '—'}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                {leaveRequest.leave_type ? (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="flex items-center gap-1 text-[10px] font-bold tracking-wider uppercase"
+                                                        style={{
+                                                            borderColor: `${leaveRequest.leave_type.color || '#94a3b8'}40`,
+                                                            backgroundColor: `${leaveRequest.leave_type.color || '#94a3b8'}15`,
+                                                            color:
+                                                                leaveRequest
+                                                                    .leave_type
+                                                                    .color ||
+                                                                '#94a3b8',
+                                                        }}
+                                                    >
+                                                        <span
+                                                            className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-black/10 dark:border-white/10"
+                                                            style={{
+                                                                backgroundColor:
+                                                                    leaveRequest
+                                                                        .leave_type
+                                                                        .color ??
+                                                                    '#94a3b8',
+                                                            }}
+                                                        />
+                                                        {
+                                                            leaveRequest
+                                                                .leave_type.code
+                                                        }
+                                                    </Badge>
+                                                ) : (
+                                                    '—'
+                                                )}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                {formatDisplayDate(
+                                                    leaveRequest.start_date,
+                                                )}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                {formatDisplayDate(
+                                                    leaveRequest.end_date,
+                                                )}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                {leaveRequest.total_days}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                <LeaveRequestStatusBadge
+                                                    status={leaveRequest.status}
+                                                />
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableActionsCellClass()}
+                                            >
+                                                <LeaveRequestRowActions
+                                                    leaveRequest={leaveRequest}
+                                                    can={can}
+                                                    onEdit={handleEdit}
+                                                    onDelete={handleDelete}
+                                                    onAdministrativeDelete={
+                                                        handleAdministrativeDelete
+                                                    }
+                                                    onApprove={approve}
+                                                    onReject={handleReject}
+                                                    onCancel={handleCancel}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </OrganizationDataTable>
+                        )}
+                    </div>
+                </>
             )}
-
-            {leave_requests.length === 0 ? (
-                <EmptyState title="No leave requests found." />
-            ) : null}
 
             <Pagination {...list.paginationProps} label="leave requests" />
 

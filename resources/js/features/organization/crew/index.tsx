@@ -8,12 +8,14 @@ import {
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
+import { MobileRecordList } from '@/components/mobile-record-list';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
+import { CrewAssignmentMobileCard } from '@/features/organization/crew/components/crew-assignment-mobile-card';
 import { CrewAssignmentsTableRow } from '@/features/organization/crew/components/crew-assignments-table-row';
 import { CrewFiltersSheet } from '@/features/organization/crew/components/crew-filters-sheet';
 import { CrewSummaryCards } from '@/features/organization/crew/components/crew-summary-cards';
@@ -33,6 +35,10 @@ import type {
 import { CREW_PHASE_LABELS } from '@/features/organization/crew/types';
 import { useCrewIndexFilters } from '@/features/organization/crew/use-crew-index-filters';
 import type { CrewSummaryFilter } from '@/features/organization/crew/use-crew-index-filters';
+import {
+    DESKTOP_OPERATIONAL_TABLE_CLASS,
+    MOBILE_OPERATIONAL_LIST_CLASS,
+} from '@/lib/mobile-operational-list';
 import { cn } from '@/lib/utils';
 import {
     create as createAssignment,
@@ -334,44 +340,10 @@ export function CurrentCrewContent({
                 />
             ) : (
                 <>
-                    <OrganizationDataTable
-                        minWidth="min-w-[1480px]"
-                        tableClassName="table-fixed"
-                    >
-                        <TableHeader>
-                            <DataTableHeaderRow>
-                                <DataTableHead className="w-[150px]">
-                                    Assignment
-                                </DataTableHead>
-                                <DataTableHead className="w-[220px]">
-                                    Employee
-                                </DataTableHead>
-                                <DataTableHead className="w-[160px]">
-                                    Vessel
-                                </DataTableHead>
-                                <DataTableHead className="w-[120px]">
-                                    Rank
-                                </DataTableHead>
-                                <DataTableHead className="w-[200px]">
-                                    Current Phase
-                                </DataTableHead>
-                                <DataTableHead className="w-[140px]">
-                                    Plan Dates
-                                </DataTableHead>
-                                <DataTableHead className="w-[180px]">
-                                    Relief
-                                </DataTableHead>
-                                <DataTableHead className="w-[130px]">
-                                    Status
-                                </DataTableHead>
-                                <DataTableHead className="w-[160px]">
-                                    Actions
-                                </DataTableHead>
-                            </DataTableHeaderRow>
-                        </TableHeader>
-                        <TableBody>
+                    <div className={MOBILE_OPERATIONAL_LIST_CLASS}>
+                        <MobileRecordList>
                             {assignments.map((assignment) => (
-                                <CrewAssignmentsTableRow
+                                <CrewAssignmentMobileCard
                                     key={assignment.id}
                                     assignment={assignment}
                                     viewHref={showAssignment.url(assignment.id)}
@@ -388,8 +360,73 @@ export function CurrentCrewContent({
                                     formOptions={formOptions}
                                 />
                             ))}
-                        </TableBody>
-                    </OrganizationDataTable>
+                        </MobileRecordList>
+                    </div>
+
+                    <div className={DESKTOP_OPERATIONAL_TABLE_CLASS}>
+                        <OrganizationDataTable
+                            minWidth="min-w-[1480px]"
+                            tableClassName="table-fixed"
+                        >
+                            <TableHeader>
+                                <DataTableHeaderRow>
+                                    <DataTableHead className="w-[150px]">
+                                        Assignment
+                                    </DataTableHead>
+                                    <DataTableHead className="w-[220px]">
+                                        Employee
+                                    </DataTableHead>
+                                    <DataTableHead className="w-[160px]">
+                                        Vessel
+                                    </DataTableHead>
+                                    <DataTableHead className="w-[120px]">
+                                        Rank
+                                    </DataTableHead>
+                                    <DataTableHead className="w-[200px]">
+                                        Current Phase
+                                    </DataTableHead>
+                                    <DataTableHead className="w-[140px]">
+                                        Plan Dates
+                                    </DataTableHead>
+                                    <DataTableHead className="w-[180px]">
+                                        Relief
+                                    </DataTableHead>
+                                    <DataTableHead className="w-[130px]">
+                                        Status
+                                    </DataTableHead>
+                                    <DataTableHead className="w-[160px]">
+                                        Actions
+                                    </DataTableHead>
+                                </DataTableHeaderRow>
+                            </TableHeader>
+                            <TableBody>
+                                {assignments.map((assignment) => (
+                                    <CrewAssignmentsTableRow
+                                        key={assignment.id}
+                                        assignment={assignment}
+                                        viewHref={showAssignment.url(
+                                            assignment.id,
+                                        )}
+                                        editHref={
+                                            can.update && assignment.is_editable
+                                                ? editAssignment.url(
+                                                      assignment.id,
+                                                  )
+                                                : undefined
+                                        }
+                                        canUpdate={
+                                            can.update && assignment.is_editable
+                                        }
+                                        canPerformMovement={
+                                            can.perform_movement
+                                        }
+                                        canCancel={can.cancel}
+                                        formOptions={formOptions}
+                                    />
+                                ))}
+                            </TableBody>
+                        </OrganizationDataTable>
+                    </div>
 
                     {pagination.last_page > 1 ? (
                         <Pagination

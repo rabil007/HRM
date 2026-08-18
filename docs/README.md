@@ -10,6 +10,7 @@ Product and developer documentation for the Herd OMS-HRM application. These guid
 | [Document management](./document-management.md) | HR, developers | Folders, employee browse, upload, expiry, compliance |
 | [Document search](./document-search.md) | HR, developers | Documents index search UX, result modes, backend queries |
 | [Global search](./global-search.md) | HR, developers | Cmd/Ctrl+K omnibox: commands plus permission-aware record search |
+| [Mobile operational lists](./mobile-operational-lists.md) | Developers | Compact phone cards for selected operational indexes; desktop tables stay standard |
 | [Document sharing](./document-sharing.md) | HR, developers | Share links, WhatsApp, bulk actions |
 | [Permissions](./permissions.md) | Admins, developers | Spatie permissions, documents, imports |
 | [Email configuration](./email-configuration.md) | Admins, developers | SMTP settings, test email |
@@ -49,6 +50,7 @@ The application currently includes core organization and employee management, em
 | General architecture | `architecture/project-analysis.md`, then `architecture/golden-files.md` |
 | Tenant access or permissions | `permissions.md` and `.cursor/rules/permissions.mdc` |
 | Documents, sharing, or search | The matching document guide above, plus `global-search.md` for Cmd/Ctrl+K |
+| Operational lists on phones | `mobile-operational-lists.md` |
 | Payroll | `payroll.md` |
 | Laravel backend | `.cursor/rules/backend.mdc`; use the `laravel-best-practices` skill |
 | Inertia React UI | The matching scoped UI rule; use the `inertia-react-development` skill |

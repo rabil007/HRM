@@ -17,6 +17,7 @@ import {
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
+import { MobileRecordList } from '@/components/mobile-record-list';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
@@ -31,6 +32,10 @@ import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { formatDisplayDate } from '@/lib/format-date';
+import {
+    DESKTOP_OPERATIONAL_TABLE_CLASS,
+    MOBILE_OPERATIONAL_LIST_CLASS,
+} from '@/lib/mobile-operational-list';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
@@ -38,6 +43,7 @@ import { PayrollCreationSourceBadge } from './components/payroll-creation-source
 import { PayrollFiltersSheet } from './components/payroll-filters-sheet';
 import { PayrollPeriodCard } from './components/payroll-period-card';
 import { PayrollPeriodFormSheet } from './components/payroll-period-form-sheet';
+import { PayrollPeriodMobileCard } from './components/payroll-period-mobile-card';
 import { PayrollPeriodProgress } from './components/payroll-period-progress';
 import { PayrollPeriodStatusBadge } from './components/payroll-period-status-badge';
 import { PayrollSummaryCards } from './components/payroll-summary-cards';
@@ -166,7 +172,9 @@ export function PayrollIndexContent({
                 onChange={list.onSearchChange}
                 right={
                     <div className="flex flex-wrap items-center gap-2">
-                        <ViewToggle value={view} onChange={setView} />
+                        <div className="hidden md:block">
+                            <ViewToggle value={view} onChange={setView} />
+                        </div>
                         <div className="flex items-center rounded-xl glass-card p-1">
                             <Button
                                 type="button"
@@ -216,173 +224,195 @@ export function PayrollIndexContent({
                         ) : undefined
                     }
                 />
-            ) : view === 'grid' ? (
-                <>
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                        {periods.map((period) => (
-                            <PayrollPeriodCard
-                                key={period.id}
-                                period={period}
-                                canOpen={canOpen}
-                            />
-                        ))}
-                    </div>
-
-                    <Pagination {...list.paginationProps} label="pay runs" />
-                </>
             ) : (
                 <>
-                    <OrganizationDataTable minWidth="min-w-[1080px]">
-                        <TableHeader>
-                            <DataTableHeaderRow>
-                                <DataTableHead className="pl-5">
-                                    Pay run
-                                </DataTableHead>
-                                <DataTableHead>Type</DataTableHead>
-                                <DataTableHead>Period</DataTableHead>
-                                <DataTableHead>Payment</DataTableHead>
-                                <DataTableHead>Progress</DataTableHead>
-                                <DataTableHead>Status</DataTableHead>
-                                <DataTableHead className="text-right">
-                                    Actions
-                                </DataTableHead>
-                            </DataTableHeaderRow>
-                        </TableHeader>
-                        <TableBody>
-                            {periods.map((period) => {
-                                const progress =
-                                    getPeriodProgressPercent(period);
+                    <div className={MOBILE_OPERATIONAL_LIST_CLASS}>
+                        <MobileRecordList>
+                            {periods.map((period) => (
+                                <PayrollPeriodMobileCard
+                                    key={period.id}
+                                    period={period}
+                                    canOpen={canOpen}
+                                />
+                            ))}
+                        </MobileRecordList>
+                    </div>
 
-                                return (
-                                    <TableRow
+                    <div className={DESKTOP_OPERATIONAL_TABLE_CLASS}>
+                        {view === 'grid' ? (
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                                {periods.map((period) => (
+                                    <PayrollPeriodCard
                                         key={period.id}
-                                        className={cn(
-                                            dataTableBodyRowClass(canOpen),
-                                            'group transition-colors duration-200 hover:bg-muted/40',
-                                            canOpen && 'cursor-pointer',
-                                        )}
-                                        onClick={
-                                            canOpen
-                                                ? () =>
-                                                      router.visit(
-                                                          show.url(period.id),
-                                                      )
-                                                : undefined
-                                        }
-                                    >
-                                        <TableCell
-                                            className={dataTableCellPrimaryClass()}
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-semibold">
-                                                    {period.name}
-                                                </span>
-                                                <PayrollCreationSourceBadge
-                                                    source={
-                                                        period.creation_source
-                                                    }
-                                                    label={
-                                                        period.creation_source_label
-                                                    }
-                                                />
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {period.employee_count}{' '}
-                                                {period.payroll_category_label.toLowerCase()}{' '}
-                                                employees
-                                            </div>
-                                        </TableCell>
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            <PayrollCategoryBadge
-                                                category={
-                                                    period.payroll_category
+                                        period={period}
+                                        canOpen={canOpen}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <OrganizationDataTable minWidth="min-w-[1080px]">
+                                <TableHeader>
+                                    <DataTableHeaderRow>
+                                        <DataTableHead className="pl-5">
+                                            Pay run
+                                        </DataTableHead>
+                                        <DataTableHead>Type</DataTableHead>
+                                        <DataTableHead>Period</DataTableHead>
+                                        <DataTableHead>Payment</DataTableHead>
+                                        <DataTableHead>Progress</DataTableHead>
+                                        <DataTableHead>Status</DataTableHead>
+                                        <DataTableHead className="text-right">
+                                            Actions
+                                        </DataTableHead>
+                                    </DataTableHeaderRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {periods.map((period) => {
+                                        const progress =
+                                            getPeriodProgressPercent(period);
+
+                                        return (
+                                            <TableRow
+                                                key={period.id}
+                                                className={cn(
+                                                    dataTableBodyRowClass(
+                                                        canOpen,
+                                                    ),
+                                                    'group transition-colors duration-200 hover:bg-muted/40',
+                                                    canOpen && 'cursor-pointer',
+                                                )}
+                                                onClick={
+                                                    canOpen
+                                                        ? () =>
+                                                              router.visit(
+                                                                  show.url(
+                                                                      period.id,
+                                                                  ),
+                                                              )
+                                                        : undefined
                                                 }
-                                            />
-                                        </TableCell>
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            {formatDisplayDate(
-                                                period.start_date,
-                                            )}{' '}
-                                            —{' '}
-                                            {formatDisplayDate(period.end_date)}
-                                        </TableCell>
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            {period.payment_date
-                                                ? formatDisplayDate(
-                                                      period.payment_date,
-                                                  )
-                                                : 'Pending'}
-                                        </TableCell>
-                                        <TableCell
-                                            className={cn(
-                                                dataTableCellClass(),
-                                                'min-w-[180px]',
-                                            )}
-                                        >
-                                            {period.supports_timesheets ? (
-                                                <div className="space-y-2 pr-4">
-                                                    <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                                                        <span>
-                                                            {
-                                                                period.timesheets_progress_label
-                                                            }{' '}
-                                                            daily filled
-                                                        </span>
-                                                        <span>{progress}%</span>
-                                                    </div>
-                                                    <PayrollPeriodProgress
-                                                        value={progress}
-                                                    />
-                                                </div>
-                                            ) : (
-                                                <span className="text-sm text-muted-foreground">
-                                                    Leave-based payroll
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            <PayrollPeriodStatusBadge
-                                                status={period.status}
-                                                label={period.status_label}
-                                            />
-                                        </TableCell>
-                                        <TableCell
-                                            className={dataTableActionsCellClass()}
-                                        >
-                                            {canOpen ? (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="rounded-lg"
-                                                    asChild
-                                                    onClick={(event) =>
-                                                        event.stopPropagation()
-                                                    }
+                                            >
+                                                <TableCell
+                                                    className={dataTableCellPrimaryClass()}
                                                 >
-                                                    <Link
-                                                        href={show.url(
-                                                            period.id,
-                                                        )}
-                                                    >
-                                                        Open
-                                                        <ChevronRight className="ml-2 h-4 w-4" />
-                                                    </Link>
-                                                </Button>
-                                            ) : null}
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </OrganizationDataTable>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-semibold">
+                                                            {period.name}
+                                                        </span>
+                                                        <PayrollCreationSourceBadge
+                                                            source={
+                                                                period.creation_source
+                                                            }
+                                                            label={
+                                                                period.creation_source_label
+                                                            }
+                                                        />
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {period.employee_count}{' '}
+                                                        {period.payroll_category_label.toLowerCase()}{' '}
+                                                        employees
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableCellClass()}
+                                                >
+                                                    <PayrollCategoryBadge
+                                                        category={
+                                                            period.payroll_category
+                                                        }
+                                                    />
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableCellClass()}
+                                                >
+                                                    {formatDisplayDate(
+                                                        period.start_date,
+                                                    )}{' '}
+                                                    —{' '}
+                                                    {formatDisplayDate(
+                                                        period.end_date,
+                                                    )}
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableCellClass()}
+                                                >
+                                                    {period.payment_date
+                                                        ? formatDisplayDate(
+                                                              period.payment_date,
+                                                          )
+                                                        : 'Pending'}
+                                                </TableCell>
+                                                <TableCell
+                                                    className={cn(
+                                                        dataTableCellClass(),
+                                                        'min-w-[180px]',
+                                                    )}
+                                                >
+                                                    {period.supports_timesheets ? (
+                                                        <div className="space-y-2 pr-4">
+                                                            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                                                                <span>
+                                                                    {
+                                                                        period.timesheets_progress_label
+                                                                    }{' '}
+                                                                    daily filled
+                                                                </span>
+                                                                <span>
+                                                                    {progress}%
+                                                                </span>
+                                                            </div>
+                                                            <PayrollPeriodProgress
+                                                                value={progress}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-sm text-muted-foreground">
+                                                            Leave-based payroll
+                                                        </span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableCellClass()}
+                                                >
+                                                    <PayrollPeriodStatusBadge
+                                                        status={period.status}
+                                                        label={
+                                                            period.status_label
+                                                        }
+                                                    />
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableActionsCellClass()}
+                                                >
+                                                    {canOpen ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="rounded-lg"
+                                                            asChild
+                                                            onClick={(event) =>
+                                                                event.stopPropagation()
+                                                            }
+                                                        >
+                                                            <Link
+                                                                href={show.url(
+                                                                    period.id,
+                                                                )}
+                                                            >
+                                                                Open
+                                                                <ChevronRight className="ml-2 h-4 w-4" />
+                                                            </Link>
+                                                        </Button>
+                                                    ) : null}
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </OrganizationDataTable>
+                        )}
+                    </div>
 
                     <Pagination {...list.paginationProps} label="pay runs" />
                 </>

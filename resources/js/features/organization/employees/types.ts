@@ -148,6 +148,7 @@ export type Employee = {
         status: string;
         label: string;
         hint?: string | null;
+        warning?: string | null;
         current_vessel?: string | null;
         in_home_days?: number | null;
         vessel_name?: string | null;
