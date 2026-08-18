@@ -17,6 +17,8 @@ Cmd/Ctrl+K [global search](./global-search.md) is one of those authenticated JSO
 
 [Navigation favorites](./navigation-favorites.md) are personal destination shortcuts. They do not grant access. A stored favorite is shown only when the active company's Phase 3A nav visibility would also show that destination.
 
+[Recent items](./recent-items.md) are personal per-company show-page history in Cmd/Ctrl+K. They do not grant access, are not audit logs, and are hidden when the matching view permission or record is gone.
+
 Platform diagnostic surfaces (`/log`, `/jobs`, `/mysql`) are **not** tenant Spatie permissions. They use a separate user-level `users.platform_access` flag. See [Platform administration](#platform-administration).
 
 Re-seed after changing the catalog:

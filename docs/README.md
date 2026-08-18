@@ -11,6 +11,7 @@ Product and developer documentation for the Herd OMS-HRM application. These guid
 | [Document search](./document-search.md) | HR, developers | Documents index search UX, result modes, backend queries |
 | [Global search](./global-search.md) | HR, developers | Cmd/Ctrl+K omnibox: commands plus permission-aware record search |
 | [Navigation favorites](./navigation-favorites.md) | HR, developers | Personal pinned navigation destinations; permission-aware, not record shortcuts |
+| [Recent items](./recent-items.md) | HR, developers | Recently viewed business records in Cmd/Ctrl+K; per user and company, not audit history |
 | [Mobile operational lists](./mobile-operational-lists.md) | Developers | Compact phone cards for selected operational indexes; desktop tables stay standard |
 | [Document sharing](./document-sharing.md) | HR, developers | Share links, WhatsApp, bulk actions |
 | [Permissions](./permissions.md) | Admins, developers | Spatie permissions, documents, imports |
@@ -52,6 +53,7 @@ The application currently includes core organization and employee management, em
 | Tenant access or permissions | `permissions.md` and `.cursor/rules/permissions.mdc` |
 | Documents, sharing, or search | The matching document guide above, plus `global-search.md` for Cmd/Ctrl+K |
 | Navigation favorites | `navigation-favorites.md` |
+| Recently viewed records | `recent-items.md` |
 | Operational lists on phones | `mobile-operational-lists.md` |
 | Payroll | `payroll.md` |
 | Laravel backend | `.cursor/rules/backend.mdc`; use the `laravel-best-practices` skill |

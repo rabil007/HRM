@@ -5,6 +5,7 @@ import {
     Briefcase,
     Building2,
     ChevronRight,
+    Clock,
     FileText,
     Ship,
     Star,
@@ -27,11 +28,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSearch } from '@/context/search-provider';
 import { useGlobalSearch } from '@/hooks/use-global-search';
 import { useNavigationFavorites } from '@/hooks/use-navigation-favorites';
+import { useRecentItems } from '@/hooks/use-recent-items';
 import {
     commandResultValue,
     recordSearchEmptyMessage,
 } from '@/lib/global-search';
 import { excludeUrlsFromNavGroups } from '@/lib/navigation-favorites';
+import {
+    recentItemCommandValue,
+    recentItemHeading,
+    shouldRenderRecentGroup,
+} from '@/lib/recent-items';
 import type { Auth } from '@/types/auth';
 
 const RECORD_ICONS: Record<string, LucideIcon> = {
@@ -48,6 +55,8 @@ export function CommandMenu() {
     const { open, setOpen } = useSearch();
     const { query, setQuery, reset, recordGroups, loading, error } =
         useGlobalSearch();
+    const { accessibleItems } = useNavigationFavorites();
+    const recentItems = useRecentItems(open);
     const { auth } = usePage().props as unknown as {
         auth?: Auth;
     };
@@ -56,7 +65,6 @@ export function CommandMenu() {
         () => getSidebarData(auth?.permissions ?? [], auth?.platform),
         [auth?.permissions, auth?.platform],
     );
-    const { accessibleItems } = useNavigationFavorites();
     const commandGroups = React.useMemo(() => {
         const favoriteUrls = new Set(accessibleItems.map((item) => item.url));
 
@@ -109,6 +117,33 @@ export function CommandMenu() {
                                 >
                                     <Star className="size-4 fill-current text-primary" />
                                     {item.title}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    ) : null}
+                    {shouldRenderRecentGroup(query, recentItems) ? (
+                        <CommandGroup heading="Recent">
+                            {recentItems.map((item) => (
+                                <CommandItem
+                                    key={item.id}
+                                    value={recentItemCommandValue(item)}
+                                    onSelect={() => {
+                                        runCommand(() => {
+                                            router.visit(item.href);
+                                        });
+                                    }}
+                                >
+                                    <Clock className="size-4 text-muted-foreground" />
+                                    <div className="flex min-w-0 flex-col">
+                                        <span className="truncate">
+                                            {recentItemHeading(item)}
+                                        </span>
+                                        {item.subtitle !== '' ? (
+                                            <span className="truncate text-xs text-muted-foreground">
+                                                {item.subtitle}
+                                            </span>
+                                        ) : null}
+                                    </div>
                                 </CommandItem>
                             ))}
                         </CommandGroup>

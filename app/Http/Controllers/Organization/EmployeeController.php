@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Organization;
 
+use App\Enums\RecentItemType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\AssignEmployeeProfileTemplateRequest;
 use App\Http\Requests\Organization\Employee\StoreEmployeeRequest;
@@ -27,6 +28,7 @@ use App\Support\Employees\Resources\EmployeeListResource;
 use App\Support\Employees\Services\EmployeeProfilePageData;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Payroll\PayrollRecordLinkage;
+use App\Support\RecentItems\RecordRecentItem;
 use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -191,10 +193,15 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function show(Employee $employee)
+    public function show(Employee $employee, RecordRecentItem $recordRecentItem)
     {
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $employee->company_id === $companyId, 404);
+
+        $user = request()->user();
+        if ($user !== null) {
+            $recordRecentItem->handle($user, $companyId, RecentItemType::Employee, $employee->id);
+        }
 
         return Inertia::render(
             'organization/employee',

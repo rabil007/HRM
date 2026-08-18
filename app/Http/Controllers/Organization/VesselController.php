@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Organization;
 
+use App\Enums\RecentItemType;
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Vessel\ImportVesselsRequest;
@@ -17,6 +18,7 @@ use App\Models\VesselManning;
 use App\Models\VesselType;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\RecentItems\RecordRecentItem;
 use App\Support\VesselManning\SyncVesselManning;
 use App\Support\VesselManning\VesselManningIndexQuery;
 use App\Support\VesselManning\VesselManningPagePermissions;
@@ -77,7 +79,7 @@ class VesselController extends Controller
         ]);
     }
 
-    public function show(Request $request, Vessel $vessel): InertiaResponse
+    public function show(Request $request, Vessel $vessel, RecordRecentItem $recordRecentItem): InertiaResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
@@ -86,6 +88,9 @@ class VesselController extends Controller
         abort_unless($record instanceof Vessel, 404);
 
         $user = $request->user();
+        if ($user !== null) {
+            $recordRecentItem->handle($user, $companyId, RecentItemType::Vessel, $record->id);
+        }
 
         return Inertia::render('organization/vessels/show', [
             'vessel' => VesselIndexQuery::toArray($record, includeDetails: true),

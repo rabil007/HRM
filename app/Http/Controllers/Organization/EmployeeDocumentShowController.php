@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Organization;
 
+use App\Enums\RecentItemType;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
@@ -10,18 +11,24 @@ use App\Support\EmployeeDocuments\DocumentAccess;
 use App\Support\EmployeeDocuments\DocumentPagePermissions;
 use App\Support\EmployeeDocuments\DocumentShowBackNavigation;
 use App\Support\Employees\EmployeeFormOptions;
+use App\Support\RecentItems\RecordRecentItem;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class EmployeeDocumentShowController extends Controller
 {
-    public function __invoke(Request $request, Employee $employee, EmployeeDocument $document)
+    public function __invoke(Request $request, Employee $employee, EmployeeDocument $document, RecordRecentItem $recordRecentItem)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
         DocumentAccess::assertEmployeeInCompany($employee, $companyId, 404);
         DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId, 404);
         DocumentAccess::assertDocumentInCompany($document, $companyId);
+
+        $user = $request->user();
+        if ($user !== null) {
+            $recordRecentItem->handle($user, $companyId, RecentItemType::Document, $document->id);
+        }
 
         $document->load([
             'documentType:id,title',

@@ -6,6 +6,7 @@ use App\Enums\CrewTimesheetMode;
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodCreationSource;
 use App\Enums\PayrollPeriodStatus;
+use App\Enums\RecentItemType;
 use App\Enums\SalaryPaymentMethod;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Payroll\ApprovePayrollPeriodRequest;
@@ -63,6 +64,7 @@ use App\Support\Payroll\Services\CrewTimesheetImportOrchestrator;
 use App\Support\Payroll\Services\CrewTimesheetTemplateExporter;
 use App\Support\Payroll\Services\OfficePayrollSalarySheetExporter;
 use App\Support\Payroll\Wps\WpsExportPreview;
+use App\Support\RecentItems\RecordRecentItem;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -186,11 +188,19 @@ class PayrollController extends Controller
         CrewTimesheetPreparationSummaryResource $crewTimelineSummaryResource,
         BuildCrewPayrollCoverageSummary $buildCrewPayrollCoverageSummary,
         ClearableManualImportCrewTimesheetsQuery $clearableManualImportCrewTimesheetsQuery,
+        RecordRecentItem $recordRecentItem,
     ): InertiaResponse|RedirectResponse {
         $this->authorizePayrollShow($request);
 
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+
+        if (! $this->isPayslipPollOnly($request)) {
+            $user = $request->user();
+            if ($user !== null) {
+                $recordRecentItem->handle($user, $companyId, RecentItemType::PayrollPeriod, $payrollPeriod->id);
+            }
+        }
 
         $payrollPeriod->load('approvedBy')->loadCount('payrollRecords');
 

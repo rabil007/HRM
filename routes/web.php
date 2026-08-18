@@ -161,6 +161,7 @@ use App\Http\Controllers\Public\DocumentShare\ShowDocumentShareController;
 use App\Http\Controllers\Public\DocumentShare\UnlockDocumentShareController;
 use App\Http\Controllers\Public\DocumentShare\UploadSharedDocumentController;
 use App\Http\Controllers\Public\PublicAnnouncementController;
+use App\Http\Controllers\RecentItemController;
 use App\Http\Controllers\ServiceWorkerController;
 use App\Http\Controllers\Webhooks\HikvisionWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
@@ -271,6 +272,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('search', GlobalSearchController::class)
         ->middleware('throttle:60,1')
         ->name('search');
+    Route::get('recent-items', RecentItemController::class)
+        ->middleware('throttle:60,1')
+        ->name('recent-items');
     Route::post('favorites', [NavigationFavoriteController::class, 'store'])
         ->middleware('throttle:30,1')
         ->name('favorites.store');

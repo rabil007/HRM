@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Organization;
 
+use App\Enums\RecentItemType;
 use App\Exceptions\CrewMovementException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\StoreCrewAssignmentRequest;
@@ -25,6 +26,7 @@ use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\RecentItems\RecordRecentItem;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -157,12 +159,17 @@ class CrewAssignmentController extends Controller
         }
     }
 
-    public function show(Request $request, CrewAssignment $assignment)
+    public function show(Request $request, CrewAssignment $assignment, RecordRecentItem $recordRecentItem)
     {
         Gate::authorize('view', $assignment);
 
         $companyId = (int) $request->attributes->get('current_company_id');
         CrewAssignmentAccess::assertInCompany($assignment, $companyId);
+
+        $user = $request->user();
+        if ($user !== null) {
+            $recordRecentItem->handle($user, $companyId, RecentItemType::CrewAssignment, $assignment->id);
+        }
 
         $assignment->load([
             'company:id,timezone',

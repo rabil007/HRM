@@ -2,7 +2,7 @@
 
 Users can pin **navigation destinations** they open often. Favorites are personal shortcuts, not a permission grant and not a second search system.
 
-This phase does **not** favorite business records (employees, documents, crew assignments). Record shortcuts belong with a later Recent Items decision.
+This phase does **not** favorite business records (employees, documents, crew assignments). Recently viewed records are [Recent items](./recent-items.md), a separate Cmd+K surface.
 
 ## What can be favorited
 

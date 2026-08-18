@@ -85,4 +85,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(NavigationFavorite::class);
     }
+
+    /**
+     * @return HasMany<RecentItem, $this>
+     */
+    public function recentItems(): HasMany
+    {
+        return $this->hasMany(RecentItem::class);
+    }
 }
