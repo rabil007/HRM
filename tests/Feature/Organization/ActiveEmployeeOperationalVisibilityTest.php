@@ -14,24 +14,81 @@ use App\Models\User;
 use App\Support\Employees\SeaServiceDuration;
 use Inertia\Testing\AssertableInertia as Assert;
 
-test('attendance create rejects inactive terminated and cross-company employees', function () {
+test('manager attendance create rejects inactive same-company employees', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'inactiveEmployee' => $inactive, 'terminatedEmployee' => $terminated] = makeActiveOnlyScopeFixtures();
+    ['company' => $company, 'inactiveEmployee' => $inactive] = makeActiveOnlyScopeFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.records.view',
+        'attendance.records.create',
+        'attendance.records.manage',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/attendance/records', activeEmployeeAttendancePayload($inactive))
+        ->assertSessionHasErrors('employee_id');
+
+    expect(AttendanceRecord::query()->count())->toBe(0);
+});
+
+test('manager attendance create rejects terminated same-company employees', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'terminatedEmployee' => $terminated] = makeActiveOnlyScopeFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.records.view',
+        'attendance.records.create',
+        'attendance.records.manage',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/attendance/records', activeEmployeeAttendancePayload($terminated))
+        ->assertSessionHasErrors('employee_id');
+
+    expect(AttendanceRecord::query()->count())->toBe(0);
+});
+
+test('attendance create rejects foreign-company employees without validation leakage', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company] = makeActiveOnlyScopeFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.records.view',
+        'attendance.records.create',
+        'attendance.records.manage',
+    ]);
+
+    $foreign = Employee::factory()->create(['status' => 'active']);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/attendance/records', activeEmployeeAttendancePayload($foreign))
+        ->assertNotFound()
+        ->assertSessionMissing('errors');
+
+    expect(AttendanceRecord::query()->count())->toBe(0);
+});
+
+test('self-service attendance create rejects inactive same-company coworkers before validation', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'inactiveEmployee' => $inactive] = makeActiveOnlyScopeFixtures();
 
     grantCompanyPermissions($user, $company, [
         'attendance.records.view',
         'attendance.records.create',
     ]);
 
-    $foreign = Employee::factory()->create(['status' => 'active']);
-
-    foreach ([$inactive, $terminated, $foreign] as $employee) {
-        $this->withSession(['current_company_id' => $company->id])
-            ->post('/attendance/records', activeEmployeeAttendancePayload($employee))
-            ->assertSessionHasErrors('employee_id');
-    }
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/attendance/records', activeEmployeeAttendancePayload($inactive))
+        ->assertNotFound()
+        ->assertSessionMissing('errors');
 
     expect(AttendanceRecord::query()->count())->toBe(0);
 });
