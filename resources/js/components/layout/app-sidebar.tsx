@@ -8,11 +8,14 @@ import {
     SidebarRail,
 } from '@/components/ui/sidebar';
 import { useLayout } from '@/context/layout-provider';
+import { useNavigationFavorites } from '@/hooks/use-navigation-favorites';
+import { flattenSidebarNavLinks } from '@/lib/navigation-favorites';
 import type { Auth } from '@/types/auth';
 import { getSidebarData } from './data/sidebar-data';
 import { NavGroup } from './nav-group';
 import { NavUser } from './nav-user';
 import { TeamSwitcher } from './team-switcher';
+import type { NavLink } from './types';
 
 export function AppSidebar() {
     const { collapsible, variant } = useLayout();
@@ -29,6 +32,20 @@ export function AppSidebar() {
         () => getSidebarData(auth?.permissions ?? [], auth?.platform),
         [auth?.permissions, auth?.platform],
     );
+    const { accessibleItems } = useNavigationFavorites();
+    const favoriteNavItems = useMemo((): NavLink[] => {
+        const linksByUrl = flattenSidebarNavLinks(sidebarData.navGroups);
+
+        return accessibleItems.map((item) => {
+            const fromSidebar = linksByUrl.get(item.url);
+
+            return {
+                title: fromSidebar?.title ?? item.title,
+                url: item.url,
+                icon: fromSidebar?.icon as NavLink['icon'],
+            };
+        });
+    }, [accessibleItems, sidebarData.navGroups]);
     const teams = useMemo(
         () =>
             companies.map((c) => ({
@@ -63,6 +80,9 @@ export function AppSidebar() {
                 <TeamSwitcher teams={teams} />
             </SidebarHeader>
             <SidebarContent>
+                {favoriteNavItems.length > 0 ? (
+                    <NavGroup title="Favorites" items={favoriteNavItems} />
+                ) : null}
                 {sidebarData.navGroups.map((props) => (
                     <NavGroup key={props.title} {...props} />
                 ))}

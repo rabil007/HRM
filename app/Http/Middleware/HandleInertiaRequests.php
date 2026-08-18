@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Company;
+use App\Models\NavigationFavorite;
 use App\Models\User;
 use App\Services\Settings\SettingService;
 use App\Support\Companies\ResolveCompanyAccess;
@@ -92,6 +93,7 @@ class HandleInertiaRequests extends Middleware
         $companies = [];
         $permissions = [];
         $roleNames = [];
+        $favoriteDestinationKeys = [];
 
         if ($user) {
             $accessibleCompanyIds = $companyAccess->accessibleCompanyIds($user);
@@ -163,6 +165,14 @@ class HandleInertiaRequests extends Middleware
                     return $user->getRoleNames()->all();
                 });
             }
+
+            $favoriteDestinationKeys = $user->navigationFavorites()
+                ->orderBy('position')
+                ->orderBy('id')
+                ->limit(NavigationFavorite::MAX_PER_USER)
+                ->pluck('destination_key')
+                ->values()
+                ->all();
         }
 
         $settingService = app(SettingService::class);
@@ -187,6 +197,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'company_switcher_companies' => $companies,
             'current_company_id' => $currentCompanyId,
+            'favorite_destination_keys' => $favoriteDestinationKeys,
             'web_push' => [
                 'vapid_public_key' => $user ? (string) (config('webpush.vapid.public_key') ?? '') : '',
                 'enabled' => $user !== null

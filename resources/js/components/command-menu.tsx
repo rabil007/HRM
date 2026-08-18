@@ -7,6 +7,7 @@ import {
     ChevronRight,
     FileText,
     Ship,
+    Star,
     Users,
     Wallet,
     Waves,
@@ -25,10 +26,12 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSearch } from '@/context/search-provider';
 import { useGlobalSearch } from '@/hooks/use-global-search';
+import { useNavigationFavorites } from '@/hooks/use-navigation-favorites';
 import {
     commandResultValue,
     recordSearchEmptyMessage,
 } from '@/lib/global-search';
+import { excludeUrlsFromNavGroups } from '@/lib/navigation-favorites';
 import type { Auth } from '@/types/auth';
 
 const RECORD_ICONS: Record<string, LucideIcon> = {
@@ -53,6 +56,12 @@ export function CommandMenu() {
         () => getSidebarData(auth?.permissions ?? [], auth?.platform),
         [auth?.permissions, auth?.platform],
     );
+    const { accessibleItems } = useNavigationFavorites();
+    const commandGroups = React.useMemo(() => {
+        const favoriteUrls = new Set(accessibleItems.map((item) => item.url));
+
+        return excludeUrlsFromNavGroups(sidebarData.navGroups, favoriteUrls);
+    }, [accessibleItems, sidebarData.navGroups]);
 
     const runCommand = React.useCallback(
         (command: () => unknown) => {
@@ -86,6 +95,24 @@ export function CommandMenu() {
                     <CommandEmpty>
                         {recordSearchEmptyMessage({ loading, error })}
                     </CommandEmpty>
+                    {accessibleItems.length > 0 ? (
+                        <CommandGroup heading="Favorites">
+                            {accessibleItems.map((item) => (
+                                <CommandItem
+                                    key={item.key}
+                                    value={item.title}
+                                    onSelect={() => {
+                                        runCommand(() => {
+                                            router.visit(item.url);
+                                        });
+                                    }}
+                                >
+                                    <Star className="size-4 fill-current text-primary" />
+                                    {item.title}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    ) : null}
                     {recordGroups.map((group) => {
                         const Icon = RECORD_ICONS[group.key] ?? ArrowRight;
 
@@ -120,7 +147,7 @@ export function CommandMenu() {
                             </CommandGroup>
                         );
                     })}
-                    {sidebarData.navGroups.map((group) => (
+                    {commandGroups.map((group) => (
                         <CommandGroup key={group.title} heading={group.title}>
                             {group.items.map((navItem, i) => {
                                 if (navItem.url) {

@@ -8,6 +8,7 @@ import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
 import { getTopNavLinks } from '@/components/layout/data/top-nav-data';
 import { Header } from '@/components/layout/header';
 import { TopNav } from '@/components/layout/top-nav';
+import { NavigationFavoriteToggle } from '@/components/navigation-favorite-toggle';
 import { ProfileDropdown } from '@/components/profile-dropdown';
 import { Search } from '@/components/search';
 import { ThemeSwitch } from '@/components/theme-switch';
@@ -38,6 +39,7 @@ export default function AppLayout({
                             <Breadcrumbs breadcrumbs={breadcrumbs} />
                         </div>
                     )}
+                    <NavigationFavoriteToggle />
                     <TopNav links={navLinks} />
                     <div className="ms-auto flex items-center gap-2 sm:gap-4">
                         <Search />

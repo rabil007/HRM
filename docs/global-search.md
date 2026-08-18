@@ -64,4 +64,6 @@ Result URLs are the same show routes the rest of the app uses; opening a hit sti
 - Presentation: `App\Support\Search\GlobalSearchResultPresenter`
 - Palette: `resources/js/components/command-menu.tsx` + `resources/js/hooks/use-global-search.ts`
 
-Recent items, favorites, and saved views are not part of this surface.
+Accessible [navigation favorites](./navigation-favorites.md) appear as a Favorites command group and are omitted from the normal command list so destinations are not duplicated. Record search is unchanged.
+
+Recent items and saved views are not part of this surface.

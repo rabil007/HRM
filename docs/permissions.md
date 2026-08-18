@@ -15,6 +15,8 @@ Most module routes use `middleware('can:permission.name')`. Some Payroll and ope
 
 Cmd/Ctrl+K [global search](./global-search.md) is one of those authenticated JSON lookups. It still authorizes **each record category** with the matching view permission and scopes every tenant source to `current_company_id`. Navigation command visibility stays in `nav-visibility.ts` and is not a substitute for those backend checks.
 
+[Navigation favorites](./navigation-favorites.md) are personal destination shortcuts. They do not grant access. A stored favorite is shown only when the active company's Phase 3A nav visibility would also show that destination.
+
 Platform diagnostic surfaces (`/log`, `/jobs`, `/mysql`) are **not** tenant Spatie permissions. They use a separate user-level `users.platform_access` flag. See [Platform administration](#platform-administration).
 
 Re-seed after changing the catalog:

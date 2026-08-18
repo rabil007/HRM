@@ -14,6 +14,7 @@ use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
 use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\JobRunController;
+use App\Http\Controllers\NavigationFavoriteController;
 use App\Http\Controllers\Notifications\DestroyPushSubscriptionController;
 use App\Http\Controllers\Notifications\NotificationFeedController;
 use App\Http\Controllers\Notifications\OpenAnnouncementNotificationController;
@@ -270,6 +271,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('search', GlobalSearchController::class)
         ->middleware('throttle:60,1')
         ->name('search');
+    Route::post('favorites', [NavigationFavoriteController::class, 'store'])
+        ->middleware('throttle:30,1')
+        ->name('favorites.store');
+    Route::delete('favorites/{destination}', [NavigationFavoriteController::class, 'destroy'])
+        ->middleware('throttle:30,1')
+        ->where('destination', '[a-z0-9._-]+')
+        ->name('favorites.destroy');
     Route::get('organization/companies', [CompanyController::class, 'index'])->middleware('can:companies.view')->name('organization.companies');
     Route::get('organization/companies/export', [CompanyController::class, 'export'])->middleware('can:companies.export')->name('organization.companies.export');
     Route::get('organization/companies/{company}/documents', [CompanyDocumentController::class, 'index'])->name('organization.companies.documents.index');
