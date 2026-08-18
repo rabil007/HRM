@@ -1,6 +1,7 @@
 import { useForm } from '@inertiajs/react';
 import {
     Anchor,
+    CalendarDays,
     FileText,
     Pencil,
     Ship,
@@ -34,7 +35,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { actions } from '@/lib/design-system';
-import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
+import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { VesselManningFormSheet } from '../vessel-manning/components/vessel-manning-form-sheet';
 import type {
@@ -56,9 +57,20 @@ import type {
     VesselTypeOption,
 } from './types';
 
+function SectionLabel({ children }: { children: React.ReactNode }) {
+    return (
+        <div className="flex items-center gap-3 px-6 pt-5 pb-3">
+            <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/50 uppercase">
+                {children}
+            </span>
+            <div className="h-px flex-1 bg-border/50 dark:bg-white/5" />
+        </div>
+    );
+}
+
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
     return (
-        <div className="flex items-center justify-between gap-3 px-6 py-4">
+        <div className="flex items-center justify-between gap-3 px-6 py-3.5">
             <div className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/80 uppercase">
                 {label}
             </div>
@@ -72,19 +84,48 @@ function StatChip({
     value,
     icon: Icon,
     highlight = false,
+    accent = 'default',
 }: {
     label: string;
     value: string;
     icon?: React.ComponentType<{ className?: string }>;
     highlight?: boolean;
+    accent?: 'default' | 'emerald' | 'blue' | 'amber';
 }) {
+    const accentStyles = {
+        default: {
+            wrapper:
+                'border-border/80 bg-muted/20 dark:border-white/10 dark:bg-white/3',
+            icon: 'border-border/60 bg-muted/40 text-muted-foreground dark:border-white/8 dark:bg-white/5',
+        },
+        emerald: {
+            wrapper:
+                'border-emerald-500/20 bg-emerald-500/[0.06] dark:bg-emerald-500/[0.04]',
+            icon: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+        },
+        blue: {
+            wrapper:
+                'border-blue-500/20 bg-blue-500/[0.06] dark:bg-blue-500/[0.04]',
+            icon: 'border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400',
+        },
+        amber: {
+            wrapper:
+                'border-amber-500/20 bg-amber-500/[0.06] dark:bg-amber-500/[0.04]',
+            icon: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+        },
+    };
+
+    const resolvedStyles = highlight
+        ? accent !== 'default'
+            ? accentStyles[accent]
+            : accentStyles.emerald
+        : accentStyles.default;
+
     return (
         <div
             className={cn(
                 'group relative overflow-hidden rounded-xl border p-4 transition-all duration-300 hover:shadow-xs',
-                highlight
-                    ? 'border-primary/20 bg-primary/5 dark:bg-primary/[0.02]'
-                    : 'border-border/80 bg-muted/20 dark:border-white/10 dark:bg-white/3',
+                resolvedStyles.wrapper,
             )}
         >
             <div className="flex items-center justify-between gap-3">
@@ -100,9 +141,7 @@ function StatChip({
                     <div
                         className={cn(
                             'flex size-9 items-center justify-center rounded-lg border',
-                            highlight
-                                ? 'border-primary/20 bg-primary/10 text-primary'
-                                : 'border-border/60 bg-muted/40 text-muted-foreground dark:border-white/8 dark:bg-white/5',
+                            resolvedStyles.icon,
                         )}
                     >
                         <Icon className="size-4" />
@@ -256,7 +295,14 @@ export function VesselShowContent({
             <DetailsHeader
                 kicker="Crew Operations"
                 title={vessel.name}
-                description={`${formatDisplayValue(vessel.vessel_type?.name)} · ${vessel.is_active ? 'Active vessel' : 'Inactive vessel'}`}
+                description={
+                    [
+                        vessel.vessel_type?.name ?? null,
+                        vessel.is_active ? 'Active vessel' : 'Inactive vessel',
+                    ]
+                        .filter(Boolean)
+                        .join(' · ')
+                }
                 backHref={backHref}
                 backLabel="Back to vessels"
                 actions={
@@ -316,7 +362,7 @@ export function VesselShowContent({
                                     ) : null}
                                 </div>
                                 <p className="text-sm text-muted-foreground">
-                                    {formatDisplayValue(vessel.imo_no) !== '—'
+                                    {vessel.imo_no
                                         ? `IMO ${vessel.imo_no}`
                                         : 'Vessel identification and operational details.'}
                                 </p>
@@ -326,15 +372,68 @@ export function VesselShowContent({
 
                     <CardContent className="p-0">
                         <div className="divide-y divide-border dark:divide-white/5">
+                            <SectionLabel>Identification</SectionLabel>
                             <Field
-                                label="Vessel type"
-                                value={formatDisplayValue(
-                                    vessel.vessel_type?.name,
-                                )}
+                                label="IMO No"
+                                value={
+                                    vessel.imo_no ? (
+                                        <span className="font-mono text-xs tracking-wide">
+                                            {vessel.imo_no}
+                                        </span>
+                                    ) : (
+                                        '—'
+                                    )
+                                }
+                            />
+                            <Field
+                                label="Official No"
+                                value={
+                                    vessel.official_no ? (
+                                        <span className="font-mono text-xs tracking-wide">
+                                            {vessel.official_no}
+                                        </span>
+                                    ) : (
+                                        '—'
+                                    )
+                                }
+                            />
+                            <Field
+                                label="Call Sign"
+                                value={
+                                    vessel.call_sign ? (
+                                        <span className="font-mono text-xs tracking-wide">
+                                            {vessel.call_sign}
+                                        </span>
+                                    ) : (
+                                        '—'
+                                    )
+                                }
+                            />
+
+                            <SectionLabel>Technical</SectionLabel>
+                            <Field
+                                label="Vessel Type"
+                                value={
+                                    vessel.vessel_type?.name ? (
+                                        <Badge
+                                            variant="outline"
+                                            className="text-[10px] font-bold tracking-wider uppercase"
+                                        >
+                                            {vessel.vessel_type.name}
+                                        </Badge>
+                                    ) : (
+                                        '—'
+                                    )
+                                }
                             />
                             <Field
                                 label="GRT"
-                                value={formatDisplayValue(vessel.grt)}
+                                value={
+                                    vessel.grt !== null &&
+                                    vessel.grt !== undefined
+                                        ? String(vessel.grt)
+                                        : '—'
+                                }
                             />
                             <Field
                                 label="BHP"
@@ -345,18 +444,8 @@ export function VesselShowContent({
                                         : '—'
                                 }
                             />
-                            <Field
-                                label="Official No"
-                                value={formatDisplayValue(vessel.official_no)}
-                            />
-                            <Field
-                                label="Call Sign"
-                                value={formatDisplayValue(vessel.call_sign)}
-                            />
-                            <Field
-                                label="IMO No"
-                                value={formatDisplayValue(vessel.imo_no)}
-                            />
+
+                            <SectionLabel>Documentation</SectionLabel>
                             <Field
                                 label="Certificate"
                                 value={
@@ -376,17 +465,28 @@ export function VesselShowContent({
                                     )
                                 }
                             />
-                            <div className="flex items-center justify-between gap-3 px-6 py-4">
-                                <div className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/80 uppercase">
-                                    Metadata
-                                </div>
-                                <div className="space-y-1 text-right text-sm font-medium">
-                                    <div>
-                                        Created:{' '}
+
+                            <SectionLabel>Record</SectionLabel>
+                            <div className="grid grid-cols-2 divide-x divide-border px-6 py-3.5 dark:divide-white/5">
+                                <div className="space-y-1 pr-6">
+                                    <div className="flex items-center gap-1.5">
+                                        <CalendarDays className="h-3.5 w-3.5 text-muted-foreground/60" />
+                                        <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/60 uppercase">
+                                            Created
+                                        </span>
+                                    </div>
+                                    <div className="text-sm font-medium">
                                         {formatDisplayDate(vessel.created_at)}
                                     </div>
-                                    <div>
-                                        Updated:{' '}
+                                </div>
+                                <div className="space-y-1 pl-6">
+                                    <div className="flex items-center gap-1.5">
+                                        <CalendarDays className="h-3.5 w-3.5 text-muted-foreground/60" />
+                                        <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/60 uppercase">
+                                            Updated
+                                        </span>
+                                    </div>
+                                    <div className="text-sm font-medium">
                                         {formatDisplayDate(vessel.updated_at)}
                                     </div>
                                 </div>
@@ -411,16 +511,21 @@ export function VesselShowContent({
                             }
                             icon={Users}
                             highlight={summary.total_required > 0}
+                            accent="blue"
                         />
                         <StatChip
                             label="Manning ranks"
                             value={String(summary.manning_ranks)}
                             icon={ShieldCheck}
+                            highlight={summary.manning_ranks > 0}
+                            accent="emerald"
                         />
                         <StatChip
                             label="Active crew"
                             value={String(summary.active_crew)}
                             icon={Anchor}
+                            highlight={summary.active_crew > 0}
+                            accent="emerald"
                         />
                         <StatChip
                             label="Sea services"
@@ -452,19 +557,26 @@ export function VesselShowContent({
                 </CardHeader>
                 <CardContent className="p-0">
                     {vessel.manning.length === 0 ? (
-                        <div className="px-6 py-10 text-center text-sm text-muted-foreground">
-                            No ranks configured yet.
+                        <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+                            <div className="flex size-12 items-center justify-center rounded-full border border-border/60 bg-muted/40 dark:border-white/8 dark:bg-white/5">
+                                <ShieldCheck className="size-5 text-muted-foreground/60" />
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-sm font-semibold text-foreground/80">
+                                    No ranks configured
+                                </p>
+                                <p className="text-xs text-muted-foreground/70">
+                                    Define the crew requirements for this vessel.
+                                </p>
+                            </div>
                             {ranks && hasManningWriteAccess ? (
-                                <>
-                                    {' '}
-                                    <button
-                                        type="button"
-                                        className="font-medium text-primary underline-offset-4 hover:underline"
-                                        onClick={openManningEdit}
-                                    >
-                                        Add manning
-                                    </button>
-                                </>
+                                <button
+                                    type="button"
+                                    className="mt-1 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+                                    onClick={openManningEdit}
+                                >
+                                    Set up manning
+                                </button>
                             ) : null}
                         </div>
                     ) : (
@@ -502,6 +614,30 @@ export function VesselShowContent({
                                     </TableRow>
                                 ))}
                             </TableBody>
+                            {vessel.manning.length > 0 ? (
+                                <tfoot>
+                                    <tr className="border-t border-border bg-muted/20 dark:border-white/5 dark:bg-white/[0.02]">
+                                        <td className="px-4 py-3 text-xs font-bold tracking-wider text-muted-foreground/70 uppercase">
+                                            {vessel.manning.length}{' '}
+                                            {vessel.manning.length === 1
+                                                ? 'rank'
+                                                : 'ranks'}{' '}
+                                            total
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-bold tabular-nums text-blue-700 dark:text-blue-400">
+                                                <Users className="h-3.5 w-3.5" />
+                                                {vessel.manning.reduce(
+                                                    (acc, l) =>
+                                                        acc + l.required_count,
+                                                    0,
+                                                )}{' '}
+                                                required
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            ) : null}
                         </Table>
                     )}
                 </CardContent>

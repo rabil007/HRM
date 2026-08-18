@@ -113,6 +113,14 @@ function StatCard({
     );
 }
 
+function VesselAvatar({ name }: { name: string }) {
+    return (
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary dark:border-primary/15 dark:bg-primary/[0.08]">
+            <Ship className="size-4" />
+        </div>
+    );
+}
+
 function emptyFormData(): VesselFormData {
     return {
         name: '',
@@ -425,7 +433,7 @@ export function VesselsContent({
 
             <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
                 <StatCard
-                    label="Active Fleet"
+                    label="Total Fleet"
                     value={pagination.total}
                     hint="Vessels registered for this company"
                     icon={Ship}
@@ -532,7 +540,7 @@ export function VesselsContent({
                         <DataTableHeaderRow>
                             <DataTableHead>Vessel</DataTableHead>
                             <DataTableHead>Type</DataTableHead>
-                            <DataTableHead>IMO / Official No</DataTableHead>
+                            <DataTableHead>Identification</DataTableHead>
                             <DataTableHead>Manning</DataTableHead>
                             <DataTableHead>Required Crew</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
@@ -554,41 +562,61 @@ export function VesselsContent({
                                 <TableCell
                                     className={dataTableCellPrimaryClass()}
                                 >
-                                    <div className="font-medium">
-                                        {vessel.name}
-                                    </div>
-                                    {!vessel.is_active ? (
-                                        <div className="text-xs text-muted-foreground">
-                                            Inactive
+                                    <div className="flex items-center gap-3">
+                                        <VesselAvatar name={vessel.name} />
+                                        <div className="min-w-0">
+                                            <div className="truncate font-semibold">
+                                                {vessel.name}
+                                            </div>
+                                            {vessel.call_sign ? (
+                                                <div className="text-xs text-muted-foreground/70">
+                                                    {vessel.call_sign}
+                                                </div>
+                                            ) : null}
                                         </div>
-                                    ) : null}
+                                    </div>
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {vessel.vessel_type?.name ??
-                                        vessel.vessel_type_name ??
-                                        '—'}
+                                    vessel.vessel_type_name ? (
+                                        <Badge
+                                            variant="outline"
+                                            className="border-border/80 text-[10px] font-bold tracking-wider uppercase"
+                                        >
+                                            {vessel.vessel_type?.name ??
+                                                vessel.vessel_type_name}
+                                        </Badge>
+                                    ) : (
+                                        <span className="text-muted-foreground/50">
+                                            —
+                                        </span>
+                                    )}
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
-                                    <div className="space-y-0.5">
+                                    <div className="space-y-1">
                                         {vessel.imo_no ? (
-                                            <div className="text-xs">
-                                                <span className="text-muted-foreground">
-                                                    IMO{' '}
+                                            <div className="flex items-center gap-1.5 text-xs">
+                                                <span className="inline-block w-10 shrink-0 text-[10px] font-bold tracking-wider text-muted-foreground/60 uppercase">
+                                                    IMO
                                                 </span>
-                                                {vessel.imo_no}
+                                                <span className="font-medium tabular-nums">
+                                                    {vessel.imo_no}
+                                                </span>
                                             </div>
                                         ) : null}
                                         {vessel.official_no ? (
-                                            <div className="text-xs">
-                                                <span className="text-muted-foreground">
-                                                    Off{' '}
+                                            <div className="flex items-center gap-1.5 text-xs">
+                                                <span className="inline-block w-10 shrink-0 text-[10px] font-bold tracking-wider text-muted-foreground/60 uppercase">
+                                                    Off.
                                                 </span>
-                                                {vessel.official_no}
+                                                <span className="font-medium tabular-nums">
+                                                    {vessel.official_no}
+                                                </span>
                                             </div>
                                         ) : null}
                                         {!vessel.imo_no &&
                                         !vessel.official_no ? (
-                                            <span className="text-muted-foreground">
+                                            <span className="text-muted-foreground/50">
                                                 —
                                             </span>
                                         ) : null}
@@ -596,27 +624,27 @@ export function VesselsContent({
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {vessel.ranks_configured === 0 ? (
-                                        <span className="text-muted-foreground">
-                                            Not configured
-                                        </span>
+                                        <Badge className="border-amber-500/20 bg-amber-500/10 text-[10px] font-bold tracking-wider text-amber-700 uppercase dark:text-amber-400">
+                                            Not set
+                                        </Badge>
                                     ) : (
-                                        <span className="font-medium text-foreground">
+                                        <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                                             {vessel.ranks_configured}{' '}
                                             {vessel.ranks_configured === 1
                                                 ? 'rank'
-                                                : 'ranks'}{' '}
-                                            configured
+                                                : 'ranks'}
                                         </span>
                                     )}
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {vessel.total_required > 0 ? (
-                                        <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
-                                            <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-bold tabular-nums text-blue-700 dark:text-blue-400">
+                                            <Users className="h-3.5 w-3.5" />
                                             {vessel.total_required}
                                         </span>
                                     ) : (
-                                        <span className="text-muted-foreground">
+                                        <span className="text-muted-foreground/50">
                                             —
                                         </span>
                                     )}
