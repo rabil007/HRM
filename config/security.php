@@ -20,4 +20,34 @@ return [
         'enforced' => env('PRIVILEGED_2FA_ENFORCED', false),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Browser security headers
+    |--------------------------------------------------------------------------
+    |
+    | Laravel emits these on web responses. Reverse proxies may also set HSTS
+    | or nosniff; the middleware will not overwrite an existing HSTS header.
+    | See docs/security-headers.md.
+    |
+    */
+    'headers' => [
+        'csp' => [
+            'report_only' => env('SECURITY_CSP_REPORT_ONLY', false),
+            'vite_dev_origins' => array_values(array_filter(array_map(
+                trim(...),
+                explode(',', (string) env(
+                    'SECURITY_CSP_VITE_ORIGINS',
+                    'https://oms-hrm.test:5173,wss://oms-hrm.test:5173,http://127.0.0.1:5173,ws://127.0.0.1:5173',
+                )),
+            ))),
+        ],
+        'hsts' => [
+            'enabled' => env('SECURITY_HSTS'),
+            'max_age' => 31536000,
+            'include_subdomains' => true,
+        ],
+        'referrer_policy' => 'strict-origin-when-cross-origin',
+        'permissions_policy' => 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), accelerometer=(), gyroscope=(), magnetometer=(), display-capture=(), browsing-topics=()',
+    ],
+
 ];

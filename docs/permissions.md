@@ -23,6 +23,8 @@ Cmd/Ctrl+K [global search](./global-search.md) is one of those authenticated JSO
 
 [Privileged two-factor](./privileged-2fa.md) is defense-in-depth on top of these permission checks. Fortify 2FA enrollment is required for a small catalog of high-trust capabilities (and all platform access) when `PRIVILEGED_2FA_ENFORCED` is on. It does not replace Spatie permissions or tenant isolation.
 
+[HTTP security headers](./security-headers.md) are a separate browser-response control (CSP, HSTS, framing). They do not grant or replace permissions.
+
 Platform diagnostic surfaces (`/log`, `/jobs`, `/mysql`) are **not** tenant Spatie permissions. They use a separate user-level `users.platform_access` flag. See [Platform administration](#platform-administration).
 
 Re-seed after changing the catalog:

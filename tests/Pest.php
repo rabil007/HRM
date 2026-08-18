@@ -9,6 +9,7 @@ require __DIR__.'/Support/hikvision.php';
 require __DIR__.'/Support/spatie.php';
 require __DIR__.'/Support/platform.php';
 require __DIR__.'/Support/privileged-two-factor.php';
+require __DIR__.'/Support/security-headers.php';
 require __DIR__.'/Support/document-fixtures.php';
 require __DIR__.'/Support/bulk-documents.php';
 require __DIR__.'/Support/employee-profile-inertia.php';

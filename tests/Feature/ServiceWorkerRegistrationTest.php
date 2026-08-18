@@ -9,7 +9,11 @@ test('service worker route exposes root scope allow header', function () {
 
     $response->assertOk()
         ->assertHeader('Service-Worker-Allowed', '/')
-        ->assertHeader('Content-Type', 'application/javascript; charset=UTF-8');
+        ->assertHeader('Content-Type', 'application/javascript; charset=UTF-8')
+        ->assertHeader('X-Content-Type-Options', 'nosniff');
+
+    expect((string) $response->headers->get('Cache-Control'))->toContain('no-store')
+        ->and((string) $response->headers->get('Content-Security-Policy'))->toContain("object-src 'none'");
 
     expect(file_get_contents($path))->toContain("addEventListener('push'");
 });

@@ -118,6 +118,7 @@ test('recipient can view only their assigned announcement without contact detail
 
     $this->get('/announcements/public/'.$recipient->public_token)
         ->assertOk()
+        ->tap(fn ($response) => assertBrowserSecurityHeaders($response))
         ->assertInertia(fn (Assert $page) => $page
             ->component('public/announcements/show')
             ->where('company_name', 'Pub Co')

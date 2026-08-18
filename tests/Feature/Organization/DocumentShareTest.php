@@ -142,7 +142,9 @@ test('legacy signed share url downloads the document file', function () {
 
     $this->get($shareUrl)
         ->assertOk()
-        ->assertDownload('Passport_Copy.pdf');
+        ->assertDownload('Passport_Copy.pdf')
+        ->assertHeader('X-Content-Type-Options', 'nosniff')
+        ->assertHeader('X-Frame-Options', 'DENY');
 });
 
 test('invalid signed share url is forbidden', function () {
@@ -177,7 +179,7 @@ test('expired signed share url is forbidden', function () {
         ['document' => $document->id],
     );
 
-    $this->get($shareUrl)->assertForbidden();
+    $this->get($shareUrl)->assertForbidden()->tap(fn ($response) => assertBrowserSecurityHeaders($response));
 });
 
 test('share links request rejects documents with missing files', function () {
@@ -254,7 +256,10 @@ test('password protected legacy share link requires password input', function ()
         ->assertOk()
         ->assertViewIs('documents.share-password')
         ->assertSee('This link is password protected')
-        ->assertSee('Passport Copy.pdf');
+        ->assertSee('Passport Copy.pdf')
+        ->assertDontSee('cdn.tailwindcss.com', false)
+        ->assertDontSee('fonts.googleapis.com', false)
+        ->tap(fn ($response) => assertBrowserSecurityHeaders($response));
 
     $this->post($shareUrl, ['password' => 'wrong-pass'])
         ->assertOk()
@@ -263,7 +268,9 @@ test('password protected legacy share link requires password input', function ()
 
     $this->post($shareUrl, ['password' => 'secret-password'])
         ->assertOk()
-        ->assertDownload('Passport_Copy.pdf');
+        ->assertDownload('Passport_Copy.pdf')
+        ->assertHeader('X-Content-Type-Options', 'nosniff')
+        ->assertHeader('X-Frame-Options', 'DENY');
 });
 
 test('users can create folder share links with upload permission', function () {
@@ -311,6 +318,7 @@ test('guest can view shared files portal and download when allowed', function ()
 
     $this->get($shareUrl)
         ->assertOk()
+        ->tap(fn ($response) => assertBrowserSecurityHeaders($response))
         ->assertInertia(fn (Assert $page) => $page
             ->component('shared/show')
             ->where('unlocked', true)
@@ -323,7 +331,8 @@ test('guest can view shared files portal and download when allowed', function ()
 
     $this->get($downloadUrl)
         ->assertOk()
-        ->assertDownload('Passport.pdf');
+        ->assertDownload('Passport.pdf')
+        ->assertHeader('X-Content-Type-Options', 'nosniff');
 });
 
 test('guest cannot download from share when download is disabled', function () {

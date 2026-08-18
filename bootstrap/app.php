@@ -7,6 +7,7 @@ use App\Http\Middleware\ExtendRememberedSessionLifetime;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\LogFailedFileUploads;
+use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetCurrentCompany;
 use App\Support\Uploads\FailedUploadLogger;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -17,6 +18,7 @@ use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Support\Header;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -40,6 +42,14 @@ return Application::configure(basePath: dirname(__DIR__))
             ApplyRememberedSessionLifetimeEarly::class,
         ]);
 
+        $trustedProxies = env('TRUSTED_PROXIES');
+
+        if (is_string($trustedProxies) && $trustedProxies !== '' && $trustedProxies !== '*') {
+            $middleware->trustProxies(
+                at: array_values(array_filter(array_map(trim(...), explode(',', $trustedProxies)))),
+            );
+        }
+
         $middleware->alias([
             'platform' => EnsurePlatformAccess::class,
             'privileged.2fa' => EnsurePrivilegedTwoFactor::class,
@@ -52,6 +62,7 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             LogFailedFileUploads::class,
+            SecurityHeaders::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -100,5 +111,9 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return Inertia::render('errors/403')->toResponse($request)->setStatusCode(403);
+        });
+
+        $exceptions->respond(function (Response $response, Throwable $e, Request $request) {
+            return app(SecurityHeaders::class)->apply($request, $response);
         });
     })->create();

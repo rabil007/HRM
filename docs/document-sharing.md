@@ -44,6 +44,8 @@ Public signed routes (`signed` + throttle):
 
 Guests see the allowed file list and can only use enabled actions. Uploads become normal `employee_documents` for that employee.
 
+Browser security headers (CSP, framing denial, `nosniff`) apply to share and download responses. See [HTTP security headers](./security-headers.md).
+
 ## Legacy file download links
 
 Ephemeral signed URLs to `organization/documents/share/{document}` (optional `pwd_hash`) remain for already-issued links and WhatsApp template attachments via `DocumentShareLinkService`.

@@ -122,6 +122,7 @@ test('guest can open valid signed signing page', function () {
 
     $this->get($url)
         ->assertOk()
+        ->tap(fn ($response) => assertBrowserSecurityHeaders($response))
         ->assertInertia(fn ($page) => $page
             ->component('esign/index')
             ->where('employeeName', $employee->name)
@@ -439,7 +440,8 @@ test('hr can view signed pdf inline from bulk signatures table', function () {
         'inline' => 1,
     ]))
         ->assertOk()
-        ->assertHeader('Content-Disposition', 'inline; filename="signed-salary-declaration.pdf"');
+        ->assertHeader('Content-Disposition', 'inline; filename="signed-salary-declaration.pdf"')
+        ->assertHeader('X-Content-Type-Options', 'nosniff');
 });
 
 test('signed pdf download requires review permission', function () {

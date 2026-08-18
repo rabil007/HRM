@@ -1,60 +1,111 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-zinc-950 text-zinc-100">
+<html lang="en" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Document Share</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        html, body { height: 100%; margin: 0; }
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+            background: #09090b;
+            color: #f4f4f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .card {
+            width: 100%;
+            max-width: 28rem;
+            background: rgba(24, 24, 27, 0.7);
+            border: 1px solid rgba(39, 39, 42, 0.8);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.4);
+        }
+        .header { text-align: center; margin-bottom: 1.5rem; }
+        .icon {
+            width: 3rem;
+            height: 3rem;
+            margin: 0 auto 0.75rem;
+            border-radius: 1rem;
+            border: 1px solid #3f3f46;
+            background: #27272a;
+            color: #a1a1aa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        h1 { font-size: 1.25rem; margin: 0 0 0.25rem; }
+        .muted { color: #a1a1aa; font-size: 0.75rem; }
+        .file {
+            border-top: 1px solid rgba(39, 39, 42, 0.8);
+            padding-top: 1rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .error {
+            background: rgb(239 68 68 / 0.1);
+            border: 1px solid rgb(239 68 68 / 0.2);
+            color: #f87171;
+            font-size: 0.75rem;
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        label { display: block; font-size: 0.75rem; color: #a1a1aa; margin-bottom: 0.5rem; }
+        input[type="password"] {
+            width: 100%;
+            box-sizing: border-box;
+            background: rgb(9 9 11 / 0.5);
+            border: 1px solid #27272a;
+            border-radius: 1rem;
+            padding: 0.75rem 1rem;
+            color: #f4f4f5;
+        }
+        button {
+            width: 100%;
+            margin-top: 1rem;
+            background: #f4f4f5;
+            color: #09090b;
+            border: 0;
+            border-radius: 1rem;
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+            cursor: pointer;
         }
     </style>
 </head>
-<body class="h-full flex items-center justify-center p-4 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))]">
-    <div class="w-full max-w-md bg-zinc-900/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-8 shadow-2xl space-y-6">
-        <div class="flex flex-col items-center text-center space-y-3">
-            <div class="h-12 w-12 rounded-2xl bg-zinc-800/80 border border-zinc-700/50 flex items-center justify-center text-zinc-400">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+<body>
+    <div class="card">
+        <div class="header">
+            <div class="icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="24" height="24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                 </svg>
             </div>
-            <div class="space-y-1">
-                <h1 class="text-xl font-semibold text-zinc-100">Secure Document Share</h1>
-                <p class="text-xs text-zinc-400">This link is password protected</p>
-            </div>
+            <h1>Secure Document Share</h1>
+            <p class="muted">This link is password protected</p>
         </div>
 
-        <div class="border-t border-zinc-800/60 pt-4 text-center">
-            <p class="text-sm font-medium text-zinc-300">{{ $document_name }}</p>
+        <div class="file">
+            <p>{{ $document_name }}</p>
             @if($file_size)
-                <p class="text-xs text-zinc-500 mt-1">{{ $file_size }}</p>
+                <p class="muted">{{ $file_size }}</p>
             @endif
         </div>
 
         @if($error)
-        <div class="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-4 py-3 rounded-2xl text-center">
-            {{ $error }}
-        </div>
+        <div class="error">{{ $error }}</div>
         @endif
 
-        <form method="POST" action="{{ request()->fullUrl() }}" class="space-y-4">
+        <form method="POST" action="{{ request()->fullUrl() }}">
             @csrf
-            <div class="space-y-2">
-                <label for="password" class="text-xs font-medium text-zinc-400">Password</label>
-                <input type="password" name="password" id="password" required autofocus
-                    placeholder="Enter link password"
-                    class="w-full bg-zinc-950/50 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 focus:border-zinc-700 transition-colors" />
-            </div>
-
-            <button type="submit" 
-                class="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-950 font-medium py-3 px-4 rounded-2xl text-sm transition-all shadow-lg hover:shadow-zinc-100/10 flex items-center justify-center gap-2">
-                <span>Decrypt & Download</span>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                </svg>
-            </button>
+            <label for="password">Password</label>
+            <input type="password" name="password" id="password" required autofocus placeholder="Enter link password">
+            <button type="submit">Decrypt &amp; Download</button>
         </form>
     </div>
 </body>
