@@ -201,14 +201,20 @@ Credential permissions never imply that decrypted secrets may be sent to the bro
 
 ## Platform administration
 
-Tenant administration (Owner roles, `roles.update`, `companies.*`, `settings.application.*`) is **company-team scoped**. Spatie sets `company_id` as the permission team. A permission granted in one tenant must never unlock global/cross-tenant tooling.
+Tenant administration (Owner roles, `roles.update`, `companies.*`) is **company-team scoped**. Spatie sets `company_id` as the permission team. A permission granted in one tenant must never unlock global/cross-tenant tooling or global application settings.
 
-Platform administration is a separate user-level flag: `users.platform_access` (`view` or `manage`). It is **not** a Spatie permission, is **not** seeded in `PermissionsSeeder`, and is **not** mass-assignable on the User model. Granting a fake `platform.database.view` permission inside a company does nothing.
+Platform administration is a user-level attribute: `users.platform_access` (`view` or `manage`). It is **not** a Spatie permission, is **not** seeded in `PermissionsSeeder`, and is **not** mass-assignable on the User model.
+
+Installation-wide `app_settings` (General, Branding, SMTP credentials, E-Sign signature placement) are platform-global configuration and require platform authority:
+- `platform:view` (`platform_access = view` or `manage`): view installation-wide configuration.
+- `platform:manage` (`platform_access = manage`): modify installation-wide configuration, branding assets, test email, and e-sign placement defaults.
+- High-trust mutations (SMTP credentials and e-sign placement updates) additionally enforce `privileged.2fa` when enabled.
+- Legacy `settings.application.*` Spatie permissions are retained in catalog/seeders for backwards compatibility but do **not** authorize mutations to platform-global settings.
 
 | Capability | Who | Surfaces |
 |------------|-----|----------|
-| View | `platform_access = view` or `manage` | Application logs (`/log`, export). Queue/job history (`/jobs` GET). Database table browse/export (`/mysql`) only when the database viewer is enabled. |
-| Manage | `platform_access = manage` | Everything in View, plus clear logs, retry/delete failed jobs, delete history, and clear pending jobs. |
+| View | `platform_access = view` or `manage` | Application logs (`/log`, export). Queue/job history (`/jobs` GET). Database table browse/export (`/mysql`) only when the database viewer is enabled. Platform settings (`/settings/application`). |
+| Manage | `platform_access = manage` | Everything in View, plus clear logs, retry/delete failed jobs, delete history, clear pending jobs, and modify installation-wide application settings, branding, SMTP, and e-sign placement. |
 
 Arbitrary SQL execution (`/mysql/query`) has been **removed**. Table browsing still exposes tenant data, so it remains platform-only. Credential/session/cache/queue-payload tables are hidden; secret-like columns (passwords, tokens, `app_settings.value`, payloads) are redacted even for platform users.
 

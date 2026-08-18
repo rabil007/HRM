@@ -2,13 +2,14 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Support\Platform\PlatformAuthorization;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateBulkDocumentSignaturePlacementRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user()?->can('settings.application.update');
+        return PlatformAuthorization::canManage($this->user());
     }
 
     /** @return array<string, mixed> */

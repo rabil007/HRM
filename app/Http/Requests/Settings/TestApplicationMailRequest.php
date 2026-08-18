@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Settings;
 
 use App\Services\Settings\MailSettingsService;
+use App\Support\Platform\PlatformAuthorization;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -11,7 +12,7 @@ class TestApplicationMailRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user()?->can('settings.application.update');
+        return PlatformAuthorization::canManage($this->user());
     }
 
     /** @return array<string, mixed> */

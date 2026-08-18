@@ -45,40 +45,40 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('application.edit');
 
     Route::post('settings/application/general', [ApplicationSettingsController::class, 'updateGeneral'])
-        ->middleware('can:settings.application.update')
+        ->middleware('platform:manage')
         ->name('application.general.update');
 
     Route::post('settings/application/branding', [ApplicationSettingsController::class, 'updateBranding'])
-        ->middleware('can:settings.application.update')
+        ->middleware('platform:manage')
         ->name('application.branding.update');
 
     Route::delete('settings/application/branding/{asset}', [ApplicationSettingsController::class, 'removeBranding'])
-        ->middleware('can:settings.application.update')
+        ->middleware('platform:manage')
         ->where('asset', '[a-z_]+')
         ->name('application.branding.remove');
 
     Route::post('settings/application/smtp', [ApplicationSettingsController::class, 'updateSmtp'])
-        ->middleware(['can:settings.application.update', 'privileged.2fa'])
+        ->middleware(['platform:manage', 'privileged.2fa'])
         ->name('application.smtp.update');
 
     Route::post('settings/application/smtp/test', [ApplicationSettingsController::class, 'sendTestMail'])
-        ->middleware('can:settings.application.update')
+        ->middleware('platform:manage')
         ->name('application.smtp.test');
 
     Route::get('settings/application/esign-preview/{documentType}', [BulkDocumentSignaturePlacementController::class, 'preview'])
-        ->middleware('can:settings.application.view')
+        ->middleware('platform:view')
         ->name('application.esign-preview');
 
     Route::get('settings/application/esign-placement/{documentType}', [BulkDocumentSignaturePlacementController::class, 'show'])
-        ->middleware('can:settings.application.view')
+        ->middleware('platform:view')
         ->name('application.esign-placement.show');
 
     Route::put('settings/application/esign-placement/{documentType}', [BulkDocumentSignaturePlacementController::class, 'update'])
-        ->middleware(['can:settings.application.update', 'privileged.2fa'])
+        ->middleware(['platform:manage', 'privileged.2fa'])
         ->name('application.esign-placement.update');
 
     Route::delete('settings/application/esign-placement/{documentType}', [BulkDocumentSignaturePlacementController::class, 'destroy'])
-        ->middleware(['can:settings.application.update', 'privileged.2fa'])
+        ->middleware(['platform:manage', 'privileged.2fa'])
         ->name('application.esign-placement.destroy');
 
     Route::redirect('settings/integrations/whatsapp', '/settings/application?tab=whatsapp')

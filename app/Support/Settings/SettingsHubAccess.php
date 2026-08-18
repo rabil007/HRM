@@ -3,6 +3,7 @@
 namespace App\Support\Settings;
 
 use App\Models\User;
+use App\Support\Platform\PlatformAuthorization;
 
 final class SettingsHubAccess
 {
@@ -42,6 +43,10 @@ final class SettingsHubAccess
     {
         if ($user === null) {
             return false;
+        }
+
+        if (PlatformAuthorization::canView($user)) {
+            return true;
         }
 
         foreach (self::viewPermissions() as $permission) {

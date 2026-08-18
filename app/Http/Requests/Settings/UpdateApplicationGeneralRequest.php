@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Support\Platform\PlatformAuthorization;
 use App\Support\Settings\SettingKey;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -10,7 +11,7 @@ class UpdateApplicationGeneralRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user()?->can('settings.application.update');
+        return PlatformAuthorization::canManage($this->user());
     }
 
     /** @return array<string, mixed> */

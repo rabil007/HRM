@@ -11,6 +11,7 @@ use App\Support\BulkDocuments\BulkDocumentSignaturePlacementService;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\BulkDocuments\EsignPreviewPdfCache;
 use App\Support\BulkDocuments\EsignPreviewPdfFallback;
+use App\Support\Platform\PlatformAuthorization;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\Process\Exception\ProcessFailedException;
@@ -115,7 +116,7 @@ class BulkDocumentSignaturePlacementController extends Controller
 
     public function destroy(string $documentType): JsonResponse
     {
-        abort_unless(request()->user()?->can('settings.application.update'), 403);
+        abort_unless(PlatformAuthorization::canManage(request()->user()), 403);
 
         $this->assertSupportedDocumentType($documentType);
 
@@ -129,7 +130,7 @@ class BulkDocumentSignaturePlacementController extends Controller
 
     private function authorizeView(): void
     {
-        abort_unless(request()->user()?->can('settings.application.view'), 403);
+        abort_unless(PlatformAuthorization::canView(request()->user()), 403);
     }
 
     private function assertSupportedDocumentType(string $documentType): void

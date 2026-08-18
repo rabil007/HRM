@@ -13,6 +13,7 @@ use App\Services\Settings\SettingService;
 use App\Support\BulkDocuments\BulkDocumentSignaturePlacementService;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\BulkDocuments\SalaryDeclarationSignaturePlacements;
+use App\Support\Platform\PlatformAuthorization;
 use App\Support\Settings\SettingKey;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -31,10 +32,10 @@ class ApplicationSettingsController extends Controller
     public function edit(): Response
     {
         $user = request()->user();
-        $canApplicationView = (bool) $user?->can('settings.application.view');
+        $canPlatformView = PlatformAuthorization::canView($user);
         $canWhatsAppView = (bool) $user?->can('settings.integrations.whatsapp.view');
 
-        if (! $canApplicationView && ! $canWhatsAppView) {
+        if (! $canPlatformView && ! $canWhatsAppView) {
             abort(403);
         }
 
@@ -49,13 +50,13 @@ class ApplicationSettingsController extends Controller
             'whatsapp' => null,
             'esign_placement' => null,
             'can' => [
-                'platform_view' => $canApplicationView,
-                'platform_update' => (bool) $user?->can('settings.application.update'),
+                'platform_view' => $canPlatformView,
+                'platform_update' => PlatformAuthorization::canManage($user),
                 'whatsapp_view' => $canWhatsAppView,
             ],
         ];
 
-        if ($canApplicationView) {
+        if ($canPlatformView) {
             $props['general'] = [
                 'app_name' => $this->settings->get(SettingKey::AppName),
                 'support_email' => $this->settings->get(SettingKey::SupportEmail, ''),

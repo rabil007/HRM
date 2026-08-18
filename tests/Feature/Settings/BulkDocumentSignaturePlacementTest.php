@@ -23,9 +23,10 @@ beforeEach(function () {
     }
 });
 
-test('authorized user can fetch placement json', function () {
+test('platform viewer can fetch placement json', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->getJson(route('application.esign-placement.show', 'salary_declaration'))
@@ -34,9 +35,10 @@ test('authorized user can fetch placement json', function () {
         ->assertJsonPath('is_custom', false);
 });
 
-test('authorized user can preview placement pdf', function () {
+test('platform viewer can preview placement pdf', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $renderer = new class implements RendersEmployeeDocumentPdf
     {
@@ -54,9 +56,10 @@ test('authorized user can preview placement pdf', function () {
         ->assertHeader('content-type', 'application/pdf');
 });
 
-test('authorized user can preview placement pdf without guides', function () {
+test('platform viewer can preview placement pdf without guides', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $renderer = new class implements RendersEmployeeDocumentPdf
     {
@@ -80,9 +83,10 @@ test('authorized user can preview placement pdf without guides', function () {
     expect($renderer->showPlacementGuides)->toBeFalse();
 });
 
-test('authorized user receives cached preview pdf without rendering', function () {
+test('platform viewer receives cached preview pdf without rendering', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $cachedPdf = minimalPdfBytes();
     EsignPreviewPdfCache::put('salary_declaration', true, $cachedPdf);
@@ -103,9 +107,10 @@ test('authorized user receives cached preview pdf without rendering', function (
         ->assertHeader('content-type', 'application/pdf');
 });
 
-test('authorized user receives fallback preview pdf when browsershot fails', function () {
+test('platform viewer receives fallback preview pdf when browsershot fails', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $company = Company::query()->where('slug', 'acme-app-settings')->firstOrFail();
 
@@ -142,12 +147,10 @@ test('authorized user receives fallback preview pdf when browsershot fails', fun
         ->assertHeader('content-type', 'application/pdf');
 });
 
-test('authorized user can save placement coordinates', function () {
+test('platform manager can save placement coordinates', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.view',
-        'settings.application.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $payload = [
         'page' => 1,
@@ -192,12 +195,10 @@ test('authorized user can save placement coordinates', function () {
         ->not->toBe(SalaryDeclarationSignaturePlacements::config());
 });
 
-test('authorized user can reset placement to defaults', function () {
+test('platform manager can reset placement to defaults', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.view',
-        'settings.application.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->putJson(route('application.esign-placement.update', 'salary_declaration'), [
@@ -248,9 +249,10 @@ test('guest cannot access placement endpoints', function () {
         ->assertRedirect();
 });
 
-test('user without permission cannot update placement', function () {
+test('platform viewer without manage access cannot update placement', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->putJson(route('application.esign-placement.update', 'salary_declaration'), [
@@ -287,7 +289,8 @@ test('user without permission cannot update placement', function () {
 
 test('unsupported document type returns not found', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->getJson(route('application.esign-placement.show', 'salary_certificate'))

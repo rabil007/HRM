@@ -4,16 +4,21 @@ use App\Models\AppSetting;
 use App\Models\User;
 use App\Support\Settings\SettingKey;
 use Database\Seeders\AppSettingsSeeder;
+use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
-test('user with settings.application.view can open application settings', function () {
+beforeEach(function () {
+    $this->seed(PermissionsSeeder::class);
+});
+
+test('user with platform view access can open application settings in view mode', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.view',
-    ]);
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->get(route('application.edit'))
@@ -34,9 +39,12 @@ test('user with settings.application.view can open application settings', functi
         );
 });
 
-test('user without settings.application.view cannot access global platform settings props', function () {
+test('tenant user without platform access cannot access global platform settings props', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, []);
+    setupCompanyWithApplicationSettingsPermissions($user, [
+        'settings.application.view',
+        'settings.application.update',
+    ]);
 
     $this->actingAs($user)
         ->get(route('application.edit'))
@@ -65,12 +73,10 @@ test('whatsapp-only users can access only whatsapp settings on the application p
         );
 });
 
-test('user with settings.application.update can update general settings', function () {
+test('user with platform manage access can update general settings', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.view',
-        'settings.application.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->post(route('application.general.update'), [
@@ -90,12 +96,14 @@ test('user with settings.application.update can update general settings', functi
     expect(setting(SettingKey::AppName))->toBe('Herd OMS');
 });
 
-test('user without settings.application.update receives 403 on every global settings mutation endpoint', function () {
+test('tenant user without platform manage access receives 403 on every global settings mutation endpoint', function () {
     Storage::fake('public');
 
     $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
     setupCompanyWithApplicationSettingsPermissions($user, [
         'settings.application.view',
+        'settings.application.update',
     ]);
 
     $this->actingAs($user)
@@ -153,14 +161,12 @@ test('user without settings.application.update receives 403 on every global sett
         ->assertForbidden();
 });
 
-test('smtp and branding updates require settings.application.update', function () {
+test('smtp and branding updates require platform manage access', function () {
     Storage::fake('public');
 
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.view',
-        'settings.application.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->post(route('application.branding.update'), [
@@ -187,14 +193,12 @@ test('smtp and branding updates require settings.application.update', function (
         ->assertSessionHas('success');
 });
 
-test('branding logo can be uploaded and removed', function () {
+test('branding logo can be uploaded and removed by platform manage user', function () {
     Storage::fake('public');
 
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.view',
-        'settings.application.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->post(route('application.branding.update'), [
@@ -217,9 +221,8 @@ test('branding logo can be uploaded and removed', function () {
 
 test('salary certificate assets are no longer removable via platform branding route', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->delete(route('application.branding.remove', ['asset' => SettingKey::SalaryCertificateSignature]))
@@ -244,9 +247,8 @@ test('inertia shared name and app-name meta use configured application name', fu
     Cache::forget('app.settings.all');
 
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.view',
-    ]);
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->get(route('application.edit'))
@@ -255,5 +257,44 @@ test('inertia shared name and app-name meta use configured application name', fu
             ->where('name', 'Herd OMS')
             ->where('settings.platform.app_name', 'Herd OMS')
             ->where('settings.app_name', 'Herd OMS'),
+        );
+});
+
+test('tenant switching does not grant platform authority', function () {
+    $tenantOwner = User::factory()->create();
+    $companyA = setupCompanyWithSettingsPermissions($tenantOwner, ['settings.application.view', 'settings.application.update']);
+
+    $otherUser = User::factory()->create();
+    $companyB = setupCompanyWithSettingsPermissions($otherUser, ['settings.application.view', 'settings.application.update']);
+    grantCompanyPermissions($tenantOwner, $companyB, ['settings.application.view', 'settings.application.update']);
+
+    $this->actingAs($tenantOwner)
+        ->withSession(['current_company_id' => $companyA->id])
+        ->get(route('application.edit'))
+        ->assertForbidden();
+
+    $this->actingAs($tenantOwner)
+        ->withSession(['current_company_id' => $companyB->id])
+        ->get(route('application.edit'))
+        ->assertForbidden();
+});
+
+test('decrypted smtp password is never exposed in application settings props', function () {
+    AppSetting::query()->updateOrCreate(
+        ['key' => SettingKey::MailPassword],
+        ['value' => Crypt::encryptString('super-secret-smtp-password'), 'type' => 'encrypted'],
+    );
+    Cache::forget('app.settings.all');
+
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
+
+    $this->actingAs($user)
+        ->get(route('application.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('smtp.has_password', true)
+            ->where('smtp.password', ''),
         );
 });

@@ -309,9 +309,8 @@ test('smtp credential mutation is blocked without two-factor and the stored secr
     Cache::forget('app.settings.all');
 
     $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
     setupCompanyWithSettingsPermissions($user, [
-        'settings.application.view',
-        'settings.application.update',
         'settings.security.view',
     ]);
 
