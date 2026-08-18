@@ -20,6 +20,7 @@ final class VesselIndexQuery
         string $search = '',
         ?int $vesselTypeId = null,
         int $perPage = 20,
+        ?string $manning = null,
     ): LengthAwarePaginator {
         return Vessel::query()
             ->where('company_id', $companyId)
@@ -40,6 +41,8 @@ final class VesselIndexQuery
                 });
             })
             ->when($vesselTypeId !== null, fn (Builder $query) => $query->where('vessel_type_id', $vesselTypeId))
+            ->when($manning === 'configured', fn (Builder $query) => $query->whereHas('manning', fn (Builder $q) => $q->where('company_id', $companyId)))
+            ->when($manning === 'pending', fn (Builder $query) => $query->whereDoesntHave('manning', fn (Builder $q) => $q->where('company_id', $companyId)))
             ->orderBy('name')
             ->paginate($perPage)
             ->withQueryString();
@@ -136,7 +139,7 @@ final class VesselIndexQuery
     {
         $query = [];
 
-        foreach (['search', 'vessel_type_id', 'page', 'per_page'] as $key) {
+        foreach (['search', 'vessel_type_id', 'manning', 'page', 'per_page'] as $key) {
             $value = $request->query($key);
 
             if ($value !== null && $value !== '') {

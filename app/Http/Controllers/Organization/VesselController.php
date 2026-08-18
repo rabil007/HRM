@@ -45,9 +45,19 @@ class VesselController extends Controller
         $vesselTypeId = $request->query('vessel_type_id');
         $vesselTypeId = $vesselTypeId !== null && $vesselTypeId !== '' ? (int) $vesselTypeId : null;
 
-        $paginator = VesselIndexQuery::paginate($companyId, $search, $vesselTypeId, $perPage);
+        $manning = $request->query('manning');
+        $manning = in_array($manning, ['configured', 'pending'], true) ? $manning : null;
+
+        $paginator = VesselIndexQuery::paginate($companyId, $search, $vesselTypeId, $perPage, $manning);
 
         $vessels = $paginator->through(fn (Vessel $vessel) => VesselIndexQuery::toArray($vessel));
+
+        $vesselsWith = (int) VesselManning::query()
+            ->where('company_id', $companyId)
+            ->distinct('vessel_id')
+            ->count('vessel_id');
+
+        $totalFleet = (int) Vessel::query()->where('company_id', $companyId)->count();
 
         return Inertia::render('organization/vessels/index', [
             'vessels' => $vessels->items(),
@@ -55,9 +65,15 @@ class VesselController extends Controller
             'search' => $search,
             'filters' => [
                 'vessel_type_id' => $vesselTypeId,
+                'manning' => $manning,
             ],
             'vessel_types' => $this->vesselTypes(),
             'can' => VesselPagePermissions::for($request->user()),
+            'stats' => [
+                'total' => $totalFleet,
+                'vessels_with_manning' => $vesselsWith,
+                'vessels_without_manning' => $totalFleet - $vesselsWith,
+            ],
         ]);
     }
 

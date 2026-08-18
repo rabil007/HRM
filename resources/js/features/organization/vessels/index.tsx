@@ -78,15 +78,22 @@ function StatCard({
     hint,
     icon: Icon,
     accent,
+    className,
 }: {
     label: string;
     value: string | number;
     hint: string;
     icon: React.ComponentType<{ className?: string }>;
     accent: string;
+    className?: string;
 }) {
     return (
-        <div className="group relative overflow-hidden rounded-2xl border glass-card border-border/60 bg-card/80 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-md dark:hover:border-white/10">
+        <div
+            className={cn(
+                'group relative overflow-hidden rounded-2xl border glass-card border-border/60 bg-card/80 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-md dark:hover:border-white/10',
+                className,
+            )}
+        >
             <div
                 className={cn(
                     'pointer-events-none absolute -top-4 -right-4 size-24 rounded-full opacity-20 blur-2xl transition-opacity group-hover:opacity-30',
@@ -174,13 +181,15 @@ export function VesselsContent({
     filters: initialFilters,
     vessel_types,
     can,
+    stats,
 }: {
     vessels: VesselRow[];
     pagination: PaginationMeta;
     search: string;
-    filters: { vessel_type_id: number | null };
+    filters: { vessel_type_id: number | null; manning: string | null };
     vessel_types: VesselTypeOption[];
     can: VesselPageCan;
+    stats: { total: number; vessels_with_manning: number; vessels_without_manning: number };
 }) {
     const list = useServerPaginationFilters({
         url: vesselsIndex.url(),
@@ -189,6 +198,7 @@ export function VesselsContent({
             vessel_type_id: initialFilters.vessel_type_id
                 ? String(initialFilters.vessel_type_id)
                 : '',
+            manning: initialFilters.manning ?? '',
         },
         pagination,
     });
@@ -204,6 +214,10 @@ export function VesselsContent({
             query.vessel_type_id = String(initialFilters.vessel_type_id);
         }
 
+        if (initialFilters.manning) {
+            query.manning = initialFilters.manning;
+        }
+
         if (pagination.current_page > 1) {
             query.page = String(pagination.current_page);
         }
@@ -215,6 +229,7 @@ export function VesselsContent({
         return query;
     }, [
         initialFilters.vessel_type_id,
+        initialFilters.manning,
         initialSearch,
         pagination.current_page,
         pagination.per_page,
@@ -432,30 +447,78 @@ export function VesselsContent({
             />
 
             <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
-                <StatCard
-                    label="Total Fleet"
-                    value={pagination.total}
-                    hint="Vessels registered for this company"
-                    icon={Ship}
-                    accent="bg-primary"
-                />
-                <StatCard
-                    label="Configured Manning"
-                    value={`${vessels.filter((v) => v.ranks_configured > 0).length} / ${vessels.length}`}
-                    hint="Vessels with crew requirements set (this page)"
-                    icon={CheckCircle2}
-                    accent="bg-emerald-500"
-                />
-                <StatCard
-                    label="Required Headcount"
-                    value={vessels.reduce(
-                        (acc, v) => acc + (v.total_required || 0),
-                        0,
-                    )}
-                    hint="Total headcount required (this page)"
-                    icon={Users}
-                    accent="bg-blue-500"
-                />
+                {[
+                    {
+                        key: 'all' as const,
+                        label: 'Total Fleet',
+                        value: stats.total,
+                        hint: 'Vessels registered for this company',
+                        icon: Ship,
+                        accent: 'bg-primary',
+                        activeClass: 'border-primary/40 bg-primary/5',
+                    },
+                    {
+                        key: 'configured' as const,
+                        label: 'Configured Manning',
+                        value: stats.vessels_with_manning,
+                        hint: 'Vessels with crew requirements set',
+                        icon: CheckCircle2,
+                        accent: 'bg-emerald-500',
+                        activeClass:
+                            'border-emerald-500/40 bg-emerald-500/5',
+                    },
+                    {
+                        key: 'pending' as const,
+                        label: 'Pending Manning',
+                        value: stats.vessels_without_manning,
+                        hint: 'Vessels missing crew requirements',
+                        icon: Users,
+                        accent: 'bg-amber-500',
+                        activeClass: 'border-amber-500/40 bg-amber-500/5',
+                    },
+                ].map((card) => {
+                    const isActive =
+                        card.key === 'all'
+                            ? !initialFilters.manning
+                            : initialFilters.manning === card.key;
+
+                    return (
+                        <button
+                            key={card.key}
+                            type="button"
+                            aria-pressed={isActive}
+                            onClick={() =>
+                                list.applyFilters({
+                                    vessel_type_id:
+                                        initialFilters.vessel_type_id
+                                            ? String(
+                                                  initialFilters.vessel_type_id,
+                                              )
+                                            : '',
+                                    manning:
+                                        card.key === 'all' || isActive
+                                            ? ''
+                                            : card.key,
+                                })
+                            }
+                            className="rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <StatCard
+                                label={card.label}
+                                value={card.value}
+                                hint={card.hint}
+                                icon={card.icon}
+                                accent={card.accent}
+                                className={cn(
+                                    'transition-all duration-200',
+                                    isActive && card.activeClass,
+                                    !isActive &&
+                                        'cursor-pointer hover:border-border',
+                                )}
+                            />
+                        </button>
+                    );
+                })}
             </div>
 
             <Card className="mb-6 border-border/60 bg-card/60 backdrop-blur-md dark:border-white/5 dark:bg-white/[0.02]">

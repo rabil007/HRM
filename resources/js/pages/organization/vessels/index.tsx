@@ -14,13 +14,15 @@ export default function VesselsIndex({
     filters,
     vessel_types,
     can,
+    stats,
 }: {
     vessels: VesselRow[];
     pagination: PaginationMeta;
     search: string;
-    filters: { vessel_type_id: number | null };
+    filters: { vessel_type_id: number | null; manning: string | null };
     vessel_types: VesselTypeOption[];
     can: VesselPageCan;
+    stats: { total: number; vessels_with_manning: number; vessels_without_manning: number };
 }) {
     return (
         <>
@@ -32,6 +34,7 @@ export default function VesselsIndex({
                 filters={filters}
                 vessel_types={vessel_types}
                 can={can}
+                stats={stats}
             />
         </>
     );
