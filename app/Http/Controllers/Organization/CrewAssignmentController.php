@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Enums\RecentItemType;
+use App\Enums\SavedViewPage;
 use App\Exceptions\CrewMovementException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\StoreCrewAssignmentRequest;
@@ -27,13 +28,17 @@ use App\Support\CrewMovements\CurrentCrewVesselQuery;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\RecentItems\RecordRecentItem;
+use App\Support\SavedViews\ApplyDefaultSavedView;
+use App\Support\SavedViews\SavedViewsForPage;
 use App\Support\Vessels\ResolvesCompanyVessels;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 class CrewAssignmentController extends Controller
 {
@@ -44,9 +49,15 @@ class CrewAssignmentController extends Controller
         private SyncPlanningAssignmentFromCrewAssignment $planningSync,
     ) {}
 
-    public function index(Request $request)
+    public function index(Request $request): InertiaResponse|RedirectResponse
     {
         Gate::authorize('viewAny', CrewAssignment::class);
+
+        $redirect = ApplyDefaultSavedView::maybeRedirect($request, SavedViewPage::Crew);
+
+        if ($redirect !== null) {
+            return $redirect;
+        }
 
         $companyId = (int) $request->attributes->get('current_company_id');
         $filters = CurrentCrewRequestFilters::fromRequest($request);
@@ -85,6 +96,7 @@ class CrewAssignmentController extends Controller
                 'courses' => $this->activeCourses(),
             ],
             'can' => CrewAssignmentPagePermissions::for($request->user()),
+            'saved_views' => SavedViewsForPage::props($request->user(), $companyId, SavedViewPage::Crew),
         ]);
     }
 

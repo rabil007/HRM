@@ -7,6 +7,7 @@ import type {
     LeaveRequestPermissions,
     LeaveRequestTypeOption,
 } from '@/features/attendance/leave-requests/types';
+import type { SavedView } from '@/lib/saved-views';
 import type { PaginationMeta } from '@/types/pagination';
 
 export default function LeaveRequests({
@@ -19,6 +20,7 @@ export default function LeaveRequests({
     leave_types,
     linked_employee_id,
     can,
+    saved_views = [],
 }: {
     leave_requests: LeaveRequest[];
     pagination: PaginationMeta;
@@ -35,6 +37,7 @@ export default function LeaveRequests({
     leave_types: LeaveRequestTypeOption[];
     linked_employee_id: number | null;
     can: LeaveRequestPermissions;
+    saved_views?: SavedView[];
 }) {
     return (
         <>
@@ -49,6 +52,7 @@ export default function LeaveRequests({
                 leave_types={leave_types}
                 linkedEmployeeId={linked_employee_id}
                 can={can}
+                saved_views={saved_views}
             />
         </>
     );

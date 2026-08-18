@@ -22,6 +22,7 @@ import { Main } from '@/components/layout/main';
 import { MobileRecordList } from '@/components/mobile-record-list';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
+import { SavedViewsControl } from '@/components/saved-views-control';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,7 @@ import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
     MOBILE_OPERATIONAL_LIST_CLASS,
 } from '@/lib/mobile-operational-list';
+import type { SavedView } from '@/lib/saved-views';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
@@ -72,6 +74,7 @@ export function LeaveRequestsContent({
     leave_types,
     linkedEmployeeId,
     can,
+    saved_views = [],
 }: {
     leave_requests: LeaveRequest[];
     pagination: PaginationMeta;
@@ -88,6 +91,7 @@ export function LeaveRequestsContent({
     leave_types: LeaveRequestTypeOption[];
     linkedEmployeeId: number | null;
     can: LeaveRequestPermissions;
+    saved_views?: SavedView[];
 }) {
     const list = useServerPaginationFilters({
         url: leaveRequestIndex.url(),
@@ -385,6 +389,15 @@ export function LeaveRequestsContent({
                             </span>
                         ) : null}
                     </Button>
+                    <SavedViewsControl
+                        pageKey="leave"
+                        indexUrl={leaveRequestIndex.url()}
+                        currentFilters={{
+                            search: initialSearch,
+                            ...filters,
+                        }}
+                        views={saved_views}
+                    />
                 </div>
             </div>
 

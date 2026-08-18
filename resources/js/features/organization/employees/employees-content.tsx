@@ -16,6 +16,7 @@ import { ListTableCrudActions } from '@/components/list-table-actions';
 import { MobileRecordList } from '@/components/mobile-record-list';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
+import { SavedViewsControl } from '@/components/saved-views-control';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,8 +51,10 @@ import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
     MOBILE_OPERATIONAL_LIST_CLASS,
 } from '@/lib/mobile-operational-list';
+import type { SavedView } from '@/lib/saved-views';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { employees as employeesIndex } from '@/routes/organization';
 import type { PaginationMeta } from '@/types/pagination';
 import {
     buildEmployeeListQuery,
@@ -105,6 +108,7 @@ export function EmployeesContent({
     roles,
     export_field_options,
     can,
+    saved_views = [],
 }: {
     employees: Employee[];
     pagination: PaginationMeta;
@@ -128,13 +132,14 @@ export function EmployeesContent({
     roles: RoleOption[];
     export_field_options: EmployeeExportFieldOption[];
     can: EmployeePageCan;
+    saved_views?: SavedView[];
 }) {
     void _users;
     void _religions;
     void _banks;
 
     const list = useServerPaginationFilters({
-        url: '/organization/employees',
+        url: employeesIndex.url(),
         search: initialSearch,
         filters: initialFilters,
         pagination,
@@ -368,6 +373,15 @@ export function EmployeesContent({
                                 </span>
                             ) : null}
                         </Button>
+                        <SavedViewsControl
+                            pageKey="employees"
+                            indexUrl={employeesIndex.url()}
+                            currentFilters={{
+                                search: initialSearch,
+                                ...filters,
+                            }}
+                            views={saved_views}
+                        />
                     </>
                 }
             />

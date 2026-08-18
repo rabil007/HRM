@@ -2,9 +2,7 @@
 
 Users can reopen **recently viewed business records** from Cmd/Ctrl+K. Recent Items are personal UX state for the authenticated user and active company. They are **not** navigation Favorites, **not** audit history, and **not** a permission grant.
 
-Favorites remain explicit module/destination pins. Recent Items remember show pages the user actually opened.
-
-This phase does **not** implement Saved Views.
+Favorites remain explicit module/destination pins. Recent Items remember show pages the user actually opened. Named list filters are [Saved views](./saved-views.md), a separate control on selected index pages.
 
 ## Supported record types
 

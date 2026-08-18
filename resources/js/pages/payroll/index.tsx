@@ -8,6 +8,7 @@ import type {
     PayrollPeriodListItem,
     PayrollPeriodStatusOption,
 } from '@/features/payroll/types';
+import type { SavedView } from '@/lib/saved-views';
 import type { PaginationMeta } from '@/types/pagination';
 
 export default function PayrollIndex({
@@ -19,6 +20,7 @@ export default function PayrollIndex({
     payroll_categories,
     payroll_period_statuses,
     permissions,
+    saved_views = [],
 }: {
     periods: PayrollPeriodListItem[];
     pagination: PaginationMeta;
@@ -28,6 +30,7 @@ export default function PayrollIndex({
     payroll_categories: PayrollCategoryOption[];
     payroll_period_statuses: PayrollPeriodStatusOption[];
     permissions: PayrollHubPermissions;
+    saved_views?: SavedView[];
 }) {
     return (
         <>
@@ -41,6 +44,7 @@ export default function PayrollIndex({
                 payroll_categories={payroll_categories}
                 payroll_period_statuses={payroll_period_statuses}
                 permissions={permissions}
+                saved_views={saved_views}
             />
         </>
     );

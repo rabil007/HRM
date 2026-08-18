@@ -162,6 +162,7 @@ use App\Http\Controllers\Public\DocumentShare\UnlockDocumentShareController;
 use App\Http\Controllers\Public\DocumentShare\UploadSharedDocumentController;
 use App\Http\Controllers\Public\PublicAnnouncementController;
 use App\Http\Controllers\RecentItemController;
+use App\Http\Controllers\SavedViewController;
 use App\Http\Controllers\ServiceWorkerController;
 use App\Http\Controllers\Webhooks\HikvisionWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
@@ -282,6 +283,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('throttle:30,1')
         ->where('destination', '[a-z0-9._-]+')
         ->name('favorites.destroy');
+    Route::post('saved-views', [SavedViewController::class, 'store'])
+        ->middleware('throttle:30,1')
+        ->name('saved-views.store');
+    Route::put('saved-views/{savedView}', [SavedViewController::class, 'update'])
+        ->middleware('throttle:30,1')
+        ->name('saved-views.update');
+    Route::delete('saved-views/{savedView}', [SavedViewController::class, 'destroy'])
+        ->middleware('throttle:30,1')
+        ->name('saved-views.destroy');
     Route::get('organization/companies', [CompanyController::class, 'index'])->middleware('can:companies.view')->name('organization.companies');
     Route::get('organization/companies/export', [CompanyController::class, 'export'])->middleware('can:companies.export')->name('organization.companies.export');
     Route::get('organization/companies/{company}/documents', [CompanyDocumentController::class, 'index'])->name('organization.companies.documents.index');

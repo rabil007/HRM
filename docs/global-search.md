@@ -68,4 +68,4 @@ Accessible [navigation favorites](./navigation-favorites.md) appear as a Favorit
 
 When the query is empty, [recent items](./recent-items.md) appear as a Recent group (loaded once when the palette opens). Typing starts Phase 3B record search as before; recents are hidden so they do not clutter live results.
 
-Saved views are not part of this surface.
+Saved views are not part of this surface. See [Saved views](./saved-views.md).

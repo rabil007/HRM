@@ -93,4 +93,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(RecentItem::class);
     }
+
+    /**
+     * @return HasMany<SavedView, $this>
+     */
+    public function savedViews(): HasMany
+    {
+        return $this->hasMany(SavedView::class);
+    }
 }

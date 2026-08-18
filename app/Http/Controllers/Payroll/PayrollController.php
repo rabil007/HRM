@@ -8,6 +8,7 @@ use App\Enums\PayrollPeriodCreationSource;
 use App\Enums\PayrollPeriodStatus;
 use App\Enums\RecentItemType;
 use App\Enums\SalaryPaymentMethod;
+use App\Enums\SavedViewPage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Payroll\ApprovePayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\CancelPayrollPeriodRequest;
@@ -65,6 +66,8 @@ use App\Support\Payroll\Services\CrewTimesheetTemplateExporter;
 use App\Support\Payroll\Services\OfficePayrollSalarySheetExporter;
 use App\Support\Payroll\Wps\WpsExportPreview;
 use App\Support\RecentItems\RecordRecentItem;
+use App\Support\SavedViews\ApplyDefaultSavedView;
+use App\Support\SavedViews\SavedViewsForPage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -89,9 +92,15 @@ class PayrollController extends Controller
         'payroll_records_monthly_pagination',
     ];
 
-    public function index(Request $request): InertiaResponse
+    public function index(Request $request): InertiaResponse|RedirectResponse
     {
         $this->authorizePayrollHub($request);
+
+        $redirect = ApplyDefaultSavedView::maybeRedirect($request, SavedViewPage::Payroll);
+
+        if ($redirect !== null) {
+            return $redirect;
+        }
 
         $companyId = (int) $request->attributes->get('current_company_id');
         $perPage = $this->resolvePerPage($request);
@@ -176,6 +185,7 @@ class PayrollController extends Controller
                 'create_period' => $request->user()?->can('payroll.periods.create') ?? false,
                 'view_crew_timesheets' => $request->user()?->can('payroll.crew_timesheets.view') ?? false,
             ],
+            'saved_views' => SavedViewsForPage::props($request->user(), $companyId, SavedViewPage::Payroll),
         ]);
     }
 

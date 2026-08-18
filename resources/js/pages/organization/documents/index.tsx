@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Main } from '@/components/layout/main';
+import { SavedViewsControl } from '@/components/saved-views-control';
 import { SearchBar } from '@/components/search-bar';
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
@@ -32,6 +33,7 @@ import type { WhatsAppTemplateOption } from '@/features/organization/documents/w
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
+import type { SavedView } from '@/lib/saved-views';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
 import documentRoutes from '@/routes/organization/documents';
@@ -58,6 +60,7 @@ type Props = {
         whatsapp_templates: WhatsAppTemplateOption[];
         email_templates: EmailTemplateOption[];
     };
+    saved_views?: SavedView[];
 };
 
 const EMPTY_SEARCH_DOCUMENTS: PaginatedComplianceDocuments = {
@@ -83,6 +86,7 @@ export default function DocumentsIndex({
     document_types,
     countries = [],
     can,
+    saved_views = [],
 }: Props) {
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
     const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(
@@ -295,19 +299,31 @@ export default function DocumentsIndex({
                     onChange={onSearchChange}
                     aria-label="Search documents and employees"
                     right={
-                        department_tree.length > 0 ? (
-                            <DepartmentFilterControls
-                                department_tree={department_tree}
-                                department_tree_selected_id={
-                                    department_tree_selected_id
-                                }
-                                department_tree_selected_position_id={null}
-                                onSelectDepartment={onDepartmentChange}
-                                onSelectPosition={(_, departmentId) =>
-                                    onDepartmentChange(departmentId)
-                                }
+                        <div className="flex items-center gap-2">
+                            {department_tree.length > 0 ? (
+                                <DepartmentFilterControls
+                                    department_tree={department_tree}
+                                    department_tree_selected_id={
+                                        department_tree_selected_id
+                                    }
+                                    department_tree_selected_position_id={null}
+                                    onSelectDepartment={onDepartmentChange}
+                                    onSelectPosition={(_, departmentId) =>
+                                        onDepartmentChange(departmentId)
+                                    }
+                                />
+                            ) : null}
+                            <SavedViewsControl
+                                pageKey="documents"
+                                indexUrl={documents.url()}
+                                currentFilters={{
+                                    search: initialSearch,
+                                    expiry: initialExpiry,
+                                    department_id: initialDepartmentId,
+                                }}
+                                views={saved_views}
                             />
-                        ) : null
+                        </div>
                     }
                 />
                 {isSearching ? (

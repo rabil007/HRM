@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Attendance;
 
 use App\Enums\LeaveApprovalApproverType;
 use App\Enums\LeaveRequestApprovalStatus;
+use App\Enums\SavedViewPage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Attendance\AdministrativelyDeleteLeaveRequestRequest;
 use App\Http\Requests\Attendance\ApproveLeaveRequestRequest;
@@ -28,6 +29,8 @@ use App\Support\Attendance\LeaveRequestAttachments;
 use App\Support\Attendance\LeaveRequestAuthorization;
 use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\SavedViews\ApplyDefaultSavedView;
+use App\Support\SavedViews\SavedViewsForPage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,8 +50,14 @@ class LeaveRequestController extends Controller
         private LeaveRequestAuthorization $authorization,
     ) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
+        $redirect = ApplyDefaultSavedView::maybeRedirect($request, SavedViewPage::Leave);
+
+        if ($redirect !== null) {
+            return $redirect;
+        }
+
         $companyId = (int) $request->attributes->get('current_company_id');
         $perPage = $this->resolvePerPage($request);
         $search = trim((string) $request->query('search', ''));
@@ -164,6 +173,7 @@ class LeaveRequestController extends Controller
                 'approve' => $user?->can('attendance.leave-requests.approve') ?? false,
                 'view_all' => $canViewAll,
             ],
+            'saved_views' => SavedViewsForPage::props($user, $companyId, SavedViewPage::Leave),
         ]);
     }
 

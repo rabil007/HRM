@@ -32,4 +32,4 @@ Master-data, configuration, and dense payroll matrices (records, timesheets, sal
 
 ## Data, filters, and actions
 
-Both views consume the same Inertia props, `useServerPaginationFilters` (or domain equivalent), permissions/`can` flags, and mutation handlers. Pagination stays server-side. Destructive actions still use the existing AlertDialog confirmations.
+Both views consume the same Inertia props, `useServerPaginationFilters` (or domain equivalent), permissions/`can` flags, and mutation handlers. Pagination stays server-side. Destructive actions still use the existing AlertDialog confirmations. Employees, Documents, Crew Assignments, Leave requests, and Payroll periods also share the same [Saved views](./saved-views.md) control on this list.

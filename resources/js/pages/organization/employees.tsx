@@ -19,6 +19,7 @@ import type {
     UserOption,
     VisaTypeOption,
 } from '@/features/organization/employees/types';
+import type { SavedView } from '@/lib/saved-views';
 import type { PaginationMeta } from '@/types/pagination';
 
 export default function Employees({
@@ -44,6 +45,7 @@ export default function Employees({
     roles,
     export_field_options,
     can,
+    saved_views = [],
 }: {
     employees: Employee[];
     pagination: PaginationMeta;
@@ -81,6 +83,7 @@ export default function Employees({
     roles: RoleOption[];
     export_field_options: EmployeeExportFieldOption[];
     can: EmployeePageCan;
+    saved_views?: SavedView[];
 }) {
     return (
         <>
@@ -110,6 +113,7 @@ export default function Employees({
                 roles={roles}
                 export_field_options={export_field_options}
                 can={can}
+                saved_views={saved_views}
             />
         </>
     );

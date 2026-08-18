@@ -11,6 +11,7 @@ import { Main } from '@/components/layout/main';
 import { MobileRecordList } from '@/components/mobile-record-list';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
+import { SavedViewsControl } from '@/components/saved-views-control';
 import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
     MOBILE_OPERATIONAL_LIST_CLASS,
 } from '@/lib/mobile-operational-list';
+import type { SavedView } from '@/lib/saved-views';
 import { cn } from '@/lib/utils';
 import {
     create as createAssignment,
@@ -103,6 +105,7 @@ export function CurrentCrewContent({
     filter_options: filterOptions,
     form_options: formOptions,
     can,
+    saved_views = [],
 }: {
     view?: CurrentCrewView;
     assignments: CrewAssignmentListItem[];
@@ -114,6 +117,7 @@ export function CurrentCrewContent({
     filter_options: CrewAssignmentFilterOptions;
     form_options?: CrewAssignmentFormOptions;
     can: CrewAssignmentPagePermissions;
+    saved_views?: SavedView[];
 }) {
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const filters = useMemo(() => normalizeFilters(rawFilters), [rawFilters]);
@@ -274,6 +278,16 @@ export function CurrentCrewContent({
                                 </span>
                             ) : null}
                         </Button>
+                        <SavedViewsControl
+                            pageKey="crew"
+                            indexUrl={crewAssignmentsIndex.url()}
+                            currentFilters={{
+                                search: initialSearch,
+                                ...filters,
+                                view: currentView,
+                            }}
+                            views={saved_views}
+                        />
                     </div>
                 }
             />

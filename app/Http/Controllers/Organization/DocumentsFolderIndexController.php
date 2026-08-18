@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Organization;
 
+use App\Enums\SavedViewPage;
 use App\Http\Controllers\Controller;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use App\Support\EmployeeDocuments\DocumentDepartmentTree;
@@ -9,13 +10,23 @@ use App\Support\EmployeeDocuments\DocumentExpiry;
 use App\Support\EmployeeDocuments\DocumentPagePermissions;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
+use App\Support\SavedViews\ApplyDefaultSavedView;
+use App\Support\SavedViews\SavedViewsForPage;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 class DocumentsFolderIndexController extends Controller
 {
-    public function __invoke(Request $request, DocumentBrowseQuery $browse)
+    public function __invoke(Request $request, DocumentBrowseQuery $browse): InertiaResponse|RedirectResponse
     {
+        $redirect = ApplyDefaultSavedView::maybeRedirect($request, SavedViewPage::Documents);
+
+        if ($redirect !== null) {
+            return $redirect;
+        }
+
         $companyId = (int) $request->attributes->get('current_company_id');
         $search = trim((string) $request->query('search', ''));
         $expiry = (string) $request->query('expiry', 'all');
@@ -42,6 +53,7 @@ class DocumentsFolderIndexController extends Controller
             'document_types' => EmployeeFormOptions::documentTypes(),
             'countries' => EmployeeFormOptions::for($companyId)['countries'],
             'can' => DocumentPagePermissions::for($request->user()),
+            'saved_views' => SavedViewsForPage::props($request->user(), $companyId, SavedViewPage::Documents),
         ];
 
         if ($expiry === 'all') {

@@ -19,6 +19,8 @@ Cmd/Ctrl+K [global search](./global-search.md) is one of those authenticated JSO
 
 [Recent items](./recent-items.md) are personal per-company show-page history in Cmd/Ctrl+K. They do not grant access, are not audit logs, and are hidden when the matching view permission or record is gone.
 
+[Saved views](./saved-views.md) are personal per-company named filter combinations on selected list pages. They do not grant access and never store arbitrary URLs.
+
 Platform diagnostic surfaces (`/log`, `/jobs`, `/mysql`) are **not** tenant Spatie permissions. They use a separate user-level `users.platform_access` flag. See [Platform administration](#platform-administration).
 
 Re-seed after changing the catalog:

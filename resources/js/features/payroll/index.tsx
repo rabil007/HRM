@@ -20,6 +20,7 @@ import { Main } from '@/components/layout/main';
 import { MobileRecordList } from '@/components/mobile-record-list';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
+import { SavedViewsControl } from '@/components/saved-views-control';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,6 +37,7 @@ import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
     MOBILE_OPERATIONAL_LIST_CLASS,
 } from '@/lib/mobile-operational-list';
+import type { SavedView } from '@/lib/saved-views';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
@@ -68,6 +70,7 @@ export function PayrollIndexContent({
     payroll_categories,
     payroll_period_statuses,
     permissions,
+    saved_views = [],
 }: {
     periods: PayrollPeriodListItem[];
     pagination: PaginationMeta;
@@ -77,6 +80,7 @@ export function PayrollIndexContent({
     payroll_categories: PayrollCategoryOption[];
     payroll_period_statuses: PayrollPeriodStatusOption[];
     permissions: PayrollHubPermissions;
+    saved_views?: SavedView[];
 }) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -191,6 +195,15 @@ export function PayrollIndexContent({
                                 ) : null}
                             </Button>
                         </div>
+                        <SavedViewsControl
+                            pageKey="payroll"
+                            indexUrl={index.url()}
+                            currentFilters={{
+                                search: initialSearch,
+                                ...initialFilters,
+                            }}
+                            views={saved_views}
+                        />
                     </div>
                 }
             />

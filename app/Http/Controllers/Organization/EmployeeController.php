@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Enums\RecentItemType;
+use App\Enums\SavedViewPage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\AssignEmployeeProfileTemplateRequest;
 use App\Http\Requests\Organization\Employee\StoreEmployeeRequest;
@@ -29,16 +30,26 @@ use App\Support\Employees\Services\EmployeeProfilePageData;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Payroll\PayrollRecordLinkage;
 use App\Support\RecentItems\RecordRecentItem;
+use App\Support\SavedViews\ApplyDefaultSavedView;
+use App\Support\SavedViews\SavedViewsForPage;
 use App\Support\Uploads\UploadedFileStorage;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 class EmployeeController extends Controller
 {
     use ResolvesPerPage;
 
-    public function index()
+    public function index(): InertiaResponse|RedirectResponse
     {
+        $redirect = ApplyDefaultSavedView::maybeRedirect(request(), SavedViewPage::Employees);
+
+        if ($redirect !== null) {
+            return $redirect;
+        }
+
         $companyId = (int) request()->attributes->get('current_company_id');
         $perPage = $this->resolvePerPage(request());
         $directoryFilters = EmployeeDirectoryFilters::fromRequest(request());
@@ -121,6 +132,7 @@ class EmployeeController extends Controller
             'department_tree_selected_id' => $directoryFilters->departmentId !== '' ? (int) $directoryFilters->departmentId : null,
             'department_tree_selected_position_id' => $directoryFilters->positionId !== '' ? (int) $directoryFilters->positionId : null,
             'can' => EmployeePagePermissions::for(request()->user()),
+            'saved_views' => SavedViewsForPage::props(request()->user(), $companyId, SavedViewPage::Employees),
         ]);
     }
 

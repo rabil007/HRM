@@ -10,6 +10,7 @@ import type {
     CurrentCrewView,
     CurrentCrewVesselRow,
 } from '@/features/organization/crew/types';
+import type { SavedView } from '@/lib/saved-views';
 import type { PaginationMeta } from '@/types/pagination';
 
 export default function CrewAssignmentsIndex({
@@ -23,6 +24,7 @@ export default function CrewAssignmentsIndex({
     filter_options,
     form_options,
     can,
+    saved_views = [],
 }: {
     view?: CurrentCrewView;
     assignments: CrewAssignmentListItem[];
@@ -34,6 +36,7 @@ export default function CrewAssignmentsIndex({
     filter_options: CrewAssignmentFilterOptions;
     form_options?: CrewAssignmentFormOptions;
     can: CrewAssignmentPagePermissions;
+    saved_views?: SavedView[];
 }) {
     return (
         <>
@@ -49,6 +52,7 @@ export default function CrewAssignmentsIndex({
                 filter_options={filter_options}
                 form_options={form_options}
                 can={can}
+                saved_views={saved_views}
             />
         </>
     );
