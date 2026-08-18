@@ -22,7 +22,7 @@ use Spatie\Activitylog\Support\LogOptions;
 use Spatie\Permission\Traits\HasRoles;
 
 #[Fillable(['company_id', 'name', 'email', 'password', 'avatar', 'status', 'last_login_at'])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'platform_access'])]
+#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_confirmed_at', 'remember_token', 'platform_access'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */

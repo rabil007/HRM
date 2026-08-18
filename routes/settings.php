@@ -58,7 +58,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('application.branding.remove');
 
     Route::post('settings/application/smtp', [ApplicationSettingsController::class, 'updateSmtp'])
-        ->middleware('can:settings.application.update')
+        ->middleware(['can:settings.application.update', 'privileged.2fa'])
         ->name('application.smtp.update');
 
     Route::post('settings/application/smtp/test', [ApplicationSettingsController::class, 'sendTestMail'])
@@ -74,18 +74,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('application.esign-placement.show');
 
     Route::put('settings/application/esign-placement/{documentType}', [BulkDocumentSignaturePlacementController::class, 'update'])
-        ->middleware('can:settings.application.update')
+        ->middleware(['can:settings.application.update', 'privileged.2fa'])
         ->name('application.esign-placement.update');
 
     Route::delete('settings/application/esign-placement/{documentType}', [BulkDocumentSignaturePlacementController::class, 'destroy'])
-        ->middleware('can:settings.application.update')
+        ->middleware(['can:settings.application.update', 'privileged.2fa'])
         ->name('application.esign-placement.destroy');
 
     Route::redirect('settings/integrations/whatsapp', '/settings/application?tab=whatsapp')
         ->name('integrations.whatsapp.edit');
 
     Route::put('settings/application/whatsapp', [WhatsAppIntegrationController::class, 'update'])
-        ->middleware('can:settings.integrations.whatsapp.update')
+        ->middleware(['can:settings.integrations.whatsapp.update', 'privileged.2fa'])
         ->name('application.whatsapp.update');
 
     Route::post('settings/application/whatsapp/test', [WhatsAppIntegrationController::class, 'testConnection'])
@@ -113,7 +113,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('integrations.hikvision.edit');
 
     Route::put('settings/integrations/hikvision', [HikvisionIntegrationController::class, 'update'])
-        ->middleware('can:settings.integrations.hikvision.update')
+        ->middleware(['can:settings.integrations.hikvision.update', 'privileged.2fa'])
         ->name('integrations.hikvision.update');
 
     Route::post('settings/integrations/hikvision/test', [HikvisionIntegrationController::class, 'testConnection'])
@@ -121,7 +121,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('integrations.hikvision.test');
 
     Route::post('settings/integrations/hikvision/webhook/register', [HikvisionIntegrationController::class, 'registerWebhook'])
-        ->middleware('can:hikvision.webhook.manage')
+        ->middleware(['can:hikvision.webhook.manage', 'privileged.2fa'])
         ->name('integrations.hikvision.webhook.register');
 
     Route::post('settings/integrations/hikvision/devices/sync', [HikvisionIntegrationController::class, 'syncDevices'])
@@ -131,7 +131,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::redirect('settings/application/hikvision', '/settings/integrations/hikvision');
 
     Route::put('settings/application/hikvision', [HikvisionIntegrationController::class, 'update'])
-        ->middleware('can:settings.integrations.hikvision.update')
+        ->middleware(['can:settings.integrations.hikvision.update', 'privileged.2fa'])
         ->name('application.hikvision.update');
 
     Route::post('settings/application/hikvision/test', [HikvisionIntegrationController::class, 'testConnection'])
@@ -139,7 +139,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('application.hikvision.test');
 
     Route::post('settings/application/hikvision/webhook/register', [HikvisionIntegrationController::class, 'registerWebhook'])
-        ->middleware('can:hikvision.webhook.manage')
+        ->middleware(['can:hikvision.webhook.manage', 'privileged.2fa'])
         ->name('application.hikvision.webhook.register');
 
     Route::post('settings/application/hikvision/devices/sync', [HikvisionIntegrationController::class, 'syncDevices'])

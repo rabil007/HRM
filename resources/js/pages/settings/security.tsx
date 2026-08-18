@@ -1,6 +1,6 @@
 import { Transition } from '@headlessui/react';
-import { Form, Head } from '@inertiajs/react';
-import { ShieldCheck } from 'lucide-react';
+import { Form, Head, usePage } from '@inertiajs/react';
+import { ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import Heading from '@/components/heading';
@@ -8,9 +8,11 @@ import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import TwoFactorRecoveryCodes from '@/components/two-factor-recovery-codes';
 import TwoFactorSetupModal from '@/components/two-factor-setup-modal';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useTwoFactorAuth } from '@/hooks/use-two-factor-auth';
+import { needsPrivilegedTwoFactorEnrollment } from '@/lib/privileged-two-factor';
 import { disable, enable } from '@/routes/two-factor';
 
 type Props = {
@@ -26,6 +28,9 @@ export default function Security({
 }: Props) {
     const passwordInput = useRef<HTMLInputElement>(null);
     const currentPasswordInput = useRef<HTMLInputElement>(null);
+    const showPrivilegedNotice = needsPrivilegedTwoFactorEnrollment(
+        usePage().props.auth.two_factor,
+    );
 
     const {
         qrCodeSvg,
@@ -56,6 +61,21 @@ export default function Security({
             <h1 className="sr-only">Security settings</h1>
 
             <div className="space-y-6">
+                {showPrivilegedNotice && (
+                    <Alert>
+                        <ShieldAlert />
+                        <AlertTitle>
+                            This action requires two-factor authentication.
+                        </AlertTitle>
+                        <AlertDescription>
+                            Ordinary parts of OMS-HRM remain available. Set up
+                            two-factor authentication below before payroll
+                            approval, role administration, integration
+                            credentials, or other privileged operations.
+                        </AlertDescription>
+                    </Alert>
+                )}
+
                 <Heading
                     variant="small"
                     title="Update password"

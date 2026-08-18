@@ -12,6 +12,7 @@ use App\Models\CrewMovementCorrection;
 use App\Models\CrewPlanningAssignment;
 use App\Models\EmployeeSeaService;
 use App\Models\User;
+use App\Support\Auth\PrivilegedTwoFactorPolicy;
 use App\Support\CrewMovements\CrewAssignmentInvariantGuard;
 use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
@@ -51,12 +52,15 @@ final class ApproveCrewMovementCorrection
             $this->validator->assertTenant($correction, $companyId);
             $this->validator->assertPending($correction);
 
-            if ((int) $correction->requested_by === (int) $approver->id
-                && ! $approver->can('crew_operations.corrections.override')) {
-                throw CrewMovementException::make(
-                    'You cannot approve your own correction request.',
-                    'correction_self_approval',
-                );
+            if ((int) $correction->requested_by === (int) $approver->id) {
+                if (! $approver->can('crew_operations.corrections.override')) {
+                    throw CrewMovementException::make(
+                        'You cannot approve your own correction request.',
+                        'correction_self_approval',
+                    );
+                }
+
+                PrivilegedTwoFactorPolicy::assertSatisfied($approver);
             }
 
             $phase = null;

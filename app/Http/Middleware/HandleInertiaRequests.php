@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\NavigationFavorite;
 use App\Models\User;
 use App\Services\Settings\SettingService;
+use App\Support\Auth\PrivilegedTwoFactorPolicy;
 use App\Support\Companies\ResolveCompanyAccess;
 use App\Support\Platform\PlatformAuthorization;
 use App\Support\Users\UserAvatar;
@@ -194,6 +195,7 @@ class HandleInertiaRequests extends Middleware
                 'permissions' => $permissions,
                 'roles' => $roleNames,
                 'platform' => PlatformAuthorization::sharedFlags($user),
+                'two_factor' => PrivilegedTwoFactorPolicy::sharedFlags($user),
             ],
             'company_switcher_companies' => $companies,
             'current_company_id' => $currentCompanyId,

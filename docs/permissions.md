@@ -21,6 +21,8 @@ Cmd/Ctrl+K [global search](./global-search.md) is one of those authenticated JSO
 
 [Saved views](./saved-views.md) are personal per-company named filter combinations on selected list pages. They do not grant access and never store arbitrary URLs.
 
+[Privileged two-factor](./privileged-2fa.md) is defense-in-depth on top of these permission checks. Fortify 2FA enrollment is required for a small catalog of high-trust capabilities (and all platform access) when `PRIVILEGED_2FA_ENFORCED` is on. It does not replace Spatie permissions or tenant isolation.
+
 Platform diagnostic surfaces (`/log`, `/jobs`, `/mysql`) are **not** tenant Spatie permissions. They use a separate user-level `users.platform_access` flag. See [Platform administration](#platform-administration).
 
 Re-seed after changing the catalog:
@@ -222,6 +224,8 @@ php artisan platform:access user@example.com revoke
 ```
 
 Frontend `auth.platform` flags (`view`, `manage`, `database`) are UX only. Route middleware `platform:view`, `platform:manage`, and `platform:database` is authoritative.
+
+When `PRIVILEGED_2FA_ENFORCED` is true, **all** platform access (view, manage, and database viewer) also requires Fortify-confirmed 2FA. See [Privileged two-factor](./privileged-2fa.md).
 
 ### Database viewer production default
 

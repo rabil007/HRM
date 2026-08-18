@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\ApplyRememberedSessionLifetimeEarly;
 use App\Http\Middleware\EnsurePlatformAccess;
+use App\Http\Middleware\EnsurePrivilegedTwoFactor;
 use App\Http\Middleware\ExtendRememberedSessionLifetime;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -41,6 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'platform' => EnsurePlatformAccess::class,
+            'privileged.2fa' => EnsurePrivilegedTwoFactor::class,
         ]);
 
         $middleware->web(append: [

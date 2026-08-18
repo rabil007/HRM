@@ -16,11 +16,17 @@ export type PlatformAccess = {
     database: boolean;
 };
 
+export type TwoFactorStatus = {
+    enabled: boolean;
+    required_for_privileged_actions: boolean;
+};
+
 export type Auth = {
     user: User;
     permissions?: string[];
     roles?: string[];
     platform?: PlatformAccess;
+    two_factor?: TwoFactorStatus;
 };
 
 export type TwoFactorSetupData = {

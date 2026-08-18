@@ -232,14 +232,14 @@ Route::match(['get', 'post'], 'integrations/hikvision/webhook/{publicIntegration
     ->name('webhooks.hikvision');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::middleware('platform:view')->group(function () {
+    Route::middleware(['platform:view', 'privileged.2fa'])->group(function () {
         Route::get('log', [ApplicationLogController::class, 'index'])->name('log');
         Route::get('log/export', [ApplicationLogController::class, 'export'])->name('log.export');
 
         Route::get('jobs', [JobRunController::class, 'index'])->name('jobs.index');
     });
 
-    Route::middleware('platform:manage')->group(function () {
+    Route::middleware(['platform:manage', 'privileged.2fa'])->group(function () {
         Route::delete('log', [ApplicationLogController::class, 'destroy'])->name('log.clear');
 
         Route::post('jobs/failed/retry-all', [JobRunController::class, 'retryAllFailed'])->name('jobs.failed.retry-all');
@@ -308,10 +308,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/companies', [CompanyController::class, 'store'])->middleware('can:companies.create')->name('organization.companies.store');
     Route::put('organization/companies/{company}', [CompanyController::class, 'update'])->middleware('can:companies.update')->name('organization.companies.update');
     Route::put('organization/companies/{company}/document-settings', [CompanyDocumentSettingController::class, 'update'])
-        ->middleware('can:companies.update')
+        ->middleware(['can:companies.update', 'privileged.2fa'])
         ->name('organization.companies.document-settings.update');
     Route::delete('organization/companies/{company}/document-settings/{asset}', [CompanyDocumentSettingController::class, 'destroyAsset'])
-        ->middleware('can:companies.update')
+        ->middleware(['can:companies.update', 'privileged.2fa'])
         ->where('asset', 'signature|stamp')
         ->name('organization.companies.document-settings.asset.destroy');
     Route::put('organization/companies/{company}/status', [CompanyController::class, 'updateStatus'])->middleware('can:companies.update')->name('organization.companies.status');
@@ -396,20 +396,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/roles', [RoleController::class, 'index'])->middleware('can:roles.view')->name('organization.roles');
     Route::get('organization/roles/export', [RoleController::class, 'export'])->middleware('can:roles.export')->name('organization.roles.export');
     Route::get('organization/roles/{role}', [RoleController::class, 'show'])->middleware('can:roles.view')->name('organization.roles.show');
-    Route::post('organization/roles', [RoleController::class, 'store'])->middleware('can:roles.create')->name('organization.roles.store');
-    Route::put('organization/roles/{role}', [RoleController::class, 'update'])->middleware('can:roles.update')->name('organization.roles.update');
-    Route::delete('organization/roles/{role}', [RoleController::class, 'destroy'])->middleware('can:roles.delete')->name('organization.roles.destroy');
+    Route::post('organization/roles', [RoleController::class, 'store'])->middleware(['can:roles.create', 'privileged.2fa'])->name('organization.roles.store');
+    Route::put('organization/roles/{role}', [RoleController::class, 'update'])->middleware(['can:roles.update', 'privileged.2fa'])->name('organization.roles.update');
+    Route::delete('organization/roles/{role}', [RoleController::class, 'destroy'])->middleware(['can:roles.delete', 'privileged.2fa'])->name('organization.roles.destroy');
 
     Route::get('organization/users', [UserController::class, 'index'])->middleware('can:users.view')->name('organization.users');
     Route::get('organization/users/export', [UserController::class, 'export'])->middleware('can:users.export')->name('organization.users.export');
     Route::get('organization/users/{user}', [UserController::class, 'show'])->middleware('can:users.view')->name('organization.users.show');
-    Route::post('organization/users', [UserController::class, 'store'])->middleware('can:users.create')->name('organization.users.store');
-    Route::put('organization/users/{user}', [UserController::class, 'update'])->middleware('can:users.update')->name('organization.users.update');
-    Route::put('organization/users/{user}/status', [UserController::class, 'updateStatus'])->middleware('can:users.update')->name('organization.users.status');
-    Route::delete('organization/users/{user}', [UserController::class, 'destroy'])->middleware('can:users.delete')->name('organization.users.destroy');
-    Route::post('organization/users/{user}/memberships', [UserController::class, 'storeMembership'])->middleware('can:users.update')->name('organization.users.memberships.store');
-    Route::put('organization/users/{user}/memberships/{company}', [UserController::class, 'updateMembership'])->middleware('can:users.update')->name('organization.users.memberships.update');
-    Route::delete('organization/users/{user}/memberships/{company}', [UserController::class, 'destroyMembership'])->middleware('can:users.update')->name('organization.users.memberships.destroy');
+    Route::post('organization/users', [UserController::class, 'store'])->middleware(['can:users.create', 'privileged.2fa'])->name('organization.users.store');
+    Route::put('organization/users/{user}', [UserController::class, 'update'])->middleware(['can:users.update', 'privileged.2fa'])->name('organization.users.update');
+    Route::put('organization/users/{user}/status', [UserController::class, 'updateStatus'])->middleware(['can:users.update', 'privileged.2fa'])->name('organization.users.status');
+    Route::delete('organization/users/{user}', [UserController::class, 'destroy'])->middleware(['can:users.delete', 'privileged.2fa'])->name('organization.users.destroy');
+    Route::post('organization/users/{user}/memberships', [UserController::class, 'storeMembership'])->middleware(['can:users.update', 'privileged.2fa'])->name('organization.users.memberships.store');
+    Route::put('organization/users/{user}/memberships/{company}', [UserController::class, 'updateMembership'])->middleware(['can:users.update', 'privileged.2fa'])->name('organization.users.memberships.update');
+    Route::delete('organization/users/{user}/memberships/{company}', [UserController::class, 'destroyMembership'])->middleware(['can:users.update', 'privileged.2fa'])->name('organization.users.memberships.destroy');
 
     Route::get('organization/crew-operations', CrewOperationsDashboardController::class)->middleware('can:crew_operations.overview.view')->name('organization.crew-operations.index');
 
@@ -471,7 +471,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/crew/{assignment}', [CrewAssignmentController::class, 'update'])->middleware('can:crew_operations.assignments.update')->name('organization.crew-assignments.update');
     Route::post('organization/crew/{assignment}/actions', CrewMovementActionController::class)->name('organization.crew-assignments.perform-action');
     Route::post('organization/crew/{assignment}/void', VoidCrewAssignmentController::class)
-        ->middleware('can:crew_operations.assignments.void')
+        ->middleware(['can:crew_operations.assignments.void', 'privileged.2fa'])
         ->name('organization.crew-assignments.void');
     Route::post('organization/crew/{assignment}/corrections', [CrewMovementCorrectionController::class, 'store'])
         ->middleware('can:crew_operations.corrections.request')
@@ -511,7 +511,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('payroll/payslips/from-salary-sheet/preview', [PayslipController::class, 'previewSalarySheet'])->name('payroll.payslips.from-salary-sheet.preview');
     Route::post('payroll/payslips/from-salary-sheet', [PayslipController::class, 'fromSalarySheet'])->name('payroll.payslips.from-salary-sheet');
     Route::post('payroll/payslips/email', [PayslipController::class, 'email'])->name('payroll.payslips.email');
-    Route::post('payroll/wps/export', [WpsExportController::class, 'export'])->name('payroll.wps.export');
+    Route::post('payroll/wps/export', [WpsExportController::class, 'export'])->middleware(['can:payroll.wps.export', 'privileged.2fa'])->name('payroll.wps.export');
     Route::post('payroll/periods', [PayrollController::class, 'storePeriod'])->middleware('can:payroll.periods.create')->name('payroll.periods.store');
     Route::put('payroll/{payrollPeriod}/crew-timesheet-mode', UpdatePayrollPeriodCrewTimesheetModeController::class)
         ->middleware('can:payroll.periods.update')
@@ -569,8 +569,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('payroll/{payrollPeriod}/revert-to-draft', [PayrollController::class, 'revertToDraft'])->middleware('can:payroll.periods.revert_to_draft')->name('payroll.revert-to-draft');
     Route::post('payroll/{payrollPeriod}/revert-to-approved', [PayrollController::class, 'revertToApproved'])->middleware('can:payroll.periods.revert_to_approved')->name('payroll.revert-to-approved');
     Route::post('payroll/{payrollPeriod}/revert-to-processing', [PayrollController::class, 'revertToProcessing'])->middleware('can:payroll.periods.revert_to_processing')->name('payroll.revert-to-processing');
-    Route::post('payroll/{payrollPeriod}/approve', [PayrollController::class, 'approve'])->middleware('can:payroll.periods.approve')->name('payroll.approve');
-    Route::post('payroll/{payrollPeriod}/mark-paid', [PayrollController::class, 'markPaid'])->middleware('can:payroll.periods.mark_paid')->name('payroll.mark-paid');
+    Route::post('payroll/{payrollPeriod}/approve', [PayrollController::class, 'approve'])->middleware(['can:payroll.periods.approve', 'privileged.2fa'])->name('payroll.approve');
+    Route::post('payroll/{payrollPeriod}/mark-paid', [PayrollController::class, 'markPaid'])->middleware(['can:payroll.periods.mark_paid', 'privileged.2fa'])->name('payroll.mark-paid');
     Route::get('payroll/{payrollPeriod}/payment-proof', [PayrollController::class, 'downloadPaymentProof'])->middleware('can:payroll.periods.view')->name('payroll.payment-proof');
     Route::post('payroll/{payrollPeriod}/cancel', [PayrollController::class, 'cancel'])->middleware('can:payroll.periods.cancel')->name('payroll.cancel');
 
@@ -976,7 +976,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('attendance.leave-requests.destroy');
 
     Route::delete('attendance/leave-requests/{leave_request}/administrative', [LeaveRequestController::class, 'administrativeDestroy'])
-        ->middleware('can:attendance.leave-requests.delete_any')
+        ->middleware(['can:attendance.leave-requests.delete_any', 'privileged.2fa'])
         ->name('attendance.leave-requests.administrative-destroy');
 
     Route::put('attendance/leave-requests/{leave_request}/approve', [LeaveRequestController::class, 'approve'])
@@ -1003,7 +1003,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:hikvision.events.fetch')
         ->name('hikvision.access-events.fetch');
 
-    Route::middleware('platform:database')->group(function () {
+    Route::middleware(['platform:database', 'privileged.2fa'])->group(function () {
         Route::get('mysql', [DatabaseViewerController::class, 'index'])->name('mysql.index');
         Route::get('mysql/{table}', [DatabaseViewerController::class, 'show'])->name('mysql.show');
         Route::get('mysql/{table}/export', [DatabaseViewerController::class, 'export'])->name('mysql.export');
