@@ -50,7 +50,8 @@ test('legacy whatsapp settings url redirects to application tab', function () {
 
 test('users without whatsapp permission do not receive whatsapp settings props', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['settings.application.view']);
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->get(route('application.edit'))

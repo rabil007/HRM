@@ -14,10 +14,8 @@ use Spatie\Activitylog\Models\Activity;
 
 test('platform admin can update platform general settings without company fields', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.view',
-        'settings.application.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->post(route('application.general.update'), [

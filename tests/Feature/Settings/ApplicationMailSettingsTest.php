@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\Storage;
 
 test('application settings page includes smtp configuration', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->get(route('application.edit'))
@@ -34,7 +35,8 @@ test('application settings page masks the smtp password', function () {
     Cache::forget('app.settings.all');
 
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->get(route('application.edit'))
@@ -100,10 +102,8 @@ test('outgoing email views render the branding footer and inline logo', function
 
 test('smtp settings can be saved with encrypted password', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.view',
-        'settings.application.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->post(route('application.smtp.update'), [
@@ -133,10 +133,8 @@ test('smtp password is kept when update omits password', function () {
     Cache::forget('app.settings.all');
 
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.view',
-        'settings.application.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->post(route('application.smtp.update'), [
@@ -163,10 +161,8 @@ test('test email can be sent from smtp settings', function () {
     });
 
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.view',
-        'settings.application.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->withHeaders(['Accept' => 'application/json'])
@@ -198,10 +194,8 @@ test('test email accepts custom subject and body', function () {
     });
 
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.view',
-        'settings.application.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->withHeaders(['Accept' => 'application/json'])
@@ -221,10 +215,8 @@ test('test email accepts custom subject and body', function () {
 
 test('smtp settings can save email footer text', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.view',
-        'settings.application.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->post(route('application.smtp.update'), [
@@ -249,7 +241,8 @@ test('smtp settings can save email footer text', function () {
 
 test('users without permission cannot update smtp settings', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->post(route('application.smtp.update'), [
