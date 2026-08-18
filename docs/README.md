@@ -8,7 +8,8 @@ Product and developer documentation for the Herd OMS-HRM application. These guid
 |-------|----------|--------|
 | [Dashboard](./dashboard.md) | HR, developers | Analytics, charts, document health, workforce trends |
 | [Document management](./document-management.md) | HR, developers | Folders, employee browse, upload, expiry, compliance |
-| [Document search](./document-search.md) | HR, developers | Global search UX, result modes, backend queries |
+| [Document search](./document-search.md) | HR, developers | Documents index search UX, result modes, backend queries |
+| [Global search](./global-search.md) | HR, developers | Cmd/Ctrl+K omnibox: commands plus permission-aware record search |
 | [Document sharing](./document-sharing.md) | HR, developers | Share links, WhatsApp, bulk actions |
 | [Permissions](./permissions.md) | Admins, developers | Spatie permissions, documents, imports |
 | [Email configuration](./email-configuration.md) | Admins, developers | SMTP settings, test email |
@@ -47,7 +48,7 @@ The application currently includes core organization and employee management, em
 |------|------------|
 | General architecture | `architecture/project-analysis.md`, then `architecture/golden-files.md` |
 | Tenant access or permissions | `permissions.md` and `.cursor/rules/permissions.mdc` |
-| Documents, sharing, or search | The matching document guide above |
+| Documents, sharing, or search | The matching document guide above, plus `global-search.md` for Cmd/Ctrl+K |
 | Payroll | `payroll.md` |
 | Laravel backend | `.cursor/rules/backend.mdc`; use the `laravel-best-practices` skill |
 | Inertia React UI | The matching scoped UI rule; use the `inertia-react-development` skill |

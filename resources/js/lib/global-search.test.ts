@@ -1,0 +1,201 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import {
+    GLOBAL_SEARCH_DEBOUNCE_MS,
+    GLOBAL_SEARCH_MAX_QUERY_LENGTH,
+    commandResultValue,
+    flattenNavCommands,
+    isCommandPaletteHotkey,
+    isStaleSearchResponse,
+    orderedRecordGroups,
+    recordSearchEmptyMessage,
+    shouldRequestRecordSearch,
+} from './global-search.ts';
+import type { GlobalSearchGroup } from './global-search.ts';
+
+describe('command palette shortcut', () => {
+    it('still opens on Cmd/Ctrl+K', () => {
+        assert.equal(
+            isCommandPaletteHotkey({ key: 'k', metaKey: true, ctrlKey: false }),
+            true,
+        );
+        assert.equal(
+            isCommandPaletteHotkey({ key: 'k', metaKey: false, ctrlKey: true }),
+            true,
+        );
+        assert.equal(
+            isCommandPaletteHotkey({
+                key: 'k',
+                metaKey: false,
+                ctrlKey: false,
+            }),
+            false,
+        );
+    });
+});
+
+describe('shouldRequestRecordSearch', () => {
+    it('does not query empty or short input', () => {
+        assert.equal(shouldRequestRecordSearch(''), false);
+        assert.equal(shouldRequestRecordSearch(' '), false);
+        assert.equal(shouldRequestRecordSearch('a'), false);
+        assert.equal(shouldRequestRecordSearch(' a '), false);
+    });
+
+    it('queries trimmed input at the minimum length', () => {
+        assert.equal(shouldRequestRecordSearch('ab'), true);
+        assert.equal(shouldRequestRecordSearch(' ab '), true);
+    });
+
+    it('rejects overly long queries instead of sending them', () => {
+        assert.equal(
+            shouldRequestRecordSearch(
+                'a'.repeat(GLOBAL_SEARCH_MAX_QUERY_LENGTH),
+            ),
+            true,
+        );
+        assert.equal(
+            shouldRequestRecordSearch(
+                'a'.repeat(GLOBAL_SEARCH_MAX_QUERY_LENGTH + 1),
+            ),
+            false,
+        );
+    });
+});
+
+describe('stale response protection', () => {
+    it('ignores responses that are not the latest request', () => {
+        assert.equal(isStaleSearchResponse(1, 2), true);
+        assert.equal(isStaleSearchResponse(2, 2), false);
+    });
+});
+
+describe('orderedRecordGroups', () => {
+    it('hides empty groups and keeps the configured order', () => {
+        const groups: GlobalSearchGroup[] = [
+            { key: 'payroll', label: 'Payroll', results: [] },
+            {
+                key: 'documents',
+                label: 'Documents',
+                results: [
+                    {
+                        id: 'document:1',
+                        title: 'Passport',
+                        subtitle: 'EMP-0012',
+                        href: '/organization/documents/employee/1/files/1',
+                    },
+                ],
+            },
+            {
+                key: 'employees',
+                label: 'Employees',
+                results: [
+                    {
+                        id: 'employee:1',
+                        title: 'Ada',
+                        subtitle: 'EMP-0012',
+                        href: '/organization/employees/1',
+                    },
+                ],
+            },
+        ];
+
+        assert.deepEqual(
+            orderedRecordGroups(groups).map((group) => group.key),
+            ['employees', 'documents'],
+        );
+    });
+
+    it('never renders a category the backend omitted', () => {
+        const groups: GlobalSearchGroup[] = [
+            {
+                key: 'employees',
+                label: 'Employees',
+                results: [
+                    {
+                        id: 'employee:1',
+                        title: 'Ada',
+                        subtitle: 'EMP-0012',
+                        href: '/organization/employees/1',
+                    },
+                ],
+            },
+        ];
+
+        assert.equal(
+            orderedRecordGroups(groups).some(
+                (group) => group.key === 'documents',
+            ),
+            false,
+        );
+    });
+});
+
+describe('command palette copy and values', () => {
+    it('uses a 250ms record-search debounce', () => {
+        assert.equal(GLOBAL_SEARCH_DEBOUNCE_MS, 250);
+    });
+
+    it('distinguishes loading, error, and empty states', () => {
+        assert.equal(
+            recordSearchEmptyMessage({ loading: true, error: false }),
+            'Searching…',
+        );
+        assert.equal(
+            recordSearchEmptyMessage({ loading: false, error: true }),
+            'Search failed. Try again.',
+        );
+        assert.equal(
+            recordSearchEmptyMessage({ loading: false, error: false }),
+            'No results found.',
+        );
+    });
+
+    it('keeps record items visible to cmdk for the current query', () => {
+        assert.match(
+            commandResultValue('ada', {
+                id: 'employee:1',
+                title: 'Ada Lovelace',
+                subtitle: 'EMP-0012 · Marine',
+                href: '/organization/employees/1',
+            }),
+            /ada Ada Lovelace EMP-0012/,
+        );
+    });
+});
+
+describe('flattenNavCommands', () => {
+    it('keeps Phase 3A navigation commands including nested items', () => {
+        const navGroups: Parameters<typeof flattenNavCommands>[0] = [
+            {
+                title: 'General',
+                items: [{ title: 'Dashboard', url: '/dashboard' }],
+            },
+            {
+                title: 'Organization',
+                items: [
+                    {
+                        title: 'Crew',
+                        items: [
+                            {
+                                title: 'Current Crew',
+                                url: '/organization/crew',
+                            },
+                        ],
+                    },
+                ],
+            },
+        ];
+
+        const commands = flattenNavCommands(navGroups);
+
+        assert.deepEqual(
+            commands.map((command) => command.title),
+            ['Dashboard', 'Crew / Current Crew'],
+        );
+        assert.equal(
+            commands.some((command) => command.url === '/dashboard'),
+            true,
+        );
+    });
+});

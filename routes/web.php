@@ -10,6 +10,7 @@ use App\Http\Controllers\Attendance\LeaveRequestAttachmentController;
 use App\Http\Controllers\Attendance\LeaveRequestController;
 use App\Http\Controllers\Attendance\LeaveTypeController;
 use App\Http\Controllers\DatabaseViewerController;
+use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
 use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\JobRunController;
@@ -266,6 +267,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('notifications.documents.compliance.open');
     Route::get('notifications/feed', NotificationFeedController::class)
         ->name('notifications.feed');
+    Route::get('search', GlobalSearchController::class)
+        ->middleware('throttle:60,1')
+        ->name('search');
     Route::get('organization/companies', [CompanyController::class, 'index'])->middleware('can:companies.view')->name('organization.companies');
     Route::get('organization/companies/export', [CompanyController::class, 'export'])->middleware('can:companies.export')->name('organization.companies.export');
     Route::get('organization/companies/{company}/documents', [CompanyDocumentController::class, 'index'])->name('organization.companies.documents.index');

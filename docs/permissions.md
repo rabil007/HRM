@@ -13,6 +13,8 @@ The authoritative permission catalog is `database/seeders/PermissionsSeeder.php`
 
 Most module routes use `middleware('can:permission.name')`. Some Payroll and operations endpoints instead use controller helpers, Form Requests, or Support access classes. That distributed model is intentional where documented (for example Payroll timesheet import template uses `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create`). Authenticated-only routes without a capability check remain exceptions to review, not a pattern to copy.
 
+Cmd/Ctrl+K [global search](./global-search.md) is one of those authenticated JSON lookups. It still authorizes **each record category** with the matching view permission and scopes every tenant source to `current_company_id`. Navigation command visibility stays in `nav-visibility.ts` and is not a substitute for those backend checks.
+
 Platform diagnostic surfaces (`/log`, `/jobs`, `/mysql`) are **not** tenant Spatie permissions. They use a separate user-level `users.platform_access` flag. See [Platform administration](#platform-administration).
 
 Re-seed after changing the catalog:
@@ -46,6 +48,10 @@ Re-seed after catalog changes: `php artisan db:seed --class=PermissionsSeeder`. 
 | Audit | `audit.view` |
 
 The `*` notation above is descriptive only; permissions are seeded as explicit strings, not wildcard grants.
+
+## Global search
+
+Cmd/Ctrl+K record search authorizes each category on the backend (`employees.view`, `documents.view`, `crew_operations.assignments.view`, `crew_operations.vessels.view`, `departments.view`, `positions.view`, and `payroll.periods.view` or `payroll.crew_timesheets.view`). Navigation command visibility stays in `nav-visibility.ts`. See [Global search](./global-search.md).
 
 Crew timesheet timeline workflow permissions (Phase 1C–1D):
 

@@ -6,6 +6,7 @@ import {
     useState,
 } from 'react';
 import { CommandMenu } from '@/components/command-menu';
+import { isCommandPaletteHotkey } from '@/lib/global-search';
 
 type SearchContextType = {
     open: boolean;
@@ -39,7 +40,7 @@ export function SearchProvider({ children }: SearchProviderProps) {
 
     useEffect(() => {
         const down = (e: KeyboardEvent) => {
-            if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+            if (isCommandPaletteHotkey(e)) {
                 e.preventDefault();
                 setOpen((open) => !open);
             }

@@ -71,6 +71,7 @@ Legacy code still uses hardcoded paths (e.g. `'/organization/branches'`) — mat
 | Master-data quick create | `ReturnsQuickCreateJson` trait |
 | Downloads | `<a href>` or `StreamedResponse` |
 | Webhooks | dedicated controllers |
+| Global search (Cmd/Ctrl+K) | `useHttp().get(search.url())` — `use-global-search.ts` |
 
 ## Avoid
 

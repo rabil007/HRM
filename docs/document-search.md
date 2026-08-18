@@ -1,6 +1,6 @@
 # Document search
 
-Global search on the documents index helps HR find employees or files without opening every folder first.
+The authenticated Cmd/Ctrl+K omnibox also searches documents (number, title, type, employee) when the user has `documents.view`. That flow is documented in [Global search](./global-search.md) and is separate from this page.
 
 ## Where
 
