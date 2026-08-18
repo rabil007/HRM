@@ -29,12 +29,10 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('settings', SettingsHubController::class)->name('settings.index');
     Route::get('settings/security', [SecurityController::class, 'edit'])
-        ->middleware('can:settings.security.view')
         ->name('security.edit');
 
     Route::put('settings/password', [SecurityController::class, 'update'])
         ->middleware('throttle:6,1')
-        ->middleware('can:settings.security.update')
         ->name('user-password.update');
 
     Route::inertia('settings/appearance', 'settings/appearance')
