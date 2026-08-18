@@ -1,21 +1,34 @@
 name: Full Deploy (Laravel + React)
 
+# Runs only after the CI workflow succeeds for a push to main.
+# Do not cancel this job from the CI concurrency group.
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ['CI']
+    types:
+      - completed
 
 concurrency:
   group: deploy-main
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
+    if: >
+      github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_branch == 'main'
+      && github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout validated revision
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2

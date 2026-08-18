@@ -532,7 +532,9 @@ export default function ApplicationLogViewer({
                         onOpenChange={setClearAllOpen}
                         title="Clear all log files?"
                         description="Every laravel log file in storage/logs will be emptied. This cannot be undone."
-                        confirmText={isClearing ? 'Clearing…' : 'Clear all logs'}
+                        confirmText={
+                            isClearing ? 'Clearing…' : 'Clear all logs'
+                        }
                         onConfirm={() => clearLogs('all')}
                         contentClassName="sm:max-w-md"
                         confirmButtonClassName="bg-red-600 text-white hover:bg-red-500"

@@ -178,17 +178,28 @@ php artisan test --compact
 php artisan test --compact tests/Feature/Organization/DocumentBrowseTest.php
 ```
 
+Full quality gate (same checks as GitHub Actions `CI`):
+
 ```bash
-composer ci:check    # lint + format + types + build + tests
+composer ci:check
 ```
+
+See [docs/ci.md](docs/ci.md) for fix vs verify commands, Wayfinder generation, and how deploy waits on CI.
 
 ---
 
 ## Code Style
 
 ```bash
+# Fix
 vendor/bin/pint --dirty --format agent
+npm run lint
+npm run format
+
+# Verify (what CI runs)
+composer lint:check
 npm run lint:check
+npm run format:check
 npm run types:check
 ```
 

@@ -22,7 +22,11 @@ export default function VesselsIndex({
     filters: { vessel_type_id: number | null; manning: string | null };
     vessel_types: VesselTypeOption[];
     can: VesselPageCan;
-    stats: { total: number; vessels_with_manning: number; vessels_without_manning: number };
+    stats: {
+        total: number;
+        vessels_with_manning: number;
+        vessels_without_manning: number;
+    };
 }) {
     return (
         <>

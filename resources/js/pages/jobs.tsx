@@ -708,57 +708,69 @@ export default function JobRunsViewer({
                             : ''}
                     </span>
 
-                    {can.manage && tab === 'failed' && failed_jobs.length > 0 && (
-                        <div className="flex gap-2">
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-8 border-amber-500/20 text-amber-500 transition-colors hover:bg-amber-500/10"
-                                disabled={isRetryingAll}
-                                onClick={retryAllFailed}
-                            >
-                                <RotateCcw className="mr-1 size-3.5" />
-                                Retry all failed
-                            </Button>
+                    {can.manage &&
+                        tab === 'failed' &&
+                        failed_jobs.length > 0 && (
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 border-amber-500/20 text-amber-500 transition-colors hover:bg-amber-500/10"
+                                    disabled={isRetryingAll}
+                                    onClick={retryAllFailed}
+                                >
+                                    <RotateCcw className="mr-1 size-3.5" />
+                                    Retry all failed
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="destructive"
+                                    className="h-8 shadow-sm transition-colors"
+                                    onClick={() =>
+                                        setShowDeleteAllConfirm(true)
+                                    }
+                                >
+                                    <Trash2 className="mr-1 size-3.5" />
+                                    Delete all failed
+                                </Button>
+                            </div>
+                        )}
+
+                    {can.manage &&
+                        tab === 'history' &&
+                        stats.history_count > 0 && (
                             <Button
                                 type="button"
                                 size="sm"
                                 variant="destructive"
                                 className="h-8 shadow-sm transition-colors"
-                                onClick={() => setShowDeleteAllConfirm(true)}
+                                onClick={() =>
+                                    setShowDeleteAllHistoryConfirm(true)
+                                }
                             >
                                 <Trash2 className="mr-1 size-3.5" />
-                                Delete all failed
+                                Clear all history
                             </Button>
-                        </div>
-                    )}
+                        )}
 
-                    {can.manage && tab === 'history' && stats.history_count > 0 && (
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            className="h-8 shadow-sm transition-colors"
-                            onClick={() => setShowDeleteAllHistoryConfirm(true)}
-                        >
-                            <Trash2 className="mr-1 size-3.5" />
-                            Clear all history
-                        </Button>
-                    )}
-
-                    {can.manage && tab === 'pending' && pending_jobs.length > 0 && (
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            className="h-8 shadow-sm transition-colors"
-                            onClick={() => setShowDeleteAllPendingConfirm(true)}
-                        >
-                            <Trash2 className="mr-1 size-3.5" />
-                            Delete all pending
-                        </Button>
-                    )}
+                    {can.manage &&
+                        tab === 'pending' &&
+                        pending_jobs.length > 0 && (
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                className="h-8 shadow-sm transition-colors"
+                                onClick={() =>
+                                    setShowDeleteAllPendingConfirm(true)
+                                }
+                            >
+                                <Trash2 className="mr-1 size-3.5" />
+                                Delete all pending
+                            </Button>
+                        )}
                 </div>
 
                 {tab === 'history' ? (

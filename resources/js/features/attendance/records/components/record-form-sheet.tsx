@@ -23,7 +23,6 @@ export function RecordFormSheet({
     form,
     employees,
     statusOptions,
-    linkedEmployeeId: _linkedEmployeeId,
     canManage,
     onSubmit,
 }: {

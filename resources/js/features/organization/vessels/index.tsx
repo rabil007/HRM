@@ -120,7 +120,7 @@ function StatCard({
     );
 }
 
-function VesselAvatar({ name }: { name: string }) {
+function VesselAvatar() {
     return (
         <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary dark:border-primary/15 dark:bg-primary/[0.08]">
             <Ship className="size-4" />
@@ -189,7 +189,11 @@ export function VesselsContent({
     filters: { vessel_type_id: number | null; manning: string | null };
     vessel_types: VesselTypeOption[];
     can: VesselPageCan;
-    stats: { total: number; vessels_with_manning: number; vessels_without_manning: number };
+    stats: {
+        total: number;
+        vessels_with_manning: number;
+        vessels_without_manning: number;
+    };
 }) {
     const list = useServerPaginationFilters({
         url: vesselsIndex.url(),
@@ -464,8 +468,7 @@ export function VesselsContent({
                         hint: 'Vessels with crew requirements set',
                         icon: CheckCircle2,
                         accent: 'bg-emerald-500',
-                        activeClass:
-                            'border-emerald-500/40 bg-emerald-500/5',
+                        activeClass: 'border-emerald-500/40 bg-emerald-500/5',
                     },
                     {
                         key: 'pending' as const,
@@ -501,7 +504,7 @@ export function VesselsContent({
                                             : card.key,
                                 })
                             }
-                            className="rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         >
                             <StatCard
                                 label={card.label}
@@ -626,7 +629,7 @@ export function VesselsContent({
                                     className={dataTableCellPrimaryClass()}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <VesselAvatar name={vessel.name} />
+                                        <VesselAvatar />
                                         <div className="min-w-0">
                                             <div className="truncate font-semibold">
                                                 {vessel.name}
@@ -640,8 +643,8 @@ export function VesselsContent({
                                     </div>
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
-                                    {vessel.vessel_type?.name ??
-                                    vessel.vessel_type_name ? (
+                                    {(vessel.vessel_type?.name ??
+                                    vessel.vessel_type_name) ? (
                                         <Badge
                                             variant="outline"
                                             className="border-border/80 text-[10px] font-bold tracking-wider uppercase"
@@ -702,7 +705,7 @@ export function VesselsContent({
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {vessel.total_required > 0 ? (
-                                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-bold tabular-nums text-blue-700 dark:text-blue-400">
+                                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-bold text-blue-700 tabular-nums dark:text-blue-400">
                                             <Users className="h-3.5 w-3.5" />
                                             {vessel.total_required}
                                         </span>

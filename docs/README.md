@@ -15,6 +15,7 @@ Product and developer documentation for the Herd OMS-HRM application. These guid
 | [Saved views](./saved-views.md) | HR, developers | Personal named list-filter combinations on Employees, Documents, Crew, Leave, and Payroll |
 | [Privileged two-factor](./privileged-2fa.md) | Admins, developers | Fortify 2FA enrollment required for high-trust actions; does not replace permissions |
 | [HTTP security headers](./security-headers.md) | Admins, developers | CSP, HSTS, framing, Referrer-Policy, session cookie production settings |
+| [CI quality gates](./ci.md) | Developers | Non-mutating GitHub Actions checks, local `composer ci:check`, deploy after CI |
 | [Mobile operational lists](./mobile-operational-lists.md) | Developers | Compact phone cards for selected operational indexes; desktop tables stay standard |
 | [Document sharing](./document-sharing.md) | HR, developers | Share links, WhatsApp, bulk actions |
 | [Permissions](./permissions.md) | Admins, developers | Spatie permissions, documents, imports |
@@ -60,6 +61,7 @@ The application currently includes core organization and employee management, em
 | Saved list filters | `saved-views.md` |
 | Privileged 2FA | `privileged-2fa.md` and `.cursor/rules/permissions.mdc` |
 | Browser / HTTP security headers | `security-headers.md` |
+| CI quality gates | `ci.md` |
 | Operational lists on phones | `mobile-operational-lists.md` |
 | Payroll | `payroll.md` |
 | Laravel backend | `.cursor/rules/backend.mdc`; use the `laravel-best-practices` skill |

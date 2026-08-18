@@ -295,14 +295,12 @@ export function VesselShowContent({
             <DetailsHeader
                 kicker="Crew Operations"
                 title={vessel.name}
-                description={
-                    [
-                        vessel.vessel_type?.name ?? null,
-                        vessel.is_active ? 'Active vessel' : 'Inactive vessel',
-                    ]
-                        .filter(Boolean)
-                        .join(' · ')
-                }
+                description={[
+                    vessel.vessel_type?.name ?? null,
+                    vessel.is_active ? 'Active vessel' : 'Inactive vessel',
+                ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 backHref={backHref}
                 backLabel="Back to vessels"
                 actions={
@@ -566,7 +564,8 @@ export function VesselShowContent({
                                     No ranks configured
                                 </p>
                                 <p className="text-xs text-muted-foreground/70">
-                                    Define the crew requirements for this vessel.
+                                    Define the crew requirements for this
+                                    vessel.
                                 </p>
                             </div>
                             {ranks && hasManningWriteAccess ? (
@@ -625,7 +624,7 @@ export function VesselShowContent({
                                             total
                                         </td>
                                         <td className="px-4 py-3">
-                                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-bold tabular-nums text-blue-700 dark:text-blue-400">
+                                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-bold text-blue-700 tabular-nums dark:text-blue-400">
                                                 <Users className="h-3.5 w-3.5" />
                                                 {vessel.manning.reduce(
                                                     (acc, l) =>
