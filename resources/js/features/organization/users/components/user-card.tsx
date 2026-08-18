@@ -18,9 +18,9 @@ export function UserCard({
     onToggleStatus,
 }: {
     user: User;
-    onEdit: (user: User) => void;
-    onDelete: (user: User) => void;
-    onToggleStatus: (user: User, enabled: boolean) => void;
+    onEdit?: (user: User) => void;
+    onDelete?: (user: User) => void;
+    onToggleStatus?: (user: User, enabled: boolean) => void;
 }) {
     const statusClass =
         user.status === 'active'
@@ -101,14 +101,16 @@ export function UserCard({
                         className="flex items-center gap-2 pl-1.5"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <Switch
-                            checked={user.status === 'active'}
-                            onCheckedChange={(checked) =>
-                                onToggleStatus(user, checked)
-                            }
-                        />
+                        {onToggleStatus ? (
+                            <Switch
+                                checked={user.status === 'active'}
+                                onCheckedChange={(checked) =>
+                                    onToggleStatus(user, checked)
+                                }
+                            />
+                        ) : null}
                         <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/70 uppercase">
-                            Active
+                            {user.status === 'active' ? 'Active' : 'Inactive'}
                         </span>
                     </div>
 
@@ -128,32 +130,36 @@ export function UserCard({
                                 <Eye className="h-4 w-4" />
                             </a>
                         </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onEdit(user);
-                            }}
-                            title="Edit"
-                        >
-                            <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onDelete(user);
-                            }}
-                            title="Delete"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {onEdit ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(user);
+                                }}
+                                title="Edit"
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                        ) : null}
+                        {onDelete ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDelete(user);
+                                }}
+                                title="Delete"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        ) : null}
                     </div>
                 </div>
             </div>

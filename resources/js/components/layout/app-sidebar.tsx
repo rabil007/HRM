@@ -8,6 +8,7 @@ import {
     SidebarRail,
 } from '@/components/ui/sidebar';
 import { useLayout } from '@/context/layout-provider';
+import type { Auth } from '@/types/auth';
 import { getSidebarData } from './data/sidebar-data';
 import { NavGroup } from './nav-group';
 import { NavUser } from './nav-user';
@@ -22,11 +23,11 @@ export function AppSidebar() {
             name: string;
             logo_url?: string | null;
         }[];
-        auth?: { permissions?: string[] };
+        auth?: Auth;
     };
     const sidebarData = useMemo(
-        () => getSidebarData(auth?.permissions ?? []),
-        [auth?.permissions],
+        () => getSidebarData(auth?.permissions ?? [], auth?.platform),
+        [auth?.permissions, auth?.platform],
     );
     const teams = useMemo(
         () =>

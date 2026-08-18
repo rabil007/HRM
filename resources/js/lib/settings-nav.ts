@@ -21,21 +21,33 @@ import {
     Users,
     Wallet,
 } from 'lucide-react';
+import {
+    hasSettingsAccess,
+    SETTINGS_HUB_VIEW_PERMISSIONS,
+} from '@/lib/nav-visibility';
 import { edit as hikvisionIntegrationSettings } from '@/routes/integrations/hikvision';
 
 export type SettingsNavItem = {
     title: string;
     href: string;
-    permission: string;
+    permission: string | readonly string[];
     icon: LucideIcon;
     color?: string;
 };
+
+function permissionNames(permission: string | readonly string[]): string[] {
+    return typeof permission === 'string' ? [permission] : [...permission];
+}
 
 export const SETTINGS_SYSTEM_ITEMS: SettingsNavItem[] = [
     {
         title: 'Application',
         href: '/settings/application',
-        permission: 'settings.application.view',
+        // Backend ApplicationSettingsController allows application viewers or WhatsApp-only viewers.
+        permission: [
+            'settings.application.view',
+            'settings.integrations.whatsapp.view',
+        ],
         icon: SlidersHorizontal,
         color: 'bg-primary/10 text-primary',
     },
@@ -187,28 +199,22 @@ export const SETTINGS_MASTER_DATA_ITEMS: SettingsNavItem[] = [
     },
 ];
 
-/** Keep in sync with App\Support\Settings\SettingsHubAccess::viewPermissions() */
 export const SETTINGS_VIEW_PERMISSIONS: string[] = [
-    ...SETTINGS_SYSTEM_ITEMS.map((item) => item.permission),
-    ...SETTINGS_INTEGRATION_ITEMS.map((item) => item.permission),
-    'settings.integrations.whatsapp.view',
-    'settings.integrations.whatsapp-templates.view',
-    'settings.integrations.email-templates.view',
-    ...SETTINGS_MASTER_DATA_ITEMS.map((item) => item.permission),
+    ...SETTINGS_HUB_VIEW_PERMISSIONS,
 ];
 
 export function filterSettingsNavItems(
     items: SettingsNavItem[],
     permissions: string[],
 ): SettingsNavItem[] {
-    return items.filter((item) => permissions.includes(item.permission));
-}
-
-export function hasSettingsAccess(permissions: string[]): boolean {
-    return SETTINGS_VIEW_PERMISSIONS.some((permission) =>
-        permissions.includes(permission),
+    return items.filter((item) =>
+        permissionNames(item.permission).some((permission) =>
+            permissions.includes(permission),
+        ),
     );
 }
+
+export { hasSettingsAccess };
 
 export function getSettingsSidebarSubItems(permissions: string[]): {
     title: string;

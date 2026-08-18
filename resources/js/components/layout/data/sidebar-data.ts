@@ -30,9 +30,16 @@ import {
     BarChart3,
     FilePenLine,
     ShieldCheck,
+    Database,
+    ListTodo,
+    ScrollText,
 } from 'lucide-react';
+import { isSidebarUrlVisible, NO_PLATFORM_ACCESS } from '@/lib/nav-visibility';
+import type { NavPlatformAccess } from '@/lib/nav-visibility';
 import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
-import { dashboard } from '@/routes';
+import { dashboard, log } from '@/routes';
+import { index as jobsIndex } from '@/routes/jobs';
+import { index as mysqlIndex } from '@/routes/mysql';
 import {
     bankAccounts,
     contracts,
@@ -118,7 +125,7 @@ const baseSidebarData: SidebarData = {
             title: 'Employees',
             items: [
                 {
-                    title: 'Employee',
+                    title: 'Employees',
                     url: '/organization/employees',
                     icon: Users,
                 },
@@ -250,46 +257,41 @@ const baseSidebarData: SidebarData = {
                 },
             ],
         },
+        {
+            title: 'Platform',
+            items: [
+                {
+                    title: 'Logs',
+                    url: log.url(),
+                    icon: ScrollText,
+                },
+                {
+                    title: 'Jobs',
+                    url: jobsIndex.url(),
+                    icon: ListTodo,
+                },
+                {
+                    title: 'Database',
+                    url: mysqlIndex.url(),
+                    icon: Database,
+                },
+            ],
+        },
     ],
 };
 
-function has(permissions: string[], permission: string): boolean {
-    return permissions.includes(permission);
-}
-
-function canViewCrewOperationsOverview(permissions: string[]): boolean {
-    return has(permissions, 'crew_operations.overview.view');
-}
-
-function canViewCrewOperations(permissions: string[]): boolean {
-    return (
-        canViewCrewOperationsOverview(permissions) ||
-        has(permissions, 'crew_operations.assignments.view') ||
-        has(permissions, 'crew_operations.vessels.view') ||
-        has(permissions, 'crew_operations.vessel_manning.view') ||
-        has(permissions, 'crew_operations.planning.view') ||
-        has(permissions, 'crew_operations.corrections.view')
-    );
-}
-
-function canViewPayroll(permissions: string[]): boolean {
-    return (
-        has(permissions, 'payroll.overview.view') ||
-        has(permissions, 'payroll.periods.view') ||
-        has(permissions, 'payroll.crew_timesheets.view') ||
-        has(permissions, 'payroll.records.view') ||
-        has(permissions, 'payroll.salary_inputs.view')
-    );
-}
-
 export {
+    canAccessSalaryInputs,
     canViewCrewOperations,
     canViewCrewOperationsOverview,
     canViewPayroll,
     has,
-};
+} from '@/lib/nav-visibility';
 
-export function getSidebarData(permissions: string[]): SidebarData {
+export function getSidebarData(
+    permissions: string[],
+    platform: NavPlatformAccess = NO_PLATFORM_ACCESS,
+): SidebarData {
     const groups = baseSidebarData.navGroups
         .map((group) => {
             const items = group.items
@@ -309,19 +311,9 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             };
                         }
 
-                        const filteredSub = item.items.filter((sub) => {
-                            if (
-                                sub.url ===
-                                '/organization/templates/employee-profile'
-                            ) {
-                                return has(
-                                    permissions,
-                                    'employee_profile_templates.view',
-                                );
-                            }
-
-                            return true;
-                        });
+                        const filteredSub = item.items.filter((sub) =>
+                            isSidebarUrlVisible(sub.url, permissions, platform),
+                        );
 
                         if (!filteredSub.length) {
                             return null;
@@ -337,187 +329,9 @@ export function getSidebarData(permissions: string[]): SidebarData {
                         return item;
                     }
 
-                    switch (item.url) {
-                        case '/organization/companies':
-                            return has(permissions, 'companies.view')
-                                ? item
-                                : null;
-                        case '/organization/branches':
-                            return has(permissions, 'branches.view')
-                                ? item
-                                : null;
-                        case '/organization/announcements':
-                            return has(permissions, 'announcements.view')
-                                ? item
-                                : null;
-                        case '/organization/departments':
-                            return has(permissions, 'departments.view')
-                                ? item
-                                : null;
-                        case '/organization/positions':
-                            return has(permissions, 'positions.view')
-                                ? item
-                                : null;
-                        case '/organization/employees':
-                            return has(permissions, 'employees.view')
-                                ? item
-                                : null;
-                        case '/organization/crew-operations':
-                            return canViewCrewOperationsOverview(permissions)
-                                ? item
-                                : null;
-                        case '/organization/crew':
-                            return has(
-                                permissions,
-                                'crew_operations.assignments.view',
-                            )
-                                ? item
-                                : null;
-                        case '/organization/vessels':
-                            return has(
-                                permissions,
-                                'crew_operations.vessels.view',
-                            ) ||
-                                has(
-                                    permissions,
-                                    'crew_operations.vessel_manning.view',
-                                )
-                                ? item
-                                : null;
-                        case '/organization/crew-planning':
-                            return has(
-                                permissions,
-                                'crew_operations.planning.view',
-                            )
-                                ? item
-                                : null;
-                        case '/organization/crew-operations/settings':
-                            return has(
-                                permissions,
-                                'crew_operations.planning.view',
-                            )
-                                ? item
-                                : null;
-                        case crewMovementCorrections.url():
-                            return has(
-                                permissions,
-                                'crew_operations.corrections.view',
-                            )
-                                ? item
-                                : null;
-                        case crewMovementHistory.url():
-                            return has(
-                                permissions,
-                                'reports.crew_movement_history.view',
-                            )
-                                ? item
-                                : null;
-                        case documents.url():
-                            return has(permissions, 'documents.view')
-                                ? item
-                                : null;
-                        case '/organization/documents/bulk':
-                            return has(permissions, 'bulk_documents.view')
-                                ? item
-                                : null;
-                        case contracts.url():
-                            return has(permissions, 'contracts.view')
-                                ? item
-                                : null;
-                        case bankAccounts.url():
-                            return has(permissions, 'bank_accounts.view')
-                                ? item
-                                : null;
-                        case training.url():
-                            return has(permissions, 'training.view')
-                                ? item
-                                : null;
-                        case seaServices.url():
-                            return has(permissions, 'sea_services.view')
-                                ? item
-                                : null;
-                        case '/organization/roles':
-                            return has(permissions, 'roles.view') ? item : null;
-                        case '/organization/users':
-                            return has(permissions, 'users.view') &&
-                                has(permissions, 'users.create')
-                                ? item
-                                : null;
-                        case '/organization/activity-logs':
-                            return has(permissions, 'audit.view') ? item : null;
-                        case '/organization/templates/employee-profile':
-                            return has(
-                                permissions,
-                                'employee_profile_templates.view',
-                            )
-                                ? item
-                                : null;
-                        case '/hikvision/persons':
-                            return has(permissions, 'hikvision.persons.view')
-                                ? item
-                                : null;
-                        case '/hikvision/access-events':
-                            return has(permissions, 'hikvision.events.view')
-                                ? item
-                                : null;
-                        case '/attendance/calendar':
-                            return has(
-                                permissions,
-                                'attendance.leave-requests.view',
-                            )
-                                ? item
-                                : null;
-                        case '/attendance/types':
-                            return has(permissions, 'attendance.types.view')
-                                ? item
-                                : null;
-                        case '/attendance/leave-approval-policies':
-                            return has(
-                                permissions,
-                                'attendance.leave-approval-policies.view',
-                            )
-                                ? item
-                                : null;
-                        case '/attendance/leave-requests':
-                            return has(
-                                permissions,
-                                'attendance.leave-requests.view',
-                            )
-                                ? item
-                                : null;
-                        case '/attendance/records':
-                            return has(permissions, 'attendance.records.view')
-                                ? item
-                                : null;
-                        case '/attendance/overview':
-                            return has(permissions, 'attendance.overview.view')
-                                ? item
-                                : null;
-                        case '/payroll/overview':
-                            return has(permissions, 'payroll.overview.view')
-                                ? item
-                                : null;
-                        case '/payroll':
-                            return has(permissions, 'payroll.periods.view') ||
-                                has(permissions, 'payroll.crew_timesheets.view')
-                                ? item
-                                : null;
-                        case '/payroll/records':
-                            return has(permissions, 'payroll.records.view')
-                                ? item
-                                : null;
-                        case '/payroll/salary-inputs':
-                            return has(
-                                permissions,
-                                'payroll.salary_inputs.view',
-                            ) ||
-                                has(permissions, 'payroll.periods.update') ||
-                                has(permissions, 'payroll.salary_inputs.create')
-                                ? item
-                                : null;
-                        default:
-                            return item;
-                    }
+                    return isSidebarUrlVisible(item.url, permissions, platform)
+                        ? item
+                        : null;
                 })
                 .filter(Boolean);
 

@@ -1,8 +1,11 @@
 import {
+    attendanceHref,
     canViewCrewOperations,
     canViewPayroll,
+    crewOperationsHref,
     has,
-} from '@/components/layout/data/sidebar-data';
+    payrollHref,
+} from '@/lib/nav-visibility';
 import { dashboard } from '@/routes';
 import { employees } from '@/routes/organization';
 
@@ -13,44 +16,7 @@ export type TopNavLink = {
     disabled?: boolean;
 };
 
-function crewOperationsHref(permissions: string[]): string {
-    if (has(permissions, 'crew_operations.overview.view')) {
-        return '/organization/crew-operations';
-    }
-
-    if (has(permissions, 'crew_operations.planning.view')) {
-        return '/organization/crew-planning';
-    }
-
-    if (has(permissions, 'crew_operations.vessels.view')) {
-        return '/organization/vessels';
-    }
-
-    return '/organization/vessels';
-}
-
-function payrollHref(permissions: string[]): string {
-    if (
-        has(permissions, 'payroll.periods.view') ||
-        has(permissions, 'payroll.crew_timesheets.view')
-    ) {
-        return '/payroll';
-    }
-
-    if (has(permissions, 'payroll.records.view')) {
-        return '/payroll/records';
-    }
-
-    if (
-        has(permissions, 'payroll.salary_inputs.view') ||
-        has(permissions, 'payroll.periods.update') ||
-        has(permissions, 'payroll.salary_inputs.create')
-    ) {
-        return '/payroll/salary-inputs';
-    }
-
-    return '/payroll/salary-inputs';
-}
+export { attendanceHref, crewOperationsHref, payrollHref };
 
 export function getTopNavLinks(
     permissions: string[],
@@ -83,14 +49,17 @@ export function getTopNavLinks(
                 url.startsWith('/organization/vessel-manning') ||
                 url.startsWith('/organization/crew-planning') ||
                 url.startsWith('/organization/crew-operations') ||
-                url.startsWith('/organization/crew'),
+                url.startsWith('/organization/crew') ||
+                url.startsWith('/organization/crew-movement-corrections'),
         });
     }
 
-    if (has(permissions, 'attendance.records.view')) {
+    const attendanceLanding = attendanceHref(permissions);
+
+    if (attendanceLanding) {
         links.push({
             title: 'Attendance',
-            href: '/attendance/records',
+            href: attendanceLanding,
             isActive:
                 url.startsWith('/attendance/') &&
                 !url.startsWith('/attendance/leave-requests'),

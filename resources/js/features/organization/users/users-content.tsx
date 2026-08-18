@@ -23,6 +23,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { useHasPermission } from '@/hooks/use-has-permission';
 import { useOrganizationCrudList } from '@/hooks/use-organization-crud-list';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { buildListExportUrl } from '@/lib/build-list-export-url';
@@ -50,6 +51,10 @@ export function UsersContent({
     roles: { id: number; name: string }[];
     employeesForLinking: EmployeeForLinking[];
 }) {
+    const canCreate = useHasPermission('users.create');
+    const canUpdate = useHasPermission('users.update');
+    const canDelete = useHasPermission('users.delete');
+    const canExport = useHasPermission('users.export');
     const list = useServerPaginationFilters({
         url: '/organization/users',
         search: initialSearch,
@@ -173,18 +178,22 @@ export function UsersContent({
             description="Manage users, roles, and access."
             headerRight={
                 <>
-                    <ExportMenu
-                        getUrl={getExportUrl}
-                        buttonVariant="secondary"
-                        buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
-                    />
-                    <Button
-                        onClick={handleAdd}
-                        className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
-                    >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add User
-                    </Button>
+                    {canExport ? (
+                        <ExportMenu
+                            getUrl={getExportUrl}
+                            buttonVariant="secondary"
+                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                        />
+                    ) : null}
+                    {canCreate ? (
+                        <Button
+                            onClick={handleAdd}
+                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                        >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add User
+                        </Button>
+                    ) : null}
                 </>
             }
             search={{
@@ -208,9 +217,11 @@ export function UsersContent({
                         <UserCard
                             key={user.id}
                             user={user}
-                            onEdit={handleEdit}
-                            onDelete={crud.openDelete}
-                            onToggleStatus={toggleStatus}
+                            onEdit={canUpdate ? handleEdit : undefined}
+                            onDelete={canDelete ? crud.openDelete : undefined}
+                            onToggleStatus={
+                                canUpdate ? toggleStatus : undefined
+                            }
                         />
                     ))}
                 </div>
@@ -256,12 +267,16 @@ export function UsersContent({
                                             event.stopPropagation()
                                         }
                                     >
-                                        <Switch
-                                            checked={user.status === 'active'}
-                                            onCheckedChange={(checked) =>
-                                                toggleStatus(user, checked)
-                                            }
-                                        />
+                                        {canUpdate ? (
+                                            <Switch
+                                                checked={
+                                                    user.status === 'active'
+                                                }
+                                                onCheckedChange={(checked) =>
+                                                    toggleStatus(user, checked)
+                                                }
+                                            />
+                                        ) : null}
                                         <span className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                             {user.status ?? '—'}
                                         </span>
@@ -272,14 +287,24 @@ export function UsersContent({
                                 >
                                     <ListTableCrudActions
                                         viewHref={`/organization/users/${user.id}`}
-                                        onEdit={(event) => {
-                                            event.stopPropagation();
-                                            handleEdit(user);
-                                        }}
-                                        onDelete={(event) => {
-                                            event.stopPropagation();
-                                            crud.openDelete(user);
-                                        }}
+                                        onEdit={
+                                            canUpdate
+                                                ? (event) => {
+                                                      event.stopPropagation();
+                                                      handleEdit(user);
+                                                  }
+                                                : undefined
+                                        }
+                                        onDelete={
+                                            canDelete
+                                                ? (event) => {
+                                                      event.stopPropagation();
+                                                      crud.openDelete(user);
+                                                  }
+                                                : undefined
+                                        }
+                                        showEdit={canUpdate}
+                                        showDelete={canDelete}
                                     />
                                 </TableCell>
                             </TableRow>

@@ -19,6 +19,8 @@ type TopNavProps = React.HTMLAttributes<HTMLElement> & {
 };
 
 export function TopNav({ className, links, ...props }: TopNavProps) {
+    const visibleLinks = links.filter((link) => !link.disabled);
+
     return (
         <>
             <div className="lg:hidden">
@@ -33,7 +35,7 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent side="bottom" align="start">
-                        {links.map(({ title, href, isActive, disabled }) => (
+                        {visibleLinks.map(({ title, href, isActive }) => (
                             <DropdownMenuItem key={`${title}-${href}`} asChild>
                                 <Link
                                     href={href}
@@ -41,7 +43,6 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
                                     className={
                                         !isActive ? 'text-muted-foreground' : ''
                                     }
-                                    aria-disabled={disabled}
                                 >
                                     {title}
                                 </Link>
@@ -58,12 +59,11 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
                 )}
                 {...props}
             >
-                {links.map(({ title, href, isActive, disabled }) => (
+                {visibleLinks.map(({ title, href, isActive }) => (
                     <Link
                         key={`${title}-${href}`}
                         href={href}
                         prefetch="click"
-                        aria-disabled={disabled}
                         className={`text-sm font-medium transition-colors hover:text-primary ${isActive ? '' : 'text-muted-foreground'}`}
                     >
                         {title}

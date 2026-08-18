@@ -13,15 +13,16 @@ import {
 } from '@/components/ui/command';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSearch } from '@/context/search-provider';
+import type { Auth } from '@/types/auth';
 
 export function CommandMenu() {
     const { open, setOpen } = useSearch();
     const { auth } = usePage().props as unknown as {
-        auth?: { permissions?: string[] };
+        auth?: Auth;
     };
     const sidebarData = React.useMemo(
-        () => getSidebarData(auth?.permissions ?? []),
-        [auth?.permissions],
+        () => getSidebarData(auth?.permissions ?? [], auth?.platform),
+        [auth?.permissions, auth?.platform],
     );
 
     const runCommand = React.useCallback(

@@ -14,8 +14,9 @@ import {
     Users,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useHasPermission } from '@/hooks/use-has-permission';
+import { overview as attendanceOverview } from '@/routes/attendance';
 import { index as leaveRequestsIndex } from '@/routes/attendance/leave-requests';
-import { index as attendanceIndex } from '@/routes/attendance/records';
 import {
     bankAccounts,
     contracts,
@@ -24,8 +25,8 @@ import {
     training,
 } from '@/routes/organization';
 import { index as announcementsIndex } from '@/routes/organization/announcements';
-import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
-import { index as payrollIndex } from '@/routes/organization/payroll';
+import { index as crewOperationsIndex } from '@/routes/organization/crew-operations';
+import { overview as payrollOverview } from '@/routes/payroll';
 import { DistributionBarChart } from './charts/distribution-bar-chart';
 import { WorkforceTrendChart } from './charts/workforce-trend-chart';
 import { AttentionCenter } from './components/attention-center';
@@ -232,7 +233,7 @@ function AttendanceTile({ analytics }: { analytics: AttendanceAnalytics }) {
         <ModuleTile
             icon={Activity}
             name="Attendance"
-            href={attendanceIndex.url()}
+            href={attendanceOverview.url()}
             tone="teal"
             primary={{ value: `${rate}%`, label: 'attendance rate' }}
             stats={[
@@ -277,11 +278,19 @@ function DocumentsTile({ compliance }: { compliance: DocumentCompliance }) {
 }
 
 function LeaveTile({ summary }: { summary: LeaveDashboardSummary }) {
+    const canViewLeaveRequests = useHasPermission(
+        'attendance.leave-requests.view',
+    );
+
     return (
         <ModuleTile
             icon={CalendarOff}
             name="Leave"
-            href={leaveRequestsIndex.url()}
+            href={
+                canViewLeaveRequests
+                    ? leaveRequestsIndex.url()
+                    : attendanceOverview.url()
+            }
             tone="emerald"
             primary={{ value: summary.on_leave_today, label: 'on leave today' }}
             stats={[
@@ -383,7 +392,7 @@ function PayrollTile({ summary }: { summary: PayrollDashboardSummary }) {
         <ModuleTile
             icon={TrendingUp}
             name="Payroll"
-            href={payrollIndex.url()}
+            href={payrollOverview.url()}
             tone="green"
             primary={{
                 value: summary.last_paid_period_name ?? '—',
@@ -415,7 +424,7 @@ function CrewTile({ summary }: { summary: CrewDashboardSummary }) {
         <ModuleTile
             icon={Anchor}
             name="Crew"
-            href={crewPlanningIndex.url()}
+            href={crewOperationsIndex.url()}
             tone="sky"
             primary={{ value: summary.on_vessel, label: 'on vessel' }}
             stats={[
