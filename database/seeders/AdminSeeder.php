@@ -14,6 +14,10 @@ class AdminSeeder extends Seeder
 {
     public function run(): void
     {
+        if (app()->isProduction()) {
+            return;
+        }
+
         $company = Company::query()->orderBy('id')->first();
 
         if (! $company) {
