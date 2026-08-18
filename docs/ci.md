@@ -69,13 +69,20 @@ CI caches Composer’s **download** cache (keyed by `composer.lock`) and npm’s
 
 The CI workflow uses `contents: read` only. It does not need `contents: write`, `pull-requests: write`, or `packages: write`.
 
+## Branch protection
+
+The `main` branch is protected with GitHub branch protection:
+- **Required status checks**: Enabled (strict / up-to-date branch required).
+- **Required status check contexts**: `Quality gates` (the job name from `.github/workflows/ci.yml`).
+- **Force pushes**: Blocked (`allow_force_pushes: false`).
+- **Branch deletions**: Blocked (`allow_deletions: false`).
+
 ## Deployment
 
-`.github/workflows/deploy.yml` still performs the existing Hostinger SSH/rsync deploy. It no longer starts on every `push` to `main`.
-
-It runs via `workflow_run` after **`CI` succeeds** for a **push** to **`main`** on this repository. Failed CI, pull requests, and other branches do not deploy.
-
-If you skip GitHub Actions (for example a force-push that never ran CI), GitHub will not deploy that revision. That is intentional.
+`.github/workflows/deploy.yml` performs the Hostinger SSH/rsync deploy. It runs via `workflow_run` after **`CI` succeeds** for a **push** to **`main`** on this repository:
+- **Exact SHA checkout**: Deploys the exact CI-validated commit revision (`workflow_run.head_sha`) rather than `origin/main`.
+- **Deploy serialization**: Uses `concurrency: group: deploy-main, cancel-in-progress: false` to ensure in-flight deployments are never aborted midway.
+- Failed CI, pull requests, and other branches do not deploy.
 
 ## GitHub vs local
 
