@@ -40,6 +40,7 @@ export type Country = {
 
 export type CompanyFormData = {
     logo: File | null;
+    remove_logo: boolean;
     name: string;
     industry: string;
     company_size: string;

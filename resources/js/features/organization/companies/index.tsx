@@ -78,6 +78,7 @@ export function CompaniesContent({
 
     const form = useForm<CompanyFormData>({
         logo: null as File | null,
+        remove_logo: false,
         name: '',
         industry: '',
         company_size: '',
@@ -105,6 +106,7 @@ export function CompaniesContent({
             form.clearErrors();
             form.setData({
                 logo: null,
+                remove_logo: false,
                 name: '',
                 industry: '',
                 company_size: '',
@@ -142,6 +144,7 @@ export function CompaniesContent({
 
             form.setData({
                 logo: null,
+                remove_logo: false,
                 name: company.name ?? '',
                 industry: company.industry ?? '',
                 company_size: company.company_size ?? '',
@@ -210,6 +213,7 @@ export function CompaniesContent({
         if (crud.currentEntity) {
             form.put(`/organization/companies/${crud.currentEntity.id}`, {
                 preserveScroll: true,
+                forceFormData: true,
                 onSuccess: () => crud.setIsSheetOpen(false),
             });
 
@@ -218,6 +222,7 @@ export function CompaniesContent({
 
         form.post('/organization/companies', {
             preserveScroll: true,
+            forceFormData: true,
             onSuccess: () => crud.setIsSheetOpen(false),
         });
     };
@@ -311,7 +316,27 @@ export function CompaniesContent({
                                 <TableCell
                                     className={dataTableCellPrimaryClass()}
                                 >
-                                    {company.name}
+                                    <div className="flex items-center gap-3">
+                                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border text-foreground/80 ${company.logo_url ? 'border-primary/20 bg-primary/5' : 'border-border/60 bg-muted/40 dark:border-white/10 dark:bg-white/6'}`}>
+                                            {company.logo_url ? (
+                                                <img
+                                                    src={company.logo_url}
+                                                    alt={company.name}
+                                                    className="h-full w-full object-cover"
+                                                />
+                                            ) : (
+                                                <span className="text-[10px] font-extrabold tracking-tight">
+                                                    {company.name
+                                                        .split(' ')
+                                                        .filter(Boolean)
+                                                        .slice(0, 2)
+                                                        .map((p) => p[0]?.toUpperCase())
+                                                        .join('')}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {company.name}
+                                    </div>
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {company.industry ?? '—'}

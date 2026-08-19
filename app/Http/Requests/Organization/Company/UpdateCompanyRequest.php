@@ -34,6 +34,7 @@ class UpdateCompanyRequest extends FormRequest
 
         return [
             'logo' => ['nullable', 'image', 'max:2048'],
+            'remove_logo' => ['sometimes', 'boolean'],
             'name' => ['required', 'string', 'max:200'],
             'slug' => [
                 'nullable',

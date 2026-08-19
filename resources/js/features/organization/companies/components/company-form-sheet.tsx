@@ -1,5 +1,6 @@
 import type { InertiaFormProps } from '@inertiajs/react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { BrandingUploadField } from '@/components/settings/branding-upload-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,31 +66,24 @@ export function CompanyFormSheet({
 
                 <div className="flex-1 space-y-8 overflow-y-auto p-8">
                     <div className="space-y-5">
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="logo"
-                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
-                            >
-                                Logo
-                            </Label>
-                            <Input
-                                id="logo"
-                                type="file"
-                                accept="image/*"
-                                className="h-11 rounded-xl border-border bg-card transition-all file:mr-4 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-2 file:text-xs file:font-semibold file:text-foreground focus-visible:ring-primary/40"
-                                onChange={(e) =>
-                                    form.setData(
-                                        'logo',
-                                        e.target.files?.[0] ?? null,
-                                    )
+                        <BrandingUploadField
+                            label="Logo"
+                            assetKey="company-logo"
+                            currentUrl={company?.logo_url ?? null}
+                            accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                            hint="Max 2 MB. PNG, JPG, or SVG."
+                            onFileChange={(file) => {
+                                form.setData('logo', file);
+                                if (file) {
+                                    form.setData('remove_logo', false);
                                 }
-                            />
-                            {form.errors.logo ? (
-                                <div className="text-xs font-medium text-destructive">
-                                    {form.errors.logo}
-                                </div>
-                            ) : null}
-                        </div>
+                            }}
+                            onRemove={() => {
+                                form.setData('logo', null);
+                                form.setData('remove_logo', true);
+                            }}
+                            error={form.errors.logo}
+                        />
 
                         <div className="space-y-2">
                             <Label

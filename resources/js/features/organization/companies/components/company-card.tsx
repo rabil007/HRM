@@ -67,7 +67,7 @@ export function CompanyCard({
         : null;
 
     return (
-        <Card className="group relative overflow-hidden glass-card transition-all duration-300 dark:bg-linear-to-br dark:from-white/6 dark:to-white/3 dark:hover:from-white/8 dark:hover:to-white/4">
+        <Card className="group relative overflow-hidden glass-card transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 dark:bg-linear-to-br dark:from-white/6 dark:to-white/3 dark:hover:from-white/8 dark:hover:to-white/4">
             <a
                 href={`/organization/companies/${company.id}`}
                 className="absolute inset-0"
@@ -76,7 +76,7 @@ export function CompanyCard({
 
             <CardHeader className="pb-3">
                 <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/60 bg-muted/40 text-foreground/80 dark:border-white/10 dark:bg-white/6">
+                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border text-foreground/80 ${company.logo_url ? 'border-primary/20 bg-primary/5 ring-2 ring-primary/10 dark:ring-primary/20' : 'border-border/60 bg-muted/40 dark:border-white/10 dark:bg-white/6'}`}>
                         {company.logo_url ? (
                             <img
                                 src={company.logo_url}

@@ -2,8 +2,10 @@ import { Link, router } from '@inertiajs/react';
 import {
     Download,
     Eye,
+    FileCheck2,
     FileClock,
     FilePenLine,
+    FileX2,
     History,
     Pencil,
     Plus,
@@ -12,7 +14,17 @@ import {
     Upload,
 } from 'lucide-react';
 import { useState } from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
+import {
+    OrganizationDataTable,
+    DataTableHead,
+    DataTableHeaderRow,
+    dataTableActionsCellClass,
+    dataTableBodyRowClass,
+    dataTableCellClass,
+    dataTableCellPrimaryClass,
+} from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
@@ -21,10 +33,8 @@ import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-    Table,
     TableBody,
     TableCell,
-    TableHead,
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
@@ -35,6 +45,7 @@ import { DocumentPreviewDialog } from '@/features/organization/documents/shared/
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { formatDisplayDate } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 import {
     destroy,
     index as companyDocumentsIndex,
@@ -76,6 +87,7 @@ function DocumentActions({
                 <Button
                     size="icon"
                     variant="ghost"
+                    className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
                     title="Preview"
                     onClick={onPreview}
                 >
@@ -83,7 +95,13 @@ function DocumentActions({
                 </Button>
             ) : null}
             {can.download ? (
-                <Button asChild size="icon" variant="ghost" title="Download">
+                <Button
+                    asChild
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
+                    title="Download"
+                >
                     <a href={document.download_url}>
                         <Download className="h-4 w-4" />
                     </a>
@@ -92,6 +110,7 @@ function DocumentActions({
             <Button
                 size="icon"
                 variant="ghost"
+                className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
                 title="Version history"
                 onClick={onVersions}
             >
@@ -102,6 +121,7 @@ function DocumentActions({
                     <Button
                         size="icon"
                         variant="ghost"
+                        className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
                         title="Edit metadata"
                         onClick={onEdit}
                     >
@@ -110,6 +130,7 @@ function DocumentActions({
                     <Button
                         size="icon"
                         variant="ghost"
+                        className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
                         title="Replace file"
                         onClick={onReplace}
                     >
@@ -122,7 +143,7 @@ function DocumentActions({
                     size="icon"
                     variant="ghost"
                     title="Delete"
-                    className="text-destructive"
+                    className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive"
                     onClick={onDelete}
                 >
                     <Trash2 className="h-4 w-4" />
@@ -170,10 +191,34 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
     };
 
     const summaryCards = [
-        ['All documents', summary.total, FilePenLine],
-        ['Valid', summary.valid, FileClock],
-        ['Expiring soon', summary.expiring_soon, FileClock],
-        ['Expired', summary.expired, FileClock],
+        {
+            key: 'all',
+            label: 'All documents',
+            count: summary.total,
+            icon: FilePenLine,
+            color: 'text-primary bg-primary/10 border-primary/20',
+        },
+        {
+            key: 'valid',
+            label: 'Valid',
+            count: summary.valid,
+            icon: FileCheck2,
+            color: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20 dark:text-emerald-400',
+        },
+        {
+            key: 'expiring_soon',
+            label: 'Expiring soon',
+            count: summary.expiring_soon,
+            icon: FileClock,
+            color: 'text-amber-600 bg-amber-500/10 border-amber-500/20 dark:text-amber-400',
+        },
+        {
+            key: 'expired',
+            label: 'Expired',
+            count: summary.expired,
+            icon: FileX2,
+            color: 'text-rose-600 bg-rose-500/10 border-rose-500/20 dark:text-rose-400',
+        },
     ] as const;
 
     return (
@@ -183,7 +228,7 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
                 description="Private compliance files, metadata, expiry tracking, and version history."
                 right={
                     <>
-                        <Button variant="outline" asChild>
+                        <Button variant="outline" className="h-11 rounded-xl" asChild>
                             <Link
                                 href={`/organization/companies/${company.id}`}
                             >
@@ -194,12 +239,14 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
                             <>
                                 <Button
                                     variant="outline"
+                                    className="h-11 rounded-xl"
                                     onClick={() => setBulkOpen(true)}
                                 >
                                     <Upload className="mr-2 h-4 w-4" />{' '}
                                     Multi-upload
                                 </Button>
                                 <Button
+                                    className="h-11 rounded-xl shadow-lg shadow-primary/20"
                                     onClick={() => {
                                         setSelected(null);
                                         setFormOpen(true);
@@ -214,22 +261,50 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
                 }
             />
 
+            {/* Summary Cards */}
             <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {summaryCards.map(([label, count, Icon]) => (
-                    <Card key={label}>
-                        <CardContent className="flex items-center justify-between p-5">
-                            <div>
-                                <p className="text-xs text-muted-foreground">
-                                    {label}
-                                </p>
-                                <p className="mt-1 text-2xl font-bold">
-                                    {count}
-                                </p>
-                            </div>
-                            <Icon className="h-5 w-5 text-muted-foreground" />
-                        </CardContent>
-                    </Card>
-                ))}
+                {summaryCards.map((card) => {
+                    const Icon = card.icon;
+                    const isActive = filters.expiry_status === card.key;
+
+                    return (
+                        <Card
+                            key={card.key}
+                            className={cn(
+                                'glass-card cursor-pointer transition-all duration-200 hover:shadow-md',
+                                isActive && 'ring-2 ring-primary/40',
+                            )}
+                            onClick={() =>
+                                list.applyFilters({
+                                    document_type: filters.document_type ?? '',
+                                    expiry_status:
+                                        filters.expiry_status === card.key
+                                            ? 'all'
+                                            : card.key,
+                                })
+                            }
+                        >
+                            <CardContent className="flex items-center justify-between p-5">
+                                <div>
+                                    <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                        {card.label}
+                                    </p>
+                                    <p className="mt-1 text-2xl font-black">
+                                        {card.count}
+                                    </p>
+                                </div>
+                                <div
+                                    className={cn(
+                                        'flex h-11 w-11 items-center justify-center rounded-2xl border',
+                                        card.color,
+                                    )}
+                                >
+                                    <Icon className="h-5 w-5" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
             </div>
 
             <SearchBar
@@ -238,38 +313,54 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
                 placeholder="Search title, number, filename, or type..."
                 right={
                     <>
-                        <select
-                            value={filters.document_type ?? ''}
-                            onChange={(event) =>
-                                list.applyFilters({
-                                    document_type: event.target.value,
-                                    expiry_status: filters.expiry_status,
-                                })
-                            }
-                            className="h-12 rounded-xl border border-input bg-background px-3 text-sm"
-                        >
-                            <option value="">All types</option>
-                            {document_types.map((type) => (
-                                <option key={type.id} value={type.id}>
-                                    {type.title}
-                                </option>
-                            ))}
-                        </select>
-                        <select
-                            value={filters.expiry_status}
-                            onChange={(event) =>
-                                list.applyFilters({
-                                    document_type: filters.document_type ?? '',
-                                    expiry_status: event.target.value,
-                                })
-                            }
-                            className="h-12 rounded-xl border border-input bg-background px-3 text-sm"
-                        >
-                            <option value="all">All expiry statuses</option>
-                            <option value="valid">Valid</option>
-                            <option value="expiring_soon">Expiring soon</option>
-                            <option value="expired">Expired</option>
-                        </select>
+                        <div className="min-w-[150px]">
+                            <AppSelect
+                                value={filters.document_type ? String(filters.document_type) : ''}
+                                onValueChange={(val) =>
+                                    list.applyFilters({
+                                        document_type: val || '',
+                                        expiry_status: filters.expiry_status,
+                                    })
+                                }
+                                placeholder="All types"
+                            >
+                                <AppSelectItem value="">All types</AppSelectItem>
+                                {document_types.map((type) => (
+                                    <AppSelectItem
+                                        key={type.id}
+                                        value={String(type.id)}
+                                    >
+                                        {type.title}
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+                        </div>
+                        <div className="min-w-[170px]">
+                            <AppSelect
+                                value={filters.expiry_status || 'all'}
+                                onValueChange={(val) =>
+                                    list.applyFilters({
+                                        document_type:
+                                            filters.document_type ?? '',
+                                        expiry_status: val || 'all',
+                                    })
+                                }
+                                placeholder="All expiry statuses"
+                            >
+                                <AppSelectItem value="all">
+                                    All expiry statuses
+                                </AppSelectItem>
+                                <AppSelectItem value="valid">
+                                    Valid
+                                </AppSelectItem>
+                                <AppSelectItem value="expiring_soon">
+                                    Expiring soon
+                                </AppSelectItem>
+                                <AppSelectItem value="expired">
+                                    Expired
+                                </AppSelectItem>
+                            </AppSelect>
+                        </div>
                         <ViewToggle value={view} onChange={setView} />
                     </>
                 }
@@ -280,10 +371,13 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
             ) : view === 'grid' ? (
                 <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                     {documents.map((document) => (
-                        <Card key={document.id} className="overflow-hidden">
+                        <Card
+                            key={document.id}
+                            className="group relative overflow-hidden glass-card transition-all duration-300 hover:shadow-lg hover:shadow-primary/5"
+                        >
                             <CardHeader className="pb-3">
-                                <div className="flex items-start gap-3">
-                                    <div className="rounded-xl bg-muted p-3">
+                                <div className="flex items-start gap-3.5">
+                                    <div className="rounded-2xl border border-border/80 bg-muted/50 p-3 shadow-xs dark:border-white/10 dark:bg-white/5">
                                         <DocumentFileIcon
                                             mimeType={document.mime_type}
                                             fileName={
@@ -292,10 +386,10 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
                                         />
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <CardTitle className="truncate text-base">
+                                        <CardTitle className="truncate text-base font-bold tracking-tight">
                                             {document.title}
                                         </CardTitle>
-                                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                                        <p className="mt-1 truncate text-xs font-medium text-muted-foreground">
                                             {document.document_type?.title ??
                                                 'Uncategorized'}
                                         </p>
@@ -306,26 +400,35 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-2 text-xs text-muted-foreground">
-                                    <p className="truncate">
+                                <div className="space-y-2 rounded-xl border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground dark:border-white/6 dark:bg-white/4">
+                                    <p className="truncate font-medium text-foreground/85">
                                         {document.original_filename} ·{' '}
                                         {fileSize(document.size_bytes)}
                                     </p>
-                                    <p>
-                                        Number:{' '}
-                                        {document.document_number ?? '—'}
-                                    </p>
-                                    <p>
-                                        Expires:{' '}
-                                        {document.expiry_date
-                                            ? formatDisplayDate(
-                                                  document.expiry_date,
-                                              )
-                                            : 'No expiry'}
-                                    </p>
-                                    <p>Version {document.current_version}</p>
+                                    <div className="flex items-center justify-between">
+                                        <span>Number:</span>
+                                        <span className="font-mono font-semibold text-foreground/80">
+                                            {document.document_number ?? '—'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span>Expires:</span>
+                                        <span className="font-semibold text-foreground/80">
+                                            {document.expiry_date
+                                                ? formatDisplayDate(
+                                                      document.expiry_date,
+                                                  )
+                                                : 'No expiry'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span>Version:</span>
+                                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold">
+                                            v{document.current_version}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="mt-4 border-t pt-3">
+                                <div className="mt-4 border-t border-border/60 pt-3 dark:border-white/5">
                                     <DocumentActions
                                         document={document}
                                         can={can}
@@ -358,98 +461,110 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
                     ))}
                 </div>
             ) : (
-                <div className="overflow-hidden rounded-xl border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Document</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead>Expiry</TableHead>
-                                <TableHead>Version</TableHead>
-                                <TableHead className="text-right">
-                                    Actions
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {documents.map((document) => (
-                                <TableRow key={document.id}>
-                                    <TableCell>
-                                        <div className="flex items-center gap-3">
+                <OrganizationDataTable minWidth="min-w-[860px]">
+                    <TableHeader>
+                        <DataTableHeaderRow>
+                            <DataTableHead className="pl-5">
+                                Document
+                            </DataTableHead>
+                            <DataTableHead>Type</DataTableHead>
+                            <DataTableHead>Expiry</DataTableHead>
+                            <DataTableHead>Version</DataTableHead>
+                            <DataTableHead className="text-right">
+                                Actions
+                            </DataTableHead>
+                        </DataTableHeaderRow>
+                    </TableHeader>
+                    <TableBody>
+                        {documents.map((document) => (
+                            <TableRow
+                                key={document.id}
+                                className={dataTableBodyRowClass()}
+                            >
+                                <TableCell
+                                    className={dataTableCellPrimaryClass()}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="rounded-xl border border-border/80 bg-muted/40 p-2 dark:border-white/10 dark:bg-white/5">
                                             <DocumentFileIcon
                                                 mimeType={document.mime_type}
                                                 fileName={
                                                     document.original_filename
                                                 }
                                             />
-                                            <div>
-                                                <p className="font-medium">
-                                                    {document.title}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {document.original_filename}
-                                                </p>
-                                            </div>
                                         </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {document.document_type?.title ?? '—'}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="space-y-1">
-                                            <DocumentExpiryBadge
-                                                status={document.expiry_status}
-                                            />
-                                            <p className="text-xs text-muted-foreground">
-                                                {document.expiry_date
-                                                    ? formatDisplayDate(
-                                                          document.expiry_date,
-                                                      )
-                                                    : 'No expiry'}
+                                        <div className="min-w-0">
+                                            <p className="truncate font-semibold text-foreground">
+                                                {document.title}
+                                            </p>
+                                            <p className="truncate text-xs text-muted-foreground">
+                                                {document.original_filename} ·{' '}
+                                                {fileSize(document.size_bytes)}
                                             </p>
                                         </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {document.current_version}
-                                    </TableCell>
-                                    <TableCell>
-                                        <DocumentActions
-                                            document={document}
-                                            can={can}
-                                            onPreview={() =>
-                                                setPreview(document)
-                                            }
-                                            onEdit={() =>
-                                                openDocument(
-                                                    document,
-                                                    setFormOpen,
-                                                )
-                                            }
-                                            onReplace={() =>
-                                                openDocument(
-                                                    document,
-                                                    setReplaceOpen,
-                                                )
-                                            }
-                                            onVersions={() =>
-                                                openDocument(
-                                                    document,
-                                                    setVersionsOpen,
-                                                )
-                                            }
-                                            onDelete={() =>
-                                                openDocument(
-                                                    document,
-                                                    setDeleteOpen,
-                                                )
-                                            }
+                                    </div>
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {document.document_type?.title ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    <div className="space-y-1">
+                                        <DocumentExpiryBadge
+                                            status={document.expiry_status}
                                         />
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            {document.expiry_date
+                                                ? formatDisplayDate(
+                                                      document.expiry_date,
+                                                  )
+                                                : 'No expiry'}
+                                        </p>
+                                    </div>
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-semibold">
+                                        v{document.current_version}
+                                    </span>
+                                </TableCell>
+                                <TableCell
+                                    className={dataTableActionsCellClass()}
+                                >
+                                    <DocumentActions
+                                        document={document}
+                                        can={can}
+                                        onPreview={() =>
+                                            setPreview(document)
+                                        }
+                                        onEdit={() =>
+                                            openDocument(
+                                                document,
+                                                setFormOpen,
+                                            )
+                                        }
+                                        onReplace={() =>
+                                            openDocument(
+                                                document,
+                                                setReplaceOpen,
+                                            )
+                                        }
+                                        onVersions={() =>
+                                            openDocument(
+                                                document,
+                                                setVersionsOpen,
+                                            )
+                                        }
+                                        onDelete={() =>
+                                            openDocument(
+                                                document,
+                                                setDeleteOpen,
+                                            )
+                                        }
+                                    />
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </OrganizationDataTable>
             )}
 
             <Pagination {...list.paginationProps} label="documents" />
