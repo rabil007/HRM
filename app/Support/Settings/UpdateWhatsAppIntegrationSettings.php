@@ -5,7 +5,6 @@ namespace App\Support\Settings;
 use App\Models\User;
 use App\Models\WhatsAppSetting;
 use Illuminate\Support\Facades\DB;
-use InvalidArgumentException;
 use Spatie\Activitylog\Models\Activity;
 
 final class UpdateWhatsAppIntegrationSettings
@@ -13,12 +12,8 @@ final class UpdateWhatsAppIntegrationSettings
     /**
      * @param  array<string, mixed>  $data
      */
-    public function handle(WhatsAppSetting $settings, array $data, User $actor, int $companyId): void
+    public function handle(WhatsAppSetting $settings, array $data, User $actor, ?int $companyId = null): void
     {
-        if ($companyId <= 0) {
-            throw new InvalidArgumentException('WhatsApp settings require a current company.');
-        }
-
         DB::transaction(function () use ($settings, $data, $actor, $companyId): void {
             $credentialKeys = collect([
                 'access_token',
@@ -30,13 +25,12 @@ final class UpdateWhatsAppIntegrationSettings
 
             $settings->storeFromValidated($data);
 
-            activity()
-                ->useLog('settings')
+            activity('platform')
                 ->event('updated')
                 ->causedBy($actor)
                 ->performedOn($settings)
                 ->withProperties([
-                    'company_id' => $companyId,
+                    'scope' => 'platform',
                     'business_account_id' => $settings->business_account_id,
                     'phone_number_id' => $settings->phone_number_id,
                     'app_id' => $settings->app_id,
@@ -47,7 +41,7 @@ final class UpdateWhatsAppIntegrationSettings
                     'has_webhook_verify_token' => filled($settings->webhook_verify_token),
                 ])
                 ->tap(function (Activity $activity) use ($companyId): void {
-                    $activity->company_id = $companyId;
+                    $activity->company_id = $companyId && $companyId > 0 ? (int) $companyId : null;
                 })
                 ->log('WhatsApp integration settings updated');
         });

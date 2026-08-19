@@ -9,6 +9,7 @@ use App\Http\Requests\Settings\StoreEmailTemplateRequest;
 use App\Http\Requests\Settings\UpdateEmailTemplateRequest;
 use App\Models\EmailTemplate;
 use App\Support\Email\EmailTemplatePreview;
+use App\Support\Platform\PlatformAuthorization;
 use App\Support\Settings\ApplicationTimezone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -22,7 +23,7 @@ class EmailTemplateController extends Controller
     {
         $user = request()->user();
 
-        if (! $user?->can('settings.integrations.email-templates.view')) {
+        if (! PlatformAuthorization::canView($user)) {
             abort(403);
         }
 
@@ -42,9 +43,9 @@ class EmailTemplateController extends Controller
                 ])
                 ->values(),
             'can' => [
-                'create' => $user->can('settings.integrations.email-templates.create'),
-                'update' => $user->can('settings.integrations.email-templates.update'),
-                'delete' => $user->can('settings.integrations.email-templates.delete'),
+                'create' => PlatformAuthorization::canManage($user),
+                'update' => PlatformAuthorization::canManage($user),
+                'delete' => PlatformAuthorization::canManage($user),
             ],
             'expiry_alert_template_slug' => config('documents.expiry_alert_template_slug'),
             'scheduler_timezone' => ApplicationTimezone::identifier(),
@@ -81,7 +82,7 @@ class EmailTemplateController extends Controller
 
     public function destroy(EmailTemplate $emailTemplate): RedirectResponse
     {
-        if (! request()->user()?->can('settings.integrations.email-templates.delete')) {
+        if (! PlatformAuthorization::canManage(request()->user())) {
             abort(403);
         }
 
@@ -98,7 +99,7 @@ class EmailTemplateController extends Controller
 
     public function preview(EmailTemplate $emailTemplate): HttpResponse
     {
-        if (! request()->user()?->can('settings.integrations.email-templates.view')) {
+        if (! PlatformAuthorization::canView(request()->user())) {
             abort(403);
         }
 

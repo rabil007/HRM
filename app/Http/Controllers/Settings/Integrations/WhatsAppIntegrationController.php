@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\WhatsAppSetting;
 use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
+use App\Support\Platform\PlatformAuthorization;
 use App\Support\Settings\UpdateWhatsAppIntegrationSettings;
 use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Http\JsonResponse;
@@ -33,7 +34,7 @@ class WhatsAppIntegrationController extends Controller
      */
     public static function pageProps(?User $user): ?array
     {
-        if (! $user?->can('settings.integrations.whatsapp.view')) {
+        if (! PlatformAuthorization::canView($user)) {
             return null;
         }
 
@@ -61,21 +62,20 @@ class WhatsAppIntegrationController extends Controller
                 ->values()
                 ->all(),
             'can' => [
-                'update' => $user->can('settings.integrations.whatsapp.update'),
+                'update' => PlatformAuthorization::canManage($user),
             ],
         ];
     }
 
     public function update(UpdateWhatsAppIntegrationRequest $request): RedirectResponse
     {
-        $companyId = (int) $request->attributes->get('current_company_id');
-        abort_unless($companyId > 0, 403);
+        $companyId = $request->attributes->get('current_company_id');
 
         $this->updateSettings->handle(
             WhatsAppSetting::current(),
             $request->settingsPayload(),
             $request->user(),
-            $companyId,
+            $companyId ? (int) $companyId : null,
         );
 
         return back()->with('success', 'WhatsApp settings saved.');

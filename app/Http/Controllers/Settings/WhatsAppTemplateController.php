@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\StoreWhatsAppTemplateRequest;
 use App\Http\Requests\Settings\UpdateWhatsAppTemplateRequest;
 use App\Models\WhatsAppTemplate;
+use App\Support\Platform\PlatformAuthorization;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,7 +19,7 @@ class WhatsAppTemplateController extends Controller
     {
         $user = request()->user();
 
-        if (! $user?->can('settings.integrations.whatsapp-templates.view')) {
+        if (! PlatformAuthorization::canView($user)) {
             abort(403);
         }
 
@@ -50,9 +51,9 @@ class WhatsAppTemplateController extends Controller
                 ['value' => 'ar', 'label' => 'Arabic (ar)'],
             ],
             'can' => [
-                'create' => $user->can('settings.integrations.whatsapp-templates.create'),
-                'update' => $user->can('settings.integrations.whatsapp-templates.update'),
-                'delete' => $user->can('settings.integrations.whatsapp-templates.delete'),
+                'create' => PlatformAuthorization::canManage($user),
+                'update' => PlatformAuthorization::canManage($user),
+                'delete' => PlatformAuthorization::canManage($user),
             ],
             'meta_template_manager_url' => config('whatsapp.meta_template_manager_url'),
         ]);
@@ -88,7 +89,7 @@ class WhatsAppTemplateController extends Controller
 
     public function destroy(WhatsAppTemplate $whatsappTemplate): RedirectResponse
     {
-        if (! request()->user()?->can('settings.integrations.whatsapp-templates.delete')) {
+        if (! PlatformAuthorization::canManage(request()->user())) {
             abort(403);
         }
 

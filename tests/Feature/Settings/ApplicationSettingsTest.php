@@ -51,7 +51,7 @@ test('tenant user without platform access cannot access global platform settings
         ->assertForbidden();
 });
 
-test('whatsapp-only users can access only whatsapp settings on the application page', function () {
+test('whatsapp-only tenant users cannot open application settings without platform access', function () {
     $user = User::factory()->create();
     setupCompanyWithApplicationSettingsPermissions($user, [
         'settings.integrations.whatsapp.view',
@@ -59,18 +59,7 @@ test('whatsapp-only users can access only whatsapp settings on the application p
 
     $this->actingAs($user)
         ->get(route('application.edit'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('settings/application')
-            ->where('general', null)
-            ->where('branding', null)
-            ->where('smtp', null)
-            ->where('preferences', null)
-            ->where('esign_placement', null)
-            ->where('can.platform_view', false)
-            ->where('can.whatsapp_view', true)
-            ->has('whatsapp'),
-        );
+        ->assertForbidden();
 });
 
 test('user with platform manage access can update general settings', function () {

@@ -13,7 +13,18 @@ test('settings hub is displayed for users with settings access', function () {
         ->assertInertia(fn (Assert $page) => $page->component('settings/index'));
 });
 
-test('settings hub is forbidden without settings permissions', function () {
+test('settings hub is accessible to platform users without tenant permissions', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithSettingsPermissions($user, []);
+
+    $this->actingAs($user)
+        ->get(route('settings.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('settings/index'));
+});
+
+test('settings hub is forbidden without settings permissions or platform access', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, []);
 

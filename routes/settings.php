@@ -83,27 +83,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('integrations.whatsapp.edit');
 
     Route::put('settings/application/whatsapp', [WhatsAppIntegrationController::class, 'update'])
-        ->middleware(['can:settings.integrations.whatsapp.update', 'privileged.2fa'])
+        ->middleware(['platform:manage', 'privileged.2fa'])
         ->name('application.whatsapp.update');
 
     Route::post('settings/application/whatsapp/test', [WhatsAppIntegrationController::class, 'testConnection'])
-        ->middleware('can:settings.integrations.whatsapp.update')
+        ->middleware('platform:manage')
         ->name('application.whatsapp.test');
 
     Route::post('settings/application/whatsapp/send-test-text', [WhatsAppIntegrationController::class, 'sendTestText'])
-        ->middleware('can:settings.integrations.whatsapp.update')
+        ->middleware('platform:manage')
         ->name('application.whatsapp.send-test-text');
 
     Route::post('settings/application/whatsapp/send-test-document', [WhatsAppIntegrationController::class, 'sendTestDocument'])
-        ->middleware('can:settings.integrations.whatsapp.update')
+        ->middleware('platform:manage')
         ->name('application.whatsapp.send-test-document');
 
     Route::post('settings/application/whatsapp/send-test-template', [WhatsAppIntegrationController::class, 'sendTestTemplate'])
-        ->middleware('can:settings.integrations.whatsapp.update')
+        ->middleware('platform:manage')
         ->name('application.whatsapp.send-test-template');
 
     Route::post('settings/application/whatsapp/send-test-document-template', [WhatsAppIntegrationController::class, 'sendTestDocumentTemplate'])
-        ->middleware('can:settings.integrations.whatsapp.update')
+        ->middleware('platform:manage')
         ->name('application.whatsapp.send-test-document-template');
 
     Route::get('settings/integrations/hikvision', [HikvisionIntegrationController::class, 'edit'])
@@ -145,43 +145,43 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('application.hikvision.devices.sync');
 
     Route::get('settings/application/whatsapp-templates', [WhatsAppTemplateController::class, 'index'])
-        ->middleware('can:settings.integrations.whatsapp-templates.view')
+        ->middleware('platform:view')
         ->name('application.whatsapp-templates.index');
 
     Route::post('settings/application/whatsapp-templates', [WhatsAppTemplateController::class, 'store'])
-        ->middleware('can:settings.integrations.whatsapp-templates.create')
+        ->middleware('platform:manage')
         ->name('application.whatsapp-templates.store');
 
     Route::put('settings/application/whatsapp-templates/{whatsapp_template}', [WhatsAppTemplateController::class, 'update'])
-        ->middleware('can:settings.integrations.whatsapp-templates.update')
+        ->middleware('platform:manage')
         ->name('application.whatsapp-templates.update');
 
     Route::delete('settings/application/whatsapp-templates/{whatsapp_template}', [WhatsAppTemplateController::class, 'destroy'])
-        ->middleware('can:settings.integrations.whatsapp-templates.delete')
+        ->middleware('platform:manage')
         ->name('application.whatsapp-templates.destroy');
 
     Route::get('settings/application/email-templates', [EmailTemplateController::class, 'index'])
-        ->middleware('can:settings.integrations.email-templates.view')
+        ->middleware('platform:view')
         ->name('application.email-templates.index');
 
     Route::get('settings/application/email-templates/{email_template}/preview', [EmailTemplateController::class, 'preview'])
-        ->middleware('can:settings.integrations.email-templates.view')
+        ->middleware('platform:view')
         ->name('application.email-templates.preview');
 
     Route::post('settings/application/email-templates/preview', [EmailTemplateController::class, 'previewDraft'])
-        ->middleware('can:settings.integrations.email-templates.view')
+        ->middleware('platform:view')
         ->name('application.email-templates.preview-draft');
 
     Route::post('settings/application/email-templates', [EmailTemplateController::class, 'store'])
-        ->middleware('can:settings.integrations.email-templates.create')
+        ->middleware('platform:manage')
         ->name('application.email-templates.store');
 
     Route::put('settings/application/email-templates/{email_template}', [EmailTemplateController::class, 'update'])
-        ->middleware('can:settings.integrations.email-templates.update')
+        ->middleware('platform:manage')
         ->name('application.email-templates.update');
 
     Route::delete('settings/application/email-templates/{email_template}', [EmailTemplateController::class, 'destroy'])
-        ->middleware('can:settings.integrations.email-templates.delete')
+        ->middleware('platform:manage')
         ->name('application.email-templates.destroy');
 
     Route::prefix('settings/master-data')->name('settings.master-data.')->group(function () {

@@ -42,12 +42,10 @@ jobs:
       - name: Cache Composer dependencies
         uses: actions/cache@v4
         with:
-          path: |
-            ${{ steps.composer-cache.outputs.dir }}
-            vendor
-          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
           restore-keys: |
-            ${{ runner.os }}-php-
+            ${{ runner.os }}-composer-
 
       - name: Install Composer dependencies
         run: composer install --no-interaction --no-progress --prefer-dist --no-dev --optimize-autoloader
@@ -71,16 +69,6 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: package-lock.json
-
-      - name: Cache Vite build
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules/.vite
-            public/build/.vite
-          key: ${{ runner.os }}-vite-${{ hashFiles('package-lock.json', 'vite.config.ts', 'resources/js/**', 'resources/css/**') }}
-          restore-keys: |
-            ${{ runner.os }}-vite-
 
       - name: Build Frontend
         run: |

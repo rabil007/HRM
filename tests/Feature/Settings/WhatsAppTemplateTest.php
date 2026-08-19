@@ -3,9 +3,9 @@
 use App\Models\User;
 use App\Models\WhatsAppTemplate;
 
-test('owner can view whatsapp template library page', function () {
+test('platform user can view whatsapp template library page', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp-templates.view']);
+    grantPlatformAccess($user, 'view');
 
     $this->actingAs($user)
         ->get(route('application.whatsapp-templates.index'))
@@ -21,30 +21,33 @@ test('owner can view whatsapp template library page', function () {
         );
 });
 
-test('users without whatsapp template permission cannot view template library', function () {
+test('platform manager has full capabilities on whatsapp templates page', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['settings.application.view']);
+    grantPlatformAccess($user, 'manage');
+
+    $this->actingAs($user)
+        ->get(route('application.whatsapp-templates.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('settings/whatsapp-templates')
+            ->where('can.create', true)
+            ->where('can.update', true)
+            ->where('can.delete', true),
+        );
+});
+
+test('users without platform access cannot view template library', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp-templates.view']);
 
     $this->actingAs($user)
         ->get(route('application.whatsapp-templates.index'))
         ->assertForbidden();
 });
 
-test('whatsapp integration view alone does not grant template library access', function () {
+test('whatsapp templates can be created and customized by platform manager', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp.view']);
-
-    $this->actingAs($user)
-        ->get(route('application.whatsapp-templates.index'))
-        ->assertForbidden();
-});
-
-test('whatsapp templates can be created and customized', function () {
-    $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp-templates.view',
-        'settings.integrations.whatsapp-templates.create',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $this->actingAs($user)
         ->post(route('application.whatsapp-templates.store'), [
@@ -70,12 +73,9 @@ test('whatsapp templates can be created and customized', function () {
         ->and($template->previewBodyFor('Ahmed'))->toBe('Hello Ahmed, your document is attached.');
 });
 
-test('whatsapp template can be updated', function () {
+test('whatsapp template can be updated by platform manager', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp-templates.view',
-        'settings.integrations.whatsapp-templates.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $template = WhatsAppTemplate::query()->where('slug', 'document_delivery')->firstOrFail();
 
@@ -104,10 +104,7 @@ test('whatsapp template can be updated', function () {
 
 test('default whatsapp template cannot be deleted', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp-templates.view',
-        'settings.integrations.whatsapp-templates.delete',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $template = WhatsAppTemplate::query()->where('slug', 'document_delivery')->firstOrFail();
 
@@ -117,4 +114,15 @@ test('default whatsapp template cannot be deleted', function () {
         ->assertSessionHasErrors('template');
 
     expect(WhatsAppTemplate::query()->whereKey($template->id)->exists())->toBeTrue();
+});
+
+test('users without platform manage cannot delete whatsapp templates', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
+
+    $template = WhatsAppTemplate::query()->where('slug', 'document_delivery')->firstOrFail();
+
+    $this->actingAs($user)
+        ->delete(route('application.whatsapp-templates.destroy', $template))
+        ->assertForbidden();
 });

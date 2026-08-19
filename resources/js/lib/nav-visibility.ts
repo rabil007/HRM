@@ -46,22 +46,18 @@ export function canViewPayroll(permissions: string[]): boolean {
     );
 }
 
-export function canOpenApplicationSettings(permissions: string[]): boolean {
-    return (
-        has(permissions, 'settings.application.view') ||
-        has(permissions, 'settings.integrations.whatsapp.view')
-    );
+export function canOpenApplicationSettings(
+    permissions: string[],
+    platform: NavPlatformAccess = NO_PLATFORM_ACCESS,
+): boolean {
+    return platform.view;
 }
 
 /** Keep in sync with App\Support\Settings\SettingsHubAccess::viewPermissions() */
 export const SETTINGS_HUB_VIEW_PERMISSIONS: readonly string[] = [
-    'settings.application.view',
     'settings.security.view',
     'settings.appearance.view',
-    'settings.integrations.whatsapp.view',
     'settings.integrations.hikvision.view',
-    'settings.integrations.whatsapp-templates.view',
-    'settings.integrations.email-templates.view',
     'settings.master-data.countries.view',
     'settings.master-data.currencies.view',
     'settings.master-data.visa-types.view',
@@ -80,9 +76,15 @@ export const SETTINGS_HUB_VIEW_PERMISSIONS: readonly string[] = [
     'settings.master-data.projects.view',
 ];
 
-export function hasSettingsAccess(permissions: string[]): boolean {
-    return SETTINGS_HUB_VIEW_PERMISSIONS.some((permission) =>
-        has(permissions, permission),
+export function hasSettingsAccess(
+    permissions: string[],
+    platform: NavPlatformAccess = NO_PLATFORM_ACCESS,
+): boolean {
+    return (
+        platform.view ||
+        SETTINGS_HUB_VIEW_PERMISSIONS.some((permission) =>
+            has(permissions, permission),
+        )
     );
 }
 

@@ -23,19 +23,26 @@ import {
 } from 'lucide-react';
 import {
     hasSettingsAccess,
+    NO_PLATFORM_ACCESS,
     SETTINGS_HUB_VIEW_PERMISSIONS,
 } from '@/lib/nav-visibility';
+import type { NavPlatformAccess } from '@/lib/nav-visibility';
 import { edit as hikvisionIntegrationSettings } from '@/routes/integrations/hikvision';
 
 export type SettingsNavItem = {
     title: string;
     href: string;
-    permission: string | readonly string[];
+    permission?: string | readonly string[];
+    platformOnly?: boolean;
     icon: LucideIcon;
     color?: string;
 };
 
-function permissionNames(permission: string | readonly string[]): string[] {
+function permissionNames(permission?: string | readonly string[]): string[] {
+    if (!permission) {
+        return [];
+    }
+
     return typeof permission === 'string' ? [permission] : [...permission];
 }
 
@@ -43,25 +50,21 @@ export const SETTINGS_SYSTEM_ITEMS: SettingsNavItem[] = [
     {
         title: 'Application',
         href: '/settings/application',
-        // Backend ApplicationSettingsController allows application viewers or WhatsApp-only viewers.
-        permission: [
-            'settings.application.view',
-            'settings.integrations.whatsapp.view',
-        ],
+        platformOnly: true,
         icon: SlidersHorizontal,
         color: 'bg-primary/10 text-primary',
     },
     {
         title: 'WhatsApp templates',
         href: '/settings/application/whatsapp-templates',
-        permission: 'settings.integrations.whatsapp-templates.view',
+        platformOnly: true,
         icon: MessageCircle,
         color: 'bg-green-500/10 text-green-600',
     },
     {
         title: 'Email templates',
         href: '/settings/application/email-templates',
-        permission: 'settings.integrations.email-templates.view',
+        platformOnly: true,
         icon: Mail,
         color: 'bg-blue-500/10 text-blue-600',
     },
@@ -206,17 +209,29 @@ export const SETTINGS_VIEW_PERMISSIONS: string[] = [
 export function filterSettingsNavItems(
     items: SettingsNavItem[],
     permissions: string[],
+    platform: NavPlatformAccess = NO_PLATFORM_ACCESS,
 ): SettingsNavItem[] {
-    return items.filter((item) =>
-        permissionNames(item.permission).some((permission) =>
+    return items.filter((item) => {
+        if (item.platformOnly) {
+            return platform.view;
+        }
+
+        if (!item.permission) {
+            return true;
+        }
+
+        return permissionNames(item.permission).some((permission) =>
             permissions.includes(permission),
-        ),
-    );
+        );
+    });
 }
 
 export { hasSettingsAccess };
 
-export function getSettingsSidebarSubItems(permissions: string[]): {
+export function getSettingsSidebarSubItems(
+    permissions: string[],
+    platform: NavPlatformAccess = NO_PLATFORM_ACCESS,
+): {
     title: string;
     url: string;
     icon: LucideIcon;
@@ -224,13 +239,15 @@ export function getSettingsSidebarSubItems(permissions: string[]): {
     const systemItems = filterSettingsNavItems(
         SETTINGS_SYSTEM_ITEMS,
         permissions,
+        platform,
     );
     const integrationItems = filterSettingsNavItems(
         SETTINGS_INTEGRATION_ITEMS,
         permissions,
+        platform,
     );
 
-    if (!hasSettingsAccess(permissions)) {
+    if (!hasSettingsAccess(permissions, platform)) {
         return [];
     }
 
