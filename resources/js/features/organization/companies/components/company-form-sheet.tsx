@@ -74,6 +74,7 @@ export function CompanyFormSheet({
                             hint="Max 2 MB. PNG, JPG, or SVG."
                             onFileChange={(file) => {
                                 form.setData('logo', file);
+
                                 if (file) {
                                     form.setData('remove_logo', false);
                                 }
