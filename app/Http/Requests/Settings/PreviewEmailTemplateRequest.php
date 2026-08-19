@@ -2,13 +2,14 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Support\Platform\PlatformAuthorization;
 use Illuminate\Foundation\Http\FormRequest;
 
 class PreviewEmailTemplateRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('settings.integrations.email-templates.view') ?? false;
+        return PlatformAuthorization::canView($this->user());
     }
 
     /**

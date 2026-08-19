@@ -3,13 +3,14 @@
 namespace App\Http\Requests\Settings;
 
 use App\Models\WhatsAppSetting;
+use App\Support\Platform\PlatformAuthorization;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateWhatsAppIntegrationRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user()?->can('settings.integrations.whatsapp.update');
+        return PlatformAuthorization::canManage($this->user());
     }
 
     /** @return array<string, mixed> */

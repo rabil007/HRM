@@ -35,7 +35,7 @@ test('platform admin can update platform general settings without company fields
     expect(Activity::query()->where('description', 'updated platform general settings')->exists())->toBeTrue();
 });
 
-test('whatsapp-only users do not receive smtp or platform configuration props', function () {
+test('whatsapp-only tenant users cannot open application settings without platform access', function () {
     $user = User::factory()->create();
     setupCompanyWithApplicationSettingsPermissions($user, [
         'settings.integrations.whatsapp.view',
@@ -43,18 +43,7 @@ test('whatsapp-only users do not receive smtp or platform configuration props', 
 
     $this->actingAs($user)
         ->get(route('application.edit'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('settings/application')
-            ->where('general', null)
-            ->where('branding', null)
-            ->where('smtp', null)
-            ->where('preferences', null)
-            ->where('esign_placement', null)
-            ->where('can.platform_view', false)
-            ->where('can.whatsapp_view', true)
-            ->has('whatsapp'),
-        );
+        ->assertForbidden();
 });
 
 test('company admin without platform permission cannot update global settings', function () {

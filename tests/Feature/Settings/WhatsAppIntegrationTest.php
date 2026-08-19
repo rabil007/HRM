@@ -23,9 +23,9 @@ function whatsappSettingsUpdatePayload(array $overrides = []): array
     ], $overrides);
 }
 
-test('owner can view whatsapp integration settings page', function () {
+test('platform user can view whatsapp integration settings page', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp.view']);
+    grantPlatformAccess($user, 'view');
 
     $this->actingAs($user)
         ->get(route('application.edit'))
@@ -41,42 +41,36 @@ test('owner can view whatsapp integration settings page', function () {
 
 test('legacy whatsapp settings url redirects to application tab', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp.view']);
+    grantPlatformAccess($user, 'view');
 
     $this->actingAs($user)
         ->get(route('integrations.whatsapp.edit'))
         ->assertRedirect('/settings/application?tab=whatsapp');
 });
 
-test('users without whatsapp permission do not receive whatsapp settings props', function () {
+test('users without platform access cannot open application settings page', function () {
     $user = User::factory()->create();
-    grantPlatformAccess($user, 'view');
     setupCompanyWithSettingsPermissions($user, []);
 
     $this->actingAs($user)
         ->get(route('application.edit'))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('settings/application')
-            ->where('whatsapp', null),
-        );
+        ->assertForbidden();
 });
 
-test('users with whatsapp permission can open application settings without application view', function () {
+test('tenant users with only legacy whatsapp permission cannot open application settings', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp.view']);
 
     $this->actingAs($user)
         ->get(route('application.edit'))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page->has('whatsapp'));
+        ->assertForbidden();
 });
 
 test('application settings page masks whatsapp secrets', function () {
     WhatsAppSetting::current()->storeFromValidated(whatsappSettingsUpdatePayload());
 
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp.view']);
+    grantPlatformAccess($user, 'view');
 
     $this->actingAs($user)
         ->get(route('application.edit'))
@@ -91,12 +85,9 @@ test('application settings page masks whatsapp secrets', function () {
         );
 });
 
-test('whatsapp settings can be saved with encrypted secrets', function () {
+test('whatsapp settings can be saved with encrypted secrets by platform manager', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp.view',
-        'settings.integrations.whatsapp.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $this->actingAs($user)
         ->put(route('application.whatsapp.update'), whatsappSettingsUpdatePayload())
@@ -120,10 +111,7 @@ test('whatsapp settings can be saved with encrypted secrets', function () {
 
 test('whatsapp secrets are kept when update omits them', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp.view',
-        'settings.integrations.whatsapp.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     WhatsAppSetting::current()->storeFromValidated([
         'business_account_id' => '123456789',
@@ -150,19 +138,18 @@ test('whatsapp secrets are kept when update omits them', function () {
         ->and($settings->webhook_verify_token)->toBe('verify-token-abc');
 });
 
-test('whatsapp settings changes are audited without secret values', function () {
+test('whatsapp settings changes are audited with platform scope without secret values', function () {
     $user = User::factory()->create();
-    $company = setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp.view',
-        'settings.integrations.whatsapp.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
+    $company = setupCompanyWithSettingsPermissions($user, []);
 
     $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
         ->put(route('application.whatsapp.update'), whatsappSettingsUpdatePayload())
         ->assertRedirect();
 
     $activity = Activity::query()
-        ->where('company_id', $company->id)
+        ->where('log_name', 'platform')
         ->where('subject_type', WhatsAppSetting::class)
         ->where('description', 'WhatsApp integration settings updated')
         ->latest('id')
@@ -170,6 +157,7 @@ test('whatsapp settings changes are audited without secret values', function () 
 
     expect($activity)->not->toBeNull()
         ->and((int) $activity->causer_id)->toBe($user->id)
+        ->and($activity->properties->get('scope'))->toBe('platform')
         ->and($activity->properties->get('credentials_updated'))->toBe([
             'access_token',
             'app_secret',
@@ -197,10 +185,7 @@ test('whatsapp test connection returns success when meta api responds ok', funct
     ]);
 
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp.view',
-        'settings.integrations.whatsapp.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $this->actingAs($user)
         ->postJson(route('application.whatsapp.test'), [
@@ -230,10 +215,7 @@ test('whatsapp test connection returns meta error message on failure', function 
     ]);
 
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp.view',
-        'settings.integrations.whatsapp.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $this->actingAs($user)
         ->postJson(route('application.whatsapp.test'), [
@@ -349,10 +331,7 @@ test('whatsapp test text message sends successfully using stored credentials', f
     ]);
 
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp.view',
-        'settings.integrations.whatsapp.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $this->actingAs($user)
         ->postJson(route('application.whatsapp.send-test-text'), [
@@ -399,10 +378,7 @@ test('whatsapp test document upload sends file successfully', function () {
     ]);
 
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp.view',
-        'settings.integrations.whatsapp.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $this->actingAs($user)
         ->post(route('application.whatsapp.send-test-document'), [
@@ -446,10 +422,7 @@ test('whatsapp test template sends hello_world successfully', function () {
     ]);
 
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp.view',
-        'settings.integrations.whatsapp.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $this->actingAs($user)
         ->postJson(route('application.whatsapp.send-test-template'), [
@@ -496,10 +469,7 @@ test('whatsapp test document delivery template sends using library template', fu
     ]);
 
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp.view',
-        'settings.integrations.whatsapp.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $this->actingAs($user)
         ->post(route('application.whatsapp.send-test-document-template'), [

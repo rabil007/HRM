@@ -298,8 +298,10 @@ export function getSidebarData(
                 .map((item) => {
                     if ('items' in item && item.items) {
                         if (item.title === 'Settings') {
-                            const filteredSub =
-                                getSettingsSidebarSubItems(permissions);
+                            const filteredSub = getSettingsSidebarSubItems(
+                                permissions,
+                                platform,
+                            );
 
                             if (!filteredSub.length) {
                                 return null;

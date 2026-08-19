@@ -2,6 +2,8 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { ChevronRight } from 'lucide-react';
 import Heading from '@/components/heading';
 import { Card } from '@/components/ui/card';
+import { NO_PLATFORM_ACCESS } from '@/lib/nav-visibility';
+import type { NavPlatformAccess } from '@/lib/nav-visibility';
 import {
     filterSettingsNavItems,
     SETTINGS_INTEGRATION_ITEMS,
@@ -33,12 +35,18 @@ const SETTINGS_GROUPS = [
 ];
 
 export default function SettingsIndex() {
-    const { auth } = usePage().props as { auth?: { permissions?: string[] } };
+    const { auth } = usePage().props as {
+        auth?: {
+            permissions?: string[];
+            platform?: NavPlatformAccess;
+        };
+    };
     const permissions = auth?.permissions ?? [];
+    const platform = auth?.platform ?? NO_PLATFORM_ACCESS;
 
     const visibleGroups = SETTINGS_GROUPS.map((group) => ({
         ...group,
-        items: filterSettingsNavItems(group.items, permissions),
+        items: filterSettingsNavItems(group.items, permissions, platform),
     })).filter((group) => group.items.length > 0);
 
     const moduleCount = visibleGroups.reduce(

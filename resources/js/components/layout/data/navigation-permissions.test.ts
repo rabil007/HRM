@@ -177,26 +177,49 @@ describe('Attendance top-nav landing', () => {
 });
 
 describe('Settings navigation', () => {
-    it('lets application viewers open Application settings', () => {
+    it('lets platform viewers open Application settings', () => {
+        assert.equal(
+            canOpenApplicationSettings([], {
+                view: true,
+                manage: false,
+                database: false,
+            }),
+            true,
+        );
+        assert.equal(
+            hasSettingsAccess([], {
+                view: true,
+                manage: false,
+                database: false,
+            }),
+            true,
+        );
+    });
+
+    it('does not allow tenant permissions alone to open Application settings', () => {
         assert.equal(
             canOpenApplicationSettings(['settings.application.view']),
-            true,
+            false,
         );
-        assert.equal(hasSettingsAccess(['settings.application.view']), true);
-    });
-
-    it('lets WhatsApp-only viewers open Application settings', () => {
         assert.equal(
             canOpenApplicationSettings(['settings.integrations.whatsapp.view']),
+            false,
+        );
+    });
+
+    it('lets tenant settings viewers open the settings hub', () => {
+        assert.equal(hasSettingsAccess(['settings.security.view']), true);
+        assert.equal(
+            hasSettingsAccess(['settings.integrations.hikvision.view']),
             true,
         );
         assert.equal(
-            hasSettingsAccess(['settings.integrations.whatsapp.view']),
+            hasSettingsAccess(['settings.master-data.countries.view']),
             true,
         );
     });
 
-    it('hides settings access without settings or integration view', () => {
+    it('hides settings access without settings permissions or platform view', () => {
         assert.equal(canOpenApplicationSettings([]), false);
         assert.equal(hasSettingsAccess(['employees.view']), false);
     });

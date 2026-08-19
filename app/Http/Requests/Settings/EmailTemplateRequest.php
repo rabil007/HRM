@@ -3,14 +3,13 @@
 namespace App\Http\Requests\Settings;
 
 use App\Enums\EmailTemplateCategory;
+use App\Support\Platform\PlatformAuthorization;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 abstract class EmailTemplateRequest extends FormRequest
 {
-    abstract protected function permission(): string;
-
     protected function prepareForValidation(): void
     {
         $slug = (string) $this->input('slug');
@@ -41,7 +40,7 @@ abstract class EmailTemplateRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return (bool) $this->user()?->can($this->permission());
+        return PlatformAuthorization::canManage($this->user());
     }
 
     /** @return array<string, mixed> */

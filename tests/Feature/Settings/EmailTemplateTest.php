@@ -3,9 +3,9 @@
 use App\Models\EmailTemplate;
 use App\Models\User;
 
-test('owner can view email template library page', function () {
+test('platform user can view email template library page', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['settings.integrations.email-templates.view']);
+    grantPlatformAccess($user, 'view');
 
     $this->actingAs($user)
         ->get(route('application.email-templates.index'))
@@ -22,21 +22,33 @@ test('owner can view email template library page', function () {
         );
 });
 
-test('users without email template permission cannot view template library', function () {
+test('platform manager has full capabilities on email templates page', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['settings.application.view']);
+    grantPlatformAccess($user, 'manage');
+
+    $this->actingAs($user)
+        ->get(route('application.email-templates.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('settings/email-templates')
+            ->where('can.create', true)
+            ->where('can.update', true)
+            ->where('can.delete', true),
+        );
+});
+
+test('users without platform access cannot view email template library', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.integrations.email-templates.view']);
 
     $this->actingAs($user)
         ->get(route('application.email-templates.index'))
         ->assertForbidden();
 });
 
-test('email templates can be created and customized', function () {
+test('email templates can be created and customized by platform manager', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.email-templates.view',
-        'settings.integrations.email-templates.create',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $this->actingAs($user)
         ->post(route('application.email-templates.store'), [
@@ -64,12 +76,9 @@ test('email templates can be created and customized', function () {
         ->and($template->subject)->toBe('Welcome to the team');
 });
 
-test('email template can be updated', function () {
+test('email template can be updated by platform manager', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.email-templates.view',
-        'settings.integrations.email-templates.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $template = EmailTemplate::query()->where('slug', 'document_share')->firstOrFail();
 
@@ -96,10 +105,7 @@ test('email template can be updated', function () {
 
 test('email template rejects invalid comma-separated preset addresses', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.email-templates.view',
-        'settings.integrations.email-templates.create',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $this->actingAs($user)
         ->post(route('application.email-templates.store'), [
@@ -120,10 +126,7 @@ test('email template rejects invalid comma-separated preset addresses', function
 
 test('default email template cannot be deleted', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.email-templates.view',
-        'settings.integrations.email-templates.delete',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $template = EmailTemplate::query()->where('slug', 'document_share')->firstOrFail();
 
@@ -137,10 +140,7 @@ test('default email template cannot be deleted', function () {
 
 test('document expiry alert template can set daily dispatch time', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.email-templates.view',
-        'settings.integrations.email-templates.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $template = EmailTemplate::query()->where('slug', 'document_expiry_alert')->firstOrFail();
 
@@ -167,10 +167,7 @@ test('document expiry alert template can set daily dispatch time', function () {
 
 test('marking template as default clears other defaults in category', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.email-templates.view',
-        'settings.integrations.email-templates.create',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $existingDefault = EmailTemplate::query()->where('slug', 'document_share')->firstOrFail();
 
@@ -192,9 +189,9 @@ test('marking template as default clears other defaults in category', function (
         ->and(EmailTemplate::query()->where('slug', 'document_share_alt')->value('is_default'))->toBeTrue();
 });
 
-test('users can preview saved email templates as html', function () {
+test('platform users can preview saved email templates as html', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['settings.integrations.email-templates.view']);
+    grantPlatformAccess($user, 'view');
 
     $template = EmailTemplate::query()->where('slug', 'leave_request_submitted')->firstOrFail();
 
@@ -206,9 +203,9 @@ test('users can preview saved email templates as html', function () {
         ->assertSee('Jane Smith', false);
 });
 
-test('users can preview draft email template content', function () {
+test('platform users can preview draft email template content', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['settings.integrations.email-templates.view']);
+    grantPlatformAccess($user, 'view');
 
     $response = $this->actingAs($user)
         ->postJson(route('application.email-templates.preview-draft'), [
@@ -226,10 +223,7 @@ test('users can preview draft email template content', function () {
 
 test('email template can store include company footer preference', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.email-templates.view',
-        'settings.integrations.email-templates.update',
-    ]);
+    grantPlatformAccess($user, 'manage');
 
     $template = EmailTemplate::query()->where('slug', 'leave_request_submitted')->firstOrFail();
 
@@ -251,13 +245,24 @@ test('email template can store include company footer preference', function () {
     expect($template->fresh()->include_company_footer)->toBeFalse();
 });
 
-test('users without email template permission cannot preview templates', function () {
+test('users without platform access cannot preview templates', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['settings.application.view']);
+    setupCompanyWithSettingsPermissions($user, ['settings.integrations.email-templates.view']);
 
     $template = EmailTemplate::query()->where('slug', 'document_share')->firstOrFail();
 
     $this->actingAs($user)
         ->get(route('application.email-templates.preview', $template))
+        ->assertForbidden();
+});
+
+test('users without platform manage access cannot delete email templates', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
+
+    $template = EmailTemplate::query()->where('slug', 'document_share')->firstOrFail();
+
+    $this->actingAs($user)
+        ->delete(route('application.email-templates.destroy', $template))
         ->assertForbidden();
 });

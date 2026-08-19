@@ -4,16 +4,15 @@ namespace App\Http\Requests\Settings;
 
 use App\Enums\WhatsAppTemplateCategory;
 use App\Enums\WhatsAppTemplateHeaderType;
+use App\Support\Platform\PlatformAuthorization;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 abstract class WhatsAppTemplateRequest extends FormRequest
 {
-    abstract protected function permission(): string;
-
     public function authorize(): bool
     {
-        return (bool) $this->user()?->can($this->permission());
+        return PlatformAuthorization::canManage($this->user());
     }
 
     /** @return array<string, mixed> */

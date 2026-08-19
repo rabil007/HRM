@@ -126,24 +126,38 @@ Automatic Spatie activity logging now covers a broad set of organization, master
 
 ## Settings and integrations
 
-Application Settings (platform-wide identity, branding, SMTP, and global e-signature placement) use:
+Settings are separated cleanly by **ownership**:
 
-| Permission | Scope |
-|------------|-------|
-| `settings.application.view` | View Application Settings for the entire OMS-HRM installation |
-| `settings.application.update` | Update Application Settings for the entire OMS-HRM installation |
+### 1. Platform-Global Settings & Integrations
+Installation-wide configurations are singleton resources shared across all companies and are governed exclusively by user-level **Platform Authority** (`platform:view` and `platform:manage`), not tenant Spatie permissions:
+- **Application Settings** (`/settings/application`): System name, support contact, regional fallbacks, branding, SMTP configuration, and e-signature placements.
+- **WhatsApp Integration** (`/settings/application?tab=whatsapp`): Singleton Meta Cloud API credentials, phone number IDs, and webhooks. Credential mutations enforce `privileged.2fa`.
+- **WhatsApp Templates** (`/settings/application/whatsapp-templates`): Global Meta template library mappings (`whatsapp_templates` table).
+- **Email Templates** (`/settings/application/email-templates`): Global email template library presets (`email_templates` table).
 
-These permissions are **team-scoped Spatie permissions**, even though the settings themselves are installation-wide. Granting `settings.application.*` inside one company does **not** grant platform database, log, or queue tooling. Those surfaces use the separate platform administration flag below. They must not be replaced with `companies.*`. The former `platform.settings.view` and `platform.settings.update` aliases have been removed as a duplicate permission family; grants were migrated onto `settings.application.*`.
+Legacy Spatie permission names (`settings.application.*`, `settings.integrations.whatsapp.*`, `settings.integrations.whatsapp-templates.*`, `settings.integrations.email-templates.*`) are retained in the permission catalog and seeders for backward compatibility, but do **not** authorize global singleton resources.
 
-Company identity and regional values are managed on the Company record under **Organization → Companies**, gated by `companies.view` and `companies.update`.
+### 2. Company-Scoped Settings & Integrations
+Tenant-specific configurations are scoped to `current_company_id` and use Spatie **team-scoped permissions**:
+- **Company Identity & Regional Defaults** (`/organization/companies/{company}`): Company name, logo, address, legal documents, timezone, currency, and working days (`companies.view`, `companies.update`).
+- **Company Document Signing Assets**: Salary certificate signature, company stamp, and authorized signatory (`companies.view`, `companies.update`).
+- **Company Document Library**: Membership-based document storage (`company_documents.*`).
+- **Hikvision Access Control Integration** (`/settings/integrations/hikvision`): Per-company device endpoints, OpenAPI credentials, and sync settings (`settings.integrations.hikvision.view|update`, `hikvision.webhook.manage`, `hikvision.devices.sync`).
+- **Security & Appearance**: Tenant security settings (`settings.security.view|update`) and visual theme overrides (`settings.appearance.view|update`).
+- **Master Data**: Tenant-managed dictionaries (`settings.master-data.{resource}.view|create|update|delete`).
 
-The Companies index, show, update, status, destroy, and export actions apply only to the **active** company (`current_company_id`). They are not a global tenant registry. `companies.*` granted in company A cannot list, read, or mutate company B. Other memberships are entered through company switch, which still requires an active `company_user` (or the legacy home-company rule). Platform access does not imply company membership.
+### Ownership Matrix
 
-Company document files under `/organization/companies/{company}/documents` are **membership-based**, not active-company registry CRUD. `CompanyDocumentAccess` requires an active membership in the route `{company}` plus that company's `company_documents.*` team permissions. A dual-company user may open the other tenant's document library without switching; they still cannot use Companies registry routes for that tenant until they switch. This split is intentional.
+| Concern | Source | Authority |
+|---------|--------|-----------|
+| Platform name, support email/phone, fallback timezone, date format, branding, SMTP, e-sign placement | Global `app_settings` | `platform:view` / `platform:manage` |
+| WhatsApp Meta Cloud API singleton integration | Global `whatsapp_settings` | `platform:view` / `platform:manage` + `privileged.2fa` |
+| WhatsApp & Email template libraries | Global `whatsapp_templates`, `email_templates` | `platform:view` / `platform:manage` |
+| Company name, logo, address, phone, email, website, currency, timezone, payroll cycle, working days, WPS | `companies` row | `companies.view|update` |
+| Salary certificate signature/stamp/signatory | `company_document_settings` | `companies.view|update` |
+| Hikvision access control device integration | Company-scoped `hikvision_settings` | `settings.integrations.hikvision.*` |
 
-Company document signing assets (salary certificate signature/stamp/signatory) also use `companies.view` / `companies.update` on the company show page for the **active** company only.
-
-Trusted tenant context is always `current_company_id` from middleware/session. Client-supplied `company_id` cannot authorize cross-company updates.
+Credential permissions and platform access never imply that decrypted secrets may be sent to the browser. Settings responses expose masked placeholders and `has_*` flags, and empty secret submissions preserve the stored value.
 
 ## Users and memberships
 
@@ -173,43 +187,17 @@ There is no last-Owner or self-membership-removal guard. Removing a membership d
 - Hikvision/mobile sync remains a separate ingestion path and is not self-service HTTP.
 - `platform_access` does not grant tenant attendance management.
 
-### Ownership
-
-| Concern | Source |
-|---------|--------|
-| Platform name, platform support email/phone, fallback timezone, default date format, branding, SMTP | Global `app_settings` |
-| Company name, logo, address, phone, email, website, currency, timezone, payroll cycle, working days, WPS | `companies` row |
-| Salary certificate signature/stamp/signatory | `company_document_settings` |
-
-Legacy global keys (`company_name`, `company_address`, `currency`, `salary_certificate_signature`, `salary_certificate_stamp`) remain as fallbacks only. Prefer company-scoped values after migration.
-
-Shared Inertia props expose `settings.platform` and `settings.company` separately. Deprecated flat keys (`settings.currency`, `settings.company_name`, …) remain temporarily for compatibility.
-
-Security and appearance have separate permissions. Master data uses `settings.master-data.{resource}.view|create|update|delete`.
-
-Integration permission families include:
-
-- `settings.integrations.whatsapp.view|update`
-- `settings.integrations.hikvision.view|update`
-- `settings.integrations.whatsapp-templates.view|create|update|delete`
-- `settings.integrations.email-templates.view|create|update|delete`
-
-Hikvision administration additionally uses the `hikvision.*` permissions listed above. SMTP updates use the application-settings routes; see [Email configuration](./email-configuration.md).
-Hikvision settings and records are additionally scoped to the active company; webhook callback identifiers resolve one company before signature verification.
-
-Credential permissions never imply that decrypted secrets may be sent to the browser. Settings responses expose masked placeholders and `has_*` flags, and empty secret submissions preserve the stored value.
-
 ## Platform administration
 
 Tenant administration (Owner roles, `roles.update`, `companies.*`) is **company-team scoped**. Spatie sets `company_id` as the permission team. A permission granted in one tenant must never unlock global/cross-tenant tooling or global application settings.
 
 Platform administration is a user-level attribute: `users.platform_access` (`view` or `manage`). It is **not** a Spatie permission, is **not** seeded in `PermissionsSeeder`, and is **not** mass-assignable on the User model.
 
-Installation-wide `app_settings` (General, Branding, SMTP credentials, E-Sign signature placement) are platform-global configuration and require platform authority:
-- `platform:view` (`platform_access = view` or `manage`): view installation-wide configuration.
-- `platform:manage` (`platform_access = manage`): modify installation-wide configuration, branding assets, test email, and e-sign placement defaults.
-- High-trust mutations (SMTP credentials and e-sign placement updates) additionally enforce `privileged.2fa` when enabled.
-- Legacy `settings.application.*` Spatie permissions are retained in catalog/seeders for backwards compatibility but do **not** authorize mutations to platform-global settings.
+Installation-wide configuration and tooling require platform authority:
+- `platform:view` (`platform_access = view` or `manage`): view installation-wide configuration, masked credentials, diagnostics, and template libraries.
+- `platform:manage` (`platform_access = manage`): modify installation-wide configuration, branding assets, test sends, template libraries, and diagnostic actions.
+- High-trust mutations (SMTP credentials, WhatsApp credentials, and e-sign placement updates) additionally enforce `privileged.2fa` when enabled.
+- Legacy `settings.application.*`, `settings.integrations.whatsapp.*`, and template Spatie permissions are retained for compatibility but do **not** authorize mutations to platform-global settings.
 
 | Capability | Who | Surfaces |
 |------------|-----|----------|

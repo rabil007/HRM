@@ -33,64 +33,49 @@ class ApplicationSettingsController extends Controller
     {
         $user = request()->user();
         $canPlatformView = PlatformAuthorization::canView($user);
-        $canWhatsAppView = (bool) $user?->can('settings.integrations.whatsapp.view');
 
-        if (! $canPlatformView && ! $canWhatsAppView) {
+        if (! $canPlatformView) {
             abort(403);
         }
 
         $props = [
             'scope' => 'platform',
-            'general' => null,
-            'branding' => null,
-            'preferences' => null,
-            'timezones' => null,
-            'date_formats' => null,
-            'smtp' => null,
-            'whatsapp' => null,
-            'esign_placement' => null,
-            'can' => [
-                'platform_view' => $canPlatformView,
-                'platform_update' => PlatformAuthorization::canManage($user),
-                'whatsapp_view' => $canWhatsAppView,
-            ],
-        ];
-
-        if ($canPlatformView) {
-            $props['general'] = [
+            'general' => [
                 'app_name' => $this->settings->get(SettingKey::AppName),
                 'support_email' => $this->settings->get(SettingKey::SupportEmail, ''),
                 'support_phone' => $this->settings->get(SettingKey::SupportPhone, ''),
                 'timezone' => $this->settings->get(SettingKey::Timezone, 'UTC'),
                 'date_format' => $this->settings->get(SettingKey::DateFormat, 'Y-m-d'),
-            ];
-            $props['branding'] = $this->settings->brandingUrls();
-            $props['preferences'] = [
+            ],
+            'branding' => $this->settings->brandingUrls(),
+            'preferences' => [
                 'primary_color' => $this->settings->get(SettingKey::PrimaryColor, '#6366f1'),
                 'accent_color' => $this->settings->get(SettingKey::AccentColor, '#8b5cf6'),
                 'sidebar_compact_default' => $this->settings->get(SettingKey::SidebarCompactDefault, '0') === '1',
-            ];
-            $props['timezones'] = timezone_identifiers_list();
-            $props['date_formats'] = [
+            ],
+            'timezones' => timezone_identifiers_list(),
+            'date_formats' => [
                 ['value' => 'Y-m-d', 'label' => '2026-05-21'],
                 ['value' => 'd/m/Y', 'label' => '21/05/2026'],
                 ['value' => 'm/d/Y', 'label' => '05/21/2026'],
                 ['value' => 'd-m-Y', 'label' => '21-05-2026'],
                 ['value' => 'M d, Y', 'label' => 'May 21, 2026'],
-            ];
-            $props['smtp'] = $this->mailSettings->forSettingsPage();
-            $props['esign_placement'] = [
+            ],
+            'smtp' => $this->mailSettings->forSettingsPage(),
+            'whatsapp' => WhatsAppIntegrationController::pageProps($user),
+            'esign_placement' => [
                 'document_type' => SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY,
                 'label' => BulkDocumentTypeRegistry::find(SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY)['label'],
                 'placement' => app(BulkDocumentSignaturePlacementService::class)->resolve(
                     SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY,
                 ),
-            ];
-        }
-
-        if ($canWhatsAppView) {
-            $props['whatsapp'] = WhatsAppIntegrationController::pageProps($user);
-        }
+            ],
+            'can' => [
+                'platform_view' => $canPlatformView,
+                'platform_update' => PlatformAuthorization::canManage($user),
+                'whatsapp_view' => $canPlatformView,
+            ],
+        ];
 
         return Inertia::render('settings/application', $props);
     }

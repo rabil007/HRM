@@ -341,9 +341,9 @@ test('direct json credential updates fail without two-factor', function () {
     ]));
 
     $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
     setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp.update',
-        'settings.integrations.whatsapp.view',
+        'settings.security.view',
     ]);
 
     $this->actingAs($user)
