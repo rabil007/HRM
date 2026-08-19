@@ -4,6 +4,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
 
@@ -280,4 +281,155 @@ test('creating a company assigns creator as owner with all permissions', functio
         'model_type' => User::class,
         'model_id' => $user->id,
     ]);
+});
+
+test('updating a company without a logo preserves the existing logo', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $logoPath = 'company-logos/existing-logo.png';
+    Storage::disk('public')->put($logoPath, 'fake image content');
+
+    $company = Company::query()->create([
+        'name' => 'Acme With Logo',
+        'slug' => 'acme-with-logo',
+        'logo' => $logoPath,
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['companies.update']);
+
+    $this->put("/organization/companies/{$company->id}", [
+        'name' => 'Acme Updated Name',
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+    ])->assertRedirect('/organization/companies');
+
+    $company->refresh();
+    expect($company->name)->toBe('Acme Updated Name');
+    expect($company->logo)->toBe($logoPath);
+    expect(Storage::disk('public')->exists($logoPath))->toBeTrue();
+});
+
+test('updating a company with remove_logo removes and deletes the logo', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $logoPath = 'company-logos/logo-to-delete.png';
+    Storage::disk('public')->put($logoPath, 'fake image content');
+
+    $company = Company::query()->create([
+        'name' => 'Acme With Logo To Delete',
+        'slug' => 'acme-with-logo-to-delete',
+        'logo' => $logoPath,
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['companies.update']);
+
+    $this->put("/organization/companies/{$company->id}", [
+        'name' => 'Acme Without Logo',
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'remove_logo' => true,
+    ])->assertRedirect('/organization/companies');
+
+    $company->refresh();
+    expect($company->logo)->toBeNull();
+    expect(Storage::disk('public')->exists($logoPath))->toBeFalse();
+});
+
+test('updating a company with a new logo replaces and deletes the old logo', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $oldLogoPath = 'company-logos/old-logo.png';
+    Storage::disk('public')->put($oldLogoPath, 'old fake image content');
+
+    $company = Company::query()->create([
+        'name' => 'Acme To Replace Logo',
+        'slug' => 'acme-to-replace-logo',
+        'logo' => $oldLogoPath,
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['companies.update']);
+
+    $newFile = UploadedFile::fake()->image('new-logo.png');
+
+    $this->put("/organization/companies/{$company->id}", [
+        'name' => 'Acme With New Logo',
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'logo' => $newFile,
+    ])->assertRedirect('/organization/companies');
+
+    $company->refresh();
+    expect($company->logo)->not->toBeNull();
+    expect($company->logo)->not->toBe($oldLogoPath);
+    expect(Storage::disk('public')->exists($oldLogoPath))->toBeFalse();
+    expect(Storage::disk('public')->exists($company->logo))->toBeTrue();
 });

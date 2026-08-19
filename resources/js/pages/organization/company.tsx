@@ -172,6 +172,20 @@ function InfoRow({
     );
 }
 
+type BranchItem = {
+    id: number;
+    name: string;
+    code: string | null;
+    address: string | null;
+    city: string | null;
+    country: string | null;
+    phone: string | null;
+    email: string | null;
+    is_headquarters: boolean;
+    status: string | null;
+    created_at: string;
+};
+
 export default function CompanyDetails({
     company,
     recent_activity,
@@ -182,6 +196,7 @@ export default function CompanyDetails({
     can_view_audit,
     company_documents,
     company_documents_can,
+    branches = [],
 }: {
     company: Company;
     recent_activity: ActivityItem[];
@@ -201,6 +216,7 @@ export default function CompanyDetails({
         download: boolean;
         delete: boolean;
     };
+    branches?: BranchItem[];
 }) {
     const [editOpen, setEditOpen] = useState(false);
     const [documentSettingsOpen, setDocumentSettingsOpen] = useState(false);
@@ -210,6 +226,7 @@ export default function CompanyDetails({
 
     const form = useForm<CompanyFormData>({
         logo: null as File | null,
+        remove_logo: false,
         name: company.name ?? '',
         industry: company.industry ?? '',
         company_size: company.company_size ?? '',
@@ -235,7 +252,9 @@ export default function CompanyDetails({
     });
 
     const location =
-        [company.city, company.country.code].filter(Boolean).join(', ') || '—';
+        [company.city, company.country.name || company.country.code]
+            .filter(Boolean)
+            .join(', ') || '—';
     const website = company.website
         ? company.website.startsWith('http')
             ? company.website
@@ -274,9 +293,24 @@ export default function CompanyDetails({
     const submit = () => {
         form.put(`/organization/companies/${company.id}`, {
             preserveScroll: true,
+            forceFormData: true,
             onSuccess: () => setEditOpen(false),
         });
     };
+
+    const initials = company.name
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0]?.toUpperCase())
+        .join('');
+
+    const statusStyle =
+        company.status === 'active'
+            ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/25 dark:text-emerald-400'
+            : company.status === 'suspended'
+              ? 'bg-amber-500/10 text-amber-600 border-amber-500/25 dark:text-amber-400'
+              : 'bg-muted/60 text-muted-foreground border-border dark:bg-white/5 dark:border-white/10';
 
     return (
         <>
@@ -284,21 +318,43 @@ export default function CompanyDetails({
             <Main>
                 <DetailsHeader
                     title={company.name}
-                    description="Full company profile and configuration."
+                    description="Full company profile, compliance files, and organizational settings."
                     backHref="/organization/companies"
                     backLabel="Back to companies"
                     actions={
                         <>
+                            {company_documents_can.view ? (
+                                <Button
+                                    variant="outline"
+                                    className="h-12 rounded-xl border-border bg-card/60 px-5 shadow-xs transition-all hover:bg-accent"
+                                    asChild
+                                >
+                                    <Link
+                                        href={companyDocumentsIndex.url(
+                                            company.id,
+                                        )}
+                                    >
+                                        <FolderOpen className="mr-2 h-4 w-4 text-primary" />
+                                        Documents
+                                        {company_documents?.count ? (
+                                            <span className="ml-2 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                                                {company_documents.count}
+                                            </span>
+                                        ) : null}
+                                    </Link>
+                                </Button>
+                            ) : null}
                             <Button
                                 variant="outline"
-                                className="h-12 rounded-xl border-border bg-muted/50 px-6 hover:bg-accent dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
+                                className="h-12 rounded-xl border-border bg-card/60 px-5 shadow-xs transition-all hover:bg-accent"
                                 onClick={() => setEditOpen(true)}
                             >
-                                Edit
+                                <PenLine className="mr-2 h-4 w-4" />
+                                Edit Company
                             </Button>
                             {website ? (
                                 <Button
-                                    className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                                    className="h-12 rounded-xl px-5 shadow-lg shadow-primary/20"
                                     asChild
                                 >
                                     <a
@@ -315,38 +371,161 @@ export default function CompanyDetails({
                     }
                 />
 
-                <div className="grid gap-6 lg:grid-cols-3">
-                    <Card className="overflow-hidden border-border bg-card backdrop-blur-xl lg:col-span-2 dark:border-white/5 dark:bg-white/5">
-                        <CardHeader className="pb-4">
-                            <div className="flex items-center gap-4">
-                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+                {/* Hero Header Card */}
+                <Card className="mb-6 overflow-hidden glass-card">
+                    <CardContent className="p-6 sm:p-8">
+                        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                                <div
+                                    className={`flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-3xl border shadow-sm ${company.logo_url ? 'border-primary/20 bg-primary/5 ring-4 ring-primary/10 dark:ring-primary/20' : 'border-border/80 bg-muted/50 text-foreground dark:border-white/10 dark:bg-white/5'}`}
+                                >
                                     {company.logo_url ? (
                                         <img
                                             src={company.logo_url}
                                             alt={company.name}
-                                            className="h-14 w-14 rounded-2xl object-cover"
+                                            className="h-full w-full object-cover"
                                         />
                                     ) : (
-                                        <Building2 className="h-7 w-7" />
+                                        <span className="text-xl font-black tracking-tight">
+                                            {initials || (
+                                                <Building2 className="h-8 w-8" />
+                                            )}
+                                        </span>
                                     )}
                                 </div>
-                                <div className="min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <Badge className="border-border bg-muted/50 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5">
+                                <div className="space-y-2">
+                                    <div className="flex flex-wrap items-center gap-2.5">
+                                        <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+                                            {company.name}
+                                        </h2>
+                                        <Badge
+                                            className={cn(
+                                                'border px-2.5 py-0.5 text-[11px] font-bold tracking-wider uppercase',
+                                                statusStyle,
+                                            )}
+                                        >
+                                            <span
+                                                className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${company.status === 'active' ? 'animate-pulse bg-emerald-500' : 'bg-muted-foreground'}`}
+                                            />
                                             {company.status ?? '—'}
                                         </Badge>
-                                        <Badge className="border-border bg-muted/50 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5">
-                                            {company.currency.code ?? '—'}
-                                        </Badge>
                                     </div>
-                                    <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground/80">
-                                        <MapPin className="h-4 w-4" />
-                                        {location}
-                                        <span className="mx-1">•</span>
-                                        {company.industry ?? '—'}
+                                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                                        <span className="flex items-center gap-1.5">
+                                            <MapPin className="h-4 w-4 text-primary" />
+                                            {location}
+                                        </span>
+                                        {company.industry ? (
+                                            <>
+                                                <span>•</span>
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="border-border/60 bg-muted/40 text-xs font-semibold"
+                                                >
+                                                    {company.industry}
+                                                </Badge>
+                                            </>
+                                        ) : null}
+                                        <span>•</span>
+                                        <span className="font-mono text-xs text-muted-foreground/70">
+                                            ID: #
+                                            {String(company.id).padStart(
+                                                4,
+                                                '0',
+                                            )}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Quick Stats Grid */}
+                <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <Card className="glass-card">
+                        <CardContent className="flex items-center justify-between p-5">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                    Entity Status
+                                </p>
+                                <p className="mt-1 text-xl font-bold capitalize">
+                                    {company.status ?? '—'}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground/70">
+                                    Code: {company.slug}
+                                </p>
+                            </div>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                                <BadgeCheck className="h-5 w-5" />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="glass-card">
+                        <CardContent className="flex items-center justify-between p-5">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                    Currency & Timezone
+                                </p>
+                                <p className="mt-1 text-xl font-bold">
+                                    {company.currency.code ?? '—'}
+                                </p>
+                                <p className="max-w-[150px] truncate text-[11px] text-muted-foreground/70">
+                                    {company.timezone ?? 'Asia/Dubai'}
+                                </p>
+                            </div>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-muted/50 text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                                <Globe className="h-5 w-5" />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="glass-card">
+                        <CardContent className="flex items-center justify-between p-5">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                    Branches
+                                </p>
+                                <p className="mt-1 text-xl font-bold">
+                                    {branches.length}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground/70">
+                                    Registered locations
+                                </p>
+                            </div>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-muted/50 text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                                <Building2 className="h-5 w-5" />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="glass-card">
+                        <CardContent className="flex items-center justify-between p-5">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                    Compliance Docs
+                                </p>
+                                <p className="mt-1 text-xl font-bold">
+                                    {company_documents?.count ?? 0}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground/70">
+                                    Active files
+                                </p>
+                            </div>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                                <FolderOpen className="h-5 w-5" />
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-3">
+                    <Card className="overflow-hidden border-border bg-card backdrop-blur-xl lg:col-span-2 dark:border-white/5 dark:bg-white/5">
+                        <CardHeader className="border-b border-border/60 pb-4 dark:border-white/5">
+                            <CardTitle className="text-base font-bold tracking-tight">
+                                Company Profile & Registration
+                            </CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
                             <InfoRow
@@ -427,8 +606,8 @@ export default function CompanyDetails({
                     </Card>
 
                     <Card className="border-border bg-card backdrop-blur-xl dark:border-white/5 dark:bg-white/5">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-lg font-bold tracking-tight">
+                        <CardHeader className="border-b border-border/60 pb-4 dark:border-white/5">
+                            <CardTitle className="text-base font-bold tracking-tight">
                                 Payroll & Compliance
                             </CardTitle>
                         </CardHeader>

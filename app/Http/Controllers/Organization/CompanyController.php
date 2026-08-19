@@ -255,7 +255,13 @@ class CompanyController extends Controller
         if ($request->hasFile('logo')) {
             $newLogo = UploadedFileStorage::store($request->file('logo'), 'company-logos', 'public');
             $data['logo'] = $newLogo;
+        } elseif ($request->boolean('remove_logo')) {
+            $data['logo'] = null;
+        } else {
+            unset($data['logo']);
         }
+
+        unset($data['remove_logo']);
 
         try {
             $company->update($data);
@@ -270,8 +276,7 @@ class CompanyController extends Controller
         if (
             is_string($previousLogo)
             && $previousLogo !== ''
-            && $previousLogo !== $newLogo
-            && $newLogo !== null
+            && $previousLogo !== $company->logo
             && Storage::disk('public')->exists($previousLogo)
         ) {
             Storage::disk('public')->delete($previousLogo);
