@@ -76,7 +76,9 @@ export function CompanyCard({
 
             <CardHeader className="pb-3">
                 <div className="flex items-start gap-4">
-                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border text-foreground/80 ${company.logo_url ? 'border-primary/20 bg-primary/5 ring-2 ring-primary/10 dark:ring-primary/20' : 'border-border/60 bg-muted/40 dark:border-white/10 dark:bg-white/6'}`}>
+                    <div
+                        className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border text-foreground/80 ${company.logo_url ? 'border-primary/20 bg-primary/5 ring-2 ring-primary/10 dark:ring-primary/20' : 'border-border/60 bg-muted/40 dark:border-white/10 dark:bg-white/6'}`}
+                    >
                         {company.logo_url ? (
                             <img
                                 src={company.logo_url}

@@ -376,7 +376,9 @@ export default function CompanyDetails({
                     <CardContent className="p-6 sm:p-8">
                         <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-                                <div className={`flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-3xl border shadow-sm ${company.logo_url ? 'border-primary/20 bg-primary/5 ring-4 ring-primary/10 dark:ring-primary/20' : 'border-border/80 bg-muted/50 text-foreground dark:border-white/10 dark:bg-white/5'}`}>
+                                <div
+                                    className={`flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-3xl border shadow-sm ${company.logo_url ? 'border-primary/20 bg-primary/5 ring-4 ring-primary/10 dark:ring-primary/20' : 'border-border/80 bg-muted/50 text-foreground dark:border-white/10 dark:bg-white/5'}`}
+                                >
                                     {company.logo_url ? (
                                         <img
                                             src={company.logo_url}
@@ -385,7 +387,9 @@ export default function CompanyDetails({
                                         />
                                     ) : (
                                         <span className="text-xl font-black tracking-tight">
-                                            {initials || <Building2 className="h-8 w-8" />}
+                                            {initials || (
+                                                <Building2 className="h-8 w-8" />
+                                            )}
                                         </span>
                                     )}
                                 </div>
@@ -401,7 +405,7 @@ export default function CompanyDetails({
                                             )}
                                         >
                                             <span
-                                                className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${company.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`}
+                                                className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${company.status === 'active' ? 'animate-pulse bg-emerald-500' : 'bg-muted-foreground'}`}
                                             />
                                             {company.status ?? '—'}
                                         </Badge>
@@ -424,7 +428,11 @@ export default function CompanyDetails({
                                         ) : null}
                                         <span>•</span>
                                         <span className="font-mono text-xs text-muted-foreground/70">
-                                            ID: #{String(company.id).padStart(4, '0')}
+                                            ID: #
+                                            {String(company.id).padStart(
+                                                4,
+                                                '0',
+                                            )}
                                         </span>
                                     </div>
                                 </div>
@@ -463,7 +471,7 @@ export default function CompanyDetails({
                                 <p className="mt-1 text-xl font-bold">
                                     {company.currency.code ?? '—'}
                                 </p>
-                                <p className="text-[11px] text-muted-foreground/70 truncate max-w-[150px]">
+                                <p className="max-w-[150px] truncate text-[11px] text-muted-foreground/70">
                                     {company.timezone ?? 'Asia/Dubai'}
                                 </p>
                             </div>

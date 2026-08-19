@@ -228,7 +228,11 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
                 description="Private compliance files, metadata, expiry tracking, and version history."
                 right={
                     <>
-                        <Button variant="outline" className="h-11 rounded-xl" asChild>
+                        <Button
+                            variant="outline"
+                            className="h-11 rounded-xl"
+                            asChild
+                        >
                             <Link
                                 href={`/organization/companies/${company.id}`}
                             >
@@ -271,7 +275,7 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
                         <Card
                             key={card.key}
                             className={cn(
-                                'glass-card cursor-pointer transition-all duration-200 hover:shadow-md',
+                                'cursor-pointer glass-card transition-all duration-200 hover:shadow-md',
                                 isActive && 'ring-2 ring-primary/40',
                             )}
                             onClick={() =>
@@ -315,7 +319,11 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
                     <>
                         <div className="min-w-[150px]">
                             <AppSelect
-                                value={filters.document_type ? String(filters.document_type) : ''}
+                                value={
+                                    filters.document_type
+                                        ? String(filters.document_type)
+                                        : ''
+                                }
                                 onValueChange={(val) =>
                                     list.applyFilters({
                                         document_type: val || '',
@@ -324,7 +332,9 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
                                 }
                                 placeholder="All types"
                             >
-                                <AppSelectItem value="">All types</AppSelectItem>
+                                <AppSelectItem value="">
+                                    All types
+                                </AppSelectItem>
                                 {document_types.map((type) => (
                                     <AppSelectItem
                                         key={type.id}
@@ -532,14 +542,9 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
                                     <DocumentActions
                                         document={document}
                                         can={can}
-                                        onPreview={() =>
-                                            setPreview(document)
-                                        }
+                                        onPreview={() => setPreview(document)}
                                         onEdit={() =>
-                                            openDocument(
-                                                document,
-                                                setFormOpen,
-                                            )
+                                            openDocument(document, setFormOpen)
                                         }
                                         onReplace={() =>
                                             openDocument(

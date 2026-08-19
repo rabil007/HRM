@@ -317,7 +317,9 @@ export function CompaniesContent({
                                     className={dataTableCellPrimaryClass()}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border text-foreground/80 ${company.logo_url ? 'border-primary/20 bg-primary/5' : 'border-border/60 bg-muted/40 dark:border-white/10 dark:bg-white/6'}`}>
+                                        <div
+                                            className={`flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border text-foreground/80 ${company.logo_url ? 'border-primary/20 bg-primary/5' : 'border-border/60 bg-muted/40 dark:border-white/10 dark:bg-white/6'}`}
+                                        >
                                             {company.logo_url ? (
                                                 <img
                                                     src={company.logo_url}
@@ -330,7 +332,9 @@ export function CompaniesContent({
                                                         .split(' ')
                                                         .filter(Boolean)
                                                         .slice(0, 2)
-                                                        .map((p) => p[0]?.toUpperCase())
+                                                        .map((p) =>
+                                                            p[0]?.toUpperCase(),
+                                                        )
                                                         .join('')}
                                                 </span>
                                             )}
