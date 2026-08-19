@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Jobs\FetchHikvisionAccessEventsJob;
 use App\Models\HikvisionSetting;
 use App\Support\Hikvision\HikvisionEveningAccessEventsFetchSchedule;
+use App\Support\Hikvision\HikvisionFetchOrigin;
 use App\Support\Settings\ApplicationTimezone;
 use Illuminate\Console\Command;
 
@@ -34,12 +35,19 @@ class FetchTodaysHikvisionAccessEventsCommand extends Command
         $dispatched = 0;
 
         foreach ($settings as $setting) {
+            $setting->resolveStaleEventsFetch(5);
+            $setting->refresh();
+
             if ($setting->isEventsFetchProcessing()) {
                 continue;
             }
 
             $setting->beginEventsFetch();
-            FetchHikvisionAccessEventsJob::dispatch($setting->id, $date);
+            FetchHikvisionAccessEventsJob::dispatch(
+                $setting->id,
+                $date,
+                HikvisionFetchOrigin::ScheduledToday,
+            );
             $dispatched++;
         }
 

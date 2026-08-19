@@ -139,7 +139,7 @@ test('sync attendance skips unchanged records to avoid expensive model updates',
         'person_code' => '99',
     ]);
 
-    $employee = Employee::factory()->create([
+    $employee = Employee::factory()->for(hikvisionTestCompany())->create([
         'status' => 'active',
         'name' => 'Perf Employee',
         'hikvision_person_id' => $person->id,
@@ -203,7 +203,7 @@ test('sync company preloads leave and attendance queries once per company', func
         'person_code' => '22',
     ]);
 
-    $employeeOne = Employee::factory()->create([
+    $employeeOne = Employee::factory()->for(hikvisionTestCompany())->create([
         'status' => 'active',
         'name' => 'Batch Employee One',
         'hikvision_person_id' => $personOne->id,

@@ -2,7 +2,6 @@
 
 use App\Jobs\FetchHikvisionAccessEventsJob;
 use App\Jobs\ProcessHikvisionWebhookEventJob;
-use App\Models\Company;
 use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionDevice;
@@ -15,20 +14,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
-
-function additionalHikvisionTestCompany(Company $company, string $slug = 'hikvision-other-company'): Company
-{
-    return Company::query()->create([
-        'name' => 'Hikvision Other Company '.$slug,
-        'slug' => $slug,
-        'working_days' => [1, 2, 3, 4, 5],
-        'country_id' => $company->country_id,
-        'currency_id' => $company->currency_id,
-        'timezone' => 'Asia/Dubai',
-        'payroll_cycle' => 'monthly',
-        'status' => 'active',
-    ]);
-}
 
 test('company a cannot view company b hikvision settings', function () {
     $user = User::factory()->create();

@@ -48,7 +48,7 @@ final class SyncAttendanceRecordsFromHikvision
             ->orderBy('id')
             ->get();
 
-        $companyEvents = $this->loadCompanyEventsForWindow($employees, $rangeStart, $rangeEnd);
+        $companyEvents = $this->loadCompanyEventsForWindow($companyId, $employees, $rangeStart, $rangeEnd);
 
         /** @var Collection<string, Collection<int, HikvisionAccessEvent>> $eventsByPersonId */
         $eventsByPersonId = $companyEvents->groupBy(
@@ -123,6 +123,7 @@ final class SyncAttendanceRecordsFromHikvision
      * @return Collection<int, HikvisionAccessEvent>
      */
     private function loadCompanyEventsForWindow(
+        int $companyId,
         Collection $employees,
         CarbonInterface $rangeStart,
         CarbonInterface $rangeEnd,
@@ -157,6 +158,7 @@ final class SyncAttendanceRecordsFromHikvision
         $linkedEvents = $personIds->isEmpty()
             ? collect()
             : HikvisionAccessEvent::query()
+                ->forCompany($companyId)
                 ->accessRecords()
                 ->whereBetween('occurrence_time', [$rangeStart, $rangeEnd])
                 ->whereIn('person_hikvision_id', $personIds)
@@ -164,6 +166,7 @@ final class SyncAttendanceRecordsFromHikvision
                 ->get($columns);
 
         $unlinkedEvents = HikvisionAccessEvent::query()
+            ->forCompany($companyId)
             ->accessRecords()
             ->whereBetween('occurrence_time', [$rangeStart, $rangeEnd])
             ->where(function (Builder $query): void {

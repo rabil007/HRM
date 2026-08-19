@@ -336,16 +336,15 @@ export function HikvisionAccessEventsContent({
                             <span className="font-medium text-foreground">
                                 Fetch
                             </span>{' '}
-                            to load that day&apos;s door device check-ins and
-                            mobile app check-in/out from Hik-Connect. Defaults
-                            to today.
+                            to load available door-device events and mobile app
+                            check-in/out records from Hik-Connect. Defaults to
+                            today.
                         </p>
                         <p>
-                            Mobile app attendance for a day is processed by
-                            Hik-Connect after the working day ends. If same-day
-                            mobile records are missing, fetch again later or
-                            fetch the following day once Hik-Connect has
-                            processed them.
+                            Mobile app attendance may not be available from
+                            Hik-Connect immediately. If same-day mobile records
+                            are missing, fetch again later or fetch the
+                            following day after Hik-Connect has processed them.
                         </p>
                     </AlertDescription>
                 </Alert>

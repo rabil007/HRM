@@ -180,12 +180,14 @@ test('hikvision sync creates attendance records from access events', function ()
     ]);
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
         'person_id' => 'sync-person-1',
         'full_name' => 'Synced Employee',
     ]);
     $employee->update(['hikvision_person_id' => $person->id]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'sync:checkin',
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-06-10 08:00:00',
@@ -199,6 +201,7 @@ test('hikvision sync creates attendance records from access events', function ()
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'sync:checkout',
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-06-10 17:00:00',
@@ -238,6 +241,7 @@ test('hikvision sync does not overwrite manual records', function () {
     ]);
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
         'person_id' => 'manual-person-1',
         'full_name' => 'Manual Employee',
     ]);
@@ -252,6 +256,7 @@ test('hikvision sync does not overwrite manual records', function () {
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'manual:checkin',
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-06-10 08:00:00',
@@ -289,6 +294,7 @@ test('hikvision sync creates absent records when no punches on a working day', f
     ]);
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
         'person_id' => 'absent-person-1',
         'full_name' => 'Absent Employee',
     ]);
@@ -320,6 +326,7 @@ test('hikvision sync marks non working days as weekend when no punches', functio
     ]);
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
         'person_id' => 'weekend-person-1',
         'full_name' => 'Weekend Employee',
     ]);
@@ -347,6 +354,7 @@ test('hikvision sync matches events using linked hikvision full name when employ
     ['company' => $company] = makeAttendanceRecordsFixtures();
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
         'person_id' => 'alias-person-1',
         'full_name' => 'Mohammed Rabil',
     ]);
@@ -358,6 +366,7 @@ test('hikvision sync matches events using linked hikvision full name when employ
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'alias:checkin',
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-06-12 08:00:00',
@@ -370,6 +379,7 @@ test('hikvision sync matches events using linked hikvision full name when employ
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'alias:checkout',
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-06-12 17:39:00',
@@ -402,6 +412,7 @@ test('hikvision sync matches events when access event name omits trailing initia
     ['company' => $company] = makeAttendanceRecordsFixtures();
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
         'person_id' => 'suffix-person-1',
         'full_name' => 'Mohammed Rabil T',
     ]);
@@ -413,6 +424,7 @@ test('hikvision sync matches events when access event name omits trailing initia
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'suffix:checkin',
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-06-12 08:53:53',
@@ -425,6 +437,7 @@ test('hikvision sync matches events when access event name omits trailing initia
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'suffix:checkout',
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-06-12 17:39:44',
@@ -457,6 +470,7 @@ test('hikvision sync creates mobile attendance records from mobile app access ev
     ['company' => $company] = makeAttendanceRecordsFixtures();
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
         'person_id' => 'mobile-person-1',
         'person_code' => '42',
         'full_name' => 'MOHAMED ABDALLA JAMAL',
@@ -469,6 +483,7 @@ test('hikvision sync creates mobile attendance records from mobile app access ev
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'mobile:checkin',
         'msg_type' => 'attendance/totaltimecard',
         'occurrence_time' => '2026-06-17 08:57:00',
@@ -487,6 +502,7 @@ test('hikvision sync creates mobile attendance records from mobile app access ev
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'mobile:checkout',
         'msg_type' => 'attendance/totaltimecard',
         'occurrence_time' => '2026-06-17 19:40:00',
@@ -526,6 +542,7 @@ test('hikvision sync matches mobile access events by person code when names diff
     ['company' => $company] = makeAttendanceRecordsFixtures();
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
         'person_id' => 'mobile-code-person-1',
         'person_code' => '7',
         'full_name' => 'Mathew Dominic',
@@ -538,6 +555,7 @@ test('hikvision sync matches mobile access events by person code when names diff
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'mobile-code:checkin',
         'msg_type' => 'attendance/totaltimecard',
         'occurrence_time' => '2026-06-17 09:15:00',
@@ -575,6 +593,7 @@ test('attendance sync updates stale biometric record when mobile events were bac
     ['company' => $company] = makeAttendanceRecordsFixtures();
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
         'person_id' => 'adham-person-12',
         'person_code' => '12',
         'full_name' => 'Adham Bassiony',
@@ -596,6 +615,7 @@ test('attendance sync updates stale biometric record when mobile events were bac
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'adham:door:checkin',
         'msg_type' => 'webhook/event/110013',
         'occurrence_time' => '2026-06-19 08:40:43',
@@ -610,6 +630,7 @@ test('attendance sync updates stale biometric record when mobile events were bac
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'adham:mobile:checkin',
         'msg_type' => 'attendance/totaltimecard',
         'occurrence_time' => '2026-06-19 08:36:25',
@@ -628,6 +649,7 @@ test('attendance sync updates stale biometric record when mobile events were bac
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'adham:mobile:checkout',
         'msg_type' => 'attendance/totaltimecard',
         'occurrence_time' => '2026-06-19 18:51:45',
@@ -665,6 +687,7 @@ test('hikvision sync uses last check-in as clock-out when no checkout and multip
     ['company' => $company] = makeAttendanceRecordsFixtures();
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
         'person_id' => 'maher-person-1',
         'full_name' => 'Maher H Jundi',
     ]);
@@ -687,6 +710,7 @@ test('hikvision sync uses last check-in as clock-out when no checkout and multip
 
     foreach ($checkInTimes as $index => $time) {
         HikvisionAccessEvent::query()->create([
+            'company_id' => $company->id,
             'system_id' => "maher:checkin:{$index}",
             'msg_type' => 'webhook/event/110013',
             'occurrence_time' => "2026-06-22 {$time}",
@@ -723,6 +747,7 @@ test('hikvision sync leaves clock-out null when only one check-in and no checkou
     ['company' => $company] = makeAttendanceRecordsFixtures();
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
         'person_id' => 'single-checkin-person-1',
         'full_name' => 'Single Checkin Employee',
     ]);
@@ -734,6 +759,7 @@ test('hikvision sync leaves clock-out null when only one check-in and no checkou
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'single:checkin',
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-06-22 09:20:00',

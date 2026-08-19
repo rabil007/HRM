@@ -40,6 +40,20 @@ function hikvisionTestCompany(): Company
     return setupCompanyWithSettingsPermissions(User::factory()->create(), []);
 }
 
+function additionalHikvisionTestCompany(Company $company, string $slug = 'hikvision-other-company'): Company
+{
+    return Company::query()->create([
+        'name' => 'Hikvision Other Company '.$slug,
+        'slug' => $slug,
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $company->country_id,
+        'currency_id' => $company->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+}
+
 function hikvisionSettings(): HikvisionSetting
 {
     $companyId = hikvisionTestCompany()->id;
@@ -48,20 +62,27 @@ function hikvisionSettings(): HikvisionSetting
         ?? configuredHikvisionSettings($companyId);
 }
 
-foreach ([
-    HikvisionAccessEvent::class,
-    HikvisionDevice::class,
-    HikvisionPerson::class,
-    HikvisionPersonGroup::class,
-] as $model) {
-    $model::creating(function ($model): void {
-        $companyId = $model->getAttributes()['company_id'] ?? null;
+function registerHikvisionModelCreatingHooks(): void
+{
+    foreach ([
+        HikvisionAccessEvent::class,
+        HikvisionDevice::class,
+        HikvisionPerson::class,
+        HikvisionPersonGroup::class,
+    ] as $model) {
+        $model::creating(function ($instance): void {
+            $companyId = $instance->getAttributes()['company_id'] ?? null;
 
-        if ($companyId === null || (int) $companyId <= 0) {
-            $model->company_id = hikvisionTestCompany()->id;
-        }
-    });
+            if ($companyId === null || (int) $companyId <= 0) {
+                $instance->company_id = hikvisionTestCompany()->id;
+            }
+        });
+    }
 }
+
+pest()->beforeEach(function (): void {
+    registerHikvisionModelCreatingHooks();
+});
 
 function linkHikvisionPersonToUserCompany(
     Employee $employee,
