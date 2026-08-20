@@ -656,7 +656,7 @@ class HikvisionService
     }
 
     /**
-     * @return array{fetched_count: int, message: string}
+     * @return array{fetched_count: int, device_count: int, mobile_count: int, message: string}
      */
     public function fetchAccessEvents(?CarbonInterface $date = null): array
     {
@@ -699,6 +699,8 @@ class HikvisionService
 
         return [
             'fetched_count' => $totalCount,
+            'device_count' => $fetchedCount,
+            'mobile_count' => $mobileCount,
             'message' => "Fetched {$totalCount} access record(s) for {$dateLabel} ({$fetchedCount} device, {$mobileCount} mobile app).",
         ];
     }
@@ -709,7 +711,7 @@ class HikvisionService
     }
 
     /**
-     * @return array{fetched_count: int, message: string}
+     * @return array{fetched_count: int, device_count: int, mobile_count: int, message: string}
      */
     public function fetchScheduledAccessEvents(): array
     {
@@ -718,6 +720,8 @@ class HikvisionService
 
         return [
             'fetched_count' => $yesterdayResult['fetched_count'],
+            'device_count' => $yesterdayResult['device_count'] ?? 0,
+            'mobile_count' => $yesterdayResult['mobile_count'] ?? 0,
             'message' => "Scheduled fetch: {$yesterdayResult['message']}",
         ];
     }

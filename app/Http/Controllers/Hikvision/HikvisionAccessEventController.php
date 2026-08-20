@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionPerson;
 use App\Models\HikvisionSetting;
+use App\Support\Hikvision\HikvisionFetchOrigin;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -148,11 +149,13 @@ class HikvisionAccessEventController extends Controller
         $settings = HikvisionSetting::forCompany($companyId);
 
         if (! $settings->isConfigured()) {
-
             return back()->withErrors([
                 'fetch' => 'Hikvision integration is not configured. Add credentials in Company Settings → Integrations → Hikvision.',
             ]);
         }
+
+        $settings->resolveStaleEventsFetch(5);
+        $settings->refresh();
 
         if ($settings->isEventsFetchProcessing()) {
             return back()->with('info', 'A fetch is already in progress.');
@@ -162,7 +165,11 @@ class HikvisionAccessEventController extends Controller
         $dateParam = $date->toDateString();
 
         $settings->beginEventsFetch();
-        FetchHikvisionAccessEventsJob::dispatch($settings->id, $dateParam);
+        FetchHikvisionAccessEventsJob::dispatch(
+            $settings->id,
+            $dateParam,
+            HikvisionFetchOrigin::Manual,
+        );
 
         $label = $date->isToday() ? 'today' : $date->format('d-m-Y');
 

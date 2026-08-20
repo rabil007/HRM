@@ -5,6 +5,7 @@ namespace App\Support\Queue;
 use App\Jobs\FetchHikvisionAccessEventsJob;
 use App\Mail\FailedQueueJobMail;
 use App\Models\JobRun;
+use App\Support\Hikvision\HikvisionFetchOrigin;
 use Carbon\CarbonInterface;
 use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Console\Events\ScheduledTaskFinished;
@@ -223,8 +224,21 @@ final class JobRunRecorder
             return [];
         }
 
-        if ($instance instanceof FetchHikvisionAccessEventsJob && filled($instance->date)) {
-            return ['date' => $instance->date];
+        if ($instance instanceof FetchHikvisionAccessEventsJob) {
+            $originValue = $instance->origin instanceof HikvisionFetchOrigin
+                ? $instance->origin->value
+                : (string) ($instance->origin ?? 'manual');
+
+            $context = [
+                'hikvision_setting_id' => $instance->hikvisionSettingId,
+                'fetch_origin' => $originValue,
+            ];
+
+            if (filled($instance->date)) {
+                $context['date'] = $instance->date;
+            }
+
+            return $context;
         }
 
         return [];
@@ -236,9 +250,13 @@ final class JobRunRecorder
     private function resolveQueueTrigger(string $name, array $context): string
     {
         if ($name === 'FetchHikvisionAccessEventsJob') {
-            return filled($context['date'] ?? null)
-                ? JobRun::TRIGGER_MANUAL
-                : JobRun::TRIGGER_SCHEDULE;
+            $origin = $context['fetch_origin'] ?? null;
+
+            if ($origin === HikvisionFetchOrigin::Manual->value || $origin === 'manual') {
+                return JobRun::TRIGGER_MANUAL;
+            }
+
+            return JobRun::TRIGGER_SCHEDULE;
         }
 
         return JobRun::TRIGGER_SYSTEM;

@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\HikvisionReconciliation;
 use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -26,15 +27,30 @@ class SyncCompanyHikvisionAttendanceJob implements ShouldQueue
     {
         $timezone = (string) config('app.timezone', 'UTC');
 
-        $attendanceSync->syncCompany(
+        $fromDate = Carbon::parse($this->from, $timezone);
+        $toDate = Carbon::parse($this->to, $timezone);
+
+        $synced = $attendanceSync->syncCompany(
             $this->companyId,
-            Carbon::parse($this->from, $timezone),
-            Carbon::parse($this->to, $timezone),
+            $fromDate,
+            $toDate,
         );
+
+        if ($fromDate->toDateString() === $toDate->toDateString()) {
+            HikvisionReconciliation::recordAttendanceSynced($this->companyId, $fromDate->toDateString(), $synced);
+        }
     }
 
     public function failed(Throwable $exception): void
     {
         report($exception);
+
+        $timezone = (string) config('app.timezone', 'UTC');
+        $fromDate = Carbon::parse($this->from, $timezone)->toDateString();
+        $toDate = Carbon::parse($this->to, $timezone)->toDateString();
+
+        if ($fromDate === $toDate) {
+            HikvisionReconciliation::markFailed($this->companyId, $fromDate, $exception->getMessage());
+        }
     }
 }

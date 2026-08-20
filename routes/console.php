@@ -21,14 +21,14 @@ Schedule::command('hikvision:fetch-access-events')
     ->everyMinute()
     ->timezone(HikvisionAccessEventsFetchSchedule::timezone())
     ->when(fn () => HikvisionAccessEventsFetchSchedule::isEnabled())
-    ->withoutOverlapping();
+    ->withoutOverlapping(15);
 
 Schedule::command('hikvision:fetch-todays-access-events')
     ->everyMinute()
     ->timezone(HikvisionEveningAccessEventsFetchSchedule::timezone())
     ->when(fn () => HikvisionEveningAccessEventsFetchSchedule::isEnabled())
     ->name('hikvision-evening-access-events')
-    ->withoutOverlapping();
+    ->withoutOverlapping(15);
 
 Schedule::command('payroll:ensure-future-periods')
     ->dailyAt('00:45')

@@ -2,6 +2,7 @@
 
 namespace App\Support\Hikvision;
 
+use App\Models\HikvisionReconciliation;
 use App\Models\HikvisionSetting;
 use App\Support\Settings\ApplicationTimezone;
 use App\Support\Settings\CompanyTimezone;
@@ -62,27 +63,87 @@ class HikvisionAccessEventsFetchSchedule
     }
 
     /**
+     * @return Collection<int, array{setting: HikvisionSetting, target_date: string, origin: HikvisionFetchOrigin}>
+     */
+    public static function dueReconciliations(): Collection
+    {
+        $default = (string) config('hikvision.events_fetch_schedule_at', '18:00');
+        $lookbackDays = max(1, (int) config('hikvision.reconciliation_lookback_days', 3));
+
+        try {
+            if (! Schema::hasTable('hikvision_settings')) {
+                return collect();
+            }
+
+            $settings = HikvisionSetting::query()
+                ->where('events_fetch_schedule_enabled', true)
+                ->get();
+        } catch (\Throwable) {
+            return collect();
+        }
+
+        $due = collect();
+
+        foreach ($settings as $setting) {
+            if (! $setting->isConfigured() || $setting->company_id === null) {
+                continue;
+            }
+
+            $companyId = (int) $setting->company_id;
+            $companyTimezone = CompanyTimezone::forCompany($companyId);
+            $companyNow = now($companyTimezone);
+            $currentTime = $companyNow->format('H:i');
+            $scheduleAt = filled($setting->events_fetch_schedule_at)
+                ? (string) $setting->events_fetch_schedule_at
+                : $default;
+
+            if ($currentTime < $scheduleAt) {
+                continue;
+            }
+
+            [$scheduleHour, $scheduleMinute] = explode(':', $scheduleAt);
+            $cycleCutoff = $companyNow->copy()->setTime((int) $scheduleHour, (int) $scheduleMinute, 0);
+
+            $dueForCompany = collect();
+
+            for ($daysAgo = $lookbackDays; $daysAgo >= 1; $daysAgo--) {
+                $targetDate = $companyNow->copy()->subDays($daysAgo)->toDateString();
+
+                if (HikvisionReconciliation::shouldDispatchReconciliation($companyId, $targetDate, $cycleCutoff)) {
+                    $isUnprocessed = ! HikvisionReconciliation::wasSuccessfullyProcessed($companyId, $targetDate);
+                    $origin = $daysAgo === 1
+                        ? HikvisionFetchOrigin::ScheduledReconciliation
+                        : HikvisionFetchOrigin::CatchUp;
+
+                    $dueForCompany->push([
+                        'setting' => $setting,
+                        'target_date' => $targetDate,
+                        'origin' => $origin,
+                        'is_unprocessed' => $isUnprocessed,
+                    ]);
+                }
+            }
+
+            $unprocessed = $dueForCompany->filter(fn (array $item): bool => $item['is_unprocessed']);
+            $stabilization = $dueForCompany->reject(fn (array $item): bool => $item['is_unprocessed']);
+
+            foreach ($unprocessed->concat($stabilization) as $item) {
+                unset($item['is_unprocessed']);
+                $due->push($item);
+            }
+        }
+
+        return $due->values();
+    }
+
+    /**
      * @return Collection<int, HikvisionSetting>
      */
     public static function settingsDueForDispatch(): Collection
     {
-        $default = (string) config('hikvision.events_fetch_schedule_at', '18:00');
-
-        return HikvisionSetting::query()
-            ->where('events_fetch_schedule_enabled', true)
-            ->get()
-            ->filter(function (HikvisionSetting $setting) use ($default): bool {
-                if (! $setting->isConfigured() || $setting->company_id === null) {
-                    return false;
-                }
-
-                $time = now(CompanyTimezone::forCompany((int) $setting->company_id))->format('H:i');
-                $scheduleAt = filled($setting->events_fetch_schedule_at)
-                    ? (string) $setting->events_fetch_schedule_at
-                    : $default;
-
-                return $scheduleAt === $time;
-            })
+        return self::dueReconciliations()
+            ->pluck('setting')
+            ->unique('id')
             ->values();
     }
 }

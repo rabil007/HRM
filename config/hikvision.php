@@ -14,6 +14,8 @@ return [
 
     'timeout' => (int) env('HIKVISION_TIMEOUT', 20),
 
+    'reconciliation_lookback_days' => (int) env('HIKVISION_RECONCILIATION_LOOKBACK_DAYS', 3),
+
     'events_fetch_schedule_at' => env('HIKVISION_EVENTS_FETCH_SCHEDULE_AT', '18:00'),
 
     'events_evening_fetch_schedule_at' => env('HIKVISION_EVENING_FETCH_SCHEDULE_AT', '20:00'),

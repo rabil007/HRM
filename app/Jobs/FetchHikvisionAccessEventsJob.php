@@ -2,9 +2,12 @@
 
 namespace App\Jobs;
 
+use App\Models\HikvisionReconciliation;
 use App\Models\HikvisionSetting;
 use App\Models\JobRun;
 use App\Services\HikvisionService;
+use App\Support\Hikvision\HikvisionFetchOrigin;
+use App\Support\Settings\CompanyTimezone;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
@@ -20,11 +23,12 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
 
     public int $timeout = 180;
 
-    public function __construct(public int $hikvisionSettingId, public ?string $date = null)
-    {
-        if (! filled($this->date)) {
-            $this->timeout = 180;
-        }
+    public function __construct(
+        public int $hikvisionSettingId,
+        public ?string $date = null,
+        public string|HikvisionFetchOrigin|null $origin = null,
+    ) {
+        $this->timeout = 180;
     }
 
     public function handle(?HikvisionService $hikvision = null): void
@@ -52,52 +56,97 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
         $hikvision ??= HikvisionService::forSetting($settings);
         $settings->markEventsFetchRunning();
 
-        $timezone = (string) config('app.timezone', 'UTC');
-        $date = filled($this->date)
-            ? Carbon::parse($this->date, $timezone)->startOfDay()
-            : null;
+        $companyTimezone = CompanyTimezone::forCompany($companyId);
+        $targetDateCarbon = filled($this->date)
+            ? Carbon::parse($this->date, $companyTimezone)->startOfDay()
+            : now($companyTimezone)->subDay()->startOfDay();
+        $targetDateString = $targetDateCarbon->toDateString();
+
+        $resolvedOrigin = $this->resolveOrigin($companyTimezone);
 
         $result = null;
         $fetchFailed = false;
 
         try {
             $result = filled($this->date)
-                ? $hikvision->fetchAccessEvents($date)
+                ? $hikvision->fetchAccessEvents($targetDateCarbon)
                 : $hikvision->fetchScheduledAccessEvents();
         } catch (RuntimeException $exception) {
             $fetchFailed = true;
             $settings->markEventsFetchFailed($exception->getMessage());
         } finally {
             if (! $fetchFailed) {
-                if (filled($this->date) && $date instanceof Carbon) {
-                    SyncHikvisionAttendanceJob::dispatch($date->toDateString(), $companyId);
-                } elseif (! filled($this->date)) {
-                    SyncHikvisionAttendanceJob::dispatch(null, $companyId);
-                }
+                SyncHikvisionAttendanceJob::dispatch($targetDateString, $companyId);
             }
         }
 
         if (! $fetchFailed && $result !== null) {
             $settings->markEventsFetchCompleted($result['message']);
 
+            $fetchedCount = (int) ($result['fetched_count'] ?? 0);
+            $deviceCount = (int) ($result['device_count'] ?? 0);
+            $mobileCount = (int) ($result['mobile_count'] ?? 0);
+
+            $isPastDate = $targetDateCarbon->lt(now($companyTimezone)->startOfDay());
+            if ($isPastDate) {
+                HikvisionReconciliation::markCompleted(
+                    $companyId,
+                    $targetDateString,
+                    $resolvedOrigin,
+                    $fetchedCount,
+                    $deviceCount,
+                    $mobileCount,
+                );
+            }
+
             $jobId = $this->job ? $this->job->uuid() : null;
             if ($jobId) {
                 JobRun::query()->where('correlation_id', $jobId)->update([
                     'message' => $result['message'],
                     'context' => [
-                        'fetched_count' => $result['fetched_count'],
-                        'date' => $this->date,
+                        'fetched_count' => $fetchedCount,
+                        'device_count' => $deviceCount,
+                        'mobile_count' => $mobileCount,
+                        'date' => $targetDateString,
                         'company_id' => $companyId,
+                        'fetch_origin' => $resolvedOrigin->value,
                     ],
                 ]);
             }
         }
     }
 
+    public function resolveOrigin(string $companyTimezone): HikvisionFetchOrigin
+    {
+        if ($this->origin instanceof HikvisionFetchOrigin) {
+            return $this->origin;
+        }
+
+        if (filled($this->origin)) {
+            return HikvisionFetchOrigin::fromValue((string) $this->origin);
+        }
+
+        if (! filled($this->date)) {
+            return HikvisionFetchOrigin::ScheduledReconciliation;
+        }
+
+        $today = now($companyTimezone)->toDateString();
+        if ($this->date === $today) {
+            return HikvisionFetchOrigin::ScheduledToday;
+        }
+
+        return HikvisionFetchOrigin::Manual;
+    }
+
     public function failed(Throwable $exception): void
     {
-        HikvisionSetting::find($this->hikvisionSettingId)?->markEventsFetchFailed(
+        $settings = HikvisionSetting::find($this->hikvisionSettingId);
+        $settings?->markEventsFetchFailed(
             $exception->getMessage() !== '' ? $exception->getMessage() : 'Failed to fetch Hikvision access records.',
         );
+
+        if (filled($this->date) && $settings?->company_id !== null) {
+            HikvisionReconciliation::markFailed((int) $settings->company_id, $this->date, $exception->getMessage());
+        }
     }
 }

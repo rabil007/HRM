@@ -26,9 +26,34 @@ Each settings row has a non-sequential `public_id`. The callback URL is:
 
 Processing resolves only integrations with a non-null `company_id` and `webhook_enabled = true`. Signature failures, disabled integrations, and orphan (`company_id` null) rows all return a generic 404. Payload `company_id` values are ignored.
 
-## Scheduled jobs
+## Scheduled jobs, reconciliation, and stabilization window
 
-Morning and evening fetch commands run every minute. They dispatch only for configured company-owned settings whose enabled schedule time matches the current application timezone. Each `FetchHikvisionAccessEventsJob` carries `hikvision_setting_id`. Jobs with missing settings or `company_id = null` exit safely without syncing attendance for company `0`.
+The scheduler runs fetch commands every minute:
+
+1. **Daily reconciliation and stabilization replay (`hikvision:fetch-access-events`)**:
+   - Dispatches once the company's configured schedule time (`events_fetch_schedule_at`, default `18:00`) has passed in the company's operational timezone.
+   - Reconciles yesterday's access records and attendance.
+   - Implements a **rolling lookback and stabilization window** (`hikvision.reconciliation_lookback_days`, default 3 days).
+   - **Stabilization Replay:** Because Hik-Connect mobile attendance is eventually consistent, a `completed` reconciliation status indicates that processing succeeded, **not** that Hikvision has finalized all late mobile data. Therefore, all target dates inside the lookback window are safely re-evaluated and re-fetched on subsequent daily reconciliation cycles (at most once per cycle per date).
+   - **Chronological & Prioritized Dispatch:** Unprocessed or failed dates are dispatched first in chronological order, followed by previously completed stabilization replays.
+   - **Idempotency:** Repeated fetches are fully idempotent. Newly arrived mobile events update existing attendance records and source badges without duplicating events or records. Manual HR attendance records (`source = manual`) are never overwritten.
+   - **Historical Boundaries:** Dates older than the configured lookback window exit automatic stabilization and require manual recovery via the Access Events page if historical gaps exist.
+   - Includes stale fetch protection (auto-resolving abandoned queued/running statuses after 5 minutes) and bounded scheduler overlap protection (`withoutOverlapping(15)`).
+
+2. **Same-day evening fetch (`hikvision:fetch-todays-access-events`)**:
+   - Dispatches at the configured evening schedule time (`events_evening_fetch_schedule_at`, default `20:00`) in the company timezone.
+   - Best-effort pull of today's access control events.
+   - Does **not** mark the date as final reconciliation because mobile app check-in/out records can be delayed by Hik-Connect and processed later. Next-day reconciliation and subsequent stabilization replays remain the authoritative recovery mechanism.
+   - No assumptions are made regarding fixed mobile data processing hours (e.g. 18:00, 19:00, or 1 hour post-punch).
+
+3. **Manual fetch**:
+   - Administrative recovery action on the Access Events page (`/hikvision/access-events`).
+   - Allows on-demand fetching and recalculation for any selected date.
+   - Distinguishable in `job_runs` via explicit `fetch_origin` tracking (`manual`, `scheduled_today`, `scheduled_reconciliation`, `catch_up`).
+
+## Troubleshooting and Operations
+
+- **Stale Scheduler Mutexes:** If a scheduler dispatcher is suspected of being blocked by an abandoned lock, run `php artisan schedule:clear-cache` during a controlled maintenance window. Do not run this unconditionally during routine deployments as it clears mutex locks for all scheduled application tasks.
 
 ## Tenant isolation
 
