@@ -117,3 +117,4 @@ return Application::configure(basePath: dirname(__DIR__))
             return app(SecurityHeaders::class)->apply($request, $response);
         });
     })->create();
+ 
