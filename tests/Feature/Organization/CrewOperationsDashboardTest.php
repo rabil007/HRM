@@ -50,7 +50,6 @@ test('authorized users can view daily operations dashboard essentials', function
         );
 });
 
-
 test('users with only overview view permission can access crew operations overview', function () {
     $user = User::factory()->create();
     ['company' => $company] = makeCrewOperationsFixtures();
