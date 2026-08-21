@@ -23,41 +23,65 @@ const FALLBACK_LEAVE_COLOR = '#8b5cf6';
 function LeaveDayDetails({ leaves }: { leaves: CalendarLeave[] }) {
     return (
         <div className="space-y-3">
-            {leaves.map((leave) => (
-                <div
-                    key={leave.id}
-                    className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3 dark:border-white/8 dark:bg-white/5"
-                >
-                    <div className="flex items-center gap-2">
-                        <span
-                            className="size-2.5 shrink-0 rounded-full ring-2 ring-white/10"
-                            style={{
-                                backgroundColor:
-                                    leave.leave_type?.color ??
-                                    FALLBACK_LEAVE_COLOR,
-                            }}
-                        />
-                        <span className="text-sm font-semibold text-foreground">
-                            {leave.employee?.name ?? 'Unknown employee'}
-                        </span>
-                    </div>
-                    <div className="space-y-1 pl-4 text-xs text-muted-foreground">
-                        <div className="font-medium text-foreground/90">
-                            {leave.leave_type?.name ?? 'Leave'}
-                        </div>
-                        <div>
-                            {formatDisplayDate(leave.start_date)} —{' '}
-                            {formatDisplayDate(leave.end_date)}
-                        </div>
-                    </div>
-                    <Link
-                        href={`/attendance/leave-requests/${leave.id}`}
-                        className="inline-flex text-xs font-semibold text-primary hover:underline"
+            {leaves.map((leave) => {
+                const isPending = leave.status === 'pending';
+                const leaveColor =
+                    leave.leave_type?.color ?? FALLBACK_LEAVE_COLOR;
+
+                return (
+                    <div
+                        key={leave.id}
+                        className={cn(
+                            'space-y-2 rounded-lg border p-3 transition-colors',
+                            isPending
+                                ? 'border-amber-500/30 bg-amber-500/5 dark:border-amber-400/20 dark:bg-amber-500/10'
+                                : 'border-border/60 bg-muted/30 dark:border-white/8 dark:bg-white/5',
+                        )}
                     >
-                        View request
-                    </Link>
-                </div>
-            ))}
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                                <span
+                                    className="size-2.5 shrink-0 rounded-full ring-2 ring-white/10"
+                                    style={{ backgroundColor: leaveColor }}
+                                />
+                                <span className="truncate text-sm font-semibold text-foreground">
+                                    {leave.employee?.name ?? 'Unknown employee'}
+                                </span>
+                            </div>
+                            {isPending ? (
+                                <Badge
+                                    variant="outline"
+                                    className="shrink-0 border-amber-500/40 bg-amber-500/10 text-[10px] font-bold text-amber-700 dark:text-amber-300"
+                                >
+                                    Pending approval
+                                </Badge>
+                            ) : (
+                                <Badge
+                                    variant="outline"
+                                    className="shrink-0 border-emerald-500/40 bg-emerald-500/10 text-[10px] font-bold text-emerald-700 dark:text-emerald-300"
+                                >
+                                    Approved
+                                </Badge>
+                            )}
+                        </div>
+                        <div className="space-y-1 pl-4 text-xs text-muted-foreground">
+                            <div className="font-medium text-foreground/90">
+                                {leave.leave_type?.name ?? 'Leave'}
+                            </div>
+                            <div>
+                                {formatDisplayDate(leave.start_date)} —{' '}
+                                {formatDisplayDate(leave.end_date)}
+                            </div>
+                        </div>
+                        <Link
+                            href={`/attendance/leave-requests/${leave.id}`}
+                            className="inline-flex text-xs font-semibold text-primary hover:underline"
+                        >
+                            View request
+                        </Link>
+                    </div>
+                );
+            })}
         </div>
     );
 }
@@ -65,25 +89,34 @@ function LeaveDayDetails({ leaves }: { leaves: CalendarLeave[] }) {
 function LeaveDayTooltipContent({ leaves }: { leaves: CalendarLeave[] }) {
     return (
         <div className="space-y-2 text-left">
-            {leaves.map((leave) => (
-                <div key={leave.id} className="space-y-0.5">
-                    <div className="flex items-center gap-2 font-semibold">
-                        <span
-                            className="size-2 shrink-0 rounded-full"
-                            style={{
-                                backgroundColor:
-                                    leave.leave_type?.color ??
-                                    FALLBACK_LEAVE_COLOR,
-                            }}
-                        />
-                        <span>{leave.leave_type?.name ?? 'Leave'}</span>
+            {leaves.map((leave) => {
+                const isPending = leave.status === 'pending';
+                const leaveColor =
+                    leave.leave_type?.color ?? FALLBACK_LEAVE_COLOR;
+
+                return (
+                    <div key={leave.id} className="space-y-0.5">
+                        <div className="flex items-center justify-between gap-2 font-semibold">
+                            <div className="flex items-center gap-1.5">
+                                <span
+                                    className="size-2 shrink-0 rounded-full"
+                                    style={{ backgroundColor: leaveColor }}
+                                />
+                                <span>{leave.leave_type?.name ?? 'Leave'}</span>
+                            </div>
+                            {isPending ? (
+                                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                                    · Pending
+                                </span>
+                            ) : null}
+                        </div>
+                        <div className="pl-3.5 text-[11px] text-muted-foreground">
+                            {formatDisplayDate(leave.start_date)} —{' '}
+                            {formatDisplayDate(leave.end_date)}
+                        </div>
                     </div>
-                    <div className="pl-4 text-[11px] text-muted-foreground">
-                        {formatDisplayDate(leave.start_date)} —{' '}
-                        {formatDisplayDate(leave.end_date)}
-                    </div>
-                </div>
-            ))}
+                );
+            })}
             <p className="text-[10px] text-muted-foreground/80">
                 Click for details
             </p>
@@ -116,9 +149,44 @@ function DayCell({
     onBeginSelection: (date: string) => void;
     onExtendSelection: (date: string) => void;
 }) {
+    const approvedLeaves = useMemo(
+        () => leaves.filter((l) => l.status === 'approved'),
+        [leaves],
+    );
+    const pendingLeaves = useMemo(
+        () => leaves.filter((l) => l.status === 'pending'),
+        [leaves],
+    );
     const hasLeave = leaves.length > 0;
-    const primaryColor = leaves[0]?.leave_type?.color ?? FALLBACK_LEAVE_COLOR;
+    const hasApproved = approvedLeaves.length > 0;
+    const hasPending = pendingLeaves.length > 0;
+    const isPendingOnly = hasPending && !hasApproved;
+
+    const primaryColor =
+        (hasApproved
+            ? approvedLeaves[0]?.leave_type?.color
+            : pendingLeaves[0]?.leave_type?.color) ?? FALLBACK_LEAVE_COLOR;
     const showSelectionHighlight = isInSelection && (!hasLeave || isSelecting);
+
+    const cellStyle = useMemo(() => {
+        if (!inMonth || !hasLeave || showSelectionHighlight) {
+            return undefined;
+        }
+
+        if (hasApproved) {
+            return {
+                backgroundColor: primaryColor,
+                boxShadow: `0 4px 14px ${primaryColor}40`,
+            };
+        }
+
+        return {
+            backgroundColor: `${primaryColor}18`,
+            backgroundImage: `repeating-linear-gradient(135deg, ${primaryColor}28 0, ${primaryColor}28 2.5px, transparent 2.5px, transparent 6px)`,
+            borderColor: primaryColor,
+            boxShadow: `0 2px 8px ${primaryColor}20`,
+        };
+    }, [hasApproved, hasLeave, inMonth, primaryColor, showSelectionHighlight]);
 
     const cell = (
         <div
@@ -135,9 +203,13 @@ function DayCell({
                     !showSelectionHighlight &&
                     'bg-muted/20 dark:bg-white/3',
                 inMonth &&
-                    hasLeave &&
+                    hasApproved &&
                     !showSelectionHighlight &&
                     'text-white shadow-sm hover:scale-105 hover:shadow-md',
+                inMonth &&
+                    isPendingOnly &&
+                    !showSelectionHighlight &&
+                    'border-2 border-dashed font-bold text-foreground hover:scale-105 hover:shadow-md dark:text-white',
                 inMonth &&
                     showSelectionHighlight &&
                     'bg-primary/25 text-primary ring-1 ring-primary/40',
@@ -146,22 +218,26 @@ function DayCell({
                 canCreate && !hasLeave && 'cursor-cell touch-none select-none',
                 hasLeave && !isSelecting && 'cursor-pointer',
             )}
-            style={
-                inMonth && hasLeave && !showSelectionHighlight
-                    ? {
-                          backgroundColor: primaryColor,
-                          boxShadow: `0 4px 14px ${primaryColor}40`,
-                      }
-                    : undefined
-            }
+            style={cellStyle}
         >
             {day}
+            {isPendingOnly ? (
+                <span
+                    className="absolute top-0.5 right-0.5 size-1.5 rounded-full ring-1 ring-background"
+                    style={{ backgroundColor: primaryColor }}
+                />
+            ) : null}
             {hasLeave && leaves.length > 1 ? (
-                <span className="absolute bottom-1 left-1/2 flex -translate-x-1/2 gap-0.5">
+                <span className="absolute bottom-0.5 left-1/2 flex -translate-x-1/2 gap-0.5">
                     {leaves.slice(0, 3).map((leave) => (
                         <span
                             key={leave.id}
-                            className="size-1 rounded-full bg-white/90"
+                            className={cn(
+                                'size-1 rounded-full',
+                                leave.status === 'pending'
+                                    ? 'ring-1 ring-background ring-inset'
+                                    : 'bg-white/90',
+                            )}
                             style={{
                                 backgroundColor:
                                     leave.leave_type?.color ??
@@ -282,16 +358,25 @@ export function MonthMiniCalendar({
         return rows;
     }, [cells]);
 
-    const monthLeaveDays = useMemo(() => {
-        let count = 0;
+    const monthStats = useMemo(() => {
+        let approved = 0;
+        let pending = 0;
 
         for (const cell of cells) {
-            if (cell.inMonth && (leaveDayMap.get(cell.date)?.length ?? 0) > 0) {
-                count += 1;
+            if (!cell.inMonth) {
+                continue;
+            }
+
+            const dayLeaves = leaveDayMap.get(cell.date) ?? [];
+
+            if (dayLeaves.some((l) => l.status === 'approved')) {
+                approved += 1;
+            } else if (dayLeaves.some((l) => l.status === 'pending')) {
+                pending += 1;
             }
         }
 
-        return count;
+        return { approved, pending, total: approved + pending };
     }, [cells, leaveDayMap]);
 
     return (
@@ -313,13 +398,26 @@ export function MonthMiniCalendar({
                         {year}
                     </div>
                 </div>
-                {monthLeaveDays > 0 ? (
-                    <Badge
-                        variant="secondary"
-                        className="rounded-lg bg-muted/50 text-[10px] font-bold tracking-wider uppercase dark:bg-white/8"
-                    >
-                        {monthLeaveDays} day{monthLeaveDays === 1 ? '' : 's'}
-                    </Badge>
+                {monthStats.total > 0 ? (
+                    <div className="flex flex-wrap items-center justify-end gap-1">
+                        {monthStats.approved > 0 ? (
+                            <Badge
+                                variant="secondary"
+                                className="rounded-lg bg-muted/50 text-[10px] font-bold tracking-wider uppercase dark:bg-white/8"
+                            >
+                                {monthStats.approved} day
+                                {monthStats.approved === 1 ? '' : 's'}
+                            </Badge>
+                        ) : null}
+                        {monthStats.pending > 0 ? (
+                            <Badge
+                                variant="outline"
+                                className="rounded-lg border-amber-500/40 bg-amber-500/10 text-[10px] font-bold tracking-wider text-amber-700 uppercase dark:text-amber-300"
+                            >
+                                {monthStats.pending} pending
+                            </Badge>
+                        ) : null}
+                    </div>
                 ) : null}
             </div>
 

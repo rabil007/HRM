@@ -117,6 +117,17 @@ export function LeaveTypeLegend({
                             : 'No approved leave types in this year.'}
                     </p>
                 ) : null}
+
+                <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-3 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                        <span className="size-2.5 rounded-sm bg-primary shadow-xs" />
+                        <span>Approved</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="size-2.5 rounded-sm border border-dashed border-amber-500 bg-amber-500/20" />
+                        <span>Pending</span>
+                    </div>
+                </div>
             </CardContent>
         </Card>
     );

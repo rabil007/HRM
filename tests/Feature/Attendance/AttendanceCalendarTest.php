@@ -222,7 +222,7 @@ test('attendance calendar exposes pending request count for selected year', func
         ->assertInertia(fn (Assert $page) => $page->where('pending_request_count', 1));
 });
 
-test('attendance calendar only includes approved leave requests', function () {
+test('attendance calendar includes approved and pending leave requests with status while excluding rejected and cancelled', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
     $employee->update(['user_id' => $user->id]);
@@ -230,20 +230,40 @@ test('attendance calendar only includes approved leave requests', function () {
 
     grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
 
-    $statuses = ['pending', 'rejected', 'cancelled'];
+    // Pending request
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-03-01',
+        'end_date' => '2026-03-02',
+        'total_days' => 2,
+        'status' => 'pending',
+    ]);
 
-    foreach ($statuses as $status) {
-        createLeaveRequestRecord([
-            'company_id' => $company->id,
-            'employee_id' => $employee->id,
-            'leave_type_id' => $leaveType->id,
-            'start_date' => '2026-03-01',
-            'end_date' => '2026-03-02',
-            'total_days' => 2,
-            'status' => $status,
-        ]);
-    }
+    // Rejected request (should not appear)
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-03-10',
+        'end_date' => '2026-03-11',
+        'total_days' => 2,
+        'status' => 'rejected',
+    ]);
 
+    // Cancelled request (should not appear)
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-03-20',
+        'end_date' => '2026-03-21',
+        'total_days' => 2,
+        'status' => 'cancelled',
+    ]);
+
+    // Approved request
     createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
@@ -259,8 +279,11 @@ test('attendance calendar only includes approved leave requests', function () {
     $this->get(route('attendance.calendar.index', ['year' => 2026]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('approved_leaves', 1)
-            ->where('approved_leaves.0.start_date', '2026-04-01'));
+            ->has('calendar_leaves', 2)
+            ->where('calendar_leaves.0.start_date', '2026-03-01')
+            ->where('calendar_leaves.0.status', 'pending')
+            ->where('calendar_leaves.1.start_date', '2026-04-01')
+            ->where('calendar_leaves.1.status', 'approved'));
 });
 
 test('users without view_all permission only see their own approved leaves on calendar', function () {
@@ -566,4 +589,143 @@ test('attendance calendar form employees are limited to linked employee without 
             ->where('can.approve', false)
             ->has('form_employees', 1)
             ->where('form_employees.0.id', $employee->id));
+});
+
+test('pending leave carries status and does not increase approved leave days stats', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
+    $employee->update(['user_id' => $user->id]);
+    $leaveType->update(['days_per_year' => 30]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-03',
+        'total_days' => 3,
+        'status' => 'approved',
+        'approved_by' => $user->id,
+        'decided_at' => now(),
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-05',
+        'total_days' => 5,
+        'status' => 'pending',
+    ]);
+
+    app(LeaveBalanceManager::class)->syncEmployeeYear($company->id, $employee->id, 2026);
+
+    $this->get(route('attendance.calendar.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('calendar_leaves', 2)
+            ->where('calendar_leaves.0.status', 'approved')
+            ->where('calendar_leaves.0.start_date', '2026-06-01')
+            ->where('calendar_leaves.1.status', 'pending')
+            ->where('calendar_leaves.1.start_date', '2026-07-01')
+            ->where('pending_request_count', 1)
+            ->where('leave_types.0.entitled_days', 30)
+            ->where('leave_types.0.used_days', 3)
+            ->where('leave_types.0.pending_days', 5)
+            ->where('leave_types.0.remaining_days', 22));
+});
+
+test('users without view_all permission cannot see another employee pending leave on calendar', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
+    ['employee' => $otherEmployee] = makeAttendanceCalendarActors($company);
+
+    $ownEmployee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $ownEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-05-01',
+        'end_date' => '2026-05-02',
+        'total_days' => 2,
+        'status' => 'pending',
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $otherEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-05-10',
+        'end_date' => '2026-05-12',
+        'total_days' => 3,
+        'status' => 'pending',
+    ]);
+
+    $this->get(route('attendance.calendar.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('calendar_leaves', 1)
+            ->where('calendar_leaves.0.employee.id', $ownEmployee->id)
+            ->where('calendar_leaves.0.status', 'pending')
+            ->where('pending_request_count', 1));
+});
+
+test('cross company pending and approved leave is never exposed on calendar', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    ['company' => $otherCompany] = makeAttendanceCalendarFixtures();
+    ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
+    ['employee' => $foreignEmployee, 'leaveType' => $foreignLeaveType] = makeAttendanceCalendarActors($otherCompany);
+
+    $ownEmployee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.view_all',
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $ownEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-05-01',
+        'end_date' => '2026-05-02',
+        'total_days' => 2,
+        'status' => 'pending',
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $otherCompany->id,
+        'employee_id' => $foreignEmployee->id,
+        'leave_type_id' => $foreignLeaveType->id,
+        'start_date' => '2026-05-01',
+        'end_date' => '2026-05-02',
+        'total_days' => 2,
+        'status' => 'pending',
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $otherCompany->id,
+        'employee_id' => $foreignEmployee->id,
+        'leave_type_id' => $foreignLeaveType->id,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-02',
+        'total_days' => 2,
+        'status' => 'approved',
+    ]);
+
+    $this->get(route('attendance.calendar.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('calendar_leaves', 1)
+            ->where('calendar_leaves.0.employee.id', $ownEmployee->id)
+            ->where('pending_request_count', 1));
 });

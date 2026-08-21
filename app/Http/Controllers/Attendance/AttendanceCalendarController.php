@@ -34,7 +34,7 @@ class AttendanceCalendarController extends Controller
 
         $leaveRequests = LeaveRequest::query()
             ->where('company_id', $companyId)
-            ->where('status', 'approved')
+            ->whereIn('status', ['approved', 'pending'])
             ->tap(fn (Builder $query) => $this->applyEmployeeScope($query, $selectedEmployeeId))
             ->where('start_date', '<=', "{$year}-12-31")
             ->where('end_date', '>=', "{$year}-01-01")
@@ -45,7 +45,7 @@ class AttendanceCalendarController extends Controller
             ->orderBy('start_date')
             ->get();
 
-        $approvedLeaves = $leaveRequests
+        $calendarLeaves = $leaveRequests
             ->map(fn (LeaveRequest $leaveRequest) => $this->serializeCalendarLeave($leaveRequest))
             ->values()
             ->all();
@@ -69,7 +69,8 @@ class AttendanceCalendarController extends Controller
         return Inertia::render('attendance/calendar', [
             'year' => $year,
             'today' => now()->toDateString(),
-            'approved_leaves' => $approvedLeaves,
+            'calendar_leaves' => $calendarLeaves,
+            'approved_leaves' => $calendarLeaves,
             'leave_types' => $leaveTypes,
             'pending_request_count' => $pendingRequestCount,
             'linked_employee_id' => $linkedEmployeeId,
@@ -232,6 +233,7 @@ class AttendanceCalendarController extends Controller
     {
         return [
             'id' => $leaveRequest->id,
+            'status' => $leaveRequest->status,
             'employee' => $leaveRequest->employee ? [
                 'id' => $leaveRequest->employee->id,
                 'name' => $leaveRequest->employee->name,

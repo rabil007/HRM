@@ -31,6 +31,7 @@ export type CalendarPermissions = {
 
 export type CalendarLeave = {
     id: number;
+    status: 'approved' | 'pending' | string;
     employee: {
         id: number;
         name: string;

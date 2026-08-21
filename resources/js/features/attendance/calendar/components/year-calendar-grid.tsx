@@ -6,7 +6,7 @@ import { MonthMiniCalendar } from './month-mini-calendar';
 export function YearCalendarGrid({
     year,
     today,
-    approvedLeaves,
+    calendarLeaves,
     canCreate,
     isSelecting,
     isDateInRange,
@@ -15,7 +15,7 @@ export function YearCalendarGrid({
 }: {
     year: number;
     today: string;
-    approvedLeaves: CalendarLeave[];
+    calendarLeaves: CalendarLeave[];
     canCreate: boolean;
     isSelecting: boolean;
     isDateInRange: (date: string) => boolean;
@@ -23,8 +23,8 @@ export function YearCalendarGrid({
     onExtendSelection: (date: string) => void;
 }) {
     const leaveDayMap = useMemo(
-        () => buildLeaveDayMap(approvedLeaves, year),
-        [approvedLeaves, year],
+        () => buildLeaveDayMap(calendarLeaves, year),
+        [calendarLeaves, year],
     );
     const months = useMemo(
         () => Array.from({ length: 12 }, (_, index) => index),

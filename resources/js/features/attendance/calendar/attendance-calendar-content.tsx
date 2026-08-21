@@ -32,7 +32,7 @@ import type {
 export function AttendanceCalendarContent({
     year,
     today,
-    approved_leaves,
+    calendar_leaves,
     leave_types,
     pending_request_count,
     selected_employee_id,
@@ -47,7 +47,7 @@ export function AttendanceCalendarContent({
 }: {
     year: number;
     today: string;
-    approved_leaves: CalendarLeave[];
+    calendar_leaves: CalendarLeave[];
     leave_types: CalendarLeaveType[];
     pending_request_count: number;
     selected_employee_id: number | null;
@@ -64,17 +64,17 @@ export function AttendanceCalendarContent({
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const form = useForm(defaultLeaveRequestFormData());
     const stats = useMemo(
-        () => getCalendarStats(approved_leaves, year),
-        [approved_leaves, year],
+        () => getCalendarStats(calendar_leaves, year),
+        [calendar_leaves, year],
     );
     const leaveDayMap = useMemo(
-        () => buildLeaveDayMap(approved_leaves, year),
-        [approved_leaves, year],
+        () => buildLeaveDayMap(calendar_leaves, year),
+        [calendar_leaves, year],
     );
     const canCreateFromCalendar = can.create && selected_employee_id !== null;
     const showEmptyState =
         selected_employee_id !== null &&
-        approved_leaves.length === 0 &&
+        calendar_leaves.length === 0 &&
         pending_request_count === 0;
     const selectedEmployeeLabel =
         selected_employee?.name?.trim() || 'This employee';
@@ -127,6 +127,7 @@ export function AttendanceCalendarContent({
                 setIsSheetOpen(false);
                 router.reload({
                     only: [
+                        'calendar_leaves',
                         'approved_leaves',
                         'leave_types',
                         'pending_request_count',
@@ -144,8 +145,8 @@ export function AttendanceCalendarContent({
                 title="Calendar"
                 description={
                     canCreateFromCalendar
-                        ? 'Approved leave for the selected employee. Hover or click colored days for details. Drag across empty days to create a request.'
-                        : 'Approved leave for the selected employee. Hover or click colored days for details.'
+                        ? 'Leave schedule for the selected employee. Hover or click marked days for details. Drag across empty days to create a request.'
+                        : 'Leave schedule for the selected employee. Hover or click marked days for details.'
                 }
             />
 
@@ -175,7 +176,7 @@ export function AttendanceCalendarContent({
                     <YearCalendarGrid
                         year={year}
                         today={today}
-                        approvedLeaves={approved_leaves}
+                        calendarLeaves={calendar_leaves}
                         canCreate={canCreateFromCalendar}
                         isSelecting={isSelecting}
                         isDateInRange={isDateInRange}

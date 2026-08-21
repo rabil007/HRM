@@ -14,6 +14,7 @@ import type { LeaveRequestEmployeeOption } from '@/features/attendance/leave-req
 export default function AttendanceCalendar({
     year,
     today,
+    calendar_leaves,
     approved_leaves,
     leave_types,
     pending_request_count,
@@ -29,7 +30,8 @@ export default function AttendanceCalendar({
 }: {
     year: number;
     today: string;
-    approved_leaves: CalendarLeave[];
+    calendar_leaves?: CalendarLeave[];
+    approved_leaves?: CalendarLeave[];
     leave_types: CalendarLeaveType[];
     pending_request_count: number;
     selected_employee_id: number | null;
@@ -42,13 +44,15 @@ export default function AttendanceCalendar({
     can: CalendarPermissions;
     today_timeline: TodayTimeline;
 }) {
+    const leaves = calendar_leaves ?? approved_leaves ?? [];
+
     return (
         <>
             <Head title="Calendar" />
             <AttendanceCalendarContent
                 year={year}
                 today={today}
-                approved_leaves={approved_leaves}
+                calendar_leaves={leaves}
                 leave_types={leave_types}
                 pending_request_count={pending_request_count}
                 selected_employee_id={selected_employee_id}
