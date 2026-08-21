@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
 use App\Support\CrewOperations\CrewOperationsSettings;
+use App\Support\CrewOperations\DispatchCrewOperationalAlertEmailDigests;
 use App\Support\CrewOperations\QueueCrewOperationalAlertEmails;
 use App\Support\CrewOperations\ReconcileCrewOperationalAlerts;
 use App\Support\CrewOperations\ResolveCrewOperationalAlertUrl;
@@ -39,7 +40,7 @@ function assertCrewEmailMigrationIdentifiersAreShort(): void
 {
     $path = database_path('migrations/2026_08_07_173206_create_crew_operational_alert_email_deliveries_table.php');
     $contents = file_get_contents($path);
-    preg_match_all("/indexName:\\s*'([^']+)'/", $contents, $fk);
+    preg_match_all("/indexName:\s*'([^']+)'/", $contents, $fk);
     preg_match_all("/'(crew_alert_email_[^']+)'/", $contents, $named);
 
     foreach (array_unique(array_merge($fk[1] ?? [], $named[1] ?? [])) as $name) {
@@ -81,6 +82,7 @@ test('new alert creates one email delivery for each eligible selected recipient'
 
     createOverdueAssignmentForAlerts($fixtures);
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
 
     expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(2);
     Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 2);
@@ -100,7 +102,9 @@ test('repeated unchanged reconciliation does not create duplicate email', functi
     createOverdueAssignmentForAlerts($fixtures);
 
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
 
     expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(1);
     Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 1);
@@ -157,17 +161,20 @@ test('severity escalation and reactivation create new email for new notification
     $assignment = createOverdueAssignmentForAlerts($fixtures);
 
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
     $alert = CrewOperationalAlert::query()->where('company_id', $companyId)->firstOrFail();
     expect($alert->notification_version)->toBe(1)
         ->and(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(1);
 
     $assignment->update(['planned_signoff_at' => '2026-09-01 00:00:00']);
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
     expect($alert->fresh()->status)->toBe(CrewOperationalAlertStatus::Resolved);
 
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-08 12:00:00', 'Asia/Dubai'));
     $assignment->update(['planned_signoff_at' => '2026-08-01 00:00:00']);
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
 
     expect($alert->fresh()->status)->toBe(CrewOperationalAlertStatus::Active)
         ->and($alert->fresh()->notification_version)->toBe(2)
@@ -503,6 +510,7 @@ test('web push and email queues remain independent for the same notify versions'
     enableCrewNotificationsForUser($companyId, (int) $user->id);
     createOverdueAssignmentForAlerts($fixtures);
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
 
     expect(CrewOperationalAlertPushDelivery::query()->where('company_id', $companyId)->count())->toBe(1)
         ->and(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(1);
@@ -529,6 +537,7 @@ test('scheduled mode queues warning alert delivery without immediate job dispatc
 
     createWarningApproachingSignoffAssignmentForAlerts($fixtures);
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
 
     expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(1);
     expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->first()->status->value)->toBe('queued');
@@ -554,6 +563,7 @@ test('immediate mode dispatches warning alert email job immediately', function (
 
     createWarningApproachingSignoffAssignmentForAlerts($fixtures);
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
 
     expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(1);
     Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 1);
@@ -577,6 +587,7 @@ test('critical alert with critical_immediate disabled waits for scheduled digest
 
     createOverdueAssignmentForAlerts($fixtures);
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
 
     expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(1);
     expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->first()->status->value)->toBe('queued');

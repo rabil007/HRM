@@ -3,11 +3,17 @@
 namespace App\Support\CrewOperations;
 
 use App\Enums\CrewOperationalAlertEmailDeliveryMode;
+use App\Enums\CrewOperationalAlertEmailDeliveryStatus;
+use App\Enums\CrewOperationalAlertSeverity;
 use App\Jobs\DeliverCrewOperationalAlertEmailJob;
 use App\Models\Company;
+use App\Models\CrewOperationalAlertEmailDelivery;
 use App\Models\CrewOperationsSetting;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
+use Illuminate\Bus\UniqueLock;
+use Illuminate\Container\Container;
+use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Throwable;
@@ -121,79 +127,18 @@ final class DispatchCrewOperationalAlertEmailDigests
             ];
         }
 
-        $mode = CrewOperationsSettings::emailDeliveryMode($companyId);
-
-        if ($mode !== CrewOperationalAlertEmailDeliveryMode::Scheduled && ! $force) {
-            return [
-                'dispatched' => false,
-                'jobs_count' => 0,
-                'delivery_count' => 0,
-                'reason' => 'mode_not_scheduled',
-            ];
-        }
-
-        $timezone = CompanyTimezone::forCompanyId($companyId);
-        $now = CarbonImmutable::now($timezone);
-        $digestTime = CrewOperationsSettings::emailDigestAt($companyId);
-        $currentTime = $now->format('H:i');
-        $todayLocal = $now->toDateString();
-
-        if ($currentTime < $digestTime && ! $force) {
-            return [
-                'dispatched' => false,
-                'jobs_count' => 0,
-                'delivery_count' => 0,
-                'reason' => 'not_due_yet',
-            ];
-        }
-
-        $setting = CrewOperationsSetting::query()
+        $pendingDeliveries = CrewOperationalAlertEmailDelivery::query()
+            ->with(['alert', 'user'])
             ->where('company_id', $companyId)
-            ->first();
+            ->where('status', CrewOperationalAlertEmailDeliveryStatus::Queued)
+            ->whereNull('dispatched_at')
+            ->where(function (Builder $query): void {
+                $query->whereNull('dispatch_claimed_at')
+                    ->orWhere('dispatch_claimed_at', '<', CarbonImmutable::now()->subMinutes(ClaimCrewOperationalAlertEmailDeliveries::STALE_CLAIM_TIMEOUT_MINUTES));
+            })
+            ->get();
 
-        if ($setting !== null && $setting->notification_email_last_digest_date === $todayLocal && ! $force) {
-            return [
-                'dispatched' => false,
-                'jobs_count' => 0,
-                'delivery_count' => 0,
-                'reason' => 'already_dispatched_today',
-            ];
-        }
-
-        CrewOperationsSetting::query()->firstOrCreate(['company_id' => $companyId]);
-
-        if (! $force) {
-            $updated = CrewOperationsSetting::query()
-                ->where('company_id', $companyId)
-                ->where(function (Builder $query) use ($todayLocal): void {
-                    $query->whereNull('notification_email_last_digest_date')
-                        ->orWhere('notification_email_last_digest_date', '<', $todayLocal);
-                })
-                ->update([
-                    'notification_email_last_digest_date' => $todayLocal,
-                    'notification_email_last_digest_dispatched_at' => now(),
-                ]);
-
-            if ($updated === 0) {
-                return [
-                    'dispatched' => false,
-                    'jobs_count' => 0,
-                    'delivery_count' => 0,
-                    'reason' => 'concurrently_claimed',
-                ];
-            }
-        } else {
-            CrewOperationsSetting::query()
-                ->where('company_id', $companyId)
-                ->update([
-                    'notification_email_last_digest_date' => $todayLocal,
-                    'notification_email_last_digest_dispatched_at' => now(),
-                ]);
-        }
-
-        $claimedDeliveries = ClaimCrewOperationalAlertEmailDeliveries::claimForCompany($companyId);
-
-        if ($claimedDeliveries->isEmpty()) {
+        if ($pendingDeliveries->isEmpty()) {
             return [
                 'dispatched' => false,
                 'jobs_count' => 0,
@@ -202,19 +147,132 @@ final class DispatchCrewOperationalAlertEmailDigests
             ];
         }
 
+        $timezone = CompanyTimezone::forCompanyId($companyId);
+        $nowLocal = CarbonImmutable::now($timezone);
+        $deliveryMode = CrewOperationsSettings::emailDeliveryMode($companyId);
+        $criticalImmediate = CrewOperationsSettings::emailCriticalImmediate($companyId);
+        $digestTime = CrewOperationsSettings::emailDigestAt($companyId);
+
+        $eligibleDeliveryIds = [];
+
+        foreach ($pendingDeliveries as $delivery) {
+            if ($this->isDeliveryEligible(
+                $delivery,
+                $force,
+                $deliveryMode,
+                $criticalImmediate,
+                $digestTime,
+                $timezone,
+                $nowLocal,
+            )) {
+                $eligibleDeliveryIds[] = (int) $delivery->id;
+            }
+        }
+
+        if ($eligibleDeliveryIds === []) {
+            return [
+                'dispatched' => false,
+                'jobs_count' => 0,
+                'delivery_count' => 0,
+                'reason' => 'no_eligible_deliveries',
+            ];
+        }
+
+        $claimedDeliveries = ClaimCrewOperationalAlertEmailDeliveries::claimByIds($eligibleDeliveryIds);
+
+        if ($claimedDeliveries->isEmpty()) {
+            return [
+                'dispatched' => false,
+                'jobs_count' => 0,
+                'delivery_count' => 0,
+                'reason' => 'concurrently_claimed',
+            ];
+        }
+
         $grouped = $claimedDeliveries->groupBy('user_id');
         $jobsCount = 0;
+        $dispatchedDeliveriesCount = 0;
 
-        foreach ($grouped as $userId => $deliveries) {
-            $deliveryIds = $deliveries->pluck('id')->map(fn ($id): int => (int) $id)->all();
-            DeliverCrewOperationalAlertEmailJob::dispatch($deliveryIds, $companyId, (int) $userId);
-            $jobsCount++;
+        foreach ($grouped as $userId => $userDeliveries) {
+            $userDeliveryIds = $userDeliveries->pluck('id')->map(fn ($id): int => (int) $id)->all();
+
+            try {
+                DeliverCrewOperationalAlertEmailJob::dispatch($userDeliveryIds, $companyId, (int) $userId);
+                ClaimCrewOperationalAlertEmailDeliveries::markDispatched($userDeliveryIds);
+
+                $jobsCount++;
+                $dispatchedDeliveriesCount += count($userDeliveryIds);
+            } catch (Throwable $exception) {
+                ClaimCrewOperationalAlertEmailDeliveries::releaseClaim($userDeliveryIds);
+                self::releaseJobUniqueLock($userDeliveryIds, $companyId, (int) $userId);
+                report($exception);
+            }
+        }
+
+        if ($jobsCount > 0) {
+            CrewOperationsSetting::query()
+                ->where('company_id', $companyId)
+                ->update([
+                    'notification_email_last_digest_date' => $nowLocal->toDateString(),
+                    'notification_email_last_digest_dispatched_at' => CarbonImmutable::now(),
+                ]);
         }
 
         return [
-            'dispatched' => true,
+            'dispatched' => $jobsCount > 0,
             'jobs_count' => $jobsCount,
-            'delivery_count' => $claimedDeliveries->count(),
+            'delivery_count' => $dispatchedDeliveriesCount,
         ];
+    }
+
+    /**
+     * Determines whether an individual queued alert email delivery is eligible for dispatch.
+     */
+    public function isDeliveryEligible(
+        CrewOperationalAlertEmailDelivery $delivery,
+        bool $force,
+        CrewOperationalAlertEmailDeliveryMode $deliveryMode,
+        bool $criticalImmediate,
+        string $digestTime,
+        string $timezone,
+        CarbonImmutable $nowLocal,
+    ): bool {
+        if ($force) {
+            return true;
+        }
+
+        if ($deliveryMode === CrewOperationalAlertEmailDeliveryMode::Immediate) {
+            return true;
+        }
+
+        if ($criticalImmediate && $delivery->alert?->severity === CrewOperationalAlertSeverity::Critical) {
+            return true;
+        }
+
+        $queuedAt = $delivery->queued_at ?? now();
+        $queuedLocal = CarbonImmutable::parse($queuedAt)->setTimezone($timezone);
+
+        if ($queuedLocal->format('H:i') < $digestTime) {
+            $targetDigestAt = $queuedLocal->setTimeFromTimeString($digestTime);
+        } else {
+            $targetDigestAt = $queuedLocal->addDay()->setTimeFromTimeString($digestTime);
+        }
+
+        return $nowLocal >= $targetDigestAt;
+    }
+
+    /**
+     * Releases unique job lock if job enqueue threw before execution.
+     *
+     * @param  list<int>  $userDeliveryIds
+     */
+    public static function releaseJobUniqueLock(array $userDeliveryIds, int $companyId, int $userId): void
+    {
+        try {
+            $job = new DeliverCrewOperationalAlertEmailJob($userDeliveryIds, $companyId, $userId);
+            (new UniqueLock(Container::getInstance()->make(Cache::class)))->release($job);
+        } catch (Throwable) {
+            // Ignore cache release errors
+        }
     }
 }

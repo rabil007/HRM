@@ -17,6 +17,7 @@ use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
 use App\Support\CrewOperations\CrewOperationalAlertDigestPresenter;
 use App\Support\CrewOperations\CrewOperationsSettings;
+use App\Support\CrewOperations\DispatchCrewOperationalAlertEmailDigests;
 use App\Support\CrewOperations\QueueCrewOperationalAlertEmails;
 use App\Support\CrewOperations\ReconcileCrewOperationalAlerts;
 use App\Support\CrewOperations\ResolveCrewOperationalAlertUrl;
@@ -48,15 +49,8 @@ function createFiveAlertsForCompany(int $companyId): array
         'status' => CrewOperationalAlertStatus::Active,
         'dedupe_key' => 'signoff_overdue:assignment:101',
         'title' => 'Sign-off overdue',
-        'message' => 'Muhammad Arfah is past planned sign-off.',
-        'context' => [
-            'assignment_id' => 101,
-            'assignment_no' => 'CA-101',
-            'employee_id' => 50,
-            'vessel_id' => 1,
-            'rank_id' => 2,
-            'planned_signoff_at' => '2026-08-09',
-        ],
+        'message' => 'John Doe overdue.',
+        'context' => ['employee_name' => 'John Doe'],
         'detected_at' => $now,
         'last_detected_at' => $now,
         'notification_version' => 1,
@@ -69,18 +63,8 @@ function createFiveAlertsForCompany(int $companyId): array
         'status' => CrewOperationalAlertStatus::Active,
         'dedupe_key' => 'signoff_no_relief:assignment:102',
         'title' => 'Sign-off approaching — no relief',
-        'message' => 'Ahmed Khan signs off in 4 days.',
-        'context' => [
-            'assignment_id' => 102,
-            'assignment_no' => 'CA-102',
-            'employee_id' => 51,
-            'vessel_id' => 2,
-            'rank_id' => 3,
-            'planned_signoff_at' => '2026-08-14',
-            'days_until_signoff' => 4,
-            'relief_status' => 'no_relief',
-            'relief_risk' => 'high',
-        ],
+        'message' => 'Jane Smith approaching sign-off.',
+        'context' => ['employee_name' => 'Jane Smith'],
         'detected_at' => $now,
         'last_detected_at' => $now,
         'notification_version' => 1,
@@ -93,18 +77,8 @@ function createFiveAlertsForCompany(int $companyId): array
         'status' => CrewOperationalAlertStatus::Active,
         'dedupe_key' => 'relief_not_ready:assignment:103',
         'title' => 'Relief not ready',
-        'message' => 'John Smith signs off in 6 days and relief is not ready.',
-        'context' => [
-            'assignment_id' => 103,
-            'assignment_no' => 'CA-103',
-            'employee_id' => 52,
-            'vessel_id' => 1,
-            'rank_id' => 4,
-            'planned_signoff_at' => '2026-08-16',
-            'days_until_signoff' => 6,
-            'relief_status' => 'join_standby',
-            'relief_risk' => 'medium',
-        ],
+        'message' => 'Relief has not confirmed.',
+        'context' => ['employee_name' => 'Bob Builder'],
         'detected_at' => $now,
         'last_detected_at' => $now,
         'notification_version' => 1,
@@ -117,16 +91,8 @@ function createFiveAlertsForCompany(int $companyId): array
         'status' => CrewOperationalAlertStatus::Active,
         'dedupe_key' => 'current_manning_gap:vessel:1:rank:2',
         'title' => 'Current manning gap',
-        'message' => 'Sea Eagle is short 1 now.',
-        'context' => [
-            'vessel_id' => 1,
-            'vessel_name' => 'Sea Eagle',
-            'rank_id' => 2,
-            'rank_name' => '2nd Officer',
-            'gap' => 1,
-            'actual_count' => 1,
-            'required_count' => 2,
-        ],
+        'message' => 'Pacific Trader has a gap.',
+        'context' => ['vessel_name' => 'Pacific Trader'],
         'detected_at' => $now,
         'last_detected_at' => $now,
         'notification_version' => 1,
@@ -140,14 +106,7 @@ function createFiveAlertsForCompany(int $companyId): array
         'dedupe_key' => 'projected_manning_gap:vessel:2:rank:3',
         'title' => 'Projected manning gap',
         'message' => 'Ocean Star has a projected gap.',
-        'context' => [
-            'vessel_id' => 2,
-            'vessel_name' => 'Ocean Star',
-            'rank_id' => 3,
-            'rank_name' => 'Able Seaman',
-            'maximum_gap' => 1,
-            'next_gap_date' => '2026-08-17',
-        ],
+        'context' => ['vessel_name' => 'Ocean Star'],
         'detected_at' => $now,
         'last_detected_at' => $now,
         'notification_version' => 1,
@@ -157,10 +116,10 @@ function createFiveAlertsForCompany(int $companyId): array
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DIGEST GROUPING & DEDUPLICATION TESTS
+// RECONCILIATION & QUEUEING (DIGEST BEHAVIOR)
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('five meaningful alerts for one recipient queue ONE digest job containing 5 delivery IDs', function () {
+test('queued alerts for single recipient are grouped into ONE digest email job', function () {
     Queue::fake();
     configureSmtpForDigestTests();
     EmailTemplatesSeeder::seedCrewOperationalAlertDigestTemplate();
@@ -185,6 +144,7 @@ test('five meaningful alerts for one recipient queue ONE digest job containing 5
     }
 
     $queuedIds = app(QueueCrewOperationalAlertEmails::class)->forAlerts($companyId, $alertIds);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
 
     expect($queuedIds)->toHaveCount(5);
     Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 1);
@@ -232,6 +192,7 @@ test('two recipients receive one digest job each', function () {
     }
 
     app(QueueCrewOperationalAlertEmails::class)->forAlerts($companyId, $alertIds);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
 
     // 5 alerts * 2 users = 10 delivery rows, but only 2 jobs (1 per user)
     expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(10);
@@ -270,6 +231,8 @@ test('same user in two companies gets separate company digests', function () {
 
     app(QueueCrewOperationalAlertEmails::class)->forAlerts($companyA, collect($alertsA)->pluck('id')->all());
     app(QueueCrewOperationalAlertEmails::class)->forAlerts($companyB, collect($alertsB)->pluck('id')->all());
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyA);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyB);
 
     Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 2);
 });
@@ -285,6 +248,7 @@ test('one meaningful alert results in one digest job containing one row', functi
     createOverdueAssignmentForAlerts($fixtures);
 
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
 
     expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(1);
     Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 1);
@@ -301,7 +265,9 @@ test('unchanged reconciliation sends no email', function () {
     createOverdueAssignmentForAlerts($fixtures);
 
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
 
     expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(1);
     Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 1);
@@ -318,16 +284,19 @@ test('severity escalation and reactivated resolved alert send new digest jobs', 
     $assignment = createOverdueAssignmentForAlerts($fixtures);
 
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
     expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(1);
 
     // Resolve alert by clearing overdue
     $assignment->update(['planned_signoff_at' => now()->addDays(30)->toDateString()]);
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
     expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(1);
 
     // Reactivate alert
     $assignment->update(['planned_signoff_at' => now()->subDays(5)->toDateString()]);
     app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+    app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
 
     expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(2);
     Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 2);

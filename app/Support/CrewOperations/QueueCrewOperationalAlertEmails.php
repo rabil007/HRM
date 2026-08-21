@@ -2,20 +2,17 @@
 
 namespace App\Support\CrewOperations;
 
-use App\Enums\CrewOperationalAlertEmailDeliveryMode;
 use App\Enums\CrewOperationalAlertEmailDeliveryStatus;
-use App\Enums\CrewOperationalAlertSeverity;
 use App\Enums\CrewOperationalAlertStatus;
-use App\Jobs\DeliverCrewOperationalAlertEmailJob;
 use App\Models\CrewOperationalAlert;
 use App\Models\CrewOperationalAlertEmailDelivery;
 use App\Models\CrewOperationalAlertRecipient;
 use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Queues privacy-safe emails for meaningful Crew alert notification versions.
+ * Creates durable ledger rows only; authoritative dispatch is performed by DispatchCrewOperationalAlertEmailDigests.
  */
 final class QueueCrewOperationalAlertEmails
 {
@@ -45,11 +42,7 @@ final class QueueCrewOperationalAlertEmails
             return [];
         }
 
-        $deliveryMode = CrewOperationsSettings::emailDeliveryMode($companyId);
-        $criticalImmediate = CrewOperationsSettings::emailCriticalImmediate($companyId);
-
         $queuedIds = [];
-        $immediateUserDeliveries = [];
 
         $alerts = CrewOperationalAlert::query()
             ->where('company_id', $companyId)
@@ -58,9 +51,6 @@ final class QueueCrewOperationalAlertEmails
             ->get();
 
         foreach ($alerts as $alert) {
-            $isImmediate = $deliveryMode === CrewOperationalAlertEmailDeliveryMode::Immediate
-                || ($criticalImmediate && $alert->severity === CrewOperationalAlertSeverity::Critical);
-
             $recipients = CrewOperationalAlertRecipient::query()
                 ->where('company_id', $companyId)
                 ->where('crew_operational_alert_id', $alert->id)
@@ -89,27 +79,7 @@ final class QueueCrewOperationalAlertEmails
 
                 if ($delivery !== null) {
                     $queuedIds[] = (int) $delivery->id;
-
-                    if ($isImmediate) {
-                        $immediateUserDeliveries[(int) $recipient->user_id][] = (int) $delivery->id;
-                    }
                 }
-            }
-        }
-
-        if ($immediateUserDeliveries !== []) {
-            $allImmediateIds = array_values(array_unique(array_merge(...array_values($immediateUserDeliveries))));
-            $claimedDeliveries = ClaimCrewOperationalAlertEmailDeliveries::claimByIds($allImmediateIds);
-
-            if ($claimedDeliveries->isNotEmpty()) {
-                $grouped = $claimedDeliveries->groupBy('user_id');
-
-                DB::afterCommit(function () use ($companyId, $grouped): void {
-                    foreach ($grouped as $userId => $deliveries) {
-                        $deliveryIds = $deliveries->pluck('id')->map(fn ($id): int => (int) $id)->all();
-                        DeliverCrewOperationalAlertEmailJob::dispatch($deliveryIds, $companyId, (int) $userId);
-                    }
-                });
             }
         }
 
@@ -147,6 +117,8 @@ final class QueueCrewOperationalAlertEmails
                 'notification_version' => $notificationVersion,
                 'status' => CrewOperationalAlertEmailDeliveryStatus::Queued,
                 'queued_at' => now(),
+                'dispatched_at' => null,
+                'dispatch_claimed_at' => null,
                 'attempt_count' => 0,
             ]);
         } catch (UniqueConstraintViolationException) {

@@ -4,6 +4,7 @@ namespace App\Support\CrewOperations;
 
 use App\Enums\CrewOperationalAlertEmailDeliveryStatus;
 use App\Models\CrewOperationalAlertEmailDelivery;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -11,13 +12,14 @@ use Illuminate\Support\Facades\DB;
 final class ClaimCrewOperationalAlertEmailDeliveries
 {
     /**
-     * Reclaim threshold: if a delivery was claimed > 1 hour ago but is still in queued status,
-     * it is considered abandoned (e.g. queue worker crashed / killed before execution) and can be reclaimed.
+     * Stale claim timeout in minutes.
+     * If a worker crashed or was killed between claim and enqueue finalize,
+     * the claim will expire after 5 minutes and become eligible for retry.
      */
-    public const ABANDONED_CLAIM_HOURS = 1;
+    public const STALE_CLAIM_TIMEOUT_MINUTES = 5;
 
     /**
-     * Atomically claims candidate queued deliveries by their IDs.
+     * Atomically claims eligible queued deliveries by their IDs.
      *
      * @param  list<int>  $deliveryIds
      * @return Collection<int, CrewOperationalAlertEmailDelivery>
@@ -30,11 +32,13 @@ final class ClaimCrewOperationalAlertEmailDeliveries
 
         return DB::transaction(function () use ($deliveryIds): Collection {
             $deliveries = CrewOperationalAlertEmailDelivery::query()
+                ->with('alert')
                 ->whereIn('id', $deliveryIds)
                 ->where('status', CrewOperationalAlertEmailDeliveryStatus::Queued)
+                ->whereNull('dispatched_at')
                 ->where(function (Builder $query): void {
-                    $query->whereNull('dispatched_at')
-                        ->orWhere('dispatched_at', '<', now()->subHours(self::ABANDONED_CLAIM_HOURS));
+                    $query->whereNull('dispatch_claimed_at')
+                        ->orWhere('dispatch_claimed_at', '<', CarbonImmutable::now()->subMinutes(self::STALE_CLAIM_TIMEOUT_MINUTES));
                 })
                 ->lockForUpdate()
                 ->get();
@@ -43,45 +47,54 @@ final class ClaimCrewOperationalAlertEmailDeliveries
                 return collect();
             }
 
-            $ids = $deliveries->pluck('id')->map(fn ($id): int => (int) $id)->all();
+            $claimedIds = $deliveries->pluck('id')->map(fn ($id): int => (int) $id)->all();
 
             CrewOperationalAlertEmailDelivery::query()
-                ->whereIn('id', $ids)
-                ->update(['dispatched_at' => now()]);
+                ->whereIn('id', $claimedIds)
+                ->update([
+                    'dispatch_claimed_at' => CarbonImmutable::now(),
+                ]);
 
             return $deliveries;
         });
     }
 
     /**
-     * Atomically claims all eligible queued deliveries for a company for scheduled digest.
+     * Finalizes successful dispatch: sets dispatched_at = now() and clears dispatch_claimed_at.
      *
-     * @return Collection<int, CrewOperationalAlertEmailDelivery>
+     * @param  list<int>  $deliveryIds
      */
-    public static function claimForCompany(int $companyId): Collection
+    public static function markDispatched(array $deliveryIds): void
     {
-        return DB::transaction(function () use ($companyId): Collection {
-            $deliveries = CrewOperationalAlertEmailDelivery::query()
-                ->where('company_id', $companyId)
-                ->where('status', CrewOperationalAlertEmailDeliveryStatus::Queued)
-                ->where(function (Builder $query): void {
-                    $query->whereNull('dispatched_at')
-                        ->orWhere('dispatched_at', '<', now()->subHours(self::ABANDONED_CLAIM_HOURS));
-                })
-                ->lockForUpdate()
-                ->get();
+        if ($deliveryIds === []) {
+            return;
+        }
 
-            if ($deliveries->isEmpty()) {
-                return collect();
-            }
+        CrewOperationalAlertEmailDelivery::query()
+            ->whereIn('id', $deliveryIds)
+            ->update([
+                'dispatched_at' => CarbonImmutable::now(),
+                'dispatch_claimed_at' => null,
+            ]);
+    }
 
-            $ids = $deliveries->pluck('id')->map(fn ($id): int => (int) $id)->all();
+    /**
+     * Releases an in-flight claim immediately (e.g. after dispatch exception),
+     * allowing immediate retry on next execution without waiting for timeout.
+     *
+     * @param  list<int>  $deliveryIds
+     */
+    public static function releaseClaim(array $deliveryIds): void
+    {
+        if ($deliveryIds === []) {
+            return;
+        }
 
-            CrewOperationalAlertEmailDelivery::query()
-                ->whereIn('id', $ids)
-                ->update(['dispatched_at' => now()]);
-
-            return $deliveries;
-        });
+        CrewOperationalAlertEmailDelivery::query()
+            ->whereIn('id', $deliveryIds)
+            ->whereNull('dispatched_at')
+            ->update([
+                'dispatch_claimed_at' => null,
+            ]);
     }
 }
