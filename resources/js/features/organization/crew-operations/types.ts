@@ -73,6 +73,22 @@ export type CrewOperationsProjectedManning = {
     critical_positions: CrewOperationsProjectedManningCriticalPosition[];
 };
 
+export type CrewOperationsDeploymentTrendPoint = {
+    month: string;
+    joins: number;
+    disembarks: number;
+};
+
+export type CrewOperationsRecentActivityItem = {
+    id: number;
+    event: string | null;
+    description: string | null;
+    causer: { id: number; name: string; email: string } | null;
+    old_values: unknown;
+    new_values: unknown;
+    created_at: string | null;
+};
+
 export type CrewOperationsDashboardProps = {
     today: string;
     company_timezone: string;
@@ -82,5 +98,7 @@ export type CrewOperationsDashboardProps = {
     manning_relief_risks: CrewOperationsManningReliefRisk[];
     projected_manning: CrewOperationsProjectedManning | null;
     max_home_days: number;
+    deployment_trends: CrewOperationsDeploymentTrendPoint[];
+    recent_activity: CrewOperationsRecentActivityItem[];
     can: CrewOperationsPagePermissions;
 };

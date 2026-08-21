@@ -123,6 +123,8 @@ final class CrewOperationsDashboardAnalytics
             'manning_relief_risks' => $manningReliefRisks,
             'projected_manning' => $projectedManning,
             'max_home_days' => $maxHomeDays,
+            'deployment_trends' => CrewOperationsDeploymentTrends::lastSixMonths($companyId),
+            'recent_activity' => CrewOperationsRecentActivityQuery::forCompany($user, $companyId, 8),
             'can' => $permissions,
         ];
     }

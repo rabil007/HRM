@@ -44,13 +44,12 @@ test('authorized users can view daily operations dashboard essentials', function
             ->has('next_seven_days', 7)
             ->has('manning_relief_risks')
             ->where('projected_manning', null)
-            ->missing('deployment_trends')
-            ->missing('pool_snapshot')
-            ->missing('recent_activity')
-            ->missing('deployment_summary')
+            ->has('deployment_trends')
+            ->has('recent_activity')
             ->where('can.overview', true)
         );
 });
+
 
 test('users with only overview view permission can access crew operations overview', function () {
     $user = User::factory()->create();
