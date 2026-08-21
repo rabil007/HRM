@@ -152,10 +152,6 @@ class AttendanceCalendarController extends Controller
         $employees = Employee::query()
             ->where('company_id', $companyId)
             ->where('status', 'active')
-            ->whereIn('id', LeaveRequest::query()
-                ->where('company_id', $companyId)
-                ->select('employee_id')
-                ->distinct())
             ->orderBy('name')
             ->get(['id', 'employee_no', 'name']);
 

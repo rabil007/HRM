@@ -375,10 +375,14 @@ test('users with view_all permission default to their own approved leaves on cal
             ->where('approved_leaves.0.employee.id', $otherEmployee->id));
 });
 
-test('calendar employee dropdown only lists employees with leave requests', function () {
+test('calendar employee dropdown lists all active employees in current company including those without leave requests', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
     ['employee' => $employeeWithRequest, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
-    Employee::factory()->forCompany($company)->create(['status' => 'active', 'name' => 'No Requests']);
+    $employeeWithoutRequest = Employee::factory()->forCompany($company)->create(['status' => 'active', 'name' => 'No Requests']);
+    $inactiveEmployee = Employee::factory()->forCompany($company)->create(['status' => 'inactive', 'name' => 'Inactive Employee']);
+
+    $otherCompany = makeAttendanceCalendarFixtures()['company'];
+    $foreignEmployee = Employee::factory()->forCompany($otherCompany)->create(['status' => 'active', 'name' => 'Foreign Employee']);
 
     $employeeWithRequest->update(['user_id' => $user->id]);
     $this->actingAs($user);
@@ -399,11 +403,50 @@ test('calendar employee dropdown only lists employees with leave requests', func
         'status' => 'pending',
     ]);
 
-    $this->get(route('attendance.calendar.index', ['year' => 2026]))
+    $response = $this->get(route('attendance.calendar.index', ['year' => 2026]));
+
+    $response
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('employees', 1)
-            ->where('employees.0.id', $employeeWithRequest->id));
+            ->has('employees', 2)
+            ->where('can_select_employee', true)
+            ->where('selected_employee_id', $employeeWithRequest->id));
+
+    $employeeIds = collect($response->original->getData()['page']['props']['employees'])->pluck('id')->all();
+
+    expect($employeeIds)
+        ->toContain($employeeWithRequest->id)
+        ->toContain($employeeWithoutRequest->id)
+        ->not->toContain($inactiveEmployee->id)
+        ->not->toContain($foreignEmployee->id);
+
+    // Switching to employeeWithoutRequest keeps linked employee selectable in dropdown
+    $switchResponse = $this->get(route('attendance.calendar.index', [
+        'year' => 2026,
+        'employee_id' => $employeeWithoutRequest->id,
+    ]));
+
+    $switchResponse
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('selected_employee_id', $employeeWithoutRequest->id)
+            ->has('employees', 2));
+
+    $switchEmployeeIds = collect($switchResponse->original->getData()['page']['props']['employees'])->pluck('id')->all();
+
+    expect($switchEmployeeIds)
+        ->toContain($employeeWithRequest->id)
+        ->toContain($employeeWithoutRequest->id);
+
+    // Switching back to linked employee works
+    $this->get(route('attendance.calendar.index', [
+        'year' => 2026,
+        'employee_id' => $employeeWithRequest->id,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('selected_employee_id', $employeeWithRequest->id)
+            ->has('calendar_leaves', 1));
 });
 
 test('calendar honors employee_id for inactive employees without leave requests', function () {
