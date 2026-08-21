@@ -36,3 +36,18 @@ function createOverdueAssignmentForAlerts(array $fixtures): mixed
         ],
     );
 }
+
+function createWarningApproachingSignoffAssignmentForAlerts(array $fixtures): mixed
+{
+    return makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        makeCrewMovementVessel('Approaching Vessel '.fake()->unique()->numerify('###')),
+        [
+            'tour_of_duty_days' => 90,
+            'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty->value,
+            'planned_signoff_at' => '2026-08-15 00:00:00',
+        ],
+    );
+}

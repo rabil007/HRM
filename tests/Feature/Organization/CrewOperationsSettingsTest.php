@@ -101,11 +101,15 @@ test('authorized users can view the crew operations settings index', function ()
             ->where('department_tree.0.name', 'Crew Dept')
             ->where('department_tree.0.children.0.id', $childDepartment->id)
             ->where('department_tree.0.children.0.name', 'Crew Planning')
+            ->where('company_timezone', 'Asia/Dubai')
             ->has('crew_settings')
             ->where('crew_settings.pool_department_ids', [$dept->id])
             ->where('crew_settings.max_home_days', 30)
             ->where('crew_settings.sync_sea_service', true)
             ->where('crew_settings.notifications_enabled', false)
+            ->where('crew_settings.notification_email_delivery_mode', 'scheduled')
+            ->where('crew_settings.notification_email_digest_at', '08:00')
+            ->where('crew_settings.notification_email_critical_immediate', true)
             ->has('notification_users')
         );
 });
@@ -130,13 +134,16 @@ test('authorized user can update crew operations settings', function () {
             'pool_department_ids' => [$dept->id],
             'max_home_days' => 45,
             'sync_sea_service' => true,
-            'notifications_enabled' => false,
+            'notifications_enabled' => true,
             'notification_recipient_user_ids' => [],
             'alert_signoff_overdue' => true,
             'alert_signoff_no_relief' => true,
             'alert_relief_not_ready' => true,
             'alert_current_manning_gap' => true,
             'alert_projected_manning_gap' => true,
+            'notification_email_delivery_mode' => 'scheduled',
+            'notification_email_digest_at' => '09:30',
+            'notification_email_critical_immediate' => false,
         ])
         ->assertRedirect();
 
@@ -146,7 +153,10 @@ test('authorized user can update crew operations settings', function () {
         ->and($setting->pool_department_ids)->toBe([$dept->id])
         ->and($setting->max_home_days)->toBe(45)
         ->and($setting->sync_sea_service)->toBeTrue()
-        ->and($setting->notifications_enabled)->toBeFalse();
+        ->and($setting->notifications_enabled)->toBeTrue()
+        ->and($setting->notification_email_delivery_mode->value)->toBe('scheduled')
+        ->and($setting->notification_email_digest_at)->toBe('09:30')
+        ->and($setting->notification_email_critical_immediate)->toBeFalse();
 });
 
 test('clearing pool department settings works', function () {
@@ -183,6 +193,9 @@ test('clearing pool department settings works', function () {
             'alert_relief_not_ready' => true,
             'alert_current_manning_gap' => true,
             'alert_projected_manning_gap' => true,
+            'notification_email_delivery_mode' => 'scheduled',
+            'notification_email_digest_at' => '08:00',
+            'notification_email_critical_immediate' => true,
         ])
         ->assertRedirect();
 
@@ -209,6 +222,9 @@ test('users without update permission cannot change settings', function () {
             'alert_relief_not_ready' => true,
             'alert_current_manning_gap' => true,
             'alert_projected_manning_gap' => true,
+            'notification_email_delivery_mode' => 'scheduled',
+            'notification_email_digest_at' => '08:00',
+            'notification_email_critical_immediate' => true,
         ])
         ->assertForbidden();
 });
@@ -240,8 +256,41 @@ test('settings reject departments from another company', function () {
             'alert_relief_not_ready' => true,
             'alert_current_manning_gap' => true,
             'alert_projected_manning_gap' => true,
+            'notification_email_delivery_mode' => 'scheduled',
+            'notification_email_digest_at' => '08:00',
+            'notification_email_critical_immediate' => true,
         ])
         ->assertSessionHasErrors(['pool_department_ids.0']);
+});
+
+test('invalid email delivery mode and digest time are rejected', function () {
+    ['user' => $user, 'company' => $company] = makeCrewOperationsSettingsFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.planning.update',
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-operations.settings.update'), [
+            'pool_department_ids' => [],
+            'max_home_days' => 30,
+            'sync_sea_service' => true,
+            'notifications_enabled' => false,
+            'notification_recipient_user_ids' => [],
+            'alert_signoff_overdue' => true,
+            'alert_signoff_no_relief' => true,
+            'alert_relief_not_ready' => true,
+            'alert_current_manning_gap' => true,
+            'alert_projected_manning_gap' => true,
+            'notification_email_delivery_mode' => 'invalid_mode',
+            'notification_email_digest_at' => '25:99',
+            'notification_email_critical_immediate' => true,
+        ])
+        ->assertSessionHasErrors([
+            'notification_email_delivery_mode',
+            'notification_email_digest_at',
+        ]);
 });
 
 test('disabling sea service sync is logged with old and new values', function () {
@@ -271,6 +320,9 @@ test('disabling sea service sync is logged with old and new values', function ()
             'alert_relief_not_ready' => true,
             'alert_current_manning_gap' => true,
             'alert_projected_manning_gap' => true,
+            'notification_email_delivery_mode' => 'scheduled',
+            'notification_email_digest_at' => '08:00',
+            'notification_email_critical_immediate' => true,
         ])
         ->assertRedirect();
 

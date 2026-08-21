@@ -2,7 +2,9 @@
 
 namespace App\Support\CrewOperations;
 
+use App\Enums\CrewOperationalAlertEmailDeliveryMode;
 use App\Enums\CrewOperationalAlertEmailDeliveryStatus;
+use App\Enums\CrewOperationalAlertSeverity;
 use App\Enums\CrewOperationalAlertStatus;
 use App\Jobs\DeliverCrewOperationalAlertEmailJob;
 use App\Models\CrewOperationalAlert;
@@ -43,8 +45,11 @@ final class QueueCrewOperationalAlertEmails
             return [];
         }
 
+        $deliveryMode = CrewOperationsSettings::emailDeliveryMode($companyId);
+        $criticalImmediate = CrewOperationsSettings::emailCriticalImmediate($companyId);
+
         $queuedIds = [];
-        $userDeliveries = [];
+        $immediateUserDeliveries = [];
 
         $alerts = CrewOperationalAlert::query()
             ->where('company_id', $companyId)
@@ -53,6 +58,9 @@ final class QueueCrewOperationalAlertEmails
             ->get();
 
         foreach ($alerts as $alert) {
+            $isImmediate = $deliveryMode === CrewOperationalAlertEmailDeliveryMode::Immediate
+                || ($criticalImmediate && $alert->severity === CrewOperationalAlertSeverity::Critical);
+
             $recipients = CrewOperationalAlertRecipient::query()
                 ->where('company_id', $companyId)
                 ->where('crew_operational_alert_id', $alert->id)
@@ -81,18 +89,28 @@ final class QueueCrewOperationalAlertEmails
 
                 if ($delivery !== null) {
                     $queuedIds[] = (int) $delivery->id;
-                    $userDeliveries[(int) $recipient->user_id][] = (int) $delivery->id;
+
+                    if ($isImmediate) {
+                        $immediateUserDeliveries[(int) $recipient->user_id][] = (int) $delivery->id;
+                    }
                 }
             }
         }
 
-        if ($userDeliveries !== []) {
-            $grouped = $userDeliveries;
-            DB::afterCommit(function () use ($companyId, $grouped): void {
-                foreach ($grouped as $userId => $deliveryIds) {
-                    DeliverCrewOperationalAlertEmailJob::dispatch($deliveryIds, $companyId, $userId);
-                }
-            });
+        if ($immediateUserDeliveries !== []) {
+            $allImmediateIds = array_values(array_unique(array_merge(...array_values($immediateUserDeliveries))));
+            $claimedDeliveries = ClaimCrewOperationalAlertEmailDeliveries::claimByIds($allImmediateIds);
+
+            if ($claimedDeliveries->isNotEmpty()) {
+                $grouped = $claimedDeliveries->groupBy('user_id');
+
+                DB::afterCommit(function () use ($companyId, $grouped): void {
+                    foreach ($grouped as $userId => $deliveries) {
+                        $deliveryIds = $deliveries->pluck('id')->map(fn ($id): int => (int) $id)->all();
+                        DeliverCrewOperationalAlertEmailJob::dispatch($deliveryIds, $companyId, (int) $userId);
+                    }
+                });
+            }
         }
 
         return $queuedIds;

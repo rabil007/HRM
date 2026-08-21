@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\CrewOperations\UpdateCrewOperationsSettingsRequest;
 use App\Support\CrewOperations\CrewOperationsSettings;
+use App\Support\Settings\CompanyTimezone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,10 +17,12 @@ class CrewOperationsSettingsController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         $notifications = CrewOperationsSettings::notificationSettings($companyId);
+        $companyTimezone = CompanyTimezone::forCompanyId($companyId);
 
         return Inertia::render('organization/crew-operations/settings', [
             'department_tree' => CrewOperationsSettings::activeDepartmentTree($companyId),
             'notification_users' => CrewOperationsSettings::notificationRecipientOptions($companyId),
+            'company_timezone' => $companyTimezone,
             'crew_settings' => [
                 'pool_department_ids' => CrewOperationsSettings::poolDepartmentIds($companyId),
                 'max_home_days' => CrewOperationsSettings::maxHomeDays($companyId),
@@ -46,6 +49,9 @@ class CrewOperationsSettingsController extends Controller
                 'alert_relief_not_ready' => $request->boolean('alert_relief_not_ready'),
                 'alert_current_manning_gap' => $request->boolean('alert_current_manning_gap'),
                 'alert_projected_manning_gap' => $request->boolean('alert_projected_manning_gap'),
+                'notification_email_delivery_mode' => (string) $request->validated('notification_email_delivery_mode'),
+                'notification_email_digest_at' => (string) $request->validated('notification_email_digest_at'),
+                'notification_email_critical_immediate' => $request->boolean('notification_email_critical_immediate'),
                 'actor_id' => $request->user()?->id,
             ],
         );

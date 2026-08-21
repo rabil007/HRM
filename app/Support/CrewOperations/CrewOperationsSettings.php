@@ -2,6 +2,7 @@
 
 namespace App\Support\CrewOperations;
 
+use App\Enums\CrewOperationalAlertEmailDeliveryMode;
 use App\Enums\CrewOperationalAlertStatus;
 use App\Enums\CrewOperationalAlertType;
 use App\Models\CrewOperationalAlert;
@@ -80,6 +81,49 @@ final class CrewOperationsSettings
         return (bool) ($setting?->notifications_enabled ?? false);
     }
 
+    public static function emailDeliveryMode(int $companyId): CrewOperationalAlertEmailDeliveryMode
+    {
+        $setting = CrewOperationsSetting::query()
+            ->where('company_id', $companyId)
+            ->first();
+
+        if ($setting === null || $setting->notification_email_delivery_mode === null) {
+            return CrewOperationalAlertEmailDeliveryMode::Scheduled;
+        }
+
+        return $setting->notification_email_delivery_mode instanceof CrewOperationalAlertEmailDeliveryMode
+            ? $setting->notification_email_delivery_mode
+            : CrewOperationalAlertEmailDeliveryMode::tryFrom((string) $setting->notification_email_delivery_mode) ?? CrewOperationalAlertEmailDeliveryMode::Scheduled;
+    }
+
+    public static function emailDigestAt(int $companyId): string
+    {
+        $setting = CrewOperationsSetting::query()
+            ->where('company_id', $companyId)
+            ->first();
+
+        $val = $setting?->notification_email_digest_at;
+
+        if (is_string($val) && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', trim($val)) === 1) {
+            return trim($val);
+        }
+
+        return '08:00';
+    }
+
+    public static function emailCriticalImmediate(int $companyId): bool
+    {
+        $setting = CrewOperationsSetting::query()
+            ->where('company_id', $companyId)
+            ->first();
+
+        if ($setting === null || $setting->notification_email_critical_immediate === null) {
+            return true;
+        }
+
+        return (bool) $setting->notification_email_critical_immediate;
+    }
+
     /**
      * @return array{
      *     notifications_enabled: bool,
@@ -88,7 +132,10 @@ final class CrewOperationsSettings
      *     alert_signoff_no_relief: bool,
      *     alert_relief_not_ready: bool,
      *     alert_current_manning_gap: bool,
-     *     alert_projected_manning_gap: bool
+     *     alert_projected_manning_gap: bool,
+     *     notification_email_delivery_mode: string,
+     *     notification_email_digest_at: string,
+     *     notification_email_critical_immediate: bool
      * }
      */
     public static function notificationSettings(int $companyId): array
@@ -105,6 +152,11 @@ final class CrewOperationsSettings
             'alert_relief_not_ready' => (bool) ($setting?->alert_relief_not_ready ?? true),
             'alert_current_manning_gap' => (bool) ($setting?->alert_current_manning_gap ?? true),
             'alert_projected_manning_gap' => (bool) ($setting?->alert_projected_manning_gap ?? true),
+            'notification_email_delivery_mode' => ($setting?->notification_email_delivery_mode instanceof CrewOperationalAlertEmailDeliveryMode
+                ? $setting->notification_email_delivery_mode->value
+                : ($setting?->notification_email_delivery_mode ?? CrewOperationalAlertEmailDeliveryMode::Scheduled->value)),
+            'notification_email_digest_at' => self::emailDigestAt($companyId),
+            'notification_email_critical_immediate' => self::emailCriticalImmediate($companyId),
         ];
     }
 
@@ -152,6 +204,9 @@ final class CrewOperationsSettings
      *     alert_relief_not_ready?: bool,
      *     alert_current_manning_gap?: bool,
      *     alert_projected_manning_gap?: bool,
+     *     notification_email_delivery_mode?: CrewOperationalAlertEmailDeliveryMode|string,
+     *     notification_email_digest_at?: string,
+     *     notification_email_critical_immediate?: bool,
      *     actor_id?: int|null
      * }  $options
      */
@@ -211,6 +266,17 @@ final class CrewOperationsSettings
                     'alert_projected_manning_gap' => array_key_exists('alert_projected_manning_gap', $options)
                         ? (bool) $options['alert_projected_manning_gap']
                         : (bool) ($existing?->alert_projected_manning_gap ?? true),
+                    'notification_email_delivery_mode' => array_key_exists('notification_email_delivery_mode', $options)
+                        ? ($options['notification_email_delivery_mode'] instanceof CrewOperationalAlertEmailDeliveryMode
+                            ? $options['notification_email_delivery_mode']->value
+                            : (string) $options['notification_email_delivery_mode'])
+                        : ($existing?->notification_email_delivery_mode?->value ?? (is_string($existing?->notification_email_delivery_mode) ? $existing->notification_email_delivery_mode : 'scheduled')),
+                    'notification_email_digest_at' => array_key_exists('notification_email_digest_at', $options)
+                        ? (string) $options['notification_email_digest_at']
+                        : ($existing?->notification_email_digest_at ?? '08:00'),
+                    'notification_email_critical_immediate' => array_key_exists('notification_email_critical_immediate', $options)
+                        ? (bool) $options['notification_email_critical_immediate']
+                        : (bool) ($existing?->notification_email_critical_immediate ?? true),
                 ],
             );
 

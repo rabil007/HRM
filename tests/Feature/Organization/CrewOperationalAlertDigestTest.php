@@ -169,7 +169,9 @@ test('five meaningful alerts for one recipient queue ONE digest job containing 5
     $companyId = (int) $fixtures['company']->id;
     $user = $fixtures['user'];
 
-    enableCrewNotificationsForUser($companyId, (int) $user->id);
+    enableCrewNotificationsForUser($companyId, (int) $user->id, [
+        'notification_email_delivery_mode' => 'immediate',
+    ]);
 
     $alerts = createFiveAlertsForCompany($companyId);
     $alertIds = collect($alerts)->pluck('id')->all();
@@ -210,6 +212,7 @@ test('two recipients receive one digest job each', function () {
         'alert_relief_not_ready' => true,
         'alert_current_manning_gap' => true,
         'alert_projected_manning_gap' => true,
+        'notification_email_delivery_mode' => 'immediate',
     ]);
 
     $alerts = createFiveAlertsForCompany($companyId);
@@ -248,8 +251,12 @@ test('same user in two companies gets separate company digests', function () {
     $companyB = (int) $fixturesB['company']->id;
     $user->companies()->attach($companyB, ['status' => 'active']);
 
-    enableCrewNotificationsForUser($companyA, (int) $user->id);
-    enableCrewNotificationsForUser($companyB, (int) $user->id);
+    enableCrewNotificationsForUser($companyA, (int) $user->id, [
+        'notification_email_delivery_mode' => 'immediate',
+    ]);
+    enableCrewNotificationsForUser($companyB, (int) $user->id, [
+        'notification_email_delivery_mode' => 'immediate',
+    ]);
 
     $alertsA = createFiveAlertsForCompany($companyA);
     $alertsB = createFiveAlertsForCompany($companyB);

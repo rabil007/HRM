@@ -7,6 +7,7 @@ import {
     ChevronRight,
     Clock3,
     Home,
+    Mail,
     RotateCcw,
     Save,
     Ship,
@@ -38,6 +39,13 @@ import {
 } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import {
     applyDepartmentToggle,
@@ -57,6 +65,7 @@ type Props = {
     department_tree: PlanningDepartmentNode[];
     crew_settings: PlanningSettings;
     notification_users: NotificationUserOption[];
+    company_timezone?: string;
 };
 
 const ALERT_TYPE_FIELDS = [
@@ -170,6 +179,7 @@ export default function CrewOperationsSettings({
     department_tree,
     crew_settings,
     notification_users,
+    company_timezone,
 }: Props): ReactElement {
     const form = useForm<FormData>({
         ...crew_settings,
@@ -564,6 +574,143 @@ export default function CrewOperationsSettings({
                                             />
                                         </label>
                                     ))}
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 rounded-xl border border-border/70 bg-muted/15 p-4 md:col-span-2">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 text-primary">
+                                        <Mail className="h-4 w-4" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-semibold tracking-tight">
+                                            Email Delivery
+                                        </h4>
+                                        <p className="text-xs text-muted-foreground">
+                                            Configure delivery timing and digest
+                                            preferences for operational alert
+                                            emails.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                    <div className="space-y-1.5">
+                                        <Label
+                                            htmlFor="notification_email_delivery_mode"
+                                            className="text-xs font-semibold"
+                                        >
+                                            Delivery
+                                        </Label>
+                                        <Select
+                                            value={
+                                                form.data
+                                                    .notification_email_delivery_mode
+                                            }
+                                            onValueChange={(
+                                                val: 'scheduled' | 'immediate',
+                                            ) =>
+                                                form.setData(
+                                                    'notification_email_delivery_mode',
+                                                    val,
+                                                )
+                                            }
+                                        >
+                                            <SelectTrigger
+                                                id="notification_email_delivery_mode"
+                                                className="h-10 bg-background/80"
+                                            >
+                                                <SelectValue placeholder="Select delivery mode" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="scheduled">
+                                                    Scheduled digest
+                                                </SelectItem>
+                                                <SelectItem value="immediate">
+                                                    Immediate
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <InputError
+                                            message={
+                                                form.errors
+                                                    .notification_email_delivery_mode
+                                            }
+                                        />
+                                    </div>
+
+                                    {form.data
+                                        .notification_email_delivery_mode ===
+                                    'scheduled' ? (
+                                        <div className="space-y-1.5">
+                                            <Label
+                                                htmlFor="notification_email_digest_at"
+                                                className="text-xs font-semibold"
+                                            >
+                                                Daily digest time
+                                            </Label>
+                                            <Input
+                                                id="notification_email_digest_at"
+                                                type="time"
+                                                value={
+                                                    form.data
+                                                        .notification_email_digest_at
+                                                }
+                                                onChange={(e) =>
+                                                    form.setData(
+                                                        'notification_email_digest_at',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                className="h-10 bg-background/80 font-medium"
+                                            />
+                                            <InputError
+                                                message={
+                                                    form.errors
+                                                        .notification_email_digest_at
+                                                }
+                                            />
+                                        </div>
+                                    ) : null}
+
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-semibold text-muted-foreground">
+                                            Timezone
+                                        </Label>
+                                        <div className="flex h-10 items-center rounded-md border border-border/60 bg-muted/40 px-3 text-xs font-medium text-foreground">
+                                            {company_timezone || 'UTC'}
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Resolved from company timezone.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="pt-1">
+                                    <label className="flex cursor-pointer items-center gap-3 select-none">
+                                        <Checkbox
+                                            id="notification_email_critical_immediate"
+                                            checked={
+                                                form.data
+                                                    .notification_email_critical_immediate
+                                            }
+                                            onCheckedChange={(checked) =>
+                                                form.setData(
+                                                    'notification_email_critical_immediate',
+                                                    checked === true,
+                                                )
+                                            }
+                                        />
+                                        <span className="text-xs font-medium text-foreground">
+                                            Send critical alerts immediately
+                                        </span>
+                                    </label>
+                                    <InputError
+                                        message={
+                                            form.errors
+                                                .notification_email_critical_immediate
+                                        }
+                                    />
                                 </div>
                             </div>
                         </CardContent>

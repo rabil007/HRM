@@ -33,6 +33,9 @@ function crewNotificationSettingsPayload(array $overrides = []): array
         'alert_relief_not_ready' => true,
         'alert_current_manning_gap' => true,
         'alert_projected_manning_gap' => true,
+        'notification_email_delivery_mode' => 'scheduled',
+        'notification_email_digest_at' => '08:00',
+        'notification_email_critical_immediate' => true,
     ], $overrides);
 }
 

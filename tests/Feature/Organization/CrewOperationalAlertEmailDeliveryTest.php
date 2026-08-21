@@ -512,3 +512,76 @@ test('web push and email queues remain independent for the same notify versions'
 
     CarbonImmutable::setTestNow();
 });
+
+test('scheduled mode queues warning alert delivery without immediate job dispatch', function () {
+    Queue::fake();
+    configureAppSmtpForCrewEmailTests();
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-07 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeCrewAssignmentFixtures();
+    $companyId = (int) $fixtures['company']->id;
+    $user = $fixtures['user'];
+
+    enableCrewNotificationsForUser($companyId, (int) $user->id, [
+        'notification_email_delivery_mode' => 'scheduled',
+        'notification_email_critical_immediate' => true,
+    ]);
+
+    createWarningApproachingSignoffAssignmentForAlerts($fixtures);
+    app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+
+    expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(1);
+    expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->first()->status->value)->toBe('queued');
+
+    Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 0);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('immediate mode dispatches warning alert email job immediately', function () {
+    Queue::fake();
+    configureAppSmtpForCrewEmailTests();
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-07 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeCrewAssignmentFixtures();
+    $companyId = (int) $fixtures['company']->id;
+    $user = $fixtures['user'];
+
+    enableCrewNotificationsForUser($companyId, (int) $user->id, [
+        'notification_email_delivery_mode' => 'immediate',
+        'notification_email_critical_immediate' => true,
+    ]);
+
+    createWarningApproachingSignoffAssignmentForAlerts($fixtures);
+    app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+
+    expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(1);
+    Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 1);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('critical alert with critical_immediate disabled waits for scheduled digest', function () {
+    Queue::fake();
+    configureAppSmtpForCrewEmailTests();
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-07 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeCrewAssignmentFixtures();
+    $companyId = (int) $fixtures['company']->id;
+    $user = $fixtures['user'];
+
+    enableCrewNotificationsForUser($companyId, (int) $user->id, [
+        'notification_email_delivery_mode' => 'scheduled',
+        'notification_email_critical_immediate' => false,
+    ]);
+
+    createOverdueAssignmentForAlerts($fixtures);
+    app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+
+    expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->count())->toBe(1);
+    expect(CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->first()->status->value)->toBe('queued');
+
+    Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 0);
+
+    CarbonImmutable::setTestNow();
+});

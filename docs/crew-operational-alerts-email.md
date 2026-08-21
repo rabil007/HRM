@@ -4,21 +4,27 @@ Email for Crew operational alerts is an automatic extension of the in-app / Web 
 
 ## Behaviour
 
-- **Alert Reconciliation**: Detects meaningful alert events (newly detected alert, reactivation of a resolved alert, or meaningful severity escalation).
+- **Alert Reconciliation**: Reconciles operational conditions every 10 minutes (newly detected alert, reactivation of a resolved alert, or meaningful severity escalation).
 - **Per-Alert Delivery Ledger**: Creates individual `CrewOperationalAlertEmailDelivery` records for each `(crew_operational_alert_id, user_id, notification_version)` tuple to preserve deduplication and per-alert audit evidence.
-- **Recipient Grouping & Digesting**: Queued delivery records from a reconciliation run are grouped by `(company_id, user_id)` and dispatched as **ONE consolidated digest email** per recipient per reconciliation execution.
-- **Timing**: Digest emails are triggered immediately after reconciliation completes (per execution run). Time-sensitive critical alerts are not delayed to a once-daily schedule.
+- **Configurable Delivery Modes & Timing**:
+  - **Scheduled Digest (Default)**: Dispatches a consolidated digest email once daily at the company's configured local time (e.g. `08:00 Asia/Dubai`).
+  - **Immediate**: Dispatches digest emails immediately whenever meaningful alerts appear.
+  - **Critical Immediate (Default ON)**: When enabled under Scheduled mode, Critical alerts dispatch immediately while Warning and Info alerts wait for the daily scheduled digest.
+- **Recipient Grouping & Digesting**: Queued delivery records are grouped by `(company_id, user_id)` and dispatched as **ONE consolidated digest email** per recipient.
 
 Existing Crew notification configuration remains authoritative:
 
 - Crew Notifications master ON/OFF
 - Selected active company-member users
 - Five alert-type toggles
+- Delivery mode: `Scheduled digest` / `Immediate`
+- Daily digest time: `HH:MM` (default `08:00` company-local time)
+- Critical immediate: boolean (default `true`)
 
 ## Delivery Pipeline
 
 ```text
-Meaningful notification_version event
+Meaningful notification_version event (every 10 minutes)
     ↓
 Company Crew Notifications enabled & alert type enabled
     ↓
@@ -26,9 +32,15 @@ Selected active recipient with usable email
     ↓
 Per-alert delivery ledger row created (Queued)
     ↓
-Grouped by (company_id, user_id) after transaction commit
+Is Delivery Mode = Immediate OR (Critical & critical_immediate = true)?
+├── YES → Grouped by (company_id, user_id) → DeliverCrewOperationalAlertEmailJob dispatched immediately
+└── NO (Scheduled mode for Warning/Info) → Delivery row remains Queued in database ledger
     ↓
-ONE DeliverCrewOperationalAlertEmailJob per recipient
+Company-local scheduled digest time arrives (e.g. 08:00)
+    ↓
+crew:dispatch-operational-alert-email-digests (scheduled every minute)
+    ↓
+Grouped by (company_id, user_id) → ONE DeliverCrewOperationalAlertEmailJob per recipient
     ↓
 Permission-aware digest rendering via EmailTemplate (crew_operational_alert_digest)
     ↓

@@ -184,6 +184,28 @@ final class JobRegistry
                 'details' => 'Re-calculates leave allocations against taken leaves to fix any balance mismatches.',
                 'code_snippet' => 'php artisan leave-balances:sync',
             ],
+            [
+                'type' => 'command',
+                'name' => 'crew:reconcile-operational-alerts',
+                'class' => 'App\Console\Commands\ReconcileCrewOperationalAlertsCommand',
+                'purpose' => 'Reconciles persisted Crew operational alerts from authoritative domain queries.',
+                'trigger' => 'Artisan Schedule (every 10 minutes).',
+                'schedule' => '*/10 * * * * (Every 10 minutes)',
+                'signature' => 'crew:reconcile-operational-alerts {--company= : Limit reconciliation to a company id}',
+                'details' => 'Runs every 10 minutes without overlapping to maintain real-time operational alerts.',
+                'code_snippet' => 'php artisan crew:reconcile-operational-alerts',
+            ],
+            [
+                'type' => 'command',
+                'name' => 'crew:dispatch-operational-alert-email-digests',
+                'class' => 'App\Console\Commands\DispatchCrewOperationalAlertEmailDigestsCommand',
+                'purpose' => 'Dispatches daily consolidated email digests of queued Crew operational alerts for companies whose configured local digest time is due.',
+                'trigger' => 'Artisan Schedule (every minute).',
+                'schedule' => '* * * * * (Every minute)',
+                'signature' => 'crew:dispatch-operational-alert-email-digests {--company= : Limit to a company id} {--force : Force dispatch}',
+                'details' => 'Evaluates active companies and dispatches one consolidated email digest per recipient at each company\'s local scheduled time.',
+                'code_snippet' => 'php artisan crew:dispatch-operational-alert-email-digests',
+            ],
         ];
     }
 

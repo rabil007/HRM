@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CrewOperationalAlertEmailDeliveryMode;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -28,6 +29,11 @@ class CrewOperationsSetting extends Model
             'alert_relief_not_ready' => 'boolean',
             'alert_current_manning_gap' => 'boolean',
             'alert_projected_manning_gap' => 'boolean',
+            'notification_email_delivery_mode' => CrewOperationalAlertEmailDeliveryMode::class,
+            'notification_email_digest_at' => 'string',
+            'notification_email_critical_immediate' => 'boolean',
+            'notification_email_last_digest_date' => 'string',
+            'notification_email_last_digest_dispatched_at' => 'datetime',
         ];
     }
 
