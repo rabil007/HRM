@@ -187,7 +187,7 @@
                 <td>
                     <table class="info-table">
                         <tr><td class="info-label">Pay Period:</td><td>{{ $period_start }} - {{ $period_end }}</td></tr>
-                        <tr><td class="info-label">Payment Date:</td><td>{{ $payment_date }}</td></tr>
+
                         <tr><td class="info-label">Issued On:</td><td>{{ $issued_on }}</td></tr>
                         <tr><td class="info-label">Payroll Type:</td><td>{{ $payroll_category_label }}</td></tr>
                     </table>
