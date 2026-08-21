@@ -40,7 +40,7 @@ function ActivityBar({
         >
             {/* full-width track sized to max */}
             <div
-                className="absolute inset-y-0 left-0 flex gap-px rounded-full overflow-hidden"
+                className="absolute inset-y-0 left-0 flex gap-px overflow-hidden rounded-full"
                 style={{ width: `${normalised}%` }}
             >
                 {joins > 0 ? (
@@ -102,7 +102,7 @@ export function NextSevenDaysCard({
             </CardHeader>
             <CardContent className="pt-4">
                 {/* Legend */}
-                <div className="mb-3 flex items-center gap-4 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">
+                <div className="mb-3 flex items-center gap-4 text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
                     <span className="flex items-center gap-1.5">
                         <span className="size-2 rounded-full bg-teal-500" />
                         Joins

@@ -61,7 +61,21 @@ final class ActivityChangePresenter
 
         $lookup = self::buildLookup($collection, $companyId);
 
-        return $collection->map(function (Activity $log) use ($lookup): Activity {
+        return $collection->map(function (Activity $log) use ($lookup, $companyId): Activity {
+            // Correction events store context in properties rather than attribute_changes.
+            // Delegate to the dedicated presenter so the card shows human-readable text.
+            $event = $log->properties->get('event');
+
+            if (is_string($event) && str_starts_with($event, 'correction_')) {
+                $log->setAttribute(
+                    'presented_new_values',
+                    CrewCorrectionActivityPresenter::present($log, $companyId),
+                );
+                $log->setAttribute('presented_old_values', null);
+
+                return $log;
+            }
+
             $changes = $log->attribute_changes;
             $old = is_array($changes?->get('old')) ? $changes->get('old') : null;
             $attributes = is_array($changes?->get('attributes')) ? $changes->get('attributes') : null;
@@ -82,14 +96,16 @@ final class ActivityChangePresenter
      */
     public static function toRecentActivityArray(Activity $log): array
     {
+        $causer = $log->relationLoaded('causer') ? $log->causer : null;
+
         return [
             'id' => $log->id,
             'event' => $log->event,
             'description' => $log->description,
-            'causer' => $log->causer ? [
-                'id' => $log->causer->id,
-                'name' => $log->causer->name,
-                'email' => $log->causer->email,
+            'causer' => $causer ? [
+                'id' => $causer->id,
+                'name' => $causer->name,
+                'email' => $causer->email,
             ] : null,
             'old_values' => $log->getAttribute('presented_old_values')
                 ?? (is_array($log->attribute_changes?->get('old')) ? $log->attribute_changes->get('old') : null),

@@ -56,8 +56,7 @@ function ActionRequiredRowContent({
                     'flex size-8 shrink-0 items-center justify-center rounded-lg',
                     item.severity === 'critical' &&
                         'bg-destructive/10 text-destructive',
-                    item.severity === 'warning' &&
-                        'bg-warning/10 text-warning',
+                    item.severity === 'warning' && 'bg-warning/10 text-warning',
                     item.severity === 'info' &&
                         'bg-muted/40 text-muted-foreground',
                 )}
@@ -113,7 +112,7 @@ export function ActionRequiredCard({
                         </CardDescription>
                     </div>
                     {items.length > 0 ? (
-                        <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive/15 px-1.5 text-xs font-bold tabular-nums text-destructive">
+                        <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive/15 px-1.5 text-xs font-bold text-destructive tabular-nums">
                             {items.length}
                         </span>
                     ) : null}
@@ -135,9 +134,9 @@ export function ActionRequiredCard({
                             <div className="space-y-1.5">
                                 {criticalItems.map((item, index) => {
                                     const rowClassName = cn(
-                                        'flex items-center gap-3 rounded-xl border bg-destructive/3 p-3 border-destructive/20 dark:bg-destructive/5 dark:border-destructive/15 border-l-2 border-l-destructive/60',
+                                        'flex items-center gap-3 rounded-xl border border-l-2 border-destructive/20 border-l-destructive/60 bg-destructive/3 p-3 dark:border-destructive/15 dark:bg-destructive/5',
                                         item.href
-                                            ? 'group transition-all hover:bg-destructive/8 dark:hover:bg-destructive/10 cursor-pointer'
+                                            ? 'group cursor-pointer transition-all hover:bg-destructive/8 dark:hover:bg-destructive/10'
                                             : null,
                                     );
 
@@ -178,9 +177,9 @@ export function ActionRequiredCard({
                                 ) : null}
                                 {warningItems.map((item, index) => {
                                     const rowClassName = cn(
-                                        'flex items-center gap-3 rounded-xl border bg-warning/3 p-3 border-warning/20 dark:bg-warning/5 dark:border-warning/15 border-l-2 border-l-warning/60',
+                                        'flex items-center gap-3 rounded-xl border border-l-2 border-warning/20 border-l-warning/60 bg-warning/3 p-3 dark:border-warning/15 dark:bg-warning/5',
                                         item.href
-                                            ? 'group transition-all hover:bg-warning/8 dark:hover:bg-warning/10 cursor-pointer'
+                                            ? 'group cursor-pointer transition-all hover:bg-warning/8 dark:hover:bg-warning/10'
                                             : null,
                                     );
 

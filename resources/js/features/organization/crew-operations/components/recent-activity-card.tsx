@@ -105,7 +105,7 @@ export function RecentActivityCard({
                                 {/* Timeline dot */}
                                 <span
                                     className={cn(
-                                        'absolute left-0 top-3.5 size-3.5 rounded-full border-2 border-background',
+                                        'absolute top-3.5 left-0 size-3.5 rounded-full border-2 border-background',
                                         eventDotColor(activity.event),
                                     )}
                                 />
@@ -117,7 +117,7 @@ export function RecentActivityCard({
                                                 {activity.causer.name}
                                             </span>
                                         ) : (
-                                            <span className="italic text-muted-foreground/60">
+                                            <span className="text-muted-foreground/60 italic">
                                                 System
                                             </span>
                                         )}{' '}
@@ -133,7 +133,11 @@ export function RecentActivityCard({
 
                                     <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground/50">
                                         <Clock className="size-2.5" />
-                                        {relativeTime(activity.created_at as string | null)}
+                                        {relativeTime(
+                                            activity.created_at as
+                                                | string
+                                                | null,
+                                        )}
                                     </p>
                                 </div>
                             </li>

@@ -146,34 +146,50 @@ export function RecentActivityCard({
 
                                             {shown.length > 0 ? (
                                                 <div className="flex flex-wrap gap-1.5 pt-0.5">
-                                                    {shown.map((key) => (
-                                                        <span
-                                                            key={key}
-                                                            className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground dark:border-white/10 dark:bg-white/5"
-                                                        >
-                                                            {formatActivityFieldLabel(
-                                                                key,
-                                                            )}
-                                                            :{' '}
-                                                            <span className="text-muted-foreground/70">
-                                                                {formatDisplayValue(
-                                                                    item
-                                                                        .old_values?.[
-                                                                        key
-                                                                    ],
+                                                    {shown.map((key) => {
+                                                        const oldVal =
+                                                            item.old_values?.[
+                                                                key
+                                                            ];
+                                                        const newVal =
+                                                            item.new_values?.[
+                                                                key
+                                                            ];
+                                                        const hasOldValue =
+                                                            item.old_values !==
+                                                                null &&
+                                                            item.old_values !==
+                                                                undefined &&
+                                                            key in
+                                                                item.old_values;
+
+                                                        return (
+                                                            <span
+                                                                key={key}
+                                                                className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground dark:border-white/10 dark:bg-white/5"
+                                                            >
+                                                                {formatActivityFieldLabel(
+                                                                    key,
                                                                 )}
-                                                            </span>{' '}
-                                                            →{' '}
-                                                            <span className="text-foreground/90">
-                                                                {formatDisplayValue(
-                                                                    item
-                                                                        .new_values?.[
-                                                                        key
-                                                                    ],
-                                                                )}
+                                                                :{' '}
+                                                                {hasOldValue ? (
+                                                                    <>
+                                                                        <span className="text-muted-foreground/70">
+                                                                            {formatDisplayValue(
+                                                                                oldVal,
+                                                                            )}
+                                                                        </span>
+                                                                        {' → '}
+                                                                    </>
+                                                                ) : null}
+                                                                <span className="text-foreground/90">
+                                                                    {formatDisplayValue(
+                                                                        newVal,
+                                                                    )}
+                                                                </span>
                                                             </span>
-                                                        </span>
-                                                    ))}
+                                                        );
+                                                    })}
                                                     {keys.length > 4 ? (
                                                         <button
                                                             type="button"

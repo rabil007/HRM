@@ -14,7 +14,6 @@ import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { index as vesselManningIndex } from '@/routes/organization/vessel-manning';
 
-
 interface SegmentProps {
     value: number;
     total: number;
@@ -22,7 +21,12 @@ interface SegmentProps {
     label: string;
 }
 
-function Segment({ value, total, color, label }: SegmentProps): ReactElement | null {
+function Segment({
+    value,
+    total,
+    color,
+    label,
+}: SegmentProps): ReactElement | null {
     if (value <= 0 || total <= 0) {
         return null;
     }

@@ -1,6 +1,5 @@
 import { BarChart3, LogIn, LogOut } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
     Card,
     CardContent,
@@ -8,6 +7,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { CrewOperationsDeploymentTrendPoint } from '@/features/organization/crew-operations/types';
 import { cn } from '@/lib/utils';
 
@@ -51,7 +51,7 @@ function BarGroup({
                 />
                 {/* Disembarks bar */}
                 <div
-                    className="relative w-1/2 overflow-hidden rounded-t-sm bg-amber-400/80 dark:bg-amber-500/80 transition-all duration-500 hover:bg-amber-400 dark:hover:bg-amber-500"
+                    className="relative w-1/2 overflow-hidden rounded-t-sm bg-amber-400/80 transition-all duration-500 hover:bg-amber-400 dark:bg-amber-500/80 dark:hover:bg-amber-500"
                     style={{ height: `${disembarkHeight}px` }}
                     title={`Sign-offs: ${point.disembarks}`}
                 />
@@ -63,7 +63,7 @@ function BarGroup({
             </p>
 
             {/* Tooltip on hover */}
-            <div className="pointer-events-none absolute -top-14 left-1/2 z-10 -translate-x-1/2 rounded-lg border border-border/60 bg-popover px-2.5 py-1.5 text-[11px] font-medium shadow-lg opacity-0 transition-opacity group-hover:opacity-100 dark:border-white/10">
+            <div className="pointer-events-none absolute -top-14 left-1/2 z-10 -translate-x-1/2 rounded-lg border border-border/60 bg-popover px-2.5 py-1.5 text-[11px] font-medium opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:border-white/10">
                 <p className="flex items-center gap-1 text-teal-600 dark:text-teal-400">
                     <LogIn className="size-3" />
                     {point.joins} joins
@@ -128,7 +128,7 @@ export function DeploymentTrendsCard({
                 ) : (
                     <>
                         {/* Legend */}
-                        <div className="mb-4 flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/55">
+                        <div className="mb-4 flex items-center gap-4 text-[10px] font-bold tracking-widest text-muted-foreground/55 uppercase">
                             <span className="flex items-center gap-1.5">
                                 <span className="size-2 rounded-sm bg-teal-500" />
                                 Joins

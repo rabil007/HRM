@@ -127,9 +127,7 @@ export function CrewOperationsDashboardContent({
                 }
             >
                 <div
-                    className={
-                        recentActivity.length > 0 ? 'lg:col-span-2' : ''
-                    }
+                    className={recentActivity.length > 0 ? 'lg:col-span-2' : ''}
                 >
                     <ManningReliefRisksCard
                         risks={manningReliefRisks}
