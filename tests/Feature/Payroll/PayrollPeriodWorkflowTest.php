@@ -146,7 +146,7 @@ test('mark paid without an explicit date defaults payment date to company-local 
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
-    grantCompanyPermissions($user, $company, ['payroll.periods.mark_paid']);
+    grantCompanyPermissions($user, $company, ['payroll.periods.mark_paid', 'payroll.periods.view']);
 
     [$period] = createApprovedPayrollPeriodWithRecord($company, $user);
 
@@ -169,7 +169,7 @@ test('mark paid stores an explicitly supplied payment date', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
-    grantCompanyPermissions($user, $company, ['payroll.periods.mark_paid']);
+    grantCompanyPermissions($user, $company, ['payroll.periods.mark_paid', 'payroll.periods.view']);
 
     [$period] = createApprovedPayrollPeriodWithRecord($company, $user);
     $period->update(['start_date' => '2026-06-01', 'end_date' => '2026-06-30']);
