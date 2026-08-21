@@ -5,6 +5,7 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\CrewMovementCorrection;
 use App\Models\EmployeeDeployment;
 use Illuminate\Support\Facades\Schema;
 
@@ -217,4 +218,55 @@ test('crew assignment is the movement source of truth without deployments', func
     expect($assignment->fresh())->not->toBeNull()
         ->and(Schema::hasTable('employee_deployments'))->toBeFalse()
         ->and(class_exists(EmployeeDeployment::class, false))->toBeFalse();
+});
+
+test('crew assignment show page renders successfully with corrections without lazy loading violations', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'audit.view',
+        'crew_operations.assignments.view',
+    ]);
+
+    $vessel = makeCrewMovementVessel('Show Vessel', $company);
+
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'assignment_no' => 'CA-SHOW-CORR-01',
+        'status' => 'active',
+        'started_at' => now(),
+    ]);
+
+    $phase = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'company_id' => $company->id,
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'status' => CrewPhaseStatus::Active,
+        'sequence' => 1,
+        'actual_start_at' => now(),
+    ]);
+
+    $assignment->update(['current_phase_id' => $phase->id]);
+
+    CrewMovementCorrection::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'crew_assignment_phase_id' => $phase->id,
+        'status' => 'pending',
+        'original_values' => ['actual_start_at' => ['value' => '2026-06-07T11:17:00Z', 'display' => '2026-06-07 11:17']],
+        'proposed_values' => ['actual_start_at' => ['value' => '2026-06-21T11:17:00Z', 'display' => '2026-06-21 11:17']],
+        'reason' => 'Show test correction',
+        'requested_by' => $user->id,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.crew-assignments.show', $assignment))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('organization/crew/show')
+            ->has('corrections.pending', 1)
+            ->where('corrections.pending.0.reason', 'Show test correction')
+        );
 });

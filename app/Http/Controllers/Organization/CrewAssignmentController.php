@@ -203,6 +203,7 @@ class CrewAssignmentController extends Controller
             'corrections.requester:id,name',
             'corrections.decisionMaker:id,name',
             'corrections.phase',
+            'corrections.company:id,timezone',
         ]);
 
         $detail = CrewAssignmentPresenter::detail($assignment);

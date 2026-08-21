@@ -19,12 +19,21 @@ final class CrewMovementCorrectionPresenter
     /**
      * @return array<string, mixed>
      */
-    public function listItem(CrewMovementCorrection $correction, ?string $timezone = null): array
-    {
-        $assignment = $correction->assignment;
-        $phase = $correction->phase;
-        $timezone ??= (string) ($correction->company?->timezone
+    public function listItem(
+        CrewMovementCorrection $correction,
+        ?string $timezone = null,
+        ?CrewAssignment $assignment = null,
+    ): array {
+        $assignment ??= $correction->relationLoaded('assignment') ? $correction->assignment : null;
+        $phase = $correction->relationLoaded('phase') ? $correction->phase : null;
+        $company = $correction->relationLoaded('company') ? $correction->company : null;
+        $timezone ??= (string) ($company?->timezone
             ?? config('app.timezone', 'UTC'));
+
+        $employee = $assignment && $assignment->relationLoaded('employee') ? $assignment->employee : null;
+        $vessel = $assignment && $assignment->relationLoaded('vessel') ? $assignment->vessel : null;
+        $requester = $correction->relationLoaded('requester') ? $correction->requester : null;
+        $decisionMaker = $correction->relationLoaded('decisionMaker') ? $correction->decisionMaker : null;
 
         return [
             'id' => $correction->id,
@@ -38,14 +47,14 @@ final class CrewMovementCorrectionPresenter
             'assignment' => $assignment ? [
                 'id' => $assignment->id,
                 'assignment_no' => $assignment->assignment_no,
-                'employee' => $assignment->employee ? [
-                    'id' => $assignment->employee->id,
-                    'name' => $assignment->employee->name,
-                    'employee_no' => $assignment->employee->employee_no,
+                'employee' => $employee ? [
+                    'id' => $employee->id,
+                    'name' => $employee->name,
+                    'employee_no' => $employee->employee_no,
                 ] : null,
-                'vessel' => $assignment->vessel ? [
-                    'id' => $assignment->vessel->id,
-                    'name' => $assignment->vessel->name,
+                'vessel' => $vessel ? [
+                    'id' => $vessel->id,
+                    'name' => $vessel->name,
                 ] : null,
             ] : null,
             'phase' => $phase ? [
@@ -55,10 +64,10 @@ final class CrewMovementCorrectionPresenter
                 'status' => $phase->status->value,
                 'status_label' => $phase->status->label(),
             ] : null,
-            'requester' => $this->userSummary($correction->requester),
-            'decision_maker' => $this->userSummary($correction->decisionMaker),
+            'requester' => $this->userSummary($requester),
+            'decision_maker' => $this->userSummary($decisionMaker),
             'field_count' => count($correction->proposed_values ?? []),
-            'has_conflict' => $this->hasConflict($correction),
+            'has_conflict' => $this->hasConflict($correction, $assignment, $phase),
         ];
     }
 
@@ -67,8 +76,8 @@ final class CrewMovementCorrectionPresenter
      */
     public function detail(CrewMovementCorrection $correction, ?User $viewer = null): array
     {
-        $assignment = $correction->assignment;
-        $phase = $correction->phase;
+        $assignment = $correction->relationLoaded('assignment') ? $correction->assignment : null;
+        $phase = $correction->relationLoaded('phase') ? $correction->phase : null;
         $live = [];
 
         if ($assignment !== null && $phase !== null) {
@@ -81,10 +90,10 @@ final class CrewMovementCorrectionPresenter
             }
         }
 
-        $hasConflict = $this->hasConflict($correction);
+        $hasConflict = $this->hasConflict($correction, $assignment, $phase);
 
         return [
-            ...$this->listItem($correction),
+            ...$this->listItem($correction, null, $assignment),
             'original_values' => $correction->original_values ?? [],
             'proposed_values' => $correction->proposed_values ?? [],
             'applied_values' => $correction->applied_values,
@@ -113,17 +122,23 @@ final class CrewMovementCorrectionPresenter
             ? $assignment->corrections
             : $assignment->corrections()->with(['requester:id,name', 'decisionMaker:id,name', 'phase'])->latest('id')->get();
 
+        $corrections->each(function (CrewMovementCorrection $correction) use ($assignment): void {
+            if (! $correction->relationLoaded('assignment')) {
+                $correction->setRelation('assignment', $assignment);
+            }
+        });
+
         $pending = $corrections->where('status', CrewMovementCorrectionStatus::Pending)->values();
         $history = $corrections->values();
-        $timezone = (string) ($assignment->company?->timezone
+        $timezone = (string) (($assignment->relationLoaded('company') ? $assignment->company?->timezone : null)
             ?? config('app.timezone', 'UTC'));
 
         return [
             'pending' => $pending
-                ->map(fn (CrewMovementCorrection $correction) => $this->listItem($correction, $timezone))
+                ->map(fn (CrewMovementCorrection $correction) => $this->listItem($correction, $timezone, $assignment))
                 ->all(),
             'history' => $history
-                ->map(fn (CrewMovementCorrection $correction) => $this->listItem($correction, $timezone))
+                ->map(fn (CrewMovementCorrection $correction) => $this->listItem($correction, $timezone, $assignment))
                 ->all(),
             'pending_count' => $pending->count(),
             'approved_count' => $corrections->where('status', CrewMovementCorrectionStatus::Approved)->count(),
@@ -170,14 +185,17 @@ final class CrewMovementCorrectionPresenter
         ];
     }
 
-    private function hasConflict(CrewMovementCorrection $correction): bool
-    {
+    private function hasConflict(
+        CrewMovementCorrection $correction,
+        ?CrewAssignment $assignment = null,
+        ?CrewAssignmentPhase $phase = null,
+    ): bool {
         if ($correction->status !== CrewMovementCorrectionStatus::Pending) {
             return false;
         }
 
-        $assignment = $correction->assignment;
-        $phase = $correction->phase;
+        $assignment ??= $correction->relationLoaded('assignment') ? $correction->assignment : null;
+        $phase ??= $correction->relationLoaded('phase') ? $correction->phase : null;
 
         if ($assignment === null || $phase === null) {
             return true;
