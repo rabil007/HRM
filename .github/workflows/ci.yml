@@ -16,7 +16,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -49,10 +48,12 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Safe docs/tooling locations only. Root Markdown is allowed;
+          # Markdown under any other directory is NOT automatically docs.
           is_docs() {
             local path="$1"
+
             case "$path" in
-              *.md|\
               docs/*|\
               .cursor/*|\
               .agents/*|\
@@ -62,10 +63,14 @@ jobs:
               boost.json)
                 return 0
                 ;;
-              *)
-                return 1
-                ;;
             esac
+
+            # Root-level Markdown only (no directory separator).
+            if [[ "$path" == *.md && "$path" != */* ]]; then
+              return 0
+            fi
+
+            return 1
           }
 
           # Union of every path we intentionally classify (docs + application + shared).
@@ -129,62 +134,76 @@ jobs:
             esac
           }
 
-          if [[ "$EVENT_NAME" == 'pull_request' ]]; then
-            base_sha="$PR_BASE_SHA"
-            head_sha="$PR_HEAD_SHA"
-          else
-            base_sha="$PUSH_BEFORE"
-            head_sha="$PUSH_SHA"
-          fi
+          collect_changed_files() {
+            local from_ref="$1"
+            local to_ref="$2"
+
+            # Disable rename detection so a rename is delete+add and both
+            # paths are classified (e.g. app/Foo.php -> docs/Foo.md).
+            git -c diff.renames=false diff --name-only --diff-filter=ACD "$from_ref" "$to_ref" | sed '/^$/d'
+          }
 
           run_backend=true
           run_frontend=true
           docs_only=false
           scope=full
+          changed_files=()
 
-          if [[ -z "${base_sha:-}" || "$base_sha" =~ ^0+$ ]]; then
-            echo "Missing or zero base SHA; fail-safe full CI."
-          else
-            mapfile -t changed_files < <(git diff --name-only --diff-filter=ACDMR "$base_sha" "$head_sha" | sed '/^$/d')
-
-            if [[ ${#changed_files[@]} -eq 0 ]]; then
-              echo "No changed files detected; fail-safe full CI."
+          if [[ "$EVENT_NAME" == 'pull_request' ]]; then
+            if [[ -z "${PR_BASE_SHA:-}" || -z "${PR_HEAD_SHA:-}" || "$PR_BASE_SHA" =~ ^0+$ || "$PR_HEAD_SHA" =~ ^0+$ ]]; then
+              echo "Missing PR base/head SHA; fail-safe full CI."
+            elif ! merge_base="$(git merge-base "$PR_BASE_SHA" "$PR_HEAD_SHA" 2>/dev/null)"; then
+              echo "Unable to determine merge-base of ${PR_BASE_SHA} and ${PR_HEAD_SHA}; fail-safe full CI."
             else
-              echo "Changed files (${#changed_files[@]}):"
-              printf '  - %s\n' "${changed_files[@]}"
+              echo "PR classify: base=${PR_BASE_SHA} head=${PR_HEAD_SHA} merge-base=${merge_base}"
+              mapfile -t changed_files < <(collect_changed_files "$merge_base" "$PR_HEAD_SHA")
+            fi
+          else
+            if [[ -z "${PUSH_BEFORE:-}" || "$PUSH_BEFORE" =~ ^0+$ ]]; then
+              echo "Missing or zero push before SHA; fail-safe full CI."
+            else
+              echo "Push classify: before=${PUSH_BEFORE} sha=${PUSH_SHA}"
+              mapfile -t changed_files < <(collect_changed_files "$PUSH_BEFORE" "$PUSH_SHA")
+            fi
+          fi
 
-              unrecognized=()
-              non_docs=()
+          if [[ ${#changed_files[@]} -eq 0 ]]; then
+            echo "No changed files detected or prior fail-safe; running full parallel CI."
+          else
+            echo "Changed files (${#changed_files[@]}):"
+            printf '  - %s\n' "${changed_files[@]}"
 
-              for path in "${changed_files[@]}"; do
-                if ! is_recognized "$path"; then
-                  unrecognized+=("$path")
-                  non_docs+=("$path")
-                  continue
-                fi
+            unrecognized=()
+            non_docs=()
 
-                if ! is_docs "$path"; then
-                  non_docs+=("$path")
-                fi
-              done
-
-              if [[ ${#unrecognized[@]} -gt 0 ]]; then
-                echo "Unrecognized files (force full CI):"
-                printf '  - %s\n' "${unrecognized[@]}"
+            for path in "${changed_files[@]}"; do
+              if ! is_recognized "$path"; then
+                unrecognized+=("$path")
+                non_docs+=("$path")
+                continue
               fi
 
-              if [[ ${#non_docs[@]} -eq 0 && ${#unrecognized[@]} -eq 0 ]]; then
-                run_backend=false
-                run_frontend=false
-                docs_only=true
-                scope=docs-only
-                echo "All changed files are classified docs paths."
-              else
-                echo "Non-docs and/or unrecognized changes present; running full parallel CI."
-                if [[ ${#non_docs[@]} -gt 0 ]]; then
-                  echo "Non-docs files:"
-                  printf '  - %s\n' "${non_docs[@]}"
-                fi
+              if ! is_docs "$path"; then
+                non_docs+=("$path")
+              fi
+            done
+
+            if [[ ${#unrecognized[@]} -gt 0 ]]; then
+              echo "Unrecognized files (force full CI):"
+              printf '  - %s\n' "${unrecognized[@]}"
+            fi
+
+            if [[ ${#non_docs[@]} -eq 0 && ${#unrecognized[@]} -eq 0 ]]; then
+              run_backend=false
+              run_frontend=false
+              docs_only=true
+              scope=docs-only
+              echo "All changed files are classified docs paths."
+            else
+              echo "Non-docs and/or unrecognized changes present; running full parallel CI."
+              if [[ ${#non_docs[@]} -gt 0 ]]; then
+                echo "Non-docs files:"
+                printf '  - %s\n' "${non_docs[@]}"
               fi
             fi
           fi
