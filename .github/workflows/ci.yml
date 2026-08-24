@@ -235,8 +235,18 @@ jobs:
           coverage: none
           ini-values: memory_limit=1G
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
       - name: Log runtime versions
-        run: php --version
+        run: |
+          node --version
+          npm --version
+          php --version
 
       - name: Get Composer cache directory
         id: composer-cache
@@ -250,13 +260,32 @@ jobs:
           restore-keys: |
             composer-${{ runner.os }}-8.4-
 
+      - name: Cache Puppeteer browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            puppeteer-${{ runner.os }}-
+
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install Node dependencies
+        run: npm ci
 
       - name: Prepare Laravel environment
         run: |
           cp .env.example .env
           php artisan key:generate --no-interaction
+
+      - name: Generate Wayfinder types
+        run: php artisan wayfinder:generate --with-form --no-interaction
+
+      # public/build is gitignored; Inertia HTML responses need the Vite
+      # manifest, matching the pre-split CI order (build before Pest).
+      - name: Production build
+        run: npm run build
 
       - name: Pint
         run: composer lint:check
