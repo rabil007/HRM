@@ -35,92 +35,158 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Paths filter
-        uses: dorny/paths-filter@v3
-        id: filter
         with:
-          filters: |
-            backend:
-              - 'app/**'
-              - 'bootstrap/**'
-              - 'database/**'
-              - 'routes/**'
-              - 'tests/**'
-              - 'artisan'
-              - 'phpunit.xml'
-              - 'pint.json'
-              - '**/*.php'
-            frontend:
-              - 'resources/js/**'
-              - 'resources/css/**'
-              - 'vite.config.*'
-              - 'tsconfig.json'
-              - 'eslint.config.*'
-              - '.prettierrc'
-              - '.prettierrc.*'
-              - '.prettierignore'
-              - '.npmrc'
-              - 'components.json'
-              - '**/*.{js,jsx,mjs,cjs,ts,tsx,css,scss}'
-            shared:
-              - 'composer.json'
-              - 'composer.lock'
-              - 'package.json'
-              - 'package-lock.json'
-              - 'config/**'
-              - '.env.example'
-              - '.github/**'
-              - 'public/**'
-              - 'resources/views/**'
-              - 'resources/cv-templates/**'
-              - '.editorconfig'
-              - '.gitattributes'
-              - '.gitignore'
-            docs:
-              - '**/*.md'
-              - 'docs/**'
-              - '.cursor/**'
-              - '.agents/**'
-              - '.gemini/**'
-              - '.cursorignore'
-              - '.cursorindexingignore'
-              - 'boost.json'
+          fetch-depth: 0
 
       - name: Classify CI scope
         id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_SHA: ${{ github.sha }}
         run: |
-          backend='${{ steps.filter.outputs.backend }}'
-          frontend='${{ steps.filter.outputs.frontend }}'
-          shared='${{ steps.filter.outputs.shared }}'
-          docs='${{ steps.filter.outputs.docs }}'
+          set -euo pipefail
 
-          run_backend=false
-          run_frontend=false
+          is_docs() {
+            local path="$1"
+            case "$path" in
+              *.md|\
+              docs/*|\
+              .cursor/*|\
+              .agents/*|\
+              .gemini/*|\
+              .cursorignore|\
+              .cursorindexingignore|\
+              boost.json)
+                return 0
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
+          # Union of every path we intentionally classify (docs + application + shared).
+          # Any changed path outside this set is unknown and forces full CI.
+          is_recognized() {
+            local path="$1"
+
+            if is_docs "$path"; then
+              return 0
+            fi
+
+            case "$path" in
+              # Backend / Laravel
+              app/*|\
+              bootstrap/*|\
+              database/*|\
+              routes/*|\
+              tests/*|\
+              artisan|\
+              phpunit.xml|\
+              pint.json|\
+              *.php|\
+              # Frontend / React
+              resources/js/*|\
+              resources/css/*|\
+              vite.config.*|\
+              tsconfig.json|\
+              eslint.config.*|\
+              .prettierrc|\
+              .prettierrc.*|\
+              .prettierignore|\
+              .npmrc|\
+              components.json|\
+              *.js|\
+              *.jsx|\
+              *.mjs|\
+              *.cjs|\
+              *.ts|\
+              *.tsx|\
+              *.css|\
+              *.scss|\
+              # Shared / config / dependencies / high-risk
+              composer.json|\
+              composer.lock|\
+              package.json|\
+              package-lock.json|\
+              config/*|\
+              .env.example|\
+              .github/*|\
+              public/*|\
+              resources/views/*|\
+              resources/cv-templates/*|\
+              .editorconfig|\
+              .gitattributes|\
+              .gitignore)
+                return 0
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
+          if [[ "$EVENT_NAME" == 'pull_request' ]]; then
+            base_sha="$PR_BASE_SHA"
+            head_sha="$PR_HEAD_SHA"
+          else
+            base_sha="$PUSH_BEFORE"
+            head_sha="$PUSH_SHA"
+          fi
+
+          run_backend=true
+          run_frontend=true
           docs_only=false
           scope=full
 
-          # Shared/config/dependency/high-risk → full CI.
-          # Unknown (no filter matched) → fail-safe full CI.
-          if [[ "$shared" == 'true' ]] || {
-            [[ "$backend" != 'true' && "$frontend" != 'true' && "$docs" != 'true' ]]
-          }; then
-            run_backend=true
-            run_frontend=true
-            scope=full
-          elif [[ "$backend" == 'true' && "$frontend" == 'true' ]]; then
-            run_backend=true
-            run_frontend=true
-            scope=full
-          elif [[ "$backend" == 'true' ]]; then
-            run_backend=true
-            scope=backend
-          elif [[ "$frontend" == 'true' ]]; then
-            run_frontend=true
-            scope=frontend
+          if [[ -z "${base_sha:-}" || "$base_sha" =~ ^0+$ ]]; then
+            echo "Missing or zero base SHA; fail-safe full CI."
           else
-            docs_only=true
-            scope=docs-only
+            mapfile -t changed_files < <(git diff --name-only --diff-filter=ACDMR "$base_sha" "$head_sha" | sed '/^$/d')
+
+            if [[ ${#changed_files[@]} -eq 0 ]]; then
+              echo "No changed files detected; fail-safe full CI."
+            else
+              echo "Changed files (${#changed_files[@]}):"
+              printf '  - %s\n' "${changed_files[@]}"
+
+              unrecognized=()
+              non_docs=()
+
+              for path in "${changed_files[@]}"; do
+                if ! is_recognized "$path"; then
+                  unrecognized+=("$path")
+                  non_docs+=("$path")
+                  continue
+                fi
+
+                if ! is_docs "$path"; then
+                  non_docs+=("$path")
+                fi
+              done
+
+              if [[ ${#unrecognized[@]} -gt 0 ]]; then
+                echo "Unrecognized files (force full CI):"
+                printf '  - %s\n' "${unrecognized[@]}"
+              fi
+
+              if [[ ${#non_docs[@]} -eq 0 && ${#unrecognized[@]} -eq 0 ]]; then
+                run_backend=false
+                run_frontend=false
+                docs_only=true
+                scope=docs-only
+                echo "All changed files are classified docs paths."
+              else
+                echo "Non-docs and/or unrecognized changes present; running full parallel CI."
+                if [[ ${#non_docs[@]} -gt 0 ]]; then
+                  echo "Non-docs files:"
+                  printf '  - %s\n' "${non_docs[@]}"
+                fi
+              fi
+            fi
           fi
 
           {
@@ -130,7 +196,6 @@ jobs:
             echo "scope=${scope}"
           } >> "$GITHUB_OUTPUT"
 
-          echo "Filter backend=${backend} frontend=${frontend} shared=${shared} docs=${docs}"
           echo "CI scope=${scope} run_backend=${run_backend} run_frontend=${run_frontend} docs_only=${docs_only}"
 
   backend:
