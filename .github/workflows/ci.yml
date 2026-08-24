@@ -22,11 +22,254 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality:
-    name: Quality gates
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.classify.outputs.backend }}
+      frontend: ${{ steps.classify.outputs.frontend }}
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+      scope: ${{ steps.classify.outputs.scope }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify CI scope
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          # Safe docs/tooling locations only. Root Markdown is allowed;
+          # Markdown under any other directory is NOT automatically docs.
+          is_docs() {
+            local path="$1"
+
+            case "$path" in
+              docs/*|\
+              .cursor/*|\
+              .agents/*|\
+              .gemini/*|\
+              .cursorignore|\
+              .cursorindexingignore|\
+              boost.json)
+                return 0
+                ;;
+            esac
+
+            # Root-level Markdown only (no directory separator).
+            if [[ "$path" == *.md && "$path" != */* ]]; then
+              return 0
+            fi
+
+            return 1
+          }
+
+          # Union of every path we intentionally classify (docs + application + shared).
+          # Any changed path outside this set is unknown and forces full CI.
+          is_recognized() {
+            local path="$1"
+
+            if is_docs "$path"; then
+              return 0
+            fi
+
+            # Recognized app paths: backend, frontend, and shared/config/deps.
+            # (Do not put comments inside the continued case-pattern list.)
+            case "$path" in
+              app/*|\
+              bootstrap/*|\
+              database/*|\
+              routes/*|\
+              tests/*|\
+              artisan|\
+              phpunit.xml|\
+              pint.json|\
+              *.php|\
+              resources/js/*|\
+              resources/css/*|\
+              vite.config.*|\
+              tsconfig.json|\
+              eslint.config.*|\
+              .prettierrc|\
+              .prettierrc.*|\
+              .prettierignore|\
+              .npmrc|\
+              components.json|\
+              *.js|\
+              *.jsx|\
+              *.mjs|\
+              *.cjs|\
+              *.ts|\
+              *.tsx|\
+              *.css|\
+              *.scss|\
+              composer.json|\
+              composer.lock|\
+              package.json|\
+              package-lock.json|\
+              config/*|\
+              .env.example|\
+              .github/*|\
+              public/*|\
+              resources/views/*|\
+              resources/cv-templates/*|\
+              .editorconfig|\
+              .gitattributes|\
+              .gitignore)
+                return 0
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
+          collect_changed_files() {
+            local from_ref="$1"
+            local to_ref="$2"
+
+            # Disable rename detection so a rename is delete+add and both
+            # paths are classified (e.g. app/Foo.php -> docs/Foo.md).
+            # No --diff-filter: include adds, deletes, and modifications.
+            git -c diff.renames=false diff --name-only "$from_ref" "$to_ref" | sed '/^$/d'
+          }
+
+          run_backend=true
+          run_frontend=true
+          docs_only=false
+          scope=full
+          changed_files=()
+
+          if [[ "$EVENT_NAME" == 'pull_request' ]]; then
+            if [[ -z "${PR_BASE_SHA:-}" || -z "${PR_HEAD_SHA:-}" || "$PR_BASE_SHA" =~ ^0+$ || "$PR_HEAD_SHA" =~ ^0+$ ]]; then
+              echo "Missing PR base/head SHA; fail-safe full CI."
+            elif ! merge_base="$(git merge-base "$PR_BASE_SHA" "$PR_HEAD_SHA" 2>/dev/null)"; then
+              echo "Unable to determine merge-base of ${PR_BASE_SHA} and ${PR_HEAD_SHA}; fail-safe full CI."
+            else
+              echo "PR classify: base=${PR_BASE_SHA} head=${PR_HEAD_SHA} merge-base=${merge_base}"
+              mapfile -t changed_files < <(collect_changed_files "$merge_base" "$PR_HEAD_SHA")
+            fi
+          else
+            if [[ -z "${PUSH_BEFORE:-}" || "$PUSH_BEFORE" =~ ^0+$ ]]; then
+              echo "Missing or zero push before SHA; fail-safe full CI."
+            else
+              echo "Push classify: before=${PUSH_BEFORE} sha=${PUSH_SHA}"
+              mapfile -t changed_files < <(collect_changed_files "$PUSH_BEFORE" "$PUSH_SHA")
+            fi
+          fi
+
+          if [[ ${#changed_files[@]} -eq 0 ]]; then
+            echo "No changed files detected or prior fail-safe; running full parallel CI."
+          else
+            echo "Changed files (${#changed_files[@]}):"
+            printf '  - %s\n' "${changed_files[@]}"
+
+            unrecognized=()
+            non_docs=()
+
+            for path in "${changed_files[@]}"; do
+              if ! is_recognized "$path"; then
+                unrecognized+=("$path")
+                non_docs+=("$path")
+                continue
+              fi
+
+              if ! is_docs "$path"; then
+                non_docs+=("$path")
+              fi
+            done
+
+            if [[ ${#unrecognized[@]} -gt 0 ]]; then
+              echo "Unrecognized files (force full CI):"
+              printf '  - %s\n' "${unrecognized[@]}"
+            fi
+
+            if [[ ${#non_docs[@]} -eq 0 && ${#unrecognized[@]} -eq 0 ]]; then
+              run_backend=false
+              run_frontend=false
+              docs_only=true
+              scope=docs-only
+              echo "All changed files are classified docs paths."
+            else
+              echo "Non-docs and/or unrecognized changes present; running full parallel CI."
+              if [[ ${#non_docs[@]} -gt 0 ]]; then
+                echo "Non-docs files:"
+                printf '  - %s\n' "${non_docs[@]}"
+              fi
+            fi
+          fi
+
+          {
+            echo "backend=${run_backend}"
+            echo "frontend=${run_frontend}"
+            echo "docs_only=${docs_only}"
+            echo "scope=${scope}"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "CI scope=${scope} run_backend=${run_backend} run_frontend=${run_frontend} docs_only=${docs_only}"
+
+  backend:
+    name: Backend
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+          ini-values: memory_limit=1G
+
+      - name: Log runtime versions
+        run: php --version
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-8.4-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-8.4-
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Prepare Laravel environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Pint
+        run: composer lint:check
+
+      - name: Pest
+        run: php artisan test --compact --ansi
+
+  frontend:
+    name: Frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -86,9 +329,6 @@ jobs:
       - name: Generate Wayfinder types
         run: php artisan wayfinder:generate --with-form --no-interaction
 
-      - name: Pint
-        run: composer lint:check
-
       - name: ESLint
         run: npm run lint:check
 
@@ -104,5 +344,59 @@ jobs:
       - name: Production build
         run: npm run build
 
-      - name: Pest
-        run: php artisan test --compact --ansi
+  quality:
+    name: Quality gates
+    needs:
+      - changes
+      - backend
+      - frontend
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate CI result
+        run: |
+          changes_result='${{ needs.changes.result }}'
+          backend_result='${{ needs.backend.result }}'
+          frontend_result='${{ needs.frontend.result }}'
+          run_backend='${{ needs.changes.outputs.backend }}'
+          run_frontend='${{ needs.changes.outputs.frontend }}'
+          docs_only='${{ needs.changes.outputs.docs_only }}'
+          scope='${{ needs.changes.outputs.scope }}'
+
+          echo "scope=${scope}"
+          echo "docs_only=${docs_only}"
+          echo "run_backend=${run_backend} backend_result=${backend_result}"
+          echo "run_frontend=${run_frontend} frontend_result=${frontend_result}"
+          echo "changes_result=${changes_result}"
+
+          if [[ "$changes_result" != 'success' ]]; then
+            echo '::error::Change detection failed; refusing to pass the CI gate.'
+            exit 1
+          fi
+
+          if [[ "$run_backend" == 'true' ]]; then
+            if [[ "$backend_result" != 'success' ]]; then
+              echo "::error::Backend checks did not succeed (result=${backend_result})."
+              exit 1
+            fi
+          elif [[ "$backend_result" != 'skipped' ]]; then
+            echo "::error::Backend job was expected to be skipped (result=${backend_result})."
+            exit 1
+          fi
+
+          if [[ "$run_frontend" == 'true' ]]; then
+            if [[ "$frontend_result" != 'success' ]]; then
+              echo "::error::Frontend checks did not succeed (result=${frontend_result})."
+              exit 1
+            fi
+          elif [[ "$frontend_result" != 'skipped' ]]; then
+            echo "::error::Frontend job was expected to be skipped (result=${frontend_result})."
+            exit 1
+          fi
+
+          if [[ "$docs_only" == 'true' ]]; then
+            echo 'Docs-only changes detected; application install/test jobs were skipped.'
+          fi
+
+          echo "CI gate passed (scope=${scope})."
