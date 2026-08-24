@@ -140,7 +140,8 @@ jobs:
 
             # Disable rename detection so a rename is delete+add and both
             # paths are classified (e.g. app/Foo.php -> docs/Foo.md).
-            git -c diff.renames=false diff --name-only --diff-filter=ACD "$from_ref" "$to_ref" | sed '/^$/d'
+            # No --diff-filter: include adds, deletes, and modifications.
+            git -c diff.renames=false diff --name-only "$from_ref" "$to_ref" | sed '/^$/d'
           }
 
           run_backend=true
