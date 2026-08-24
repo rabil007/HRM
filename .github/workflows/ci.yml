@@ -82,8 +82,9 @@ jobs:
               return 0
             fi
 
+            # Recognized app paths: backend, frontend, and shared/config/deps.
+            # (Do not put comments inside the continued case-pattern list.)
             case "$path" in
-              # Backend / Laravel
               app/*|\
               bootstrap/*|\
               database/*|\
@@ -93,7 +94,6 @@ jobs:
               phpunit.xml|\
               pint.json|\
               *.php|\
-              # Frontend / React
               resources/js/*|\
               resources/css/*|\
               vite.config.*|\
@@ -112,7 +112,6 @@ jobs:
               *.tsx|\
               *.css|\
               *.scss|\
-              # Shared / config / dependencies / high-risk
               composer.json|\
               composer.lock|\
               package.json|\
