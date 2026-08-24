@@ -8,6 +8,7 @@ use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionPerson;
+use App\Models\HikvisionSetting;
 use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
 use App\Support\Hikvision\HikvisionFetchOrigin;
 use App\Support\Hikvision\HikvisionWebhookSignature;
@@ -356,30 +357,118 @@ test('forged webhook matching trusted acs event cannot mutate that event', funct
         ->and($event->snap_urls)->toBeNull();
 });
 
-test('webhook-trigger fetch uniqueness coalesces bursts for same setting and date', function () {
+test('webhook trigger sets queued fetch state and started_at before job runs', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+    $settings->update([
+        'events_fetch_status' => HikvisionSetting::EVENTS_FETCH_IDLE,
+        'events_fetch_started_at' => null,
+    ]);
+
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+
+    $settings->refresh();
+
+    expect($settings->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_QUEUED)
+        ->and($settings->events_fetch_started_at)->not->toBeNull();
+
+    Queue::assertPushed(
+        FetchHikvisionAccessEventsJob::class,
+        fn (FetchHikvisionAccessEventsJob $job): bool => $job->hikvisionSettingId === $settings->id
+            && $job->origin === HikvisionFetchOrigin::WebhookTrigger,
+    );
+});
+
+test('stale webhook fetch is recoverable so a later trigger can dispatch again', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+    $settings->update([
+        'events_fetch_status' => HikvisionSetting::EVENTS_FETCH_QUEUED,
+        'events_fetch_started_at' => now()->subMinutes(10),
+        'events_fetch_message' => null,
+    ]);
+
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+
+    $settings->refresh();
+
+    expect($settings->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_QUEUED)
+        ->and($settings->events_fetch_started_at?->greaterThan(now()->subMinute()))->toBeTrue();
+
+    Queue::assertPushed(FetchHikvisionAccessEventsJob::class, 1);
+});
+
+test('webhook arriving during an existing fetch does not create overlap', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+    $settings->beginEventsFetch();
+    $startedAt = $settings->fresh()->events_fetch_started_at;
+
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+
+    $settings->refresh();
+
+    expect($settings->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_QUEUED)
+        ->and($settings->events_fetch_started_at?->equalTo($startedAt))->toBeTrue();
+
+    Queue::assertNotPushed(FetchHikvisionAccessEventsJob::class);
+});
+
+test('scheduled fetch remains available after webhook debounce window is active', function () {
     Queue::fake();
 
     $settings = hikvisionSettings();
     $timezone = CompanyTimezone::forCompany((int) $settings->company_id);
     $targetDate = now($timezone)->toDateString();
 
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+
+    // Simulate fetch completion while debounce cache is still held.
+    $settings->refresh()->markEventsFetchCompleted('Fetched for webhook trigger.');
+
+    $settings->resolveStaleEventsFetch(5);
+    $settings->refresh();
+
+    expect($settings->isEventsFetchProcessing())->toBeFalse();
+
+    $settings->beginEventsFetch();
     FetchHikvisionAccessEventsJob::dispatch(
         $settings->id,
         $targetDate,
-        HikvisionFetchOrigin::WebhookTrigger,
-    );
-    FetchHikvisionAccessEventsJob::dispatch(
-        $settings->id,
-        $targetDate,
-        HikvisionFetchOrigin::WebhookTrigger,
+        HikvisionFetchOrigin::ScheduledToday,
     );
 
+    Queue::assertPushed(FetchHikvisionAccessEventsJob::class, 2);
+    Queue::assertPushed(
+        FetchHikvisionAccessEventsJob::class,
+        fn (FetchHikvisionAccessEventsJob $job): bool => $job->origin === HikvisionFetchOrigin::ScheduledToday,
+    );
+});
+
+test('webhook-trigger cache debounce coalesces bursts for same setting and date', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+
+    // First dispatch queued the fetch; second is debounced (or already_processing).
     Queue::assertPushed(FetchHikvisionAccessEventsJob::class, 1);
 
-    // Manual reconciliation must remain reliable and not share the webhook lock.
+    // Manual origin bypasses webhook debounce and uses its own lifecycle.
+    $settings->refresh()->markEventsFetchCompleted('done');
+    $settings->resolveStaleEventsFetch(5);
+    $settings->refresh();
+    expect($settings->isEventsFetchProcessing())->toBeFalse();
+
+    $settings->beginEventsFetch();
     FetchHikvisionAccessEventsJob::dispatch(
         $settings->id,
-        $targetDate,
+        now(CompanyTimezone::forCompany((int) $settings->company_id))->toDateString(),
         HikvisionFetchOrigin::Manual,
     );
 

@@ -77,7 +77,7 @@ final class JobRegistry
                     'payload' => 'Raw webhook body retained for queue compatibility only; not used as attendance source.',
                     'hikvisionSettingId' => 'Owning company Hikvision settings id.',
                 ],
-                'details' => 'Derives company from HikvisionSetting, then dispatches FetchHikvisionAccessEventsJob with origin webhook_trigger (debounced). Attendance sync runs only after the API/ISAPI fetch.',
+                'details' => 'Derives company from HikvisionSetting, then uses DispatchHikvisionWebhookTriggeredFetch (stale resolve + beginEventsFetch + cache debounce) to dispatch FetchHikvisionAccessEventsJob with origin webhook_trigger. Attendance sync runs only after the API/ISAPI fetch.',
                 'code_snippet' => 'dispatch(new \\App\\Jobs\\ProcessHikvisionWebhookEventJob($webhookPayload, $settingsId));',
             ],
             [

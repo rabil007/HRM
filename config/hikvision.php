@@ -67,9 +67,9 @@ return [
     | Webhook-triggered fetch debounce
     |--------------------------------------------------------------------------
     |
-    | Webhooks are notification-only. Bursts coalesce into one authoritative
-    | OpenAPI/ISAPI fetch per settings row + date within this window (seconds).
-    | Clamped to 30–120 at job construction.
+    | Webhooks are notification-only. Bursts coalesce via a cache key scoped to
+    | Hikvision settings id + target date (see DispatchHikvisionWebhookTriggeredFetch).
+    | Clamped to 30–120 seconds. Does not affect manual/scheduled fetch jobs.
     |
     */
     'webhook_trigger_debounce_seconds' => (int) env('HIKVISION_WEBHOOK_TRIGGER_DEBOUNCE_SECONDS', 60),

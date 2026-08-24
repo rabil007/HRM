@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\HikvisionSetting;
 use App\Models\JobRun;
+use App\Support\Hikvision\DispatchHikvisionWebhookTriggeredFetch;
 use App\Support\Hikvision\HikvisionFetchOrigin;
 use App\Support\Settings\CompanyTimezone;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -19,8 +20,10 @@ class ProcessHikvisionWebhookEventJob implements ShouldQueue
      */
     public function __construct(public array $payload, public int $hikvisionSettingId) {}
 
-    public function handle(): void
+    public function handle(?DispatchHikvisionWebhookTriggeredFetch $dispatchFetch = null): void
     {
+        $dispatchFetch ??= app(DispatchHikvisionWebhookTriggeredFetch::class);
+
         $settings = HikvisionSetting::find($this->hikvisionSettingId);
 
         if ($settings === null) {
@@ -54,18 +57,20 @@ class ProcessHikvisionWebhookEventJob implements ShouldQueue
         $timezone = CompanyTimezone::forCompany($companyId);
         $targetDate = now($timezone)->toDateString();
 
-        FetchHikvisionAccessEventsJob::dispatch(
-            $settings->id,
-            $targetDate,
-            HikvisionFetchOrigin::WebhookTrigger,
-        );
+        $result = $dispatchFetch->handle($settings, $targetDate);
 
         $this->updateJobRunMessage(
-            "Accepted webhook notification for company {$companyId}; dispatched authoritative access-events fetch for {$targetDate}.",
+            match ($result) {
+                DispatchHikvisionWebhookTriggeredFetch::RESULT_DISPATCHED => "Accepted webhook notification for company {$companyId}; dispatched authoritative access-events fetch for {$targetDate}.",
+                DispatchHikvisionWebhookTriggeredFetch::RESULT_DEBOUNCED => "Accepted webhook notification for company {$companyId}; coalesced into recent webhook-triggered fetch for {$targetDate}.",
+                DispatchHikvisionWebhookTriggeredFetch::RESULT_ALREADY_PROCESSING => "Accepted webhook notification for company {$companyId}; skipped overlapping fetch already queued/running.",
+                default => "Accepted webhook notification for company {$companyId}.",
+            },
             [
                 'company_id' => $companyId,
                 'event_date' => $targetDate,
                 'fetch_origin' => HikvisionFetchOrigin::WebhookTrigger->value,
+                'dispatch_result' => $result,
             ],
         );
     }
