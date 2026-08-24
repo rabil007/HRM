@@ -2,11 +2,10 @@
 
 namespace App\Jobs;
 
-use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionSetting;
 use App\Models\JobRun;
-use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
-use Carbon\Carbon;
+use App\Support\Hikvision\HikvisionFetchOrigin;
+use App\Support\Settings\CompanyTimezone;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -16,14 +15,12 @@ class ProcessHikvisionWebhookEventJob implements ShouldQueue
     use Queueable;
 
     /**
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $payload  Retained for queue serialization compatibility; never trusted as attendance data.
      */
     public function __construct(public array $payload, public int $hikvisionSettingId) {}
 
-    public function handle(?SyncAttendanceRecordsFromHikvision $attendanceSync = null): void
+    public function handle(): void
     {
-        $attendanceSync ??= app(SyncAttendanceRecordsFromHikvision::class);
-
         $settings = HikvisionSetting::find($this->hikvisionSettingId);
 
         if ($settings === null) {
@@ -42,38 +39,54 @@ class ProcessHikvisionWebhookEventJob implements ShouldQueue
             return;
         }
 
-        $companyId = (int) $settings->company_id;
-        $storedEvent = HikvisionAccessEvent::upsertFromWebhook($this->payload, $companyId);
+        if (! $settings->isConfigured()) {
+            Log::warning('Hikvision webhook job skipped because integration is not configured for API fetch.', [
+                'hikvision_setting_id' => $settings->id,
+                'company_id' => $settings->company_id,
+            ]);
 
-        if ($storedEvent?->occurrence_time === null) {
-            $jobId = $this->job ? $this->job->uuid() : null;
-            if ($jobId) {
-                JobRun::query()->where('correlation_id', $jobId)->update([
-                    'message' => 'Ignored webhook event: occurrence time is missing.',
-                ]);
-            }
+            $this->updateJobRunMessage('Ignored webhook event: Hikvision API credentials are not configured.');
 
             return;
         }
 
-        $timezone = (string) config('app.timezone', 'UTC');
-        $eventDay = Carbon::parse($storedEvent->occurrence_time, $timezone);
-        $start = $eventDay->copy()->startOfDay();
-        $end = $eventDay->copy()->endOfDay();
+        $companyId = (int) $settings->company_id;
+        $timezone = CompanyTimezone::forCompany($companyId);
+        $targetDate = now($timezone)->toDateString();
 
-        $synced = $attendanceSync->syncCompany($companyId, $start, $end);
+        FetchHikvisionAccessEventsJob::dispatch(
+            $settings->id,
+            $targetDate,
+            HikvisionFetchOrigin::WebhookTrigger,
+        );
 
+        $this->updateJobRunMessage(
+            "Accepted webhook notification for company {$companyId}; dispatched authoritative access-events fetch for {$targetDate}.",
+            [
+                'company_id' => $companyId,
+                'event_date' => $targetDate,
+                'fetch_origin' => HikvisionFetchOrigin::WebhookTrigger->value,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function updateJobRunMessage(string $message, array $context = []): void
+    {
         $jobId = $this->job ? $this->job->uuid() : null;
-        if ($jobId) {
-            JobRun::query()->where('correlation_id', $jobId)->update([
-                'message' => "Processed webhook scan event for {$storedEvent->person_name}. Synced {$synced} attendance record(s) for {$eventDay->toDateString()}.",
-                'context' => [
-                    'person_name' => $storedEvent->person_name,
-                    'synced_records_count' => $synced,
-                    'event_date' => $eventDay->toDateString(),
-                    'company_id' => $companyId,
-                ],
-            ]);
+
+        if ($jobId === null) {
+            return;
         }
+
+        $attributes = ['message' => $message];
+
+        if ($context !== []) {
+            $attributes['context'] = $context;
+        }
+
+        JobRun::query()->where('correlation_id', $jobId)->update($attributes);
     }
 }

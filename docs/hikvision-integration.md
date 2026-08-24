@@ -24,7 +24,16 @@ Each settings row has a non-sequential `public_id`. The callback URL is:
 
 `/integrations/hikvision/webhook/{publicIntegrationId}`
 
-Processing resolves only integrations with a non-null `company_id` and `webhook_enabled = true`. Signature failures, disabled integrations, and orphan (`company_id` null) rows all return a generic 404. Payload `company_id` values are ignored.
+**Trust model**
+
+| Source | Role |
+| --- | --- |
+| Hik-Connect webhook | Authenticated **notification / trigger only** |
+| Hikvision OpenAPI / ISAPI fetch | **Authoritative** access-event and attendance source |
+
+Webhook POST bodies are **not** cryptographically bound to the vendor `timestamp.batchId` HMAC and are never upserted into attendance-eligible `hikvision_access_events` or used to sync attendance directly. A successful webhook dispatches `FetchHikvisionAccessEventsJob` with origin `webhook_trigger` for the company’s current operational date. Bursts are coalesced (~60s unique lock per settings row + date) so they cannot stampede the API. Historical `event_source = webhook` rows are retained but excluded from attendance (`accessRecords`).
+
+Processing resolves only integrations that are webhook-enabled, company-owned, and API-configured (`isConfigured()`). Signature failures, disabled integrations, unconfigured credentials, and orphan (`company_id` null) rows all return a generic 404. Payload `company_id` values are ignored. The GET verification handshake and existing HMAC format are unchanged.
 
 ## Scheduled jobs, reconciliation, and stabilization window
 

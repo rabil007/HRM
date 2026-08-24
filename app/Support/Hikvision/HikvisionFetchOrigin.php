@@ -8,6 +8,7 @@ enum HikvisionFetchOrigin: string
     case ScheduledToday = 'scheduled_today';
     case ScheduledReconciliation = 'scheduled_reconciliation';
     case CatchUp = 'catch_up';
+    case WebhookTrigger = 'webhook_trigger';
 
     public static function fromValue(string|self|null $value): self
     {
@@ -19,6 +20,7 @@ enum HikvisionFetchOrigin: string
             'scheduled_today' => self::ScheduledToday,
             'scheduled_reconciliation' => self::ScheduledReconciliation,
             'catch_up' => self::CatchUp,
+            'webhook_trigger' => self::WebhookTrigger,
             default => self::Manual,
         };
     }

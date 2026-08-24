@@ -8,6 +8,7 @@ use App\Models\JobRun;
 use App\Services\HikvisionService;
 use App\Support\Hikvision\HikvisionFetchOrigin;
 use App\Support\Settings\CompanyTimezone;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
-class FetchHikvisionAccessEventsJob implements ShouldQueue
+class FetchHikvisionAccessEventsJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
 
@@ -23,12 +24,43 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
 
     public int $timeout = 180;
 
+    /**
+     * Webhook-trigger uniqueness window (seconds). Non-webhook origins use a per-instance nonce
+     * so scheduled/manual fetches are never blocked by webhook debounce.
+     */
+    public int $uniqueFor = 60;
+
+    private string $uniquenessNonce;
+
     public function __construct(
         public int $hikvisionSettingId,
         public ?string $date = null,
         public string|HikvisionFetchOrigin|null $origin = null,
     ) {
         $this->timeout = 180;
+        $this->uniqueFor = max(30, min(120, (int) config('hikvision.webhook_trigger_debounce_seconds', 60)));
+        $this->uniquenessNonce = bin2hex(random_bytes(8));
+    }
+
+    public function uniqueId(): string
+    {
+        $origin = $this->explicitOrigin();
+
+        if ($origin === HikvisionFetchOrigin::WebhookTrigger) {
+            return sprintf(
+                'hikvision-access-events:webhook_trigger:%d:%s',
+                $this->hikvisionSettingId,
+                $this->date ?? 'none',
+            );
+        }
+
+        return sprintf(
+            'hikvision-access-events:%s:%d:%s:%s',
+            $origin?->value ?? 'unspecified',
+            $this->hikvisionSettingId,
+            $this->date ?? 'none',
+            $this->uniquenessNonce,
+        );
     }
 
     public function handle(?HikvisionService $hikvision = null): void
@@ -118,12 +150,10 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
 
     public function resolveOrigin(string $companyTimezone): HikvisionFetchOrigin
     {
-        if ($this->origin instanceof HikvisionFetchOrigin) {
-            return $this->origin;
-        }
+        $explicit = $this->explicitOrigin();
 
-        if (filled($this->origin)) {
-            return HikvisionFetchOrigin::fromValue((string) $this->origin);
+        if ($explicit !== null) {
+            return $explicit;
         }
 
         if (! filled($this->date)) {
@@ -148,5 +178,18 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
         if (filled($this->date) && $settings?->company_id !== null) {
             HikvisionReconciliation::markFailed((int) $settings->company_id, $this->date, $exception->getMessage());
         }
+    }
+
+    private function explicitOrigin(): ?HikvisionFetchOrigin
+    {
+        if ($this->origin instanceof HikvisionFetchOrigin) {
+            return $this->origin;
+        }
+
+        if (filled($this->origin)) {
+            return HikvisionFetchOrigin::fromValue((string) $this->origin);
+        }
+
+        return null;
     }
 }

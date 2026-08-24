@@ -623,7 +623,7 @@ test('attendance sync updates stale biometric record when mobile events were bac
         'person_hikvision_id' => 'adham-person-12',
         'device_name' => 'OMS-Door',
         'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
-        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_WEBHOOK,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
         'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
         'raw_payload' => ['name' => 'Adham', 'employeeNoString' => '12'],
         'fetched_at' => '2026-06-19 08:41:03',
@@ -718,7 +718,7 @@ test('hikvision sync uses last check-in as clock-out when no checkout and multip
             'person_hikvision_id' => 'maher-person-1',
             'device_name' => 'OMS-Door',
             'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
-            'event_source' => HikvisionAccessEvent::EVENT_SOURCE_WEBHOOK,
+            'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
             'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
             'fetched_at' => now(),
         ]);

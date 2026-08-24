@@ -62,6 +62,18 @@ return [
 
     'webhook_verify_header' => 'X-HCC-Webhook-Token',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Webhook-triggered fetch debounce
+    |--------------------------------------------------------------------------
+    |
+    | Webhooks are notification-only. Bursts coalesce into one authoritative
+    | OpenAPI/ISAPI fetch per settings row + date within this window (seconds).
+    | Clamped to 30–120 at job construction.
+    |
+    */
+    'webhook_trigger_debounce_seconds' => (int) env('HIKVISION_WEBHOOK_TRIGGER_DEBOUNCE_SECONDS', 60),
+
     'acs_event_page_size' => 50,
 
     'attendance_page_size' => 200,
