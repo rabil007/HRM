@@ -132,12 +132,15 @@ final class EmployeePrivateFile
         return str_starts_with($path, 'http://') || str_starts_with($path, 'https://');
     }
 
-    public static function validatedRelativePath(
-        ?string $relativePath,
-        int $companyId,
-        EmployeePrivateFileKind $kind,
-    ): ?string {
-        if ($relativePath === null || $relativePath === '' || self::isRemoteUrl($relativePath)) {
+    public static function normalizedRelativePath(?string $relativePath): ?string
+    {
+        if ($relativePath === null) {
+            return null;
+        }
+
+        $relativePath = trim($relativePath);
+
+        if ($relativePath === '' || self::isRemoteUrl($relativePath)) {
             return null;
         }
 
@@ -147,13 +150,69 @@ final class EmployeePrivateFile
             return null;
         }
 
-        $expectedPrefix = $kind->directoryPrefix($companyId);
+        return $path;
+    }
 
-        if (! str_starts_with($path, $expectedPrefix)) {
+    public static function legacyPublicExists(?string $relativePath): bool
+    {
+        $path = self::normalizedRelativePath($relativePath);
+
+        return $path !== null && Storage::disk(self::LEGACY_DISK)->exists($path);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function legacyPublicFilesInPrefix(string $prefix): array
+    {
+        $normalizedPrefix = self::normalizedRelativePath($prefix);
+
+        if ($normalizedPrefix === null) {
+            return [];
+        }
+
+        $normalizedPrefix = rtrim($normalizedPrefix, '/').'/';
+
+        if (! self::isControlledLegacyPrefix($normalizedPrefix)) {
+            return [];
+        }
+
+        $files = Storage::disk(self::LEGACY_DISK)->allFiles(rtrim($normalizedPrefix, '/'));
+        $safe = [];
+
+        foreach ($files as $file) {
+            $path = self::normalizedRelativePath($file);
+
+            if ($path !== null && str_starts_with($path, $normalizedPrefix)) {
+                $safe[] = $path;
+            }
+        }
+
+        return $safe;
+    }
+
+    public static function validatedRelativePath(
+        ?string $relativePath,
+        int $companyId,
+        EmployeePrivateFileKind $kind,
+    ): ?string {
+        $path = self::normalizedRelativePath($relativePath);
+
+        if ($path === null) {
+            return null;
+        }
+
+        if (! str_starts_with($path, $kind->directoryPrefix($companyId))) {
             return null;
         }
 
         return $path;
+    }
+
+    private static function isControlledLegacyPrefix(string $prefix): bool
+    {
+        return (bool) preg_match('#^employee-documents/\d+/$#', $prefix)
+            || (bool) preg_match('#^employees/\d+/training-certificates/$#', $prefix);
     }
 
     private static function copyFromLegacyDisk(string $path): bool

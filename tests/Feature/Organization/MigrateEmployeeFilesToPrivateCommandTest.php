@@ -65,14 +65,21 @@ test('migration command copies legacy public employee files to private storage a
 
     $this->artisan('employee-files:migrate-to-private', ['--dry-run' => true])
         ->assertSuccessful()
-        ->expectsOutputToContain('Would move 4 file(s)');
+        ->expectsOutputToContain('Would move 4 file(s)')
+        ->expectsOutputToContain('Already private: 0')
+        ->expectsOutputToContain('Safe skipped: 0')
+        ->expectsOutputToContain('Needs review: 0')
+        ->expectsOutputToContain('Failed: 0');
 
     Storage::disk('public')->assertExists($documentPath);
     Storage::disk('local')->assertMissing($documentPath);
 
     $this->artisan('employee-files:migrate-to-private')
         ->assertSuccessful()
-        ->expectsOutputToContain('Moved 4 file(s)');
+        ->expectsOutputToContain('Moved 4 file(s)')
+        ->expectsOutputToContain('Safe skipped: 0')
+        ->expectsOutputToContain('Needs review: 0')
+        ->expectsOutputToContain('Failed: 0');
 
     Storage::disk('local')->assertExists($documentPath);
     Storage::disk('local')->assertExists($versionPath);
@@ -89,16 +96,104 @@ test('migration command copies legacy public employee files to private storage a
 
     $this->artisan('employee-files:migrate-to-private')
         ->assertSuccessful()
-        ->expectsOutputToContain('Already private: 4');
+        ->expectsOutputToContain('Already private: 4')
+        ->expectsOutputToContain('Needs review: 0')
+        ->expectsOutputToContain('Failed: 0');
 });
 
-test('migration command does not log sensitive filenames and skips unsafe paths', function () {
+test('safe remote URL rows do not fail the migration command', function () {
     fakeEmployeeFileDisks();
     Log::spy();
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
     EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'https://files.example.test/passport.pdf',
+        'original_filename' => 'passport.pdf',
+        'mime_type' => 'application/pdf',
+        'status' => 'valid',
+    ]);
+
+    $this->artisan('employee-files:migrate-to-private')
+        ->assertSuccessful()
+        ->expectsOutputToContain('Safe skipped: 1')
+        ->expectsOutputToContain('remote_url=1')
+        ->expectsOutputToContain('Needs review: 0')
+        ->expectsOutputToContain('Failed: 0');
+
+    Log::shouldHaveReceived('info')->withArgs(function (string $message, array $context): bool {
+        $encoded = (string) json_encode($context);
+
+        return $context['reason'] === 'remote_url'
+            && $context['record_type'] === 'employee_document'
+            && ! str_contains($encoded, 'passport.pdf')
+            && ! str_contains($encoded, 'files.example.test')
+            && ! array_key_exists('path', $context)
+            && ! array_key_exists('file_path', $context);
+    });
+});
+
+test('invalid-prefix public rows are flagged and cause a non-zero exit without deleting the file', function () {
+    fakeEmployeeFileDisks();
+    Log::spy();
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $leakedPath = "documents/{$company->id}/leaked-passport.pdf";
+    Storage::disk('public')->put($leakedPath, 'still-public');
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => $leakedPath,
+        'original_filename' => 'leaked-passport.pdf',
+        'mime_type' => 'application/pdf',
+        'status' => 'valid',
+    ]);
+
+    $this->artisan('employee-files:migrate-to-private', ['--dry-run' => true])
+        ->assertFailed()
+        ->expectsOutputToContain('Needs review: 1')
+        ->expectsOutputToContain('invalid_prefix=1')
+        ->expectsOutputToContain("Needs review (invalid_prefix): employee_document #{$document->id} (company {$company->id}). Public leftover: yes.")
+        ->expectsOutputToContain('Do not treat this run as complete');
+
+    Storage::disk('public')->assertExists($leakedPath);
+
+    $this->artisan('employee-files:migrate-to-private')
+        ->assertFailed()
+        ->expectsOutputToContain('invalid_prefix');
+
+    Storage::disk('public')->assertExists($leakedPath);
+    Storage::disk('local')->assertMissing($leakedPath);
+
+    Log::shouldHaveReceived('warning')->withArgs(function (string $message, array $context) use ($document): bool {
+        $encoded = (string) json_encode($context);
+
+        return $context['reason'] === 'invalid_prefix'
+            && $context['public_leftover'] === true
+            && $context['record_id'] === $document->id
+            && ! str_contains($encoded, 'leaked-passport.pdf')
+            && ! array_key_exists('path', $context)
+            && ! array_key_exists('file_path', $context);
+    });
+});
+
+test('traversal paths are reported without checking or deleting files and without logging the path', function () {
+    fakeEmployeeFileDisks();
+    Log::spy();
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $document = EmployeeDocument::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'document_type_id' => $passportType->id,
@@ -112,10 +207,71 @@ test('migration command does not log sensitive filenames and skips unsafe paths'
 
     $this->artisan('employee-files:migrate-to-private')
         ->assertSuccessful()
-        ->expectsOutputToContain('Skipped:');
+        ->expectsOutputToContain('Needs review: 1')
+        ->expectsOutputToContain('invalid_prefix=1')
+        ->expectsOutputToContain("Needs review (invalid_prefix): employee_document #{$document->id} (company {$company->id}).");
 
-    Log::shouldNotHaveReceived('warning');
-    Log::shouldNotHaveReceived('error');
+    Log::shouldHaveReceived('warning')->withArgs(function (string $message, array $context): bool {
+        $encoded = (string) json_encode($context);
+
+        return $context['reason'] === 'invalid_prefix'
+            && $context['public_leftover'] === false
+            && ! str_contains($encoded, 'passwd')
+            && ! str_contains($encoded, '../');
+    });
+});
+
+test('missing-both-disks rows are clearly reported without failing a clean public disk', function () {
+    fakeEmployeeFileDisks();
+    Log::spy();
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => "employee-documents/{$company->id}/{$employee->id}/passport/missing.pdf",
+        'original_filename' => 'missing.pdf',
+        'mime_type' => 'application/pdf',
+        'status' => 'valid',
+    ]);
+
+    $this->artisan('employee-files:migrate-to-private')
+        ->assertSuccessful()
+        ->expectsOutputToContain('Needs review: 1')
+        ->expectsOutputToContain('missing_both_disks=1')
+        ->expectsOutputToContain("Needs review (missing_both_disks): employee_document #{$document->id} (company {$company->id}).");
+
+    Log::shouldHaveReceived('warning')->withArgs(function (string $message, array $context) use ($document): bool {
+        return $context['reason'] === 'missing_both_disks'
+            && $context['public_leftover'] === false
+            && $context['record_id'] === $document->id
+            && ! array_key_exists('path', $context);
+    });
+});
+
+test('orphan public files under controlled prefixes are reported and not deleted', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company] = makeDocumentFixtures();
+
+    $orphan = "employee-documents/{$company->id}/orphan.pdf";
+    $unrelated = "employees/{$company->id}/images/avatar.jpg";
+    Storage::disk('public')->put($orphan, 'orphan-bytes');
+    Storage::disk('public')->put($unrelated, 'avatar-bytes');
+
+    $this->artisan('employee-files:migrate-to-private')
+        ->assertFailed()
+        ->expectsOutputToContain('Needs review: 1')
+        ->expectsOutputToContain('orphan_public_file=1')
+        ->expectsOutputToContain("Needs review (orphan_public_file): 1 file(s) in company {$company->id} prefix (filenames omitted). Public leftover: yes.")
+        ->expectsOutputToContain('Do not treat this run as complete');
+
+    Storage::disk('public')->assertExists($orphan);
+    Storage::disk('public')->assertExists($unrelated);
 });
 
 test('authorized users can still download a file after the migration command moves it', function () {
