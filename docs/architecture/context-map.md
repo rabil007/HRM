@@ -1,0 +1,21 @@
+# Context map
+
+Directory-level discovery for OMS-HRM. Use this to find code; do **not** treat it as architecture documentation.
+
+Load only the row that matches the task. Details live in the listed guide.
+
+| Domain | Backend | Frontend | Main docs | Tests |
+|--------|---------|----------|-----------|-------|
+| Dashboard | `app/Http/Controllers/Organization/DashboardController.php`, `app/Support/Dashboard/` | `resources/js/pages/dashboard.tsx`, `resources/js/features/dashboard/` | [dashboard.md](../dashboard.md) | `tests/Feature/DashboardTest.php` |
+| Companies / organization | `app/Http/Controllers/Organization/`, `app/Support/Companies/` | `resources/js/pages/organization/`, `resources/js/features/organization/{companies,branches,departments,positions}/` | [domains.md](./domains.md) | `tests/Feature/Organization/` |
+| Employees | `app/Http/Controllers/Organization/Employee*`, `app/Support/Employees/` | `resources/js/pages/organization/employee*.tsx`, `resources/js/features/organization/employees/` | [domains.md](./domains.md), [active-employee-visibility.md](./active-employee-visibility.md) | `tests/Feature/Organization/Employee*` |
+| Documents | `app/Http/Controllers/Organization/` (document*), `app/Support/EmployeeDocuments/`, `app/Services/Document*` | `resources/js/pages/organization/documents/`, `resources/js/features/organization/documents/` | [document-management.md](../document-management.md), [document-search.md](../document-search.md), [document-sharing.md](../document-sharing.md) | `tests/Feature/Organization/Document*` |
+| Attendance / Leave | `app/Http/Controllers/Attendance/`, `app/Support/Attendance/` | `resources/js/pages/attendance/`, `resources/js/features/attendance/` | [domains.md](./domains.md) (Attendance and Leave) | `tests/Feature/Attendance/` |
+| Payroll | `app/Http/Controllers/Payroll/`, `app/Support/Payroll/` | `resources/js/pages/payroll/`, `resources/js/features/payroll/` | [payroll.md](../payroll.md) | `tests/Feature/Payroll/` |
+| Users / Roles / Permissions | `app/Http/Controllers/Organization/UserController.php`, `app/Http/Controllers/Organization/RoleController.php`, `database/seeders/PermissionsSeeder.php` | `resources/js/pages/organization/users.tsx`, `user.tsx`, `roles.tsx`, `role.tsx`; `resources/js/features/organization/users/`, `roles/` | [permissions.md](../permissions.md) | `tests/Feature/Organization/UsersTest.php`, `tests/Feature/Organization/RolesTest.php`, `tests/Feature/Organization/SpatieTeamsPermissionsTest.php` |
+| Crew Operations | `app/Http/Controllers/Organization/Crew*`, `app/Support/CrewMovements/`, `app/Support/CrewPlanning/`, `app/Support/CrewOperations/`, `app/Policies/CrewAssignmentPolicy.php` | `resources/js/pages/organization/crew*/`, `resources/js/features/organization/crew*/` | [crew-movement-phases.md](./crew-movement-phases.md) | `tests/Feature/Organization/Crew*`, `CurrentCrew*` |
+| Crew payroll timeline | `app/Support/Payroll/CrewTimeline/`, `app/Http/Controllers/Payroll/` (crew timesheet / timeline) | `resources/js/pages/payroll/crew-timeline/`, `resources/js/features/payroll/` | [crew-payroll-timeline-preparation.md](./crew-payroll-timeline-preparation.md), [payroll.md](../payroll.md) | `tests/Feature/Payroll/CrewTimesheet*` |
+| Integrations | `app/Http/Controllers/Hikvision/`, `app/Http/Controllers/Webhooks/`, `app/Services/`, `app/Support/Hikvision/` | `resources/js/pages/hikvision/`, `resources/js/pages/settings/integrations/` | [hikvision-integration.md](../hikvision-integration.md), [whatsapp-integration.md](../whatsapp-integration.md), [email-configuration.md](../email-configuration.md) | `tests/Feature/Hikvision/` |
+| Settings / Master Data | `app/Http/Controllers/Settings/`, `routes/settings.php` | `resources/js/pages/settings/` | [domains.md](./domains.md) (Settings and Master Data) | `tests/Feature/Settings/` |
+
+Shared entry points: `routes/web.php`, `routes/settings.php`, `app/Http/Middleware/SetCurrentCompany.php`.

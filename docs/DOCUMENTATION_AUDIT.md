@@ -3,7 +3,7 @@
 **Date:** 2026-05-22  
 **Scope:** All repository `.md` files vs current codebase (through document search redesign, dashboard analytics, sharing, SMTP, permissions).
 
-> This report records the state of the repository and the work completed on 2026-05-22. Its file counts, coverage estimates, and “current” statements are historical and must not be used as a description of the present application. See the 2026-07-14 follow-up below.
+> This report records the state of the repository and the work completed on 2026-05-22. Its file counts, coverage estimates, and “current” statements are historical and must not be used as a description of the present application. See the 2026-07-14 follow-up and the 2026-08-25 follow-up below.
 
 ---
 
@@ -128,3 +128,28 @@ Listed in Phase 5.
 | **Overall product docs** | **~35%** | **~80%** |
 
 Skill files (`.agents`/`.cursor`) remain framework guidance, not product documentation.
+
+---
+
+## Follow-up — 2026-08-25
+
+**Scope:** Documentation and agent-rules cleanup only. No application behavior, schema, permissions, routes, or tests were changed.
+
+This section describes the **verified state after the cleanup**. The May and July sections above remain historical.
+
+### Historical findings that were still stale as current guidance
+
+The May/July docs still described `EmployeeDeployment`, `crew-deployments` pages/controllers, `CrewDeploymentBoardQuery`, `SyncSeaServiceFromDeployment`, and `crew_operations.deployments.*` as live architecture. Several files also claimed `app/Policies/` did not exist and told agents to avoid Eloquent policies.
+
+### Current verified state (2026-08-25, `main` @ `230c3d86`)
+
+- `CrewAssignment` is the source of truth for one mobilisation cycle; `CrewAssignmentPhase` stores ordered/repeatable P0–P6 occurrences.
+- Completed actual P4 may sync to `EmployeeSeaService` via `SeaServiceSyncService`. Planned sign-off is not actual disembarkation.
+- `EmployeeDeployment` and legacy deployment routes/classes/permissions are removed. Remaining mentions in migrations, legacy-removal tests, and “has been removed” notes are historical.
+- `app/Policies/CrewAssignmentPolicy.php` exists. Crew assignment controllers use `Gate::authorize`. Route `can:` middleware remains the common capability check.
+- Crew timeline approval (`ApproveCrewTimesheetPreparation`) has **no** maker-checker restriction; a permitted preparer/submitter may approve.
+- Agent context is routed through `docs/README.md` (plus optional `docs/architecture/context-map.md`). `AI_GUIDE.md` is a short repository-wide entry guide, not a domain manual.
+
+### Files refreshed in this follow-up
+
+`AI_GUIDE.md`, `README.md`, `docs/README.md`, `docs/ci.md`, architecture guides (`domains.md`, `project-analysis.md`, `golden-files.md`, `crew-movement-phases.md`, `crew-payroll-timeline-preparation.md`), new `docs/architecture/context-map.md`, and scoped `.cursor/rules/*.mdc` that still pointed at removed Crew Deployment examples.

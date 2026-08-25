@@ -21,9 +21,11 @@ Laravel 13 + Inertia v3 + React 19 monolith with company-scoped Spatie permissio
 ## Context routing
 
 - Let scoped `.cursor/rules/*.mdc` attach based on the files being changed.
-- Use `docs/README.md` to select only the relevant domain guide.
+- Use `docs/README.md` to select only the relevant domain guide. Optional directory pointers: `docs/architecture/context-map.md`.
 - Use `docs/architecture/golden-files.md` to find preferred implementation examples.
 - Use `AI_GUIDE.md` only when broader architectural context is necessary; do not load it for every task.
 - Invoke `implement-oms-change` for end-to-end changes and `review-oms-security` for tenant, authorization, or credential-sensitive work.
+
+For a normal change, load: matching guide → relevant routes/permissions → models → Support/Services → sibling implementations → tests. Do not initially load every migration, every model, every docs file, the entire PermissionsSeeder, or unrelated modules.
 
 Do not introduce REST APIs, React Query, Redux/Zustand, TanStack Table, or client-side validation libraries without architectural approval.

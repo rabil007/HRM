@@ -45,7 +45,7 @@ Designed for SMBs (UAE-focused initially) to manage companies, branches, departm
 - **Employee profile templates** — company-specific field visibility, tab layout, and required-field rules used by employee create/edit and import workflows
 - **Attendance and leave** — attendance records and calendar, leave requests, balances, types, and approval workflows
 - **Payroll** — periods, salary inputs, timesheets, records, payslips, WPS export, approval and payment workflows ([docs/payroll.md](docs/payroll.md))
-- **Crew operations** — deployments, vessel manning, crew planning, timesheet import, and employee sea-service synchronization
+- **Crew Operations** — Crew Assignments, P0–P6 movements, planning/Gantt, vessel manning, sea-service synchronization, movement history/corrections, and related operational workflows ([docs/architecture/crew-movement-phases.md](docs/architecture/crew-movement-phases.md))
 - **Bulk documents and e-signing** — document generation, distribution, signature requests, and public signed flows
 - **Integrations** — SMTP, WhatsApp, and Hikvision configuration and operational workflows
 - **Settings** — application branding, security, integration settings, and master data CRUD
@@ -254,7 +254,9 @@ The base required columns are `employee_no` and `name`. A selected employee prof
 | `/organization/templates/employee-profile` | Employee profile template builder |
 | `/attendance/overview` | Attendance, calendar, and leave overview |
 | `/payroll` | Payroll periods and processing |
-| `/organization/crew-operations` | Crew operations overview |
+| `/organization/crew-operations` | Crew Operations overview |
+| `/organization/crew` | Crew Assignments (current board) |
+| `/organization/crew-planning` | Crew Planning Gantt |
 | `/settings/...` | Profile, SMTP, master data |
 
 ```bash

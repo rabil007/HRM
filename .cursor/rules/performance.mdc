@@ -40,7 +40,7 @@ RecentActivityQuery::for(..., limit: 20);
 
 **Prefer** `withCount()` for list metrics — avoid N+1 in controllers.
 
-Reference: `EmployeeDocumentShowController.php`, `AI_GUIDE.md` (Quick info rules)
+Reference: `EmployeeDocumentShowController.php`
 
 ## Frontend bundle
 

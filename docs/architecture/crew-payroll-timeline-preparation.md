@@ -199,11 +199,10 @@ When approving a Submitted preparation:
 2. Confirm the payroll period is still Draft.
 3. Confirm source data is fresh.
 4. Confirm no blocking warnings exist.
-5. Confirm approver differs from `prepared_by` and `submitted_by`.
-6. Mark any previous Approved preparation for the same company/period as Superseded.
-7. Do not supersede an Applied preparation.
-8. If an Applied preparation already exists, reject approval.
-9. Set `status = approved`, `approved_by`, `approved_at`, optional `decision_notes`.
+5. Mark any previous Approved preparation for the same company/period as Superseded.
+6. Do not supersede an Applied preparation.
+7. If an Applied preparation already exists, reject approval.
+8. Set `status = approved`, `approved_by`, `approved_at`, optional `decision_notes`.
 
 ### Return behavior
 

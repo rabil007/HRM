@@ -23,7 +23,7 @@ Browser
 |------|---------|
 | Data fetching | Server-driven Inertia props; no React Query / TanStack Query |
 | Mutations | `useForm`, `<Form>`, or `router.post/put/delete` |
-| Authorization | Spatie Permission with company teams; primarily route `can:` middleware, with known gaps documented below |
+| Authorization | Spatie Permission with company teams; route `can:` middleware, policies/gates/Form Requests/guards as needed |
 | Domain logic | `app/Support/` (queries, actions, presenters) |
 | Integrations | `app/Services/` (WhatsApp, Hikvision, email, PDF merge) |
 | Audit | Spatie Activity Log via `LogsActivityWithCompany` |
@@ -46,6 +46,7 @@ app/                    Application code
 │   ├── Middleware/     SetCurrentCompany, HandleInertiaRequests, HandleAppearance
 │   └── Requests/       Form requests grouped by domain
 ├── Models/             Eloquent models + Concerns/
+├── Policies/           Eloquent policies (e.g. CrewAssignmentPolicy)
 ├── Services/           External integrations & app-wide services
 ├── Support/            Domain queries, actions, presenters
 └── Providers/          FortifyServiceProvider, AppServiceProvider
@@ -143,13 +144,13 @@ Employee profile (`pages/organization/employee.tsx`) is large and uses `_compone
 | `*-delete-dialog.tsx` | `branch-delete-dialog.tsx` | Destructive confirm |
 | `*-filters-sheet.tsx` | `branch-filters-sheet.tsx` | Filter panel |
 | `*-table-row.tsx` | `document-compliance-table-row.tsx` | Domain table row |
-| `show.tsx` | `crew-deployments/show.tsx` | Detail/show page |
+| `show.tsx` | `documents/show.tsx`, `crew/show.tsx` | Detail/show page |
 
 ### Detail/show page layout
 
-Standard pattern used by branch, company, crew deployment, document show:
+Standard pattern used by branch, company, Crew Assignment, and document show pages:
 
-1. `DocumentsBreadcrumbs` or breadcrumbs
+1. Domain breadcrumbs
 2. `DetailsHeader` — back link, title, permission-gated actions
 3. Main content cards (overview, metadata, preview)
 4. `RecentActivityCard` when `can_view_audit` (requires `audit.view`)
@@ -157,8 +158,8 @@ Standard pattern used by branch, company, crew deployment, document show:
 Reference files:
 
 - `resources/js/pages/organization/branch.tsx`
-- `resources/js/pages/organization/crew-deployments/show.tsx`
 - `resources/js/pages/organization/documents/show.tsx`
+- `resources/js/pages/organization/crew/show.tsx` (Crew Assignment detail; prefer documents/branch for thin-page structure)
 
 ### List page layout
 
@@ -245,14 +246,14 @@ EmployeeDocumentController.destroy.url({ employee, document });
 
 1. **`SetCurrentCompany` middleware** sets `current_company_id` and Spatie team ID.
 2. **Capability middleware** is the dominant enforcement pattern: `->middleware('can:documents.view')`.
-3. **No Eloquent policies currently exist** — there is no `app/Policies/` directory. This describes the present implementation, not a prohibition against policies.
+3. **Policies exist where model or state rules apply** — `app/Policies/CrewAssignmentPolicy.php` is discovered by Laravel convention. Crew assignment controllers call `Gate::authorize(...)`. A policy or gate is appropriate when authorization depends on the bound model or business state.
 4. **Form Request `authorize()` is part of the authorization boundary.** It may delegate to a permission/policy check. Returning only `(bool) $this->user()` is safe only when the exact action is independently protected before controller execution; new code should make that dependency explicit and add a forbidden-access test.
 
-### Known authorization gaps
+### Verify authorization per endpoint
 
-The codebase does **not** currently protect every authenticated route with a capability permission. At the time of this analysis, examples include the application log viewer, queue/job controls, database viewer, attendance overview, some crew-operations surfaces, and several payroll/timesheet/salary-input/payslip endpoints. These are current exceptions and security debt—not patterns to copy.
+Not every route uses `can:` middleware. Platform utilities use `platform:view` / `platform:manage` / `platform:database` plus privileged 2FA. Some payroll hub actions authorize inside the controller. Crew movement actions use `CrewAssignmentPolicy` rather than a route `can:` string. Attendance overview and Crew Operations landing/planning routes use `can:` middleware.
 
-For new or changed privileged endpoints:
+These mixed patterns are not permission to skip a backend check. For new or changed privileged endpoints:
 
 - require the narrowest seeded permission at the route, Form Request, controller, gate, or policy layer;
 - enforce tenant ownership separately from capability checks;
@@ -343,7 +344,7 @@ Domain-specific hooks live in features:
 | Support classes | Domain noun/verb | `DocumentBrowseQuery`, `LeaveBalanceManager` |
 | Actions | Verb phrase + `handle()` | `CreateEmployee.php` |
 | Permissions | dot-separated | `contracts.update` |
-| Routes (URL) | kebab-case | `/organization/crew-deployments` |
+| Routes (URL) | kebab-case | `/organization/crew` |
 | Routes (name) | dot notation | `organization.documents.employee.files.show` |
 
 ### TypeScript / React
@@ -430,7 +431,7 @@ Domain-specific hooks live in features:
 | Branches | `features/organization/branches/index.tsx` | `branch-form-sheet.tsx` | `pages/organization/branch.tsx` |
 | Companies | `features/organization/companies/index.tsx` | `company-form-sheet.tsx` | `pages/organization/company.tsx` |
 | Documents | `pages/organization/documents/index.tsx` | `pages/organization/_components/documents/upload-dialog.tsx` | `pages/organization/documents/show.tsx` |
-| Crew deployments | `pages/organization/crew-deployments/index.tsx` | `deployment-form-dialog.tsx` | `pages/organization/crew-deployments/show.tsx` |
+| Crew Assignments | `features/organization/crew/index.tsx` | `pages/organization/crew/create.tsx` / `edit.tsx` | `pages/organization/crew/show.tsx` |
 
 ### Configuration
 
@@ -457,7 +458,7 @@ Domain-specific hooks live in features:
 ### Architecture
 
 - Do **not** introduce a REST API or React Query unless explicitly approved.
-- Prefer the established Spatie permission names and route middleware. A policy or gate is appropriate when authorization depends on the model or business state; do not leave an action unauthorised merely to avoid introducing one.
+- Prefer the established Spatie permission names and route middleware. A policy or gate is appropriate when authorization depends on the model or business state (see `CrewAssignmentPolicy`); do not leave an action unauthorised merely to avoid introducing one.
 - Do **not** create new top-level folders (`app/`, `resources/js/`) without approval.
 - Put domain logic in `app/Support/`, not controllers.
 - Keep Inertia pages thin; put UI in `features/`.
@@ -489,7 +490,7 @@ Domain-specific hooks live in features:
 - Backend authorization is authoritative. Route `can:` middleware is preferred for simple capability checks; policies, gates, or Form Request authorization may enforce model- or state-specific rules.
 - Frontend `can` props and `useHasPermission` are for UX only.
 - Pass module-specific `can` objects from dedicated Support classes (e.g. `DocumentPagePermissions`).
-- Treat authenticated-only operational routes without capability middleware as known gaps to fix, not precedent.
+- Verify the specific endpoint’s backend check. Mixed enforcement (`can:`, policy, controller, platform gate) is not a reason to skip authorization.
 
 ### Activity / audit
 
@@ -500,7 +501,7 @@ Domain-specific hooks live in features:
 ### Details pages
 
 - Use `DetailsHeader` with `backHref` / `backLabel`.
-- Pass whitelisted back-navigation query params (see `DocumentShowBackNavigation`, crew deployment `back_query`).
+- Pass whitelisted back-navigation query params (see `DocumentShowBackNavigation`).
 - Row click navigates to show page; eye icon = View link (`ListTableCrudActions`).
 
 ### Documents module specifics

@@ -15,13 +15,13 @@ erDiagram
     Company ||--o{ User : "primary company_id"
     Company }o--o{ User : "company_user pivot"
     Company ||--o{ EmployeeDocument : owns
-    Company ||--o{ EmployeeDeployment : scopes
+    Company ||--o{ CrewAssignment : scopes
 
     User ||--o| Employee : "optional link"
     User }o--o{ Role : "Spatie team = company_id"
 
     Employee ||--o{ EmployeeDocument : has
-    Employee ||--o{ EmployeeDeployment : has
+    Employee ||--o{ CrewAssignment : has
     Employee ||--o{ EmployeeContract : has
     Employee ||--o{ EmployeeSeaService : has
     Employee }o--|| Branch : assigned
@@ -31,10 +31,12 @@ erDiagram
     EmployeeDocument ||--o{ EmployeeDocumentVersion : versions
     EmployeeDocument }o--|| DocumentType : typed
 
-    EmployeeDeployment ||--o| EmployeeSeaService : syncs
-    EmployeeDeployment }o--o| Vessel : on
-    EmployeeDeployment }o--o| Client : for
-    EmployeeDeployment }o--o| Rank : rank
+    CrewAssignment ||--o{ CrewAssignmentPhase : phases
+    CrewAssignment }o--o| Vessel : on
+    CrewAssignment }o--o| Client : for
+    CrewAssignment }o--o| Rank : rank
+    CrewAssignment ||--o| CrewPlanningAssignment : syncs
+    CrewAssignmentPhase ||--o| EmployeeSeaService : completed_P4
 ```
 
 Most operational data is **scoped by `company_id`**. Users switch the active company in the sidebar; permissions and queries run in that tenant context.
@@ -59,7 +61,7 @@ There is no separate `Team` Eloquent model. **Team** in Spatie terms = **`compan
 
 ### Relationships
 
-- `Company` → `hasMany` `Branch`, `Employee`, documents, deployments, etc.
+- `Company` → `hasMany` `Branch`, `Employee`, documents, and other tenant-owned records scoped by `company_id` (including Crew Assignments).
 - `Company` ↔ `User` via `company_user` (membership) and `users.company_id` (primary/home company).
 
 ### Controllers / middleware
@@ -171,20 +173,29 @@ Cross-cutting authorization layer. Named permissions use dot notation and are sc
 | `Spatie\Permission\Models\Permission` | Global permission catalog |
 | `Spatie\Permission\Models\Role` | Company-scoped roles |
 
-No Eloquent Policy classes currently exist; most authorization is permission-based. This is a description of the current codebase, not a rule against using a policy or gate when access depends on a bound model or business state.
+Backend authorization is mandatory. Frontend `can` props and `useHasPermission` are UX only.
+
+Typical backend patterns:
+
+- Route `can:` middleware for simple capability checks
+- Policies (for example `app/Policies/CrewAssignmentPolicy.php`), gates, Form Request `authorize()`, and Support guards for model ownership or state
+- Laravel discovers policies in `app/Policies/` by convention
+
+Verify the specific endpoint in `routes/web.php` / `routes/settings.php`. Neighboring routes are not proof of protection. Some routes use platform gates (`platform:view`, `platform:manage`, `platform:database`) plus privileged 2FA; some payroll hub routes authorize inside the controller. Those are existing patterns to verify, not gaps to copy.
 
 ### Relationships
 
 - Permissions are global; role ↔ permission and user ↔ role links include `company_id` (team).
-- Module-specific `can` arrays built in Support classes (e.g. `DocumentPagePermissions`).
+- Module-specific `can` arrays built in Support classes (e.g. `DocumentPagePermissions`, `CrewAssignmentPagePermissions`).
 
 ### Controllers
 
-Most organization and settings routes use `->middleware('can:permission.name')`. Some authenticated operational routes still have no capability middleware, including parts of payroll and the log/job/database utilities. Those are known authorization gaps, not examples to follow.
+Most organization and settings routes use `->middleware('can:permission.name')`. Crew assignment HTTP actions also call `Gate::authorize(...)` against `CrewAssignmentPolicy`. Movement actions use the policy (`performMovement` / `cancel`) after `CrewAssignmentAccess::assertInCompany`.
 
 Dedicated Support:
 
 - `app/Support/EmployeeDocuments/DocumentPagePermissions.php`
+- `app/Support/CrewMovements/CrewAssignmentPagePermissions.php`
 - `app/Support/Settings/SettingsHubAccess.php`
 
 ### Pages / components
@@ -353,7 +364,7 @@ flowchart LR
     Employee --> Rank
     Employee --> User
     Employee --> EmployeeDocument
-    Employee --> EmployeeDeployment
+    Employee --> CrewAssignment
     Employee --> EmployeeContract
     Employee --> EmployeeSeaService
     Employee --> EmployeeProfileTemplate
@@ -486,65 +497,92 @@ See [docs/document-management.md](../document-management.md), [docs/document-sea
 
 ---
 
-## Crew Deployments
+## Crew Assignments (Crew Operations)
 
 ### Purpose
 
-Track crew deployment lifecycle (join, standby, disembark, travel dates) per employee, linked to vessel, client, rank, and company visa type. Syncs completed deployments to **employee sea service** records.
+`CrewAssignment` is the source of truth for one mobilisation cycle (P0–P6). Phases are stored as ordered, repeatable `CrewAssignmentPhase` rows. Completed actual P4 time may sync to `EmployeeSeaService`. Planned sign-off is never actual disembarkation.
+
+**EmployeeDeployment has been removed.** Do not describe deployments, `crew-deployments` routes, or `crew_operations.deployments.*` as current architecture.
+
+Detailed lifecycle, Tour of Duty, planning sync, transfer/redeploy, alerts, and manning: [crew-movement-phases.md](./crew-movement-phases.md).
 
 ### Main models
 
-- `EmployeeDeployment` — deployment timeline + remarks
-- `EmployeeSeaService` — derived sea service entry (linked via `employee_deployment_id`)
+- `CrewAssignment` — one mobilisation cycle; `company_id`, vessel/client/rank, status, planned dates, Tour snapshot
+- `CrewAssignmentPhase` — ordered occurrence of P0–P6 (phases may repeat, e.g. P2A → P2B → P2A → P3)
+- `CrewPlanningAssignment` — Gantt/planning row; may create/sync a CrewAssignment
+- `EmployeeSeaService` — historical sea time linked by `crew_assignment_phase_id`
+- `CrewMovementCorrection` — in-place field corrections (separate approval workflow)
 - Master data: `Vessel`, `VesselType`, `Client`, `Rank`, `CompanyVisaType`
 
 ### Relationships
 
 ```mermaid
 flowchart LR
-    EmployeeDeployment --> Employee
-    EmployeeDeployment --> Vessel
-    EmployeeDeployment --> Client
-    EmployeeDeployment --> Rank
-    EmployeeDeployment --> CompanyVisaType
-    EmployeeDeployment -->|sync| EmployeeSeaService
+    CrewPlanningAssignment -->|convert / sync| CrewAssignment
+    CrewAssignment --> Employee
+    CrewAssignment --> Vessel
+    CrewAssignment --> Client
+    CrewAssignment --> Rank
+    CrewAssignment --> CompanyVisaType
+    CrewAssignment --> CrewAssignmentPhase
+    CrewAssignmentPhase -->|completed P4| EmployeeSeaService
     EmployeeSeaService --> Employee
 ```
 
+Verified Eloquent relations: `Employee::crewAssignments()`, `CrewAssignment` belongs to company/employee/rank/client/vessel and has many phases, planning assignment, corrections; `CrewAssignmentPhase::seaService()`; `EmployeeSeaService::crewAssignmentPhase()`.
+
 ### Controllers
 
-`CrewDeploymentController` — index (board), show, store, update, destroy, export
+- `CrewAssignmentController` — index (Crew / Vessel views), create, show, update (`/organization/crew`)
+- `CrewMovementActionController` — `POST .../actions` (`Gate::authorize` performMovement / cancel)
+- `VoidCrewAssignmentController` — privileged void
+- `CurrentCrewOnboardVesselsExportController` — onboard Excel export
+- `CrewPlanningController` / `CrewPlanningAssignmentController` — planning Gantt
+- `CrewOperationsDashboardController` / `CrewOperationsSettingsController`
+- `CrewMovementCorrectionController` / `CrewMovementCorrectionDecisionController`
+- `CrewMovementHistoryController` — report
 
-Support: `CrewDeploymentBoardQuery`, `EmployeeDeploymentPresenter`, `SyncSeaServiceFromDeployment`
+Support includes `CrewMovementService`, `CurrentCrewQuery`, `CurrentOnboardCrewQuery`, `SeaServiceSyncService`, `CreateCrewAssignmentFromPlanning`, `CrewAssignmentAccess`, `CrewAssignmentPresenter`, `CrewAssignmentPagePermissions`.
+
+Policy: `app/Policies/CrewAssignmentPolicy.php`.
 
 ### Pages / components
 
 | Path | Role |
 |------|------|
-| `pages/organization/crew-deployments/index.tsx` | Deployment board |
-| `pages/organization/crew-deployments/show.tsx` | Detail + timeline + activity |
-| `features/organization/crew-deployments/crew-deployments-board.tsx` | Sortable board UI |
-| `features/organization/crew-deployments/deployment-form-dialog.tsx` | Create/edit modal |
-| `features/organization/crew-deployments/deployment-lifecycle-timeline.tsx` | Visual timeline |
+| `pages/organization/crew/index.tsx` | Thin wrapper for Current Crew |
+| `features/organization/crew/index.tsx` | Crew / Vessel assignment board |
+| `pages/organization/crew/show.tsx` | Assignment detail, phases, movements, corrections |
+| `features/organization/crew/actions/movement-action-dialog.tsx` | P0–P6 movement Dialog + Wayfinder |
+| `pages/organization/crew-planning/index.tsx` | Planning Gantt / Onboard by Vessel |
+| `pages/organization/crew-operations/index.tsx` | Daily operations cockpit |
 
 ### Permissions involved
 
-- `crew_operations.deployments.view` — list, show
-- `crew_operations.deployments.create` — create
-- `crew_operations.deployments.update` — update
-- `crew_operations.deployments.delete` — delete
-- `crew_operations.deployments.export` — export
+```text
+crew_operations.assignments.view|create|update|cancel|void
+crew_operations.movements.perform
+crew_operations.corrections.view|request|approve|override
+crew_operations.planning.view|create|update|delete
+crew_operations.overview.view
+crew_operations.vessels.*
+crew_operations.vessel_manning.*
+audit.view
+```
 
-Frontend `can.create|update|delete|export` on show/index.
+Legacy `crew_operations.deployments.*` permissions were removed and migrated onto assignment permissions.
+
+Frontend `can` from `CrewAssignmentPagePermissions::for()`.
 
 ### Important workflows
 
-1. **Board view** — deployments listed/filtered; create via dialog.
-2. **Show page** — lifecycle dates, remarks, edit dialog with `redirect_to=show` support.
-3. **Sea service sync** — on save, `SyncSeaServiceFromDeployment`:
-   - If `joined_date` + `disembarked_date` present → upsert `EmployeeSeaService`
-   - If incomplete → remove linked sea service
-4. **Back navigation** — `back_query` preserved from list filters.
+1. **Current Crew** (`/organization/crew`) — operational Draft/Active assignments; Vessel View lists currently onboard active P4 crew.
+2. **Planning** — `CreateCrewAssignmentFromPlanning` may create a draft assignment; `SyncPlanningAssignmentFromCrewAssignment` keeps the linked Gantt bar in sync.
+3. **Movements** — `CrewMovementService::perform()` in a company-scoped transaction with `lockForUpdate()`.
+4. **Sea service** — completed P4 (`actual_start_at` + `actual_end_at`) syncs via `SeaServiceSyncService`.
+5. **Corrections** — request/approve workflow; see [crew-movement-corrections.md](./crew-movement-corrections.md).
 
 ---
 
@@ -631,7 +669,7 @@ Manning UI is embedded in `features/organization/vessels/show.tsx` using `Vessel
 
 ### Purpose
 
-Plan employee assignments against vessels and expose an operational overview alongside deployment and manning data.
+Plan employee assignments against vessels and expose an operational overview alongside Crew Assignments and manning data.
 
 Current Crew (`/organization/crew`) is operational state, not planning. **Crew View** lists current assignments; **Vessel View** (`?view=vessel`) groups currently onboard active P4 crew by vessel. Crew Planning (`/organization/crew-planning`) defaults to the Gantt; **Onboard by Vessel** (`?view=onboard-vessels`) reuses the same actual P4 vessel roster and does not treat planning records as onboard. See [Crew Movement Phases](./crew-movement-phases.md).
 
@@ -646,7 +684,7 @@ Current Crew (`/organization/crew`) is operational state, not planning. **Crew V
 - `crew_operations.overview.view`
 - `crew_operations.planning.view|create|update|delete`
 
-The overview and settings routes should follow these capability boundaries. Any authenticated-only route without the matching middleware is a known gap, not an authorization convention.
+Overview uses `can:crew_operations.overview.view`. Settings use `can:crew_operations.planning.view` (read) and `can:crew_operations.planning.update` (write). Verify any new Crew Operations route independently.
 
 ---
 
@@ -776,7 +814,7 @@ Manage payroll periods, crew timesheets, salary inputs, generated payroll record
 - inputs: `payroll.crew_timesheets.*` and `payroll.salary_inputs.*`
 - outputs: `payroll.records.view`, `payroll.payslips.generate`, `payroll.payslips.email`, `payroll.wps.export`
 
-Several payroll routes currently omit their corresponding `can:` middleware. The permission catalog above represents the intended boundary; route coverage must be verified before treating an endpoint as protected.
+Some payroll hub routes authorize inside the controller (for example `authorizePayrollHub` / `authorizePayrollShow`) rather than via route `can:` middleware. Crew timeline prepare/submit/approve/return/apply routes use `can:payroll.crew_timesheets.*`. Verify the specific endpoint before treating it as protected.
 
 ---
 
@@ -948,7 +986,7 @@ Record who changed what and when. Uses **Spatie Activity Log** with company scop
 | `Spatie\Activitylog\Models\Activity` | Stored audit entries |
 | `RecentActivityQuery` | Fetch latest N for show pages |
 
-Automatic activity logging now spans organization records, master data, employee sub-records, crew deployment/planning, attendance and leave, and payroll records. The authoritative implementation list is the set of models using `LogsActivityWithCompany`; avoid copying a static model count into documentation because coverage changes as modules evolve.
+Automatic activity logging now spans organization records, master data, employee sub-records, Crew Assignments / planning, attendance and leave, and payroll records. The authoritative implementation list is the set of models using `LogsActivityWithCompany`; avoid copying a static model count into documentation because coverage changes as modules evolve.
 
 Custom events (e.g. document email send) logged manually in Services.
 
@@ -971,7 +1009,7 @@ Custom events (e.g. document email send) logged manually in Services.
 |------|------|
 | `pages/organization/activity-logs.tsx` | Global audit browser |
 | `components/recent-activity-card.tsx` | Show-page activity section |
-| `features/organization/crew-deployments/deployment-show-activity.tsx` | Domain-specific variant |
+| `features/organization/crew-operations/components/recent-activity-card.tsx` | Crew Operations dashboard activity slice |
 
 ### Permissions involved
 
@@ -1015,7 +1053,7 @@ flowchart TB
     subgraph operations [Operations]
         Documents
         BulkDocuments
-        CrewDeployments
+        CrewAssignments
         CrewPlanning
         Attendance
         Payroll
@@ -1039,14 +1077,14 @@ flowchart TB
     User --> Employee
     Employee --> Documents
     Employee --> BulkDocuments
-    Employee --> CrewDeployments
+    Employee --> CrewAssignments
     Employee --> CrewPlanning
     Employee --> Attendance
     Employee --> Payroll
     Employee --> Training
     Employee --> SeaServices
     Hikvision --> Attendance
-    CrewDeployments --> EmployeeSeaService
+    CrewAssignments --> EmployeeSeaService
 
     Employee --> ActivityLog
     Documents --> ActivityLog
@@ -1068,7 +1106,7 @@ flowchart TB
 | Bank accounts | `/organization/bank-accounts` | `bank-accounts/index`, `employee`, `no-account` |
 | Training | `/organization/training` | `training/index`, `employee`, `show` |
 | Sea services | `/organization/sea-services` | `sea-services/index`, `employee`, `show` |
-| Crew deployments | `/organization/crew-deployments` | `crew-deployments/index`, `show` |
+| Crew Assignments | `/organization/crew` | `crew/index`, `show`, `create`, `edit` |
 | Crew operations / planning | `/organization/crew-operations`, `/organization/crew-planning` | `crew-operations/*`, `crew-planning/index` |
 | Vessel / manning | `/organization/vessels` | `vessels/index`, `show` (legacy `/organization/vessel-manning` redirects here) |
 | Attendance / leave | `/attendance/*` | `attendance/overview`, `records`, `calendar`, `types`, `leave-requests`, `leave-approval-policies`, `leave-approval-settings` |

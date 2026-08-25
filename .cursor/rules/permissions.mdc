@@ -12,7 +12,7 @@ Multi-tenant authorization via **Spatie Laravel Permission** with **company team
 
 1. `SetCurrentCompany` middleware sets team ID on `PermissionRegistrar`.
 2. Routes enforce permissions: `->middleware('can:documents.view')`.
-3. **No Eloquent policies** — there is no `app/Policies/`.
+3. Policies/gates for model or state rules — `app/Policies/CrewAssignmentPolicy.php` with `Gate::authorize`. Frontend `can` flags are UX only.
 
 Seed permissions in `database/seeders/PermissionsSeeder.php` (dot notation):
 
@@ -75,8 +75,8 @@ Always pass `can_view_audit` + `recent_activity` from show controllers.
 
 ## Avoid
 
-- Hiding routes from UI without backend middleware.
-- Creating Policy classes — use Spatie + route middleware.
+- Hiding routes from UI without a backend authorization check.
 - Checking permissions without company team context.
+- Treating route `can:` as the only allowed pattern — policies, gates, Form Requests, and Support guards are valid when they match the existing module.
 
 See also: `docs/permissions.md`

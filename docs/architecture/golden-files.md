@@ -58,7 +58,7 @@ Most complete modern show page: breadcrumbs, `DetailsHeader` with back navigatio
 - Any new entity detail page: header + cards + optional activity, with back context preserved in query params.
 - Do not fetch audit or versions client-side when they can be inlined in the show controller.
 
-**Also see:** `resources/js/pages/organization/crew-deployments/show.tsx` — Wayfinder `back_query`, lifecycle timeline, edit dialog on show page.
+**Also see:** `resources/js/pages/organization/crew/show.tsx` — Crew Assignment detail with Wayfinder, movement actions, and `RecentActivityCard` (fatter than the documents show page; copy documents/branch for thin-page structure).
 
 ---
 
@@ -157,7 +157,7 @@ Represents **center Dialog** modals for heavy, multi-step workflows (not CRUD sh
 - Use center modals only for complex flows (upload, merge, send confirm)—not for simple create/edit.
 - Lazy-load heavy modals when they significantly increase bundle size (`employee.tsx` PDF merge pattern).
 
-**Also see:** `resources/js/features/organization/crew-deployments/deployment-form-dialog.tsx` — large form in Dialog with Wayfinder store/update actions and creatable selects.
+**Also see:** `resources/js/features/organization/crew/actions/movement-action-dialog.tsx` — heavy P0–P6 movement Dialog with Wayfinder `performAction` and per-action forms.
 
 ---
 
@@ -214,6 +214,8 @@ Shows the preferred way to build **module-specific `can` props**: centralize per
 - `app/Support/EmployeeDocuments/DocumentAccess.php` — static guards for tenant/ownership.
 - `resources/js/hooks/use-has-permission.ts` — frontend cross-cutting checks.
 - `docs/permissions.md` — permission catalog.
+- `app/Policies/CrewAssignmentPolicy.php` — model policy used with `Gate::authorize` (view/create/update/performMovement/cancel/void).
+- `app/Support/CrewMovements/CrewAssignmentPagePermissions.php` — Crew module `can` flags.
 
 ---
 
@@ -286,7 +288,7 @@ Clean **invokable controller** for a single show action: resolves tenant context
 - New show pages → invokable controller + Support query/presenter + thin Inertia render.
 - Multi-action CRUD → follow `BranchController` (`index`, `show`, `store`, `update`, `destroy`, export).
 
-**Also see:** `app/Http/Controllers/Organization/CrewDeploymentController.php` — show with `back_query`, presenter, and form options.
+**Also see:** `app/Http/Controllers/Organization/CrewAssignmentController.php` — `Gate::authorize`, `CrewAssignmentAccess`, Support queries/presenter, `CrewAssignmentPagePermissions`.
 
 ---
 
@@ -335,7 +337,10 @@ Canonical **query Support class**: encapsulates complex Eloquent queries (folder
 - Any non-trivial listing, dashboard metric, or filter query → Support class, not controller private methods.
 - Pair with array mappers on models (`toProfileArray`, `toShowArray`) or Support Resources.
 
-**Also see:** `app/Support/Employees/Actions/CreateEmployee.php` — action class with `handle()` for multi-model orchestration.
+**Also see**
+
+- `app/Support/Employees/Actions/CreateEmployee.php` — action class with `handle()` for multi-model orchestration.
+- `app/Support/CrewMovements/CrewMovementService.php` — company-scoped transaction + `lockForUpdate()` for Crew movements.
 
 ---
 
@@ -437,7 +442,7 @@ Two complementary audit UX levels: per-entity recent changes on show pages ( gat
 **What future code should imitate**
 
 - Every new show page for an auditable model → add `RecentActivityQuery` + optional `RecentActivityCard`.
-- Do not build custom diff UI—reuse `RecentActivityCard` or crew deployment activity component.
+- Do not build custom diff UI—reuse `RecentActivityCard`.
 
 ---
 
