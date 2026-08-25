@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\PayrollCategory;
-use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
@@ -11,48 +10,6 @@ use App\Models\EmployeeContract;
 use App\Models\Position;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
-
-function makeContractFixtures(): array
-{
-    $country = Country::query()->firstOrCreate(
-        ['code' => 'CT1'],
-        ['name' => 'Contract Test Land', 'dial_code' => '+901', 'is_active' => true],
-    );
-
-    $currency = Currency::query()->firstOrCreate(
-        ['code' => 'CT1'],
-        ['name' => 'Contract Test Currency', 'symbol' => 'C$', 'is_active' => true],
-    );
-
-    $company = Company::query()->create([
-        'name' => 'ContractCo',
-        'slug' => 'contractco-'.uniqid(),
-        'working_days' => [1, 2, 3, 4, 5],
-        'country_id' => $country->id,
-        'currency_id' => $currency->id,
-        'timezone' => 'Asia/Dubai',
-        'payroll_cycle' => 'monthly',
-        'status' => 'active',
-    ]);
-
-    $branch = Branch::query()->create([
-        'company_id' => $company->id,
-        'name' => 'HQ',
-        'code' => 'HQ',
-        'status' => 'active',
-        'is_headquarters' => true,
-    ]);
-
-    $employee = Employee::query()->create([
-        'company_id' => $company->id,
-        'branch_id' => $branch->id,
-        'employee_no' => 'CTR001',
-        'name' => 'Contract Employee',
-        'status' => 'active',
-    ]);
-
-    return compact('company', 'branch', 'employee');
-}
 
 test('guests cannot access contracts index', function () {
     $this->get(route('organization.contracts'))->assertRedirect(route('login'));

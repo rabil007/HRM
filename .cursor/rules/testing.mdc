@@ -54,6 +54,8 @@ References:
 | `makeCrewAssignmentFixtures()` | `Support/crew-assignment-fixtures.php` | Crew assignment tests |
 | `makeCrewOperationsFixtures()` | `Support/crew-operations-fixtures.php` | Crew Operations dashboard tests |
 
+Helpers used by more than one `*Test.php` file must live here so file-based CI shards still load them.
+
 Loaded from `tests/Pest.php`.
 
 ## Inertia assertions

@@ -1,51 +1,12 @@
 <?php
 
 use App\Enums\PayrollCategory;
-use App\Models\Company;
 use App\Models\CompanyVisaType;
-use App\Models\Country;
-use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
-use App\Models\User;
 use App\Support\Employees\Resources\EmployeeContractResource;
 use App\Support\Payroll\ResolveCrewContractForWorkDate;
 use Illuminate\Support\Facades\Artisan;
-
-/**
- * @return array{user: User, company: Company}
- */
-function makeVisaTypeContractFixtures(): array
-{
-    $user = User::factory()->create();
-
-    $country = Country::query()->create([
-        'code' => 'CVT'.fake()->unique()->numerify('##'),
-        'name' => 'Visa Type Contract Land',
-        'dial_code' => '+992',
-        'is_active' => true,
-    ]);
-
-    $currency = Currency::query()->create([
-        'code' => 'CVT'.fake()->unique()->numerify('##'),
-        'name' => 'Visa Type Contract Currency',
-        'symbol' => 'V$',
-        'is_active' => true,
-    ]);
-
-    $company = Company::query()->create([
-        'name' => 'Visa Type Contract Co',
-        'slug' => 'visa-type-contract-co-'.uniqid(),
-        'working_days' => [1, 2, 3, 4, 5],
-        'country_id' => $country->id,
-        'currency_id' => $currency->id,
-        'timezone' => 'Asia/Dubai',
-        'payroll_cycle' => 'monthly',
-        'status' => 'active',
-    ]);
-
-    return ['user' => $user, 'company' => $company];
-}
 
 test('contract can store company_visa_type_id', function () {
     ['company' => $company] = makeVisaTypeContractFixtures();

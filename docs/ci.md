@@ -70,7 +70,7 @@ Examples that force **full** CI (both sides):
 
 Frontend Build uploads `public/build` as a workflow artifact named `vite-build-<sha>-<run_id>-<run_attempt>`. Each Pest shard downloads that same artifact and refuses to start without `public/build/manifest.json` for this SHA. Shards do not rebuild Vite.
 
-Pest sharding is deterministic file round-robin over `tests/Unit/**/*Test.php` and `tests/Feature/**/*Test.php` via `.github/scripts/ci.php`. Pest 4.4 in this repo has no native `--shard` flag; the helper splits the suite so the full set runs exactly once. Tests keep sqlite `:memory:` and `RefreshDatabase` isolation (one runner per shard, not Pest `--parallel`).
+Pest sharding is deterministic file round-robin over `tests/Unit/**/*Test.php` and `tests/Feature/**/*Test.php` via `.github/scripts/ci.php`. Pest 4.4 in this repo has no native `--shard` flag; the helper splits the suite so the full set runs exactly once. Tests keep sqlite `:memory:` and `RefreshDatabase` isolation (one runner per shard, not Pest `--parallel`). Helpers used by more than one test file must live in `tests/Support/` (loaded from `tests/Pest.php`) so a shard that does not load the original defining file still has them.
 
 Run the same local set:
 
