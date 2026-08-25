@@ -64,5 +64,5 @@ Reference: `pages/organization/documents/show.tsx` → `DocumentManagementDialog
 
 - Shared delete: `components/confirm-delete-dialog.tsx`
 - Documents: `features/organization/documents/shared/document-management-dialogs.tsx`
-- Crew deployments: `features/organization/crew-deployments/deployment-form-dialog.tsx`
+- Crew movements: `features/organization/crew/actions/movement-action-dialog.tsx`
 - Master data: `components/settings/master-data-form-sheet.tsx`

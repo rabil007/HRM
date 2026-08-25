@@ -14,7 +14,7 @@ Employee Sea Service
 
 **EmployeeDeployment has been removed.** There is no production deployment data and no legacy backfill is required.
 
-Current Crew, vessel manning actuals, the Crew Operations dashboard pulse, and current/future planning projections require the assignment employee to be **active**. Crew Movement History, completed assignments, and sea service retain inactive/terminated employees. See [Active employee visibility](./architecture/active-employee-visibility.md).
+Current Crew, vessel manning actuals, the Crew Operations dashboard pulse, and current/future planning projections require the assignment employee to be **active**. Crew Movement History, completed assignments, and sea service retain inactive/terminated employees. See [Active employee visibility](./active-employee-visibility.md).
 
 ## Current Crew and Crew Planning views
 

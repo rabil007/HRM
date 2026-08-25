@@ -2,27 +2,39 @@
 
 GitHub Actions **verifies** committed source. It does not reformat or auto-commit files.
 
-The workflow is `.github/workflows/ci.yml` (`CI`). It is the required gate before [deployment](#deployment).
+The workflow is `.github/workflows/ci.yml` (`CI`). Successful `CI` on a **push** to **`main`** is what [deployment](#deployment) waits for.
 
-## Required gates
+## Workflow shape
 
-| Gate | CI step | Local command |
-|------|---------|---------------|
-| PHP formatting | `composer lint:check` | `composer lint:check` (`pint --parallel --test`) |
-| ESLint | `npm run lint:check` | `npm run lint:check` |
-| Prettier | `npm run format:check` | `npm run format:check` |
-| TypeScript | `npm run types:check` | `npm run types:check` |
-| Frontend tests | `npm run test:frontend` | `npm run test:frontend` |
-| Production build | `npm run build` | `npm run build` |
-| Pest | `php artisan test --compact --ansi` | `php artisan test --compact` or `composer test` |
+1. **Detect changes** — classifies the diff as `docs-only` or full application CI.
+2. **Backend** and **Frontend** — run in parallel when application files changed.
+3. **Quality gates** — aggregator job that must succeed. Docs-only PRs skip install/test jobs and still pass this aggregator when change detection succeeds.
 
-Run the same set locally:
+Docs-only paths include `docs/*`, `.cursor/*`, `.agents/*`, `.gemini/*`, root-level `*.md`, and a short list of agent/tooling files. Any unrecognized path forces full CI.
+
+## Required gates (full application CI)
+
+| Gate | Job / step | Local command |
+|------|------------|---------------|
+| PHP formatting | Backend → `composer lint:check` | `composer lint:check` (`pint --parallel --test`) |
+| Pest | Backend → `php artisan test --compact --ansi` | `php artisan test --compact` or `composer test` |
+| ESLint | Frontend → `npm run lint:check` | `npm run lint:check` |
+| Prettier | Frontend → `npm run format:check` | `npm run format:check` |
+| TypeScript | Frontend → `npm run types:check` | `npm run types:check` |
+| Frontend tests | Frontend → `npm run test:frontend` | `npm run test:frontend` |
+| Production build | Backend (before Pest) and Frontend | `npm run build` |
+
+Backend installs Node and runs `npm run build` **before Pest** so Inertia HTML responses can resolve the gitignored Vite manifest.
+
+Run the same local set:
 
 ```bash
 composer ci:check
 ```
 
 That also runs `php artisan wayfinder:generate --with-form` first so TypeScript can resolve gitignored `@/actions` and `@/routes`.
+
+A documentation-only change should follow the docs-only fast path in GitHub Actions. Locally, `composer ci:check` still runs the full application suite.
 
 ## Fix vs verify
 
@@ -71,11 +83,7 @@ The CI workflow uses `contents: read` only. It does not need `contents: write`, 
 
 ## Branch protection
 
-The `main` branch is protected with GitHub branch protection:
-- **Required status checks**: Enabled (strict / up-to-date branch required).
-- **Required status check contexts**: `Quality gates` (the job name from `.github/workflows/ci.yml`).
-- **Force pushes**: Blocked (`allow_force_pushes: false`).
-- **Branch deletions**: Blocked (`allow_deletions: false`).
+Confirm required checks in GitHub **Settings → Branches / Rulesets**. This repository’s CI aggregator job is named `Quality gates`. This documentation does not assert that `main` is currently protected; verify the live GitHub configuration.
 
 ## Deployment
 

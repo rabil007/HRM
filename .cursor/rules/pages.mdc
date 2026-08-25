@@ -59,15 +59,14 @@ Reference: `features/organization/branches/index.tsx`
 
 References:
 - `pages/organization/branch.tsx`
-- `pages/organization/crew-deployments/show.tsx`
 - `pages/organization/documents/show.tsx`
+- `pages/organization/crew/show.tsx` (Crew Assignment detail)
 
 ## Back navigation
 
-Pass whitelisted query params when linking to show pages. Examples:
+Pass whitelisted query params when linking to show pages. Example:
 
 - Documents: `buildDocumentShowUrl(..., { from: 'profile' | 'index' | 'employee-browse' })` — `features/organization/documents/shared/document-show-url.ts`
-- Crew deployments: `back_query` from controller
 
 ## Avoid
 

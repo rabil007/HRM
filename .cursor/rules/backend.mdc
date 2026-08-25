@@ -31,13 +31,14 @@ public function show(Request $request, Employee $employee, EmployeeDocument $doc
 |-------|------|-----|
 | Controllers | `app/Http/Controllers/` | HTTP, Inertia render, redirect + flash |
 | Form Requests | `app/Http/Requests/` | Validation (`StoreBranchRequest`, …) |
+| Policies | `app/Policies/` | Model/state authorization (`CrewAssignmentPolicy`) |
 | Support | `app/Support/` | Queries, actions, presenters, guards |
 | Services | `app/Services/` | WhatsApp, Hikvision, email, PDF merge, settings |
 | Models | `app/Models/` | Eloquent + `LogsActivityWithCompany` |
 
 **Prefer** moving query logic to Support:
 
-- `DocumentBrowseQuery`, `EmployeeDirectoryQuery`, `CrewDeploymentBoardQuery`
+- `DocumentBrowseQuery`, `EmployeeDirectoryQuery`, `CurrentCrewQuery`
 - Actions with `handle()`: `Support/Employees/Actions/CreateEmployee.php`
 
 Support "Resources" are static array mappers (`EmployeeListResource::toArray()`), not Laravel API Resources.
@@ -65,7 +66,7 @@ Show pages: `RecentActivityQuery::for($user, $companyId, Model::class, $id)`.
 
 ## Form Requests
 
-- `authorize()` usually `(bool) $this->user()` — route middleware is authoritative.
+- `authorize()` may return `(bool) $this->user()` when the route independently enforces `can:` (or a matching Gate/policy). Prefer an explicit permission/policy check when the request can be reached from more than one route or depends on the bound model.
 - Shared validation in `Requests/.../Concerns/` traits.
 
 ## Formatting & style
@@ -76,11 +77,12 @@ Show pages: `RecentActivityQuery::for($user, $companyId, Model::class, $id)`.
 ## Avoid
 
 - Business logic bloating controllers — extract to Support.
-- Eloquent policies.
 - Empty `routes/api.php` patterns — use Inertia unless JSON is truly needed.
 - New top-level `app/` folders without approval.
 
+Use route `can:` middleware for simple capability checks. Use a policy or gate when authorization depends on the bound model or business state (`CrewAssignmentPolicy` + `Gate::authorize`). Frontend `can` flags are UX only.
+
 ## Route naming
 
-- URLs: kebab-case (`/organization/crew-deployments`)
-- Names: dots (`organization.documents.employee.files.show`)
+- URLs: kebab-case (`/organization/crew`)
+- Names: dots (`organization.crew-assignments.show`)
