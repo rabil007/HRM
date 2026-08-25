@@ -24,7 +24,7 @@ Laravel 13 + Inertia v3 + React 19 monolith with company-scoped Spatie permissio
 - Use `docs/README.md` to select only the relevant domain guide. Optional directory pointers: `docs/architecture/context-map.md`.
 - Use `docs/architecture/golden-files.md` to find preferred implementation examples.
 - Use `AI_GUIDE.md` only when broader architectural context is necessary; do not load it for every task.
-- Invoke `implement-oms-change` for end-to-end changes and `review-oms-security` for tenant, authorization, or credential-sensitive work.
+- Invoke `implement-oms-change` for end-to-end changes. For authentication, authorization, tenant ownership, credentials, private files, privileged actions, webhooks, exports, or other security-sensitive changes, load and follow `review-oms-security`.
 
 For a normal change, load: matching guide → relevant routes/permissions → models → Support/Services → sibling implementations → tests. Do not initially load every migration, every model, every docs file, the entire PermissionsSeeder, or unrelated modules.
 
