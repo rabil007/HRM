@@ -15,11 +15,43 @@ export function shouldShowRecentItems(query: string): boolean {
     return query.trim() === '';
 }
 
+export function recentItemMatchesQuery(
+    item: RecentItem,
+    query: string,
+): boolean {
+    const needle = query.trim().toLowerCase();
+
+    if (needle === '') {
+        return true;
+    }
+
+    return `${item.type_label} ${item.title} ${item.subtitle}`
+        .toLowerCase()
+        .includes(needle);
+}
+
+export function matchingRecentItems(
+    items: readonly RecentItem[],
+    query: string,
+): RecentItem[] {
+    const trimmed = query.trim();
+
+    if (trimmed === '') {
+        return [...items];
+    }
+
+    if (trimmed.length < 2) {
+        return [];
+    }
+
+    return items.filter((item) => recentItemMatchesQuery(item, query));
+}
+
 export function shouldRenderRecentGroup(
     query: string,
     items: readonly RecentItem[],
 ): boolean {
-    return shouldShowRecentItems(query) && items.length > 0;
+    return matchingRecentItems(items, query).length > 0;
 }
 
 export function recentItemHeading(item: RecentItem): string {

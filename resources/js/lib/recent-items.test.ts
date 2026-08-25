@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { isCommandPaletteHotkey } from './global-search.ts';
 import {
+    matchingRecentItems,
     recentItemCommandValue,
     recentItemHeading,
+    recentItemMatchesQuery,
     recentItemsFromPayload,
     shouldRenderRecentGroup,
     shouldShowRecentItems,
@@ -36,11 +38,27 @@ describe('recent visibility', () => {
         assert.equal(shouldShowRecentItems('ab'), false);
         assert.equal(shouldRenderRecentGroup('', [employeeRecent]), true);
         assert.equal(shouldRenderRecentGroup('', []), false);
-        assert.equal(shouldRenderRecentGroup('ab', [employeeRecent]), false);
+        assert.equal(shouldRenderRecentGroup('a', [employeeRecent]), false);
     });
 
     it('does not create an empty Recent heading', () => {
         assert.equal(shouldRenderRecentGroup('', []), false);
+    });
+
+    it('surfaces matching recents once record search starts', () => {
+        assert.equal(recentItemMatchesQuery(employeeRecent, 'mohammed'), true);
+        assert.equal(recentItemMatchesQuery(employeeRecent, 'passport'), false);
+        assert.deepEqual(
+            matchingRecentItems([employeeRecent, documentRecent], 'pass').map(
+                (item) => item.id,
+            ),
+            ['document:4'],
+        );
+        assert.equal(
+            shouldRenderRecentGroup('mohammed', [employeeRecent]),
+            true,
+        );
+        assert.equal(shouldRenderRecentGroup('zzz', [employeeRecent]), false);
     });
 });
 
@@ -99,8 +117,9 @@ describe('command palette coexistence', () => {
         );
     });
 
-    it('hides recents once typed search starts while favorites stay independent', () => {
+    it('hides recents for a single character while favorites stay independent', () => {
         assert.equal(shouldShowRecentItems('em'), false);
-        assert.equal(shouldRenderRecentGroup('em', [employeeRecent]), false);
+        assert.equal(shouldRenderRecentGroup('e', [employeeRecent]), false);
+        assert.equal(shouldRenderRecentGroup('em', [employeeRecent]), true);
     });
 });

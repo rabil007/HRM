@@ -20,6 +20,7 @@ const CREW_URLS = [
     '/organization/crew',
     '/organization/crew-planning',
     '/organization/vessels',
+    '/organization/vessel-manning',
     '/organization/crew-operations/settings',
     '/organization/crew-movement-corrections',
 ];
@@ -145,6 +146,43 @@ describe('Crew navigation', () => {
         assert.equal(
             isSidebarUrlVisible('/organization/vessels', permissions),
             false,
+        );
+    });
+
+    it('does not send manning-only users to the vessels index', () => {
+        const permissions = ['crew_operations.vessel_manning.view'];
+
+        assert.equal(canViewCrewOperations(permissions), true);
+        assert.equal(
+            crewOperationsHref(permissions),
+            '/organization/vessel-manning',
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/vessels', permissions),
+            false,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/vessel-manning', permissions),
+            true,
+        );
+    });
+
+    it('shows vessels only for vessels.view', () => {
+        assert.equal(
+            isSidebarUrlVisible('/organization/vessels', [
+                'crew_operations.vessels.view',
+            ]),
+            true,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/vessel-manning', [
+                'crew_operations.vessels.view',
+            ]),
+            false,
+        );
+        assert.equal(
+            crewOperationsHref(['crew_operations.vessels.view']),
+            '/organization/vessels',
         );
     });
 

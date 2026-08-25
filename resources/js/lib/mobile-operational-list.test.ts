@@ -4,6 +4,7 @@ import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
     MOBILE_OPERATIONAL_LIST_BREAKPOINT,
     MOBILE_OPERATIONAL_LIST_CLASS,
+    isExternalMobileOverflowHref,
     joinMobileRecordMeta,
     shouldUseMobileOperationalList,
 } from './mobile-operational-list.ts';
@@ -44,6 +45,40 @@ describe('joinMobileRecordMeta', () => {
         assert.equal(
             joinMobileRecordMeta(['Marine', 'Engineer', null, '  ', undefined]),
             'Marine · Engineer',
+        );
+    });
+});
+
+describe('isExternalMobileOverflowHref', () => {
+    it('keeps in-app overflow actions on Inertia navigation', () => {
+        assert.equal(
+            isExternalMobileOverflowHref({ href: '/organization/vessels/1' }),
+            false,
+        );
+        assert.equal(
+            isExternalMobileOverflowHref({
+                href: '/organization/vessels/1',
+                target: '_self',
+            }),
+            false,
+        );
+    });
+
+    it('treats downloads and off-site targets as document navigation', () => {
+        assert.equal(
+            isExternalMobileOverflowHref({
+                href: '/organization/vessels/1',
+                target: '_blank',
+            }),
+            true,
+        );
+        assert.equal(
+            isExternalMobileOverflowHref({ href: 'https://example.test/file' }),
+            true,
+        );
+        assert.equal(
+            isExternalMobileOverflowHref({ href: 'mailto:ops@example.test' }),
+            true,
         );
     });
 });

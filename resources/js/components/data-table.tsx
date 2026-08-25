@@ -21,7 +21,7 @@ export function OrganizationDataTable({
     return (
         <Card
             className={cn(
-                'w-full overflow-hidden glass-card',
+                'w-full overflow-x-auto overflow-y-hidden overscroll-x-contain glass-card',
                 header && 'gap-0 py-0',
             )}
         >

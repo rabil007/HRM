@@ -17,11 +17,14 @@ Visibility:
 
 Do not introduce a generic rendering DSL. Keep identity, status, and action decisions in the domain wrapper.
 
+`OrganizationDataTable` is the desktop/tablet scroll container (`overflow-x-auto`). In-app overflow actions on `MobileRecordCard` use Inertia `Link`; downloads and `target="_blank"` stay as document navigation.
+
 ## Domains using this pattern
 
 | Screen                                    | Mobile card                    | Notes                                                                                    |
 | ----------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------- |
 | Employees                                 | `EmployeeMobileCard`           | Compact identity; no private contact/salary fields                                       |
+| Vessels                                   | `VesselMobileCard`             | Identity, type, IMO/official number, manning counts; no certificate files                |
 | Crew assignments                          | `CrewAssignmentMobileCard`     | Current P0–P6 phase from `CrewAssignment`; planned sign-off is not actual disembarkation |
 | Leave requests                            | `LeaveRequestMobileCard`       | Approve only when `can_approve_current_step`                                             |
 | Attendance records                        | `AttendanceRecordMobileCard`   | Self-service omits employee identity; `attendance.records.manage` shows it               |

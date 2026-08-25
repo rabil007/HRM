@@ -40,6 +40,14 @@ describe('pathname matching', () => {
             destinationKeyFromPathname('/payroll/overview'),
             'payroll.overview',
         );
+        assert.equal(
+            destinationKeyFromPathname('/organization/vessels'),
+            'crew.vessels',
+        );
+        assert.equal(
+            destinationKeyFromPathname('/organization/vessel-manning/4'),
+            'crew.vessel-manning',
+        );
         assert.equal(destinationKeyFromPathname('/settings/application'), null);
     });
 });

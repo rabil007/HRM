@@ -31,10 +31,14 @@ import { useNavigationFavorites } from '@/hooks/use-navigation-favorites';
 import { useRecentItems } from '@/hooks/use-recent-items';
 import {
     commandResultValue,
+    filterCommandGroupsForQuery,
+    filterFavoritesForQuery,
     recordSearchEmptyMessage,
+    shouldUseCmdkClientFilter,
 } from '@/lib/global-search';
 import { excludeUrlsFromNavGroups } from '@/lib/navigation-favorites';
 import {
+    matchingRecentItems,
     recentItemCommandValue,
     recentItemHeading,
     shouldRenderRecentGroup,
@@ -70,6 +74,18 @@ export function CommandMenu() {
 
         return excludeUrlsFromNavGroups(sidebarData.navGroups, favoriteUrls);
     }, [accessibleItems, sidebarData.navGroups]);
+    const visibleFavorites = React.useMemo(
+        () => filterFavoritesForQuery(accessibleItems, query),
+        [accessibleItems, query],
+    );
+    const visibleRecents = React.useMemo(
+        () => matchingRecentItems(recentItems, query),
+        [query, recentItems],
+    );
+    const visibleCommandGroups = React.useMemo(
+        () => filterCommandGroupsForQuery(commandGroups, query),
+        [commandGroups, query],
+    );
 
     const runCommand = React.useCallback(
         (command: () => unknown) => {
@@ -84,6 +100,7 @@ export function CommandMenu() {
         <CommandDialog
             modal
             open={open}
+            shouldFilter={shouldUseCmdkClientFilter(query)}
             onOpenChange={(next) => {
                 if (!next) {
                     reset();
@@ -103,9 +120,9 @@ export function CommandMenu() {
                     <CommandEmpty>
                         {recordSearchEmptyMessage({ loading, error })}
                     </CommandEmpty>
-                    {accessibleItems.length > 0 ? (
+                    {visibleFavorites.length > 0 ? (
                         <CommandGroup heading="Favorites">
-                            {accessibleItems.map((item) => (
+                            {visibleFavorites.map((item) => (
                                 <CommandItem
                                     key={item.key}
                                     value={item.title}
@@ -123,7 +140,7 @@ export function CommandMenu() {
                     ) : null}
                     {shouldRenderRecentGroup(query, recentItems) ? (
                         <CommandGroup heading="Recent">
-                            {recentItems.map((item) => (
+                            {visibleRecents.map((item) => (
                                 <CommandItem
                                     key={item.id}
                                     value={recentItemCommandValue(item)}
@@ -182,7 +199,7 @@ export function CommandMenu() {
                             </CommandGroup>
                         );
                     })}
-                    {commandGroups.map((group) => (
+                    {visibleCommandGroups.map((group) => (
                         <CommandGroup key={group.title} heading={group.title}>
                             {group.items.map((navItem, i) => {
                                 if (navItem.url) {

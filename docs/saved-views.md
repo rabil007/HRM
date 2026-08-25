@@ -46,7 +46,7 @@ Tenant-owned filter IDs (`department_id`, `position_id`, `employee_id`, `manager
 
 ## UI
 
-A compact **Views** control sits next to Filters on the five pages (desktop SearchBar and the same Phase 3C mobile lists). Users can apply, save current, rename, delete, and set/clear default. There is no Saved Views navigation page and no sidebar list.
+A compact **Views** control sits next to Filters on the five pages (desktop SearchBar and the same Phase 3C mobile lists). Choosing a view name applies it immediately. Rename, default, and delete live under **Manage views**. There is no Saved Views navigation page and no sidebar list.
 
 ## Routes
 

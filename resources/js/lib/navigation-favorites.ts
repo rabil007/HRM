@@ -137,6 +137,12 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         group: 'Crew Operations',
     },
     {
+        key: 'crew.vessel-manning',
+        label: 'Vessel Manning',
+        href: '/organization/vessel-manning',
+        group: 'Crew Operations',
+    },
+    {
         key: 'crew.corrections',
         label: 'Movement Corrections',
         href: '/organization/crew-movement-corrections',
