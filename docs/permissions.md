@@ -245,11 +245,12 @@ Privileged-action 2FA (enrollment required for high-trust operations) is a separ
 
 `User` is a **global login identity**. Email is the intended global login identifier. Access to a company is membership (`company_user`), not another User row with the same email.
 
-The historical unique index is `uq_user_email_company` on `(company_id, email)`. That allowed the same email on two User rows in different companies. Fortify authenticates through the `users` provider by email, so those rows made login and password reset order-dependent.
+The historical unique index `uq_user_email_company` on `(company_id, email)` allowed the same email on two User rows in different companies. Fortify authenticates through the `users` provider by email, so those rows made login and password reset order-dependent. Application validation and fail-closed auth from that work remain. Live uniqueness is now also enforced in the database (see below).
 
 ### Going forward
 
-- Create and update reject an email already owned by another **non-deleted** User, globally. Uniqueness is not scoped to `current_company_id`.
+- Create and update reject an email already owned by another **non-deleted** User, globally. Uniqueness is not scoped to `current_company_id`. Application `UniqueUserEmail` is the friendly first layer (validation errors).
+- The database also enforces one normalized non-deleted email identity via generated `users.active_login_email` (`CASE WHEN deleted_at IS NULL THEN LOWER(email) ELSE NULL END`) and unique index `uq_users_active_login_email`. Concurrent or direct writes that bypass validation are rejected by this unique index (TOCTOU / query-builder inserts).
 - Company ownership still comes from trusted `current_company_id`. Client `company_id` is not used to choose a tenant.
 - If an existing person needs another company, use the [membership workflow](#users-and-memberships). Do not create a second User with the same email.
 - Email writes follow Fortify `lowercase_usernames` (stored lowercase). Lookup compares `LOWER(email)` so mixed-case legacy rows are the same identity.
@@ -258,22 +259,26 @@ The historical unique index is `uq_user_email_company` on `(company_id, email)`.
 
 Authentication and password reset consider only non-deleted rows. A soft-deleted User cannot log in and cannot hijack a remaining live identity that shares the email.
 
-Application unique validation matches the previous organization-user convention (`whereNull('deleted_at')`): a soft-deleted email may be reused by a new live User in **another** home company. The existing `(company_id, email)` unique index still occupies that pair even after soft-delete, so recreating the same email in the **same** home company can still fail at the database.
+The generated live-email key is **NULL** while `deleted_at` is set, so a soft-deleted User does not occupy the global live identity. A new live User may reuse that email in **another** home company.
+
+Restoring a soft-deleted User is rejected by the database if another live User now owns that email (`QueryException` / unique violation).
+
+The legacy unique index `uq_user_email_company` on `(company_id, email)` is **retained**. It still occupies that pair even after soft-delete, so recreating the same email in the **same** home company can still fail at the database. That limitation is unchanged.
 
 ### Existing duplicates
 
-This change does **not** add a global unique index, merge accounts, delete rows, or move memberships/roles/employee links. Production may already contain duplicates; a unique migration would fail deploy.
-
-Identify them with the read-only command:
+`users:audit-duplicate-emails` remains the operational diagnostic. It never modifies data.
 
 ```bash
 php artisan users:audit-duplicate-emails
 php artisan users:audit-duplicate-emails --show-emails
 ```
 
-The command prints User IDs, home company IDs, membership counts/status, employee-link counts, and role-assignment counts. Emails are masked unless `--show-emails` is passed. It returns `0` when clean and non-zero when duplicate identities exist. It never modifies data.
+The command prints User IDs, home company IDs, membership counts/status, employee-link counts, and role-assignment counts. Emails are masked unless `--show-emails` is passed. It returns `0` when clean and non-zero when duplicate identities exist.
 
-Operators should review each group, choose one User as the login identity, grant other companies through memberships, then (in a later change) add a global unique index on normalized non-deleted email.
+The uniqueness migration runs a self-contained preflight (query builder, no Eloquent) for duplicate non-deleted `LOWER(email)` groups. If any exist, it aborts **without** changing rows and tells operators to run the audit command with `--show-emails`. It does not print email addresses, merge accounts, or rewrite data.
+
+Production was confirmed clean with the audit command before this database constraint was added.
 
 ### Tests
 
@@ -282,6 +287,7 @@ Operators should review each group, choose one User as the login identity, grant
 - `tests/Feature/Organization/UniqueUserEmailWritesTest.php`
 - `tests/Feature/Auth/AuditDuplicateUserEmailsCommandTest.php`
 - `tests/Unit/Support/Auth/UserEmailIdentityTest.php`
+- `tests/Feature/Migrations/AddUsersActiveLoginEmailUniquenessTest.php`
 
 ## Attendance records
 
