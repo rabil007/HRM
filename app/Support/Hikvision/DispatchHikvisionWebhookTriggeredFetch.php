@@ -3,6 +3,7 @@
 namespace App\Support\Hikvision;
 
 use App\Jobs\FetchHikvisionAccessEventsJob;
+use App\Jobs\ProcessHikvisionWebhookTrailingFetchJob;
 use App\Models\HikvisionSetting;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -11,8 +12,8 @@ use Throwable;
 /**
  * Dispatches an authoritative same-day access-events fetch from a webhook notification.
  *
- * Webhook JSON is never trusted. Debounce is webhook-specific (cache) and does not
- * couple FetchHikvisionAccessEventsJob uniqueness for manual/scheduled origins.
+ * Webhook JSON is never trusted. Debounce and trailing fetch are webhook-specific
+ * and do not couple FetchHikvisionAccessEventsJob uniqueness for other origins.
  */
 final class DispatchHikvisionWebhookTriggeredFetch
 {
@@ -28,10 +29,14 @@ final class DispatchHikvisionWebhookTriggeredFetch
         $settings->refresh();
 
         if ($settings->isEventsFetchProcessing()) {
+            $this->scheduleTrailingFetch($settings->id, $targetDate);
+
             return self::RESULT_ALREADY_PROCESSING;
         }
 
         if (! $this->acquireWebhookDebounce($settings->id, $targetDate)) {
+            $this->scheduleTrailingFetch($settings->id, $targetDate);
+
             return self::RESULT_DEBOUNCED;
         }
 
@@ -51,9 +56,81 @@ final class DispatchHikvisionWebhookTriggeredFetch
         return "hikvision:webhook-triggered-fetch:{$hikvisionSettingId}:{$targetDate}";
     }
 
+    public static function pendingCacheKey(int $hikvisionSettingId, string $targetDate): string
+    {
+        return "hikvision:webhook-triggered-fetch-pending:{$hikvisionSettingId}:{$targetDate}";
+    }
+
+    public static function trailingCacheKey(int $hikvisionSettingId, string $targetDate): string
+    {
+        return "hikvision:webhook-triggered-fetch-trailing:{$hikvisionSettingId}:{$targetDate}";
+    }
+
     public static function debounceSeconds(): int
     {
         return max(30, min(120, (int) config('hikvision.webhook_trigger_debounce_seconds', 60)));
+    }
+
+    public function consumePendingTrailingFetch(int $hikvisionSettingId, string $targetDate): bool
+    {
+        try {
+            $key = self::pendingCacheKey($hikvisionSettingId, $targetDate);
+
+            if (! Cache::pull($key)) {
+                return false;
+            }
+
+            return true;
+        } catch (Throwable $exception) {
+            Log::warning('Hikvision webhook trailing-fetch pending flag unavailable.', [
+                'hikvision_setting_id' => $hikvisionSettingId,
+                'target_date' => $targetDate,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    public function releaseTrailingSchedule(int $hikvisionSettingId, string $targetDate): void
+    {
+        try {
+            Cache::forget(self::trailingCacheKey($hikvisionSettingId, $targetDate));
+        } catch (Throwable $exception) {
+            Log::warning('Hikvision webhook trailing-fetch schedule flag unavailable.', [
+                'hikvision_setting_id' => $hikvisionSettingId,
+                'target_date' => $targetDate,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    public function scheduleTrailingFetch(int $hikvisionSettingId, string $targetDate): void
+    {
+        try {
+            Cache::put(
+                self::pendingCacheKey($hikvisionSettingId, $targetDate),
+                true,
+                now()->addSeconds(self::debounceSeconds() + 30),
+            );
+
+            if (! Cache::add(
+                self::trailingCacheKey($hikvisionSettingId, $targetDate),
+                true,
+                now()->addSeconds(self::debounceSeconds()),
+            )) {
+                return;
+            }
+
+            ProcessHikvisionWebhookTrailingFetchJob::dispatch($hikvisionSettingId, $targetDate)
+                ->delay(now()->addSeconds(self::debounceSeconds()));
+        } catch (Throwable $exception) {
+            Log::warning('Hikvision webhook trailing fetch unavailable; continuing without coalesced replay.', [
+                'hikvision_setting_id' => $hikvisionSettingId,
+                'target_date' => $targetDate,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function acquireWebhookDebounce(int $hikvisionSettingId, string $targetDate): bool
@@ -71,7 +148,6 @@ final class DispatchHikvisionWebhookTriggeredFetch
                 'error' => $exception->getMessage(),
             ]);
 
-            // Cache failure must not block the authoritative fetch path.
             return true;
         }
     }

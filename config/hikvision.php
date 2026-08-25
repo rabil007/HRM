@@ -69,6 +69,7 @@ return [
     |
     | Webhooks are notification-only. Bursts coalesce via a cache key scoped to
     | Hikvision settings id + target date (see DispatchHikvisionWebhookTriggeredFetch).
+    | Coalesced notifications schedule one delayed trailing fetch after this window.
     | Clamped to 30–120 seconds. Does not affect manual/scheduled fetch jobs.
     |
     */
