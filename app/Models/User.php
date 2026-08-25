@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\PlatformAccess;
 use App\Models\Concerns\LogsActivityWithCompany;
+use App\Support\Auth\RevokeDisabledUserAccess;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -30,6 +31,17 @@ class User extends Authenticatable
 
     use LogsActivityWithCompany;
     use SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::updated(function (User $user): void {
+            if (! $user->wasChanged('status')) {
+                return;
+            }
+
+            app(RevokeDisabledUserAccess::class)->handle($user);
+        });
+    }
 
     public function getActivitylogOptions(): LogOptions
     {
