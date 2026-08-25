@@ -71,11 +71,25 @@ final class SettingKey
 
     public const BulkDocumentSignaturePlacementSalaryDeclaration = 'bulk_document_signature_placement_salary_declaration';
 
+    public const AiSmartSearchEnabled = 'ai_smart_search_enabled';
+
+    public const AiProvider = 'ai_provider';
+
+    public const AiOpenAiApiKey = 'ai_openai_api_key';
+
+    public const AiOpenAiModel = 'ai_openai_model';
+
+    public const AiOpenRouterApiKey = 'ai_openrouter_api_key';
+
+    public const AiOpenRouterModel = 'ai_openrouter_model';
+
     /** @return list<string> */
     public static function encryptedKeys(): array
     {
         return [
             self::MailPassword,
+            self::AiOpenAiApiKey,
+            self::AiOpenRouterApiKey,
         ];
     }
 

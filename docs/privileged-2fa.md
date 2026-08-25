@@ -33,7 +33,7 @@ Do not duplicate this array in React, navigation, or extra controller checks. Ro
 |-------|-------------|-----|
 | Roles / RBAC | `roles.create`, `roles.update`, `roles.delete` | Permission administration |
 | Users / membership | `users.create`, `users.update`, `users.delete` | Role assignment Policy A: `users.update` may assign any active-company role, including Owner. Create can assign a role at insert time (`organization.users.store` and employee-linked `organization.employees.user.store`). |
-| Settings credentials | `settings.application.update`, `settings.integrations.whatsapp.update`, `settings.integrations.hikvision.update`, `hikvision.webhook.manage` | SMTP, WhatsApp, Hikvision, and webhook secret mutation. `settings.application.update` is catalogued because it also unlocks SMTP and e-sign placement; branding/general routes are **not** wrapped. |
+| Settings credentials | `settings.application.update`, `settings.integrations.whatsapp.update`, `settings.integrations.hikvision.update`, `hikvision.webhook.manage` | SMTP, AI provider keys, WhatsApp, Hikvision, and webhook secret mutation. `settings.application.update` is catalogued because it also unlocks SMTP, AI credentials, and e-sign placement; branding/general routes are **not** wrapped. |
 | Payroll high-trust | `payroll.periods.approve`, `payroll.periods.mark_paid`, `payroll.wps.export` | Approval, mark paid, and WPS execution/export (WPS also marks records submitted) |
 | Crew high-trust | `crew_operations.assignments.void`, `crew_operations.corrections.override` | Void assignments. Override is enforced when it is **used** (self-approval of a correction), not on ordinary `corrections.approve`. |
 | Leave high-trust | `attendance.leave-requests.delete_any` | Administrative destroy |

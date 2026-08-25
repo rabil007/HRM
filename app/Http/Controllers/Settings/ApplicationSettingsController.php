@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Exceptions\EmployeeSmartSearchUnavailableException;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Settings\Integrations\WhatsAppIntegrationController;
+use App\Http\Requests\Settings\TestApplicationAiRequest;
 use App\Http\Requests\Settings\TestApplicationMailRequest;
+use App\Http\Requests\Settings\UpdateApplicationAiRequest;
 use App\Http\Requests\Settings\UpdateApplicationBrandingRequest;
 use App\Http\Requests\Settings\UpdateApplicationGeneralRequest;
 use App\Http\Requests\Settings\UpdateApplicationSmtpRequest;
+use App\Services\AiProviderConnectionTester;
+use App\Services\Settings\AiSettingsService;
 use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
 use App\Support\BulkDocuments\BulkDocumentSignaturePlacementService;
@@ -27,6 +32,7 @@ class ApplicationSettingsController extends Controller
     public function __construct(
         private SettingService $settings,
         private MailSettingsService $mailSettings,
+        private AiSettingsService $aiSettings,
     ) {}
 
     public function edit(): Response
@@ -62,6 +68,7 @@ class ApplicationSettingsController extends Controller
                 ['value' => 'M d, Y', 'label' => 'May 21, 2026'],
             ],
             'smtp' => $this->mailSettings->forSettingsPage(),
+            'ai' => $this->aiSettings->forSettingsPage(),
             'whatsapp' => WhatsAppIntegrationController::pageProps($user),
             'esign_placement' => [
                 'document_type' => SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY,
@@ -167,6 +174,46 @@ class ApplicationSettingsController extends Controller
 
         return response()->json([
             'message' => "Test email sent to {$recipient}.",
+        ]);
+    }
+
+    public function updateAi(UpdateApplicationAiRequest $request): RedirectResponse
+    {
+        $companyId = $request->attributes->get('current_company_id');
+
+        $this->aiSettings->storeFromPayload(
+            $request->settingPayload(),
+            $request->user(),
+            $companyId ? (int) $companyId : null,
+        );
+
+        return back()->with('success', 'AI settings saved.');
+    }
+
+    public function testAiConnection(
+        TestApplicationAiRequest $request,
+        AiProviderConnectionTester $tester,
+    ): JsonResponse {
+        $request->validated();
+
+        try {
+            $message = $tester->probe();
+        } catch (EmployeeSmartSearchUnavailableException $unavailable) {
+            throw ValidationException::withMessages([
+                'provider' => $unavailable->getMessage() === EmployeeSmartSearchUnavailableException::REJECTED_CREDENTIALS
+                    ? EmployeeSmartSearchUnavailableException::REJECTED_CREDENTIALS
+                    : 'Unable to connect to the selected AI provider.',
+            ]);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            throw ValidationException::withMessages([
+                'provider' => 'Unable to connect to the selected AI provider.',
+            ]);
+        }
+
+        return response()->json([
+            'message' => $message,
         ]);
     }
 }

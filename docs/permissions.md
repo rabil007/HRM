@@ -130,7 +130,7 @@ Settings are separated cleanly by **ownership**:
 
 ### 1. Platform-Global Settings & Integrations
 Installation-wide configurations are singleton resources shared across all companies and are governed exclusively by user-level **Platform Authority** (`platform:view` and `platform:manage`), not tenant Spatie permissions:
-- **Application Settings** (`/settings/application`): System name, support contact, regional fallbacks, branding, SMTP configuration, and e-signature placements.
+- **Application Settings** (`/settings/application`): System name, support contact, regional fallbacks, branding, SMTP configuration, AI providers / Smart Employee Search, and e-signature placements.
 - **WhatsApp Integration** (`/settings/application?tab=whatsapp`): Singleton Meta Cloud API credentials, phone number IDs, and webhooks. Credential mutations enforce `privileged.2fa`.
 - **WhatsApp Templates** (`/settings/application/whatsapp-templates`): Global Meta template library mappings (`whatsapp_templates` table).
 - **Email Templates** (`/settings/application/email-templates`): Global email template library presets (`email_templates` table).
@@ -150,7 +150,7 @@ Tenant-specific configurations are scoped to `current_company_id` and use Spatie
 
 | Concern | Source | Authority |
 |---------|--------|-----------|
-| Platform name, support email/phone, fallback timezone, date format, branding, SMTP, e-sign placement | Global `app_settings` | `platform:view` / `platform:manage` |
+| Platform name, support email/phone, fallback timezone, date format, branding, SMTP, AI providers / Smart Employee Search, e-sign placement | Global `app_settings` | `platform:view` / `platform:manage` |
 | WhatsApp Meta Cloud API singleton integration | Global `whatsapp_settings` | `platform:view` / `platform:manage` + `privileged.2fa` |
 | WhatsApp & Email template libraries | Global `whatsapp_templates`, `email_templates` | `platform:view` / `platform:manage` |
 | Company name, logo, address, phone, email, website, currency, timezone, payroll cycle, working days, WPS | `companies` row | `companies.view|update` |
