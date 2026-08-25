@@ -2,6 +2,44 @@
 
 use App\Enums\CrewPlannedSignoffSource;
 use App\Support\CrewOperations\CrewOperationsSettings;
+use Illuminate\Support\Facades\DB;
+
+function failNextCrewAlertSentLedgerPersists(string $table, int $times): void
+{
+    $remaining = $times;
+    $pdo = DB::connection()->getPdo();
+
+    expect($pdo->getAttribute(PDO::ATTR_DRIVER_NAME))->toBe('sqlite');
+    expect($pdo->sqliteCreateFunction(
+        'crew_alert_fail_sent_persist',
+        function () use (&$remaining): int {
+            if ($remaining < 1) {
+                return 0;
+            }
+
+            $remaining--;
+
+            return 1;
+        },
+    ))->toBeTrue();
+
+    DB::unprepared('DROP TRIGGER IF EXISTS fail_crew_alert_sent_persist');
+    DB::unprepared("
+        CREATE TRIGGER fail_crew_alert_sent_persist
+        BEFORE UPDATE ON {$table}
+        WHEN NEW.status = 'sent'
+         AND OLD.status = 'queued'
+         AND crew_alert_fail_sent_persist() = 1
+        BEGIN
+            SELECT RAISE(ABORT, 'ledger persist failed');
+        END
+    ");
+}
+
+function dropCrewAlertSentLedgerPersistTrigger(): void
+{
+    DB::unprepared('DROP TRIGGER IF EXISTS fail_crew_alert_sent_persist');
+}
 
 function enableCrewNotificationsForUser(int $companyId, int $userId, array $overrides = []): void
 {

@@ -9,10 +9,12 @@ use App\Models\CrewOperationalAlertPushDelivery;
 use App\Models\CrewOperationalAlertRecipient;
 use App\Models\User;
 use App\Notifications\CrewOperationalAlertWebPushNotification;
+use App\Support\CrewOperations\CrewOperationalAlertDeliveryHandoff;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Throwable;
@@ -23,7 +25,7 @@ class DeliverCrewOperationalAlertWebPushJob implements ShouldBeUnique, ShouldQue
 
     public int $tries = 3;
 
-    public int $uniqueFor = 300;
+    public int $uniqueFor = 900;
 
     /**
      * @var list<int>
@@ -39,11 +41,38 @@ class DeliverCrewOperationalAlertWebPushJob implements ShouldBeUnique, ShouldQue
 
     public function handle(): void
     {
-        $delivery = CrewOperationalAlertPushDelivery::query()
-            ->with(['alert', 'user'])
-            ->find($this->deliveryId);
+        $delivery = DB::transaction(function (): ?CrewOperationalAlertPushDelivery {
+            return CrewOperationalAlertPushDelivery::query()
+                ->with(['alert', 'user'])
+                ->lockForUpdate()
+                ->find($this->deliveryId);
+        });
 
-        if ($delivery === null || $delivery->status !== CrewOperationalAlertPushDeliveryStatus::Queued) {
+        if ($delivery === null) {
+            return;
+        }
+
+        $handoffKey = CrewOperationalAlertDeliveryHandoff::webPushKey((int) $delivery->id);
+
+        if ($delivery->status === CrewOperationalAlertPushDeliveryStatus::Sent) {
+            return;
+        }
+
+        if (CrewOperationalAlertDeliveryHandoff::wasHandedOff($handoffKey)) {
+            CrewOperationalAlertDeliveryHandoff::persistLedger(
+                fn () => $this->persistSent($delivery),
+                [
+                    'company_id' => $delivery->company_id,
+                    'user_id' => $delivery->user_id,
+                    'delivery_id' => $delivery->id,
+                    'failure_category' => 'web_push_ledger_persist',
+                ],
+            );
+
+            return;
+        }
+
+        if ($delivery->status !== CrewOperationalAlertPushDeliveryStatus::Queued) {
             return;
         }
 
@@ -133,13 +162,6 @@ class DeliverCrewOperationalAlertWebPushJob implements ShouldBeUnique, ShouldQue
                 (int) $recipientId,
                 (int) $delivery->id,
             ));
-
-            $delivery->update([
-                'status' => CrewOperationalAlertPushDeliveryStatus::Sent,
-                'sent_at' => now(),
-                'failed_at' => null,
-                'failure_category' => null,
-            ]);
         } catch (Throwable $exception) {
             Log::warning('Crew operational alert web push delivery failed', [
                 'company_id' => $delivery->company_id,
@@ -152,13 +174,29 @@ class DeliverCrewOperationalAlertWebPushJob implements ShouldBeUnique, ShouldQue
 
             throw $exception;
         }
+
+        CrewOperationalAlertDeliveryHandoff::remember($handoffKey);
+        CrewOperationalAlertDeliveryHandoff::persistLedger(
+            fn () => $this->persistSent($delivery),
+            [
+                'company_id' => $delivery->company_id,
+                'user_id' => $delivery->user_id,
+                'delivery_id' => $delivery->id,
+                'failure_category' => 'web_push_ledger_persist',
+            ],
+        );
     }
 
     public function failed(Throwable $exception): void
     {
         $delivery = CrewOperationalAlertPushDelivery::query()->find($this->deliveryId);
 
-        if ($delivery !== null && $delivery->status === CrewOperationalAlertPushDeliveryStatus::Queued) {
+        if ($delivery !== null
+            && $delivery->status === CrewOperationalAlertPushDeliveryStatus::Queued
+            && ! CrewOperationalAlertDeliveryHandoff::wasHandedOff(
+                CrewOperationalAlertDeliveryHandoff::webPushKey((int) $delivery->id),
+            )
+        ) {
             $this->markFailed($delivery, 'web_push_exhausted');
         }
 
@@ -170,8 +208,30 @@ class DeliverCrewOperationalAlertWebPushJob implements ShouldBeUnique, ShouldQue
         ]);
     }
 
+    private function persistSent(CrewOperationalAlertPushDelivery $delivery): void
+    {
+        $delivery->refresh();
+
+        if ($delivery->status === CrewOperationalAlertPushDeliveryStatus::Sent) {
+            return;
+        }
+
+        $delivery->update([
+            'status' => CrewOperationalAlertPushDeliveryStatus::Sent,
+            'sent_at' => now(),
+            'failed_at' => null,
+            'failure_category' => null,
+        ]);
+    }
+
     private function markFailed(CrewOperationalAlertPushDelivery $delivery, string $category): void
     {
+        if (CrewOperationalAlertDeliveryHandoff::wasHandedOff(
+            CrewOperationalAlertDeliveryHandoff::webPushKey((int) $delivery->id),
+        )) {
+            return;
+        }
+
         $delivery->update([
             'status' => CrewOperationalAlertPushDeliveryStatus::Failed,
             'failed_at' => now(),

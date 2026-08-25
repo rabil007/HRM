@@ -596,3 +596,43 @@ test('critical alert with critical_immediate disabled waits for scheduled digest
 
     CarbonImmutable::setTestNow();
 });
+
+test('successful email send is not resent when ledger persist fails and the job retries', function () {
+    Queue::fake();
+    Mail::fake();
+    configureAppSmtpForCrewEmailTests();
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-07 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeCrewAssignmentFixtures();
+    $companyId = (int) $fixtures['company']->id;
+    $user = $fixtures['user'];
+    enableCrewNotificationsForUser($companyId, (int) $user->id);
+    createOverdueAssignmentForAlerts($fixtures);
+    app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+
+    $delivery = CrewOperationalAlertEmailDelivery::query()->where('company_id', $companyId)->firstOrFail();
+
+    failNextCrewAlertSentLedgerPersists('crew_operational_alert_email_deliveries', 99);
+
+    try {
+        $job = app(DeliverCrewOperationalAlertEmailJob::class, ['deliveryId' => (int) $delivery->id]);
+        $job->handle(
+            app(MailSettingsService::class),
+            app(ResolveCrewOperationalAlertUrl::class),
+        );
+
+        Mail::assertSent(CrewOperationalAlertEmailMail::class, 1);
+        expect($delivery->fresh()->status)->toBe(CrewOperationalAlertEmailDeliveryStatus::Queued);
+
+        $job->handle(
+            app(MailSettingsService::class),
+            app(ResolveCrewOperationalAlertUrl::class),
+        );
+
+        Mail::assertSent(CrewOperationalAlertEmailMail::class, 1);
+        expect($delivery->fresh()->status)->toBe(CrewOperationalAlertEmailDeliveryStatus::Queued);
+    } finally {
+        dropCrewAlertSentLedgerPersistTrigger();
+        CarbonImmutable::setTestNow();
+    }
+});

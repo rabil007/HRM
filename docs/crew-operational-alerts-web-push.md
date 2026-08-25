@@ -40,6 +40,8 @@ It must not include employee names, vessel names, ranks, assignment numbers, or 
 
 Ledger unique key: `(crew_operational_alert_id, user_id, notification_version)`.
 
+Jobs load the ledger row with `lockForUpdate()`. A successful Web Push send is remembered before `status = Sent` is persisted. Queue retries after a persist failure skip a second push and only retry ledger persist. Rows are never marked `Sent` before the notification is handed off.
+
 | Event | Behaviour |
 |-------|-----------|
 | New active alert | `notification_version = 1`, queue push once |
@@ -55,6 +57,7 @@ Ledger unique key: `(crew_operational_alert_id, user_id, notification_version)`.
 - Sync: `app/Support/CrewOperations/SyncCrewOperationalAlertRecipients.php`
 - Queue: `app/Support/CrewOperations/QueueCrewOperationalAlertPushes.php`
 - Job: `app/Jobs/DeliverCrewOperationalAlertWebPushJob.php`
+- Handoff: `app/Support/CrewOperations/CrewOperationalAlertDeliveryHandoff.php`
 - Notification: `app/Notifications/CrewOperationalAlertWebPushNotification.php`
 - Email companion: [Crew operational alerts email](./crew-operational-alerts-email.md)
 - Shared subscriptions / SW: see [Announcement Web Push](./announcements-web-push.md)

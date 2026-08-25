@@ -77,16 +77,18 @@ The digest presenter (`CrewOperationalAlertDigestPresenter`) renders alert rows 
 - **Ledger Unique Key**: `(crew_operational_alert_id, user_id, notification_version)`.
 - Concurrent reconciliation catches unique constraint violations and avoids double-queueing.
 - Every alert/version in a digest batch maintains its own `CrewOperationalAlertEmailDelivery` row for exact audit history.
-- Successful send updates all included queued delivery rows to `status = Sent`, `sent_at = now()`.
+- Successful **queue handoff** sets `dispatched_at` after the job is actually pushed. A persist failure after a successful push is retried locally and **does not** release the dispatch claim or unique job lock, so the same digest is not enqueued again.
+- Successful **SMTP send** is remembered per delivery before `status = Sent` is persisted. If ledger persist fails, queue retries skip a second Mail send and only retry persist. Rows stay `Queued` until persist succeeds; they are not marked `Sent` before SMTP handoff.
+- Concurrent dispatchers claim with `lockForUpdate()` (`ClaimCrewOperationalAlertEmailDeliveries`).
 
 ## SMTP, Retries, and Error Handling
 
 - Uses existing application SMTP via `MailSettingsService` (stored settings take precedence over `.env`).
-- Transport failures increment `attempt_count` / `last_attempt_at`, log safe context (company/user/delivery IDs + exception class only), and rethrow for Laravel queue backoff retries `[30, 60, 120]`.
-- After retries are exhausted, all applicable queued delivery rows are marked `Failed` with `failure_category = 'email_transport_exhausted'`.
+- Transport failures increment `attempt_count` / `last_attempt_at`, log safe context (company/user/delivery IDs + exception class only), and rethrow for Laravel queue backoff retries `[30, 60, 120]` (`uniqueFor` 15 minutes, longer than the 5-minute stale-claim window).
+- After retries are exhausted **without** a successful SMTP handoff, queued delivery rows are marked `Failed` with `failure_category = 'email_transport_exhausted'`. Exhausted retries never overwrite a successful handoff.
 - Failure records and logs must not store SMTP passwords or raw exception messages that may contain credentials.
 
-SMTP transport cannot guarantee exactly-once delivery after an ambiguous network failure; the ledger prevents normal duplicate queueing/reconciliation.
+SMTP transport cannot guarantee exactly-once delivery after an ambiguous network failure (for example the server accepted the message but the client timed out). The ledger plus handoff cache prevent normal duplicate queueing, reconciliation, and retry-after-persist-failure duplicates.
 
 ## Tenancy Isolation
 
@@ -104,6 +106,7 @@ SMTP transport cannot guarantee exactly-once delivery after an ambiguous network
 - Presenter: `app/Support/CrewOperations/CrewOperationalAlertDigestPresenter.php`
 - Queue: `app/Support/CrewOperations/QueueCrewOperationalAlertEmails.php`
 - Job: `app/Jobs/DeliverCrewOperationalAlertEmailJob.php`
+- Handoff: `app/Support/CrewOperations/CrewOperationalAlertDeliveryHandoff.php`
 - Mailable: `app/Mail/CrewOperationalAlertEmailMail.php`
 - Blade View: `resources/views/mail/crew-operational-alert-digest.blade.php`
 - Seeder: `database/seeders/EmailTemplatesSeeder.php`

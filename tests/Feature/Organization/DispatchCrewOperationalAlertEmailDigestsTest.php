@@ -13,6 +13,7 @@ use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewOperations\DispatchCrewOperationalAlertEmailDigests;
 use Carbon\CarbonImmutable;
 use Database\Seeders\EmailTemplatesSeeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Testing\Fakes\QueueFake;
 
@@ -34,6 +35,39 @@ final class FlakyQueueFake extends QueueFake
 
         return parent::push($job, $data, $queue);
     }
+}
+
+function failNextCrewEmailDispatchLedgerPersists(int $times): void
+{
+    $remaining = $times;
+    $pdo = DB::connection()->getPdo();
+
+    expect($pdo->getAttribute(PDO::ATTR_DRIVER_NAME))->toBe('sqlite');
+
+    $pdo->sqliteCreateFunction(
+        'crew_alert_fail_dispatch_persist',
+        function () use (&$remaining): int {
+            if ($remaining < 1) {
+                return 0;
+            }
+
+            $remaining--;
+
+            return 1;
+        },
+    );
+
+    DB::unprepared('DROP TRIGGER IF EXISTS fail_crew_email_dispatch_persist');
+    DB::unprepared(<<<'SQL'
+        CREATE TRIGGER fail_crew_email_dispatch_persist
+        BEFORE UPDATE ON crew_operational_alert_email_deliveries
+        WHEN NEW.dispatched_at IS NOT NULL
+         AND OLD.dispatched_at IS NULL
+         AND crew_alert_fail_dispatch_persist() = 1
+        BEGIN
+            SELECT RAISE(ABORT, 'ledger persist failed');
+        END
+    SQL);
 }
 
 function createFiveAlertsForDigestDispatch(int $companyId): array
@@ -1172,4 +1206,142 @@ test('force flag bypasses time-of-day checks', function () {
     Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 1);
 
     CarbonImmutable::setTestNow();
+});
+
+test('successful queue handoff is not re-enqueued when dispatched_at persist fails once', function () {
+    Queue::fake();
+    EmailTemplatesSeeder::seedCrewOperationalAlertDigestTemplate();
+
+    $fixtures = makeCrewAssignmentFixtures();
+    $company = $fixtures['company'];
+    $company->update(['timezone' => 'Asia/Dubai']);
+    $companyId = (int) $company->id;
+    $user = $fixtures['user'];
+
+    CrewOperationsSettings::saveSettings($companyId, [], 30, true, [
+        'notifications_enabled' => true,
+        'notification_recipient_user_ids' => [(int) $user->id],
+        'alert_signoff_overdue' => true,
+        'alert_signoff_no_relief' => true,
+        'alert_relief_not_ready' => true,
+        'alert_current_manning_gap' => true,
+        'alert_projected_manning_gap' => true,
+        'notification_email_delivery_mode' => 'immediate',
+    ]);
+
+    $alert = CrewOperationalAlert::query()->create([
+        'company_id' => $companyId,
+        'type' => CrewOperationalAlertType::SignoffNoRelief,
+        'severity' => CrewOperationalAlertSeverity::Warning,
+        'status' => CrewOperationalAlertStatus::Active,
+        'dedupe_key' => 'signoff_no_relief:test:handoff-persist:1',
+        'title' => 'Sign-off approaching',
+        'message' => 'Test',
+        'context' => [],
+        'detected_at' => CarbonImmutable::parse('2026-08-21 14:00:00', 'Asia/Dubai'),
+        'last_detected_at' => CarbonImmutable::parse('2026-08-21 14:00:00', 'Asia/Dubai'),
+        'notification_version' => 1,
+    ]);
+
+    $delivery = CrewOperationalAlertEmailDelivery::query()->create([
+        'company_id' => $companyId,
+        'crew_operational_alert_id' => $alert->id,
+        'user_id' => $user->id,
+        'notification_version' => 1,
+        'status' => CrewOperationalAlertEmailDeliveryStatus::Queued,
+        'queued_at' => CarbonImmutable::parse('2026-08-21 14:00:00', 'Asia/Dubai'),
+        'attempt_count' => 0,
+    ]);
+
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-21 14:00:00', 'Asia/Dubai'));
+    failNextCrewEmailDispatchLedgerPersists(1);
+
+    try {
+        $result = app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
+        expect($result['dispatched'])->toBeTrue()
+            ->and($result['jobs_count'])->toBe(1);
+
+        Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 1);
+
+        $delivery->refresh();
+        expect($delivery->dispatched_at)->not->toBeNull()
+            ->and($delivery->dispatch_claimed_at)->toBeNull()
+            ->and($delivery->status)->toBe(CrewOperationalAlertEmailDeliveryStatus::Queued);
+
+        $second = app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
+        expect($second['dispatched'])->toBeFalse();
+        Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 1);
+    } finally {
+        DB::unprepared('DROP TRIGGER IF EXISTS fail_crew_email_dispatch_persist');
+        CarbonImmutable::setTestNow();
+    }
+});
+
+test('successful queue handoff does not release the claim when dispatched_at persist is exhausted', function () {
+    Queue::fake();
+    EmailTemplatesSeeder::seedCrewOperationalAlertDigestTemplate();
+
+    $fixtures = makeCrewAssignmentFixtures();
+    $company = $fixtures['company'];
+    $company->update(['timezone' => 'Asia/Dubai']);
+    $companyId = (int) $company->id;
+    $user = $fixtures['user'];
+
+    CrewOperationsSettings::saveSettings($companyId, [], 30, true, [
+        'notifications_enabled' => true,
+        'notification_recipient_user_ids' => [(int) $user->id],
+        'alert_signoff_overdue' => true,
+        'alert_signoff_no_relief' => true,
+        'alert_relief_not_ready' => true,
+        'alert_current_manning_gap' => true,
+        'alert_projected_manning_gap' => true,
+        'notification_email_delivery_mode' => 'immediate',
+    ]);
+
+    $alert = CrewOperationalAlert::query()->create([
+        'company_id' => $companyId,
+        'type' => CrewOperationalAlertType::SignoffNoRelief,
+        'severity' => CrewOperationalAlertSeverity::Warning,
+        'status' => CrewOperationalAlertStatus::Active,
+        'dedupe_key' => 'signoff_no_relief:test:handoff-persist-exhausted:1',
+        'title' => 'Sign-off approaching',
+        'message' => 'Test',
+        'context' => [],
+        'detected_at' => CarbonImmutable::parse('2026-08-21 14:00:00', 'Asia/Dubai'),
+        'last_detected_at' => CarbonImmutable::parse('2026-08-21 14:00:00', 'Asia/Dubai'),
+        'notification_version' => 1,
+    ]);
+
+    $delivery = CrewOperationalAlertEmailDelivery::query()->create([
+        'company_id' => $companyId,
+        'crew_operational_alert_id' => $alert->id,
+        'user_id' => $user->id,
+        'notification_version' => 1,
+        'status' => CrewOperationalAlertEmailDeliveryStatus::Queued,
+        'queued_at' => CarbonImmutable::parse('2026-08-21 14:00:00', 'Asia/Dubai'),
+        'attempt_count' => 0,
+    ]);
+
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-21 14:00:00', 'Asia/Dubai'));
+    failNextCrewEmailDispatchLedgerPersists(99);
+
+    try {
+        $result = app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
+        expect($result['dispatched'])->toBeTrue()
+            ->and($result['jobs_count'])->toBe(1);
+
+        Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 1);
+
+        $delivery->refresh();
+        expect($delivery->dispatched_at)->toBeNull()
+            ->and($delivery->dispatch_claimed_at)->not->toBeNull()
+            ->and($delivery->status)->toBe(CrewOperationalAlertEmailDeliveryStatus::Queued);
+
+        $second = app(DispatchCrewOperationalAlertEmailDigests::class)->forCompany($companyId);
+        expect($second['dispatched'])->toBeFalse();
+        Queue::assertPushed(DeliverCrewOperationalAlertEmailJob::class, 1);
+    } finally {
+        DB::unprepared('DROP TRIGGER IF EXISTS fail_crew_email_dispatch_persist');
+        CarbonImmutable::setTestNow();
+    }
 });
