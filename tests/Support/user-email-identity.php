@@ -4,6 +4,8 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -53,10 +55,29 @@ function makeTwoCompaniesForUserEmailIdentity(string $prefix = 'uei'): array
 }
 
 /**
+ * Drop the live-email unique index so tests can seed pre-constraint duplicate
+ * User rows and still exercise fail-closed login/reset/audit behavior.
+ */
+function dropUsersActiveLoginEmailUniqueness(): void
+{
+    $indexNames = collect(Schema::getIndexes('users'))->pluck('name');
+
+    if (! $indexNames->contains('uq_users_active_login_email')) {
+        return;
+    }
+
+    Schema::table('users', function (Blueprint $table): void {
+        $table->dropUnique('uq_users_active_login_email');
+    });
+}
+
+/**
  * @return array{companyA: Company, companyB: Company, userA: User, userB: User, email: string}
  */
 function createDuplicateEmailUsers(string $email = 'dup@example.com'): array
 {
+    dropUsersActiveLoginEmailUniqueness();
+
     ['companyA' => $companyA, 'companyB' => $companyB] = makeTwoCompaniesForUserEmailIdentity();
 
     $userA = User::factory()->create([
