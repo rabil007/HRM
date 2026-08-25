@@ -9,7 +9,9 @@ use App\Models\HikvisionPerson;
 use App\Models\HikvisionPersonGroup;
 use App\Models\HikvisionSetting;
 use App\Models\User;
+use App\Support\Hikvision\HikvisionFetchOrigin;
 use App\Support\Hikvision\HikvisionWebhookSignature;
+use App\Support\Settings\CompanyTimezone;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -267,7 +269,7 @@ test('webhook ownership comes from public integration id and ignores payload com
         'webhook_verify_token' => 'abc12345',
         'webhook_enabled' => true,
     ]);
-    configuredHikvisionSettings($companyB->id);
+    $settingsB = configuredHikvisionSettings($companyB->id);
 
     $payload = [
         'company_id' => $companyB->id,
@@ -297,10 +299,22 @@ test('webhook ownership comes from public integration id and ignores payload com
 
     (new ProcessHikvisionWebhookEventJob($payload, $settingsA->id))->handle();
 
-    $event = HikvisionAccessEvent::query()->where('person_hikvision_id', 'webhook-person')->first();
+    expect(HikvisionAccessEvent::query()->count())->toBe(0);
 
-    expect($event)->not->toBeNull()
-        ->and((int) $event->company_id)->toBe($companyA->id);
+    $timezone = CompanyTimezone::forCompany($companyA->id);
+    $targetDate = now($timezone)->toDateString();
+
+    Queue::assertPushed(
+        FetchHikvisionAccessEventsJob::class,
+        fn (FetchHikvisionAccessEventsJob $job): bool => $job->hikvisionSettingId === $settingsA->id
+            && $job->date === $targetDate
+            && $job->origin === HikvisionFetchOrigin::WebhookTrigger,
+    );
+
+    Queue::assertNotPushed(
+        FetchHikvisionAccessEventsJob::class,
+        fn (FetchHikvisionAccessEventsJob $job): bool => $job->hikvisionSettingId === $settingsB->id,
+    );
 });
 
 test('invalid webhook public id returns not found without leaking tenant data', function () {

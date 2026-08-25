@@ -6,8 +6,10 @@ use App\Models\HikvisionReconciliation;
 use App\Models\HikvisionSetting;
 use App\Models\JobRun;
 use App\Services\HikvisionService;
+use App\Support\Attendance\DispatchHikvisionAttendanceSync;
 use App\Support\Hikvision\HikvisionFetchOrigin;
 use App\Support\Settings\CompanyTimezone;
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
@@ -76,7 +78,7 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
             $settings->markEventsFetchFailed($exception->getMessage());
         } finally {
             if (! $fetchFailed) {
-                SyncHikvisionAttendanceJob::dispatch($targetDateString, $companyId);
+                $this->dispatchAttendanceSync($resolvedOrigin, $companyId, $targetDateCarbon, $targetDateString);
             }
         }
 
@@ -148,5 +150,24 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
         if (filled($this->date) && $settings?->company_id !== null) {
             HikvisionReconciliation::markFailed((int) $settings->company_id, $this->date, $exception->getMessage());
         }
+    }
+
+    private function dispatchAttendanceSync(
+        HikvisionFetchOrigin $origin,
+        int $companyId,
+        CarbonInterface $targetDateCarbon,
+        string $targetDateString,
+    ): void {
+        if ($origin === HikvisionFetchOrigin::WebhookTrigger) {
+            app(DispatchHikvisionAttendanceSync::class)->dispatchForWindow(
+                $targetDateCarbon->copy()->startOfDay(),
+                $targetDateCarbon->copy()->endOfDay(),
+                $companyId,
+            );
+
+            return;
+        }
+
+        SyncHikvisionAttendanceJob::dispatch($targetDateString, $companyId);
     }
 }

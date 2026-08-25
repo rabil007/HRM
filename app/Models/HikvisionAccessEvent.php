@@ -295,7 +295,6 @@ class HikvisionAccessEvent extends Model
                 self::EVENT_SOURCE_ACS_ISAPI,
                 self::EVENT_SOURCE_ATTENDANCE_API,
                 self::EVENT_SOURCE_CERTIFICATE_API,
-                self::EVENT_SOURCE_WEBHOOK,
             ])
             ->where(function (Builder $query): void {
                 $query->whereNotNull('person_name')
@@ -712,6 +711,11 @@ class HikvisionAccessEvent extends Model
             $existing = self::findByDeviceAndSerialNo($companyId, $deviceId, $serialNo);
 
             if ($existing !== null) {
+                // Webhook JSON must never mutate trusted API/ISAPI rows.
+                if ($existing->event_source !== self::EVENT_SOURCE_WEBHOOK) {
+                    return $existing;
+                }
+
                 $existing->update([
                     'batch_id' => $batchId,
                     'person_hikvision_id' => $personHikvisionId !== '' ? $personHikvisionId : $existing->person_hikvision_id,

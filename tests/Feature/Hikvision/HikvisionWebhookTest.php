@@ -1,10 +1,28 @@
 <?php
 
+use App\Jobs\FetchHikvisionAccessEventsJob;
 use App\Jobs\ProcessHikvisionWebhookEventJob;
+use App\Jobs\ProcessHikvisionWebhookTrailingFetchJob;
+use App\Jobs\SyncCompanyHikvisionAttendanceJob;
+use App\Jobs\SyncHikvisionAttendanceJob;
+use App\Models\AttendanceRecord;
+use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionPerson;
+use App\Models\HikvisionSetting;
+use App\Services\HikvisionService;
+use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
+use App\Support\Hikvision\DispatchHikvisionWebhookTriggeredFetch;
+use App\Support\Hikvision\HikvisionFetchOrigin;
 use App\Support\Hikvision\HikvisionWebhookSignature;
+use App\Support\Settings\CompanyTimezone;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
+
+afterEach(function () {
+    Carbon::setTestNow();
+});
 
 test('webhook verification get returns signature header', function () {
     hikvisionSettings()->update([
@@ -23,6 +41,8 @@ test('webhook verification get returns signature header', function () {
 });
 
 test('webhook rejects requests with invalid verify token', function () {
+    Queue::fake();
+
     hikvisionSettings()->update([
         'webhook_verify_token' => 'expected-token',
         'webhook_enabled' => true,
@@ -35,6 +55,8 @@ test('webhook rejects requests with invalid verify token', function () {
     ], [
         'X-HCC-Webhook-Token' => 'wrong-token',
     ])->assertNotFound();
+
+    Queue::assertNothingPushed();
 });
 
 test('webhook rejects requests when ingestion is disabled', function () {
@@ -118,12 +140,575 @@ test('webhook accepts signed post with millisecond timestamp', function () {
     Queue::assertPushed(ProcessHikvisionWebhookEventJob::class);
 });
 
-test('webhook stores hik-connect list envelope access event', function () {
-    hikvisionSettings()->update([
+test('get-minted signature with forged body does not create trusted attendance data', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+    $settings->update([
         'webhook_verify_token' => 'abc12345',
         'webhook_enabled' => true,
     ]);
 
+    $person = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
+        'person_id' => 'forged-person-1',
+        'full_name' => 'Forged Webhook User',
+    ]);
+
+    Employee::factory()->for(hikvisionTestCompany())->create([
+        'status' => 'active',
+        'name' => 'Forged Webhook User',
+        'hikvision_person_id' => $person->id,
+    ]);
+
+    $batchId = 'oracle-batch-1';
+    $timestamp = (string) time();
+
+    $verification = $this->get(route('webhooks.hikvision', $settings->public_id), [
+        'X-Hook-Batch-Id' => $batchId,
+        'X-Hook-Timestamp' => $timestamp,
+    ])->assertOk();
+
+    $signature = (string) $verification->headers->get('X-Hook-Signature');
+
+    $forgedPayload = [
+        'batchId' => $batchId,
+        'personInfo' => [
+            'personId' => 'forged-person-1',
+            'personName' => 'Forged Webhook User',
+        ],
+        'occurTime' => now()->toIso8601String(),
+        'attendanceStatus' => 'checkIn',
+    ];
+
+    $this->postJson(route('webhooks.hikvision', $settings->public_id), $forgedPayload, [
+        'X-Hook-Batch-Id' => $batchId,
+        'X-Hook-Timestamp' => $timestamp,
+        'X-Hook-Signature' => $signature,
+    ])->assertNoContent();
+
+    Queue::assertPushed(ProcessHikvisionWebhookEventJob::class);
+
+    (new ProcessHikvisionWebhookEventJob($forgedPayload, $settings->id))->handle();
+
+    expect(HikvisionAccessEvent::query()->count())->toBe(0)
+        ->and(AttendanceRecord::query()->count())->toBe(0);
+
+    $timezone = CompanyTimezone::forCompany((int) $settings->company_id);
+    $targetDate = now($timezone)->toDateString();
+
+    Queue::assertPushed(
+        FetchHikvisionAccessEventsJob::class,
+        fn (FetchHikvisionAccessEventsJob $job): bool => $job->hikvisionSettingId === $settings->id
+            && $job->date === $targetDate
+            && $job->origin === HikvisionFetchOrigin::WebhookTrigger,
+    );
+});
+
+test('valid signed webhook does not sync attendance from payload', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+    $settings->update([
+        'webhook_verify_token' => 'abc12345',
+        'webhook_enabled' => true,
+    ]);
+
+    $payload = [
+        'batchId' => 'no-direct-sync-batch',
+        'personInfo' => [
+            'personId' => 'person-no-sync',
+            'personName' => 'No Direct Sync User',
+        ],
+        'occurTime' => '2026-06-05T09:15:00+04:00',
+        'attendanceStatus' => 'checkIn',
+    ];
+
+    $timestamp = (string) time();
+    $batchId = 'no-direct-sync-batch';
+    $signature = HikvisionWebhookSignature::generate('abc12345', $timestamp, $batchId);
+
+    $this->postJson(route('webhooks.hikvision', $settings->public_id), $payload, [
+        'X-Hook-Batch-Id' => $batchId,
+        'X-Hook-Timestamp' => $timestamp,
+        'X-Hook-Signature' => $signature,
+    ])->assertNoContent();
+
+    (new ProcessHikvisionWebhookEventJob($payload, $settings->id))->handle();
+
+    expect(HikvisionAccessEvent::query()->count())->toBe(0)
+        ->and(AttendanceRecord::query()->count())->toBe(0);
+
+    Queue::assertPushed(FetchHikvisionAccessEventsJob::class);
+    Queue::assertNotPushed(SyncHikvisionAttendanceJob::class);
+    Queue::assertNotPushed(SyncCompanyHikvisionAttendanceJob::class);
+});
+
+test('accessRecords excludes webhook event source', function () {
+    HikvisionAccessEvent::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
+        'system_id' => 'webhook-historical-1',
+        'msg_type' => 'webhook/event/110013',
+        'occurrence_time' => '2026-06-08 09:00:00',
+        'person_name' => 'Historical Webhook',
+        'person_hikvision_id' => 'hist-webhook-1',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_WEBHOOK,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
+        'system_id' => 'acs-trusted-1',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-06-08 09:05:00',
+        'person_name' => 'Trusted ACS',
+        'person_hikvision_id' => 'acs-1',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    expect(HikvisionAccessEvent::query()->accessRecords()->pluck('system_id')->all())
+        ->toBe(['acs-trusted-1']);
+});
+
+test('historical webhook-sourced event cannot affect attendance', function () {
+    $person = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
+        'person_id' => 'hist-attend-person',
+        'full_name' => 'Historical Webhook Employee',
+    ]);
+
+    $employee = Employee::factory()->for(hikvisionTestCompany())->create([
+        'status' => 'active',
+        'name' => 'Historical Webhook Employee',
+        'hikvision_person_id' => $person->id,
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
+        'system_id' => 'webhook-only-punch',
+        'msg_type' => 'webhook/event/110013',
+        'occurrence_time' => '2026-06-08 08:30:00',
+        'person_name' => 'Historical Webhook Employee',
+        'person_hikvision_id' => 'hist-attend-person',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_WEBHOOK,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        hikvisionTestCompany()->id,
+        Carbon::parse('2026-06-08 00:00:00'),
+        Carbon::parse('2026-06-08 23:59:59'),
+    );
+
+    $record = AttendanceRecord::query()->where('employee_id', $employee->id)->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->clock_in)->toBeNull()
+        ->and($record->clock_out)->toBeNull()
+        ->and($record->status)->toBe(AttendanceRecord::STATUS_ABSENT)
+        ->and($record->source)->not->toBe(AttendanceRecord::SOURCE_BIOMETRIC);
+});
+
+test('forged webhook matching trusted acs event cannot mutate that event', function () {
+    HikvisionAccessEvent::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
+        'system_id' => '2bd7ecc491f8492f8ab20a3025538c63:2026-06-08T11:13:09+04:00:5:75:1:Mohammed Rabil',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-06-08 11:13:09',
+        'device_id' => '2bd7ecc491f8492f8ab20a3025538c63',
+        'device_name' => 'OMS-Door',
+        'resource_name' => 'Door 1',
+        'person_name' => 'Mohammed Rabil',
+        'person_hikvision_id' => 'original-person-id',
+        'door_no' => '1',
+        'card_reader_no' => '1',
+        'verify_mode' => 'faceOrFpOrCardOrPw',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'snap_urls' => null,
+        'raw_payload' => [
+            'serialNo' => 99552,
+            'name' => 'Mohammed Rabil',
+            'doorNo' => 1,
+            'cardReaderNo' => 1,
+        ],
+        'fetched_at' => now(),
+    ]);
+
+    $payload = productionOpenDoorWebhookPayload(
+        serialNo: 99552,
+        occurrenceTime: '2026-06-08T11:13:09+04:00',
+        personId: 'attacker-person-id',
+        firstName: 'Attacker',
+        lastName: 'Name',
+        fullPath: 'IT',
+    );
+
+    $result = HikvisionAccessEvent::upsertFromWebhook($payload, hikvisionTestCompany()->id);
+
+    expect(HikvisionAccessEvent::query()->count())->toBe(1);
+
+    $event = HikvisionAccessEvent::query()->first();
+
+    expect($result?->is($event))->toBeTrue()
+        ->and($event->event_source)->toBe(HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI)
+        ->and($event->person_hikvision_id)->toBe('original-person-id')
+        ->and($event->person_name)->toBe('Mohammed Rabil')
+        ->and($event->snap_urls)->toBeNull();
+});
+
+test('webhook trigger sets queued fetch state and started_at before job runs', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+    $settings->update([
+        'events_fetch_status' => HikvisionSetting::EVENTS_FETCH_IDLE,
+        'events_fetch_started_at' => null,
+    ]);
+
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+
+    $settings->refresh();
+
+    expect($settings->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_QUEUED)
+        ->and($settings->events_fetch_started_at)->not->toBeNull();
+
+    Queue::assertPushed(
+        FetchHikvisionAccessEventsJob::class,
+        fn (FetchHikvisionAccessEventsJob $job): bool => $job->hikvisionSettingId === $settings->id
+            && $job->origin === HikvisionFetchOrigin::WebhookTrigger,
+    );
+});
+
+test('stale webhook fetch is recoverable so a later trigger can dispatch again', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+    $settings->update([
+        'events_fetch_status' => HikvisionSetting::EVENTS_FETCH_QUEUED,
+        'events_fetch_started_at' => now()->subMinutes(10),
+        'events_fetch_message' => null,
+    ]);
+
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+
+    $settings->refresh();
+
+    expect($settings->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_QUEUED)
+        ->and($settings->events_fetch_started_at?->greaterThan(now()->subMinute()))->toBeTrue();
+
+    Queue::assertPushed(FetchHikvisionAccessEventsJob::class, 1);
+});
+
+test('webhook arriving during an existing fetch does not create overlap', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+    $settings->beginEventsFetch();
+    $startedAt = $settings->fresh()->events_fetch_started_at;
+
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+
+    $settings->refresh();
+
+    expect($settings->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_QUEUED)
+        ->and($settings->events_fetch_started_at?->equalTo($startedAt))->toBeTrue();
+
+    Queue::assertNotPushed(FetchHikvisionAccessEventsJob::class);
+    Queue::assertPushed(
+        ProcessHikvisionWebhookTrailingFetchJob::class,
+        fn (ProcessHikvisionWebhookTrailingFetchJob $job): bool => $job->hikvisionSettingId === $settings->id,
+    );
+});
+
+test('scheduled fetch remains available after webhook debounce window is active', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+    $timezone = CompanyTimezone::forCompany((int) $settings->company_id);
+    $targetDate = now($timezone)->toDateString();
+
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+
+    // Simulate fetch completion while debounce cache is still held.
+    $settings->refresh()->markEventsFetchCompleted('Fetched for webhook trigger.');
+
+    $settings->resolveStaleEventsFetch(5);
+    $settings->refresh();
+
+    expect($settings->isEventsFetchProcessing())->toBeFalse();
+
+    $settings->beginEventsFetch();
+    FetchHikvisionAccessEventsJob::dispatch(
+        $settings->id,
+        $targetDate,
+        HikvisionFetchOrigin::ScheduledToday,
+    );
+
+    Queue::assertPushed(FetchHikvisionAccessEventsJob::class, 2);
+    Queue::assertPushed(
+        FetchHikvisionAccessEventsJob::class,
+        fn (FetchHikvisionAccessEventsJob $job): bool => $job->origin === HikvisionFetchOrigin::ScheduledToday,
+    );
+});
+
+test('webhook-trigger cache debounce coalesces bursts for same setting and date', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+
+    // First dispatch queued the fetch; second is coalesced and schedules a trailing fetch.
+    Queue::assertPushed(FetchHikvisionAccessEventsJob::class, 1);
+    Queue::assertPushed(ProcessHikvisionWebhookTrailingFetchJob::class, 1);
+
+    // Manual origin bypasses webhook debounce and uses its own lifecycle.
+    $settings->refresh()->markEventsFetchCompleted('done');
+    $settings->resolveStaleEventsFetch(5);
+    $settings->refresh();
+    expect($settings->isEventsFetchProcessing())->toBeFalse();
+
+    $settings->beginEventsFetch();
+    FetchHikvisionAccessEventsJob::dispatch(
+        $settings->id,
+        now(CompanyTimezone::forCompany((int) $settings->company_id))->toDateString(),
+        HikvisionFetchOrigin::Manual,
+    );
+
+    Queue::assertPushed(FetchHikvisionAccessEventsJob::class, 2);
+});
+
+test('webhook trigger fetch does not dispatch yesterday-backfilling attendance coordinator', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+    $timezone = CompanyTimezone::forCompany((int) $settings->company_id);
+    $today = now($timezone)->toDateString();
+
+    $hikvision = Mockery::mock(HikvisionService::class);
+    $hikvision->shouldReceive('fetchAccessEvents')
+        ->once()
+        ->andReturn(['fetched_count' => 1, 'device_count' => 1, 'mobile_count' => 0, 'message' => 'ok']);
+
+    (new FetchHikvisionAccessEventsJob($settings->id, $today, HikvisionFetchOrigin::WebhookTrigger))
+        ->handle($hikvision);
+
+    Queue::assertNotPushed(SyncHikvisionAttendanceJob::class);
+    Queue::assertPushed(SyncCompanyHikvisionAttendanceJob::class, 1);
+    Queue::assertPushed(
+        SyncCompanyHikvisionAttendanceJob::class,
+        function (SyncCompanyHikvisionAttendanceJob $job) use ($settings, $today): bool {
+            return $job->companyId === (int) $settings->company_id
+                && str_starts_with($job->from, $today)
+                && str_starts_with($job->to, $today);
+        },
+    );
+});
+
+test('scheduled today fetch still uses attendance coordinator that can backfill yesterday', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+    $timezone = CompanyTimezone::forCompany((int) $settings->company_id);
+    $today = now($timezone)->toDateString();
+
+    $hikvision = Mockery::mock(HikvisionService::class);
+    $hikvision->shouldReceive('fetchAccessEvents')
+        ->once()
+        ->andReturn(['fetched_count' => 0, 'message' => 'ok']);
+
+    (new FetchHikvisionAccessEventsJob($settings->id, $today, HikvisionFetchOrigin::ScheduledToday))
+        ->handle($hikvision);
+
+    Queue::assertPushed(SyncHikvisionAttendanceJob::class, function (SyncHikvisionAttendanceJob $job) use ($settings, $today): bool {
+        return $job->date === $today
+            && $job->companyId === (int) $settings->company_id;
+    });
+    Queue::assertNotPushed(SyncCompanyHikvisionAttendanceJob::class);
+});
+
+test('webhook trigger today fetch does not wipe yesterday biometric attendance from historical webhook events', function () {
+    $company = hikvisionTestCompany();
+    $timezone = (string) config('app.timezone', 'UTC');
+    $company->update(['timezone' => $timezone]);
+
+    Carbon::setTestNow(Carbon::parse('2026-06-26 10:00:00', $timezone));
+
+    $settings = configuredHikvisionSettings($company->id);
+    $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'yesterday-webhook-person',
+        'full_name' => 'Yesterday Webhook Employee',
+        'person_code' => '41',
+    ]);
+    $employee = Employee::factory()->for($company)->create([
+        'status' => 'active',
+        'name' => 'Yesterday Webhook Employee',
+        'hikvision_person_id' => $person->id,
+    ]);
+    $manualPerson = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'yesterday-manual-person',
+        'full_name' => 'Yesterday Manual Employee',
+        'person_code' => '42',
+    ]);
+    $manualEmployee = Employee::factory()->for($company)->create([
+        'status' => 'active',
+        'name' => 'Yesterday Manual Employee',
+        'hikvision_person_id' => $manualPerson->id,
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
+        'system_id' => 'webhook-yesterday-in',
+        'msg_type' => 'webhook/event/110013',
+        'occurrence_time' => '2026-06-25 08:15:00',
+        'person_name' => 'Yesterday Webhook Employee',
+        'person_hikvision_id' => 'yesterday-webhook-person',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_WEBHOOK,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+    HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
+        'system_id' => 'webhook-yesterday-out',
+        'msg_type' => 'webhook/event/110013',
+        'occurrence_time' => '2026-06-25 17:45:00',
+        'person_name' => 'Yesterday Webhook Employee',
+        'person_hikvision_id' => 'yesterday-webhook-person',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_OUT,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_WEBHOOK,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    $yesterdayRecord = AttendanceRecord::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'date' => '2026-06-25',
+        'clock_in' => '2026-06-25 08:15:00',
+        'clock_out' => '2026-06-25 17:45:00',
+        'source' => AttendanceRecord::SOURCE_BIOMETRIC,
+        'status' => AttendanceRecord::STATUS_PRESENT,
+        'hours_worked' => 9.5,
+    ]);
+    $manualRecord = AttendanceRecord::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $manualEmployee->id,
+        'date' => '2026-06-25',
+        'clock_in' => '2026-06-25 09:00:00',
+        'clock_out' => '2026-06-25 18:00:00',
+        'source' => AttendanceRecord::SOURCE_MANUAL,
+        'status' => AttendanceRecord::STATUS_PRESENT,
+        'hours_worked' => 9,
+    ]);
+
+    $hikvision = Mockery::mock(HikvisionService::class);
+    $hikvision->shouldReceive('fetchAccessEvents')
+        ->once()
+        ->andReturnUsing(function () use ($company): array {
+            HikvisionAccessEvent::query()->create([
+                'company_id' => $company->id,
+                'system_id' => 'acs-today-in',
+                'msg_type' => 'acs/5/75',
+                'occurrence_time' => '2026-06-26 08:05:00',
+                'person_name' => 'Yesterday Webhook Employee',
+                'person_hikvision_id' => 'yesterday-webhook-person',
+                'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+                'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+                'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+                'fetched_at' => now(),
+            ]);
+
+            return [
+                'fetched_count' => 1,
+                'device_count' => 1,
+                'mobile_count' => 0,
+                'message' => 'Fetched 1 access record(s) for 2026-06-26.',
+            ];
+        });
+
+    (new FetchHikvisionAccessEventsJob($settings->id, '2026-06-26', HikvisionFetchOrigin::WebhookTrigger))
+        ->handle($hikvision);
+
+    $yesterdayRecord->refresh();
+    $manualRecord->refresh();
+
+    expect($yesterdayRecord->status)->toBe(AttendanceRecord::STATUS_PRESENT)
+        ->and($yesterdayRecord->source)->toBe(AttendanceRecord::SOURCE_BIOMETRIC)
+        ->and($yesterdayRecord->clock_in?->format('H:i'))->toBe('08:15')
+        ->and($yesterdayRecord->clock_out?->format('H:i'))->toBe('17:45')
+        ->and($manualRecord->status)->toBe(AttendanceRecord::STATUS_PRESENT)
+        ->and($manualRecord->source)->toBe(AttendanceRecord::SOURCE_MANUAL)
+        ->and($manualRecord->clock_in?->format('H:i'))->toBe('09:00')
+        ->and($manualRecord->clock_out?->format('H:i'))->toBe('18:00');
+
+    $todayRecord = AttendanceRecord::query()
+        ->where('employee_id', $employee->id)
+        ->whereDate('date', '2026-06-26')
+        ->first();
+
+    expect($todayRecord)->not->toBeNull()
+        ->and($todayRecord->status)->toBe(AttendanceRecord::STATUS_PRESENT)
+        ->and($todayRecord->source)->toBe(AttendanceRecord::SOURCE_BIOMETRIC)
+        ->and($todayRecord->clock_in?->format('H:i'))->toBe('08:05');
+});
+
+test('trailing webhook fetch after debounce dispatches the coalesced authoritative fetch', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+    $timezone = CompanyTimezone::forCompany((int) $settings->company_id);
+    $targetDate = now($timezone)->toDateString();
+
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+
+    Queue::assertPushed(FetchHikvisionAccessEventsJob::class, 1);
+    Queue::assertPushed(ProcessHikvisionWebhookTrailingFetchJob::class, 1);
+
+    $settings->refresh()->markEventsFetchCompleted('Fetched webhook trigger.');
+    Cache::forget(DispatchHikvisionWebhookTriggeredFetch::debounceCacheKey($settings->id, $targetDate));
+
+    (new ProcessHikvisionWebhookTrailingFetchJob($settings->id, $targetDate))->handle();
+
+    Queue::assertPushed(FetchHikvisionAccessEventsJob::class, 2);
+    Queue::assertPushed(
+        FetchHikvisionAccessEventsJob::class,
+        fn (FetchHikvisionAccessEventsJob $job): bool => $job->hikvisionSettingId === $settings->id
+            && $job->date === $targetDate
+            && $job->origin === HikvisionFetchOrigin::WebhookTrigger,
+    );
+});
+
+test('trailing webhook fetch reschedules instead of overlapping an in-flight fetch', function () {
+    Queue::fake();
+
+    $settings = hikvisionSettings();
+    $timezone = CompanyTimezone::forCompany((int) $settings->company_id);
+    $targetDate = now($timezone)->toDateString();
+
+    $settings->beginEventsFetch();
+    app(DispatchHikvisionWebhookTriggeredFetch::class)->scheduleTrailingFetch($settings->id, $targetDate);
+
+    (new ProcessHikvisionWebhookTrailingFetchJob($settings->id, $targetDate))->handle();
+
+    Queue::assertNotPushed(FetchHikvisionAccessEventsJob::class);
+    Queue::assertPushed(ProcessHikvisionWebhookTrailingFetchJob::class, 2);
+});
+
+test('webhook parser still maps hik-connect list envelope when called directly', function () {
     $payload = [
         'batchId' => '406c44ec5ac34d72842f8c724b5c6684',
         'list' => [
@@ -163,103 +748,111 @@ test('webhook stores hik-connect list envelope access event', function () {
         ],
     ];
 
-    $batchId = '406c44ec5ac34d72842f8c724b5c6684';
-    $timestamp = (string) (time() * 1000);
-    $signature = HikvisionWebhookSignature::generate('abc12345', $timestamp, $batchId);
+    $event = HikvisionAccessEvent::upsertFromWebhook($payload, hikvisionTestCompany()->id);
+
+    expect($event)->not->toBeNull()
+        ->and($event->event_source)->toBe(HikvisionAccessEvent::EVENT_SOURCE_WEBHOOK)
+        ->and($event->person_name)->toBe('maysa')
+        ->and($event->person_hikvision_id)->toBe('549648292066532352');
+
+    expect(HikvisionAccessEvent::query()->accessRecords()->whereKey($event->id)->exists())->toBeFalse();
+});
+
+test('webhook job updates last event timestamp via controller without storing body', function () {
+    Queue::fake();
+
+    hikvisionSettings()->update([
+        'webhook_verify_token' => 'expected-token',
+        'webhook_enabled' => true,
+        'webhook_last_event_at' => null,
+    ]);
+
+    $payload = [
+        'recordId' => 'webhook-cert-1',
+        'personInfo' => [
+            'personId' => 'person-webhook-1',
+            'personName' => 'Webhook User',
+        ],
+        'occurTime' => '2026-06-05T09:15:00+04:00',
+        'attendanceStatus' => 'checkIn',
+        'deviceName' => 'Lobby',
+        'sourceType' => 1,
+    ];
 
     $this->postJson(route('webhooks.hikvision', hikvisionSettings()->public_id), $payload, [
+        'X-HCC-Webhook-Token' => 'expected-token',
+    ])->assertNoContent();
+
+    Queue::assertPushed(ProcessHikvisionWebhookEventJob::class);
+
+    expect(hikvisionSettings()->fresh()->webhook_last_event_at)->not->toBeNull()
+        ->and(HikvisionAccessEvent::query()->count())->toBe(0);
+});
+
+test('webhook ignores empty payloads without updating last event timestamp', function () {
+    Queue::fake();
+
+    hikvisionSettings()->update([
+        'webhook_verify_token' => 'expected-token',
+        'webhook_enabled' => true,
+        'webhook_last_event_at' => null,
+    ]);
+
+    $this->postJson(route('webhooks.hikvision', hikvisionSettings()->public_id), [], [
+        'X-HCC-Webhook-Token' => 'expected-token',
+    ])->assertNoContent();
+
+    Queue::assertNothingPushed();
+    expect(hikvisionSettings()->fresh()->webhook_last_event_at)->toBeNull();
+});
+
+test('legacy hikvision webhook route still accepts signed posts as triggers', function () {
+    Queue::fake();
+
+    hikvisionSettings()->update([
+        'webhook_verify_token' => 'abc12345',
+        'webhook_enabled' => true,
+        'webhook_callback_url' => 'https://hrm.overseas-ms.com/webhooks/hikvision',
+    ]);
+
+    $payload = [
+        'batchId' => 'legacy-batch-1',
+        'personInfo' => [
+            'personId' => 'person-legacy-1',
+            'personName' => 'Legacy Webhook User',
+        ],
+        'occurTime' => '2026-07-20T09:15:00+04:00',
+        'attendanceStatus' => 'checkIn',
+    ];
+
+    $timestamp = (string) time();
+    $batchId = 'legacy-batch-1';
+    $signature = HikvisionWebhookSignature::generate('abc12345', $timestamp, $batchId);
+
+    $this->postJson(route('webhooks.hikvision.legacy'), $payload, [
         'X-Hook-Batch-Id' => $batchId,
         'X-Hook-Timestamp' => $timestamp,
         'X-Hook-Signature' => $signature,
     ])->assertNoContent();
 
-    (new ProcessHikvisionWebhookEventJob($payload, hikvisionSettings()->id))->handle();
-
-    $event = HikvisionAccessEvent::query()->first();
-
-    expect($event)->not->toBeNull()
-        ->and($event->event_source)->toBe(HikvisionAccessEvent::EVENT_SOURCE_WEBHOOK)
-        ->and($event->person_name)->toBe('maysa')
-        ->and($event->person_hikvision_id)->toBe('549648292066532352')
-        ->and($event->device_name)->toBe('OMS-Door')
-        ->and($event->attendance_status)->toBe(HikvisionAccessEvent::ATTENDANCE_CHECK_IN)
-        ->and($event->batch_id)->toBe($batchId)
-        ->and($event->msg_type)->toBe('webhook/event/110013');
-
-    hikvisionSettings()->refresh();
-    expect(hikvisionSettings()->webhook_last_event_at)->not->toBeNull();
+    Queue::assertPushed(ProcessHikvisionWebhookEventJob::class);
 });
 
-test('webhook maps production open door payload', function () {
-    $payload = productionOpenDoorWebhookPayload(
-        serialNo: 99552,
-        occurrenceTime: '2026-06-08T11:13:09+04:00',
-        personId: '705076684197985280',
-        firstName: 'Mohammed',
-        lastName: 'Rabil',
-        fullPath: 'IT',
-    );
+test('legacy hikvision webhook route returns not found when no enabled integration exists', function () {
+    Queue::fake();
 
-    (new ProcessHikvisionWebhookEventJob($payload, hikvisionSettings()->id))->handle();
-
-    $event = HikvisionAccessEvent::query()->first();
-
-    expect($event)->not->toBeNull()
-        ->and($event->person_name)->toBe('Mohammed Rabil')
-        ->and($event->resource_name)->toBe('Door 1')
-        ->and($event->door_no)->toBe('1')
-        ->and($event->card_reader_no)->toBe('1')
-        ->and($event->verify_mode)->toBe('face')
-        ->and($event->attendance_status)->toBe(HikvisionAccessEvent::ATTENDANCE_CHECK_IN)
-        ->and($event->system_id)->toBe('webhook:2bd7ecc491f8492f8ab20a3025538c63:99552')
-        ->and($event->snap_urls)->not->toBeNull();
-});
-
-test('webhook enriches existing acs row instead of creating duplicate', function () {
-    HikvisionAccessEvent::query()->create([
-        'company_id' => hikvisionTestCompany()->id,
-        'system_id' => '2bd7ecc491f8492f8ab20a3025538c63:2026-06-08T11:13:09+04:00:5:75:1:Mohammed Rabil',
-        'msg_type' => 'acs/5/75',
-        'occurrence_time' => '2026-06-08 11:13:09',
-        'device_id' => '2bd7ecc491f8492f8ab20a3025538c63',
-        'device_name' => 'OMS-Door',
-        'resource_name' => 'Door 1',
-        'person_name' => 'Mohammed Rabil',
-        'door_no' => '1',
-        'card_reader_no' => '1',
-        'verify_mode' => 'faceOrFpOrCardOrPw',
-        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
-        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
-        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
-        'raw_payload' => [
-            'serialNo' => 99552,
-            'name' => 'Mohammed Rabil',
-            'doorNo' => 1,
-            'cardReaderNo' => 1,
-        ],
-        'fetched_at' => now(),
+    hikvisionSettings()->update([
+        'webhook_verify_token' => 'abc12345',
+        'webhook_enabled' => false,
     ]);
 
-    $payload = productionOpenDoorWebhookPayload(
-        serialNo: 99552,
-        occurrenceTime: '2026-06-08T11:13:09+04:00',
-        personId: '705076684197985280',
-        firstName: 'Mohammed',
-        lastName: 'Rabil',
-        fullPath: 'IT',
-    );
+    $this->postJson(route('webhooks.hikvision.legacy'), [
+        'personName' => 'Should Not Store',
+    ], [
+        'X-HCC-Webhook-Token' => 'abc12345',
+    ])->assertNotFound();
 
-    (new ProcessHikvisionWebhookEventJob($payload, hikvisionSettings()->id))->handle();
-
-    expect(HikvisionAccessEvent::query()->count())->toBe(1);
-
-    $event = HikvisionAccessEvent::query()->first();
-
-    expect($event->event_source)->toBe(HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI)
-        ->and($event->person_hikvision_id)->toBe('705076684197985280')
-        ->and($event->resource_name)->toBe('Door 1')
-        ->and($event->verify_mode)->toBe('faceOrFpOrCardOrPw')
-        ->and($event->snap_urls)->not->toBeNull();
+    Queue::assertNothingPushed();
 });
 
 /**
@@ -323,227 +916,3 @@ function productionOpenDoorWebhookPayload(
         ],
     ];
 }
-
-test('webhook resolves person name from synced hikvision person when only person id is sent', function () {
-    HikvisionPerson::query()->create([
-        'company_id' => hikvisionTestCompany()->id,
-        'person_id' => '549648292066532352',
-        'person_code' => '1',
-        'first_name' => 'maysa',
-        'last_name' => '',
-        'full_name' => 'maysa',
-        'synced_at' => now(),
-    ]);
-
-    $payload = [
-        'batchId' => 'person-id-only-batch',
-        'list' => [
-            [
-                'type' => 'event',
-                'basicInfo' => [
-                    'device' => ['id' => 'device-1', 'name' => 'OMS-Door'],
-                    'systemId' => 'system-person-id-only',
-                    'eventType' => '110013',
-                    'occurrenceTime' => '2026-06-08T09:30:00+04:00',
-                ],
-                'data' => [
-                    'openDoorInfo' => [
-                        'event' => [
-                            'basicInfo' => [
-                                'deviceName' => 'OMS-Door',
-                                'occurTime' => '2026-06-08T09:30:00+04:00',
-                                'channelNo' => 1,
-                            ],
-                            'intelliInfo' => [
-                                'personId' => '549648292066532352',
-                                'attendanceStatus' => 0,
-                                'authResult' => 1,
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ],
-    ];
-
-    (new ProcessHikvisionWebhookEventJob($payload, hikvisionSettings()->id))->handle();
-
-    $event = HikvisionAccessEvent::query()->first();
-
-    expect($event)->not->toBeNull()
-        ->and($event->person_name)->toBe('maysa')
-        ->and($event->person_hikvision_id)->toBe('549648292066532352')
-        ->and($event->door_no)->toBe('1');
-});
-
-test('webhook skips failed authentication events', function () {
-    $payload = [
-        'batchId' => 'failed-auth-batch',
-        'list' => [
-            [
-                'type' => 'event',
-                'basicInfo' => [
-                    'device' => ['id' => 'device-1', 'name' => 'OMS-Door'],
-                    'systemId' => 'system-failed-auth',
-                    'eventType' => '110013',
-                    'occurrenceTime' => '2026-06-08T09:33:50+04:00',
-                ],
-                'data' => [
-                    'openDoorInfo' => [
-                        'event' => [
-                            'basicInfo' => [
-                                'deviceName' => 'OMS-Door',
-                                'occurTime' => '2026-06-08T09:33:50+04:00',
-                            ],
-                            'intelliInfo' => [
-                                'attendanceStatus' => 0,
-                                'authResult' => 0,
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ],
-    ];
-
-    (new ProcessHikvisionWebhookEventJob($payload, hikvisionSettings()->id))->handle();
-
-    expect(HikvisionAccessEvent::query()->count())->toBe(0);
-});
-
-test('webhook skips sparse door events without successful authentication', function () {
-    $payload = [
-        'batchId' => 'sparse-door-batch',
-        'list' => [
-            [
-                'type' => 'event',
-                'basicInfo' => [
-                    'device' => ['id' => 'device-1', 'name' => 'OMS-Door'],
-                    'systemId' => 'system-sparse-door',
-                    'eventType' => '110013',
-                    'occurrenceTime' => '2026-06-08T09:24:59+04:00',
-                ],
-                'data' => [
-                    'openDoorInfo' => [
-                        'event' => [
-                            'basicInfo' => [
-                                'deviceName' => 'OMS-Door',
-                                'occurTime' => '2026-06-08T09:24:59+04:00',
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ],
-    ];
-
-    (new ProcessHikvisionWebhookEventJob($payload, hikvisionSettings()->id))->handle();
-
-    expect(HikvisionAccessEvent::query()->count())->toBe(0);
-});
-
-test('webhook dispatches job and stores event with valid token', function () {
-    Queue::fake();
-
-    hikvisionSettings()->update([
-        'webhook_verify_token' => 'expected-token',
-        'webhook_enabled' => true,
-    ]);
-
-    $payload = [
-        'recordId' => 'webhook-cert-1',
-        'personInfo' => [
-            'personId' => 'person-webhook-1',
-            'personName' => 'Webhook User',
-        ],
-        'occurTime' => '2026-06-05T09:15:00+04:00',
-        'attendanceStatus' => 'checkIn',
-        'deviceName' => 'Lobby',
-        'sourceType' => 1,
-    ];
-
-    $this->postJson(route('webhooks.hikvision', hikvisionSettings()->public_id), $payload, [
-        'X-HCC-Webhook-Token' => 'expected-token',
-    ])->assertNoContent();
-
-    Queue::assertPushed(ProcessHikvisionWebhookEventJob::class, function (ProcessHikvisionWebhookEventJob $job) use ($payload): bool {
-        return $job->payload === $payload;
-    });
-
-    (new ProcessHikvisionWebhookEventJob($payload, hikvisionSettings()->id))->handle();
-
-    $event = HikvisionAccessEvent::query()->first();
-
-    expect($event)->not->toBeNull()
-        ->and($event->event_source)->toBe(HikvisionAccessEvent::EVENT_SOURCE_WEBHOOK)
-        ->and($event->person_name)->toBe('Webhook User');
-
-    hikvisionSettings()->refresh();
-    expect(hikvisionSettings()->webhook_last_event_at)->not->toBeNull();
-});
-
-test('webhook ignores empty payloads without updating last event timestamp', function () {
-    Queue::fake();
-
-    hikvisionSettings()->update([
-        'webhook_verify_token' => 'expected-token',
-        'webhook_enabled' => true,
-        'webhook_last_event_at' => null,
-    ]);
-
-    $this->postJson(route('webhooks.hikvision', hikvisionSettings()->public_id), [], [
-        'X-HCC-Webhook-Token' => 'expected-token',
-    ])->assertNoContent();
-
-    Queue::assertNothingPushed();
-    expect(hikvisionSettings()->fresh()->webhook_last_event_at)->toBeNull();
-});
-
-test('legacy hikvision webhook route still accepts signed posts', function () {
-    Queue::fake();
-
-    hikvisionSettings()->update([
-        'webhook_verify_token' => 'abc12345',
-        'webhook_enabled' => true,
-        'webhook_callback_url' => 'https://hrm.overseas-ms.com/webhooks/hikvision',
-    ]);
-
-    $payload = [
-        'batchId' => 'legacy-batch-1',
-        'personInfo' => [
-            'personId' => 'person-legacy-1',
-            'personName' => 'Legacy Webhook User',
-        ],
-        'occurTime' => '2026-07-20T09:15:00+04:00',
-        'attendanceStatus' => 'checkIn',
-    ];
-
-    $timestamp = (string) time();
-    $batchId = 'legacy-batch-1';
-    $signature = HikvisionWebhookSignature::generate('abc12345', $timestamp, $batchId);
-
-    $this->postJson(route('webhooks.hikvision.legacy'), $payload, [
-        'X-Hook-Batch-Id' => $batchId,
-        'X-Hook-Timestamp' => $timestamp,
-        'X-Hook-Signature' => $signature,
-    ])->assertNoContent();
-
-    Queue::assertPushed(ProcessHikvisionWebhookEventJob::class);
-});
-
-test('legacy hikvision webhook route returns not found when no enabled integration exists', function () {
-    Queue::fake();
-
-    hikvisionSettings()->update([
-        'webhook_verify_token' => 'abc12345',
-        'webhook_enabled' => false,
-    ]);
-
-    $this->postJson(route('webhooks.hikvision.legacy'), [
-        'personName' => 'Should Not Store',
-    ], [
-        'X-HCC-Webhook-Token' => 'abc12345',
-    ])->assertNotFound();
-
-    Queue::assertNothingPushed();
-});

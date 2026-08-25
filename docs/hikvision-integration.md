@@ -24,7 +24,18 @@ Each settings row has a non-sequential `public_id`. The callback URL is:
 
 `/integrations/hikvision/webhook/{publicIntegrationId}`
 
-Processing resolves only integrations with a non-null `company_id` and `webhook_enabled = true`. Signature failures, disabled integrations, and orphan (`company_id` null) rows all return a generic 404. Payload `company_id` values are ignored.
+**Trust model**
+
+| Source | Role |
+| --- | --- |
+| Hik-Connect webhook | Authenticated **notification / trigger only** |
+| Hikvision OpenAPI / ISAPI fetch | **Authoritative** access-event and attendance source |
+
+Webhook POST bodies are **not** cryptographically bound to the vendor `timestamp.batchId` HMAC and are never upserted into attendance-eligible `hikvision_access_events` or used to sync attendance directly. A successful webhook runs the same fetch lifecycle as manual/scheduled dispatchers (`resolveStaleEventsFetch` → skip if already queued/running → `beginEventsFetch` → `FetchHikvisionAccessEventsJob` with origin `webhook_trigger`). After a successful webhook-triggered fetch, attendance is synchronized for **that company date only** — the coordinator’s “today also rebuilds yesterday” backfill is not used, so historical webhook-only punches cannot be recalculated to absent.
+
+Webhook bursts are coalesced with a settings+date cache key (~60s TTL). Coalesced notifications set a pending flag and schedule one delayed trailing fetch after the debounce window so the last punch in a burst still causes an authoritative API pull. This debounce/trailing path is webhook-specific and does **not** affect manual/scheduled/catch-up fetches. Historical `event_source = webhook` rows are retained but excluded from attendance (`accessRecords`).
+
+Processing resolves only integrations that are webhook-enabled, company-owned, and API-configured (`isConfigured()`). Signature failures, disabled integrations, unconfigured credentials, and orphan (`company_id` null) rows all return a generic 404. Payload `company_id` values are ignored. The GET verification handshake and existing HMAC format are unchanged.
 
 ## Scheduled jobs, reconciliation, and stabilization window
 

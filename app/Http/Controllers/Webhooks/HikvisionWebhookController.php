@@ -18,7 +18,7 @@ class HikvisionWebhookController extends Controller
             ? HikvisionSetting::findActiveWebhookIntegration($publicIntegrationId)
             : HikvisionSetting::findLegacyWebhookIntegration();
 
-        if ($settings === null) {
+        if ($settings === null || ! $settings->isConfigured()) {
             abort(404);
         }
 
