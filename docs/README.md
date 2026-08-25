@@ -43,6 +43,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 | Crew payroll / timeline preparation | [payroll.md](./payroll.md) and [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md) |
 | Tenant access or permissions | [permissions.md](./permissions.md) and `.cursor/rules/permissions.mdc` |
 | User account status / login eligibility | [permissions.md](./permissions.md#global-user-account-status) |
+| User email identity / duplicate login emails | [permissions.md](./permissions.md#global-user-email-identity) |
 | Documents, sharing, or search | The matching document guide below; [global-search.md](./global-search.md) for Cmd/Ctrl+K |
 | Global Search | [global-search.md](./global-search.md) |
 | Navigation favorites | [navigation-favorites.md](./navigation-favorites.md) |
@@ -50,7 +51,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 | Saved list filters | [saved-views.md](./saved-views.md) |
 | Privileged 2FA | [privileged-2fa.md](./privileged-2fa.md) and `.cursor/rules/permissions.mdc` |
 | HTTP / browser security headers | [security-headers.md](./security-headers.md) |
-| Security (credentials, tenancy, auth) | Matching security guide ([permissions.md](./permissions.md#global-user-account-status) for login account status, [privileged-2fa.md](./privileged-2fa.md), [security-headers.md](./security-headers.md)) + `review-oms-security` skill |
+| Security (credentials, tenancy, auth) | Matching security guide ([permissions.md](./permissions.md#global-user-account-status) for login account status, [permissions.md](./permissions.md#global-user-email-identity) for global email identity, [privileged-2fa.md](./privileged-2fa.md), [security-headers.md](./security-headers.md)) + `review-oms-security` skill |
 | CI quality gates | [ci.md](./ci.md) |
 | Operational lists on phones | [mobile-operational-lists.md](./mobile-operational-lists.md) |
 | Payroll (non-crew) | [payroll.md](./payroll.md) |
@@ -76,7 +77,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 | [CI quality gates](./ci.md) | Developers | Change classifier, docs-only fast path, parallel Backend / Frontend, `Quality gates` aggregator |
 | [Mobile operational lists](./mobile-operational-lists.md) | Developers | Compact phone cards for selected operational indexes; desktop tables stay standard |
 | [Document sharing](./document-sharing.md) | HR, developers | Share links, WhatsApp, bulk actions |
-| [Permissions](./permissions.md) | Admins, developers | Spatie permissions, documents, imports, global user account status |
+| [Permissions](./permissions.md) | Admins, developers | Spatie permissions, documents, imports, global user account status, global user email identity |
 | [Email configuration](./email-configuration.md) | Admins, developers | SMTP settings, test email |
 | [WhatsApp integration](./whatsapp-integration.md) | Admins, developers | Meta Cloud API settings, webhook verification, signed status callbacks |
 | [Announcement Web Push](./announcements-web-push.md) | Admins, developers | Browser push as an extension of in-app announcements |

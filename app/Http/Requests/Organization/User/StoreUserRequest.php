@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization\User;
 
 use App\Concerns\PasswordValidationRules;
+use App\Rules\UniqueUserEmail;
 use App\Support\Employees\ActiveCompanyEmployeeRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -26,7 +27,7 @@ class StoreUserRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
+            'email' => ['required', 'email', 'max:255', new UniqueUserEmail],
             'password' => $this->passwordRules(),
             'avatar' => ['nullable', 'file', 'image', 'max:2048'],
             'role_id' => [

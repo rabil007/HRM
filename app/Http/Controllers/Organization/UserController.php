@@ -26,7 +26,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
@@ -255,18 +254,6 @@ class UserController extends Controller
         $employeeId = isset($data['employee_id']) && $data['employee_id'] !== '' ? (int) $data['employee_id'] : null;
         unset($data['role_id'], $data['employee_id']);
 
-        $validated = validator($data, [
-            'email' => [
-                'required',
-                'email',
-                'max:255',
-                Rule::unique('users', 'email')
-                    ->where(fn ($q) => $q->where('company_id', $companyId)->whereNull('deleted_at')),
-            ],
-        ])->validate();
-
-        $data['email'] = $validated['email'];
-
         $createdUser = app(CreateOrganizationUser::class)->handle(
             $companyId,
             (string) $data['name'],
@@ -303,18 +290,6 @@ class UserController extends Controller
             : null;
         unset($data['role_id'], $data['employee_id']);
 
-        $validated = validator($data, [
-            'email' => [
-                'required',
-                'email',
-                'max:255',
-                Rule::unique('users', 'email')
-                    ->ignore($user->id)
-                    ->where(fn ($q) => $q->where('company_id', $companyId)->whereNull('deleted_at')),
-            ],
-        ])->validate();
-
-        $data['email'] = $validated['email'];
         $data['status'] = $data['status'] ?? 'active';
 
         app(SyncUserEmployeeLink::class)->handle($user, $companyId, $employeeId);

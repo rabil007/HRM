@@ -7,6 +7,7 @@ use App\Actions\Fortify\ResetUserPassword;
 use App\Listeners\RecordUserLastLogin;
 use App\Support\Auth\AuthenticateActiveUser;
 use App\Support\Auth\RememberSession;
+use App\Support\Auth\UniqueEmailUserProvider;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -26,7 +27,9 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        Auth::provider('eloquent', function ($app, array $config): UniqueEmailUserProvider {
+            return new UniqueEmailUserProvider($app['hash'], $config['model']);
+        });
     }
 
     /**

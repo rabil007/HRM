@@ -97,7 +97,7 @@ test('password confirmation must match when creating user for employee', functio
     ])->assertSessionHasErrors('password');
 });
 
-test('email must be unique per company when creating user for employee', function () {
+test('email must be unique globally when creating user for employee', function () {
     $auth = User::factory()->create();
     $this->actingAs($auth);
 

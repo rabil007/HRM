@@ -12,12 +12,13 @@ use Laravel\Fortify\Fortify;
 final class AuthenticateActiveUser
 {
     /**
-     * Resolve a user for Fortify login using the same identity lookup as the
-     * default guard provider, then require `users.status = active`.
+     * Resolve a user for Fortify login using the unique-email users provider,
+     * then require `users.status = active`.
      *
-     * Returning null produces Fortify's normal invalid-credentials response
-     * (`auth.failed`) so callers cannot distinguish a missing account from a
-     * disabled one.
+     * Identity lookup fails closed when an email maps to zero or more than one
+     * non-deleted User. Returning null produces Fortify's normal
+     * invalid-credentials response (`auth.failed`) so callers cannot distinguish
+     * a missing account, a disabled account, or an ambiguous duplicate identity.
      */
     public function __invoke(Request $request): ?User
     {

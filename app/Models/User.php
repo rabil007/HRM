@@ -6,9 +6,11 @@ namespace App\Models;
 use App\Enums\PlatformAccess;
 use App\Models\Concerns\LogsActivityWithCompany;
 use App\Support\Auth\RevokeDisabledUserAccess;
+use App\Support\Auth\UserEmailIdentity;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -55,6 +57,22 @@ class User extends Authenticatable
                 'last_login_at',
             ])
             ->logOnlyDirty();
+    }
+
+    /**
+     * Persist emails in Fortify's canonical form when lowercase usernames are on.
+     */
+    protected function email(): Attribute
+    {
+        return Attribute::make(
+            set: function (mixed $value): ?string {
+                if ($value === null) {
+                    return null;
+                }
+
+                return UserEmailIdentity::normalize((string) $value);
+            },
+        );
     }
 
     /**
