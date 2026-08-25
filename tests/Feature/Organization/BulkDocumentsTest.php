@@ -29,12 +29,11 @@ use Database\Seeders\EmailTemplatesSeeder;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     $this->seed(PermissionsSeeder::class);
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 });
 
 test('bulk documents permissions are registered and legacy permission removed', function () {

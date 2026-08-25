@@ -12,7 +12,7 @@ test('guests cannot bulk download employee folders', function () {
 });
 
 test('users can bulk download multiple employee folders into one zip', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -76,7 +76,7 @@ test('users can bulk download multiple employee folders into one zip', function 
 });
 
 test('users can bulk download selected files as zip', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -132,7 +132,7 @@ test('users can bulk download selected files as zip', function () {
 });
 
 test('users with permission can bulk delete selected employee documents', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -184,7 +184,7 @@ test('users with permission can bulk delete selected employee documents', functi
 });
 
 test('bulk delete from employee profile redirects back to profile', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -218,7 +218,7 @@ test('bulk delete from employee profile redirects back to profile', function () 
 });
 
 test('bulk delete rejects documents from another company', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -275,7 +275,7 @@ test('users without delete permission cannot bulk delete documents', function ()
 });
 
 test('users can bulk delete documents across employees from the documents index', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -335,7 +335,7 @@ test('users can bulk delete documents across employees from the documents index'
 });
 
 test('company bulk delete rejects documents from another company', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);

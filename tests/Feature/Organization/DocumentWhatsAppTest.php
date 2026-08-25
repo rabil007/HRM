@@ -3,7 +3,6 @@
 use App\Models\User;
 use App\Models\WhatsAppSetting;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
 
 test('guests cannot send employee documents via whatsapp', function () {
     $this->postJson(route('organization.documents.employee.files.whatsapp', 1), [
@@ -21,7 +20,7 @@ test('users can send selected employee documents via whatsapp api', function () 
         ], 200),
     ]);
 
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -72,7 +71,7 @@ test('whatsapp direct send can include hello_world template first', function () 
             ], 200),
     ]);
 
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -110,7 +109,7 @@ test('whatsapp direct send can include hello_world template first', function () 
 });
 
 test('whatsapp direct send fails when integration is not configured', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);

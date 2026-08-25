@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\EmployeeFiles\EmployeePrivateFile;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -34,10 +35,15 @@ class EmployeeTrainingVersion extends Model
 
     public function getFileUrlAttribute(): string
     {
-        if (str_starts_with($this->file_path, 'http')) {
-            return $this->file_path;
+        if (EmployeePrivateFile::isRemoteUrl($this->file_path)) {
+            return (string) $this->file_path;
         }
 
-        return asset('storage/'.ltrim($this->file_path, '/'));
+        return route('organization.employees.training.certificate.version', [
+            'employee' => $this->employee_id,
+            'training' => $this->employee_training_id,
+            'version' => $this,
+            'inline' => 1,
+        ]);
     }
 }

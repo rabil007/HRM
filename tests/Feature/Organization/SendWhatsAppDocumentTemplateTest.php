@@ -4,7 +4,6 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Models\WhatsAppSetting;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
 
 test('guests cannot send whatsapp document templates', function () {
     $this->postJson(route('organization.documents.employee.files.whatsapp-template', [
@@ -14,7 +13,7 @@ test('guests cannot send whatsapp document templates', function () {
 });
 
 test('whatsapp document template requires documents share permission', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -36,7 +35,7 @@ test('whatsapp document template requires documents share permission', function 
 });
 
 test('whatsapp document template requires whatsapp number', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -73,7 +72,7 @@ test('whatsapp document template sends successfully', function () {
         ], 200),
     ]);
 
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -141,7 +140,7 @@ test('whatsapp document template returns error when meta api fails', function ()
         ], 404),
     ]);
 
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -178,7 +177,7 @@ test('whatsapp document template returns error when meta api fails', function ()
 });
 
 test('users cannot send whatsapp document template for another employees document', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);

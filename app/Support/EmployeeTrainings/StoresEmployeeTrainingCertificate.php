@@ -5,10 +5,10 @@ namespace App\Support\EmployeeTrainings;
 use App\Models\EmployeeTraining;
 use App\Models\EmployeeTrainingVersion;
 use App\Support\EmployeeDocuments\DocumentUploadOptimizer;
-use App\Support\Uploads\UploadedFileStorage;
+use App\Support\EmployeeFiles\EmployeePrivateFile;
+use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class StoresEmployeeTrainingCertificate
 {
@@ -123,17 +123,21 @@ class StoresEmployeeTrainingCertificate
         }
 
         foreach (array_unique($paths) as $path) {
-            Storage::disk('public')->delete($path);
+            EmployeePrivateFile::deleteStored(
+                $path,
+                (int) $training->company_id,
+                EmployeePrivateFileKind::TrainingCertificate,
+            );
         }
     }
 
-    public function deletePath(?string $path): void
+    public function deletePath(?string $path, ?int $companyId = null): void
     {
-        if ($path === null || $path === '') {
+        if ($path === null || $path === '' || $companyId === null) {
             return;
         }
 
-        Storage::disk('public')->delete($path);
+        EmployeePrivateFile::deleteStored($path, $companyId, EmployeePrivateFileKind::TrainingCertificate);
     }
 
     private function storeFile(
@@ -156,13 +160,10 @@ class StoresEmployeeTrainingCertificate
             $logContext['training_id'] = $trainingId;
         }
 
-        return UploadedFileStorage::storePublicly(
+        return EmployeePrivateFile::store(
             $file,
             "employees/{$companyId}/training-certificates",
-            [
-                'disk' => 'public',
-                'log_context' => $logContext,
-            ],
+            $logContext,
         );
     }
 

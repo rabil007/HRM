@@ -4,7 +4,8 @@ namespace App\Support\BulkDocuments;
 
 use App\Models\BulkDocumentSignatureRequest;
 use App\Models\Employee;
-use Illuminate\Support\Facades\Storage;
+use App\Support\EmployeeFiles\EmployeePrivateFile;
+use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Illuminate\Validation\ValidationException;
 use setasign\Fpdi\Fpdi;
 use setasign\Fpdi\FpdiException;
@@ -94,7 +95,13 @@ final class StampSignedBulkDocumentPdf
             return false;
         }
 
-        return Storage::disk('public')->exists($document->file_path);
+        $resolved = EmployeePrivateFile::resolve(
+            (string) $document->file_path,
+            (int) $document->company_id,
+            EmployeePrivateFileKind::Document,
+        );
+
+        return $resolved !== null;
     }
 
     private function stampOntoSourcePdf(
@@ -119,14 +126,20 @@ final class StampSignedBulkDocumentPdf
             ]);
         }
 
-        if (! Storage::disk('public')->exists($document->file_path)) {
+        $resolved = EmployeePrivateFile::resolve(
+            (string) $document->file_path,
+            (int) $document->company_id,
+            EmployeePrivateFileKind::Document,
+        );
+
+        if ($resolved === null) {
             throw ValidationException::withMessages([
                 'token' => 'The source document file could not be found.',
             ]);
         }
 
         $signatureTempPath = $this->writeTempSignature($signatureBinary, $imageType);
-        $sourcePath = Storage::disk('public')->path($document->file_path);
+        $sourcePath = $resolved->absolutePath();
 
         try {
             return $this->stamp($sourcePath, $signatureTempPath, $imageType, $signedDate, $placements);

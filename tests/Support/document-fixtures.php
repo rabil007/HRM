@@ -10,6 +10,12 @@ use App\Models\EmployeeDocument;
 use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\Fpdi;
 
+function fakeEmployeeFileDisks(): void
+{
+    Storage::fake('local');
+    Storage::fake('public');
+}
+
 function makeDocumentFixtures(): array
 {
     $country = Country::query()->firstOrCreate(

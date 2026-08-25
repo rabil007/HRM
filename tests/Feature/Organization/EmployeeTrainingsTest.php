@@ -98,7 +98,7 @@ test('users without permission cannot manage training records', function () {
 });
 
 test('authorized users can store update and destroy training with certificate', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -172,7 +172,8 @@ test('authorized users can store update and destroy training with certificate', 
 
     expect($training)->not->toBeNull();
     expect($training->certificate_path)->not->toBeNull();
-    Storage::disk('public')->assertExists($training->certificate_path);
+    Storage::disk('local')->assertExists($training->certificate_path);
+    Storage::disk('public')->assertMissing($training->certificate_path);
 
     $updatedCourse = Course::query()->create([
         'name' => 'ECDIS',
@@ -198,7 +199,7 @@ test('authorized users can store update and destroy training with certificate', 
 });
 
 test('authorized users can bulk store multiple training certificates', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -293,8 +294,10 @@ test('authorized users can bulk store multiple training certificates', function 
         ->and($trainings[0]->certificate_path)->not->toBeNull()
         ->and($trainings[1]->certificate_path)->not->toBeNull();
 
-    Storage::disk('public')->assertExists($trainings[0]->certificate_path);
-    Storage::disk('public')->assertExists($trainings[1]->certificate_path);
+    Storage::disk('local')->assertExists($trainings[0]->certificate_path);
+    Storage::disk('local')->assertExists($trainings[1]->certificate_path);
+    Storage::disk('public')->assertMissing($trainings[0]->certificate_path);
+    Storage::disk('public')->assertMissing($trainings[1]->certificate_path);
 });
 
 test('bulk store validation errors use indexed keys', function () {
@@ -374,7 +377,7 @@ test('bulk store validation errors use indexed keys', function () {
 });
 
 test('storing a training certificate invokes the document upload optimizer', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -759,7 +762,7 @@ test('training csv import respects template visible fields', function () {
 });
 
 test('users with permission can bulk delete training records', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -926,7 +929,7 @@ test('users without permission cannot bulk delete training records', function ()
 });
 
 test('users with permission can replace a training certificate and keep version history', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -1010,11 +1013,12 @@ test('users with permission can replace a training certificate and keep version 
     ]);
 
     Storage::disk('public')->assertExists($oldPath);
-    Storage::disk('public')->assertExists($training->certificate_path);
+    Storage::disk('local')->assertExists($training->certificate_path);
+    Storage::disk('public')->assertMissing($training->certificate_path);
 });
 
 test('users with permission can replace a training certificate and update metadata fields', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -1102,7 +1106,7 @@ test('users with permission can replace a training certificate and update metada
 });
 
 test('training update ignores certificate file uploads', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -1182,7 +1186,7 @@ test('training update ignores certificate file uploads', function () {
 });
 
 test('destroying a training record deletes current and version certificate files', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);

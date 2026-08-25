@@ -7,8 +7,9 @@ use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Models\WhatsAppSetting;
 use App\Support\EmployeeDocuments\DocumentBulkActionService;
+use App\Support\EmployeeFiles\EmployeePrivateFile;
+use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -187,23 +188,27 @@ class DocumentWhatsAppService
      */
     private function resolveDocumentFile(EmployeeDocument $document, int $companyId): ?array
     {
-        if ($this->isExternalUrl((string) $document->file_path)) {
+        if (EmployeePrivateFile::isRemoteUrl((string) $document->file_path)) {
             return null;
         }
 
-        $diskPath = $this->validatedDiskPath((string) $document->file_path, $companyId);
+        $resolved = EmployeePrivateFile::resolve(
+            (string) $document->file_path,
+            $companyId,
+            EmployeePrivateFileKind::Document,
+        );
 
-        if ($diskPath === null || ! Storage::disk('public')->exists($diskPath)) {
+        if ($resolved === null) {
             return null;
         }
 
-        $absolutePath = Storage::disk('public')->path($diskPath);
+        $absolutePath = $resolved->absolutePath();
 
         if (! is_readable($absolutePath)) {
             return null;
         }
 
-        $mimeType = (string) ($document->mime_type ?: Storage::disk('public')->mimeType($diskPath) ?: 'application/pdf');
+        $mimeType = (string) ($document->mime_type ?: $resolved->mimeType() ?: 'application/pdf');
 
         return [
             'path' => $absolutePath,
@@ -220,28 +225,6 @@ class DocumentWhatsAppService
         $basename = trim($basename, '._');
 
         return $basename !== '' ? $basename : 'document';
-    }
-
-    private function isExternalUrl(string $filePath): bool
-    {
-        return str_starts_with($filePath, 'http://') || str_starts_with($filePath, 'https://');
-    }
-
-    private function validatedDiskPath(string $filePath, int $companyId): ?string
-    {
-        $filePath = ltrim($filePath, '/');
-
-        if ($filePath === '' || str_contains($filePath, '..')) {
-            return null;
-        }
-
-        $expectedPrefix = "employee-documents/{$companyId}/";
-
-        if (! str_starts_with($filePath, $expectedPrefix)) {
-            return null;
-        }
-
-        return $filePath;
     }
 
     /**

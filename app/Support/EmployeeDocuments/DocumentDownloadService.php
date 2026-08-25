@@ -5,8 +5,11 @@ namespace App\Support\EmployeeDocuments;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\EmployeeDocumentVersion;
+use App\Support\EmployeeFiles\EmployeePrivateFile;
+use App\Support\EmployeeFiles\EmployeePrivateFileKind;
+use App\Support\EmployeeFiles\ResolvedEmployeeFile;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -209,16 +212,17 @@ class DocumentDownloadService
 
     public function isShareable(EmployeeDocument $document): bool
     {
-        $companyId = (int) $document->company_id;
         $filePath = (string) $document->file_path;
 
-        if ($this->isExternalUrl($filePath)) {
+        if (EmployeePrivateFile::isRemoteUrl($filePath)) {
             return true;
         }
 
-        $diskPath = $this->validatedDiskPath($filePath, $companyId);
-
-        return $diskPath !== null && Storage::disk('public')->exists($diskPath);
+        return EmployeePrivateFile::resolve(
+            $filePath,
+            (int) $document->company_id,
+            EmployeePrivateFileKind::Document,
+        ) !== null;
     }
 
     public function downloadSingleDocument(
@@ -228,31 +232,61 @@ class DocumentDownloadService
     ): Response {
         $this->assertDocumentAccessible($document, $companyId);
 
-        $downloadName = $this->downloadFilename($document);
+        return $this->respondForPath(
+            (string) $document->file_path,
+            $companyId,
+            $this->downloadFilename($document),
+            (string) ($document->mime_type ?: ($inline ? 'application/pdf' : 'application/octet-stream')),
+            $inline,
+        );
+    }
 
-        if ($this->isExternalUrl((string) $document->file_path)) {
-            return redirect()->away((string) $document->file_path);
+    public function downloadDocumentVersion(
+        EmployeeDocument $document,
+        EmployeeDocumentVersion $version,
+        int $companyId,
+        bool $inline = false,
+    ): Response {
+        $this->assertDocumentAccessible($document, $companyId);
+        DocumentAccess::assertVersionBelongsToDocument($document, $version, $companyId);
+
+        $downloadName = $this->sanitizeFilename(
+            (string) ($version->original_filename ?: "document-{$document->id}-v{$version->version}"),
+        );
+
+        return $this->respondForPath(
+            (string) $version->file_path,
+            $companyId,
+            $downloadName,
+            (string) ($version->mime_type ?: ($inline ? 'application/pdf' : 'application/octet-stream')),
+            $inline,
+        );
+    }
+
+    private function respondForPath(
+        string $filePath,
+        int $companyId,
+        string $downloadName,
+        string $mimeType,
+        bool $inline,
+    ): Response {
+        if (EmployeePrivateFile::isRemoteUrl($filePath)) {
+            return redirect()->away($filePath);
         }
 
-        $diskPath = $this->validatedDiskPath((string) $document->file_path, $companyId);
+        $resolved = EmployeePrivateFile::resolve($filePath, $companyId, EmployeePrivateFileKind::Document);
 
-        abort_if($diskPath === null || ! Storage::disk('public')->exists($diskPath), 404, 'File not found.');
+        abort_if($resolved === null, 404, 'File not found.');
 
         if ($inline) {
-            return response()->file(
-                Storage::disk('public')->path($diskPath),
-                [
-                    'Content-Type' => (string) ($document->mime_type ?: 'application/pdf'),
-                    'Content-Disposition' => 'inline; filename="'.$downloadName.'"',
-                ],
-            );
+            return $resolved->inlineResponse($downloadName, [
+                'Content-Type' => $mimeType,
+            ]);
         }
 
-        return Storage::disk('public')->download(
-            $diskPath,
-            $downloadName,
-            ['Content-Type' => (string) ($document->mime_type ?: 'application/octet-stream')],
-        );
+        return $resolved->download($downloadName, [
+            'Content-Type' => $mimeType,
+        ]);
     }
 
     /**
@@ -325,7 +359,7 @@ class DocumentDownloadService
     ): bool {
         $entryName = $prefix.$this->uniqueArchiveEntryName($document, $usedNames);
 
-        if ($this->isExternalUrl((string) $document->file_path)) {
+        if (EmployeePrivateFile::isRemoteUrl((string) $document->file_path)) {
             $contents = @file_get_contents((string) $document->file_path);
 
             if ($contents === false) {
@@ -335,19 +369,23 @@ class DocumentDownloadService
             return $zip->addFromString($entryName, $contents);
         }
 
-        $diskPath = $this->validatedDiskPath((string) $document->file_path, $companyId);
+        $resolved = EmployeePrivateFile::resolve(
+            (string) $document->file_path,
+            $companyId,
+            EmployeePrivateFileKind::Document,
+        );
 
-        if ($diskPath === null) {
+        if (! $resolved instanceof ResolvedEmployeeFile) {
             return false;
         }
 
-        $absolutePath = Storage::disk('public')->path($diskPath);
+        $absolutePath = $resolved->absolutePath();
 
         if (is_readable($absolutePath) && $zip->addFile($absolutePath, $entryName)) {
             return true;
         }
 
-        $contents = Storage::disk('public')->get($diskPath);
+        $contents = $resolved->get();
 
         return $contents !== null && $zip->addFromString($entryName, $contents);
     }
@@ -395,27 +433,5 @@ class DocumentDownloadService
         $segment = trim($segment, '-');
 
         return $segment !== '' ? $segment : $fallback;
-    }
-
-    private function isExternalUrl(string $filePath): bool
-    {
-        return str_starts_with($filePath, 'http://') || str_starts_with($filePath, 'https://');
-    }
-
-    private function validatedDiskPath(string $filePath, int $companyId): ?string
-    {
-        $filePath = ltrim($filePath, '/');
-
-        if ($filePath === '' || str_contains($filePath, '..')) {
-            return null;
-        }
-
-        $expectedPrefix = "employee-documents/{$companyId}/";
-
-        if (! str_starts_with($filePath, $expectedPrefix)) {
-            return null;
-        }
-
-        return $filePath;
     }
 }

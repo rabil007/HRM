@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\LogsActivityWithCompany;
 use App\Support\EmployeeDocuments\DocumentExpiry;
+use App\Support\EmployeeFiles\EmployeePrivateFile;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -165,11 +166,11 @@ class EmployeeDocument extends Model
 
     public function getFileUrlAttribute(): string
     {
-        if (str_starts_with($this->file_path, 'http')) {
-            return $this->file_path;
+        if (EmployeePrivateFile::isRemoteUrl($this->file_path)) {
+            return (string) $this->file_path;
         }
 
-        return asset('storage/'.ltrim($this->file_path, '/'));
+        return route('organization.documents.files.preview', $this);
     }
 
     public function getDocumentTypeLabelAttribute(): string

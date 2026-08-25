@@ -81,7 +81,7 @@ test('authenticated users can open printable adnoc seafarer cv', function () {
 });
 
 test('adnoc cv shows company logo on the left when company has a logo', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $logoPath = 'company-logos/test-logo.png';
     Storage::disk('public')->put(
@@ -135,7 +135,7 @@ test('adnoc cv shows company logo on the left when company has a logo', function
 });
 
 test('adnoc cv shows application main logo on the left when branding logo is configured', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $logoPath = 'settings/main_logo-test.png';
     Storage::disk('public')->put(

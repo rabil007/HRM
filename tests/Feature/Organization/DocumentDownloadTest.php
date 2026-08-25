@@ -10,7 +10,7 @@ test('guests cannot download employee document archives', function () {
 });
 
 test('users with documents view but without download cannot download files', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -39,7 +39,7 @@ test('users with documents view but without download cannot download files', fun
 });
 
 test('users can download a single document file with original filename', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -69,7 +69,7 @@ test('users can download a single document file with original filename', functio
 });
 
 test('users can view a single document file inline', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -102,7 +102,7 @@ test('users can view a single document file inline', function () {
 });
 
 test('users can download employee folder as zip with expected filename', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -161,7 +161,7 @@ test('users can download employee folder as zip with expected filename', functio
 });
 
 test('zip download skips missing files and still returns archive', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -213,7 +213,7 @@ test('zip download skips missing files and still returns archive', function () {
 });
 
 test('single document download rejects unsafe storage paths', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -239,7 +239,7 @@ test('single document download rejects unsafe storage paths', function () {
 });
 
 test('users cannot download documents from another company', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -272,7 +272,7 @@ test('users cannot download documents from another company', function () {
 });
 
 test('legacy employee documents download route still works', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
