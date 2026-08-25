@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Bookmark } from 'lucide-react';
+import { Bookmark, Check } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     destroy as destroySavedView,
@@ -30,9 +30,6 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
-    DropdownMenuSub,
-    DropdownMenuSubContent,
-    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -61,6 +58,7 @@ export function SavedViewsControl({
         [pageKey, currentFilters],
     );
     const [saveOpen, setSaveOpen] = useState(false);
+    const [manageOpen, setManageOpen] = useState(false);
     const [renameOpen, setRenameOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [activeView, setActiveView] = useState<SavedView | null>(null);
@@ -170,55 +168,27 @@ export function SavedViewsControl({
                             );
 
                             return (
-                                <DropdownMenuSub key={view.id}>
-                                    <DropdownMenuSubTrigger>
-                                        <span className="flex min-w-0 flex-1 items-center gap-2">
-                                            <span className="truncate">
-                                                {view.name}
-                                            </span>
-                                            {view.is_default ? (
-                                                <span className="shrink-0 text-[10px] font-semibold tracking-wide text-primary uppercase">
-                                                    Default
-                                                </span>
-                                            ) : null}
-                                            {isCurrent ? (
-                                                <span className="sr-only">
-                                                    Currently applied
-                                                </span>
-                                            ) : null}
+                                <DropdownMenuItem
+                                    key={view.id}
+                                    onSelect={() => applyView(view)}
+                                >
+                                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                                        <span className="truncate">
+                                            {view.name}
                                         </span>
-                                    </DropdownMenuSubTrigger>
-                                    <DropdownMenuSubContent>
-                                        <DropdownMenuItem
-                                            onSelect={() => applyView(view)}
-                                        >
-                                            Apply
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                            onSelect={() => openRename(view)}
-                                        >
-                                            Rename
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                            onSelect={() =>
-                                                setDefault(
-                                                    view,
-                                                    !view.is_default,
-                                                )
-                                            }
-                                        >
-                                            {view.is_default
-                                                ? 'Clear default'
-                                                : 'Set as default'}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                            variant="destructive"
-                                            onSelect={() => openDelete(view)}
-                                        >
-                                            Delete
-                                        </DropdownMenuItem>
-                                    </DropdownMenuSubContent>
-                                </DropdownMenuSub>
+                                        {view.is_default ? (
+                                            <span className="shrink-0 text-[10px] font-semibold tracking-wide text-primary uppercase">
+                                                Default
+                                            </span>
+                                        ) : null}
+                                        {isCurrent ? (
+                                            <Check
+                                                className="ml-auto h-4 w-4 shrink-0 text-primary"
+                                                aria-label="Currently applied"
+                                            />
+                                        ) : null}
+                                    </span>
+                                </DropdownMenuItem>
                             );
                         })
                     )}
@@ -226,8 +196,83 @@ export function SavedViewsControl({
                     <DropdownMenuItem onSelect={openSave}>
                         Save current view...
                     </DropdownMenuItem>
+                    {views.length > 0 ? (
+                        <DropdownMenuItem onSelect={() => setManageOpen(true)}>
+                            Manage views...
+                        </DropdownMenuItem>
+                    ) : null}
                 </DropdownMenuContent>
             </DropdownMenu>
+
+            <Dialog open={manageOpen} onOpenChange={setManageOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Manage views</DialogTitle>
+                        <DialogDescription>
+                            Rename, set a default, or delete a saved view. Tap a
+                            view in the menu to apply it.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-80 space-y-2 overflow-y-auto">
+                        {views.map((view) => (
+                            <div
+                                key={view.id}
+                                className="flex flex-col gap-2 rounded-lg border border-border/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-medium">
+                                        {view.name}
+                                    </p>
+                                    {view.is_default ? (
+                                        <p className="text-[11px] font-semibold tracking-wide text-primary uppercase">
+                                            Default
+                                        </p>
+                                    ) : null}
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-10 min-h-10"
+                                        onClick={() => {
+                                            setManageOpen(false);
+                                            openRename(view);
+                                        }}
+                                    >
+                                        Rename
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-10 min-h-10"
+                                        onClick={() =>
+                                            setDefault(view, !view.is_default)
+                                        }
+                                    >
+                                        {view.is_default
+                                            ? 'Clear default'
+                                            : 'Set default'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-10 min-h-10 text-destructive hover:text-destructive"
+                                        onClick={() => {
+                                            setManageOpen(false);
+                                            openDelete(view);
+                                        }}
+                                    >
+                                        Delete
+                                    </Button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
                 <DialogContent className="sm:max-w-md">

@@ -16,3 +16,22 @@ export function joinMobileRecordMeta(
         .filter((part): part is string => Boolean(part))
         .join(' · ');
 }
+
+export function isExternalMobileOverflowHref(action: {
+    href?: string;
+    target?: string;
+}): boolean {
+    if (action.href === undefined || action.href.trim() === '') {
+        return false;
+    }
+
+    if (
+        action.target !== undefined &&
+        action.target !== '' &&
+        action.target !== '_self'
+    ) {
+        return true;
+    }
+
+    return /^(https?:|mailto:|tel:)/i.test(action.href);
+}

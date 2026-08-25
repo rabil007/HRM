@@ -20,3 +20,24 @@ test('unknown keys are not accessible', function () {
         ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'not-a-key'))->toBeFalse()
         ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'dashboard'))->toBeTrue();
 });
+
+test('vessel manning cannot unlock the vessels destination', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['crew_operations.vessel_manning.view']);
+
+    expect(NavigationDestinationCatalog::contains('crew.vessel-manning'))->toBeTrue()
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.vessels'))->toBeFalse()
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.vessel-manning'))->toBeTrue();
+});
+
+test('vessels.view cannot unlock the vessel manning destination', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['crew_operations.vessels.view']);
+
+    expect(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.vessels'))->toBeTrue()
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.vessel-manning'))->toBeFalse();
+});

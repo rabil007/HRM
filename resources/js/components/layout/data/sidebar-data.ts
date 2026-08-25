@@ -173,6 +173,11 @@ const baseSidebarData: SidebarData = {
                     icon: Ship,
                 },
                 {
+                    title: 'Vessel Manning',
+                    url: '/organization/vessel-manning',
+                    icon: ClipboardList,
+                },
+                {
                     title: 'Movement Corrections',
                     url: crewMovementCorrections.url(),
                     icon: FilePenLine,

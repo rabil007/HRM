@@ -4,12 +4,16 @@ import {
     GLOBAL_SEARCH_DEBOUNCE_MS,
     GLOBAL_SEARCH_MAX_QUERY_LENGTH,
     commandResultValue,
+    destinationMatchesQuery,
+    filterCommandGroupsForQuery,
+    filterFavoritesForQuery,
     flattenNavCommands,
     isCommandPaletteHotkey,
     isStaleSearchResponse,
     orderedRecordGroups,
     recordSearchEmptyMessage,
     shouldRequestRecordSearch,
+    shouldUseCmdkClientFilter,
 } from './global-search.ts';
 import type { GlobalSearchGroup } from './global-search.ts';
 
@@ -196,6 +200,65 @@ describe('flattenNavCommands', () => {
         assert.equal(
             commands.some((command) => command.url === '/dashboard'),
             true,
+        );
+    });
+});
+
+describe('record-search destination filtering', () => {
+    it('disables cmdk client filtering once record search is active', () => {
+        assert.equal(shouldUseCmdkClientFilter(''), true);
+        assert.equal(shouldUseCmdkClientFilter('a'), true);
+        assert.equal(shouldUseCmdkClientFilter('ab'), false);
+        assert.equal(shouldUseCmdkClientFilter(' mohammed '), false);
+    });
+
+    it('keeps matching destinations under record results and hides unrelated ones', () => {
+        const groups = [
+            {
+                title: 'Employees',
+                items: [
+                    { title: 'Employees', url: '/organization/employees' },
+                    { title: 'Documents', url: '/organization/documents' },
+                ],
+            },
+            {
+                title: 'Crew Operations',
+                items: [
+                    { title: 'Vessels', url: '/organization/vessels' },
+                    {
+                        title: 'Planning',
+                        url: '/organization/crew-planning',
+                    },
+                ],
+            },
+        ];
+
+        const filtered = filterCommandGroupsForQuery(groups, 'vessel');
+
+        assert.deepEqual(
+            filtered.map((group) => ({
+                title: group.title,
+                items: group.items.map((item) => item.title),
+            })),
+            [{ title: 'Crew Operations', items: ['Vessels'] }],
+        );
+        assert.equal(
+            destinationMatchesQuery(
+                { title: 'Employees', value: 'Employees' },
+                'vessel',
+            ),
+            false,
+        );
+        assert.deepEqual(
+            filterFavoritesForQuery(
+                [{ title: 'Employees' }, { title: 'Vessels' }],
+                'ves',
+            ).map((item) => item.title),
+            ['Vessels'],
+        );
+        assert.deepEqual(
+            filterCommandGroupsForQuery(groups, '').map((group) => group.title),
+            ['Employees', 'Crew Operations'],
         );
     });
 });

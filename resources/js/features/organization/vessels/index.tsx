@@ -35,6 +35,7 @@ import {
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
 import { ListTableCrudActions } from '@/components/list-table-actions';
+import { MobileRecordList } from '@/components/mobile-record-list';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
@@ -61,10 +62,15 @@ import {
     firstValidationError,
     hasFlashSuccess,
 } from '@/lib/first-validation-error';
+import {
+    DESKTOP_OPERATIONAL_TABLE_CLASS,
+    MOBILE_OPERATIONAL_LIST_CLASS,
+} from '@/lib/mobile-operational-list';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 import { VesselDeleteDialog } from './components/vessel-delete-dialog';
 import { VesselFormSheet } from './components/vessel-form-sheet';
+import { VesselMobileCard } from './components/vessel-mobile-card';
 import type {
     VesselFormData,
     VesselPageCan,
@@ -239,15 +245,16 @@ export function VesselsContent({
         pagination.per_page,
     ]);
 
-    const openShow = (vesselId: number): void => {
-        router.visit(
-            vesselShow.url(
-                vesselId,
-                Object.keys(listBackQuery).length > 0
-                    ? { query: listBackQuery }
-                    : undefined,
-            ),
+    const vesselShowUrl = (vesselId: number): string =>
+        vesselShow.url(
+            vesselId,
+            Object.keys(listBackQuery).length > 0
+                ? { query: listBackQuery }
+                : undefined,
         );
+
+    const openShow = (vesselId: number): void => {
+        router.visit(vesselShowUrl(vesselId));
     };
 
     const form = useForm<VesselFormData>(emptyFormData());
@@ -601,168 +608,200 @@ export function VesselsContent({
                     }
                 />
             ) : (
-                <OrganizationDataTable minWidth="min-w-[1100px]">
-                    <TableHeader>
-                        <DataTableHeaderRow>
-                            <DataTableHead>Vessel</DataTableHead>
-                            <DataTableHead>Type</DataTableHead>
-                            <DataTableHead>Identification</DataTableHead>
-                            <DataTableHead>Manning</DataTableHead>
-                            <DataTableHead>Required Crew</DataTableHead>
-                            <DataTableHead>Status</DataTableHead>
-                            <DataTableHead className="text-right">
-                                Actions
-                            </DataTableHead>
-                        </DataTableHeaderRow>
-                    </TableHeader>
-                    <TableBody>
-                        {vessels.map((vessel) => (
-                            <TableRow
-                                key={vessel.id}
-                                className={cn(
-                                    dataTableBodyRowClass(),
-                                    'cursor-pointer',
-                                )}
-                                onClick={() => openShow(vessel.id)}
-                            >
-                                <TableCell
-                                    className={dataTableCellPrimaryClass()}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <VesselAvatar />
-                                        <div className="min-w-0">
-                                            <div className="truncate font-semibold">
-                                                {vessel.name}
-                                            </div>
-                                            {vessel.call_sign ? (
-                                                <div className="text-xs text-muted-foreground/70">
-                                                    {vessel.call_sign}
-                                                </div>
-                                            ) : null}
-                                        </div>
-                                    </div>
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {(vessel.vessel_type?.name ??
-                                    vessel.vessel_type_name) ? (
-                                        <Badge
-                                            variant="outline"
-                                            className="border-border/80 text-[10px] font-bold tracking-wider uppercase"
-                                        >
-                                            {vessel.vessel_type?.name ??
-                                                vessel.vessel_type_name}
-                                        </Badge>
-                                    ) : (
-                                        <span className="text-muted-foreground/50">
-                                            —
-                                        </span>
-                                    )}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    <div className="space-y-1">
-                                        {vessel.imo_no ? (
-                                            <div className="flex items-center gap-1.5 text-xs">
-                                                <span className="inline-block w-10 shrink-0 text-[10px] font-bold tracking-wider text-muted-foreground/60 uppercase">
-                                                    IMO
-                                                </span>
-                                                <span className="font-medium tabular-nums">
-                                                    {vessel.imo_no}
-                                                </span>
-                                            </div>
-                                        ) : null}
-                                        {vessel.official_no ? (
-                                            <div className="flex items-center gap-1.5 text-xs">
-                                                <span className="inline-block w-10 shrink-0 text-[10px] font-bold tracking-wider text-muted-foreground/60 uppercase">
-                                                    Off.
-                                                </span>
-                                                <span className="font-medium tabular-nums">
-                                                    {vessel.official_no}
-                                                </span>
-                                            </div>
-                                        ) : null}
-                                        {!vessel.imo_no &&
-                                        !vessel.official_no ? (
-                                            <span className="text-muted-foreground/50">
-                                                —
-                                            </span>
-                                        ) : null}
-                                    </div>
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {vessel.ranks_configured === 0 ? (
-                                        <Badge className="border-amber-500/20 bg-amber-500/10 text-[10px] font-bold tracking-wider text-amber-700 uppercase dark:text-amber-400">
-                                            Not set
-                                        </Badge>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                                            {vessel.ranks_configured}{' '}
-                                            {vessel.ranks_configured === 1
-                                                ? 'rank'
-                                                : 'ranks'}
-                                        </span>
-                                    )}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {vessel.total_required > 0 ? (
-                                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-bold text-blue-700 tabular-nums dark:text-blue-400">
-                                            <Users className="h-3.5 w-3.5" />
-                                            {vessel.total_required}
-                                        </span>
-                                    ) : (
-                                        <span className="text-muted-foreground/50">
-                                            —
-                                        </span>
-                                    )}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    <Badge
-                                        className={
-                                            vessel.is_active
-                                                ? 'border-emerald-500/20 bg-emerald-500/15 text-[10px] font-bold tracking-wider text-emerald-700 uppercase dark:text-emerald-400'
-                                                : 'border border-border/80 bg-muted/60 text-[10px] font-bold tracking-wider text-muted-foreground uppercase'
-                                        }
-                                    >
-                                        {vessel.is_active
-                                            ? 'Active'
-                                            : 'Inactive'}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell
-                                    className={dataTableActionsCellClass()}
-                                >
-                                    <ListTableCrudActions
-                                        viewHref={vesselShow.url(
-                                            vessel.id,
-                                            Object.keys(listBackQuery).length >
-                                                0
-                                                ? { query: listBackQuery }
-                                                : undefined,
+                <>
+                    <div className={MOBILE_OPERATIONAL_LIST_CLASS}>
+                        <MobileRecordList>
+                            {vessels.map((vessel) => (
+                                <VesselMobileCard
+                                    key={vessel.id}
+                                    vessel={vessel}
+                                    showUrl={vesselShowUrl(vessel.id)}
+                                    can={can}
+                                    onEdit={can.update ? openEdit : undefined}
+                                    onDelete={
+                                        can.delete ? requestDelete : undefined
+                                    }
+                                />
+                            ))}
+                        </MobileRecordList>
+                    </div>
+
+                    <div className={DESKTOP_OPERATIONAL_TABLE_CLASS}>
+                        <OrganizationDataTable minWidth="min-w-[1100px]">
+                            <TableHeader>
+                                <DataTableHeaderRow>
+                                    <DataTableHead>Vessel</DataTableHead>
+                                    <DataTableHead>Type</DataTableHead>
+                                    <DataTableHead>
+                                        Identification
+                                    </DataTableHead>
+                                    <DataTableHead>Manning</DataTableHead>
+                                    <DataTableHead>Required Crew</DataTableHead>
+                                    <DataTableHead>Status</DataTableHead>
+                                    <DataTableHead className="text-right">
+                                        Actions
+                                    </DataTableHead>
+                                </DataTableHeaderRow>
+                            </TableHeader>
+                            <TableBody>
+                                {vessels.map((vessel) => (
+                                    <TableRow
+                                        key={vessel.id}
+                                        className={cn(
+                                            dataTableBodyRowClass(),
+                                            'cursor-pointer',
                                         )}
-                                        onEdit={
-                                            can.update
-                                                ? (event) => {
-                                                      event.stopPropagation();
-                                                      openEdit(vessel);
-                                                  }
-                                                : undefined
-                                        }
-                                        showEdit={can.update}
-                                        onDelete={
-                                            can.delete
-                                                ? (event) => {
-                                                      event.stopPropagation();
-                                                      requestDelete(vessel);
-                                                  }
-                                                : undefined
-                                        }
-                                        showDelete={can.delete}
-                                    />
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </OrganizationDataTable>
+                                        onClick={() => openShow(vessel.id)}
+                                    >
+                                        <TableCell
+                                            className={dataTableCellPrimaryClass()}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <VesselAvatar />
+                                                <div className="min-w-0">
+                                                    <div className="truncate font-semibold">
+                                                        {vessel.name}
+                                                    </div>
+                                                    {vessel.call_sign ? (
+                                                        <div className="text-xs text-muted-foreground/70">
+                                                            {vessel.call_sign}
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {(vessel.vessel_type?.name ??
+                                            vessel.vessel_type_name) ? (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="border-border/80 text-[10px] font-bold tracking-wider uppercase"
+                                                >
+                                                    {vessel.vessel_type?.name ??
+                                                        vessel.vessel_type_name}
+                                                </Badge>
+                                            ) : (
+                                                <span className="text-muted-foreground/50">
+                                                    —
+                                                </span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            <div className="space-y-1">
+                                                {vessel.imo_no ? (
+                                                    <div className="flex items-center gap-1.5 text-xs">
+                                                        <span className="inline-block w-10 shrink-0 text-[10px] font-bold tracking-wider text-muted-foreground/60 uppercase">
+                                                            IMO
+                                                        </span>
+                                                        <span className="font-medium tabular-nums">
+                                                            {vessel.imo_no}
+                                                        </span>
+                                                    </div>
+                                                ) : null}
+                                                {vessel.official_no ? (
+                                                    <div className="flex items-center gap-1.5 text-xs">
+                                                        <span className="inline-block w-10 shrink-0 text-[10px] font-bold tracking-wider text-muted-foreground/60 uppercase">
+                                                            Off.
+                                                        </span>
+                                                        <span className="font-medium tabular-nums">
+                                                            {vessel.official_no}
+                                                        </span>
+                                                    </div>
+                                                ) : null}
+                                                {!vessel.imo_no &&
+                                                !vessel.official_no ? (
+                                                    <span className="text-muted-foreground/50">
+                                                        —
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {vessel.ranks_configured === 0 ? (
+                                                <Badge className="border-amber-500/20 bg-amber-500/10 text-[10px] font-bold tracking-wider text-amber-700 uppercase dark:text-amber-400">
+                                                    Not set
+                                                </Badge>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                                    {vessel.ranks_configured}{' '}
+                                                    {vessel.ranks_configured ===
+                                                    1
+                                                        ? 'rank'
+                                                        : 'ranks'}
+                                                </span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {vessel.total_required > 0 ? (
+                                                <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-bold text-blue-700 tabular-nums dark:text-blue-400">
+                                                    <Users className="h-3.5 w-3.5" />
+                                                    {vessel.total_required}
+                                                </span>
+                                            ) : (
+                                                <span className="text-muted-foreground/50">
+                                                    —
+                                                </span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            <Badge
+                                                className={
+                                                    vessel.is_active
+                                                        ? 'border-emerald-500/20 bg-emerald-500/15 text-[10px] font-bold tracking-wider text-emerald-700 uppercase dark:text-emerald-400'
+                                                        : 'border border-border/80 bg-muted/60 text-[10px] font-bold tracking-wider text-muted-foreground uppercase'
+                                                }
+                                            >
+                                                {vessel.is_active
+                                                    ? 'Active'
+                                                    : 'Inactive'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableActionsCellClass()}
+                                        >
+                                            <ListTableCrudActions
+                                                viewHref={vesselShowUrl(
+                                                    vessel.id,
+                                                )}
+                                                onEdit={
+                                                    can.update
+                                                        ? (event) => {
+                                                              event.stopPropagation();
+                                                              openEdit(vessel);
+                                                          }
+                                                        : undefined
+                                                }
+                                                showEdit={can.update}
+                                                onDelete={
+                                                    can.delete
+                                                        ? (event) => {
+                                                              event.stopPropagation();
+                                                              requestDelete(
+                                                                  vessel,
+                                                              );
+                                                          }
+                                                        : undefined
+                                                }
+                                                showDelete={can.delete}
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </OrganizationDataTable>
+                    </div>
+                </>
             )}
 
             <Pagination {...list.paginationProps} label="vessels" />

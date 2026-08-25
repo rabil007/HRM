@@ -427,6 +427,16 @@ test('users without vessels view permission cannot access organization vessels',
         ->assertForbidden();
 });
 
+test('vessel manning viewers cannot open the vessels index', function () {
+    ['user' => $user, 'company' => $company] = makeOrganizationVesselFixtures();
+
+    grantCompanyPermissions($user, $company, ['crew_operations.vessel_manning.view']);
+
+    $this->actingAs($user)
+        ->get(route('organization.vessels.index'))
+        ->assertForbidden();
+});
+
 test('vessel show includes manning ranks and manning permissions', function () {
     ['user' => $user, 'company' => $company, 'vesselType' => $vesselType] = makeOrganizationVesselFixtures();
 

@@ -48,6 +48,7 @@ The backend authorizes **each category independently**. Phase 3A nav visibility 
 - Exact match, then prefix, then contains. `LIKE` metacharacters (`%`, `_`, `\`) are escaped.
 - Soft-deleted rows are excluded by Eloquent.
 - Debounce is 250ms in the command palette, with stale-response protection.
+- While record search is active (2+ characters), the palette turns off cmdk’s client filter so async record hits are not hidden. Destinations and favorites stay visible only when their labels match the query; records from the server are listed first.
 
 ## What is not returned
 
@@ -66,6 +67,6 @@ Result URLs are the same show routes the rest of the app uses; opening a hit sti
 
 Accessible [navigation favorites](./navigation-favorites.md) appear as a Favorites command group and are omitted from the normal command list so destinations are not duplicated. Record search is unchanged.
 
-When the query is empty, [recent items](./recent-items.md) appear as a Recent group (loaded once when the palette opens). Typing starts Phase 3B record search as before; recents are hidden so they do not clutter live results.
+When the query is empty, [recent items](./recent-items.md) appear as a Recent group (loaded once when the palette opens). At 2+ characters, matching recents stay visible above live record search.
 
 Saved views are not part of this surface. See [Saved views](./saved-views.md).

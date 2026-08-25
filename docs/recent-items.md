@@ -52,7 +52,7 @@ Recent Items are loaded once when the palette opens (`GET /recent-items`), not o
 |-------|---------|
 | Empty | Favorites, Recent, Commands |
 | 1 character | Favorites, Commands |
-| 2+ characters | Favorites, live record search, Commands |
+| 2+ characters | Matching favorites, matching recents, live record search, matching commands |
 
 An empty recent list does not render a Recent heading. Mobile uses the same command dialog.
 

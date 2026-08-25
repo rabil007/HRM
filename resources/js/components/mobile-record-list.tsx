@@ -8,7 +8,10 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { joinMobileRecordMeta } from '@/lib/mobile-operational-list';
+import {
+    isExternalMobileOverflowHref,
+    joinMobileRecordMeta,
+} from '@/lib/mobile-operational-list';
 import { cn } from '@/lib/utils';
 
 export type MobileRecordOverflowAction = {
@@ -90,13 +93,8 @@ export function MobileRecordActions({
                             );
 
                             if (action.href) {
-                                return (
-                                    <DropdownMenuItem
-                                        key={action.key}
-                                        asChild
-                                        disabled={action.disabled}
-                                        className={itemClass}
-                                    >
+                                const overflowLink =
+                                    isExternalMobileOverflowHref(action) ? (
                                         <a
                                             href={action.href}
                                             target={action.target}
@@ -104,6 +102,20 @@ export function MobileRecordActions({
                                         >
                                             {action.label}
                                         </a>
+                                    ) : (
+                                        <Link href={action.href}>
+                                            {action.label}
+                                        </Link>
+                                    );
+
+                                return (
+                                    <DropdownMenuItem
+                                        key={action.key}
+                                        asChild
+                                        disabled={action.disabled}
+                                        className={itemClass}
+                                    >
+                                        {overflowLink}
                                     </DropdownMenuItem>
                                 );
                             }

@@ -65,6 +65,82 @@ export function shouldRequestRecordSearch(query: string): boolean {
     );
 }
 
+export function shouldUseCmdkClientFilter(query: string): boolean {
+    return !shouldRequestRecordSearch(query);
+}
+
+export function textMatchesQuery(haystack: string, query: string): boolean {
+    const needle = query.trim().toLowerCase();
+
+    if (needle === '') {
+        return true;
+    }
+
+    return haystack.toLowerCase().includes(needle);
+}
+
+export function destinationMatchesQuery(
+    command: Pick<FlattenedNavCommand, 'title' | 'value'>,
+    query: string,
+): boolean {
+    return textMatchesQuery(`${command.title} ${command.value}`, query);
+}
+
+export function filterFavoritesForQuery<T extends { title: string }>(
+    items: readonly T[],
+    query: string,
+): T[] {
+    if (!shouldRequestRecordSearch(query)) {
+        return [...items];
+    }
+
+    return items.filter((item) => textMatchesQuery(item.title, query));
+}
+
+export function filterCommandGroupsForQuery<T extends SearchableNavGroup>(
+    groups: readonly T[],
+    query: string,
+): T[] {
+    if (!shouldRequestRecordSearch(query)) {
+        return [...groups];
+    }
+
+    return groups.flatMap((group) => {
+        const items = group.items.flatMap((item) => {
+            if (item.url) {
+                return destinationMatchesQuery(
+                    { title: item.title, value: item.title },
+                    query,
+                )
+                    ? [item]
+                    : [];
+            }
+
+            const nested = (item.items ?? []).filter((subItem) =>
+                destinationMatchesQuery(
+                    {
+                        title: `${item.title} / ${subItem.title}`,
+                        value: `${item.title}-${subItem.url}`,
+                    },
+                    query,
+                ),
+            );
+
+            if (nested.length === 0) {
+                return [];
+            }
+
+            return [{ ...item, items: nested }];
+        });
+
+        if (items.length === 0) {
+            return [];
+        }
+
+        return [{ ...group, items }];
+    });
+}
+
 export function isStaleSearchResponse(
     responseId: number,
     latestRequestId: number,
