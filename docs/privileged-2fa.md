@@ -17,7 +17,7 @@ There are two different 2FA ideas. Only the first is implemented as a privileged
 | **Enrolled / confirmed** | The user has configured and confirmed Fortify 2FA (`hasEnabledTwoFactorAuthentication()`). With current Fortify `confirm` enabled, that requires both `two_factor_secret` and `two_factor_confirmed_at`. | Privileged middleware and `PrivilegedTwoFactorPolicy` |
 | **Recently verified / step-up** | The user completed a second-factor challenge in this session or within a short window, per action. | **Not supported.** Do not invent client-side “recently verified” state. |
 
-Enrolled users are challenged at **login** (`two-factor.login`) and remain guests until the TOTP or recovery-code challenge succeeds. After that, the privileged gate checks that enrollment is **still** confirmed. Disabling 2FA immediately blocks privileged actions even if the browser still shows an old page.
+Enrolled users are challenged at **login** (`two-factor.login`) and remain guests until the TOTP or recovery-code challenge succeeds. That login challenge still requires `users.status = active`; a disabled account cannot complete it. See [Global user account status](./permissions.md#global-user-account-status). After a successful login, the privileged gate checks that enrollment is **still** confirmed. Disabling 2FA immediately blocks privileged actions even if the browser still shows an old page.
 
 A non-null `two_factor_secret` without confirmation is **not** enrolled.
 

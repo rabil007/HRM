@@ -102,7 +102,7 @@ sequenceDiagram
     Controller->>Controller: where company_id = current
 ```
 
-1. User logs in (Fortify).
+1. User logs in (Fortify; only `users.status = active`).
 2. `SetCurrentCompany` picks session company or falls back to `user.company_id`.
 3. Company-scoped controllers resolve the active tenant from the request attribute (commonly `(int) $request->attributes->get('current_company_id')`) rather than client input.
 4. User switches company via sidebar → `CompanySwitchController` → `session('current_company_id')`.
@@ -927,7 +927,7 @@ Creating login from employee requires `users.create`.
 1. **Create user** — assign a role from the **active** company team; optional employee link. `users.update` may assign any role defined for that company; `roles.update` edits the matrix.
 2. **Memberships** — add/update/remove `company_user` rows for the **active** company only. Client `company_id` is ignored. Dual-company users must switch before administering another tenant. Platform access is not membership.
 3. **Employee link** — `SyncUserEmployeeLink` sets `employees.user_id`; optional avatar copy.
-4. **Authentication** — Fortify + optional 2FA; `last_login_at` recorded on login.
+4. **Authentication** — Fortify requires `users.status = active` ([permissions.md](../permissions.md#global-user-account-status)); optional 2FA; `last_login_at` recorded on login. Company membership status remains a separate tenant-access concern.
 
 ---
 

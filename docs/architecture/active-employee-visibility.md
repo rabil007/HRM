@@ -2,6 +2,8 @@
 
 Operational and current-workforce workflows operate on **active** employees (`employees.status = 'active'`). Historical, audit, and legal records retain employees regardless of their current status.
 
+This is **employee** status, not login-account status. Whether a `User` may authenticate is `users.status`; see [Global user account status](../permissions.md#global-user-account-status).
+
 There is **no** global Eloquent scope on `Employee`. Inactive and terminated people are not hidden from the database or from history screens.
 
 Canonical filter: `Employee::active()` (`status = 'active'`), always combined with trusted `current_company_id`.

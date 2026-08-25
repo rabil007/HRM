@@ -21,7 +21,7 @@ Cmd/Ctrl+K [global search](./global-search.md) is one of those authenticated JSO
 
 [Saved views](./saved-views.md) are personal per-company named filter combinations on selected list pages. They do not grant access and never store arbitrary URLs.
 
-[Privileged two-factor](./privileged-2fa.md) is defense-in-depth on top of these permission checks. Fortify 2FA enrollment is required for a small catalog of high-trust capabilities (and all platform access) when `PRIVILEGED_2FA_ENFORCED` is on. It does not replace Spatie permissions or tenant isolation.
+[Privileged two-factor](./privileged-2fa.md) is defense-in-depth on top of these permission checks. Fortify 2FA enrollment is required for a small catalog of high-trust capabilities (and all platform access) when `PRIVILEGED_2FA_ENFORCED` is on. It does not replace Spatie permissions, tenant isolation, or the global [user account status](#global-user-account-status) check that must succeed before anyone is authenticated.
 
 [HTTP security headers](./security-headers.md) are a separate browser-response control (CSP, HSTS, framing). They do not grant or replace permissions.
 
@@ -176,6 +176,59 @@ Anyone with `users.update` in the active company may assign any role that exists
 The Users directory lists people whose **home** `users.company_id` is the active company. A person whose home company is A and who only has membership in B does not appear in B's directory, and B's user show/destroy URLs 404 while B is active. That is UX/data-model debt, not a cross-tenant leak. Membership store/update/destroy still manage B members while B is active.
 
 There is no last-Owner or self-membership-removal guard. Removing a membership detaches `company_user` and clears that team's role. The next request recovers through `SetCurrentCompany` (fallback to another accessible company, or no tenant). Product has not required a last-admin lock.
+
+## Global user account status
+
+`users.status` is a **global account-access** control on the User row. It is not a Spatie permission, is not company-team scoped, and is enforced only on the server.
+
+Only `users.status = active` may authenticate or remain authenticated. `inactive`, `suspended`, null, and any other value are denied (fail closed). Platform users are still `User` rows and must also be `active`.
+
+This is separate from:
+
+- **`company_user.status`** — tenant membership (which company the identity may enter after login). `SetCurrentCompany` still requires an active membership (or the legacy home-company path). Disabling a membership does not, by itself, change `users.status`.
+- **`employees.status`** — workforce visibility for operational lists. See [Active employee visibility](./architecture/active-employee-visibility.md).
+
+Frontend status chips are UX only.
+
+### Login
+
+Fortify login uses `Fortify::authenticateUsing()` → `App\Support\Auth\AuthenticateActiveUser`. Identity lookup matches the Fortify guard provider (`retrieveByCredentials` + `validateCredentials`). The attempt succeeds only when credentials are valid **and** `UserAccountStatus::allowsAuthentication()` is true.
+
+Otherwise Fortify returns its normal invalid-credentials response (`auth.failed`). The response does not say whether the account exists, is inactive, or is suspended.
+
+Login throttling, email verification, remember-me, and successful-login behavior for **active** users are unchanged.
+
+### Existing sessions
+
+`EnsureActiveUser` runs on the `web` middleware group (before `SetCurrentCompany`). Guests pass through.
+
+If the currently authenticated user is not active, the middleware logs them out, invalidates the session, regenerates the CSRF token, and redirects to login. They cannot continue using HRM on the next authenticated request.
+
+Login, password reset, Fortify 2FA challenge, signed document shares, public routes, and webhooks remain available to guests. An inactive cookie on those routes is cleared and does not block the public response.
+
+### Remember-me and session stores
+
+Any Eloquent update that changes `users.status` away from `active` runs `RevokeDisabledUserAccess` from `User::updated` (including `UserController::updateStatus` and user edit). That path:
+
+- rotates the remember token so a remembered browser cannot silently authenticate again
+- deletes `sessions` rows when `session.driver` is `database` and the table has `user_id`
+
+File, cookie, Redis, array, and similar stores are **not** bulk-deleted (Laravel does not index those stores by user; PHP session files are never guessed). `EnsureActiveUser` still rejects the account on the next authenticated web request.
+
+Reactivation does not restore old sessions or the previous remember token. The user may log in normally again.
+
+Mass updates that skip model events (`User::query()->update(...)`) do not run revocation. Request-time middleware still logs the user out on the next authenticated request.
+
+### Pending Fortify 2FA
+
+Enrolled users remain guests until the login challenge (`two-factor.login`) succeeds. If the account is disabled after the password step and before that challenge completes, pending `login.id` / `login.remember` are forgotten and the challenge cannot finish.
+
+Privileged-action 2FA (enrollment required for high-trust operations) is a separate gate. See [Privileged two-factor](./privileged-2fa.md).
+
+### Tests
+
+- `tests/Feature/Auth/ActiveUserAuthenticationTest.php`
+- `tests/Unit/Support/Auth/RevokeDisabledUserAccessTest.php`
 
 ## Attendance records
 
