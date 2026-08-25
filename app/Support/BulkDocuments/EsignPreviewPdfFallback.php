@@ -4,7 +4,8 @@ namespace App\Support\BulkDocuments;
 
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
-use Illuminate\Support\Facades\Storage;
+use App\Support\EmployeeFiles\EmployeePrivateFile;
+use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 
 final class EsignPreviewPdfFallback
 {
@@ -31,13 +32,17 @@ final class EsignPreviewPdfFallback
             return null;
         }
 
-        $diskPath = ltrim((string) $document->file_path, '/');
+        $resolved = EmployeePrivateFile::resolve(
+            (string) $document->file_path,
+            $companyId,
+            EmployeePrivateFileKind::Document,
+        );
 
-        if ($diskPath === '' || ! Storage::disk('public')->exists($diskPath)) {
+        if ($resolved === null) {
             return null;
         }
 
-        $contents = Storage::disk('public')->get($diskPath);
+        $contents = $resolved->get();
 
         return is_string($contents) && str_starts_with($contents, '%PDF') ? $contents : null;
     }

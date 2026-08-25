@@ -8,8 +8,9 @@ use App\Models\Company;
 use App\Models\EmailTemplate;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Support\EmployeeFiles\EmployeePrivateFile;
+use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -55,7 +56,15 @@ final class BulkDocumentEmailComposer
             ->orderByDesc('id')
             ->first();
 
-        if ($document === null || ! Storage::disk('public')->exists((string) $document->file_path)) {
+        $resolved = $document === null
+            ? null
+            : EmployeePrivateFile::resolve(
+                (string) $document->file_path,
+                $companyId,
+                EmployeePrivateFileKind::Document,
+            );
+
+        if ($document === null || $resolved === null) {
             BulkDocumentEmailSend::query()->create([
                 'batch_id' => $batchId,
                 'employee_id' => $employee->id,
@@ -91,7 +100,8 @@ final class BulkDocumentEmailComposer
                 subjectLine: $subject,
                 bodyMessage: $body,
                 organizationName: (string) $company->name,
-                attachmentPath: (string) $document->file_path,
+                attachmentDisk: $resolved->disk,
+                attachmentPath: $resolved->path,
                 attachmentName: $filename,
                 includeCompanyFooter: (bool) $template->include_company_footer,
                 ccRecipients: $cc,

@@ -4,6 +4,7 @@ namespace App\Support\EmployeeDocuments;
 
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\EmployeeDocumentVersion;
 
 class DocumentAccess
 {
@@ -27,5 +28,18 @@ class DocumentAccess
     public static function assertDocumentInCompany(EmployeeDocument $document, int $companyId): void
     {
         abort_unless($document->company_id === $companyId, 404);
+    }
+
+    public static function assertVersionBelongsToDocument(
+        EmployeeDocument $document,
+        EmployeeDocumentVersion $version,
+        int $companyId,
+    ): void {
+        abort_unless(
+            (int) $document->company_id === $companyId
+            && (int) $version->company_id === $companyId
+            && (int) $version->employee_document_id === $document->id,
+            404,
+        );
     }
 }

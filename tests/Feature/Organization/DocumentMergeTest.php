@@ -16,7 +16,7 @@ test('guests cannot merge employee pdfs', function () {
 
 test('users can merge selected employee pdfs into one download', function () {
     Carbon::setTestNow('2026-05-20 12:00:00');
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -47,7 +47,7 @@ test('users can merge selected employee pdfs into one download', function () {
 });
 
 test('merge preserves document ids order from request', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -75,7 +75,7 @@ test('merge preserves document ids order from request', function () {
 
 test('merge accepts custom download name', function () {
     Carbon::setTestNow('2026-05-20 12:00:00');
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -102,7 +102,7 @@ test('merge accepts custom download name', function () {
 });
 
 test('merge rejects invalid download name', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -125,7 +125,7 @@ test('merge rejects invalid download name', function () {
 });
 
 test('merge requires at least two document ids', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -144,7 +144,7 @@ test('merge requires at least two document ids', function () {
 });
 
 test('merge rejects non pdf selections', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -178,7 +178,7 @@ test('merge rejects non pdf selections', function () {
 });
 
 test('users cannot merge documents for employees in another company', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -200,7 +200,7 @@ test('users cannot merge documents for employees in another company', function (
 });
 
 test('users cannot merge documents belonging to another employee', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -229,7 +229,7 @@ test('users cannot merge documents belonging to another employee', function () {
 });
 
 test('merge returns validation error for unsupported pdf compression instead of server error', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
     Process::fake([
         '*' => Process::result(exitCode: 1),
     ]);
@@ -278,7 +278,7 @@ test('merge returns validation error for unsupported pdf compression instead of 
 });
 
 test('bulk zip download still works after merge endpoint is available', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);

@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->seed(PermissionsSeeder::class);
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
     Storage::fake('local');
 });
 

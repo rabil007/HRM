@@ -12,11 +12,10 @@ use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Storage;
 
 test('failed document upload validation is logged globally', function () {
     Event::fake([MessageLogged::class]);
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -40,7 +39,7 @@ test('failed document upload validation is logged globally', function () {
 
 test('successful document upload is not logged as a failure', function () {
     Event::fake([MessageLogged::class]);
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -63,7 +62,7 @@ test('successful document upload is not logged as a failure', function () {
 
 test('failed training certificate upload validation is logged with module context', function () {
     Event::fake([MessageLogged::class]);
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -138,7 +137,7 @@ test('failed training certificate upload validation is logged with module contex
 
 test('failed training bulk certificate upload validation is logged with module context', function () {
     Event::fake([MessageLogged::class]);
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -249,7 +248,7 @@ test('training certificate storage failures include employee context', function 
 
 test('successful training certificate upload does not log success messages', function () {
     Event::fake([MessageLogged::class]);
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -322,7 +321,7 @@ test('successful training certificate upload does not log success messages', fun
 
 test('successful training bulk certificate uploads do not log success messages', function () {
     Event::fake([MessageLogged::class]);
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);

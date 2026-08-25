@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\LogsActivityWithCompany;
+use App\Support\EmployeeFiles\EmployeePrivateFile;
 use Database\Factories\EmployeeTrainingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -121,11 +122,15 @@ class EmployeeTraining extends Model
             return null;
         }
 
-        if (str_starts_with($this->certificate_path, 'http')) {
+        if (EmployeePrivateFile::isRemoteUrl($this->certificate_path)) {
             return $this->certificate_path;
         }
 
-        return asset('storage/'.ltrim($this->certificate_path, '/'));
+        return route('organization.employees.training.certificate', [
+            'employee' => $this->employee_id,
+            'training' => $this,
+            'inline' => 1,
+        ]);
     }
 
     public function getCanPreviewAttribute(): bool

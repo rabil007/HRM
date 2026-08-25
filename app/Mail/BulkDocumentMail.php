@@ -21,6 +21,7 @@ class BulkDocumentMail extends Mailable implements ShouldQueue
         public string $subjectLine,
         public string $bodyMessage,
         public string $organizationName,
+        public string $attachmentDisk,
         public string $attachmentPath,
         public string $attachmentName,
         public bool $includeCompanyFooter = true,
@@ -54,7 +55,7 @@ class BulkDocumentMail extends Mailable implements ShouldQueue
     public function attachments(): array
     {
         return [
-            Attachment::fromStorageDisk('public', $this->attachmentPath)
+            Attachment::fromStorageDisk($this->attachmentDisk, $this->attachmentPath)
                 ->as($this->attachmentName)
                 ->withMime('application/pdf'),
         ];

@@ -17,7 +17,7 @@ test('guests cannot email employee documents', function () {
 
 test('users can email selected employee documents as attachments', function () {
     Mail::fake();
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -63,7 +63,7 @@ test('users can email selected employee documents as attachments', function () {
 
 test('duplicate cc matching recipient is not sent twice', function () {
     Mail::fake();
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -91,7 +91,7 @@ test('duplicate cc matching recipient is not sent twice', function () {
 });
 
 test('email requires at least one document id', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -110,7 +110,7 @@ test('email requires at least one document id', function () {
 
 test('email rejects oversized total attachments', function () {
     Mail::fake();
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
     config(['services.documents.email_max_attachment_bytes' => 1024]);
 
     $user = User::factory()->create();
@@ -140,7 +140,7 @@ test('email rejects oversized total attachments', function () {
 });
 
 test('email rejects invalid cc addresses', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -164,7 +164,7 @@ test('email rejects invalid cc addresses', function () {
 
 test('users cannot email documents for employees in another company', function () {
     Mail::fake();
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -191,7 +191,7 @@ test('users cannot email documents for employees in another company', function (
 
 test('users cannot email documents belonging to another employee', function () {
     Mail::fake();
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -224,7 +224,7 @@ test('users cannot email documents belonging to another employee', function () {
 });
 
 test('bulk zip download still works after email endpoint is available', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);

@@ -4,10 +4,11 @@ namespace App\Services;
 
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Support\EmployeeFiles\EmployeePrivateFile;
+use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use App\Support\Pdf\Ghostscript;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Process;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use setasign\Fpdi\Fpdi;
 use setasign\Fpdi\FpdiException;
@@ -242,7 +243,7 @@ class DocumentMergeService
         }
 
         $external = $documents->first(
-            fn (EmployeeDocument $document) => $this->isExternalUrl((string) $document->file_path),
+            fn (EmployeeDocument $document) => EmployeePrivateFile::isRemoteUrl((string) $document->file_path),
         );
 
         if ($external !== null) {
@@ -254,13 +255,17 @@ class DocumentMergeService
 
     private function resolveReadablePath(EmployeeDocument $document): ?string
     {
-        $diskPath = $this->validatedDiskPath((string) $document->file_path, (int) $document->company_id);
+        $resolved = EmployeePrivateFile::resolve(
+            (string) $document->file_path,
+            (int) $document->company_id,
+            EmployeePrivateFileKind::Document,
+        );
 
-        if ($diskPath === null || ! Storage::disk('public')->exists($diskPath)) {
+        if ($resolved === null) {
             return null;
         }
 
-        $absolutePath = Storage::disk('public')->path($diskPath);
+        $absolutePath = $resolved->absolutePath();
 
         return is_readable($absolutePath) ? $absolutePath : null;
     }
@@ -293,27 +298,5 @@ class DocumentMergeService
         $segment = trim($segment, '-');
 
         return $segment !== '' ? $segment : $fallback;
-    }
-
-    private function isExternalUrl(string $filePath): bool
-    {
-        return str_starts_with($filePath, 'http://') || str_starts_with($filePath, 'https://');
-    }
-
-    private function validatedDiskPath(string $filePath, int $companyId): ?string
-    {
-        $filePath = ltrim($filePath, '/');
-
-        if ($filePath === '' || str_contains($filePath, '..')) {
-            return null;
-        }
-
-        $expectedPrefix = "employee-documents/{$companyId}/";
-
-        if (! str_starts_with($filePath, $expectedPrefix)) {
-            return null;
-        }
-
-        return $filePath;
     }
 }

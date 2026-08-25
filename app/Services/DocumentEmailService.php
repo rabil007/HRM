@@ -7,9 +7,10 @@ use App\Models\Company;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Support\EmployeeFiles\EmployeePrivateFile;
+use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Activity;
 use Throwable;
@@ -100,21 +101,25 @@ class DocumentEmailService
         $usedNames = [];
 
         foreach ($documents as $document) {
-            if ($this->isExternalUrl((string) $document->file_path)) {
+            if (EmployeePrivateFile::isRemoteUrl((string) $document->file_path)) {
                 throw ValidationException::withMessages([
                     'document_ids' => 'One or more selected files cannot be attached.',
                 ]);
             }
 
-            $diskPath = $this->validatedDiskPath((string) $document->file_path, $companyId);
+            $resolved = EmployeePrivateFile::resolve(
+                (string) $document->file_path,
+                $companyId,
+                EmployeePrivateFileKind::Document,
+            );
 
-            if ($diskPath === null || ! Storage::disk('public')->exists($diskPath)) {
+            if ($resolved === null) {
                 throw ValidationException::withMessages([
                     'document_ids' => 'One or more selected files could not be found.',
                 ]);
             }
 
-            $absolutePath = Storage::disk('public')->path($diskPath);
+            $absolutePath = $resolved->absolutePath();
 
             if (! is_readable($absolutePath)) {
                 throw ValidationException::withMessages([
@@ -122,7 +127,7 @@ class DocumentEmailService
                 ]);
             }
 
-            $mimeType = (string) ($document->mime_type ?: Storage::disk('public')->mimeType($diskPath) ?: 'application/octet-stream');
+            $mimeType = (string) ($document->mime_type ?: $resolved->mimeType() ?: 'application/octet-stream');
 
             if (! $this->isAllowedMimeType($mimeType)) {
                 throw ValidationException::withMessages([
@@ -250,11 +255,6 @@ class DocumentEmailService
             ->log('Employee documents sent via email');
     }
 
-    private function isExternalUrl(string $filePath): bool
-    {
-        return str_starts_with($filePath, 'http://') || str_starts_with($filePath, 'https://');
-    }
-
     /**
      * @param  list<string>  $ccRecipients
      * @return list<string>
@@ -269,22 +269,5 @@ class DocumentEmailService
             ->unique(fn (string $email) => strtolower($email))
             ->values()
             ->all();
-    }
-
-    private function validatedDiskPath(string $filePath, int $companyId): ?string
-    {
-        $filePath = ltrim($filePath, '/');
-
-        if ($filePath === '' || str_contains($filePath, '..')) {
-            return null;
-        }
-
-        $expectedPrefix = "employee-documents/{$companyId}/";
-
-        if (! str_starts_with($filePath, $expectedPrefix)) {
-            return null;
-        }
-
-        return $filePath;
     }
 }

@@ -74,18 +74,36 @@ Templates are managed at `/organization/templates/employee-profile`. The create 
 - `App\Support\EmployeeDocuments\DocumentExpiry` resolves display status: valid, expiring windows, expired, or no expiry
 - Persisted `status` on the model is derived when saving
 
+## Private file storage
+
+Employee documents, document versions, training certificates, and certificate versions are stored on Laravel's private `local` disk (`storage/app/private`). They are not written with `storePublicly()` and Inertia props do not expose `/storage/...` URLs.
+
+Downloads and previews go through authenticated application routes (`organization.documents.files.*` and `organization.employees.training.certificate*`). Those routes check the active `company_id` and the matching document or training permission. Legacy files that still exist on the public disk remain readable **only** through those same controllers until they are migrated.
+
+Move existing public files without a database migration:
+
+```bash
+php artisan employee-files:migrate-to-private --dry-run
+php artisan employee-files:migrate-to-private
+```
+
+The command copies each company-prefixed path to private storage, verifies the destination, then deletes the public copy. It is idempotent and does not print filenames.
+
 ## Backend services
 
 | Class | Role |
 |-------|------|
 | `DocumentBrowseQuery` | Folders, compliance list, search results, summaries |
-| `StoresEmployeeDocument` | Create/update storage |
+| `StoresEmployeeDocument` | Create/replace on the private disk |
+| `EmployeePrivateFile` | Private-disk store/resolve with public fallback |
 | `DocumentPagePermissions` | Maps `documents.*` to Inertia `can` props |
 
 ## Tests
 
 - `tests/Feature/Organization/DocumentBrowseTest.php`
 - `tests/Feature/Organization/EmployeeDocumentsTest.php`
+- `tests/Feature/Organization/EmployeePrivateFileStorageTest.php`
+- `tests/Feature/Organization/MigrateEmployeeFilesToPrivateCommandTest.php`
 - `tests/Feature/Organization/DocumentShareTest.php`
 
 See [Document search](./document-search.md) and [Document sharing](./document-sharing.md) for specialized flows.

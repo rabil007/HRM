@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Support\EmployeeDocuments\DocumentShareLinkService;
 use App\Support\EmployeeDocuments\DocumentShareService;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -19,7 +18,7 @@ test('guests cannot request document share links', function () {
 });
 
 test('users without documents share permission cannot request share links', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -37,7 +36,7 @@ test('users without documents share permission cannot request share links', func
 });
 
 test('users can request one persisted share link for selected documents', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -80,7 +79,7 @@ test('users can request one persisted share link for selected documents', functi
 });
 
 test('users cannot request share links for employees in another company', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -105,7 +104,7 @@ test('users cannot request share links for employees in another company', functi
 });
 
 test('users cannot request share links for documents belonging to another employee', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -131,7 +130,7 @@ test('users cannot request share links for documents belonging to another employ
 });
 
 test('legacy signed share url downloads the document file', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
@@ -148,7 +147,7 @@ test('legacy signed share url downloads the document file', function () {
 });
 
 test('invalid signed share url is forbidden', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
@@ -166,7 +165,7 @@ test('invalid signed share url is forbidden', function () {
 });
 
 test('expired signed share url is forbidden', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
@@ -183,7 +182,7 @@ test('expired signed share url is forbidden', function () {
 });
 
 test('share links request rejects documents with missing files', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -211,7 +210,7 @@ test('share links request rejects documents with missing files', function () {
 });
 
 test('users can request share links with password and custom expiration', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -243,7 +242,7 @@ test('users can request share links with password and custom expiration', functi
 });
 
 test('password protected legacy share link requires password input', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
@@ -274,7 +273,7 @@ test('password protected legacy share link requires password input', function ()
 });
 
 test('users can create folder share links with upload permission', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -305,7 +304,7 @@ test('users can create folder share links with upload permission', function () {
 });
 
 test('guest can view shared files portal and download when allowed', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
@@ -336,7 +335,7 @@ test('guest can view shared files portal and download when allowed', function ()
 });
 
 test('guest cannot download from share when download is disabled', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
@@ -357,7 +356,7 @@ test('guest cannot download from share when download is disabled', function () {
 });
 
 test('guest can upload into folder share when allowed', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
@@ -393,7 +392,7 @@ test('guest can upload into folder share when allowed', function () {
 });
 
 test('guest can upload without optional document metadata', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
 
@@ -422,7 +421,7 @@ test('guest can upload without optional document metadata', function () {
 });
 
 test('guest cannot download a document outside the share selection', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
@@ -439,7 +438,7 @@ test('guest cannot download a document outside the share selection', function ()
 });
 
 test('password protected portal requires unlock before listing files', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 

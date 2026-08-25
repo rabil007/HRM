@@ -88,6 +88,7 @@ use App\Http\Controllers\Organization\DocumentBulkPdfMergeController;
 use App\Http\Controllers\Organization\DocumentBulkShareLinksController;
 use App\Http\Controllers\Organization\DocumentBulkWhatsAppController;
 use App\Http\Controllers\Organization\DocumentFileDownloadController;
+use App\Http\Controllers\Organization\DocumentFilePreviewController;
 use App\Http\Controllers\Organization\DocumentFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentFolderShareLinksController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
@@ -102,6 +103,7 @@ use App\Http\Controllers\Organization\EmployeeDocumentController;
 use App\Http\Controllers\Organization\EmployeeDocumentDownloadController;
 use App\Http\Controllers\Organization\EmployeeDocumentsBrowseController;
 use App\Http\Controllers\Organization\EmployeeDocumentShowController;
+use App\Http\Controllers\Organization\EmployeeDocumentVersionFileController;
 use App\Http\Controllers\Organization\EmployeeEducationQualificationController;
 use App\Http\Controllers\Organization\EmployeeExportController;
 use App\Http\Controllers\Organization\EmployeeImportController;
@@ -112,6 +114,7 @@ use App\Http\Controllers\Organization\EmployeeSalaryCertificatePrintController;
 use App\Http\Controllers\Organization\EmployeeSalaryDeclarationPrintController;
 use App\Http\Controllers\Organization\EmployeeSeaServiceController;
 use App\Http\Controllers\Organization\EmployeeSeaServicesBrowseController;
+use App\Http\Controllers\Organization\EmployeeTrainingCertificateFileController;
 use App\Http\Controllers\Organization\EmployeeTrainingController;
 use App\Http\Controllers\Organization\EmployeeTrainingsBrowseController;
 use App\Http\Controllers\Organization\EmployeeTrainingShowController;
@@ -614,6 +617,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('organization/documents/employees/{employee}/files/{document}', EmployeeDocumentShowController::class)->name('organization.documents.employee.files.show');
         Route::post('organization/documents/employees/{employee}/files/email', DocumentBulkEmailController::class)->name('organization.documents.employee.files.email');
         Route::get('organization/employees/{employee}/documents/{document}/versions', [EmployeeDocumentController::class, 'versions'])->name('organization.employees.documents.versions');
+        Route::get('organization/documents/files/{document}/preview', DocumentFilePreviewController::class)->name('organization.documents.files.preview');
+        Route::get('organization/documents/files/{document}/versions/{version}/preview', [EmployeeDocumentVersionFileController::class, 'preview'])->name('organization.documents.files.versions.preview');
     });
     Route::middleware('can:bulk_documents.view')->group(function () {
         Route::get('organization/documents/bulk', BulkDocumentsController::class)
@@ -676,6 +681,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('organization/documents/folders/bulk-download', DocumentBulkFolderDownloadController::class)->name('organization.documents.folders.bulk-download');
         Route::post('organization/documents/files/bulk-download', DocumentBulkFilesDownloadController::class)->name('organization.documents.files.bulk-download');
         Route::get('organization/documents/files/{document}/download', DocumentFileDownloadController::class)->name('organization.documents.files.download');
+        Route::get('organization/documents/files/{document}/versions/{version}/download', [EmployeeDocumentVersionFileController::class, 'download'])->name('organization.documents.files.versions.download');
         Route::post('organization/documents/employees/{employee}/files/merge-pdf', DocumentBulkPdfMergeController::class)->name('organization.documents.employee.files.merge-pdf');
         Route::get('organization/employees/{employee}/documents/download', EmployeeDocumentDownloadController::class)->name('organization.employees.documents.download');
     });
@@ -796,6 +802,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('organization/employees/{employee}/languages/{language}', [EmployeeLanguageController::class, 'destroy'])->middleware('can:languages.delete')->name('organization.employees.languages.destroy');
 
     Route::get('organization/employees/{employee}/training/{training}', EmployeeTrainingShowController::class)->middleware('can:employees.view')->name('organization.employees.training.show');
+    Route::get('organization/employees/{employee}/training/{training}/certificate', [EmployeeTrainingCertificateFileController::class, 'show'])->name('organization.employees.training.certificate');
+    Route::get('organization/employees/{employee}/training/{training}/certificate/versions/{version}', [EmployeeTrainingCertificateFileController::class, 'version'])->name('organization.employees.training.certificate.version');
     Route::get('organization/employees/{employee}/training/import/template', [EmployeeTrainingController::class, 'importTemplate'])->middleware('can:training.import')->name('organization.employees.training.import.template');
     Route::post('organization/employees/{employee}/training/import', [EmployeeTrainingController::class, 'import'])->middleware('can:training.import')->name('organization.employees.training.import');
     Route::post('organization/employees/{employee}/training/bulk', [EmployeeTrainingController::class, 'bulkStore'])->middleware('can:training.create')->name('organization.employees.training.bulk-store');

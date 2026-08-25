@@ -127,7 +127,7 @@ test('platform viewer receives fallback preview pdf when browsershot fails', fun
         $company->id,
         $employee->id,
         $documentType->id,
-        'documents/salary-declaration-preview-fallback.pdf',
+        "employee-documents/{$company->id}/{$employee->id}/salary-declaration-preview-fallback.pdf",
         'salary-declaration.pdf',
     );
 

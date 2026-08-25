@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('users with permission can upload a document', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -38,10 +38,16 @@ test('users with permission can upload a document', function () {
         'document_number' => 'P9876543',
         'status' => 'valid',
     ]);
+
+    $document = EmployeeDocument::query()->where('employee_id', $employee->id)->first();
+    expect($document)->not->toBeNull();
+    Storage::disk('local')->assertExists($document->file_path);
+    Storage::disk('public')->assertMissing($document->file_path);
+    expect($document->file_url)->not->toContain('/storage/');
 });
 
 test('upload rejects inactive or unknown document types and unsupported files', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -62,7 +68,7 @@ test('upload rejects inactive or unknown document types and unsupported files', 
 });
 
 test('users with permission can bulk upload documents', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -96,7 +102,7 @@ test('users with permission can bulk upload documents', function () {
 });
 
 test('bulk upload persists distinct metadata per document index', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -157,7 +163,7 @@ test('users without permission cannot upload a document', function () {
 });
 
 test('document status is derived correctly from expiry date', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -212,7 +218,7 @@ test('users with permission can edit document metadata', function () {
 });
 
 test('users with permission can delete a document', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -238,7 +244,7 @@ test('users with permission can delete a document', function () {
 });
 
 test('users with permission can replace a document file and keep version history', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -272,10 +278,12 @@ test('users with permission can replace a document file and keep version history
         'version' => 1,
         'file_path' => 'employee-documents/test/old.pdf',
     ]);
+    Storage::disk('local')->assertExists($doc->file_path);
+    Storage::disk('public')->assertMissing($doc->file_path);
 });
 
 test('users with permission can replace a document file and update document number, issue date and expiry date', function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 
     $user = User::factory()->create();
     $this->actingAs($user);

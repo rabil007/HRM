@@ -30,7 +30,6 @@ use App\Support\Employees\Resources\EmployeeDocumentResource;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Spatie\Permission\Models\Role as SpatieRole;
 
@@ -553,9 +552,7 @@ final class EmployeeProfilePageData
                 'institute_center' => $row->institute_center,
                 'country_id' => $row->country_id,
                 'country_name' => $row->country?->name,
-                'certificate_url' => $row->certificate_path
-                    ? Storage::disk('public')->url($row->certificate_path)
-                    : null,
+                'certificate_url' => $row->certificate_url,
                 'created_at' => $row->created_at?->toDateTimeString(),
             ])
             ->all();

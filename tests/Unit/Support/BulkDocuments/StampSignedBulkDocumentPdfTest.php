@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
-    Storage::fake('public');
+    fakeEmployeeFileDisks();
 });
 
 function createStampTestDocument(Company $company, Employee $employee): EmployeeDocument
