@@ -4,6 +4,7 @@ namespace App\Http\Requests\Organization\User;
 
 use App\Concerns\PasswordValidationRules;
 use App\Models\User;
+use App\Rules\UniqueUserEmail;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -28,7 +29,7 @@ class UpdateUserRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
+            'email' => ['required', 'email', 'max:255', new UniqueUserEmail($userId)],
             'password' => $this->optionalPasswordRules(),
             'avatar' => ['nullable', 'file', 'image', 'max:2048'],
             'use_employee_avatar' => ['sometimes', 'boolean'],

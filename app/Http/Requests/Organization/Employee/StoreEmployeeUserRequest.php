@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization\Employee;
 
 use App\Concerns\PasswordValidationRules;
+use App\Rules\UniqueUserEmail;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,13 +30,7 @@ class StoreEmployeeUserRequest extends FormRequest
                 'integer',
                 Rule::exists('spatie_roles', 'id')->where(fn ($q) => $q->where('company_id', $companyId)),
             ],
-            'email' => [
-                'required',
-                'email',
-                'max:255',
-                Rule::unique('users', 'email')
-                    ->where(fn ($q) => $q->where('company_id', $companyId)->whereNull('deleted_at')),
-            ],
+            'email' => ['required', 'email', 'max:255', new UniqueUserEmail],
             'name' => ['required', 'string', 'max:255'],
             'password' => $this->passwordRules(),
         ];

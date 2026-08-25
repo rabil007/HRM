@@ -161,7 +161,9 @@ Credential permissions and platform access never imply that decrypted secrets ma
 
 ## Users and memberships
 
-User rows are **global identities**. Company access is the `company_user` membership (plus the legacy `users.company_id` home-company rule). `users.*` is a Spatie **team** permission for the active company.
+User rows are **global identities**. The login identifier is `users.email` (Fortify username, lowercased when `fortify.lowercase_usernames` is true). Company access is the `company_user` membership (plus the legacy `users.company_id` home-company rule), not a second User row with the same email. `users.*` is a Spatie **team** permission for the active company.
+
+Duplicate non-deleted User rows that share one email are **invalid**. Login and password reset fail closed until operators resolve them. See [Global user email identity](#global-user-email-identity).
 
 Membership store/update/destroy are **active-company** operations, matching the Companies registry:
 
@@ -192,11 +194,15 @@ Frontend status chips are UX only.
 
 ### Login
 
-Fortify login uses `Fortify::authenticateUsing()` → `App\Support\Auth\AuthenticateActiveUser`. Identity lookup matches the Fortify guard provider (`retrieveByCredentials` + `validateCredentials`). The attempt succeeds only when credentials are valid **and** `UserAccountStatus::allowsAuthentication()` is true.
+Fortify login uses `Fortify::authenticateUsing()` → `App\Support\Auth\AuthenticateActiveUser`. Identity lookup uses the unique-email users provider (`App\Support\Auth\UniqueEmailUserProvider` → `UserEmailIdentity::findUnique`) then `validateCredentials`. The attempt succeeds only when **exactly one** non-deleted User matches the normalized email, credentials are valid, **and** `UserAccountStatus::allowsAuthentication()` is true.
 
-Otherwise Fortify returns its normal invalid-credentials response (`auth.failed`). The response does not say whether the account exists, is inactive, or is suspended.
+Zero matches, more than one match, a disabled account, or a bad password all return Fortify's normal invalid-credentials response (`auth.failed`). The response does not say whether the account exists, is inactive, is suspended, or is an ambiguous duplicate identity.
 
-Login throttling, email verification, remember-me, and successful-login behavior for **active** users are unchanged.
+Login throttling, email verification, remember-me, 2FA, password rehashing, and successful-login behavior for **unique active** users are unchanged.
+
+### Password reset
+
+Forgot-password and reset-token completion use the same users provider, so they follow the same unambiguous-email rule. A unique User still receives a reset link (throttled as usual). Duplicate non-deleted rows sharing one email do not send or apply a reset to an arbitrary account; the response matches the normal unknown-user reset failure (`passwords.user`) and does not describe account topology.
 
 ### Existing sessions
 
@@ -228,7 +234,54 @@ Privileged-action 2FA (enrollment required for high-trust operations) is a separ
 ### Tests
 
 - `tests/Feature/Auth/ActiveUserAuthenticationTest.php`
+- `tests/Feature/Auth/UniqueUserEmailIdentityTest.php`
+- `tests/Feature/Auth/UniqueUserEmailPasswordResetTest.php`
+- `tests/Feature/Organization/UniqueUserEmailWritesTest.php`
+- `tests/Feature/Auth/AuditDuplicateUserEmailsCommandTest.php`
 - `tests/Unit/Support/Auth/RevokeDisabledUserAccessTest.php`
+- `tests/Unit/Support/Auth/UserEmailIdentityTest.php`
+
+## Global user email identity
+
+`User` is a **global login identity**. Email is the intended global login identifier. Access to a company is membership (`company_user`), not another User row with the same email.
+
+The historical unique index is `uq_user_email_company` on `(company_id, email)`. That allowed the same email on two User rows in different companies. Fortify authenticates through the `users` provider by email, so those rows made login and password reset order-dependent.
+
+### Going forward
+
+- Create and update reject an email already owned by another **non-deleted** User, globally. Uniqueness is not scoped to `current_company_id`.
+- Company ownership still comes from trusted `current_company_id`. Client `company_id` is not used to choose a tenant.
+- If an existing person needs another company, use the [membership workflow](#users-and-memberships). Do not create a second User with the same email.
+- Email writes follow Fortify `lowercase_usernames` (stored lowercase). Lookup compares `LOWER(email)` so mixed-case legacy rows are the same identity.
+
+### Soft-deleted Users
+
+Authentication and password reset consider only non-deleted rows. A soft-deleted User cannot log in and cannot hijack a remaining live identity that shares the email.
+
+Application unique validation matches the previous organization-user convention (`whereNull('deleted_at')`): a soft-deleted email may be reused by a new live User in **another** home company. The existing `(company_id, email)` unique index still occupies that pair even after soft-delete, so recreating the same email in the **same** home company can still fail at the database.
+
+### Existing duplicates
+
+This change does **not** add a global unique index, merge accounts, delete rows, or move memberships/roles/employee links. Production may already contain duplicates; a unique migration would fail deploy.
+
+Identify them with the read-only command:
+
+```bash
+php artisan users:audit-duplicate-emails
+php artisan users:audit-duplicate-emails --show-emails
+```
+
+The command prints User IDs, home company IDs, membership counts/status, employee-link counts, and role-assignment counts. Emails are masked unless `--show-emails` is passed. It returns `0` when clean and non-zero when duplicate identities exist. It never modifies data.
+
+Operators should review each group, choose one User as the login identity, grant other companies through memberships, then (in a later change) add a global unique index on normalized non-deleted email.
+
+### Tests
+
+- `tests/Feature/Auth/UniqueUserEmailIdentityTest.php`
+- `tests/Feature/Auth/UniqueUserEmailPasswordResetTest.php`
+- `tests/Feature/Organization/UniqueUserEmailWritesTest.php`
+- `tests/Feature/Auth/AuditDuplicateUserEmailsCommandTest.php`
+- `tests/Unit/Support/Auth/UserEmailIdentityTest.php`
 
 ## Attendance records
 
