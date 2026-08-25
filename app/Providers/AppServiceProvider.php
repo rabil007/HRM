@@ -9,6 +9,7 @@ use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
 use App\Support\BulkDocuments\ConfiguresBrowsershotEnvironment;
 use App\Support\Queue\JobRunRecorder;
+use App\Support\Security\ProductionSecurityDefaults;
 use App\Support\Settings\SettingKey;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -62,6 +63,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         ConfiguresBrowsershotEnvironment::apply();
+        app(ProductionSecurityDefaults::class)->apply();
         $this->configureDefaults();
         $this->configureApplicationSettings();
         $this->configureMailViews();
