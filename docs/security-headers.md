@@ -34,13 +34,49 @@ The repository does **not** ship nginx, Docker, or CDN config. Operators may als
 
 Herd local HTTPS with `APP_ENV=local` does **not** emit HSTS. That is intended.
 
+## Production checks that GitHub cannot prove
+
+These must be verified on the live host (SSH). The repository can only encode defaults and safety nets:
+
+```bash
+php artisan config:show app.env
+php artisan config:show app.debug
+php artisan config:show app.url
+php artisan config:show session.secure
+php artisan config:show session.http_only
+php artisan config:show session.same_site
+php artisan config:show session.lifetime
+php artisan config:show session.driver
+# After config:cache, inspect the cached values rather than .env by eye.
+
+# HTTPS + HSTS + Secure cookie (replace with the public origin)
+curl -sI https://YOUR-PRODUCTION-HOST/login | grep -Ei 'strict-transport-security|set-cookie|x-frame-options|content-security-policy|x-content-type-options|referrer-policy'
+
+# Confirm APP_DEBUG is not leaking stack traces
+curl -sI https://YOUR-PRODUCTION-HOST/this-route-should-404 | grep -i 'text/html'
+```
+
+Also confirm on the server `.env` (never commit it):
+
+- `APP_ENV=production`
+- `APP_DEBUG=false`
+- `APP_URL=https://…` matching the browser origin and Host header
+- `SESSION_SECURE_COOKIE=true`
+- `LOG_LEVEL=info` (or `warning`)
+- `TRUSTED_PROXIES=` explicit proxy addresses if TLS terminates in nginx/Hostinger in front of PHP
+- `PRIVILEGED_2FA_ENFORCED=true` after operators enroll
+
+Do **not** set `TRUSTED_PROXIES=*`. Laravel Host header allowlisting (`trustHosts`) is **not** enabled here: a mismatch between `APP_URL` and the live Host (www vs apex, temporary health-check hosts) would 400 the site. Enforce the public hostname at the proxy instead.
+
 ## Production environment
 
 | Variable | Production recommendation |
 |----------|---------------------------|
 | `APP_ENV` | `production` |
-| `APP_URL` | `https://…` |
-| `SESSION_SECURE_COOKIE` | `true` |
+| `APP_DEBUG` | `false`. Boot also forces debug off when `APP_ENV=production`, even if `.env` still has `true`. |
+| `LOG_LEVEL` | `info` (or `warning`). Repository default is `debug` for local `.env.example` only. |
+| `APP_URL` | `https://…` matching the public Host header |
+| `SESSION_SECURE_COOKIE` | `true`. Boot also forces this when the env key is unset and `APP_ENV=production`. |
 | `SESSION_HTTP_ONLY` | default `true` (do not disable) |
 | `SESSION_SAME_SITE` | default `lax` (required for email GET links to shares/e-sign) |
 | `SESSION_DOMAIN` | leave unset unless you have a deliberate cookie-domain design |
@@ -138,7 +174,7 @@ Laravel `config/session.php`:
 |---------|---------|--------------------------------------|
 | `http_only` | `true` | XSS must not read the session cookie |
 | `same_site` | `lax` | Email GET links to shares and e-sign must still send the cookie on top-level navigations |
-| `secure` | `env('SESSION_SECURE_COOKIE')` | Set `true` in production HTTPS |
+| `secure` | `env('SESSION_SECURE_COOKIE')` | Set `true` in production HTTPS. When unset, production boot forces `true`. |
 | `domain` | `env('SESSION_DOMAIN')` | Leave null unless you have a cookie-domain plan |
 
 Overly strict `SameSite=None`/`Strict` was not applied.
@@ -191,4 +227,5 @@ Additionally, named routes `log`, `log.*`, `jobs.*`, and `mysql.*` receive `no-s
 
 - `tests/Feature/SecurityHeadersTest.php`
 - `tests/Unit/Support/ContentSecurityPolicyTest.php`
+- `tests/Unit/Support/Security/ProductionSecurityDefaultsTest.php`
 - Assertions on document share, e-sign, announcements, and `/sw.js`

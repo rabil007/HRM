@@ -5,9 +5,6 @@ namespace App\Support\Auth;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 
 /**
  * Central revocation when `users.status` leaves `active`.
@@ -29,38 +26,8 @@ final class RevokeDisabledUserAccess
             return;
         }
 
-        $this->cycleRememberToken($user);
-        $this->invalidateDatabaseSessions($user);
+        app(InvalidateUserSessions::class)->handle($user);
         $this->invalidateCurrentSessionIfTarget($user);
-    }
-
-    private function cycleRememberToken(User $user): void
-    {
-        $user->setRememberToken(Str::random(60));
-        $user->saveQuietly();
-    }
-
-    private function invalidateDatabaseSessions(User $user): void
-    {
-        if (config('session.driver') !== 'database') {
-            return;
-        }
-
-        $table = (string) config('session.table', 'sessions');
-        $connection = config('session.connection');
-
-        if (! Schema::connection($connection)->hasTable($table)) {
-            return;
-        }
-
-        if (! Schema::connection($connection)->hasColumn($table, 'user_id')) {
-            return;
-        }
-
-        DB::connection($connection)
-            ->table($table)
-            ->where('user_id', $user->id)
-            ->delete();
     }
 
     private function invalidateCurrentSessionIfTarget(User $user): void

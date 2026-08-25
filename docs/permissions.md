@@ -225,6 +225,19 @@ Reactivation does not restore old sessions or the previous remember token. The u
 
 Mass updates that skip model events (`User::query()->update(...)`) do not run revocation. Request-time middleware still logs the user out on the next authenticated request.
 
+### Password change and reset
+
+A password change is treated as a security-sensitive account change, same family as disabling the user: leftover sessions must not keep working.
+
+Eloquent `User` updates that change `password` run `InvalidateUserSessions` (Security settings, Fortify reset, and admin user edit when a new password is submitted):
+
+- rotate the remember token
+- delete other `sessions` rows when `session.driver` is `database` (the acting user's **current** session is kept when they change their own password; reset and admin changes drop every session for that user)
+
+Laravel `AuthenticateSession` (`auth.session` on the `web` group) is the request-time net for leftover sessions on any driver: the stored password hash must match. After a password change, another browser is logged out on its next request even if that store was not bulk-deleted.
+
+Fortify already regenerates the session after password login and after the 2FA challenge (session fixation). Logout invalidates the current session and regenerates the CSRF token. Changing a password does **not** disable Fortify 2FA enrollment.
+
 ### Pending Fortify 2FA
 
 Enrolled users remain guests until the login challenge (`two-factor.login`) succeeds. If the account is disabled after the password step and before that challenge completes, pending `login.id` / `login.remember` are forgotten and the challenge cannot finish.
@@ -239,6 +252,8 @@ Privileged-action 2FA (enrollment required for high-trust operations) is a separ
 - `tests/Feature/Organization/UniqueUserEmailWritesTest.php`
 - `tests/Feature/Auth/AuditDuplicateUserEmailsCommandTest.php`
 - `tests/Unit/Support/Auth/RevokeDisabledUserAccessTest.php`
+- `tests/Unit/Support/Auth/InvalidateUserSessionsTest.php`
+- `tests/Feature/Auth/PasswordSessionInvalidationTest.php`
 - `tests/Unit/Support/Auth/UserEmailIdentityTest.php`
 
 ## Global user email identity

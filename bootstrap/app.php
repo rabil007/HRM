@@ -43,6 +43,8 @@ return Application::configure(basePath: dirname(__DIR__))
             ApplyRememberedSessionLifetimeEarly::class,
         ]);
 
+        $middleware->authenticateSessions();
+
         $trustedProxies = env('TRUSTED_PROXIES');
 
         if (is_string($trustedProxies) && $trustedProxies !== '' && $trustedProxies !== '*') {

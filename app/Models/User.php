@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\PlatformAccess;
 use App\Models\Concerns\LogsActivityWithCompany;
+use App\Support\Auth\InvalidateUserSessions;
 use App\Support\Auth\RevokeDisabledUserAccess;
 use App\Support\Auth\UserEmailIdentity;
 use Database\Factories\UserFactory;
@@ -37,11 +38,13 @@ class User extends Authenticatable
     protected static function booted(): void
     {
         static::updated(function (User $user): void {
-            if (! $user->wasChanged('status')) {
-                return;
+            if ($user->wasChanged('status')) {
+                app(RevokeDisabledUserAccess::class)->handle($user);
             }
 
-            app(RevokeDisabledUserAccess::class)->handle($user);
+            if ($user->wasChanged('password')) {
+                app(InvalidateUserSessions::class)->handleForPasswordChange($user);
+            }
         });
     }
 

@@ -167,6 +167,9 @@ return [
     | to the server if the browser has a HTTPS connection. This will keep
     | the cookie from being sent to you when it can't be done securely.
     |
+    | Unset SESSION_SECURE_COOKIE: ProductionSecurityDefaults forces true
+    | when APP_ENV=production. Set false only for a deliberate HTTP setup.
+    |
     */
 
     'secure' => env('SESSION_SECURE_COOKIE'),
