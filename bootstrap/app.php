@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\ApplyRememberedSessionLifetimeEarly;
+use App\Http\Middleware\EnsureActiveUser;
 use App\Http\Middleware\EnsurePlatformAccess;
 use App\Http\Middleware\EnsurePrivilegedTwoFactor;
 use App\Http\Middleware\ExtendRememberedSessionLifetime;
@@ -56,6 +57,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->web(append: [
+            EnsureActiveUser::class,
             ExtendRememberedSessionLifetime::class,
             HandleAppearance::class,
             SetCurrentCompany::class,
