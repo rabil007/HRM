@@ -378,7 +378,9 @@ jobs:
           set -euo pipefail
           mapfile -t TEST_FILES < <(php .github/scripts/ci.php pest-shard --shard="$SHARD" --total="${PEST_SHARD_TOTAL}")
           echo "Running ${#TEST_FILES[@]} test files on shard ${SHARD}/${PEST_SHARD_TOTAL}."
-          php artisan test --compact --ansi -- "${TEST_FILES[@]}"
+          # Do not pass "--" before the file list: artisan test injects
+          # --cache-directory after arguments, and Pest would treat it as a test file.
+          php artisan test --compact --ansi "${TEST_FILES[@]}"
 
       - name: Record Pest shard completion
         run: |

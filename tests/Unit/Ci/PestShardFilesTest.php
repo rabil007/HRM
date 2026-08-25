@@ -46,7 +46,9 @@ test('workflow pest matrix matches the shard constant', function () {
     expect(OMS_CI_PEST_SHARD_COUNT)->toBe(3)
         ->and($workflow)->toContain('PEST_SHARD_TOTAL: '.OMS_CI_PEST_SHARD_COUNT)
         ->and($workflow)->toContain('shard: [1, 2, 3]')
-        ->and($workflow)->toContain('--total="${PEST_SHARD_TOTAL}"');
+        ->and($workflow)->toContain('--total="${PEST_SHARD_TOTAL}"')
+        ->and($workflow)->toContain('php artisan test --compact --ansi "${TEST_FILES[@]}"')
+        ->and($workflow)->not->toContain('php artisan test --compact --ansi -- "${TEST_FILES[@]}"');
 });
 
 test('deploy downloads the Vite artifact from the triggering CI run and SHA', function () {
