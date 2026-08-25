@@ -74,7 +74,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 | [Saved views](./saved-views.md) | HR, developers | Personal named list-filter combinations on Employees, Documents, Crew, Leave, and Payroll |
 | [Privileged two-factor](./privileged-2fa.md) | Admins, developers | Fortify 2FA enrollment required for high-trust actions; does not replace permissions |
 | [HTTP security headers](./security-headers.md) | Admins, developers | CSP, HSTS, framing, Referrer-Policy, session cookie production settings |
-| [CI quality gates](./ci.md) | Developers | Change classifier, docs-only fast path, parallel Backend / Frontend, `Quality gates` aggregator |
+| [CI quality gates](./ci.md) | Developers | Change classifier, parallel Pint / frontend static / Vite build, sharded Pest, `Quality gates` aggregator |
 | [Mobile operational lists](./mobile-operational-lists.md) | Developers | Compact phone cards for selected operational indexes; desktop tables stay standard |
 | [Document sharing](./document-sharing.md) | HR, developers | Share links, WhatsApp, bulk actions |
 | [Permissions](./permissions.md) | Admins, developers | Spatie permissions, documents, imports, global user account status, global user email identity |

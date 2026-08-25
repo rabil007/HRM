@@ -2,65 +2,8 @@
 
 use App\Enums\PlatformAccess;
 use App\Models\Company;
-use App\Models\Country;
-use App\Models\Currency;
 use App\Models\User;
-use Illuminate\Support\Str;
 use Spatie\Permission\PermissionRegistrar;
-
-/**
- * @return array{user: User, companyA: Company, companyB: Company}
- */
-function makeCompanyAuthorizationPair(): array
-{
-    $suffix = Str::lower(Str::random(6));
-
-    $country = Country::query()->create([
-        'code' => strtoupper(substr($suffix, 0, 3)),
-        'name' => 'Auth Land '.$suffix,
-        'dial_code' => '+971',
-        'is_active' => true,
-    ]);
-
-    $currency = Currency::query()->create([
-        'code' => strtoupper(substr($suffix, 3, 3)),
-        'name' => 'Auth Currency '.$suffix,
-        'symbol' => 'A$',
-        'is_active' => true,
-    ]);
-
-    $companyA = Company::query()->create([
-        'name' => 'Alpha Registry '.$suffix,
-        'slug' => 'alpha-registry-'.$suffix,
-        'industry' => 'Shipping',
-        'tax_id' => 'TAX-A-'.$suffix,
-        'wps_employer_iban' => 'AE070331234567890123456',
-        'working_days' => [1, 2, 3, 4, 5],
-        'country_id' => $country->id,
-        'currency_id' => $currency->id,
-        'timezone' => 'Asia/Dubai',
-        'payroll_cycle' => 'monthly',
-        'status' => 'active',
-    ]);
-
-    $companyB = Company::query()->create([
-        'name' => 'Beta Registry '.$suffix,
-        'slug' => 'beta-registry-'.$suffix,
-        'industry' => 'Logistics',
-        'tax_id' => 'TAX-B-'.$suffix,
-        'wps_employer_iban' => 'AE070339999999999999999',
-        'working_days' => [1, 2, 3, 4, 5],
-        'country_id' => $country->id,
-        'currency_id' => $currency->id,
-        'timezone' => 'Asia/Dubai',
-        'payroll_cycle' => 'monthly',
-        'status' => 'active',
-    ]);
-
-    $user = User::factory()->create(['company_id' => null]);
-
-    return compact('user', 'companyA', 'companyB');
-}
 
 test('companies index lists only the active company', function () {
     ['user' => $user, 'companyA' => $companyA, 'companyB' => $companyB] = makeCompanyAuthorizationPair();

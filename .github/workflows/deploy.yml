@@ -14,6 +14,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   deploy:
@@ -70,10 +71,38 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Build Frontend
+      - name: Download CI-validated Vite build
+        id: vite-artifact
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: vite-build-${{ github.event.workflow_run.head_sha }}-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify or rebuild frontend
+        env:
+          VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
+          set -euo pipefail
+
+          if [[ ! "$VALIDATED_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "ERROR: Invalid validated SHA format: $VALIDATED_SHA"
+            exit 1
+          fi
+
+          if [[ -f ci-vite-build-meta && -f public/build/manifest.json ]] \
+            && grep -qx "sha=${VALIDATED_SHA}" ci-vite-build-meta \
+            && grep -qx "run_id=${{ github.event.workflow_run.id }}" ci-vite-build-meta; then
+            echo "Reusing CI-validated Vite build for ${VALIDATED_SHA}."
+            exit 0
+          fi
+
+          echo "CI Vite artifact missing or SHA mismatch; rebuilding for ${VALIDATED_SHA}."
+          rm -rf public/build ci-vite-build-meta
           npm ci
           npm run build
+          test -f public/build/manifest.json
 
       - name: Test SSH connectivity
         run: |

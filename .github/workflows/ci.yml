@@ -21,14 +21,22 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  PHP_VERSION: '8.4'
+  NODE_VERSION: '22'
+  PEST_SHARD_TOTAL: 3
+  VITE_BUILD_ARTIFACT: vite-build-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+
 jobs:
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      backend: ${{ steps.classify.outputs.backend }}
-      frontend: ${{ steps.classify.outputs.frontend }}
+      pint: ${{ steps.classify.outputs.pint }}
+      frontend_static: ${{ steps.classify.outputs.frontend_static }}
+      frontend_build: ${{ steps.classify.outputs.frontend_build }}
+      pest: ${{ steps.classify.outputs.pest }}
       docs_only: ${{ steps.classify.outputs.docs_only }}
       scope: ${{ steps.classify.outputs.scope }}
     steps:
@@ -36,6 +44,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
 
       - name: Classify CI scope
         id: classify
@@ -48,112 +62,25 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Safe docs/tooling locations only. Root Markdown is allowed;
-          # Markdown under any other directory is NOT automatically docs.
-          is_docs() {
-            local path="$1"
-
-            case "$path" in
-              docs/*|\
-              .cursor/*|\
-              .agents/*|\
-              .gemini/*|\
-              .cursorignore|\
-              .cursorindexingignore|\
-              boost.json)
-                return 0
-                ;;
-            esac
-
-            # Root-level Markdown only (no directory separator).
-            if [[ "$path" == *.md && "$path" != */* ]]; then
-              return 0
-            fi
-
-            return 1
-          }
-
-          # Union of every path we intentionally classify (docs + application + shared).
-          # Any changed path outside this set is unknown and forces full CI.
-          is_recognized() {
-            local path="$1"
-
-            if is_docs "$path"; then
-              return 0
-            fi
-
-            # Recognized app paths: backend, frontend, and shared/config/deps.
-            # (Do not put comments inside the continued case-pattern list.)
-            case "$path" in
-              app/*|\
-              bootstrap/*|\
-              database/*|\
-              routes/*|\
-              tests/*|\
-              artisan|\
-              phpunit.xml|\
-              pint.json|\
-              *.php|\
-              resources/js/*|\
-              resources/css/*|\
-              vite.config.*|\
-              tsconfig.json|\
-              eslint.config.*|\
-              .prettierrc|\
-              .prettierrc.*|\
-              .prettierignore|\
-              .npmrc|\
-              components.json|\
-              *.js|\
-              *.jsx|\
-              *.mjs|\
-              *.cjs|\
-              *.ts|\
-              *.tsx|\
-              *.css|\
-              *.scss|\
-              composer.json|\
-              composer.lock|\
-              package.json|\
-              package-lock.json|\
-              config/*|\
-              .env.example|\
-              .github/*|\
-              public/*|\
-              resources/views/*|\
-              resources/cv-templates/*|\
-              .editorconfig|\
-              .gitattributes|\
-              .gitignore)
-                return 0
-                ;;
-              *)
-                return 1
-                ;;
-            esac
-          }
-
           collect_changed_files() {
             local from_ref="$1"
             local to_ref="$2"
 
             # Disable rename detection so a rename is delete+add and both
             # paths are classified (e.g. app/Foo.php -> docs/Foo.md).
-            # No --diff-filter: include adds, deletes, and modifications.
             git -c diff.renames=false diff --name-only "$from_ref" "$to_ref" | sed '/^$/d'
           }
 
-          run_backend=true
-          run_frontend=true
-          docs_only=false
-          scope=full
+          detection_failed=false
           changed_files=()
 
           if [[ "$EVENT_NAME" == 'pull_request' ]]; then
             if [[ -z "${PR_BASE_SHA:-}" || -z "${PR_HEAD_SHA:-}" || "$PR_BASE_SHA" =~ ^0+$ || "$PR_HEAD_SHA" =~ ^0+$ ]]; then
               echo "Missing PR base/head SHA; fail-safe full CI."
+              detection_failed=true
             elif ! merge_base="$(git merge-base "$PR_BASE_SHA" "$PR_HEAD_SHA" 2>/dev/null)"; then
               echo "Unable to determine merge-base of ${PR_BASE_SHA} and ${PR_HEAD_SHA}; fail-safe full CI."
+              detection_failed=true
             else
               echo "PR classify: base=${PR_BASE_SHA} head=${PR_HEAD_SHA} merge-base=${merge_base}"
               mapfile -t changed_files < <(collect_changed_files "$merge_base" "$PR_HEAD_SHA")
@@ -161,68 +88,35 @@ jobs:
           else
             if [[ -z "${PUSH_BEFORE:-}" || "$PUSH_BEFORE" =~ ^0+$ ]]; then
               echo "Missing or zero push before SHA; fail-safe full CI."
+              detection_failed=true
             else
               echo "Push classify: before=${PUSH_BEFORE} sha=${PUSH_SHA}"
               mapfile -t changed_files < <(collect_changed_files "$PUSH_BEFORE" "$PUSH_SHA")
             fi
           fi
 
-          if [[ ${#changed_files[@]} -eq 0 ]]; then
-            echo "No changed files detected or prior fail-safe; running full parallel CI."
-          else
-            echo "Changed files (${#changed_files[@]}):"
-            printf '  - %s\n' "${changed_files[@]}"
-
-            unrecognized=()
-            non_docs=()
-
-            for path in "${changed_files[@]}"; do
-              if ! is_recognized "$path"; then
-                unrecognized+=("$path")
-                non_docs+=("$path")
-                continue
-              fi
-
-              if ! is_docs "$path"; then
-                non_docs+=("$path")
-              fi
-            done
-
-            if [[ ${#unrecognized[@]} -gt 0 ]]; then
-              echo "Unrecognized files (force full CI):"
-              printf '  - %s\n' "${unrecognized[@]}"
-            fi
-
-            if [[ ${#non_docs[@]} -eq 0 && ${#unrecognized[@]} -eq 0 ]]; then
-              run_backend=false
-              run_frontend=false
-              docs_only=true
-              scope=docs-only
-              echo "All changed files are classified docs paths."
-            else
-              echo "Non-docs and/or unrecognized changes present; running full parallel CI."
-              if [[ ${#non_docs[@]} -gt 0 ]]; then
-                echo "Non-docs files:"
-                printf '  - %s\n' "${non_docs[@]}"
-              fi
-            fi
+          if [[ "$detection_failed" == 'true' ]]; then
+            php .github/scripts/ci.php classify --fail-safe
+            exit 0
           fi
 
-          {
-            echo "backend=${run_backend}"
-            echo "frontend=${run_frontend}"
-            echo "docs_only=${docs_only}"
-            echo "scope=${scope}"
-          } >> "$GITHUB_OUTPUT"
+          if [[ ${#changed_files[@]} -eq 0 ]]; then
+            echo "No changed files detected; fail-safe full CI."
+            php .github/scripts/ci.php classify --fail-safe
+            exit 0
+          fi
 
-          echo "CI scope=${scope} run_backend=${run_backend} run_frontend=${run_frontend} docs_only=${docs_only}"
+          echo "Changed files (${#changed_files[@]}):"
+          printf '  - %s\n' "${changed_files[@]}"
 
-  backend:
-    name: Backend
+          printf '%s\n' "${changed_files[@]}" | php .github/scripts/ci.php classify --paths-file=-
+
+  pint:
+    name: PHP Style (Pint)
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: needs.changes.outputs.pint == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -230,23 +124,10 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: ${{ env.PHP_VERSION }}
           tools: composer:v2
           coverage: none
           ini-values: memory_limit=1G
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Log runtime versions
-        run: |
-          node --version
-          npm --version
-          php --version
 
       - name: Get Composer cache directory
         id: composer-cache
@@ -256,49 +137,22 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-8.4-${{ hashFiles('composer.lock') }}
+          key: composer-${{ runner.os }}-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
           restore-keys: |
-            composer-${{ runner.os }}-8.4-
-
-      - name: Cache Puppeteer browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/puppeteer
-          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            puppeteer-${{ runner.os }}-
+            composer-${{ runner.os }}-${{ env.PHP_VERSION }}-
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
-      - name: Install Node dependencies
-        run: npm ci
-
-      - name: Prepare Laravel environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate --no-interaction
-
-      - name: Generate Wayfinder types
-        run: php artisan wayfinder:generate --with-form --no-interaction
-
-      # public/build is gitignored; Inertia HTML responses need the Vite
-      # manifest, matching the pre-split CI order (build before Pest).
-      - name: Production build
-        run: npm run build
-
       - name: Pint
         run: composer lint:check
 
-      - name: Pest
-        run: php artisan test --compact --ansi
-
-  frontend:
-    name: Frontend
+  frontend_static:
+    name: Frontend Static
     needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    if: needs.changes.outputs.frontend_static == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -306,7 +160,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: ${{ env.PHP_VERSION }}
           tools: composer:v2
           coverage: none
           ini-values: memory_limit=1G
@@ -314,15 +168,9 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: package-lock.json
-
-      - name: Log runtime versions
-        run: |
-          node --version
-          npm --version
-          php --version
 
       - name: Get Composer cache directory
         id: composer-cache
@@ -332,9 +180,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-8.4-${{ hashFiles('composer.lock') }}
+          key: composer-${{ runner.os }}-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
           restore-keys: |
-            composer-${{ runner.os }}-8.4-
+            composer-${{ runner.os }}-${{ env.PHP_VERSION }}-
 
       - name: Cache Puppeteer browsers
         uses: actions/cache@v4
@@ -370,62 +218,259 @@ jobs:
       - name: Frontend tests
         run: npm run test:frontend
 
+  frontend_build:
+    name: Frontend Build
+    needs: changes
+    if: needs.changes.outputs.frontend_build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer:v2
+          coverage: none
+          ini-values: memory_limit=1G
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-${{ env.PHP_VERSION }}-
+
+      - name: Cache Puppeteer browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            puppeteer-${{ runner.os }}-
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Prepare Laravel environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Generate Wayfinder types
+        run: php artisan wayfinder:generate --with-form --no-interaction
+
       - name: Production build
         run: npm run build
+
+      - name: Record Vite build metadata
+        run: |
+          set -euo pipefail
+          test -f public/build/manifest.json
+          {
+            echo "sha=${{ github.sha }}"
+            echo "run_id=${{ github.run_id }}"
+            echo "run_attempt=${{ github.run_attempt }}"
+          } > ci-vite-build-meta
+
+      - name: Upload Vite build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.VITE_BUILD_ARTIFACT }}
+          path: |
+            public/build
+            ci-vite-build-meta
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 7
+
+      - name: Upload Vite build marker
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.VITE_BUILD_ARTIFACT }}-meta
+          path: ci-vite-build-meta
+          if-no-files-found: error
+          retention-days: 7
+
+  pest:
+    name: Pest ${{ matrix.shard }}/3
+    needs:
+      - changes
+      - frontend_build
+    if: needs.changes.outputs.pest == 'true' && needs.frontend_build.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer:v2
+          coverage: none
+          ini-values: memory_limit=1G
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-${{ env.PHP_VERSION }}-
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Prepare Laravel environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Download Vite build
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.VITE_BUILD_ARTIFACT }}
+
+      - name: Verify Vite manifest
+        run: |
+          set -euo pipefail
+          test -f public/build/manifest.json
+          grep -qx "sha=${{ github.sha }}" ci-vite-build-meta
+          grep -qx "run_id=${{ github.run_id }}" ci-vite-build-meta
+          grep -qx "run_attempt=${{ github.run_attempt }}" ci-vite-build-meta
+
+      - name: Pest shard ${{ matrix.shard }}/3
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          mapfile -t TEST_FILES < <(php .github/scripts/ci.php pest-shard --shard="$SHARD" --total="${PEST_SHARD_TOTAL}")
+          echo "Running ${#TEST_FILES[@]} test files on shard ${SHARD}/${PEST_SHARD_TOTAL}."
+          # Do not pass "--" before the file list: artisan test injects
+          # --cache-directory after arguments, and Pest would treat it as a test file.
+          php artisan test --compact --ansi "${TEST_FILES[@]}"
+
+      - name: Record Pest shard completion
+        run: |
+          set -euo pipefail
+          {
+            echo "shard=${{ matrix.shard }}"
+            echo "sha=${{ github.sha }}"
+            echo "run_id=${{ github.run_id }}"
+          } > "pest-shard-${{ matrix.shard }}.ok"
+
+      - name: Upload Pest shard marker
+        uses: actions/upload-artifact@v4
+        with:
+          name: pest-shard-${{ matrix.shard }}
+          path: pest-shard-${{ matrix.shard }}.ok
+          if-no-files-found: error
+          retention-days: 1
 
   quality:
     name: Quality gates
     needs:
       - changes
-      - backend
-      - frontend
+      - pint
+      - frontend_static
+      - frontend_build
+      - pest
     if: always() && !cancelled()
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - name: Download Pest shard markers
+        if: needs.changes.outputs.pest == 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pest-shard-*
+          merge-multiple: true
+          path: pest-shards
+
+      - name: Download Vite build marker
+        if: needs.changes.outputs.frontend_build == 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.VITE_BUILD_ARTIFACT }}-meta
+          path: vite-build-marker
+
       - name: Evaluate CI result
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          PINT_RESULT: ${{ needs.pint.result }}
+          FRONTEND_STATIC_RESULT: ${{ needs.frontend_static.result }}
+          FRONTEND_BUILD_RESULT: ${{ needs.frontend_build.result }}
+          PEST_RESULT: ${{ needs.pest.result }}
+          RUN_PINT: ${{ needs.changes.outputs.pint }}
+          RUN_FRONTEND_STATIC: ${{ needs.changes.outputs.frontend_static }}
+          RUN_FRONTEND_BUILD: ${{ needs.changes.outputs.frontend_build }}
+          RUN_PEST: ${{ needs.changes.outputs.pest }}
+          DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
+          SCOPE: ${{ needs.changes.outputs.scope }}
+          EXPECTED_PEST_SHARDS: ${{ env.PEST_SHARD_TOTAL }}
         run: |
-          changes_result='${{ needs.changes.result }}'
-          backend_result='${{ needs.backend.result }}'
-          frontend_result='${{ needs.frontend.result }}'
-          run_backend='${{ needs.changes.outputs.backend }}'
-          run_frontend='${{ needs.changes.outputs.frontend }}'
-          docs_only='${{ needs.changes.outputs.docs_only }}'
-          scope='${{ needs.changes.outputs.scope }}'
+          set -euo pipefail
 
-          echo "scope=${scope}"
-          echo "docs_only=${docs_only}"
-          echo "run_backend=${run_backend} backend_result=${backend_result}"
-          echo "run_frontend=${run_frontend} frontend_result=${frontend_result}"
-          echo "changes_result=${changes_result}"
-
-          if [[ "$changes_result" != 'success' ]]; then
-            echo '::error::Change detection failed; refusing to pass the CI gate.'
-            exit 1
+          if [[ "${RUN_PEST}" == 'true' && "${PEST_RESULT}" == 'success' ]]; then
+            found=""
+            for shard in $(seq 1 "${EXPECTED_PEST_SHARDS}"); do
+              marker="pest-shards/pest-shard-${shard}.ok"
+              if [[ -f "$marker" ]] && grep -qx "sha=${{ github.sha }}" "$marker"; then
+                found="${found:+$found,}${shard}"
+              fi
+            done
+            export FOUND_PEST_SHARDS="${found}"
           fi
 
-          if [[ "$run_backend" == 'true' ]]; then
-            if [[ "$backend_result" != 'success' ]]; then
-              echo "::error::Backend checks did not succeed (result=${backend_result})."
-              exit 1
+          if [[ "${RUN_FRONTEND_BUILD}" == 'true' && "${FRONTEND_BUILD_RESULT}" == 'success' ]]; then
+            if [[ -f vite-build-marker/ci-vite-build-meta ]] && grep -qx "sha=${{ github.sha }}" vite-build-marker/ci-vite-build-meta; then
+              export VITE_BUILD_PRESENT=true
+            else
+              export VITE_BUILD_PRESENT=false
             fi
-          elif [[ "$backend_result" != 'skipped' ]]; then
-            echo "::error::Backend job was expected to be skipped (result=${backend_result})."
-            exit 1
           fi
 
-          if [[ "$run_frontend" == 'true' ]]; then
-            if [[ "$frontend_result" != 'success' ]]; then
-              echo "::error::Frontend checks did not succeed (result=${frontend_result})."
-              exit 1
-            fi
-          elif [[ "$frontend_result" != 'skipped' ]]; then
-            echo "::error::Frontend job was expected to be skipped (result=${frontend_result})."
-            exit 1
-          fi
-
-          if [[ "$docs_only" == 'true' ]]; then
-            echo 'Docs-only changes detected; application install/test jobs were skipped.'
-          fi
-
-          echo "CI gate passed (scope=${scope})."
+          php .github/scripts/ci.php quality-gates
