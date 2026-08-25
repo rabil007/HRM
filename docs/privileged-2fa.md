@@ -32,7 +32,7 @@ Do not duplicate this array in React, navigation, or extra controller checks. Ro
 | Class | Permissions | Why |
 |-------|-------------|-----|
 | Roles / RBAC | `roles.create`, `roles.update`, `roles.delete` | Permission administration |
-| Users / membership | `users.create`, `users.update`, `users.delete` | Role assignment Policy A: `users.update` may assign any active-company role, including Owner. Create can assign a role at insert time. |
+| Users / membership | `users.create`, `users.update`, `users.delete` | Role assignment Policy A: `users.update` may assign any active-company role, including Owner. Create can assign a role at insert time (`organization.users.store` and employee-linked `organization.employees.user.store`). |
 | Settings credentials | `settings.application.update`, `settings.integrations.whatsapp.update`, `settings.integrations.hikvision.update`, `hikvision.webhook.manage` | SMTP, WhatsApp, Hikvision, and webhook secret mutation. `settings.application.update` is catalogued because it also unlocks SMTP and e-sign placement; branding/general routes are **not** wrapped. |
 | Payroll high-trust | `payroll.periods.approve`, `payroll.periods.mark_paid`, `payroll.wps.export` | Approval, mark paid, and WPS execution/export (WPS also marks records submitted) |
 | Crew high-trust | `crew_operations.assignments.void`, `crew_operations.corrections.override` | Void assignments. Override is enforced when it is **used** (self-approval of a correction), not on ordinary `corrections.approve`. |
@@ -130,12 +130,25 @@ This is a **server** env/config flag, not a client-controlled setting.
 
 **Production recommendation: ON**, after operators enroll.
 
+Identify who still needs enrollment with the read-only command (no writes, never prints `two_factor_secret` or recovery codes):
+
+```bash
+php artisan security:audit-privileged-2fa
+```
+
+Exit `0` means every **active** privileged or platform user has confirmed Fortify 2FA. Exit non-zero lists remaining user id/email. Inactive/disabled accounts are omitted because they cannot authenticate ([user account status](./permissions.md#global-user-account-status)).
+
 Safe sequence for existing installations:
 
 1. Leave `PRIVILEGED_2FA_ENFORCED` unset/false
-2. Operators log in and enroll 2FA on Security settings
-3. Set `PRIVILEGED_2FA_ENFORCED=true` and reload config
-4. Confirm privileged actions still work for enrolled operators
+2. Run `php artisan security:audit-privileged-2fa` and have listed operators enroll 2FA on Security settings
+3. Re-run the audit until it exits `0`
+4. Set `PRIVILEGED_2FA_ENFORCED=true` in `.env`
+5. Reload config: `php artisan config:cache` (or `php artisan config:clear` if you do not cache config)
+6. Confirm: `php artisan config:show security.privileged_two_factor.enforced` is `true`
+7. Confirm privileged actions still work for enrolled operators
+
+Rollback if needed: set `PRIVILEGED_2FA_ENFORCED=false` in `.env`, then the same config reload command, and confirm `config:show` is `false`. Permission checks stay in place.
 
 Pest defaults to enforcement **off** so existing Fortify/auth tests stay independent. Feature tests turn the flag on explicitly.
 
@@ -163,8 +176,12 @@ Unchanged Fortify behavior. Recovery-code login completes the same challenge as 
 
 Blocked privileged attempts log a notice: user id and route name only. Secrets and recovery codes are never logged. Fortify enable/disable is not duplicated here.
 
+Rollout readiness: `php artisan security:audit-privileged-2fa` (read-only). See [Rollout / configuration](#rollout--configuration).
+
 ## Tests
 
 - Catalog unit tests: `tests/Unit/Support/PrivilegedTwoFactorPolicyTest.php`
 - Enforcement: `tests/Feature/PrivilegedTwoFactorTest.php`
+- Route coverage for catalogued mutation permissions: `tests/Feature/PrivilegedTwoFactorRouteCoverageTest.php`
+- Rollout audit command: `tests/Feature/Auth/AuditPrivilegedTwoFactorCommandTest.php`
 - Fortify recovery login: `tests/Feature/Auth/TwoFactorChallengeTest.php`
