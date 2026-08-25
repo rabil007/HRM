@@ -520,36 +520,86 @@ test('successful response contains no employee records or sensitive fields', fun
         ->and($payload)->not->toHaveKey('company_id');
 });
 
-test('fenced OpenRouter JSON still resolves employee smart search filters', function () {
+test('raw and fenced OpenRouter JSON still resolve employee smart search filters', function (string $content) {
     enableEmployeeSmartSearch(null, [
         'provider' => AiSettingsService::PROVIDER_OPENROUTER,
         'openrouter_api_key' => 'sk-or-test-key',
     ]);
     $fixtures = makeEmployeeSmartSearchFixtures();
 
-    Http::fake([
-        'openrouter.ai/*' => Http::response([
-            'id' => 'gen-test',
-            'model' => 'anthropic/claude-sonnet-4.6',
-            'choices' => [[
-                'index' => 0,
-                'message' => [
-                    'role' => 'assistant',
-                    'content' => "```json\n".json_encode(fakeSmartSearchIntent([
-                        'status' => 'active',
-                    ]))."\n```",
-                ],
-                'finish_reason' => 'stop',
-            ]],
-            'usage' => [
-                'prompt_tokens' => 10,
-                'completion_tokens' => 10,
-            ],
-        ], 200),
-    ]);
+    fakeOpenRouterSmartSearchContent($content);
+    Http::preventStrayRequests();
 
     interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'active crew')
         ->assertOk()
         ->assertJsonPath('filters.status', 'active')
         ->assertJsonPath('labels.status', 'Active');
+})->with([
+    'raw json' => [json_encode(fakeSmartSearchIntent(['status' => 'active']))],
+    'fenced json' => ["```json\n".json_encode(fakeSmartSearchIntent(['status' => 'active']))."\n```"],
+]);
+
+test('malformed AI structured output fails closed', function (string $content) {
+    enableEmployeeSmartSearch(null, [
+        'provider' => AiSettingsService::PROVIDER_OPENROUTER,
+        'openrouter_api_key' => 'sk-or-test-key',
+    ]);
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    fakeOpenRouterSmartSearchContent($content);
+    Http::preventStrayRequests();
+
+    $response = interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'active crew')
+        ->assertStatus(503)
+        ->assertJsonPath('message', 'Employee smart search is temporarily unavailable.')
+        ->assertJsonMissingPath('employees')
+        ->assertJsonMissingPath('filters');
+
+    $payload = json_encode($response->json());
+
+    expect($payload)->not->toContain('sk-or-test-key')
+        ->not->toContain('secret-should-not-leak');
+})->with([
+    'empty content' => [''],
+    'invalid json' => ['not json secret-should-not-leak'],
+    'json array' => ['[]'],
+    'missing schema' => [json_encode(['hello' => 'world', 'secret' => 'secret-should-not-leak'])],
+    'missing unsupported terms' => [json_encode(['status' => 'active'])],
+    'wrong field types' => [json_encode([
+        'status' => ['active'],
+        'unsupported_terms' => [],
+        'secret' => 'secret-should-not-leak',
+    ])],
+]);
+
+test('unexpected extra AI fields cannot become employee filters', function () {
+    enableEmployeeSmartSearch(null, [
+        'provider' => AiSettingsService::PROVIDER_OPENROUTER,
+        'openrouter_api_key' => 'sk-or-test-key',
+    ]);
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    fakeOpenRouterSmartSearchContent(json_encode([
+        'status' => 'active',
+        'company_id' => $fixtures['otherCompany']->id,
+        'department_id' => $fixtures['otherDepartment']->id,
+        'position_id' => $fixtures['otherPosition']->id,
+        'filters' => ['status' => 'terminated'],
+        'sql' => 'select * from employees',
+        'unsupported_terms' => [],
+    ]));
+    Http::preventStrayRequests();
+
+    $response = interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'active crew')
+        ->assertOk()
+        ->assertJsonPath('filters.status', 'active')
+        ->assertJsonMissingPath('filters.department_id')
+        ->assertJsonMissingPath('filters.position_id');
+
+    $payload = json_encode($response->json());
+
+    expect($payload)->not->toContain('select * from employees')
+        ->not->toContain('sk-or-test-key')
+        ->and($response->json())->not->toHaveKey('company_id')
+        ->and($response->json('filters.status'))->not->toBe('terminated');
 });

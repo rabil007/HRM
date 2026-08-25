@@ -6,6 +6,7 @@ use App\Exceptions\EmployeeSmartSearchUnavailableException;
 use App\Services\Settings\AiSettingsService;
 use App\Support\Ai\StructuredAgentOutput;
 use App\Support\Employees\EmployeeCrewStatusFilter;
+use App\Support\Employees\EmployeeSmartSearchIntent;
 use App\Support\Employees\EmployeeSmartSearchResolver;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Log;
@@ -50,7 +51,9 @@ final class EmployeeSmartSearchInterpreter implements Agent, HasStructuredOutput
             throw EmployeeSmartSearchUnavailableException::providerFailed();
         }
 
-        return StructuredAgentOutput::fromResponse($response);
+        return EmployeeSmartSearchIntent::fromDecoded(
+            StructuredAgentOutput::fromResponse($response),
+        );
     }
 
     public function instructions(): Stringable|string

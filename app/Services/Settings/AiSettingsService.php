@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Support\Settings\AiRuntimeConfig;
 use App\Support\Settings\SettingKey;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Laravel\Ai\AiManager;
 use Spatie\Activitylog\Models\Activity;
 use Throwable;
@@ -38,9 +39,17 @@ class AiSettingsService
 
     public function selectedProvider(): string
     {
-        $value = strtolower(trim((string) $this->settings->get(SettingKey::AiProvider, self::PROVIDER_OPENAI)));
+        $stored = $this->storedProvider();
 
-        return in_array($value, self::PROVIDERS, true) ? $value : self::PROVIDER_OPENAI;
+        if ($stored === '') {
+            return self::PROVIDER_OPENAI;
+        }
+
+        if (! in_array($stored, self::PROVIDERS, true)) {
+            throw EmployeeSmartSearchUnavailableException::providerFailed();
+        }
+
+        return $stored;
     }
 
     public function selectedModel(): ?string
@@ -62,9 +71,14 @@ class AiSettingsService
     /** @return array<string, mixed> */
     public function forSettingsPage(): array
     {
+        $stored = $this->storedProvider();
+        $provider = in_array($stored, self::PROVIDERS, true)
+            ? $stored
+            : self::PROVIDER_OPENAI;
+
         return [
             'enabled' => $this->isSmartSearchEnabled(),
-            'provider' => $this->selectedProvider(),
+            'provider' => $provider,
             'openai' => [
                 'has_api_key' => $this->hasApiKey(self::PROVIDER_OPENAI),
                 'model' => $this->modelFor(self::PROVIDER_OPENAI) ?? '',
@@ -86,12 +100,12 @@ class AiSettingsService
      *     openrouter_model?: string|null
      * }  $payload
      */
-    public function storeFromPayload(array $payload, User $actor, ?int $companyId = null): void
+    public function storeFromPayload(array $payload, User $actor): void
     {
         $provider = $payload['provider'];
 
         $previousEnabled = $this->isSmartSearchEnabled();
-        $previousProvider = $this->selectedProvider();
+        $previousProvider = $this->previousProviderForAudit();
         $previousOpenAiModel = $this->modelFor(self::PROVIDER_OPENAI);
         $previousOpenRouterModel = $this->modelFor(self::PROVIDER_OPENROUTER);
 
@@ -100,50 +114,66 @@ class AiSettingsService
         $openaiKeyReplaced = filled($payload['openai_api_key'] ?? null);
         $openrouterKeyReplaced = filled($payload['openrouter_api_key'] ?? null);
 
-        $this->settings->set(
-            SettingKey::AiSmartSearchEnabled,
-            $payload['enabled'] ? '1' : '0',
-        );
-        $this->settings->set(SettingKey::AiProvider, $provider);
-        $this->settings->set(SettingKey::AiOpenAiModel, $openaiModel);
-        $this->settings->set(SettingKey::AiOpenRouterModel, $openrouterModel);
-
-        if ($openaiKeyReplaced) {
+        DB::transaction(function () use (
+            $payload,
+            $actor,
+            $provider,
+            $previousEnabled,
+            $previousProvider,
+            $previousOpenAiModel,
+            $previousOpenRouterModel,
+            $openaiModel,
+            $openrouterModel,
+            $openaiKeyReplaced,
+            $openrouterKeyReplaced,
+        ): void {
             $this->settings->set(
-                SettingKey::AiOpenAiApiKey,
-                Crypt::encryptString((string) $payload['openai_api_key']),
-                'encrypted',
+                SettingKey::AiSmartSearchEnabled,
+                $payload['enabled'] ? '1' : '0',
             );
-        }
+            $this->settings->set(SettingKey::AiProvider, $provider);
+            $this->settings->set(SettingKey::AiOpenAiModel, $openaiModel);
+            $this->settings->set(SettingKey::AiOpenRouterModel, $openrouterModel);
 
-        if ($openrouterKeyReplaced) {
-            $this->settings->set(
-                SettingKey::AiOpenRouterApiKey,
-                Crypt::encryptString((string) $payload['openrouter_api_key']),
-                'encrypted',
-            );
-        }
+            if ($openaiKeyReplaced) {
+                $this->settings->set(
+                    SettingKey::AiOpenAiApiKey,
+                    Crypt::encryptString((string) $payload['openai_api_key']),
+                    'encrypted',
+                );
+            }
 
-        activity('platform')
-            ->event('updated')
-            ->causedBy($actor)
-            ->withProperties([
-                'scope' => 'platform',
-                'enabled' => $payload['enabled'],
-                'provider' => $provider,
-                'openai_model' => $openaiModel !== '' ? $openaiModel : null,
-                'openrouter_model' => $openrouterModel !== '' ? $openrouterModel : null,
-                'enabled_changed' => $previousEnabled !== $payload['enabled'],
-                'provider_changed' => $previousProvider !== $provider,
-                'openai_model_changed' => $previousOpenAiModel !== ($openaiModel !== '' ? $openaiModel : null),
-                'openrouter_model_changed' => $previousOpenRouterModel !== ($openrouterModel !== '' ? $openrouterModel : null),
-                'openai_credential_replaced' => $openaiKeyReplaced,
-                'openrouter_credential_replaced' => $openrouterKeyReplaced,
-            ])
-            ->tap(function (Activity $activity) use ($companyId): void {
-                $activity->company_id = $companyId && $companyId > 0 ? (int) $companyId : null;
-            })
-            ->log('updated platform AI settings');
+            if ($openrouterKeyReplaced) {
+                $this->settings->set(
+                    SettingKey::AiOpenRouterApiKey,
+                    Crypt::encryptString((string) $payload['openrouter_api_key']),
+                    'encrypted',
+                );
+            }
+
+            activity('platform')
+                ->event('updated')
+                ->causedBy($actor)
+                ->withProperties([
+                    'scope' => 'platform',
+                    'enabled' => $payload['enabled'],
+                    'provider' => $provider,
+                    'openai_model' => $openaiModel !== '' ? $openaiModel : null,
+                    'openrouter_model' => $openrouterModel !== '' ? $openrouterModel : null,
+                    'enabled_changed' => $previousEnabled !== $payload['enabled'],
+                    'provider_changed' => $previousProvider !== $provider,
+                    'openai_model_changed' => $previousOpenAiModel !== ($openaiModel !== '' ? $openaiModel : null),
+                    'openrouter_model_changed' => $previousOpenRouterModel !== ($openrouterModel !== '' ? $openrouterModel : null),
+                    'openai_credential_replaced' => $openaiKeyReplaced,
+                    'openrouter_credential_replaced' => $openrouterKeyReplaced,
+                ])
+                ->tap(function (Activity $activity): void {
+                    $activity->company_id = null;
+                })
+                ->log('updated platform AI settings');
+        });
+
+        $this->settings->clearCache();
     }
 
     public function applySelectedProviderToRuntime(): AiRuntimeConfig
@@ -189,6 +219,22 @@ class AiSettingsService
     public function providerLabel(string $provider): string
     {
         return $provider === self::PROVIDER_OPENROUTER ? 'OpenRouter' : 'OpenAI';
+    }
+
+    private function storedProvider(): string
+    {
+        return strtolower(trim((string) $this->settings->get(SettingKey::AiProvider, '')));
+    }
+
+    private function previousProviderForAudit(): string
+    {
+        $stored = $this->storedProvider();
+
+        if ($stored === '') {
+            return self::PROVIDER_OPENAI;
+        }
+
+        return $stored;
     }
 
     private function resolvedApiKey(string $provider): string

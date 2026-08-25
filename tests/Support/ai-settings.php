@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Services\Settings\AiSettingsService;
+use Illuminate\Support\Facades\Http;
 
 /**
  * @param  array{
@@ -68,4 +69,26 @@ function interpretSmartSearch(User $user, int $companyId, string $prompt, array 
         ->postJson(route('organization.employees.smart-search.interpret'), array_merge([
             'prompt' => $prompt,
         ], $extra));
+}
+
+function fakeOpenRouterSmartSearchContent(string $content, int $status = 200): void
+{
+    Http::fake([
+        'openrouter.ai/*' => Http::response([
+            'id' => 'gen-test',
+            'model' => 'anthropic/claude-sonnet-4.6',
+            'choices' => [[
+                'index' => 0,
+                'message' => [
+                    'role' => 'assistant',
+                    'content' => $content,
+                ],
+                'finish_reason' => 'stop',
+            ]],
+            'usage' => [
+                'prompt_tokens' => 10,
+                'completion_tokens' => 10,
+            ],
+        ], $status),
+    ]);
 }

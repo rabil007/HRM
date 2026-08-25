@@ -4,6 +4,7 @@ use App\Models\AppSetting;
 use App\Models\User;
 use App\Services\AiProviderConnectionTester;
 use App\Services\EmployeeSmartSearchInterpreter;
+use App\Services\Settings\SettingService;
 use App\Support\Settings\SettingKey;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Support\Facades\Cache;
@@ -89,7 +90,9 @@ test('platform manager can update AI settings', function () {
         ->and(setting(SettingKey::AiOpenAiModel))->toBe('gpt-test')
         ->and(setting(SettingKey::AiOpenRouterModel))->toBe('openrouter/test')
         ->and(Crypt::decryptString((string) setting(SettingKey::AiOpenAiApiKey)))->toBe('sk-live-openai')
-        ->and(Crypt::decryptString((string) setting(SettingKey::AiOpenRouterApiKey)))->toBe('sk-live-openrouter');
+        ->and(Crypt::decryptString((string) setting(SettingKey::AiOpenRouterApiKey)))->toBe('sk-live-openrouter')
+        ->and(AppSetting::query()->where('key', SettingKey::AiOpenAiApiKey)->value('type'))->toBe('encrypted')
+        ->and(AppSetting::query()->where('key', SettingKey::AiOpenRouterApiKey)->value('type'))->toBe('encrypted');
 });
 
 test('AI settings update requires privileged 2FA when enforcement is on', function () {
@@ -460,6 +463,7 @@ test('API keys never appear in AI settings activity properties', function () {
         ->first();
 
     expect($activity)->not->toBeNull()
+        ->and($activity->company_id)->toBeNull()
         ->and((int) $activity->causer_id)->toBe($user->id)
         ->and($activity->properties->get('scope'))->toBe('platform')
         ->and($activity->properties->get('enabled'))->toBeTrue()
@@ -474,4 +478,237 @@ test('API keys never appear in AI settings activity properties', function () {
     expect($serialized)
         ->not->toContain('sk-activity-openai')
         ->not->toContain('sk-activity-openrouter');
+});
+
+test('platform AI settings activity is not listed in the tenant Activity Log', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
+    $company = setupCompanyWithSettingsPermissions($user, []);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->put(route('application.ai.update'), [
+            'enabled' => true,
+            'provider' => 'openai',
+            'openai_api_key' => 'sk-activity-openai',
+        ])
+        ->assertRedirect();
+
+    $activity = Activity::query()
+        ->where('log_name', 'platform')
+        ->where('description', 'updated platform AI settings')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull()
+        ->and($activity->company_id)->toBeNull();
+
+    expect(
+        Activity::query()
+            ->where('company_id', $company->id)
+            ->where('description', 'updated platform AI settings')
+            ->exists(),
+    )->toBeFalse();
+
+    grantCompanyPermissions($user, $company, ['audit.view']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.activity-logs'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/activity-logs')
+            ->where('logs', fn ($logs) => collect($logs)->every(
+                fn (array $log): bool => ($log['description'] ?? null) !== 'updated platform AI settings',
+            )),
+        );
+
+    $viewer = User::factory()->create();
+    grantCompanyPermissions($viewer, $company, ['companies.view']);
+
+    $this->actingAs($viewer)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.activity-logs'))
+        ->assertForbidden();
+});
+
+test('successful AI settings update refreshes cache with committed values', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
+
+    $this->actingAs($user)
+        ->put(route('application.ai.update'), [
+            'enabled' => true,
+            'provider' => 'openrouter',
+            'openai_api_key' => 'sk-cache-openai',
+            'openai_model' => 'gpt-cache',
+            'openrouter_api_key' => 'sk-cache-openrouter',
+            'openrouter_model' => 'openrouter/cache',
+        ])
+        ->assertRedirect();
+
+    $settings = app(SettingService::class);
+
+    expect($settings->get(SettingKey::AiSmartSearchEnabled))->toBe('1')
+        ->and($settings->get(SettingKey::AiProvider))->toBe('openrouter')
+        ->and($settings->get(SettingKey::AiOpenAiModel))->toBe('gpt-cache')
+        ->and($settings->get(SettingKey::AiOpenRouterModel))->toBe('openrouter/cache')
+        ->and(Crypt::decryptString((string) $settings->get(SettingKey::AiOpenAiApiKey)))->toBe('sk-cache-openai')
+        ->and(Crypt::decryptString((string) $settings->get(SettingKey::AiOpenRouterApiKey)))->toBe('sk-cache-openrouter');
+});
+
+test('a failed AI settings update does not persist partial changes or activity', function () {
+    storePlatformAiSettings([
+        'enabled' => false,
+        'provider' => 'openai',
+        'openai_api_key' => 'keep-openai',
+        'openrouter_api_key' => 'keep-openrouter',
+        'openai_model' => 'old-openai',
+        'openrouter_model' => 'old-openrouter',
+    ]);
+
+    $throwOnModelWrite = true;
+
+    AppSetting::saving(function (AppSetting $setting) use (&$throwOnModelWrite): void {
+        if ($throwOnModelWrite && $setting->key === SettingKey::AiOpenAiModel && $setting->value === 'new-openai') {
+            throw new RuntimeException('simulated failure');
+        }
+    });
+
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
+
+    $activityCount = Activity::query()
+        ->where('description', 'updated platform AI settings')
+        ->count();
+
+    $this->actingAs($user)
+        ->put(route('application.ai.update'), [
+            'enabled' => true,
+            'provider' => 'openrouter',
+            'openai_api_key' => 'new-openai-key',
+            'openrouter_api_key' => 'new-openrouter-key',
+            'openai_model' => 'new-openai',
+            'openrouter_model' => 'new-openrouter',
+        ])
+        ->assertServerError();
+
+    $throwOnModelWrite = false;
+
+    app(SettingService::class)->clearCache();
+
+    expect(setting(SettingKey::AiSmartSearchEnabled))->toBe('0')
+        ->and(setting(SettingKey::AiProvider))->toBe('openai')
+        ->and(setting(SettingKey::AiOpenAiModel))->toBe('old-openai')
+        ->and(setting(SettingKey::AiOpenRouterModel))->toBe('old-openrouter')
+        ->and(Crypt::decryptString((string) setting(SettingKey::AiOpenAiApiKey)))->toBe('keep-openai')
+        ->and(Crypt::decryptString((string) setting(SettingKey::AiOpenRouterApiKey)))->toBe('keep-openrouter')
+        ->and(Activity::query()->where('description', 'updated platform AI settings')->count())->toBe($activityCount);
+});
+
+test('unsupported stored AI provider does not invoke OpenAI and fails closed', function () {
+    storePlatformAiSettings([
+        'enabled' => true,
+        'provider' => 'openai',
+        'openai_api_key' => 'stored-openai-key',
+        'openrouter_api_key' => 'stored-openrouter-key',
+    ]);
+
+    app(SettingService::class)->set(SettingKey::AiProvider, 'invalid-provider');
+
+    config(['ai.providers.openai.key' => 'env-openai-fallback']);
+
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    EmployeeSmartSearchInterpreter::fake([
+        fakeSmartSearchIntent(['status' => 'active']),
+    ]);
+
+    $response = interpretSmartSearch($user, $company->id, 'active crew')
+        ->assertStatus(503)
+        ->assertJsonPath('message', 'Employee smart search is temporarily unavailable.');
+
+    $payload = json_encode($response->json());
+
+    expect($payload)->not->toContain('invalid-provider')
+        ->not->toContain('stored-openai-key')
+        ->not->toContain('env-openai-fallback');
+
+    EmployeeSmartSearchInterpreter::assertNeverPrompted();
+});
+
+test('settings page stays safe when the stored AI provider is invalid', function () {
+    storePlatformAiSettings([
+        'openai_api_key' => 'sk-secret-openai-key',
+    ]);
+
+    app(SettingService::class)->set(SettingKey::AiProvider, 'invalid-provider');
+
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
+
+    $response = $this->actingAs($user)
+        ->get(route('application.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/application')
+            ->where('ai.provider', 'openai')
+            ->where('ai.openai.has_api_key', true)
+            ->missing('ai.openai.api_key'),
+        );
+
+    expect($response->getContent())
+        ->not->toContain('sk-secret-openai-key')
+        ->not->toContain('invalid-provider');
+});
+
+test('connection test fails safely for an unsupported stored provider', function () {
+    storePlatformAiSettings([
+        'openai_api_key' => 'stored-openai-key',
+    ]);
+
+    app(SettingService::class)->set(SettingKey::AiProvider, 'invalid-provider');
+
+    AiProviderConnectionTester::fake([
+        ['status' => 'OK'],
+    ]);
+
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('application.ai.test'))
+        ->assertUnprocessable();
+
+    $payload = json_encode($response->json());
+
+    expect($payload)->not->toContain('invalid-provider')
+        ->not->toContain('stored-openai-key');
+
+    AiProviderConnectionTester::assertNeverPrompted();
+});
+
+test('AI connection test is rate limited without calling the provider', function () {
+    storePlatformAiSettings([
+        'openai_api_key' => 'stored-openai-key',
+    ]);
+
+    AiProviderConnectionTester::fake(fn (): array => ['status' => 'OK']);
+
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
+
+    $this->actingAs($user);
+
+    for ($attempt = 0; $attempt < 6; $attempt++) {
+        $this->postJson(route('application.ai.test'))->assertOk();
+    }
+
+    $this->postJson(route('application.ai.test'))->assertTooManyRequests();
 });

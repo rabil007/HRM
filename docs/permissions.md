@@ -130,7 +130,7 @@ Settings are separated cleanly by **ownership**:
 
 ### 1. Platform-Global Settings & Integrations
 Installation-wide configurations are singleton resources shared across all companies and are governed exclusively by user-level **Platform Authority** (`platform:view` and `platform:manage`), not tenant Spatie permissions:
-- **Application Settings** (`/settings/application`): System name, support contact, regional fallbacks, branding, SMTP configuration, AI providers / Smart Employee Search, and e-signature placements.
+- **Application Settings** (`/settings/application`): System name, support contact, regional fallbacks, branding, SMTP configuration, AI providers / Smart Employee Search, and e-signature placements. AI setting changes are platform activity (`company_id` null) and are not listed in a tenant Activity Log.
 - **WhatsApp Integration** (`/settings/application?tab=whatsapp`): Singleton Meta Cloud API credentials, phone number IDs, and webhooks. Credential mutations enforce `privileged.2fa`.
 - **WhatsApp Templates** (`/settings/application/whatsapp-templates`): Global Meta template library mappings (`whatsapp_templates` table).
 - **Email Templates** (`/settings/application/email-templates`): Global email template library presets (`email_templates` table).

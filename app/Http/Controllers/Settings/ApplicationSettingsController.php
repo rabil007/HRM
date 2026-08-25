@@ -179,12 +179,9 @@ class ApplicationSettingsController extends Controller
 
     public function updateAi(UpdateApplicationAiRequest $request): RedirectResponse
     {
-        $companyId = $request->attributes->get('current_company_id');
-
         $this->aiSettings->storeFromPayload(
             $request->settingPayload(),
             $request->user(),
-            $companyId ? (int) $companyId : null,
         );
 
         return back()->with('success', 'AI settings saved.');

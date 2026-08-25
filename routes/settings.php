@@ -68,7 +68,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('application.ai.update');
 
     Route::post('settings/application/ai/test', [ApplicationSettingsController::class, 'testAiConnection'])
-        ->middleware('platform:manage')
+        ->middleware(['platform:manage', 'throttle:6,1'])
         ->name('application.ai.test');
 
     Route::get('settings/application/esign-preview/{documentType}', [BulkDocumentSignaturePlacementController::class, 'preview'])

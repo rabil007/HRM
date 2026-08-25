@@ -1,6 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import { CheckCircle2, PlugZap, Sparkles, XCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import InputError from '@/components/input-error';
 import { SettingsSecretInput } from '@/components/settings/settings-secret-input';
 import { Badge } from '@/components/ui/badge';
@@ -182,6 +182,18 @@ export function AiSettingsPanel({
         openrouter_model: openrouter.model ?? '',
     });
 
+    useEffect(() => {
+        setConnectionStatus('idle');
+        setConnectionMessage(null);
+    }, [
+        form.data.enabled,
+        form.data.provider,
+        form.data.openai_api_key,
+        form.data.openai_model,
+        form.data.openrouter_api_key,
+        form.data.openrouter_model,
+    ]);
+
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
 
@@ -300,7 +312,8 @@ export function AiSettingsPanel({
                         <InputError message={form.errors.provider} />
                         <p className="ml-0.5 text-[10px] text-muted-foreground/50">
                             Switching providers keeps both stored credentials.
-                            Tests use the last saved provider.
+                            Test selected provider uses the last saved settings,
+                            not unsaved form values.
                         </p>
                     </div>
                 </CardContent>

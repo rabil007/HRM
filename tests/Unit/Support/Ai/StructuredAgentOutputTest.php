@@ -28,5 +28,6 @@ test('decode accepts raw json objects', function () {
 
 test('decode returns an empty array for invalid payloads', function () {
     expect(StructuredAgentOutput::decode(''))->toBe([])
-        ->and(StructuredAgentOutput::decode('not json'))->toBe([]);
+        ->and(StructuredAgentOutput::decode('not json'))->toBe([])
+        ->and(StructuredAgentOutput::decode("```json\nnot json\n```"))->toBe([]);
 });
