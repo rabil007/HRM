@@ -6,6 +6,7 @@ use App\Models\AppSetting;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Employee;
 use App\Models\User;
 use App\Models\WhatsAppSetting;
 use App\Support\Auth\PrivilegedTwoFactorPolicy;
@@ -185,6 +186,87 @@ test('enrolled platform users can open diagnostic surfaces', function () {
     $this->actingAs($user)
         ->get('/log')
         ->assertOk();
+});
+
+test('unenrolled users cannot create a linked employee user', function () {
+    enablePrivilegedTwoFactorEnforcement();
+
+    $actor = User::factory()->create();
+    $company = setupCompanyWithSettingsPermissions($actor, [
+        'users.create',
+        'employees.update',
+        'employees.view',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'user_id' => null,
+    ]);
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Staff 2FA',
+        'guard_name' => 'web',
+    ]);
+
+    $this->actingAs($actor)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.employees.user.store', $employee), [
+            'role_id' => $role->id,
+            'email' => 'linked.employee.2fa@example.com',
+            'name' => 'Linked Employee',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])
+        ->assertRedirect(route('security.edit'))
+        ->assertSessionHas('error', PrivilegedTwoFactorRequiredException::MESSAGE);
+
+    expect($employee->fresh()->user_id)->toBeNull()
+        ->and(User::query()->where('email', 'linked.employee.2fa@example.com')->exists())->toBeFalse();
+});
+
+test('enrolled users can create a linked employee user', function () {
+    enablePrivilegedTwoFactorEnforcement();
+
+    $actor = User::factory()->withTwoFactor()->create();
+    $company = setupCompanyWithSettingsPermissions($actor, [
+        'users.create',
+        'employees.update',
+        'employees.view',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'user_id' => null,
+    ]);
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Staff Enrolled 2FA',
+        'guard_name' => 'web',
+    ]);
+
+    $this->actingAs($actor)
+        ->withSession(['current_company_id' => $company->id])
+        ->from(route('organization.employees.show', $employee))
+        ->post(route('organization.employees.user.store', $employee), [
+            'role_id' => $role->id,
+            'email' => 'linked.employee.enrolled@example.com',
+            'name' => 'Linked Enrolled',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])
+        ->assertRedirect();
+
+    $employee->refresh();
+
+    expect($employee->user_id)->not->toBeNull();
+
+    $this->assertDatabaseHas('users', [
+        'id' => $employee->user_id,
+        'email' => 'linked.employee.enrolled@example.com',
+        'company_id' => $company->id,
+    ]);
 });
 
 test('unenrolled users cannot assign roles through users.update', function () {
