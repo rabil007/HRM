@@ -198,15 +198,26 @@ final class DispatchCrewOperationalAlertEmailDigests
 
             try {
                 DeliverCrewOperationalAlertEmailJob::dispatch($userDeliveryIds, $companyId, (int) $userId);
-                ClaimCrewOperationalAlertEmailDeliveries::markDispatched($userDeliveryIds);
-
-                $jobsCount++;
-                $dispatchedDeliveriesCount += count($userDeliveryIds);
             } catch (Throwable $exception) {
                 ClaimCrewOperationalAlertEmailDeliveries::releaseClaim($userDeliveryIds);
                 self::releaseJobUniqueLock($userDeliveryIds, $companyId, (int) $userId);
                 report($exception);
+
+                continue;
             }
+
+            CrewOperationalAlertDeliveryHandoff::persistLedger(
+                fn () => ClaimCrewOperationalAlertEmailDeliveries::markDispatched($userDeliveryIds),
+                [
+                    'company_id' => $companyId,
+                    'user_id' => (int) $userId,
+                    'delivery_ids' => $userDeliveryIds,
+                    'failure_category' => 'email_dispatch_ledger',
+                ],
+            );
+
+            $jobsCount++;
+            $dispatchedDeliveriesCount += count($userDeliveryIds);
         }
 
         if ($jobsCount > 0) {

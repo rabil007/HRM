@@ -532,8 +532,8 @@ Email is an automatic extension of Crew operational notifications. There is **no
 | Recipients | Selected active company members with a usable email address |
 | SMTP | Existing application `MailSettingsService` (settings over env). No second SMTP system |
 | Ledger | `crew_operational_alert_email_deliveries` unique on `(alert_id, user_id, notification_version)` |
-| Jobs | `DeliverCrewOperationalAlertEmailJob` afterCommit; re-checks company, membership, selection, alert activity/version, email, SMTP |
-| Retry | Bounded tries/backoff; transport failures keep queued until exhausted → `email_transport_exhausted` |
+| Jobs | `DeliverCrewOperationalAlertEmailJob` after successful queue handoff (`dispatched_at`); re-checks company, membership, selection, alert activity/version, email, SMTP |
+| Retry | Bounded tries/backoff; transport failures keep queued until exhausted → `email_transport_exhausted`. Successful SMTP/Web Push handoff is not retried when only ledger persist fails |
 | Privacy | Subject: “Crew Operations requires attention.” No employee/vessel/rank/assignment detail |
 | Links | Permission-safe CTA via `ResolveCrewOperationalAlertUrl`; omit CTA when unauthorized |
 | Independence | Email and Web Push ledgers/queues are independent |

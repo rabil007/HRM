@@ -11,6 +11,7 @@ use App\Models\CrewOperationalAlertRecipient;
 use App\Models\EmailTemplate;
 use App\Models\User;
 use App\Services\Settings\MailSettingsService;
+use App\Support\CrewOperations\CrewOperationalAlertDeliveryHandoff;
 use App\Support\CrewOperations\CrewOperationalAlertDigestPresenter;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewOperations\QueueCrewOperationalAlertEmails;
@@ -21,6 +22,7 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
@@ -31,7 +33,7 @@ class DeliverCrewOperationalAlertEmailJob implements ShouldBeUnique, ShouldQueue
 
     public int $tries = 3;
 
-    public int $uniqueFor = 300;
+    public int $uniqueFor = 900;
 
     /**
      * @var list<int>
@@ -74,10 +76,13 @@ class DeliverCrewOperationalAlertEmailJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $deliveries = CrewOperationalAlertEmailDelivery::query()
-            ->with(['alert', 'user'])
-            ->whereIn('id', $this->deliveryIds)
-            ->get();
+        $deliveries = DB::transaction(function (): Collection {
+            return CrewOperationalAlertEmailDelivery::query()
+                ->with(['alert', 'user'])
+                ->whereIn('id', $this->deliveryIds)
+                ->lockForUpdate()
+                ->get();
+        });
 
         $queuedDeliveries = $deliveries->filter(
             fn (CrewOperationalAlertEmailDelivery $d): bool => $d->status === CrewOperationalAlertEmailDeliveryStatus::Queued
@@ -90,6 +95,33 @@ class DeliverCrewOperationalAlertEmailJob implements ShouldBeUnique, ShouldQueue
         $first = $queuedDeliveries->first();
         $companyId = (int) $first->company_id;
         $userId = (int) $first->user_id;
+
+        $queuedDeliveries = $queuedDeliveries
+            ->map(function (CrewOperationalAlertEmailDelivery $delivery) use ($companyId, $userId): ?CrewOperationalAlertEmailDelivery {
+                if (! CrewOperationalAlertDeliveryHandoff::wasHandedOff(
+                    CrewOperationalAlertDeliveryHandoff::emailKey($companyId, [(int) $delivery->id]),
+                )) {
+                    return $delivery;
+                }
+
+                CrewOperationalAlertDeliveryHandoff::persistLedger(
+                    fn () => $this->persistSent($delivery),
+                    [
+                        'company_id' => $companyId,
+                        'user_id' => $userId,
+                        'delivery_id' => $delivery->id,
+                        'failure_category' => 'email_ledger_persist',
+                    ],
+                );
+
+                return null;
+            })
+            ->filter(fn ($delivery): bool => $delivery instanceof CrewOperationalAlertEmailDelivery)
+            ->values();
+
+        if ($queuedDeliveries->isEmpty()) {
+            return;
+        }
 
         $company = Company::query()
             ->whereKey($companyId)
@@ -196,6 +228,8 @@ class DeliverCrewOperationalAlertEmailJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        $handedOffIds = $validDeliveries->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
+
         foreach ($validDeliveries as $delivery) {
             $delivery->update([
                 'attempt_count' => ((int) $delivery->attempt_count) + 1,
@@ -236,26 +270,35 @@ class DeliverCrewOperationalAlertEmailJob implements ShouldBeUnique, ShouldQueue
                 subjectLine: $subjectLine,
                 bodyHtml: $bodyHtml,
             ));
-
-            foreach ($validDeliveries as $delivery) {
-                $delivery->update([
-                    'status' => CrewOperationalAlertEmailDeliveryStatus::Sent,
-                    'sent_at' => now(),
-                    'failed_at' => null,
-                    'failure_category' => null,
-                ]);
-            }
         } catch (Throwable $exception) {
             Log::warning('Crew operational alert email delivery failed', [
                 'company_id' => $companyId,
                 'user_id' => $userId,
-                'delivery_ids' => $validDeliveries->pluck('id')->all(),
+                'delivery_ids' => $handedOffIds,
                 'attempt' => $this->attempts(),
                 'exception_class' => $exception::class,
                 'failure_category' => 'email_transport',
             ]);
 
             throw $exception;
+        }
+
+        foreach ($handedOffIds as $deliveryId) {
+            CrewOperationalAlertDeliveryHandoff::remember(
+                CrewOperationalAlertDeliveryHandoff::emailKey($companyId, [$deliveryId]),
+            );
+        }
+
+        foreach ($validDeliveries as $delivery) {
+            CrewOperationalAlertDeliveryHandoff::persistLedger(
+                fn () => $this->persistSent($delivery),
+                [
+                    'company_id' => $companyId,
+                    'user_id' => $userId,
+                    'delivery_id' => $delivery->id,
+                    'failure_category' => 'email_ledger_persist',
+                ],
+            );
         }
     }
 
@@ -267,6 +310,12 @@ class DeliverCrewOperationalAlertEmailJob implements ShouldBeUnique, ShouldQueue
             ->get();
 
         foreach ($deliveries as $delivery) {
+            if (CrewOperationalAlertDeliveryHandoff::wasHandedOff(
+                CrewOperationalAlertDeliveryHandoff::emailKey((int) $delivery->company_id, [(int) $delivery->id]),
+            )) {
+                continue;
+            }
+
             $this->markFailed($delivery, 'email_transport_exhausted');
         }
 
@@ -288,8 +337,30 @@ class DeliverCrewOperationalAlertEmailJob implements ShouldBeUnique, ShouldQueue
         }
     }
 
+    private function persistSent(CrewOperationalAlertEmailDelivery $delivery): void
+    {
+        $delivery->refresh();
+
+        if ($delivery->status === CrewOperationalAlertEmailDeliveryStatus::Sent) {
+            return;
+        }
+
+        $delivery->update([
+            'status' => CrewOperationalAlertEmailDeliveryStatus::Sent,
+            'sent_at' => now(),
+            'failed_at' => null,
+            'failure_category' => null,
+        ]);
+    }
+
     private function markFailed(CrewOperationalAlertEmailDelivery $delivery, string $category): void
     {
+        if (CrewOperationalAlertDeliveryHandoff::wasHandedOff(
+            CrewOperationalAlertDeliveryHandoff::emailKey((int) $delivery->company_id, [(int) $delivery->id]),
+        )) {
+            return;
+        }
+
         $delivery->update([
             'status' => CrewOperationalAlertEmailDeliveryStatus::Failed,
             'failed_at' => now(),

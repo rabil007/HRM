@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CrewOperationalAlertPushDeliveryStatus;
 use App\Enums\CrewOperationalAlertSeverity;
 use App\Enums\CrewOperationalAlertStatus;
 use App\Enums\CrewOperationalAlertType;
@@ -9,6 +10,7 @@ use App\Models\CrewOperationalAlertPushDelivery;
 use App\Models\CrewOperationalAlertRecipient;
 use App\Models\User;
 use App\Notifications\CrewOperationalAlertWebPushNotification;
+use App\Support\CrewOperations\CrewOperationalAlertDeliveryHandoff;
 use App\Support\CrewOperations\QueueCrewOperationalAlertPushes;
 use App\Support\CrewOperations\ReconcileCrewOperationalAlerts;
 use App\Support\CrewOperations\ResolveCrewOperationalAlertUrl;
@@ -363,4 +365,48 @@ test('legacy announcement inbox feed route still returns unified payload', funct
         ->getJson(route('organization.announcements.inbox.feed'))
         ->assertOk()
         ->assertJsonStructure(['unread_count', 'items']);
+});
+
+test('successful web push is not resent when ledger persist fails and the job retries', function () {
+    Notification::fake();
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-07 12:00:00', 'Asia/Dubai'));
+    $fixtures = makeCrewAssignmentFixtures();
+    $companyId = (int) $fixtures['company']->id;
+    $user = $fixtures['user'];
+    $user->updatePushSubscription(
+        'https://fcm.googleapis.com/fcm/send/crew-alert-persist',
+        'BNcRnejnsCWcu6BCNCiCyiQoXKnAJkOjvgBgzEUrvsSMesTXHsYELfY35xZjFcRp27YWPBMBcIvP1uvxS9Xn1gE',
+        'tBHItJI5svbpez7KI4CCXg',
+        'aes128gcm',
+    );
+
+    enableCrewNotificationsForUser($companyId, (int) $user->id);
+    createOverdueAssignmentForAlerts($fixtures);
+    app(ReconcileCrewOperationalAlerts::class)->forCompany($companyId);
+
+    $delivery = CrewOperationalAlertPushDelivery::query()->where('company_id', $companyId)->firstOrFail();
+    $job = app(DeliverCrewOperationalAlertWebPushJob::class, ['deliveryId' => (int) $delivery->id]);
+    $job->handle();
+
+    Notification::assertSentToTimes($user, CrewOperationalAlertWebPushNotification::class, 1);
+    expect($delivery->fresh()->status)->toBe(CrewOperationalAlertPushDeliveryStatus::Sent)
+        ->and(CrewOperationalAlertDeliveryHandoff::wasHandedOff(
+            CrewOperationalAlertDeliveryHandoff::webPushKey((int) $delivery->id),
+        ))->toBeTrue();
+
+    CrewOperationalAlertPushDelivery::query()->whereKey($delivery->id)->update([
+        'status' => CrewOperationalAlertPushDeliveryStatus::Queued->value,
+        'sent_at' => null,
+        'failed_at' => null,
+        'failure_category' => null,
+    ]);
+
+    expect($delivery->fresh()->status)->toBe(CrewOperationalAlertPushDeliveryStatus::Queued);
+
+    $job->handle();
+
+    Notification::assertSentToTimes($user, CrewOperationalAlertWebPushNotification::class, 1);
+    expect($delivery->fresh()->status)->toBe(CrewOperationalAlertPushDeliveryStatus::Sent);
+
+    CarbonImmutable::setTestNow();
 });
