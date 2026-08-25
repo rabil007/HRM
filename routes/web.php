@@ -114,6 +114,7 @@ use App\Http\Controllers\Organization\EmployeeSalaryCertificatePrintController;
 use App\Http\Controllers\Organization\EmployeeSalaryDeclarationPrintController;
 use App\Http\Controllers\Organization\EmployeeSeaServiceController;
 use App\Http\Controllers\Organization\EmployeeSeaServicesBrowseController;
+use App\Http\Controllers\Organization\EmployeeSmartSearchController;
 use App\Http\Controllers\Organization\EmployeeTrainingCertificateFileController;
 use App\Http\Controllers\Organization\EmployeeTrainingController;
 use App\Http\Controllers\Organization\EmployeeTrainingsBrowseController;
@@ -600,6 +601,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/employees/import/template', [EmployeeImportController::class, 'importTemplate'])->middleware('can:employees.import')->name('organization.employees.import.template');
     Route::post('organization/employees/import/preview', [EmployeeImportController::class, 'importPreview'])->middleware('can:employees.import')->name('organization.employees.import.preview');
     Route::post('organization/employees/import', [EmployeeImportController::class, 'import'])->middleware('can:employees.import')->name('organization.employees.import');
+    Route::post('organization/employees/smart-search/interpret', EmployeeSmartSearchController::class)
+        ->middleware(['can:employees.view', 'throttle:10,1'])
+        ->name('organization.employees.smart-search.interpret');
     Route::get('organization/employees/{employee}/cv', EmployeeCvPrintController::class)->middleware('can:employees.view')->name('organization.employees.cv');
     Route::get('organization/employees/{employee}/offshore-cv', EmployeeOffshoreCvPrintController::class)->middleware('can:employees.view')->name('organization.employees.offshore-cv');
     Route::get('organization/employees/{employee}/salary-certificate', EmployeeSalaryCertificatePrintController::class)->middleware('can:employees.salary_certificate.print')->name('organization.employees.salary-certificate');

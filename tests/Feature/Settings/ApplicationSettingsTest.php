@@ -30,6 +30,7 @@ test('user with platform view access can open application settings in view mode'
             ->has('preferences')
             ->has('esign_placement')
             ->has('smtp')
+            ->has('ai')
             ->where('can.platform_view', true)
             ->where('can.platform_update', false)
             ->has('general.app_name')
@@ -131,6 +132,17 @@ test('tenant user without platform manage access receives 403 on every global se
         ->postJson(route('application.smtp.test'), [
             'recipient' => 'test@example.test',
         ])
+        ->assertForbidden();
+
+    $this->actingAs($user)
+        ->put(route('application.ai.update'), [
+            'enabled' => true,
+            'provider' => 'openai',
+        ])
+        ->assertForbidden();
+
+    $this->actingAs($user)
+        ->postJson(route('application.ai.test'))
         ->assertForbidden();
 
     $this->actingAs($user)

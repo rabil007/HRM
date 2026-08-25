@@ -63,6 +63,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('platform:manage')
         ->name('application.smtp.test');
 
+    Route::put('settings/application/ai', [ApplicationSettingsController::class, 'updateAi'])
+        ->middleware(['platform:manage', 'privileged.2fa'])
+        ->name('application.ai.update');
+
+    Route::post('settings/application/ai/test', [ApplicationSettingsController::class, 'testAiConnection'])
+        ->middleware(['platform:manage', 'throttle:6,1'])
+        ->name('application.ai.test');
+
     Route::get('settings/application/esign-preview/{documentType}', [BulkDocumentSignaturePlacementController::class, 'preview'])
         ->middleware('platform:view')
         ->name('application.esign-preview');
