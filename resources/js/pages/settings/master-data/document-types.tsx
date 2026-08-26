@@ -941,7 +941,14 @@ export default function DocumentTypes({
 
                                     <div className="space-y-3">
                                         <p className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                            Required information
+                                            Policy field flags
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Stored on this company policy only.
+                                            These flags do not currently require
+                                            the fields on upload or change
+                                            valid, missing, expired, or expiring
+                                            compliance.
                                         </p>
                                         <label className="flex items-center gap-2 text-sm">
                                             <Checkbox

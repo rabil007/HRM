@@ -128,3 +128,22 @@ function createEmployeePdfDocument(
         'status' => 'valid',
     ]);
 }
+
+function makeUnmappedEmployeeDocument(
+    int $companyId,
+    int $employeeId,
+    ?string $legacyType,
+    string $relativePath = 'employee-documents/test/unmapped.pdf',
+): EmployeeDocument {
+    return EmployeeDocument::query()->create([
+        'company_id' => $companyId,
+        'employee_id' => $employeeId,
+        'document_type_id' => null,
+        'type' => 'other',
+        'document_type' => $legacyType,
+        'file_path' => $relativePath,
+        'original_filename' => 'unmapped.pdf',
+        'mime_type' => 'application/pdf',
+        'status' => 'valid',
+    ]);
+}
