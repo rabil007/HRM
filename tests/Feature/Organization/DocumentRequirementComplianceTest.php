@@ -6,6 +6,8 @@ use App\Models\EmployeeDocument;
 use App\Models\Project;
 use App\Models\Rank;
 use App\Models\User;
+use App\Support\EmployeeDocuments\DocumentComplianceQuery;
+use App\Support\EmployeeDocuments\DocumentRequirementResolver;
 use Carbon\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -156,30 +158,22 @@ test('changing employee department or rank changes requirements dynamically', fu
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
     grantCompanyPermissions($user, $company, ['documents.view']);
+    $scopes = makeDocumentRequirementMatchScopes($company->id);
 
-    $crew = Department::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Crew Dynamic',
-        'code' => 'CRD',
-        'status' => 'active',
-    ]);
-    $accounts = Department::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Accounts Dynamic',
-        'code' => 'ACD',
-        'status' => 'active',
-    ]);
-    $captain = Rank::query()->create(['name' => 'Captain Dyn '.uniqid(), 'is_active' => true]);
+    makeDocumentRequirement(
+        $company->id,
+        $passportType->id,
+        departmentIds: [$scopes['crew']->id],
+        rankIds: [$scopes['captain']->id],
+    );
 
-    makeDocumentRequirement($company->id, $passportType->id, departmentIds: [$crew->id], rankIds: [$captain->id]);
-
-    $employee->update(['department_id' => $accounts->id, 'rank_id' => null]);
+    $employee->update(['department_id' => $scopes['marine']->id, 'rank_id' => null]);
 
     $this->get('/organization/documents?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('requirementDocuments.data', 0));
 
-    $employee->update(['department_id' => $crew->id]);
+    $employee->update(['department_id' => $scopes['crew']->id, 'rank_id' => $scopes['captain']->id]);
 
     $this->get('/organization/documents?requirement_status=missing')
         ->assertOk()
@@ -188,14 +182,17 @@ test('changing employee department or rank changes requirements dynamically', fu
             ->where('requirementDocuments.data.0.employee_id', $employee->id)
         );
 
-    $employee->update(['department_id' => $accounts->id, 'rank_id' => $captain->id]);
+    $employee->update(['department_id' => $scopes['marine']->id, 'rank_id' => $scopes['captain']->id]);
 
     $this->get('/organization/documents?requirement_status=missing')
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->has('requirementDocuments.data', 1)
-            ->where('requirementDocuments.data.0.employee_id', $employee->id)
-        );
+        ->assertInertia(fn (Assert $page) => $page->has('requirementDocuments.data', 0));
+
+    $employee->update(['department_id' => $scopes['crew']->id, 'rank_id' => null]);
+
+    $this->get('/organization/documents?requirement_status=missing')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('requirementDocuments.data', 0));
 });
 
 test('required for all applies regardless of organizational assignment', function () {
@@ -588,5 +585,259 @@ test('company a project policy does not create company b missing compliance rows
             ->has('requirementDocuments.data', 1)
             ->where('requirementDocuments.data.0.employee_id', $employeeA->id)
             ->where('requirementDocuments.data.0.employee_id', fn ($id) => $id !== $other['employee']->id)
+        );
+});
+
+test('crew seafarer captain assigned to another project is not required until project matches', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.view', 'employees.view']);
+    $scopes = makeDocumentRequirementMatchScopes($company->id);
+
+    $requirement = makeDocumentRequirement(
+        $company->id,
+        $passportType->id,
+        departmentIds: [$scopes['crew']->id],
+        positionIds: [$scopes['seafarer']->id],
+        rankIds: [$scopes['captain']->id],
+        projectIds: [$scopes['adnoc']->id],
+    );
+
+    $employee->update([
+        'department_id' => $scopes['crew']->id,
+        'position_id' => $scopes['seafarer']->id,
+        'rank_id' => $scopes['captain']->id,
+        'project_id' => $scopes['otherProject']->id,
+    ]);
+
+    $resolver = new DocumentRequirementResolver;
+    $compliance = new DocumentComplianceQuery;
+    $freshEmployee = $employee->fresh();
+
+    expect($resolver->matches($freshEmployee, $requirement))->toBeFalse()
+        ->and($compliance->itemsForEmployee($freshEmployee))->toHaveCount(0)
+        ->and($compliance->summary($company->id)['missing'])->toBe(0)
+        ->and($compliance->summary($company->id)['required'])->toBe(0);
+
+    $this->get('/organization/documents?requirement_status=missing')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('requirement_summary.missing', 0)
+            ->has('requirementDocuments.data', 0)
+        );
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
+                ->has('required_documents', 0)
+            )
+        );
+
+    $employee->update(['project_id' => $scopes['adnoc']->id]);
+    $matchedEmployee = $employee->fresh();
+
+    expect($resolver->matches($matchedEmployee, $requirement))->toBeTrue()
+        ->and($compliance->itemsForEmployee($matchedEmployee))->toHaveCount(1)
+        ->and($compliance->summary($company->id)['missing'])->toBe(1);
+
+    $this->get('/organization/documents?requirement_status=missing')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('requirement_summary.missing', 1)
+            ->has('requirementDocuments.data', 1)
+            ->where('requirementDocuments.data.0.employee_id', $employee->id)
+            ->where('requirementDocuments.data.0.document_type_id', $passportType->id)
+            ->where('requirementDocuments.data.0.status', 'missing')
+        );
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
+                ->has('required_documents', 1)
+                ->where('required_documents.0.document_type_id', $passportType->id)
+                ->where('required_documents.0.status', 'missing')
+            )
+        );
+});
+
+test('employee profile required documents uses and matching across selected categories', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['employees.view', 'documents.view']);
+    $scopes = makeDocumentRequirementMatchScopes($company->id);
+
+    makeDocumentRequirement(
+        $company->id,
+        $passportType->id,
+        departmentIds: [$scopes['crew']->id],
+        rankIds: [$scopes['captain']->id],
+        projectIds: [$scopes['adnoc']->id],
+    );
+
+    $employee->update([
+        'department_id' => $scopes['crew']->id,
+        'rank_id' => $scopes['chiefEngineer']->id,
+        'project_id' => $scopes['adnoc']->id,
+    ]);
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
+                ->has('required_documents', 0)
+            )
+        );
+
+    $employee->update(['rank_id' => $scopes['captain']->id]);
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
+                ->has('required_documents', 1)
+                ->where('required_documents.0.document_type_id', $passportType->id)
+            )
+        );
+});
+
+test('bulk missing list uses and matching across selected categories', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.view']);
+    $scopes = makeDocumentRequirementMatchScopes($company->id);
+
+    makeDocumentRequirement(
+        $company->id,
+        $passportType->id,
+        departmentIds: [$scopes['crew']->id],
+        positionIds: [$scopes['seafarer']->id],
+        rankIds: [$scopes['captain']->id],
+        projectIds: [$scopes['adnoc']->id],
+    );
+
+    $employee->update([
+        'department_id' => $scopes['crew']->id,
+        'position_id' => $scopes['seafarer']->id,
+        'rank_id' => $scopes['captain']->id,
+        'project_id' => $scopes['otherProject']->id,
+    ]);
+
+    $this->get('/organization/documents?requirement_status=missing')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('requirement_summary.missing', 0)
+            ->has('requirementDocuments.data', 0)
+        );
+
+    $employee->update(['project_id' => $scopes['adnoc']->id]);
+
+    $this->get('/organization/documents?requirement_status=missing')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('requirement_summary.missing', 1)
+            ->has('requirementDocuments.data', 1)
+            ->where('requirementDocuments.data.0.employee_id', $employee->id)
+        );
+});
+
+test('changing employee project_id onto and off a selected project updates missing compliance', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.view']);
+    $scopes = makeDocumentRequirementMatchScopes($company->id);
+
+    makeDocumentRequirement($company->id, $passportType->id, projectIds: [$scopes['adnoc']->id]);
+
+    $employee->update(['project_id' => $scopes['adnoc']->id]);
+
+    $this->get('/organization/documents?requirement_status=missing')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requirementDocuments.data', 1)
+            ->where('requirementDocuments.data.0.employee_id', $employee->id)
+        );
+
+    $employee->update(['project_id' => $scopes['otherProject']->id]);
+
+    $this->get('/organization/documents?requirement_status=missing')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('requirementDocuments.data', 0));
+
+    $employee->update(['project_id' => $scopes['adnoc']->id]);
+
+    $this->get('/organization/documents?requirement_status=missing')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requirementDocuments.data', 1)
+            ->where('requirementDocuments.data.0.employee_id', $employee->id)
+        );
+});
+
+test('empty position category does not restrict bulk missing compliance', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.view']);
+    $scopes = makeDocumentRequirementMatchScopes($company->id);
+
+    makeDocumentRequirement(
+        $company->id,
+        $passportType->id,
+        departmentIds: [$scopes['crew']->id],
+        rankIds: [$scopes['captain']->id],
+    );
+
+    $employee->update([
+        'department_id' => $scopes['crew']->id,
+        'position_id' => null,
+        'rank_id' => $scopes['captain']->id,
+        'project_id' => $scopes['otherProject']->id,
+    ]);
+
+    $this->get('/organization/documents?requirement_status=missing')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requirementDocuments.data', 1)
+            ->where('requirementDocuments.data.0.employee_id', $employee->id)
+        );
+});
+
+test('required for all remains required when selected scopes would not match', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.view']);
+    $scopes = makeDocumentRequirementMatchScopes($company->id);
+
+    makeDocumentRequirement(
+        $company->id,
+        $passportType->id,
+        requiredForAll: true,
+        departmentIds: [$scopes['crew']->id],
+        projectIds: [$scopes['adnoc']->id],
+    );
+
+    $employee->update([
+        'department_id' => $scopes['marine']->id,
+        'project_id' => $scopes['otherProject']->id,
+    ]);
+
+    $this->get('/organization/documents?requirement_status=missing')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requirementDocuments.data', 1)
+            ->where('requirementDocuments.data.0.employee_id', $employee->id)
         );
 });

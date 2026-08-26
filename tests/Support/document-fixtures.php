@@ -4,10 +4,14 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Department;
 use App\Models\DocumentRequirement;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\Position;
+use App\Models\Project;
+use App\Models\Rank;
 use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\Fpdi;
 
@@ -98,6 +102,72 @@ function makeDocumentRequirement(
     $requirement->projects()->sync($projectIds);
 
     return $requirement->fresh(['departments', 'positions', 'ranks', 'projects']) ?? $requirement;
+}
+
+/**
+ * @return array{
+ *     crew: Department,
+ *     marine: Department,
+ *     seafarer: Position,
+ *     captain: Rank,
+ *     chiefEngineer: Rank,
+ *     adnoc: Project,
+ *     aramco: Project,
+ *     otherProject: Project
+ * }
+ */
+function makeDocumentRequirementMatchScopes(int $companyId): array
+{
+    $suffix = uniqid();
+
+    $crew = Department::query()->create([
+        'company_id' => $companyId,
+        'name' => 'Crew',
+        'code' => 'CRW-'.$suffix,
+        'status' => 'active',
+    ]);
+    $marine = Department::query()->create([
+        'company_id' => $companyId,
+        'name' => 'Marine',
+        'code' => 'MAR-'.$suffix,
+        'status' => 'active',
+    ]);
+    $seafarer = Position::query()->create([
+        'company_id' => $companyId,
+        'title' => 'Seafarer',
+        'status' => 'active',
+    ]);
+    $captain = Rank::query()->create([
+        'name' => 'Captain '.$suffix,
+        'is_active' => true,
+    ]);
+    $chiefEngineer = Rank::query()->create([
+        'name' => 'Chief Engineer '.$suffix,
+        'is_active' => true,
+    ]);
+    $adnoc = Project::query()->create([
+        'title' => 'ADNOC '.$suffix,
+        'is_active' => true,
+    ]);
+    $aramco = Project::query()->create([
+        'title' => 'ARAMCO '.$suffix,
+        'is_active' => true,
+    ]);
+    $otherProject = Project::query()->create([
+        'title' => 'Other Project '.$suffix,
+        'is_active' => true,
+    ]);
+
+    return compact(
+        'crew',
+        'marine',
+        'seafarer',
+        'captain',
+        'chiefEngineer',
+        'adnoc',
+        'aramco',
+        'otherProject',
+    );
 }
 
 function minimalPdfBytes(): string

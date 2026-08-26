@@ -54,22 +54,28 @@ final class DocumentRequirementResolver
             return true;
         }
 
-        if ($employee->department_id !== null && $requirement->departments->contains('id', $employee->department_id)) {
+        return $this->categoryMatches($requirement->departments, $employee->department_id)
+            && $this->categoryMatches($requirement->positions, $employee->position_id)
+            && $this->categoryMatches($requirement->ranks, $employee->rank_id)
+            && $this->categoryMatches($requirement->projects, $employee->project_id);
+    }
+
+    /**
+     * Empty categories impose no restriction. A selected category matches when the
+     * employee value is present and equals one of the selected IDs.
+     *
+     * @param  Collection<int, mixed>  $selected
+     */
+    private function categoryMatches(Collection $selected, mixed $employeeValue): bool
+    {
+        if ($selected->isEmpty()) {
             return true;
         }
 
-        if ($employee->position_id !== null && $requirement->positions->contains('id', $employee->position_id)) {
-            return true;
+        if ($employeeValue === null) {
+            return false;
         }
 
-        if ($employee->rank_id !== null && $requirement->ranks->contains('id', $employee->rank_id)) {
-            return true;
-        }
-
-        if ($employee->project_id !== null && $requirement->projects->contains('id', $employee->project_id)) {
-            return true;
-        }
-
-        return false;
+        return $selected->contains('id', (int) $employeeValue);
     }
 }
