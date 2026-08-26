@@ -6,29 +6,16 @@ use App\Exceptions\EmployeeSmartSearchUnavailableException;
 
 final class EmployeeSmartSearchIntent
 {
-    /** @var list<string> */
-    public const FIELDS = [
-        'status',
-        'department',
-        'position',
-        'nationality',
-        'rank',
-        'crew_status',
-    ];
-
     /**
-     * Normalize a decoded provider payload to the trusted filter-intent schema.
+     * Normalize a decoded provider payload to the trusted criteria schema.
      *
-     * Extra model fields are discarded. Empty, list, or unstructured payloads fail closed.
+     * Extra model fields are discarded. Missing required properties, empty,
+     * list, or unstructured payloads fail closed.
      *
      * @param  array<mixed>  $payload
      * @return array{
-     *     status: string|null,
-     *     department: string|null,
-     *     position: string|null,
-     *     nationality: string|null,
-     *     rank: string|null,
-     *     crew_status: string|null,
+     *     criteria: list<array{concept: string, operator: string, value: string|null}>,
+     *     ambiguous_terms: list<string>,
      *     unsupported_terms: list<string>
      * }
      */
@@ -38,37 +25,111 @@ final class EmployeeSmartSearchIntent
             throw EmployeeSmartSearchUnavailableException::providerFailed();
         }
 
-        if (! array_key_exists('unsupported_terms', $payload)) {
-            throw EmployeeSmartSearchUnavailableException::providerFailed();
-        }
-
-        $hasFilterField = false;
-
-        foreach (self::FIELDS as $field) {
-            if (array_key_exists($field, $payload)) {
-                $hasFilterField = true;
-                break;
-            }
-        }
-
-        if (! $hasFilterField) {
-            $keys = array_keys($payload);
-            sort($keys);
-
-            if ($keys !== ['unsupported_terms']) {
+        foreach (['criteria', 'ambiguous_terms', 'unsupported_terms'] as $required) {
+            if (! array_key_exists($required, $payload)) {
                 throw EmployeeSmartSearchUnavailableException::providerFailed();
             }
         }
 
-        $intent = [];
+        return [
+            'criteria' => self::criteria($payload['criteria']),
+            'ambiguous_terms' => self::stringList($payload['ambiguous_terms']),
+            'unsupported_terms' => self::stringList($payload['unsupported_terms']),
+        ];
+    }
 
-        foreach (self::FIELDS as $field) {
-            $intent[$field] = self::nullableString($payload[$field] ?? null);
+    /**
+     * @return list<array{concept: string, operator: string, value: string|null}>
+     */
+    private static function criteria(mixed $value): array
+    {
+        if (! is_array($value) || ($value !== [] && ! array_is_list($value))) {
+            throw EmployeeSmartSearchUnavailableException::providerFailed();
         }
 
-        $intent['unsupported_terms'] = self::stringList($payload['unsupported_terms']);
+        $criteria = [];
 
-        return $intent;
+        foreach ($value as $item) {
+            $criteria[] = self::criterion($item);
+        }
+
+        return self::deduplicate($criteria);
+    }
+
+    /**
+     * @return array{concept: string, operator: string, value: string|null}
+     */
+    private static function criterion(mixed $item): array
+    {
+        if (! is_array($item) || $item === [] || array_is_list($item)) {
+            throw EmployeeSmartSearchUnavailableException::providerFailed();
+        }
+
+        foreach (['concept', 'operator', 'value'] as $required) {
+            if (! array_key_exists($required, $item)) {
+                throw EmployeeSmartSearchUnavailableException::providerFailed();
+            }
+        }
+
+        $concept = self::requiredToken($item['concept']);
+        $operator = self::requiredToken($item['operator']);
+        $value = self::nullableString($item['value']);
+
+        if (! EmployeeSmartSearchConceptRegistry::has($concept)
+            || ! EmployeeSmartSearchConceptRegistry::allows($concept, $operator)) {
+            throw EmployeeSmartSearchUnavailableException::providerFailed();
+        }
+
+        if (in_array($operator, [
+            EmployeeSmartSearchConceptRegistry::OPERATOR_MISSING,
+            EmployeeSmartSearchConceptRegistry::OPERATOR_PRESENT,
+        ], true)) {
+            $value = null;
+        }
+
+        return [
+            'concept' => $concept,
+            'operator' => $operator,
+            'value' => $value,
+        ];
+    }
+
+    /**
+     * @param  list<array{concept: string, operator: string, value: string|null}>  $criteria
+     * @return list<array{concept: string, operator: string, value: string|null}>
+     */
+    private static function deduplicate(array $criteria): array
+    {
+        $unique = [];
+        $seen = [];
+
+        foreach ($criteria as $criterion) {
+            $signature = $criterion['concept']."\0".$criterion['operator']."\0".($criterion['value'] ?? '');
+
+            if (isset($seen[$signature])) {
+                continue;
+            }
+
+            $seen[$signature] = true;
+            $unique[] = $criterion;
+        }
+
+        return $unique;
+    }
+
+    private static function requiredToken(mixed $value): string
+    {
+        if (! is_string($value)) {
+            throw EmployeeSmartSearchUnavailableException::providerFailed();
+        }
+
+        $trimmed = strtolower(trim($value));
+
+        if ($trimmed === '') {
+            throw EmployeeSmartSearchUnavailableException::providerFailed();
+        }
+
+        return $trimmed;
     }
 
     private static function nullableString(mixed $value): ?string

@@ -12,6 +12,7 @@ use App\Http\Requests\Organization\Employee\UpdateEmployeeRequest;
 use App\Http\Requests\Organization\Employee\UpdateEmployeeStatusRequest;
 use App\Models\Employee;
 use App\Models\EmployeeProfileTemplate;
+use App\Services\Settings\AiSettingsService;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
@@ -42,7 +43,7 @@ class EmployeeController extends Controller
 {
     use ResolvesPerPage;
 
-    public function index(): InertiaResponse|RedirectResponse
+    public function index(AiSettingsService $aiSettings): InertiaResponse|RedirectResponse
     {
         $redirect = ApplyDefaultSavedView::maybeRedirect(request(), SavedViewPage::Employees);
 
@@ -53,7 +54,6 @@ class EmployeeController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         $perPage = $this->resolvePerPage(request());
         $directoryFilters = EmployeeDirectoryFilters::fromRequest(request());
-        $formOptions = EmployeeFormOptions::for($companyId);
 
         $paginator = (new EmployeeDirectoryQuery($companyId, $directoryFilters))
             ->apply(
@@ -94,45 +94,35 @@ class EmployeeController extends Controller
             fn (Employee $employee) => EmployeeListResource::toArray($employee, $crewStatusByEmployeeId),
         );
 
+        $formOptions = fn (): array => once(fn (): array => EmployeeFormOptions::for($companyId));
+
         return Inertia::render('organization/employees', [
             'employees' => $employees->items(),
             'pagination' => $this->paginationMeta($paginator),
             'search' => $directoryFilters->search,
-            'filters' => [
-                'department_id' => $directoryFilters->departmentId,
-                'position_id' => $directoryFilters->positionId,
-                'status' => $directoryFilters->status,
-                'manager_id' => $directoryFilters->managerId,
-                'gender_id' => $directoryFilters->genderId,
-                'nationality_id' => $directoryFilters->nationalityId,
-                'visa_type_id' => $directoryFilters->visaTypeId,
-                'company_visa_type_id' => $directoryFilters->companyVisaTypeId,
-                'rank_id' => $directoryFilters->rankId,
-                'approval_location_id' => $directoryFilters->approvalLocationId,
-                'sssa_option_id' => $directoryFilters->sssaOptionId,
-                'crew_status' => $directoryFilters->crewStatus,
-                'role_id' => $directoryFilters->roleId,
-            ],
-            'departments' => $formOptions['departments'],
-            'positions' => $formOptions['positions'],
-            'managers' => EmployeeFormOptions::departmentManagersForFilter($companyId),
-            'users' => $formOptions['users'],
-            'countries' => $formOptions['countries'],
-            'religions' => $formOptions['religions'],
-            'genders' => $formOptions['genders'],
-            'visa_types' => $formOptions['visa_types'],
-            'company_visa_types' => $formOptions['company_visa_types'],
-            'approval_locations' => $formOptions['approval_locations'],
-            'sssa_options' => $formOptions['sssa_options'],
-            'ranks' => $formOptions['ranks'],
-            'banks' => $formOptions['banks'],
-            'roles' => $formOptions['roles'],
-            'export_field_options' => EmployeeExportFieldRegistry::optionsForUser(request()->user()),
-            'department_tree' => BuildDepartmentEmployeeTree::for($companyId, $directoryFilters),
+            'filters' => $directoryFilters->toInertiaFilters(),
+            'branches' => fn () => $formOptions()['branches'],
+            'departments' => fn () => $formOptions()['departments'],
+            'positions' => fn () => $formOptions()['positions'],
+            'managers' => fn () => EmployeeFormOptions::departmentManagersForFilter($companyId),
+            'users' => fn () => $formOptions()['users'],
+            'countries' => fn () => $formOptions()['countries'],
+            'religions' => fn () => $formOptions()['religions'],
+            'genders' => fn () => $formOptions()['genders'],
+            'visa_types' => fn () => $formOptions()['visa_types'],
+            'company_visa_types' => fn () => $formOptions()['company_visa_types'],
+            'approval_locations' => fn () => $formOptions()['approval_locations'],
+            'sssa_options' => fn () => $formOptions()['sssa_options'],
+            'ranks' => fn () => $formOptions()['ranks'],
+            'banks' => fn () => $formOptions()['banks'],
+            'roles' => fn () => $formOptions()['roles'],
+            'export_field_options' => fn () => EmployeeExportFieldRegistry::optionsForUser(request()->user()),
+            'department_tree' => fn () => BuildDepartmentEmployeeTree::for($companyId, $directoryFilters),
             'department_tree_selected_id' => $directoryFilters->departmentId !== '' ? (int) $directoryFilters->departmentId : null,
             'department_tree_selected_position_id' => $directoryFilters->positionId !== '' ? (int) $directoryFilters->positionId : null,
-            'can' => EmployeePagePermissions::for(request()->user()),
-            'saved_views' => SavedViewsForPage::props(request()->user(), $companyId, SavedViewPage::Employees),
+            'can' => fn () => EmployeePagePermissions::for(request()->user()),
+            'saved_views' => fn () => SavedViewsForPage::props(request()->user(), $companyId, SavedViewPage::Employees),
+            'smart_search_available' => fn () => $aiSettings->isSmartSearchAvailable(),
         ]);
     }
 

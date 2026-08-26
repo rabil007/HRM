@@ -88,6 +88,46 @@ test('authenticated users can create rename and delete their saved views', funct
     expect($user->savedViews()->count())->toBe(0);
 });
 
+test('employee saved views persist generic completeness and status all', function () {
+    [$user, $company] = savedViewUser();
+
+    saveView($user, $company->id, [
+        'page_key' => 'employees',
+        'name' => 'Missing email',
+        'filters' => ['status' => 'all', 'missing_fields' => 'email,date_of_birth'],
+    ])->assertRedirect('/organization/employees');
+
+    expect($user->savedViews()->first()?->filters)->toBe([
+        'status' => 'all',
+        'missing_fields' => 'email,date_of_birth',
+    ]);
+
+    saveView($user, $company->id, [
+        'page_key' => 'employees',
+        'name' => 'Legacy Emirates ID',
+        'filters' => ['emirates_id_presence' => 'present'],
+    ])->assertRedirect('/organization/employees');
+
+    expect(
+        $user->savedViews()->where('name', 'Legacy Emirates ID')->first()?->filters,
+    )->toBe(['present_fields' => 'emirates_id']);
+
+    saveView($user, $company->id, [
+        'page_key' => 'employees',
+        'name' => 'Prompt should not save',
+        'filters' => [
+            'missing_fields' => 'email',
+            'prompt' => 'employees with empty email',
+        ],
+    ])->assertRedirect()->assertSessionHasErrors('filters');
+
+    saveView($user, $company->id, [
+        'page_key' => 'employees',
+        'name' => 'Unknown completeness',
+        'filters' => ['missing_fields' => 'salary'],
+    ])->assertRedirect()->assertSessionHasErrors('filters.missing_fields');
+});
+
 test('duplicate names on the same page are rejected', function () {
     [$user, $company] = savedViewUser();
 

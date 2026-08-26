@@ -19,6 +19,7 @@ const FILTER_KEYS: Record<SavedViewPageKey, readonly string[]> = {
     employees: [
         'search',
         'status',
+        'branch_id',
         'department_id',
         'position_id',
         'manager_id',
@@ -31,6 +32,8 @@ const FILTER_KEYS: Record<SavedViewPageKey, readonly string[]> = {
         'sssa_option_id',
         'crew_status',
         'role_id',
+        'missing_fields',
+        'present_fields',
     ],
     documents: ['search', 'expiry', 'department_id'],
     crew: [

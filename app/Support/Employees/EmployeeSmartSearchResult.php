@@ -6,22 +6,25 @@ final readonly class EmployeeSmartSearchResult
 {
     /**
      * @param  array<string, string>  $filters
-     * @param  array<string, string>  $labels
+     * @param  list<array{key: string, label: string, value: string}>  $applied
      * @param  list<array{field: string, term: string, reason: string}>  $unresolved
+     * @param  list<array{field: string, term: string, reason: string}>  $ambiguous
      * @param  list<string>  $unsupported
      */
     public function __construct(
         public array $filters,
-        public array $labels,
+        public array $applied,
         public array $unresolved,
+        public array $ambiguous,
         public array $unsupported,
     ) {}
 
     /**
      * @return array{
      *     filters: array<string, string>,
-     *     labels: array<string, string>,
+     *     applied: list<array{key: string, label: string, value: string}>,
      *     unresolved: list<array{field: string, term: string, reason: string}>,
+     *     ambiguous: list<array{field: string, term: string, reason: string}>,
      *     unsupported: list<string>
      * }
      */
@@ -29,8 +32,9 @@ final readonly class EmployeeSmartSearchResult
     {
         return [
             'filters' => $this->filters,
-            'labels' => $this->labels,
+            'applied' => $this->applied,
             'unresolved' => $this->unresolved,
+            'ambiguous' => $this->ambiguous,
             'unsupported' => $this->unsupported,
         ];
     }

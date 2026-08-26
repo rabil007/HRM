@@ -25,6 +25,55 @@ test('unknown keys are rejected on save and stripped on apply', function () {
     ))->toThrow(ValidationException::class);
 });
 
+test('employee saved views accept generic completeness missing and present', function () {
+    expect(SavedViewCatalog::forApply(SavedViewPage::Employees, [
+        'status' => 'active',
+        'missing_fields' => 'email,date_of_birth',
+    ]))->toBe([
+        'status' => 'active',
+        'missing_fields' => 'email,date_of_birth',
+    ]);
+
+    expect(SavedViewCatalog::normalizeForSave(
+        SavedViewPage::Employees,
+        ['present_fields' => 'passport_number'],
+        1,
+    ))->toBe(['present_fields' => 'passport_number']);
+
+    expect(SavedViewCatalog::forApply(SavedViewPage::Employees, [
+        'status' => 'all',
+        'emirates_id_presence' => 'missing',
+    ]))->toBe([
+        'status' => 'all',
+        'missing_fields' => 'emirates_id',
+    ]);
+});
+
+test('employee saved views reject unknown completeness concepts and prompts', function () {
+    expect(SavedViewCatalog::forApply(SavedViewPage::Employees, [
+        'missing_fields' => 'salary',
+        'prompt' => 'employees without email',
+    ]))->toBe([]);
+
+    expect(fn () => SavedViewCatalog::normalizeForSave(
+        SavedViewPage::Employees,
+        ['missing_fields' => 'salary'],
+        1,
+    ))->toThrow(ValidationException::class);
+
+    expect(fn () => SavedViewCatalog::normalizeForSave(
+        SavedViewPage::Employees,
+        ['prompt' => 'employees without email'],
+        1,
+    ))->toThrow(ValidationException::class);
+
+    expect(fn () => SavedViewCatalog::normalizeForSave(
+        SavedViewPage::Employees,
+        ['emirates_id_presence' => '784-1234-1234567-1'],
+        1,
+    ))->toThrow(ValidationException::class);
+});
+
 test('empty and default values are omitted', function () {
     expect(SavedViewCatalog::forApply(SavedViewPage::Documents, [
         'expiry' => 'all',

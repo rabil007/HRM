@@ -6,6 +6,17 @@ use Illuminate\Http\Request;
 
 final class EmployeeDirectoryFilters
 {
+    public const STATUS_ALL = 'all';
+
+    /** @var list<string> */
+    public const STATUSES = [
+        'active',
+        'inactive',
+        'on_leave',
+        'terminated',
+        self::STATUS_ALL,
+    ];
+
     public function __construct(
         public readonly string $search = '',
         public readonly string $branchId = '',
@@ -22,6 +33,8 @@ final class EmployeeDirectoryFilters
         public readonly string $sssaOptionId = '',
         public readonly string $crewStatus = '',
         public readonly string $roleId = '',
+        public readonly string $missingFields = '',
+        public readonly string $presentFields = '',
     ) {}
 
     /**
@@ -29,12 +42,18 @@ final class EmployeeDirectoryFilters
      */
     public static function fromArray(array $data): self
     {
+        [$missing, $present] = self::completenessFromInput(
+            $data['missing_fields'] ?? '',
+            $data['present_fields'] ?? '',
+            $data['emirates_id_presence'] ?? '',
+        );
+
         return new self(
             search: trim((string) ($data['search'] ?? '')),
             branchId: trim((string) ($data['branch_id'] ?? '')),
             departmentId: trim((string) ($data['department_id'] ?? '')),
             positionId: trim((string) ($data['position_id'] ?? '')),
-            status: trim((string) ($data['status'] ?? '')),
+            status: self::normalizeStatus($data['status'] ?? ''),
             managerId: trim((string) ($data['manager_id'] ?? '')),
             genderId: trim((string) ($data['gender_id'] ?? '')),
             nationalityId: trim((string) ($data['nationality_id'] ?? '')),
@@ -45,28 +64,31 @@ final class EmployeeDirectoryFilters
             sssaOptionId: trim((string) ($data['sssa_option_id'] ?? '')),
             crewStatus: trim((string) ($data['crew_status'] ?? '')),
             roleId: trim((string) ($data['role_id'] ?? '')),
+            missingFields: $missing,
+            presentFields: $present,
         );
     }
 
     public static function fromRequest(Request $request): self
     {
-        return new self(
-            search: trim((string) $request->input('search', '')),
-            branchId: trim((string) $request->input('branch_id', '')),
-            departmentId: trim((string) $request->input('department_id', '')),
-            positionId: trim((string) $request->input('position_id', '')),
-            status: trim((string) $request->input('status', '')),
-            managerId: trim((string) $request->input('manager_id', '')),
-            genderId: trim((string) $request->input('gender_id', '')),
-            nationalityId: trim((string) $request->input('nationality_id', '')),
-            visaTypeId: trim((string) $request->input('visa_type_id', '')),
-            companyVisaTypeId: trim((string) $request->input('company_visa_type_id', '')),
-            rankId: trim((string) $request->input('rank_id', '')),
-            approvalLocationId: trim((string) $request->input('approval_location_id', '')),
-            sssaOptionId: trim((string) $request->input('sssa_option_id', '')),
-            crewStatus: trim((string) $request->input('crew_status', '')),
-            roleId: trim((string) $request->input('role_id', '')),
-        );
+        return self::fromArray($request->all());
+    }
+
+    public function appliesDefaultActiveStatus(): bool
+    {
+        return $this->status === '';
+    }
+
+    public function omitsHrStatusPredicate(): bool
+    {
+        return $this->status === self::STATUS_ALL;
+    }
+
+    public function hasInvalidStatus(): bool
+    {
+        return $this->status !== ''
+            && $this->status !== self::STATUS_ALL
+            && ! in_array($this->status, self::STATUSES, true);
     }
 
     /**
@@ -136,6 +158,79 @@ final class EmployeeDirectoryFilters
             $query['role_id'] = $this->roleId;
         }
 
+        if ($this->missingFields !== '') {
+            $query[EmployeeDirectoryCompleteness::MISSING_QUERY_KEY] = $this->missingFields;
+        }
+
+        if ($this->presentFields !== '') {
+            $query[EmployeeDirectoryCompleteness::PRESENT_QUERY_KEY] = $this->presentFields;
+        }
+
         return $query;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function toInertiaFilters(): array
+    {
+        return [
+            'branch_id' => $this->branchId,
+            'department_id' => $this->departmentId,
+            'position_id' => $this->positionId,
+            'status' => $this->status,
+            'manager_id' => $this->managerId,
+            'gender_id' => $this->genderId,
+            'nationality_id' => $this->nationalityId,
+            'visa_type_id' => $this->visaTypeId,
+            'company_visa_type_id' => $this->companyVisaTypeId,
+            'rank_id' => $this->rankId,
+            'approval_location_id' => $this->approvalLocationId,
+            'sssa_option_id' => $this->sssaOptionId,
+            'crew_status' => $this->crewStatus,
+            'role_id' => $this->roleId,
+            'missing_fields' => $this->missingFields,
+            'present_fields' => $this->presentFields,
+        ];
+    }
+
+    private static function normalizeStatus(mixed $value): string
+    {
+        return strtolower(trim((string) $value));
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private static function completenessFromInput(mixed $missing, mixed $present, mixed $legacyEmiratesIdPresence): array
+    {
+        $missingParsed = EmployeeDirectoryCompleteness::parse($missing);
+        $presentParsed = EmployeeDirectoryCompleteness::parse($present);
+
+        $missingKeys = $missingParsed['valid'] ? $missingParsed['keys'] : ['_invalid'];
+        $presentKeys = $presentParsed['valid'] ? $presentParsed['keys'] : ['_invalid'];
+
+        $legacy = strtolower(trim((string) $legacyEmiratesIdPresence));
+
+        if ($legacy === 'missing' && ! in_array('emirates_id', $missingKeys, true)) {
+            $missingKeys[] = 'emirates_id';
+        }
+
+        if ($legacy === 'present' && ! in_array('emirates_id', $presentKeys, true)) {
+            $presentKeys[] = 'emirates_id';
+        }
+
+        if ($legacy !== '' && $legacy !== 'missing' && $legacy !== 'present') {
+            $missingKeys[] = '_invalid';
+        }
+
+        $missingCsv = in_array('_invalid', $missingKeys, true)
+            ? '_invalid'
+            : EmployeeDirectoryCompleteness::toCsv($missingKeys);
+        $presentCsv = in_array('_invalid', $presentKeys, true)
+            ? '_invalid'
+            : EmployeeDirectoryCompleteness::toCsv($presentKeys);
+
+        return [$missingCsv, $presentCsv];
     }
 }

@@ -49,9 +49,23 @@ final class EmployeeDirectoryQuery
             })
             ->when(! $exceptPosition && $filters->positionId, fn (Builder $q) => $q->where('position_id', $filters->positionId))
             ->when(
-                $filters->status !== '',
-                fn (Builder $q) => $q->where('status', $filters->status),
-                fn (Builder $q) => $exceptStatus ? $q : $q->where('status', 'active'),
+                $exceptStatus || $filters->omitsHrStatusPredicate(),
+                fn (Builder $q) => $q,
+                function (Builder $q) use ($filters): void {
+                    if ($filters->hasInvalidStatus()) {
+                        $q->whereRaw('1 = 0');
+
+                        return;
+                    }
+
+                    if ($filters->status !== '') {
+                        $q->where('status', $filters->status);
+
+                        return;
+                    }
+
+                    $q->where('status', 'active');
+                },
             )
             ->when($filters->managerId, function (Builder $q) use ($companyId, $filters): void {
                 $departmentIds = ResolveDepartmentEffectiveManager::departmentIdsForManager(
@@ -141,7 +155,32 @@ final class EmployeeDirectoryQuery
                         $r->whereKey($filters->roleId);
                     });
                 });
+            })
+            ->when($filters->missingFields !== '', function (Builder $q) use ($filters): void {
+                self::applyCompleteness($q, $filters->missingFields, missing: true);
+            })
+            ->when($filters->presentFields !== '', function (Builder $q) use ($filters): void {
+                self::applyCompleteness($q, $filters->presentFields, missing: false);
             });
+    }
+
+    private static function applyCompleteness(Builder $query, string $csv, bool $missing): void
+    {
+        $parsed = EmployeeDirectoryCompleteness::parse($csv);
+
+        if (! $parsed['valid'] || $csv === '_invalid') {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        if ($missing) {
+            EmployeeDirectoryCompleteness::applyMissing($query, $parsed['keys']);
+
+            return;
+        }
+
+        EmployeeDirectoryCompleteness::applyPresent($query, $parsed['keys']);
     }
 
     public function base(): Builder

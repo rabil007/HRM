@@ -2,6 +2,7 @@ import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeContro
 
 export type EmployeeListQuery = {
     search?: string;
+    branch_id?: string;
     department_id?: string;
     position_id?: string;
     status?: string;
@@ -15,6 +16,8 @@ export type EmployeeListQuery = {
     sssa_option_id?: string;
     crew_status?: string;
     role_id?: string;
+    missing_fields?: string;
+    present_fields?: string;
 };
 
 export function buildEmployeeListQuery(
@@ -25,6 +28,10 @@ export function buildEmployeeListQuery(
 
     if (search.trim() !== '') {
         query.search = search.trim();
+    }
+
+    if (filters.branch_id) {
+        query.branch_id = filters.branch_id;
     }
 
     if (filters.department_id) {
@@ -77,6 +84,14 @@ export function buildEmployeeListQuery(
 
     if (filters.role_id) {
         query.role_id = filters.role_id;
+    }
+
+    if (filters.missing_fields) {
+        query.missing_fields = filters.missing_fields;
+    }
+
+    if (filters.present_fields) {
+        query.present_fields = filters.present_fields;
     }
 
     return query;

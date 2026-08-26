@@ -50,7 +50,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 | Recently viewed records | [recent-items.md](./recent-items.md) |
 | Saved list filters | [saved-views.md](./saved-views.md) |
 | Privileged 2FA | [privileged-2fa.md](./privileged-2fa.md) and `.cursor/rules/permissions.mdc` |
-| AI providers / Smart Employee Search settings | [ai-settings.md](./ai-settings.md) |
+| AI providers / Smart Employee Search | [ai-settings.md](./ai-settings.md) |
 | HTTP / browser security headers | [security-headers.md](./security-headers.md) |
 | Security (credentials, tenancy, auth) | Matching security guide ([permissions.md](./permissions.md#global-user-account-status) for login account status, [permissions.md](./permissions.md#global-user-email-identity) for global email identity, [privileged-2fa.md](./privileged-2fa.md), [security-headers.md](./security-headers.md)) + `review-oms-security` skill |
 | CI quality gates | [ci.md](./ci.md) |
@@ -80,7 +80,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 | [Document sharing](./document-sharing.md) | HR, developers | Share links, WhatsApp, bulk actions |
 | [Permissions](./permissions.md) | Admins, developers | Spatie permissions, documents, imports, global user account status, global user email identity |
 | [Email configuration](./email-configuration.md) | Admins, developers | SMTP settings, test email |
-| [AI settings](./ai-settings.md) | Admins, developers | Platform OpenAI/OpenRouter credentials, Smart Employee Search toggle |
+| [AI settings](./ai-settings.md) | Admins, developers | Platform OpenAI/OpenRouter credentials, Smart Employee Search toggle, Employee Directory Beta UI |
 | [WhatsApp integration](./whatsapp-integration.md) | Admins, developers | Meta Cloud API settings, webhook verification, signed status callbacks |
 | [Announcement Web Push](./announcements-web-push.md) | Admins, developers | Browser push as an extension of in-app announcements |
 | [Document compliance Web Push](./document-compliance-web-push.md) | Admins, developers | Browser push for the daily document expiry summary |

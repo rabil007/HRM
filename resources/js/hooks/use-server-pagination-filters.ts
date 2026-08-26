@@ -33,6 +33,8 @@ type UseServerPaginationFiltersOptions<TFilters extends ServerQueryParams> = {
     /** Query string key for search (default: `search`). Use `q` for activity logs. */
     searchKey?: string;
     debounceMs?: number;
+    /** Optional Inertia partial reload keys. Omitted by default so existing callers stay unchanged. */
+    only?: string[];
 };
 
 export function useServerPaginationFilters<TFilters extends ServerQueryParams>({
@@ -42,6 +44,7 @@ export function useServerPaginationFilters<TFilters extends ServerQueryParams>({
     pagination,
     searchKey = 'search',
     debounceMs = 400,
+    only,
 }: UseServerPaginationFiltersOptions<TFilters>) {
     const baseQuery = useCallback(
         (): ServerQueryParams => ({
@@ -64,10 +67,11 @@ export function useServerPaginationFilters<TFilters extends ServerQueryParams>({
                     preserveState: true,
                     preserveScroll: true,
                     replace: true,
+                    ...(only !== undefined && only.length > 0 ? { only } : {}),
                 },
             );
         },
-        [url, baseQuery, pagination.per_page],
+        [url, baseQuery, pagination.per_page, only],
     );
 
     const handleDebouncedSearch = useCallback(

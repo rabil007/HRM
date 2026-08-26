@@ -103,7 +103,27 @@ describe('saved view catalog', () => {
             }),
             { status: 'draft' },
         );
-        assert.equal(savedViewFilterKeys('payroll').includes('salary'), false);
+        assert.equal(
+            savedViewFilterKeys('employees').includes('missing_fields'),
+            true,
+        );
+        assert.equal(
+            savedViewFilterKeys('employees').includes('present_fields'),
+            true,
+        );
+        assert.equal(
+            savedViewFilterKeys('employees').includes('branch_id'),
+            true,
+        );
+        assert.equal(savedViewFilterKeys('employees').includes('status'), true);
+        assert.equal(
+            savedViewFilterKeys('employees').includes('emirates_id_presence'),
+            false,
+        );
+        assert.equal(
+            savedViewFilterKeys('employees').includes('prompt'),
+            false,
+        );
     });
 
     it('treats matching captured and stored filters as the same view', () => {

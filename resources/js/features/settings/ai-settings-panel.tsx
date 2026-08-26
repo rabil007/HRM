@@ -40,6 +40,10 @@ export type AiSettings = {
         has_api_key: boolean;
         model: string;
     };
+    default_models?: {
+        openai: string;
+        openrouter: string;
+    };
 };
 
 export type AiSettingsPanelProps = AiSettings & {
@@ -88,6 +92,7 @@ function ProviderCredentialCard({
     onModelChange,
     modelError,
     canUpdate,
+    defaultModelHint,
 }: {
     title: string;
     description: string;
@@ -101,6 +106,7 @@ function ProviderCredentialCard({
     onModelChange: (value: string) => void;
     modelError?: string;
     canUpdate: boolean;
+    defaultModelHint: string;
 }) {
     return (
         <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
@@ -144,14 +150,14 @@ function ProviderCredentialCard({
                         id={modelId}
                         value={modelValue}
                         onChange={(event) => onModelChange(event.target.value)}
-                        placeholder="Leave blank for the SDK/provider default"
+                        placeholder="Leave blank for the fast default"
                         disabled={!canUpdate}
                         autoComplete="off"
                     />
                     <InputError message={modelError} />
                     <p className="ml-0.5 text-[10px] text-muted-foreground/50">
-                        Optional. Leave blank to use the SDK/provider default
-                        when supported.
+                        Optional. Leave blank to use the fast default:{' '}
+                        {defaultModelHint}
                     </p>
                 </div>
             </CardContent>
@@ -164,6 +170,7 @@ export function AiSettingsPanel({
     provider,
     openai,
     openrouter,
+    default_models,
     canUpdate,
 }: AiSettingsPanelProps) {
     const [connectionStatus, setConnectionStatus] =
@@ -334,6 +341,7 @@ export function AiSettingsPanel({
                 onModelChange={(value) => form.setData('openai_model', value)}
                 modelError={form.errors.openai_model}
                 canUpdate={canUpdate}
+                defaultModelHint="GPT-5.6 Luna"
             />
 
             <ProviderCredentialCard
@@ -353,6 +361,9 @@ export function AiSettingsPanel({
                 }
                 modelError={form.errors.openrouter_model}
                 canUpdate={canUpdate}
+                defaultModelHint={
+                    default_models?.openrouter || 'openai/gpt-5.6-luna'
+                }
             />
 
             {canUpdate ? (

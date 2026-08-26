@@ -11,6 +11,7 @@ use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Enums\SavedViewPage;
 use App\Models\ApprovalLocation;
+use App\Models\Branch;
 use App\Models\Client;
 use App\Models\CompanyVisaType;
 use App\Models\Country;
@@ -26,6 +27,8 @@ use App\Models\Vessel;
 use App\Models\VisaType;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\Employees\EmployeeCrewStatusFilter;
+use App\Support\Employees\EmployeeDirectoryCompleteness;
+use App\Support\Employees\EmployeeSmartSearchResolver;
 use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -67,6 +70,10 @@ final class SavedViewCatalog
      */
     public static function normalizeForSave(SavedViewPage $page, array $raw, int $companyId): array
     {
+        if ($page === SavedViewPage::Employees) {
+            $raw = self::migrateLegacyEmployeeFilters($raw, rejectInvalid: true);
+        }
+
         $definitions = self::definitions($page);
         $unknown = array_diff(array_keys($raw), array_keys($definitions));
 
@@ -116,6 +123,10 @@ final class SavedViewCatalog
             return [];
         }
 
+        if ($page === SavedViewPage::Employees) {
+            $raw = self::migrateLegacyEmployeeFilters($raw, rejectInvalid: false);
+        }
+
         $normalized = [];
 
         foreach (self::definitions($page) as $key => $definition) {
@@ -149,7 +160,8 @@ final class SavedViewCatalog
         return match ($page) {
             SavedViewPage::Employees => [
                 'search' => ['type' => 'search'],
-                'status' => ['type' => 'enum', 'values' => ['active', 'inactive', 'on_leave', 'terminated']],
+                'status' => ['type' => 'enum', 'values' => EmployeeSmartSearchResolver::STATUSES],
+                'branch_id' => ['type' => 'id', 'model' => Branch::class, 'company' => true],
                 'department_id' => ['type' => 'id', 'model' => Department::class, 'company' => true],
                 'position_id' => ['type' => 'id', 'model' => Position::class, 'company' => true],
                 'manager_id' => ['type' => 'id', 'model' => Employee::class, 'company' => true],
@@ -162,6 +174,8 @@ final class SavedViewCatalog
                 'sssa_option_id' => ['type' => 'id', 'model' => SssaOption::class, 'company' => false],
                 'crew_status' => ['type' => 'enum', 'values' => array_keys(EmployeeCrewStatusFilter::options())],
                 'role_id' => ['type' => 'id', 'model' => Role::class, 'company' => true],
+                EmployeeDirectoryCompleteness::MISSING_QUERY_KEY => ['type' => 'completeness'],
+                EmployeeDirectoryCompleteness::PRESENT_QUERY_KEY => ['type' => 'completeness'],
             ],
             SavedViewPage::Documents => [
                 'search' => ['type' => 'search'],
@@ -227,11 +241,67 @@ final class SavedViewCatalog
         return match ($type) {
             'search' => self::normalizeSearch($key, $value, $rejectInvalid),
             'enum' => self::normalizeEnum($key, $value, $definition, $rejectInvalid),
+            'completeness' => self::normalizeCompleteness($key, $value, $rejectInvalid),
             'id' => self::normalizeId($key, $value, $definition, $companyId, $rejectInvalid),
             'bool' => self::normalizeBool($value),
             'date' => self::normalizeDate($key, $value, $rejectInvalid),
             default => null,
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $raw
+     * @return array<string, mixed>
+     */
+    private static function migrateLegacyEmployeeFilters(array $raw, bool $rejectInvalid): array
+    {
+        if (! array_key_exists('emirates_id_presence', $raw)) {
+            return $raw;
+        }
+
+        $legacy = strtolower(trim((string) $raw['emirates_id_presence']));
+        unset($raw['emirates_id_presence']);
+
+        if ($legacy === 'missing') {
+            $raw[EmployeeDirectoryCompleteness::MISSING_QUERY_KEY] = EmployeeDirectoryCompleteness::toCsv([
+                ...EmployeeDirectoryCompleteness::parse($raw[EmployeeDirectoryCompleteness::MISSING_QUERY_KEY] ?? '')['keys'],
+                'emirates_id',
+            ]);
+
+            return $raw;
+        }
+
+        if ($legacy === 'present') {
+            $raw[EmployeeDirectoryCompleteness::PRESENT_QUERY_KEY] = EmployeeDirectoryCompleteness::toCsv([
+                ...EmployeeDirectoryCompleteness::parse($raw[EmployeeDirectoryCompleteness::PRESENT_QUERY_KEY] ?? '')['keys'],
+                'emirates_id',
+            ]);
+
+            return $raw;
+        }
+
+        if ($legacy !== '') {
+            self::failOrSkip('emirates_id_presence', 'is not a supported value.', $rejectInvalid);
+        }
+
+        return $raw;
+    }
+
+    private static function normalizeCompleteness(string $key, mixed $value, bool $rejectInvalid): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $parsed = EmployeeDirectoryCompleteness::parse($value);
+
+        if (! $parsed['valid'] || $parsed['keys'] === []) {
+            self::failOrSkip($key, 'is not a supported completeness concept.', $rejectInvalid);
+
+            return null;
+        }
+
+        return EmployeeDirectoryCompleteness::toCsv($parsed['keys']);
     }
 
     private static function normalizeSearch(string $key, mixed $value, bool $rejectInvalid): ?string

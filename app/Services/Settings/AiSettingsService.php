@@ -37,6 +37,21 @@ class AiSettingsService
         return filter_var(config('employee-smart-search.enabled'), FILTER_VALIDATE_BOOLEAN);
     }
 
+    public function isSmartSearchAvailable(): bool
+    {
+        if (! $this->isSmartSearchEnabled()) {
+            return false;
+        }
+
+        try {
+            $this->runtimeConfig();
+        } catch (EmployeeSmartSearchUnavailableException) {
+            return false;
+        }
+
+        return true;
+    }
+
     public function selectedProvider(): string
     {
         $stored = $this->storedProvider();
@@ -54,10 +69,15 @@ class AiSettingsService
 
     public function selectedModel(): ?string
     {
-        return $this->modelFor($this->selectedProvider());
+        return $this->configuredModelFor($this->selectedProvider());
     }
 
     public function modelFor(string $provider): ?string
+    {
+        return $this->configuredModelFor($provider);
+    }
+
+    public function configuredModelFor(string $provider): ?string
     {
         $key = $provider === self::PROVIDER_OPENROUTER
             ? SettingKey::AiOpenRouterModel
@@ -66,6 +86,25 @@ class AiSettingsService
         $model = trim((string) $this->settings->get($key, ''));
 
         return $model !== '' ? $model : null;
+    }
+
+    private function defaultModelFor(string $provider): ?string
+    {
+        $defaults = config('employee-smart-search.default_models', []);
+        $default = is_array($defaults) ? ($defaults[$provider] ?? null) : null;
+
+        if (! is_string($default)) {
+            return null;
+        }
+
+        $trimmed = trim($default);
+
+        return $trimmed !== '' ? $trimmed : null;
+    }
+
+    public function effectiveModelFor(string $provider): ?string
+    {
+        return $this->configuredModelFor($provider) ?? $this->defaultModelFor($provider);
     }
 
     /** @return array<string, mixed> */
@@ -81,11 +120,15 @@ class AiSettingsService
             'provider' => $provider,
             'openai' => [
                 'has_api_key' => $this->hasApiKey(self::PROVIDER_OPENAI),
-                'model' => $this->modelFor(self::PROVIDER_OPENAI) ?? '',
+                'model' => $this->configuredModelFor(self::PROVIDER_OPENAI) ?? '',
             ],
             'openrouter' => [
                 'has_api_key' => $this->hasApiKey(self::PROVIDER_OPENROUTER),
-                'model' => $this->modelFor(self::PROVIDER_OPENROUTER) ?? '',
+                'model' => $this->configuredModelFor(self::PROVIDER_OPENROUTER) ?? '',
+            ],
+            'default_models' => [
+                'openai' => $this->defaultModelFor(self::PROVIDER_OPENAI) ?? '',
+                'openrouter' => $this->defaultModelFor(self::PROVIDER_OPENROUTER) ?? '',
             ],
         ];
     }
@@ -106,8 +149,8 @@ class AiSettingsService
 
         $previousEnabled = $this->isSmartSearchEnabled();
         $previousProvider = $this->previousProviderForAudit();
-        $previousOpenAiModel = $this->modelFor(self::PROVIDER_OPENAI);
-        $previousOpenRouterModel = $this->modelFor(self::PROVIDER_OPENROUTER);
+        $previousOpenAiModel = $this->configuredModelFor(self::PROVIDER_OPENAI);
+        $previousOpenRouterModel = $this->configuredModelFor(self::PROVIDER_OPENROUTER);
 
         $openaiModel = trim((string) ($payload['openai_model'] ?? ''));
         $openrouterModel = trim((string) ($payload['openrouter_model'] ?? ''));
@@ -201,7 +244,7 @@ class AiSettingsService
 
         return new AiRuntimeConfig(
             provider: $provider,
-            model: $this->modelFor($provider),
+            model: $this->effectiveModelFor($provider),
             apiKey: $apiKey,
         );
     }

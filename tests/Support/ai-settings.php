@@ -33,15 +33,56 @@ function storePlatformAiSettings(array $overrides = [], ?User $actor = null): vo
  */
 function fakeSmartSearchIntent(array $overrides = []): array
 {
-    return array_merge([
-        'status' => null,
-        'department' => null,
-        'position' => null,
-        'nationality' => null,
-        'rank' => null,
-        'crew_status' => null,
-        'unsupported_terms' => [],
-    ], $overrides);
+    $unsupported = $overrides['unsupported_terms'] ?? [];
+    $ambiguous = $overrides['ambiguous_terms'] ?? [];
+    $criteria = $overrides['criteria'] ?? null;
+
+    unset($overrides['unsupported_terms'], $overrides['ambiguous_terms'], $overrides['criteria']);
+
+    if (! is_array($criteria)) {
+        $criteria = [];
+
+        foreach ($overrides as $concept => $value) {
+            if (in_array($concept, [
+                'company_id',
+                'department_id',
+                'position_id',
+                'employees',
+                'sql',
+                'filters',
+                'emirates_id',
+                'passport_number',
+            ], true)) {
+                continue;
+            }
+
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            if ($concept === 'emirates_id_presence') {
+                $criteria[] = [
+                    'concept' => 'emirates_id',
+                    'operator' => (string) $value,
+                    'value' => null,
+                ];
+
+                continue;
+            }
+
+            $criteria[] = [
+                'concept' => (string) $concept,
+                'operator' => 'equals',
+                'value' => is_string($value) ? $value : null,
+            ];
+        }
+    }
+
+    return [
+        'criteria' => $criteria,
+        'ambiguous_terms' => $ambiguous,
+        'unsupported_terms' => $unsupported,
+    ];
 }
 
 /**
