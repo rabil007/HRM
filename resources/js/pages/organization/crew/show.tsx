@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertTriangle, FilePenLine, Pencil } from 'lucide-react';
+import { AlertTriangle, Clock, FilePenLine, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
@@ -8,6 +8,7 @@ import type { RecentActivityItem } from '@/components/recent-activity-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ApplyTourOfDutyDialog } from '@/features/organization/crew/actions/apply-tour-of-duty-dialog';
 import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
 import { VoidErroneousAssignmentDialog } from '@/features/organization/crew/actions/void-erroneous-assignment-dialog';
 import { CrewMetadataField } from '@/features/organization/crew/components/crew-metadata-field';
@@ -91,6 +92,7 @@ export default function CrewAssignmentShow({
 }) {
     const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = useState(false);
     const [isVoidDialogOpen, setIsVoidDialogOpen] = useState(false);
+    const [isApplyTourDialogOpen, setIsApplyTourDialogOpen] = useState(false);
     const showMovementActions =
         (can.perform_movement || can.cancel) &&
         assignment.available_actions.length > 0;
@@ -157,6 +159,20 @@ export default function CrewAssignmentShow({
                                     }
                                     formOptions={form_options}
                                 />
+                            ) : null}
+                            {can.perform_movement &&
+                            assignment.can_apply_tour_of_duty ? (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="h-12 rounded-xl px-5"
+                                    onClick={() =>
+                                        setIsApplyTourDialogOpen(true)
+                                    }
+                                >
+                                    <Clock className="mr-2 h-4 w-4" />
+                                    Apply Tour of Duty
+                                </Button>
                             ) : null}
                             {can.void ? (
                                 <Button
@@ -252,10 +268,25 @@ export default function CrewAssignmentShow({
 
                         {isOnVessel ? (
                             <Card className="border-border/80 dark:border-white/10">
-                                <CardHeader className="pb-3">
+                                <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
                                     <CardTitle className="text-base">
                                         Tour of Duty
                                     </CardTitle>
+                                    {can.perform_movement &&
+                                    assignment.can_apply_tour_of_duty ? (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 rounded-lg"
+                                            onClick={() =>
+                                                setIsApplyTourDialogOpen(true)
+                                            }
+                                        >
+                                            <Clock className="mr-1.5 h-3.5 w-3.5" />
+                                            Apply Tour of Duty
+                                        </Button>
+                                    ) : null}
                                 </CardHeader>
                                 <CardContent>
                                     <CrewTourProgressDisplay
@@ -835,6 +866,12 @@ export default function CrewAssignmentShow({
             <VoidErroneousAssignmentDialog
                 open={isVoidDialogOpen}
                 onOpenChange={setIsVoidDialogOpen}
+                assignment={assignment}
+            />
+
+            <ApplyTourOfDutyDialog
+                open={isApplyTourDialogOpen}
+                onOpenChange={setIsApplyTourDialogOpen}
                 assignment={assignment}
             />
         </>
