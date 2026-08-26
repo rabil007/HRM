@@ -3,6 +3,13 @@ import type { ReactElement } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    addSelectedIds,
+    headerCheckboxState,
+    isAllVisibleSelected,
+    isSomeVisibleSelected,
+    removeSelectedIds,
+} from '@/lib/record-selection';
 import { cn } from '@/lib/utils';
 
 export type DocumentRequirementOption = {
@@ -42,6 +49,17 @@ export function DocumentRequirementMultiSelect({
         );
     }, [options, query]);
 
+    const visibleIds = useMemo(
+        () => filtered.map((option) => option.id),
+        [filtered],
+    );
+    const allVisibleSelected = isAllVisibleSelected(selected, visibleIds);
+    const someVisibleSelected = isSomeVisibleSelected(selected, visibleIds);
+    const selectAllState = headerCheckboxState(
+        allVisibleSelected,
+        someVisibleSelected,
+    );
+
     const toggle = (optionId: number): void => {
         if (disabled) {
             return;
@@ -55,6 +73,25 @@ export function DocumentRequirementMultiSelect({
 
         onChange([...value, optionId]);
     };
+
+    const toggleVisible = (): void => {
+        if (disabled || visibleIds.length === 0) {
+            return;
+        }
+
+        if (allVisibleSelected) {
+            onChange([...removeSelectedIds(selected, visibleIds)]);
+
+            return;
+        }
+
+        onChange([...addSelectedIds(selected, visibleIds)]);
+    };
+
+    const selectAllLabel =
+        query.trim() === ''
+            ? `Select all ${label.toLowerCase()}`
+            : `Select all matching ${label.toLowerCase()}`;
 
     return (
         <div className="space-y-2">
@@ -85,26 +122,39 @@ export function DocumentRequirementMultiSelect({
                         No {label.toLowerCase()} found.
                     </p>
                 ) : (
-                    filtered.map((option) => {
-                        const checked = selected.has(option.id);
+                    <>
+                        <label className="flex cursor-pointer items-center gap-2 rounded-lg border-b border-border/60 px-2 py-1.5 text-sm hover:bg-muted/50">
+                            <Checkbox
+                                checked={selectAllState}
+                                disabled={disabled}
+                                onCheckedChange={toggleVisible}
+                                aria-label={selectAllLabel}
+                            />
+                            <span className="font-medium">Select all</span>
+                        </label>
+                        {filtered.map((option) => {
+                            const checked = selected.has(option.id);
 
-                        return (
-                            <label
-                                key={option.id}
-                                className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/50"
-                            >
-                                <Checkbox
-                                    checked={checked}
-                                    disabled={disabled}
-                                    onCheckedChange={() => toggle(option.id)}
-                                    aria-label={option.label}
-                                />
-                                <span className="min-w-0 truncate">
-                                    {option.label}
-                                </span>
-                            </label>
-                        );
-                    })
+                            return (
+                                <label
+                                    key={option.id}
+                                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/50"
+                                >
+                                    <Checkbox
+                                        checked={checked}
+                                        disabled={disabled}
+                                        onCheckedChange={() =>
+                                            toggle(option.id)
+                                        }
+                                        aria-label={option.label}
+                                    />
+                                    <span className="min-w-0 truncate">
+                                        {option.label}
+                                    </span>
+                                </label>
+                            );
+                        })}
+                    </>
                 )}
             </div>
             {value.length > 0 ? (

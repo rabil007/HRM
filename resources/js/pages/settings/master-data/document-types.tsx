@@ -52,6 +52,7 @@ import {
     firstValidationError,
     hasFlashSuccess,
 } from '@/lib/first-validation-error';
+import { headerCheckboxState } from '@/lib/record-selection';
 import { cn } from '@/lib/utils';
 import { DocumentRequirementMultiSelect } from '@/pages/settings/master-data/document-requirement-multi-select';
 import type { PaginationMeta } from '@/types/pagination';
@@ -136,6 +137,21 @@ const initialForm: DocumentTypeFormData = {
     require_expiry_date: false,
     require_document_number: false,
 };
+
+function policyFieldFlagsState(
+    data: Pick<
+        DocumentTypeFormData,
+        'require_issue_date' | 'require_expiry_date' | 'require_document_number'
+    >,
+): boolean | 'indeterminate' {
+    const selectedCount = [
+        data.require_issue_date,
+        data.require_expiry_date,
+        data.require_document_number,
+    ].filter(Boolean).length;
+
+    return headerCheckboxState(selectedCount === 3, selectedCount > 0);
+}
 
 export default function DocumentTypes({
     document_types,
@@ -981,6 +997,29 @@ export default function DocumentTypes({
                                             valid, missing, expired, or expiring
                                             compliance.
                                         </p>
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <Checkbox
+                                                checked={policyFieldFlagsState(
+                                                    form.data,
+                                                )}
+                                                onCheckedChange={(checked) => {
+                                                    const next =
+                                                        checked === true;
+
+                                                    form.setData({
+                                                        ...form.data,
+                                                        require_issue_date:
+                                                            next,
+                                                        require_expiry_date:
+                                                            next,
+                                                        require_document_number:
+                                                            next,
+                                                    });
+                                                }}
+                                                aria-label="Select all policy field flags"
+                                            />
+                                            Select all
+                                        </label>
                                         <label className="flex items-center gap-2 text-sm">
                                             <Checkbox
                                                 checked={
