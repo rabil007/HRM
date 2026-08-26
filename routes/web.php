@@ -30,6 +30,7 @@ use App\Http\Controllers\Organization\Announcements\EmployeeAnnouncementControll
 use App\Http\Controllers\Organization\Announcements\PreviewAnnouncementRecipientsController;
 use App\Http\Controllers\Organization\Announcements\PublishAnnouncementController;
 use App\Http\Controllers\Organization\Announcements\RetryAnnouncementDeliveriesController;
+use App\Http\Controllers\Organization\ApplyCrewTourOfDutyController;
 use App\Http\Controllers\Organization\BankAccountsExportController;
 use App\Http\Controllers\Organization\BankAccountsImportController;
 use App\Http\Controllers\Organization\BankAccountsIndexController;
@@ -474,6 +475,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/crew/{assignment}/edit', [CrewAssignmentController::class, 'edit'])->middleware('can:crew_operations.assignments.update')->name('organization.crew-assignments.edit');
     Route::put('organization/crew/{assignment}', [CrewAssignmentController::class, 'update'])->middleware('can:crew_operations.assignments.update')->name('organization.crew-assignments.update');
     Route::post('organization/crew/{assignment}/actions', CrewMovementActionController::class)->name('organization.crew-assignments.perform-action');
+    Route::post('organization/crew/{assignment}/apply-tour', ApplyCrewTourOfDutyController::class)
+        ->middleware('can:crew_operations.movements.perform')
+        ->name('organization.crew-assignments.apply-tour');
     Route::post('organization/crew/{assignment}/void', VoidCrewAssignmentController::class)
         ->middleware(['can:crew_operations.assignments.void', 'privileged.2fa'])
         ->name('organization.crew-assignments.void');

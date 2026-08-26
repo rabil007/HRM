@@ -150,6 +150,7 @@ export interface CrewAssignmentDetail
     rank: {
         id: number;
         name: string;
+        max_tour_of_duty_days?: number | null;
     } | null;
     vessel: {
         id: number;
@@ -185,6 +186,9 @@ export interface CrewAssignmentDetail
     created_at: string | null;
     updated_at: string | null;
     company_timezone?: string;
+    can_apply_tour_of_duty?: boolean;
+    current_rank_tour_days?: number | null;
+    suggested_planned_signoff_at?: string | null;
     phase_timeline: PhaseTimelineItem[];
     warnings: CrewAssignmentWarning[];
     available_actions: string[];

@@ -97,6 +97,7 @@ class CrewAssignmentPresenter
             $timezone,
         );
         $relieves = self::relievesContext($assignment);
+        $tourRepair = (new ApplyMissingCrewTourOfDuty)->inspect($assignment);
 
         $phaseTimeline = $assignment->phases
             ->map(function ($phase) {
@@ -141,6 +142,7 @@ class CrewAssignmentPresenter
             'rank' => $assignment->rank ? [
                 'id' => $assignment->rank->id,
                 'name' => $assignment->rank->name,
+                'max_tour_of_duty_days' => $assignment->rank->max_tour_of_duty_days !== null ? (int) $assignment->rank->max_tour_of_duty_days : null,
             ] : null,
             'vessel' => $assignment->vessel ? [
                 'id' => $assignment->vessel->id,
@@ -188,6 +190,11 @@ class CrewAssignmentPresenter
             'updated_at' => $assignment->updated_at?->toDateString(),
             'company_timezone' => $timezone,
             'is_editable' => CrewAssignmentEditability::isEditable($assignment),
+            'can_apply_tour_of_duty' => $tourRepair !== null && ($tourRepair['is_eligible'] ?? false),
+            'current_rank_tour_days' => $tourRepair !== null ? ($tourRepair['tour_of_duty_days'] ?? null) : null,
+            'suggested_planned_signoff_at' => $tourRepair !== null && isset($tourRepair['calculated_planned_signoff_at']) && $tourRepair['calculated_planned_signoff_at'] !== null
+                ? $tourRepair['calculated_planned_signoff_at']->copy()->timezone($timezone)->toDateString()
+                : null,
             ...$tourProgress,
             ...$relief->toArray(),
             'relieves' => $relieves,

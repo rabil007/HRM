@@ -114,6 +114,30 @@ Display percentage may be clamped to 0–100; remaining days stay negative when 
 
 After P4 join, `crew_assignments.tour_of_duty_days` stores an integer snapshot. Later changes to Rank Master do **not** rewrite existing assignments. New joins use the latest Rank Master value.
 
+Rank Master changes never automatically rewrite assignments that already have a Tour snapshot.
+
+### Late Tour application
+
+If an employee entered active P4 without a Tour snapshot because their Rank had no Tour configured, a later Rank configuration does not automatically rewrite the assignment.
+
+Operations may explicitly apply the missing Tour via the **Apply Tour of Duty** action on the assignment show page, or administrators can run the safe bulk Artisan command:
+
+```bash
+php artisan crew:apply-missing-tour-of-duty --company=1
+```
+
+The repair:
+
+- snapshots the current Rank Tour (`tour_of_duty_days`)
+- uses the original actual P4 join date (`actual_start_at`)
+- generates Planned Sign-Off only when one is missing (`planned_signoff_at = actual P4 join + tour days`)
+- preserves existing manual/existing-plan dates and override reasons
+- syncs linked Crew Planning (`planned_leave_date`)
+- is audited under `late_tour_of_duty_applied`
+
+Ineligible assignments (draft, pre-P4, completed, cancelled, assignments with existing snapshots, or assignments whose rank still has no Tour configured) are never modified. Dry-run (`--dry-run`) performs zero mutations.
+
+
 ### Planned versus actual
 
 - Planned Sign-Off is an expected date only (`planned_signoff_at` / P4 `planned_end_at`).
