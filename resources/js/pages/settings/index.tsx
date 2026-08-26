@@ -4,35 +4,9 @@ import Heading from '@/components/heading';
 import { Card } from '@/components/ui/card';
 import { NO_PLATFORM_ACCESS } from '@/lib/nav-visibility';
 import type { NavPlatformAccess } from '@/lib/nav-visibility';
-import {
-    filterSettingsNavItems,
-    SETTINGS_INTEGRATION_ITEMS,
-    SETTINGS_MASTER_DATA_ITEMS,
-    SETTINGS_SYSTEM_ITEMS,
-} from '@/lib/settings-nav';
+import { accessibleSettingsNavGroups } from '@/lib/settings-nav';
 import type { SettingsNavItem } from '@/lib/settings-nav';
 import { cn } from '@/lib/utils';
-
-const SETTINGS_GROUPS = [
-    {
-        title: 'System',
-        description:
-            'Application branding, email, WhatsApp, security, and appearance.',
-        items: SETTINGS_SYSTEM_ITEMS,
-    },
-    {
-        title: 'Integrations',
-        description:
-            'Company-owned integrations such as Hikvision access control.',
-        items: SETTINGS_INTEGRATION_ITEMS,
-    },
-    {
-        title: 'Master data',
-        description:
-            'Reference data used across employees, payroll, and compliance.',
-        items: SETTINGS_MASTER_DATA_ITEMS,
-    },
-];
 
 export default function SettingsIndex() {
     const { auth } = usePage().props as {
@@ -44,10 +18,7 @@ export default function SettingsIndex() {
     const permissions = auth?.permissions ?? [];
     const platform = auth?.platform ?? NO_PLATFORM_ACCESS;
 
-    const visibleGroups = SETTINGS_GROUPS.map((group) => ({
-        ...group,
-        items: filterSettingsNavItems(group.items, permissions, platform),
-    })).filter((group) => group.items.length > 0);
+    const visibleGroups = accessibleSettingsNavGroups(permissions, platform);
 
     const moduleCount = visibleGroups.reduce(
         (count, group) => count + group.items.length,

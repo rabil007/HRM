@@ -25,6 +25,9 @@ final class DocumentRequirementSummary
         $ranks = $requirement->relationLoaded('ranks')
             ? $requirement->ranks
             : $requirement->ranks()->get(['ranks.id', 'ranks.name']);
+        $projects = $requirement->relationLoaded('projects')
+            ? $requirement->projects
+            : $requirement->projects()->get(['projects.id', 'projects.title']);
 
         $parts = [];
 
@@ -44,6 +47,12 @@ final class DocumentRequirementSummary
             $parts[] = (string) $ranks->first()?->name;
         } elseif ($ranks->count() > 1) {
             $parts[] = $ranks->count().' ranks';
+        }
+
+        if ($projects->count() === 1) {
+            $parts[] = (string) $projects->first()?->title;
+        } elseif ($projects->count() > 1) {
+            $parts[] = $projects->count().' projects';
         }
 
         $parts = array_values(array_filter($parts, fn (string $part): bool => $part !== ''));
@@ -76,6 +85,9 @@ final class DocumentRequirementSummary
         $ranks = $requirement->relationLoaded('ranks')
             ? $requirement->ranks
             : $requirement->ranks()->get(['ranks.id', 'ranks.name']);
+        $projects = $requirement->relationLoaded('projects')
+            ? $requirement->projects
+            : $requirement->projects()->get(['projects.id', 'projects.title']);
 
         foreach ($departments as $department) {
             $names[] = (string) $department->name;
@@ -87,6 +99,10 @@ final class DocumentRequirementSummary
 
         foreach ($ranks as $rank) {
             $names[] = (string) $rank->name.' rank';
+        }
+
+        foreach ($projects as $project) {
+            $names[] = (string) $project->title.' project';
         }
 
         $names = array_values(array_filter($names, fn (string $name): bool => $name !== ''));

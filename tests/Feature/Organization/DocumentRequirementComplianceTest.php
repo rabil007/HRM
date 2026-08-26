@@ -3,6 +3,7 @@
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\Project;
 use App\Models\Rank;
 use App\Models\User;
 use Carbon\Carbon;
@@ -521,5 +522,71 @@ test('unmapped null document_type_id rows do not satisfy required document compl
             ->has('requirementDocuments.data', 1)
             ->where('requirementDocuments.data.0.status', 'missing')
             ->where('requirementDocuments.data.0.document_id', null)
+        );
+});
+
+test('project scoped missing documents appear in bulk compliance', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType, 'branch' => $branch] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.view', 'employees.view']);
+
+    $adnoc = Project::query()->create(['title' => 'ADNOC Bulk '.uniqid(), 'is_active' => true]);
+    $otherProject = Project::query()->create(['title' => 'Other Bulk '.uniqid(), 'is_active' => true]);
+
+    Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'employee_no' => 'PROJ-OTHER-1',
+        'name' => 'Other Project Employee',
+        'status' => 'active',
+        'project_id' => $otherProject->id,
+    ]);
+
+    $employee->update(['project_id' => $adnoc->id]);
+    makeDocumentRequirement($company->id, $passportType->id, projectIds: [$adnoc->id]);
+
+    $this->get('/organization/documents?requirement_status=missing')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('requirement_summary.missing', 1)
+            ->has('requirementDocuments.data', 1)
+            ->where('requirementDocuments.data.0.employee_id', $employee->id)
+            ->where('requirementDocuments.data.0.document_type_id', $passportType->id)
+            ->where('requirementDocuments.data.0.status', 'missing')
+        );
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
+                ->has('required_documents', 1)
+                ->where('required_documents.0.document_type_id', $passportType->id)
+                ->where('required_documents.0.status', 'missing')
+            )
+        );
+});
+
+test('company a project policy does not create company b missing compliance rows', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $companyA, 'employee' => $employeeA, 'passportType' => $passportType] = makeDocumentFixtures();
+    $other = makeDocumentFixtures();
+    grantCompanyPermissions($user, $companyA, ['documents.view']);
+
+    $adnoc = Project::query()->create(['title' => 'ADNOC Cross '.uniqid(), 'is_active' => true]);
+    $employeeA->update(['project_id' => $adnoc->id]);
+    $other['employee']->update(['project_id' => $adnoc->id]);
+
+    makeDocumentRequirement($companyA->id, $passportType->id, projectIds: [$adnoc->id]);
+
+    $this->get('/organization/documents?requirement_status=missing')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requirementDocuments.data', 1)
+            ->where('requirementDocuments.data.0.employee_id', $employeeA->id)
+            ->where('requirementDocuments.data.0.employee_id', fn ($id) => $id !== $other['employee']->id)
         );
 });

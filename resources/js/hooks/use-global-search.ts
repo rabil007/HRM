@@ -98,7 +98,9 @@ export function useGlobalSearch(): {
                     });
             }, GLOBAL_SEARCH_DEBOUNCE_MS);
         },
-        [clearPending, http],
+        // useHttp() returns a new object each render; keep setQuery stable.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [clearPending],
     );
 
     return {

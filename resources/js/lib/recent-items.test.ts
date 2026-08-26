@@ -122,4 +122,10 @@ describe('command palette coexistence', () => {
         assert.equal(shouldRenderRecentGroup('e', [employeeRecent]), false);
         assert.equal(shouldRenderRecentGroup('em', [employeeRecent]), true);
     });
+
+    it('filters already-loaded recents locally while record search is active', () => {
+        assert.equal(shouldShowRecentItems('ra'), false);
+        assert.equal(shouldRenderRecentGroup('ra', [employeeRecent]), true);
+        assert.equal(shouldRenderRecentGroup('ra', [documentRecent]), false);
+    });
 });

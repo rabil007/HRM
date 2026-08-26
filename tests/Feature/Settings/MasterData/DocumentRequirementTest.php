@@ -4,6 +4,7 @@ use App\Models\Department;
 use App\Models\DocumentRequirement;
 use App\Models\DocumentType;
 use App\Models\Position;
+use App\Models\Project;
 use App\Models\Rank;
 use App\Models\User;
 use Database\Seeders\PermissionsSeeder;
@@ -461,5 +462,144 @@ test('selected groups require at least one scope', function () {
         'department_ids' => [],
         'position_ids' => [],
         'rank_ids' => [],
+        'project_ids' => [],
     ])->assertSessionHasErrors('required_for_all');
+});
+
+test('requirement can apply to a selected project', function () {
+    ['company' => $company, 'passportType' => $passportType] = actingAsDocumentTypeManager();
+
+    $project = Project::query()->create([
+        'title' => 'ADNOC Req '.uniqid(),
+        'is_active' => true,
+    ]);
+
+    $this->put("/settings/master-data/document-types/{$passportType->id}", [
+        'title' => $passportType->title,
+        'is_active' => true,
+        'is_required' => true,
+        'required_for_all' => false,
+        'project_ids' => [$project->id],
+    ])->assertRedirect();
+
+    $requirement = DocumentRequirement::query()
+        ->where('company_id', $company->id)
+        ->where('document_type_id', $passportType->id)
+        ->first();
+
+    expect($requirement->projects()->pluck('projects.id')->all())->toBe([$project->id]);
+});
+
+test('saved project ids are returned when editing a document type', function () {
+    ['company' => $company, 'passportType' => $passportType] = actingAsDocumentTypeManager();
+
+    $project = Project::query()->create([
+        'title' => 'ADNOC Edit '.uniqid(),
+        'is_active' => true,
+    ]);
+    makeDocumentRequirement($company->id, $passportType->id, projectIds: [$project->id]);
+
+    $this->get('/settings/master-data/document-types')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/document-types')
+            ->where('projects', fn ($projects) => collect($projects)->contains('id', $project->id))
+            ->where('document_types', function ($types) use ($passportType, $project) {
+                $match = collect($types)->firstWhere('id', $passportType->id);
+
+                return is_array($match)
+                    && ($match['requirement']['project_ids'] ?? null) === [$project->id];
+            })
+        );
+});
+
+test('invalid and soft-deleted project ids are rejected', function () {
+    ['passportType' => $passportType] = actingAsDocumentTypeManager();
+
+    $deleted = Project::query()->create([
+        'title' => 'Deleted Project '.uniqid(),
+        'is_active' => true,
+    ]);
+    $deleted->delete();
+
+    $this->put("/settings/master-data/document-types/{$passportType->id}", [
+        'title' => $passportType->title,
+        'is_active' => true,
+        'is_required' => true,
+        'required_for_all' => false,
+        'project_ids' => [999999],
+    ])->assertSessionHasErrors('project_ids.0');
+
+    $this->put("/settings/master-data/document-types/{$passportType->id}", [
+        'title' => $passportType->title,
+        'is_active' => true,
+        'is_required' => true,
+        'required_for_all' => false,
+        'project_ids' => [$deleted->id],
+    ])->assertSessionHasErrors('project_ids.0');
+});
+
+test('project pivot changes appear in a single document requirement activity row', function () {
+    ['company' => $company, 'passportType' => $passportType] = actingAsDocumentTypeManager();
+
+    $project = Project::query()->create([
+        'title' => 'ADNOC Audit',
+        'is_active' => true,
+    ]);
+
+    $this->put("/settings/master-data/document-types/{$passportType->id}", [
+        'title' => $passportType->title,
+        'is_active' => true,
+        'is_required' => true,
+        'required_for_all' => false,
+        'project_ids' => [$project->id],
+    ])->assertRedirect();
+
+    $requirement = DocumentRequirement::query()
+        ->where('company_id', $company->id)
+        ->where('document_type_id', $passportType->id)
+        ->first();
+
+    $this->assertDatabaseHas('activity_log', [
+        'subject_type' => DocumentRequirement::class,
+        'subject_id' => $requirement->id,
+        'event' => 'updated',
+        'description' => $passportType->title.': Optional → ADNOC Audit project',
+    ]);
+
+    expect(Activity::query()
+        ->where('subject_type', DocumentRequirement::class)
+        ->where('subject_id', $requirement->id)
+        ->count())->toBe(1);
+});
+
+test('deactivating a project does not erase a saved project requirement', function () {
+    ['company' => $company, 'passportType' => $passportType] = actingAsDocumentTypeManager();
+
+    $project = Project::query()->create([
+        'title' => 'Inactive Keep '.uniqid(),
+        'is_active' => true,
+    ]);
+
+    $this->put("/settings/master-data/document-types/{$passportType->id}", [
+        'title' => $passportType->title,
+        'is_active' => true,
+        'is_required' => true,
+        'required_for_all' => false,
+        'project_ids' => [$project->id],
+    ])->assertRedirect();
+
+    $project->update(['is_active' => false]);
+
+    $this->put("/settings/master-data/document-types/{$passportType->id}", [
+        'title' => $passportType->title,
+        'is_active' => false,
+    ])->assertRedirect();
+
+    $requirement = DocumentRequirement::query()
+        ->where('company_id', $company->id)
+        ->where('document_type_id', $passportType->id)
+        ->first();
+
+    expect($requirement->projects()->pluck('projects.id')->all())->toBe([$project->id]);
 });

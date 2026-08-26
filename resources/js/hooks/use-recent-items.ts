@@ -33,7 +33,10 @@ export function useRecentItems(open: boolean): RecentItem[] {
         return () => {
             cancelled = true;
         };
-    }, [http, open]);
+        // useHttp() returns a new object each render. Depending on it retriggers
+        // GET /recent-items until the route 429s and React hits max update depth.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
 
     return items;
 }

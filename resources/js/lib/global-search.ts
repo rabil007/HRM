@@ -79,11 +79,123 @@ export function textMatchesQuery(haystack: string, query: string): boolean {
     return haystack.toLowerCase().includes(needle);
 }
 
+function pluralSearchVariants(word: string): string[] {
+    const variants = new Set<string>([word]);
+
+    if (word.endsWith('ies') && word.length > 3) {
+        variants.add(`${word.slice(0, -3)}y`);
+    }
+
+    if (word.endsWith('s') && !word.endsWith('ss') && word.length > 1) {
+        variants.add(word.slice(0, -1));
+    }
+
+    if (
+        word.endsWith('y') &&
+        word.length > 1 &&
+        !['ay', 'ey', 'oy', 'uy'].some((ending) => word.endsWith(ending))
+    ) {
+        variants.add(`${word.slice(0, -1)}ies`);
+    }
+
+    if (!word.endsWith('s')) {
+        variants.add(`${word}s`);
+    }
+
+    return [...variants];
+}
+
 export function destinationMatchesQuery(
     command: Pick<FlattenedNavCommand, 'title' | 'value'>,
     query: string,
 ): boolean {
-    return textMatchesQuery(`${command.title} ${command.value}`, query);
+    const haystack = `${command.title} ${command.value}`.toLowerCase();
+    const needle = query.trim().toLowerCase();
+
+    if (needle === '') {
+        return true;
+    }
+
+    if (haystack.includes(needle)) {
+        return true;
+    }
+
+    return needle
+        .split(/\s+/)
+        .filter(Boolean)
+        .every((word) =>
+            pluralSearchVariants(word).some((variant) =>
+                haystack.includes(variant),
+            ),
+        );
+}
+
+export function commandItemSearchValue(
+    groupTitle: string,
+    itemTitle: string,
+    nestedTitle?: string,
+): string {
+    return [groupTitle, itemTitle, nestedTitle]
+        .filter((part): part is string => part !== undefined && part !== '')
+        .join(' ');
+}
+
+export function collectNavGroupUrls(
+    groups: readonly SearchableNavGroup[],
+): Set<string> {
+    const urls = new Set<string>();
+
+    for (const group of groups) {
+        for (const item of group.items) {
+            if (item.url) {
+                urls.add(item.url);
+            }
+
+            for (const subItem of item.items ?? []) {
+                urls.add(subItem.url);
+            }
+        }
+    }
+
+    return urls;
+}
+
+export function normalizeDestinationUrl(url: string): string {
+    const path = url.trim().split(/[?#]/, 1)[0] ?? '';
+
+    if (path === '' || path === '/') {
+        return '/';
+    }
+
+    return path.endsWith('/') ? path.slice(0, -1) : path;
+}
+
+export function excludeOccupiedCommandGroups<
+    T extends { title: string; items: Array<{ title: string; url: string }> },
+>(groups: readonly T[], occupiedUrls: ReadonlySet<string>): T[] {
+    const occupied = new Set(
+        [...occupiedUrls].map((url) => normalizeDestinationUrl(url)),
+    );
+
+    return groups.flatMap((group) => {
+        const items = group.items.filter((item) => {
+            const url = normalizeDestinationUrl(item.url);
+
+            if (occupied.has(url)) {
+                return false;
+            }
+
+            occupied.add(url);
+
+            return true;
+        });
+
+        if (items.length === 0) {
+            return [];
+        }
+
+        return [{ ...group, items }];
+    });
 }
 
 export function filterFavoritesForQuery<T extends { title: string }>(
@@ -109,7 +221,10 @@ export function filterCommandGroupsForQuery<T extends SearchableNavGroup>(
         const items = group.items.flatMap((item) => {
             if (item.url) {
                 return destinationMatchesQuery(
-                    { title: item.title, value: item.title },
+                    {
+                        title: item.title,
+                        value: commandItemSearchValue(group.title, item.title),
+                    },
                     query,
                 )
                     ? [item]
@@ -120,7 +235,11 @@ export function filterCommandGroupsForQuery<T extends SearchableNavGroup>(
                 destinationMatchesQuery(
                     {
                         title: `${item.title} / ${subItem.title}`,
-                        value: `${item.title}-${subItem.url}`,
+                        value: commandItemSearchValue(
+                            group.title,
+                            item.title,
+                            subItem.title,
+                        ),
                     },
                     query,
                 ),
@@ -196,7 +315,7 @@ export function flattenNavCommands(
                         group: group.title,
                         title: item.title,
                         url: item.url,
-                        value: item.title,
+                        value: commandItemSearchValue(group.title, item.title),
                     },
                 ];
             }
@@ -206,7 +325,11 @@ export function flattenNavCommands(
                 group: group.title,
                 title: `${item.title} / ${subItem.title}`,
                 url: subItem.url,
-                value: `${item.title}-${subItem.url}`,
+                value: commandItemSearchValue(
+                    group.title,
+                    item.title,
+                    subItem.title,
+                ),
             }));
         }),
     );
