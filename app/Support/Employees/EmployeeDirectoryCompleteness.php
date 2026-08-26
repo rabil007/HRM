@@ -34,7 +34,7 @@ final class EmployeeDirectoryCompleteness
     public static function parse(mixed $value): array
     {
         if (! is_string($value) && ! is_numeric($value)) {
-            return ['keys' => [], 'unknown' => [], 'valid' => true];
+            return ['keys' => [], 'unknown' => [], 'valid' => false];
         }
 
         $parts = preg_split('/\s*,\s*/', trim((string) $value)) ?: [];

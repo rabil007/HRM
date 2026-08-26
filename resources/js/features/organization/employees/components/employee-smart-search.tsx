@@ -5,10 +5,11 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import type { EmployeeFilters } from '@/features/organization/employees/components/employee-filters-sheet';
 import {
+    SMART_SEARCH_OVERRIDDEN_COPY,
     directoryScopeChips,
     formatUnresolvedItem,
-    hasApplyableSmartSearchFilters,
     smartSearchResolvedPreview,
+    smartSearchResultCopyKind,
 } from '@/features/organization/employees/lib/employee-smart-search';
 import type { useEmployeeSmartSearch } from '@/features/organization/employees/use-employee-smart-search';
 
@@ -27,11 +28,7 @@ export function EmployeeSmartSearch({
             ? []
             : smartSearchResolvedPreview(result.applied, owned, currentFilters);
     const scopeChips = directoryScopeChips(currentFilters);
-    const hasAppliedFilters = previewChips.length > 0;
-    const filtersUnchanged =
-        result !== null &&
-        !hasApplyableSmartSearchFilters(result.filters) &&
-        previewChips.length === 0;
+    const resultCopy = smartSearchResultCopyKind({ result, previewChips });
 
     return (
         <section
@@ -104,7 +101,7 @@ export function EmployeeSmartSearch({
 
             {result ? (
                 <div className="mt-4 space-y-3 border-t border-border/70 pt-4 dark:border-white/10">
-                    {hasAppliedFilters ? (
+                    {resultCopy === 'applied' ? (
                         <div className="space-y-2">
                             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                                 Results filtered
@@ -121,15 +118,15 @@ export function EmployeeSmartSearch({
                                 ))}
                             </div>
                         </div>
-                    ) : filtersUnchanged ? (
+                    ) : resultCopy === 'overridden' ? (
+                        <p className="text-sm text-muted-foreground">
+                            {SMART_SEARCH_OVERRIDDEN_COPY}
+                        </p>
+                    ) : (
                         <div className="space-y-1 text-sm text-muted-foreground">
                             <p>No Smart Search filters were applied.</p>
                             <p>The current employee list was not changed.</p>
                         </div>
-                    ) : (
-                        <p className="text-sm text-muted-foreground">
-                            No supported Smart Search filters were found.
-                        </p>
                     )}
 
                     {scopeChips.length > 0 ? (

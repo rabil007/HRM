@@ -442,6 +442,72 @@ export function hasApplyableSmartSearchFilters(
     });
 }
 
+export function hasActiveSmartSearchOwnedFilters(
+    owned: SmartSearchFilters,
+): boolean {
+    return hasApplyableSmartSearchFilters(owned);
+}
+
+export function employeeDirectoryEmptyStateTitle(
+    hasActiveSmartSearchFilters: boolean,
+): string {
+    return hasActiveSmartSearchFilters
+        ? 'No employees match the Smart Search and current directory filters.'
+        : 'No employees found.';
+}
+
+export const SMART_SEARCH_OVERRIDDEN_COPY =
+    'Smart Search filters are no longer active because the directory filters were changed.';
+
+export type SmartSearchResultCopyKind = 'applied' | 'unchanged' | 'overridden';
+
+export function smartSearchResultCopyKind({
+    result,
+    previewChips,
+}: {
+    result: NormalizedSmartSearchResult | null;
+    previewChips: SmartSearchPreviewChip[];
+}): SmartSearchResultCopyKind | null {
+    if (result === null) {
+        return null;
+    }
+
+    if (previewChips.length > 0) {
+        return 'applied';
+    }
+
+    if (
+        hasApplyableSmartSearchFilters(result.filters) ||
+        result.applied.length > 0
+    ) {
+        return 'overridden';
+    }
+
+    return 'unchanged';
+}
+
+export function employeeActiveFilterCount(
+    filters: Record<string, string>,
+): number {
+    let count = 0;
+
+    for (const [key, value] of Object.entries(filters)) {
+        if (typeof value !== 'string' || value.trim() === '') {
+            continue;
+        }
+
+        if (key === 'missing_fields' || key === 'present_fields') {
+            count += parseCompletenessCsv(value).length;
+
+            continue;
+        }
+
+        count += 1;
+    }
+
+    return count;
+}
+
 export function smartSearchResolvedPreview(
     applied: SmartSearchApplied[],
     owned: SmartSearchFilters = {},

@@ -282,6 +282,71 @@ test('unknown completeness keys fail closed and do not broaden results', functio
             ->has('employees', 0));
 });
 
+test('malformed completeness array query values fail closed', function () {
+    $fixtures = makeDirectoryCompletenessFixtures();
+
+    Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Should Not Leak',
+        'status' => 'active',
+        'work_email' => 'keep@example.test',
+        'personal_email' => null,
+    ]);
+    Employee::factory()->forCompany($fixtures['otherCompany'])->create([
+        'name' => 'Other Tenant',
+        'status' => 'active',
+    ]);
+
+    visitEmployeesWithCompleteness($fixtures, ['missing_fields' => ['salary']])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 0)
+            ->where('filters.missing_fields', '_invalid'));
+
+    visitEmployeesWithCompleteness($fixtures, ['present_fields' => ['email']])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 0)
+            ->where('filters.present_fields', '_invalid'));
+
+    visitEmployeesWithCompleteness($fixtures, ['missing_fields' => ['email' => 'salary']])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 0));
+});
+
+test('valid completeness csv still matches employees in the current company', function () {
+    $fixtures = makeDirectoryCompletenessFixtures();
+
+    $match = Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Missing Email And Dob',
+        'status' => 'active',
+        'work_email' => null,
+        'personal_email' => null,
+        'date_of_birth' => null,
+    ]);
+    Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Has Email And Dob',
+        'status' => 'active',
+        'work_email' => 'has@example.test',
+        'personal_email' => null,
+        'date_of_birth' => '1990-01-01',
+    ]);
+    Employee::factory()->forCompany($fixtures['otherCompany'])->create([
+        'name' => 'Other Company Missing',
+        'status' => 'active',
+        'work_email' => null,
+        'personal_email' => null,
+        'date_of_birth' => null,
+    ]);
+
+    visitEmployeesWithCompleteness($fixtures, ['missing_fields' => 'email,date_of_birth'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.id', $match->id)
+            ->where('filters.missing_fields', 'email,date_of_birth'));
+});
+
 test('unsupported legacy emirates id presence values match no employees', function () {
     $fixtures = makeDirectoryCompletenessFixtures();
 

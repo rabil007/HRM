@@ -45,8 +45,11 @@ import {
 } from '@/features/organization/employees/components/employee-filters-sheet';
 import { EmployeeSmartSearch } from '@/features/organization/employees/components/employee-smart-search';
 import {
-    completenessChips,
     EMPLOYEE_DIRECTORY_PARTIAL_RELOAD_KEYS,
+    completenessChips,
+    employeeActiveFilterCount,
+    employeeDirectoryEmptyStateTitle,
+    hasActiveSmartSearchOwnedFilters,
     removeCompletenessKey,
 } from '@/features/organization/employees/lib/employee-smart-search';
 import { useEmployeeSmartSearch } from '@/features/organization/employees/use-employee-smart-search';
@@ -192,7 +195,7 @@ export function EmployeesContent({
         onApplyFilters: (next) => list.applyFilters(next),
     });
 
-    const activeFiltersCount = Object.values(filters).filter(Boolean).length;
+    const activeFiltersCount = employeeActiveFilterCount(filters);
 
     const listQuery = useMemo(
         () => buildEmployeeListQuery(initialSearch, initialFilters),
@@ -450,11 +453,9 @@ export function EmployeesContent({
 
             {employees.length === 0 ? (
                 <EmptyState
-                    title={
-                        smart_search_available
-                            ? 'No employees match the Smart Search and current directory filters.'
-                            : 'No employees found.'
-                    }
+                    title={employeeDirectoryEmptyStateTitle(
+                        hasActiveSmartSearchOwnedFilters(smartSearch.owned),
+                    )}
                 />
             ) : (
                 <>

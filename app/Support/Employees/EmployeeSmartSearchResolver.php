@@ -411,14 +411,21 @@ final class EmployeeSmartSearchResolver
         ));
 
         if (count($matches) === 1) {
-            $filters[$filterKey] = (string) $matches[0]['id'];
-            $applied[] = $this->appliedItem(
-                $concept,
-                EmployeeSmartSearchConceptRegistry::OPERATOR_EQUALS,
-                $matches[0]['label'],
-            );
+            $id = $matches[0]['id'];
+            $alreadyPresent = $this->csvContainsId($filters[$filterKey] ?? '', $id);
 
-            return $matches[0]['id'];
+            $this->assignResolvedId($concept, $filterKey, $id, $filters);
+
+            if (! $alreadyPresent) {
+                $applied[] = $this->appliedItem(
+                    $concept,
+                    EmployeeSmartSearchConceptRegistry::OPERATOR_EQUALS,
+                    $matches[0]['label'],
+                    EmployeeSmartSearchConceptRegistry::isSingleValued($concept) ? null : $id,
+                );
+            }
+
+            return $id;
         }
 
         $entry = [
@@ -649,12 +656,59 @@ final class EmployeeSmartSearchResolver
     }
 
     /**
+     * @param  array<string, string>  $filters
+     */
+    private function assignResolvedId(string $concept, string $filterKey, int $id, array &$filters): void
+    {
+        if (EmployeeSmartSearchConceptRegistry::isSingleValued($concept)) {
+            $filters[$filterKey] = (string) $id;
+
+            return;
+        }
+
+        $ids = [];
+
+        if (isset($filters[$filterKey]) && $filters[$filterKey] !== '') {
+            foreach (explode(',', $filters[$filterKey]) as $part) {
+                $parsed = (int) trim($part);
+
+                if ($parsed > 0) {
+                    $ids[] = $parsed;
+                }
+            }
+        }
+
+        $ids[] = $id;
+        $unique = array_values(array_unique($ids));
+        sort($unique, SORT_NUMERIC);
+
+        $filters[$filterKey] = implode(',', array_map(strval(...), $unique));
+    }
+
+    private function csvContainsId(string $csv, int $id): bool
+    {
+        if ($csv === '') {
+            return false;
+        }
+
+        foreach (explode(',', $csv) as $part) {
+            if ((int) trim($part) === $id) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @return array{key: string, label: string, value: string}
      */
-    private function appliedItem(string $concept, string $operator, string $value): array
+    private function appliedItem(string $concept, string $operator, string $value, ?int $id = null): array
     {
         return [
-            'key' => $concept.':'.$operator,
+            'key' => $id === null
+                ? $concept.':'.$operator
+                : $concept.':'.$operator.':'.$id,
             'label' => EmployeeSmartSearchConceptRegistry::label($concept),
             'value' => $value,
         ];

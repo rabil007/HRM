@@ -5,6 +5,7 @@ import {
     SMART_SEARCH_DEBOUNCE_MS,
     SMART_SEARCH_FILTER_KEYS,
     SMART_SEARCH_MIN_PROMPT_LENGTH,
+    SMART_SEARCH_OVERRIDDEN_COPY,
     STATUS_OPTION_LABELS,
     SmartSearchInterpretationCache,
     SmartSearchMalformedResponseError,
@@ -12,8 +13,11 @@ import {
     buildEmployeeSmartSearchRequestBody,
     completenessChips,
     directoryScopeChips,
+    employeeActiveFilterCount,
+    employeeDirectoryEmptyStateTitle,
     employeeDirectoryFiltersEqual,
     formatUnresolvedItem,
+    hasActiveSmartSearchOwnedFilters,
     hasApplyableSmartSearchFilters,
     isSmartSearchPromptReady,
     mergeSmartSearchFilters,
@@ -27,6 +31,7 @@ import {
     smartSearchCacheKey,
     smartSearchErrorMessage,
     smartSearchResolvedPreview,
+    smartSearchResultCopyKind,
 } from './employee-smart-search.ts';
 
 const emptyFilters = {
@@ -462,6 +467,115 @@ describe('employee smart search preview', () => {
 
         assert.equal(hasApplyableSmartSearchFilters(result.filters), false);
         assert.deepEqual(result.unsupported, ['Ford cars']);
+    });
+});
+
+describe('employee directory empty state and override copy', () => {
+    it('does not treat unused Smart Search as an active empty-state cause', () => {
+        assert.equal(hasActiveSmartSearchOwnedFilters({}), false);
+        assert.equal(
+            employeeDirectoryEmptyStateTitle(false),
+            'No employees found.',
+        );
+        assert.equal(
+            employeeDirectoryEmptyStateTitle(
+                hasActiveSmartSearchOwnedFilters({}),
+            ),
+            'No employees found.',
+        );
+    });
+
+    it('uses Smart-specific empty-state copy only when owned filters are active', () => {
+        assert.equal(hasActiveSmartSearchOwnedFilters({ rank_id: '8' }), true);
+        assert.equal(
+            employeeDirectoryEmptyStateTitle(true),
+            'No employees match the Smart Search and current directory filters.',
+        );
+    });
+
+    it('does not treat unsupported-only results as active Smart filters', () => {
+        const result = parsed({
+            filters: {},
+            applied: [],
+            unresolved: [],
+            ambiguous: [],
+            unsupported: ['Ford cars'],
+        });
+
+        assert.equal(hasApplyableSmartSearchFilters(result.filters), false);
+        assert.equal(hasActiveSmartSearchOwnedFilters(result.filters), false);
+        assert.equal(
+            smartSearchResultCopyKind({ result, previewChips: [] }),
+            'unchanged',
+        );
+        assert.equal(
+            employeeDirectoryEmptyStateTitle(
+                hasActiveSmartSearchOwnedFilters(result.filters),
+            ),
+            'No employees found.',
+        );
+    });
+
+    it('drops ownership and does not say unsupported after a manual override', () => {
+        const owned = reconcileSmartSearchOwnership(
+            { ...emptyFilters, rank_id: '44' },
+            { rank_id: '8' },
+        );
+        const result = parsed({
+            filters: { rank_id: '8' },
+            applied: [{ key: 'rank:equals', label: 'Rank', value: 'AB' }],
+            unresolved: [],
+            ambiguous: [],
+            unsupported: [],
+        });
+        const previewChips = smartSearchResolvedPreview(
+            result.applied,
+            { rank_id: '8' },
+            { ...emptyFilters, rank_id: '44' },
+        );
+
+        assert.deepEqual(owned, {});
+        assert.deepEqual(previewChips, []);
+        assert.equal(hasActiveSmartSearchOwnedFilters(owned), false);
+        assert.equal(
+            smartSearchResultCopyKind({ result, previewChips }),
+            'overridden',
+        );
+        assert.equal(
+            SMART_SEARCH_OVERRIDDEN_COPY,
+            'Smart Search filters are no longer active because the directory filters were changed.',
+        );
+        assert.notEqual(
+            SMART_SEARCH_OVERRIDDEN_COPY,
+            'No supported Smart Search filters were found.',
+        );
+    });
+});
+
+describe('employee active filter count', () => {
+    it('counts each completeness condition and not the CSV containers', () => {
+        assert.equal(
+            employeeActiveFilterCount({
+                ...emptyFilters,
+                missing_fields: 'email,date_of_birth,nationality',
+                present_fields: 'passport_number',
+                rank_id: '5',
+            }),
+            5,
+        );
+        assert.equal(employeeActiveFilterCount(emptyFilters), 0);
+        assert.equal(
+            employeeActiveFilterCount({ ...emptyFilters, status: '' }),
+            0,
+        );
+        assert.equal(
+            employeeActiveFilterCount({
+                ...emptyFilters,
+                status: 'all',
+                missing_fields: 'email',
+            }),
+            2,
+        );
     });
 });
 

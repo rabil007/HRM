@@ -210,14 +210,6 @@ final class EmployeeDirectoryFilters
         $missingKeys = $missingParsed['valid'] ? $missingParsed['keys'] : ['_invalid'];
         $presentKeys = $presentParsed['valid'] ? $presentParsed['keys'] : ['_invalid'];
 
-        if (! $missingParsed['valid'] && trim((string) $missing) !== '') {
-            $missingKeys = ['_invalid'];
-        }
-
-        if (! $presentParsed['valid'] && trim((string) $present) !== '') {
-            $presentKeys = ['_invalid'];
-        }
-
         $legacy = strtolower(trim((string) $legacyEmiratesIdPresence));
 
         if ($legacy === 'missing' && ! in_array('emirates_id', $missingKeys, true)) {

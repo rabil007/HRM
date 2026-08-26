@@ -16,3 +16,16 @@ test('it canonicalizes completeness keys and rejects unknown fields', function (
             'valid' => false,
         ]);
 });
+
+test('malformed completeness types fail closed', function (mixed $value) {
+    expect(EmployeeDirectoryCompleteness::parse($value))->toMatchArray([
+        'keys' => [],
+        'unknown' => [],
+        'valid' => false,
+    ]);
+})->with([
+    'array' => [['salary']],
+    'associative array' => [['email' => 'salary']],
+    'null' => [null],
+    'boolean' => [true],
+]);

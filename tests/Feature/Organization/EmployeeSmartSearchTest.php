@@ -920,19 +920,33 @@ test('presence-only prompts are not blocked by the privacy guard', function (str
     'missing emirates id' => ['employees missing Emirates ID'],
     'without phone' => ['employees without phone'],
     'with passport' => ['employees with passport'],
+    'under age' => ['employees under 30'],
+    'without manager' => ['employees without manager'],
+    'under department' => ['employees under Crewing department'],
 ]);
 
-test('named person lookups are blocked before the provider is called', function () {
+test('named person lookups are blocked before the provider is called', function (string $prompt) {
     enableEmployeeSmartSearch();
     $fixtures = makeEmployeeSmartSearchFixtures();
 
     EmployeeSmartSearchInterpreter::fake([fakeSmartSearchIntent(['status' => 'active'])]);
 
-    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'employee named Ahmed Khan')
-        ->assertUnprocessable();
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, $prompt)
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.prompt.0', EmployeeSmartSearchPromptGuard::MESSAGE);
 
     EmployeeSmartSearchInterpreter::assertNeverPrompted();
-});
+})->with([
+    'named title case' => ['employee named Ahmed Khan'],
+    'under person' => ['employees under Ahmed'],
+    'managed by' => ['employees managed by Ahmed Khan'],
+    'reporting to lowercase' => ['employees reporting to ahmed'],
+    'who report to' => ['employees who report to mohammed'],
+    'with manager' => ['employees with manager John'],
+    'named lowercase' => ['employee named ahmed'],
+    'called lowercase' => ['employee called john smith'],
+    'name is lowercase' => ['name is mohammed'],
+]);
 
 test('enabled but unusable provider config hides smart search without leaking credentials', function () {
     enableEmployeeSmartSearch('');

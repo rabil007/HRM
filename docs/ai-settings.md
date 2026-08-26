@@ -67,7 +67,9 @@ Missing/present concepts: Emirates ID, nationality, date of birth, passport numb
 
 Generic completeness is stored as canonical `missing_fields` / `present_fields` CSV keys (never raw AI/user field names). Unknown keys fail closed and never broaden results. The Emirates ID Missing/Present dropdown is a convenience control mapped onto those keys. Missing a value is **not** the same as an incomplete profile; “incomplete employee profiles” is unsupported.
 
-Intentionally excluded from Smart Search: salary, allowances, payroll, bank/IBAN, passwords, credentials, `company_id`, audit fields, arbitrary IDs, and **manager-by-person-name** (privacy: do not send person names to the provider; use the manual Manager filter).
+Intentionally excluded from Smart Search: salary, allowances, payroll, bank/IBAN, passwords, credentials, `company_id`, audit fields, arbitrary IDs, and **manager-by-person-name** (privacy: do not send person names to the provider; use the manual Manager filter). Phrases such as “employees under Ahmed”, “managed by Ahmed”, “reporting to Ahmed”, “employee named ahmed”, and “name is mohammed” are blocked **before** the provider is called. Category phrasing such as “employees under 30”, “employees without manager”, or “employees under Crewing department” is not treated as a named-person lookup.
+
+Approval Location and SSSA option are multi-valued directory filters. When Smart Search resolves more than one trusted value, IDs accumulate into the existing CSV (`approval_location_id=1,2`) with unique IDs and stable numeric order. Single-valued concepts such as nationality, department, and rank still reject conflicting equals values.
 
 ### Language and trusted resolution
 
@@ -83,7 +85,7 @@ A blank directory status still means **Active employees**. The Filters UI labels
 
 ### Privacy guard
 
-Before any provider call, `EmployeeSmartSearchPromptGuard` blocks obvious specific-person / identifier lookups (Emirates ID-looking values, email addresses, phone lookups, passport numbers after passport wording, employee-number wording, “named X”). Category language such as “employees without email” or “missing Emirates ID” is not blocked. Blocked prompts return a validation message directing the user to regular Employee search; they are not logged or stored, and the AI fake/provider is never called.
+Before any provider call, `EmployeeSmartSearchPromptGuard` blocks obvious specific-person / identifier lookups (Emirates ID-looking values, email addresses, phone lookups, passport numbers after passport wording, employee-number wording, named/called person phrasing regardless of casing, and manager/reporting-to person phrasing). Category language such as “employees without email”, “missing Emirates ID”, “employees without manager”, or “employees under Crewing department” is not blocked. Blocked prompts return a validation message directing the user to regular Employee search; they are not logged or stored, and the AI fake/provider is never called.
 
 Normal Employee search remains a separate deterministic field for name, employee number, email, and phone. It is not sent to the AI provider. Smart Search help text tells users which box to use.
 
