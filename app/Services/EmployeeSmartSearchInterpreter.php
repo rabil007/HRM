@@ -111,28 +111,35 @@ INSTRUCTIONS;
     {
         return [
             'status' => $schema->string()
-                ->enum(EmployeeSmartSearchResolver::STATUSES)
+                ->enum([...EmployeeSmartSearchResolver::STATUSES, null])
                 ->nullable()
+                ->required()
                 ->description('Canonical HR status, or null if not requested.'),
             'department' => $schema->string()
                 ->nullable()
+                ->required()
                 ->description('Department display name only. Never an ID.'),
             'position' => $schema->string()
                 ->nullable()
+                ->required()
                 ->description('Position title only. Never an ID.'),
             'nationality' => $schema->string()
                 ->nullable()
+                ->required()
                 ->description('Canonical country name. Never an ID.'),
             'rank' => $schema->string()
                 ->nullable()
+                ->required()
                 ->description('Rank display name or abbreviation. Never an ID.'),
             'crew_status' => $schema->string()
-                ->enum(array_keys(EmployeeCrewStatusFilter::options()))
+                ->enum([...array_keys(EmployeeCrewStatusFilter::options()), null])
                 ->nullable()
+                ->required()
                 ->description('Canonical crew status key, or null if not requested.'),
             'emirates_id_presence' => $schema->string()
-                ->enum(EmployeeDirectoryFilters::EMIRATES_ID_PRESENCE_VALUES)
+                ->enum([...EmployeeDirectoryFilters::EMIRATES_ID_PRESENCE_VALUES, null])
                 ->nullable()
+                ->required()
                 ->description('Whether Emirates ID is missing or present. Never the actual ID value. Null if not requested.'),
             'unsupported_terms' => $schema->array()
                 ->items($schema->string())
