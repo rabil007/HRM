@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\EmployeeSmartSearchInterpreter;
 use App\Services\Settings\AiSettingsService;
 use Illuminate\Support\Facades\Http;
+use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Ai\Prompts\AgentPrompt;
 
 /**
@@ -602,4 +603,80 @@ test('unexpected extra AI fields cannot become employee filters', function () {
         ->not->toContain('sk-or-test-key')
         ->and($response->json())->not->toHaveKey('company_id')
         ->and($response->json('filters.status'))->not->toBe('terminated');
+});
+
+test('employee directory receives smart_search_enabled when the platform setting is on', function () {
+    enableEmployeeSmartSearch('sk-secret-openai-key', [
+        'openai_model' => 'gpt-leaky-model',
+        'openrouter_api_key' => 'sk-secret-openrouter-key',
+        'openrouter_model' => 'openrouter/leaky-model',
+    ]);
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    $response = test()->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get('/organization/employees')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employees')
+            ->where('smart_search_enabled', true)
+            ->missing('ai')
+            ->missing('provider')
+            ->missing('model')
+            ->missing('openai')
+            ->missing('openrouter')
+            ->missing('openai_api_key')
+            ->missing('openrouter_api_key')
+            ->missing('ai_openai_api_key')
+            ->missing('ai_openrouter_api_key')
+            ->missing('has_api_key'));
+
+    expect($response->getContent())
+        ->not->toContain('sk-secret-openai-key')
+        ->not->toContain('sk-secret-openrouter-key')
+        ->not->toContain('gpt-leaky-model')
+        ->not->toContain('openrouter/leaky-model');
+});
+
+test('employee directory receives smart_search_enabled false when disabled', function () {
+    storePlatformAiSettings([
+        'enabled' => false,
+        'provider' => AiSettingsService::PROVIDER_OPENAI,
+        'openai_api_key' => 'sk-secret-disabled-openai',
+        'openai_model' => 'gpt-disabled-model',
+        'openrouter_api_key' => 'sk-secret-disabled-openrouter',
+        'openrouter_model' => 'openrouter/disabled-model',
+    ]);
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    $response = test()->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get('/organization/employees')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employees')
+            ->where('smart_search_enabled', false)
+            ->missing('ai')
+            ->missing('provider')
+            ->missing('openai_api_key')
+            ->missing('openrouter_api_key'));
+
+    expect($response->getContent())
+        ->not->toContain('sk-secret-disabled-openai')
+        ->not->toContain('sk-secret-disabled-openrouter')
+        ->not->toContain('gpt-disabled-model');
+});
+
+test('employee directory authorization is unchanged when smart search is enabled', function () {
+    enableEmployeeSmartSearch();
+
+    $this->get('/organization/employees')->assertRedirect(route('login'));
+
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    grantCompanyPermissions($user, $company, ['branches.view']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get('/organization/employees')
+        ->assertForbidden();
 });

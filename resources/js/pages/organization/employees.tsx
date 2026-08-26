@@ -46,6 +46,7 @@ export default function Employees({
     export_field_options,
     can,
     saved_views = [],
+    smart_search_enabled = false,
 }: {
     employees: Employee[];
     pagination: PaginationMeta;
@@ -84,6 +85,7 @@ export default function Employees({
     export_field_options: EmployeeExportFieldOption[];
     can: EmployeePageCan;
     saved_views?: SavedView[];
+    smart_search_enabled?: boolean;
 }) {
     return (
         <>
@@ -114,6 +116,7 @@ export default function Employees({
                 export_field_options={export_field_options}
                 can={can}
                 saved_views={saved_views}
+                smart_search_enabled={smart_search_enabled}
             />
         </>
     );

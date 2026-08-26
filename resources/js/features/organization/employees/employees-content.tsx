@@ -43,6 +43,7 @@ import {
     EMPTY_EMPLOYEE_FILTERS,
     EmployeeFiltersSheet,
 } from '@/features/organization/employees/components/employee-filters-sheet';
+import { EmployeeSmartSearch } from '@/features/organization/employees/components/employee-smart-search';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { firstValidationError } from '@/lib/first-validation-error';
@@ -109,6 +110,7 @@ export function EmployeesContent({
     export_field_options,
     can,
     saved_views = [],
+    smart_search_enabled = false,
 }: {
     employees: Employee[];
     pagination: PaginationMeta;
@@ -133,6 +135,7 @@ export function EmployeesContent({
     export_field_options: EmployeeExportFieldOption[];
     can: EmployeePageCan;
     saved_views?: SavedView[];
+    smart_search_enabled?: boolean;
 }) {
     void _users;
     void _religions;
@@ -300,6 +303,7 @@ export function EmployeesContent({
             />
 
             <SearchBar
+                className={smart_search_enabled ? 'mb-4' : undefined}
                 placeholder="Search employees by name, employee no, email, phone, or assignment..."
                 value={list.searchInput}
                 onChange={list.onSearchChange}
@@ -385,6 +389,13 @@ export function EmployeesContent({
                     </>
                 }
             />
+
+            {smart_search_enabled ? (
+                <EmployeeSmartSearch
+                    currentFilters={filters}
+                    onApplyFilters={handleFiltersChange}
+                />
+            ) : null}
 
             {employees.length === 0 ? (
                 <EmptyState title="No employees found." />

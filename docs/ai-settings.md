@@ -36,6 +36,12 @@ An unsupported value stored in `ai_provider` does not fall back to OpenAI. Smart
 
 ## Smart Employee Search
 
+When the feature is enabled, **Smart Search Beta** appears on **Organization → Employees**. It is hidden entirely when the setting is off; the Employee Directory does not show a disabled AI panel.
+
+Interpretation happens only on explicit submit (Interpret or Enter). There is no request on page load, while typing, or from a debounce. The user previews resolved labels, unresolved values, and unsupported terms. Filters are not applied until **Apply Filters**.
+
+Apply Filters reuses the existing Employee Directory query/filter pipeline (`useServerPaginationFilters`). Smart Search overwrites only supported fields it resolved (`status`, `department_id`, `position_id`, `nationality_id`, `rank_id`, `crew_status`). Existing filters it did not replace remain preserved, including unrelated manual filters and the normal text search. Pagination resets through that existing hook. The prompt itself is not stored in the database or localStorage, and it is not included in Employee Directory URL parameters or Saved Views.
+
 When Smart Employee Search is off in this UI, `POST /organization/employees/smart-search/interpret` reports that the feature is not enabled and does not call the provider.
 
 When it is on, Laravel reads the selected provider, optional model, and decrypted API key from these settings, then interprets the user’s short prompt into existing Employee Directory filters. The provider receives only:
@@ -43,9 +49,9 @@ When it is on, Laravel reads the selected provider, optional model, and decrypte
 - fixed interpreter instructions
 - the user’s short search prompt
 
-It does **not** receive employee rows, salaries, payroll, banking, passport/ID data, documents, `company_id`, or database credentials.
+It does **not** receive employee rows, salaries, payroll, banking, passport/ID data, documents, current Employee Directory filters, `company_id`, or database credentials.
 
-The interpreter still does not search employees; it only returns filters for a later Employee Directory UI.
+The interpreter still does not search employees. It only returns existing directory filter values for the Employee Directory UI to preview and apply.
 
 Malformed, empty, or unstructured provider output fails closed with HTTP 503 and `Employee smart search is temporarily unavailable.` It is never treated as a successful empty-filter result. Extra model fields are ignored and cannot become filters, database IDs, or SQL.
 

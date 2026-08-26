@@ -12,6 +12,7 @@ use App\Http\Requests\Organization\Employee\UpdateEmployeeRequest;
 use App\Http\Requests\Organization\Employee\UpdateEmployeeStatusRequest;
 use App\Models\Employee;
 use App\Models\EmployeeProfileTemplate;
+use App\Services\Settings\AiSettingsService;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
@@ -42,7 +43,7 @@ class EmployeeController extends Controller
 {
     use ResolvesPerPage;
 
-    public function index(): InertiaResponse|RedirectResponse
+    public function index(AiSettingsService $aiSettings): InertiaResponse|RedirectResponse
     {
         $redirect = ApplyDefaultSavedView::maybeRedirect(request(), SavedViewPage::Employees);
 
@@ -133,6 +134,7 @@ class EmployeeController extends Controller
             'department_tree_selected_position_id' => $directoryFilters->positionId !== '' ? (int) $directoryFilters->positionId : null,
             'can' => EmployeePagePermissions::for(request()->user()),
             'saved_views' => SavedViewsForPage::props(request()->user(), $companyId, SavedViewPage::Employees),
+            'smart_search_enabled' => $aiSettings->isSmartSearchEnabled(),
         ]);
     }
 
