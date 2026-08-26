@@ -26,6 +26,7 @@ use App\Models\Vessel;
 use App\Models\VisaType;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\Employees\EmployeeCrewStatusFilter;
+use App\Support\Employees\EmployeeDirectoryFilters;
 use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -162,6 +163,7 @@ final class SavedViewCatalog
                 'sssa_option_id' => ['type' => 'id', 'model' => SssaOption::class, 'company' => false],
                 'crew_status' => ['type' => 'enum', 'values' => array_keys(EmployeeCrewStatusFilter::options())],
                 'role_id' => ['type' => 'id', 'model' => Role::class, 'company' => true],
+                'emirates_id_presence' => ['type' => 'enum', 'values' => EmployeeDirectoryFilters::EMIRATES_ID_PRESENCE_VALUES],
             ],
             SavedViewPage::Documents => [
                 'search' => ['type' => 'search'],

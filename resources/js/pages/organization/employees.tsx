@@ -65,6 +65,7 @@ export default function Employees({
         sssa_option_id: string;
         crew_status: string;
         role_id: string;
+        emirates_id_presence: string;
     };
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;

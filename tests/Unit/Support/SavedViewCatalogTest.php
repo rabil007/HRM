@@ -25,6 +25,34 @@ test('unknown keys are rejected on save and stripped on apply', function () {
     ))->toThrow(ValidationException::class);
 });
 
+test('employee saved views accept emirates id presence missing and present', function () {
+    expect(SavedViewCatalog::forApply(SavedViewPage::Employees, [
+        'status' => 'active',
+        'emirates_id_presence' => 'missing',
+    ]))->toBe([
+        'status' => 'active',
+        'emirates_id_presence' => 'missing',
+    ]);
+
+    expect(SavedViewCatalog::normalizeForSave(
+        SavedViewPage::Employees,
+        ['emirates_id_presence' => 'present'],
+        1,
+    ))->toBe(['emirates_id_presence' => 'present']);
+});
+
+test('employee saved views reject arbitrary emirates id values', function () {
+    expect(SavedViewCatalog::forApply(SavedViewPage::Employees, [
+        'emirates_id_presence' => '784-1234-1234567-1',
+    ]))->toBe([]);
+
+    expect(fn () => SavedViewCatalog::normalizeForSave(
+        SavedViewPage::Employees,
+        ['emirates_id_presence' => '784-1234-1234567-1'],
+        1,
+    ))->toThrow(ValidationException::class);
+});
+
 test('empty and default values are omitted', function () {
     expect(SavedViewCatalog::forApply(SavedViewPage::Documents, [
         'expiry' => 'all',

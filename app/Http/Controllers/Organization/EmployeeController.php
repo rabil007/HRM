@@ -113,6 +113,7 @@ class EmployeeController extends Controller
                 'sssa_option_id' => $directoryFilters->sssaOptionId,
                 'crew_status' => $directoryFilters->crewStatus,
                 'role_id' => $directoryFilters->roleId,
+                'emirates_id_presence' => $directoryFilters->emiratesIdPresence,
             ],
             'departments' => $formOptions['departments'],
             'positions' => $formOptions['positions'],

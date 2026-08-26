@@ -19,6 +19,7 @@ test('it accepts a fully nullable schema including empty unsupported terms', fun
         'nationality' => null,
         'rank' => null,
         'crew_status' => null,
+        'emirates_id_presence' => null,
         'unsupported_terms' => [],
     ]);
 });
@@ -66,4 +67,27 @@ test('it rejects empty, list, and unstructured payloads', function (array $paylo
     'wrong status type' => [['status' => 1, 'unsupported_terms' => []]],
     'wrong unsupported type' => [['status' => 'active', 'unsupported_terms' => 'salary']],
     'non-string unsupported items' => [['status' => 'active', 'unsupported_terms' => [1]]],
+    'invalid emirates id presence' => [['emirates_id_presence' => '784-1234-1234567-1', 'unsupported_terms' => []]],
+    'non-enum emirates id presence' => [['emirates_id_presence' => 'blank', 'unsupported_terms' => []]],
 ]);
+
+test('it accepts missing and present emirates id presence values', function (string $value) {
+    expect(EmployeeSmartSearchIntent::fromDecoded([
+        'emirates_id_presence' => $value,
+        'unsupported_terms' => [],
+    ]))->toMatchArray([
+        'emirates_id_presence' => $value,
+        'unsupported_terms' => [],
+    ]);
+})->with(['missing', 'present']);
+
+test('it treats null emirates id presence as unset', function () {
+    expect(EmployeeSmartSearchIntent::fromDecoded([
+        'status' => 'active',
+        'emirates_id_presence' => null,
+        'unsupported_terms' => [],
+    ]))->toMatchArray([
+        'status' => 'active',
+        'emirates_id_presence' => null,
+    ]);
+});

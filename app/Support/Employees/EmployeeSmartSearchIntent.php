@@ -14,6 +14,13 @@ final class EmployeeSmartSearchIntent
         'nationality',
         'rank',
         'crew_status',
+        'emirates_id_presence',
+    ];
+
+    /** @var list<string> */
+    public const EMIRATES_ID_PRESENCE_VALUES = [
+        EmployeeDirectoryFilters::EMIRATES_ID_PRESENCE_MISSING,
+        EmployeeDirectoryFilters::EMIRATES_ID_PRESENCE_PRESENT,
     ];
 
     /**
@@ -29,6 +36,7 @@ final class EmployeeSmartSearchIntent
      *     nationality: string|null,
      *     rank: string|null,
      *     crew_status: string|null,
+     *     emirates_id_presence: string|null,
      *     unsupported_terms: list<string>
      * }
      */
@@ -63,7 +71,9 @@ final class EmployeeSmartSearchIntent
         $intent = [];
 
         foreach (self::FIELDS as $field) {
-            $intent[$field] = self::nullableString($payload[$field] ?? null);
+            $intent[$field] = $field === 'emirates_id_presence'
+                ? self::emiratesIdPresence($payload[$field] ?? null)
+                : self::nullableString($payload[$field] ?? null);
         }
 
         $intent['unsupported_terms'] = self::stringList($payload['unsupported_terms']);
@@ -84,6 +94,21 @@ final class EmployeeSmartSearchIntent
         $trimmed = trim($value);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    private static function emiratesIdPresence(mixed $value): ?string
+    {
+        $normalized = self::nullableString($value);
+
+        if ($normalized === null) {
+            return null;
+        }
+
+        if (! in_array($normalized, self::EMIRATES_ID_PRESENCE_VALUES, true)) {
+            throw EmployeeSmartSearchUnavailableException::providerFailed();
+        }
+
+        return $normalized;
     }
 
     /**

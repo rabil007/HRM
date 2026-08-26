@@ -276,6 +276,38 @@ test('selected OpenRouter provider uses the stored OpenRouter key', function () 
     expect(config('ai.providers.openrouter.key'))->toBe('stored-openrouter-key');
 });
 
+test('blank OpenRouter model uses the fast default without rewriting stored settings', function () {
+    storePlatformAiSettings([
+        'enabled' => true,
+        'provider' => 'openrouter',
+        'openrouter_api_key' => 'stored-openrouter-key',
+        'openrouter_model' => '',
+    ]);
+
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantPlatformAccess($user, 'view');
+    setupCompanyWithApplicationSettingsPermissions($user, []);
+
+    EmployeeSmartSearchInterpreter::fake([
+        fakeSmartSearchIntent(['status' => 'active']),
+    ]);
+
+    interpretSmartSearch($user, $company->id, 'active crew')->assertOk();
+
+    EmployeeSmartSearchInterpreter::assertPrompted(function (AgentPrompt $prompt): bool {
+        return $prompt->provider->name() === 'openrouter'
+            && $prompt->model === 'openai/gpt-5.6-luna';
+    });
+
+    $this->actingAs($user)
+        ->get(route('application.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('ai.openrouter.model', '')
+            ->where('ai.default_models.openrouter', 'openai/gpt-5.6-luna'));
+});
+
 test('missing selected-provider key fails safely without invoking AI', function () {
     storePlatformAiSettings([
         'enabled' => true,

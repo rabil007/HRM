@@ -18,11 +18,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Fast default models
+    |--------------------------------------------------------------------------
+    |
+    | Used only when an administrator has not stored an explicit model for the
+    | selected provider. Stored Application Settings always override these.
+    |
+    */
+
+    'default_models' => [
+        'openai' => 'gpt-5.6-luna',
+        'openrouter' => 'openai/gpt-5.6-luna',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Provider timeout
     |--------------------------------------------------------------------------
     |
-    | Seconds to wait for a structured interpretation. The SDK provider default
-    | model is used; do not hardcode a rapidly changing model name here.
+    | Seconds to wait for a structured interpretation.
     |
     */
 

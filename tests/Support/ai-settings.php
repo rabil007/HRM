@@ -40,6 +40,7 @@ function fakeSmartSearchIntent(array $overrides = []): array
         'nationality' => null,
         'rank' => null,
         'crew_status' => null,
+        'emirates_id_presence' => null,
         'unsupported_terms' => [],
     ], $overrides);
 }

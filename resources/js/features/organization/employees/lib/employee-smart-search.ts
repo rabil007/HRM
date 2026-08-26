@@ -5,7 +5,14 @@ export const SMART_SEARCH_FILTER_KEYS = [
     'nationality_id',
     'rank_id',
     'crew_status',
+    'emirates_id_presence',
 ] as const;
+
+export const SMART_SEARCH_DEBOUNCE_MS = 450;
+
+export const SMART_SEARCH_MIN_PROMPT_LENGTH = 2;
+
+export const SMART_SEARCH_CACHE_LIMIT = 20;
 
 export type SmartSearchFilterKey = (typeof SMART_SEARCH_FILTER_KEYS)[number];
 
@@ -44,6 +51,7 @@ export const SMART_SEARCH_LABEL_TITLES: Record<string, string> = {
     nationality: 'Nationality',
     rank: 'Rank',
     crew_status: 'Crew status',
+    emirates_id_presence: 'Emirates ID',
 };
 
 const FILTER_TO_LABEL_KEY: Record<SmartSearchFilterKey, string> = {
@@ -53,6 +61,7 @@ const FILTER_TO_LABEL_KEY: Record<SmartSearchFilterKey, string> = {
     nationality_id: 'nationality',
     rank_id: 'rank',
     crew_status: 'crew_status',
+    emirates_id_presence: 'emirates_id_presence',
 };
 
 export function buildEmployeeSmartSearchRequestBody(prompt: string): {
@@ -118,6 +127,113 @@ export function mergeSmartSearchFilters<T extends Record<string, string>>(
     }
 
     return merged;
+}
+
+export function clearMatchingOwnedSmartSearchFilters<
+    T extends Record<string, string>,
+>(currentFilters: T, previousOwned: SmartSearchFilters): T {
+    const next = { ...currentFilters };
+
+    for (const key of SMART_SEARCH_FILTER_KEYS) {
+        const ownedValue = previousOwned[key];
+
+        if (
+            typeof ownedValue === 'string' &&
+            ownedValue.trim() !== '' &&
+            next[key] === ownedValue
+        ) {
+            (next as Record<string, string>)[key] = '';
+        }
+    }
+
+    return next;
+}
+
+export function replaceSmartSearchOwnedFilters<
+    T extends Record<string, string>,
+>(
+    currentFilters: T,
+    previousOwned: SmartSearchFilters,
+    nextSmartSearchFilters: SmartSearchFilters,
+): { filters: T; owned: SmartSearchFilters } {
+    return {
+        filters: mergeSmartSearchFilters(
+            clearMatchingOwnedSmartSearchFilters(currentFilters, previousOwned),
+            nextSmartSearchFilters,
+        ),
+        owned: { ...nextSmartSearchFilters },
+    };
+}
+
+export function employeeDirectoryFiltersEqual<T extends Record<string, string>>(
+    left: T,
+    right: T,
+): boolean {
+    const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+
+    for (const key of keys) {
+        if ((left[key] ?? '') !== (right[key] ?? '')) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+export function normalizeSmartSearchPrompt(prompt: string): string {
+    return prompt.trim().replace(/\s+/g, ' ');
+}
+
+export function isSmartSearchPromptReady(prompt: string): boolean {
+    return (
+        normalizeSmartSearchPrompt(prompt).length >=
+        SMART_SEARCH_MIN_PROMPT_LENGTH
+    );
+}
+
+export class SmartSearchInterpretationCache {
+    private readonly entries = new Map<string, NormalizedSmartSearchResult>();
+
+    private readonly maxSize: number;
+
+    constructor(maxSize = SMART_SEARCH_CACHE_LIMIT) {
+        this.maxSize = maxSize;
+    }
+
+    get(prompt: string): NormalizedSmartSearchResult | undefined {
+        const key = normalizeSmartSearchPrompt(prompt);
+        const value = this.entries.get(key);
+
+        if (value === undefined) {
+            return undefined;
+        }
+
+        this.entries.delete(key);
+        this.entries.set(key, value);
+
+        return value;
+    }
+
+    set(prompt: string, value: NormalizedSmartSearchResult): void {
+        const key = normalizeSmartSearchPrompt(prompt);
+
+        this.entries.delete(key);
+        this.entries.set(key, value);
+
+        while (this.entries.size > this.maxSize) {
+            const oldest = this.entries.keys().next().value;
+
+            if (oldest === undefined) {
+                break;
+            }
+
+            this.entries.delete(oldest);
+        }
+    }
+
+    get size(): number {
+        return this.entries.size;
+    }
 }
 
 export function hasApplyableSmartSearchFilters(
@@ -313,15 +429,15 @@ export function smartSearchErrorMessage(
     }
 
     if (status === 503) {
-        return 'Smart Search is temporarily unavailable. Try again.';
+        return 'Smart Search is temporarily unavailable.';
     }
 
     if (status === 422) {
         return (
             firstValidationMessage(payload) ??
-            'Smart Search could not be completed. Try again.'
+            "Smart Search couldn't update the results. Try again."
         );
     }
 
-    return 'Smart Search could not be completed. Try again.';
+    return "Smart Search couldn't update the results. Try again.";
 }

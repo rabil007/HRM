@@ -602,7 +602,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/employees/import/preview', [EmployeeImportController::class, 'importPreview'])->middleware('can:employees.import')->name('organization.employees.import.preview');
     Route::post('organization/employees/import', [EmployeeImportController::class, 'import'])->middleware('can:employees.import')->name('organization.employees.import');
     Route::post('organization/employees/smart-search/interpret', EmployeeSmartSearchController::class)
-        ->middleware(['can:employees.view', 'throttle:10,1'])
+        ->middleware(['can:employees.view', 'throttle:30,1'])
         ->name('organization.employees.smart-search.interpret');
     Route::get('organization/employees/{employee}/cv', EmployeeCvPrintController::class)->middleware('can:employees.view')->name('organization.employees.cv');
     Route::get('organization/employees/{employee}/offshore-cv', EmployeeOffshoreCvPrintController::class)->middleware('can:employees.view')->name('organization.employees.offshore-cv');

@@ -15,6 +15,7 @@ export type EmployeeListQuery = {
     sssa_option_id?: string;
     crew_status?: string;
     role_id?: string;
+    emirates_id_presence?: string;
 };
 
 export function buildEmployeeListQuery(
@@ -77,6 +78,10 @@ export function buildEmployeeListQuery(
 
     if (filters.role_id) {
         query.role_id = filters.role_id;
+    }
+
+    if (filters.emirates_id_presence) {
+        query.emirates_id_presence = filters.emirates_id_presence;
     }
 
     return query;

@@ -34,6 +34,7 @@ export type EmployeeFilters = {
     sssa_option_id: string;
     crew_status: string;
     role_id: string;
+    emirates_id_presence: string;
 };
 
 export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
@@ -50,6 +51,7 @@ export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
     sssa_option_id: '',
     crew_status: '',
     role_id: '',
+    emirates_id_presence: '',
 };
 
 function csvIdSet(csv: string): Set<string> {
@@ -250,6 +252,24 @@ export function EmployeeFiltersSheet({
                                 {c.name}
                             </AppSelectItem>
                         ))}
+                    </AppSelect>
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                        Emirates ID
+                    </Label>
+                    <AppSelect
+                        value={value.emirates_id_presence}
+                        onValueChange={(v) =>
+                            onChange({ ...value, emirates_id_presence: v })
+                        }
+                        variant="dark"
+                        placeholder="All"
+                    >
+                        <AppSelectItem value="">All</AppSelectItem>
+                        <AppSelectItem value="missing">Missing</AppSelectItem>
+                        <AppSelectItem value="present">Present</AppSelectItem>
                     </AppSelect>
                 </div>
 

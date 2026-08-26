@@ -1196,6 +1196,7 @@ export default function ApplicationSettings({
                             provider={ai.provider}
                             openai={ai.openai}
                             openrouter={ai.openrouter}
+                            default_models={ai.default_models}
                             canUpdate={canUpdateApplication}
                         />
                     ) : null}

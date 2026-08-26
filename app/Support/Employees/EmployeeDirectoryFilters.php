@@ -6,6 +6,16 @@ use Illuminate\Http\Request;
 
 final class EmployeeDirectoryFilters
 {
+    public const EMIRATES_ID_PRESENCE_MISSING = 'missing';
+
+    public const EMIRATES_ID_PRESENCE_PRESENT = 'present';
+
+    /** @var list<string> */
+    public const EMIRATES_ID_PRESENCE_VALUES = [
+        self::EMIRATES_ID_PRESENCE_MISSING,
+        self::EMIRATES_ID_PRESENCE_PRESENT,
+    ];
+
     public function __construct(
         public readonly string $search = '',
         public readonly string $branchId = '',
@@ -22,7 +32,13 @@ final class EmployeeDirectoryFilters
         public readonly string $sssaOptionId = '',
         public readonly string $crewStatus = '',
         public readonly string $roleId = '',
+        public readonly string $emiratesIdPresence = '',
     ) {}
+
+    public static function isValidEmiratesIdPresence(string $value): bool
+    {
+        return in_array($value, self::EMIRATES_ID_PRESENCE_VALUES, true);
+    }
 
     /**
      * @param  array<string, mixed>  $data
@@ -45,6 +61,7 @@ final class EmployeeDirectoryFilters
             sssaOptionId: trim((string) ($data['sssa_option_id'] ?? '')),
             crewStatus: trim((string) ($data['crew_status'] ?? '')),
             roleId: trim((string) ($data['role_id'] ?? '')),
+            emiratesIdPresence: self::normalizeEmiratesIdPresence($data['emirates_id_presence'] ?? ''),
         );
     }
 
@@ -66,6 +83,7 @@ final class EmployeeDirectoryFilters
             sssaOptionId: trim((string) $request->input('sssa_option_id', '')),
             crewStatus: trim((string) $request->input('crew_status', '')),
             roleId: trim((string) $request->input('role_id', '')),
+            emiratesIdPresence: self::normalizeEmiratesIdPresence($request->input('emirates_id_presence', '')),
         );
     }
 
@@ -136,6 +154,15 @@ final class EmployeeDirectoryFilters
             $query['role_id'] = $this->roleId;
         }
 
+        if ($this->emiratesIdPresence !== '') {
+            $query['emirates_id_presence'] = $this->emiratesIdPresence;
+        }
+
         return $query;
+    }
+
+    private static function normalizeEmiratesIdPresence(mixed $value): string
+    {
+        return strtolower(trim((string) $value));
     }
 }

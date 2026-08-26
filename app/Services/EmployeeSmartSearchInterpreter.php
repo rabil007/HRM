@@ -6,6 +6,7 @@ use App\Exceptions\EmployeeSmartSearchUnavailableException;
 use App\Services\Settings\AiSettingsService;
 use App\Support\Ai\StructuredAgentOutput;
 use App\Support\Employees\EmployeeCrewStatusFilter;
+use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeSmartSearchIntent;
 use App\Support\Employees\EmployeeSmartSearchResolver;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -84,7 +85,13 @@ Supported concepts only:
 - nationality: canonical country name where possible (example: Filipino -> Philippines), never an ID
 - rank: display name or abbreviation (example: AB), never an ID
 - crew_status: one of {$crewStatuses}, or null if not requested
+- emirates_id_presence: missing, present, or null if Emirates ID completeness is not requested
 - unsupported_terms: concepts the request asked for that cannot be represented by the fields above
+
+Map Emirates ID completeness from natural language:
+- empty / without / no / missing / blank / not filled Emirates ID -> missing
+- with / have / filled Emirates ID -> present
+Never return an actual Emirates ID number. Presence is not a lookup of a specific ID.
 
 If a concept is unsupported, list it in unsupported_terms. Do not silently pretend it was applied.
 If a supported concept is not mentioned, return null for that field.
@@ -123,10 +130,14 @@ INSTRUCTIONS;
                 ->enum(array_keys(EmployeeCrewStatusFilter::options()))
                 ->nullable()
                 ->description('Canonical crew status key, or null if not requested.'),
+            'emirates_id_presence' => $schema->string()
+                ->enum(EmployeeDirectoryFilters::EMIRATES_ID_PRESENCE_VALUES)
+                ->nullable()
+                ->description('Whether Emirates ID is missing or present. Never the actual ID value. Null if not requested.'),
             'unsupported_terms' => $schema->array()
                 ->items($schema->string())
                 ->required()
-                ->description('Requested concepts that Phase 1 cannot represent.'),
+                ->description('Requested concepts that cannot be represented by the supported filter fields.'),
         ];
     }
 }

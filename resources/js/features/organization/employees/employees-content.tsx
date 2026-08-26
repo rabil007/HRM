@@ -172,6 +172,7 @@ export function EmployeesContent({
         sssa_option_id: initialFilters.sssa_option_id ?? '',
         crew_status: initialFilters.crew_status ?? '',
         role_id: initialFilters.role_id ?? '',
+        emirates_id_presence: initialFilters.emirates_id_presence ?? '',
     };
 
     const activeFiltersCount = Object.values(filters).filter(Boolean).length;

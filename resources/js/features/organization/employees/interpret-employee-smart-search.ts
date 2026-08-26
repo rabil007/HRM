@@ -13,6 +13,13 @@ function csrfToken(): string {
     );
 }
 
+function isAbortError(error: unknown): boolean {
+    return (
+        (error instanceof DOMException && error.name === 'AbortError') ||
+        (error instanceof Error && error.name === 'AbortError')
+    );
+}
+
 export class EmployeeSmartSearchRequestError extends Error {
     readonly status: number | null;
 
@@ -23,9 +30,21 @@ export class EmployeeSmartSearchRequestError extends Error {
     }
 }
 
+export class EmployeeSmartSearchAbortedError extends Error {
+    constructor() {
+        super('Smart Search request was cancelled.');
+        this.name = 'EmployeeSmartSearchAbortedError';
+    }
+}
+
 export async function interpretEmployeeSmartSearch(
     prompt: string,
+    signal?: AbortSignal,
 ): Promise<NormalizedSmartSearchResult> {
+    if (signal?.aborted) {
+        throw new EmployeeSmartSearchAbortedError();
+    }
+
     let response: Response;
 
     try {
@@ -38,10 +57,19 @@ export async function interpretEmployeeSmartSearch(
                 'X-Requested-With': 'XMLHttpRequest',
             },
             credentials: 'same-origin',
+            signal,
             body: JSON.stringify(buildEmployeeSmartSearchRequestBody(prompt)),
         });
-    } catch {
+    } catch (error) {
+        if (signal?.aborted || isAbortError(error)) {
+            throw new EmployeeSmartSearchAbortedError();
+        }
+
         throw new EmployeeSmartSearchRequestError(smartSearchErrorMessage(0));
+    }
+
+    if (signal?.aborted) {
+        throw new EmployeeSmartSearchAbortedError();
     }
 
     const contentType = response.headers.get('Content-Type') ?? '';

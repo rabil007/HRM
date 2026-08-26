@@ -39,6 +39,8 @@ class InterpretEmployeeSmartSearchRequest extends FormRequest
             'sssa_option_id' => ['prohibited'],
             'crew_status' => ['prohibited'],
             'role_id' => ['prohibited'],
+            'emirates_id' => ['prohibited'],
+            'emirates_id_presence' => ['prohibited'],
             'filters' => ['prohibited'],
             'provider' => ['prohibited'],
             'model' => ['prohibited'],

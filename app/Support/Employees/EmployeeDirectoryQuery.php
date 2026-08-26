@@ -141,7 +141,29 @@ final class EmployeeDirectoryQuery
                         $r->whereKey($filters->roleId);
                     });
                 });
+            })
+            ->when($filters->emiratesIdPresence !== '', function (Builder $q) use ($filters): void {
+                self::applyEmiratesIdPresence($q, $filters->emiratesIdPresence);
             });
+    }
+
+    private static function applyEmiratesIdPresence(Builder $query, string $presence): void
+    {
+        if (! EmployeeDirectoryFilters::isValidEmiratesIdPresence($presence)) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $blankExpression = 'TRIM(COALESCE('.$query->getModel()->qualifyColumn('emirates_id').", ''))";
+
+        if ($presence === EmployeeDirectoryFilters::EMIRATES_ID_PRESENCE_MISSING) {
+            $query->whereRaw("{$blankExpression} = ''");
+
+            return;
+        }
+
+        $query->whereRaw("{$blankExpression} <> ''");
     }
 
     public function base(): Builder

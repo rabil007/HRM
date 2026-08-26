@@ -680,3 +680,107 @@ test('employee directory authorization is unchanged when smart search is enabled
         ->get('/organization/employees')
         ->assertForbidden();
 });
+
+test('smart search resolver maps emirates id presence missing and present', function (string $value, string $label) {
+    enableEmployeeSmartSearch();
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    EmployeeSmartSearchInterpreter::fake([
+        fakeSmartSearchIntent(['emirates_id_presence' => $value]),
+    ]);
+
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'employees with emirates id')
+        ->assertOk()
+        ->assertJsonPath('filters.emirates_id_presence', $value)
+        ->assertJsonPath('labels.emirates_id_presence', $label)
+        ->assertJsonMissingPath('filters.emirates_id');
+})->with([
+    'missing' => ['missing', 'Missing'],
+    'present' => ['present', 'Present'],
+]);
+
+test('smart search cannot turn an actual emirates id number into a filter', function () {
+    enableEmployeeSmartSearch();
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    EmployeeSmartSearchInterpreter::fake([
+        fakeSmartSearchIntent([
+            'status' => 'active',
+            'emirates_id' => '784-1234-1234567-1',
+            'passport_number' => 'X123',
+        ]),
+    ]);
+
+    $response = interpretSmartSearch(
+        $fixtures['user'],
+        $fixtures['company']->id,
+        'employees with emirates id 784-1234-1234567-1',
+    )->assertOk()
+        ->assertJsonPath('filters.status', 'active')
+        ->assertJsonMissingPath('filters.emirates_id')
+        ->assertJsonMissingPath('filters.emirates_id_presence')
+        ->assertJsonMissingPath('filters.passport_number');
+
+    expect(json_encode($response->json()))->not->toContain('784-1234-1234567-1');
+});
+
+test('interpret requests cannot submit emirates id values', function () {
+    enableEmployeeSmartSearch();
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    EmployeeSmartSearchInterpreter::fake([fakeSmartSearchIntent(['status' => 'active'])]);
+
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'AB', [
+        'emirates_id' => '784-1234-1234567-1',
+        'emirates_id_presence' => 'missing',
+    ])->assertUnprocessable();
+
+    EmployeeSmartSearchInterpreter::assertNeverPrompted();
+});
+
+test('smart search interpretation is rate limited per authenticated user', function () {
+    enableEmployeeSmartSearch();
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    EmployeeSmartSearchInterpreter::fake(fn () => fakeSmartSearchIntent(['status' => 'active']));
+
+    for ($i = 0; $i < 30; $i++) {
+        interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'AB')
+            ->assertOk();
+    }
+
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'AB')
+        ->assertTooManyRequests();
+});
+
+test('blank stored model uses the fast default at runtime', function () {
+    enableEmployeeSmartSearch();
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    EmployeeSmartSearchInterpreter::fake([
+        fakeSmartSearchIntent(['status' => 'active']),
+    ]);
+
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'active crew')->assertOk();
+
+    EmployeeSmartSearchInterpreter::assertPrompted(function (AgentPrompt $prompt): bool {
+        return $prompt->model === 'gpt-5.6-luna';
+    });
+});
+
+test('stored model still overrides the fast default', function () {
+    enableEmployeeSmartSearch('test-openai-key', [
+        'openai_model' => 'gpt-explicit-override',
+    ]);
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    EmployeeSmartSearchInterpreter::fake([
+        fakeSmartSearchIntent(['status' => 'active']),
+    ]);
+
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'active crew')->assertOk();
+
+    EmployeeSmartSearchInterpreter::assertPrompted(function (AgentPrompt $prompt): bool {
+        return $prompt->model === 'gpt-explicit-override';
+    });
+});

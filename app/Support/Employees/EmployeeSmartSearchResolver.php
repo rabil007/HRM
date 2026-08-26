@@ -36,6 +36,7 @@ final class EmployeeSmartSearchResolver
 
         $this->resolveStatus($intent, $filters, $labels, $unresolved);
         $this->resolveCrewStatus($intent, $filters, $labels, $unresolved);
+        $this->resolveEmiratesIdPresence($intent, $filters, $labels, $unresolved);
 
         $departmentId = $this->resolveNamedLookup(
             field: 'department',
@@ -158,6 +159,36 @@ final class EmployeeSmartSearchResolver
             'term' => $term,
             'reason' => $matches === [] ? 'not_found' : 'ambiguous',
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $intent
+     * @param  array<string, string>  $filters
+     * @param  array<string, string>  $labels
+     * @param  list<array{field: string, term: string, reason: string}>  $unresolved
+     */
+    private function resolveEmiratesIdPresence(array $intent, array &$filters, array &$labels, array &$unresolved): void
+    {
+        $term = $this->stringValue($intent['emirates_id_presence'] ?? null);
+
+        if ($term === null) {
+            return;
+        }
+
+        if (! EmployeeDirectoryFilters::isValidEmiratesIdPresence($term)) {
+            $unresolved[] = [
+                'field' => 'emirates_id_presence',
+                'term' => $term,
+                'reason' => 'not_found',
+            ];
+
+            return;
+        }
+
+        $filters['emirates_id_presence'] = $term;
+        $labels['emirates_id_presence'] = $term === EmployeeDirectoryFilters::EMIRATES_ID_PRESENCE_MISSING
+            ? 'Missing'
+            : 'Present';
     }
 
     /**
