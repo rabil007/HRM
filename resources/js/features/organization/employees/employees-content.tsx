@@ -44,6 +44,12 @@ import {
     EmployeeFiltersSheet,
 } from '@/features/organization/employees/components/employee-filters-sheet';
 import { EmployeeSmartSearch } from '@/features/organization/employees/components/employee-smart-search';
+import {
+    completenessChips,
+    EMPLOYEE_DIRECTORY_PARTIAL_RELOAD_KEYS,
+    removeCompletenessKey,
+} from '@/features/organization/employees/lib/employee-smart-search';
+import { useEmployeeSmartSearch } from '@/features/organization/employees/use-employee-smart-search';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { firstValidationError } from '@/lib/first-validation-error';
@@ -68,6 +74,7 @@ import type { EmployeeFilters } from './components/employee-filters-sheet';
 import { EmployeeMobileCard } from './components/employee-mobile-card';
 import type {
     BankOption,
+    BranchOption,
     CompanyVisaTypeOption,
     CountryOption,
     DepartmentTreeNode,
@@ -94,6 +101,7 @@ export function EmployeesContent({
     department_tree,
     department_tree_selected_id,
     department_tree_selected_position_id,
+    branches,
     positions,
     managers,
     users: _users,
@@ -110,7 +118,7 @@ export function EmployeesContent({
     export_field_options,
     can,
     saved_views = [],
-    smart_search_enabled = false,
+    smart_search_available = false,
 }: {
     employees: Employee[];
     pagination: PaginationMeta;
@@ -119,6 +127,7 @@ export function EmployeesContent({
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
     department_tree_selected_position_id: number | null;
+    branches: BranchOption[];
     positions: PositionOption[];
     managers: ManagerOption[];
     users: UserOption[];
@@ -135,7 +144,7 @@ export function EmployeesContent({
     export_field_options: EmployeeExportFieldOption[];
     can: EmployeePageCan;
     saved_views?: SavedView[];
-    smart_search_enabled?: boolean;
+    smart_search_available?: boolean;
 }) {
     void _users;
     void _religions;
@@ -146,6 +155,7 @@ export function EmployeesContent({
         search: initialSearch,
         filters: initialFilters,
         pagination,
+        only: [...EMPLOYEE_DIRECTORY_PARTIAL_RELOAD_KEYS],
     });
     const [view, setView] = useViewPreference('employees:view', 'grid');
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -159,6 +169,7 @@ export function EmployeesContent({
     );
 
     const filters: EmployeeFilters = {
+        branch_id: initialFilters.branch_id ?? '',
         department_id: initialFilters.department_id ?? '',
         position_id: initialFilters.position_id ?? '',
         status: initialFilters.status ?? '',
@@ -172,8 +183,14 @@ export function EmployeesContent({
         sssa_option_id: initialFilters.sssa_option_id ?? '',
         crew_status: initialFilters.crew_status ?? '',
         role_id: initialFilters.role_id ?? '',
-        emirates_id_presence: initialFilters.emirates_id_presence ?? '',
+        missing_fields: initialFilters.missing_fields ?? '',
+        present_fields: initialFilters.present_fields ?? '',
     };
+
+    const smartSearch = useEmployeeSmartSearch({
+        currentFilters: filters,
+        onApplyFilters: (next) => list.applyFilters(next),
+    });
 
     const activeFiltersCount = Object.values(filters).filter(Boolean).length;
 
@@ -183,7 +200,7 @@ export function EmployeesContent({
     );
 
     const handleFiltersChange = (next: EmployeeFilters) => {
-        list.applyFilters(next);
+        smartSearch.onManualFiltersChange(next);
     };
 
     const handleDepartmentSelect = (id: number | null) => {
@@ -304,8 +321,8 @@ export function EmployeesContent({
             />
 
             <SearchBar
-                className={smart_search_enabled ? 'mb-4' : undefined}
-                placeholder="Search employees by name, employee no, email, phone, or assignment..."
+                className={smart_search_available ? 'mb-4' : undefined}
+                placeholder="Search employees by name, employee no, email, or phone..."
                 value={list.searchInput}
                 onChange={list.onSearchChange}
                 right={
@@ -386,20 +403,59 @@ export function EmployeesContent({
                                 ...filters,
                             }}
                             views={saved_views}
+                            onBeforeApply={smartSearch.resetSmartSearch}
                         />
                     </>
                 }
             />
 
-            {smart_search_enabled ? (
+            {smart_search_available ? (
                 <EmployeeSmartSearch
                     currentFilters={filters}
-                    onApplyFilters={handleFiltersChange}
+                    search={smartSearch}
                 />
             ) : null}
 
+            {completenessChips(filters).length > 0 ? (
+                <div className="mb-4 flex flex-wrap gap-2">
+                    {completenessChips(filters).map((chip) => {
+                        const [concept, operator] = chip.key.split(':');
+
+                        return (
+                            <Button
+                                key={chip.key}
+                                type="button"
+                                variant="outline"
+                                className="h-8 rounded-full px-3 text-xs font-normal"
+                                onClick={() =>
+                                    handleFiltersChange(
+                                        removeCompletenessKey(
+                                            filters,
+                                            operator === 'present'
+                                                ? 'present'
+                                                : 'missing',
+                                            concept,
+                                        ),
+                                    )
+                                }
+                                aria-label={`Remove ${chip.label} ${chip.title}`}
+                            >
+                                {chip.label} · {chip.title}
+                                <span aria-hidden="true">×</span>
+                            </Button>
+                        );
+                    })}
+                </div>
+            ) : null}
+
             {employees.length === 0 ? (
-                <EmptyState title="No employees found." />
+                <EmptyState
+                    title={
+                        smart_search_available
+                            ? 'No employees match the Smart Search and current directory filters.'
+                            : 'No employees found.'
+                    }
+                />
             ) : (
                 <>
                     <div className={MOBILE_OPERATIONAL_LIST_CLASS}>
@@ -686,7 +742,11 @@ export function EmployeesContent({
                 onOpenChange={setIsFiltersOpen}
                 value={filters}
                 onChange={handleFiltersChange}
-                onReset={() => handleFiltersChange(EMPTY_EMPLOYEE_FILTERS)}
+                onReset={() => {
+                    smartSearch.resetSmartSearch();
+                    smartSearch.onManualFiltersChange(EMPTY_EMPLOYEE_FILTERS);
+                }}
+                branches={branches}
                 positions={positions}
                 managers={managers}
                 genders={genders}

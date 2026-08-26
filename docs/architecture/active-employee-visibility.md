@@ -14,7 +14,7 @@ Reusable Support helpers:
 - `App\Support\Employees\ActiveCompanyEmployeeRule::exists($companyId)` — FormRequest `employee_id` validation
 - `App\Support\Employees\Actions\GuardEmployeeStatusTransition` — blocks `active` → `inactive`/`terminated` while operational work is still open
 
-`EmployeeDirectoryQuery` still defaults the employee directory to active when no status filter is provided. Passing an explicit status (`inactive`, `on_leave`, `terminated`) is the supported way to browse non-active people. Sea service directory is the documented exception that does **not** default to active.
+`EmployeeDirectoryQuery` still defaults the employee directory to active when no status filter is provided. The Filters UI labels that blank option **Active (default)**, never **All**. Passing an explicit status (`active`, `inactive`, `on_leave`, `terminated`) or `status=all` (no HR-status predicate) is the supported way to browse non-default people. Sea service directory is the documented exception that does **not** default to active.
 
 ## Operational (active only)
 
@@ -22,7 +22,7 @@ Current workforce pickers, create/update mutations, compliance widgets, and live
 
 | Area | Behaviour |
 |------|-----------|
-| Employee directory | Defaults to active; explicit status filter may show others |
+| Employee directory | Defaults to active when status is blank (UI: **Active (default)**, never **All**); `status=all` shows every HR status; explicit `active` / `inactive` / `on_leave` / `terminated` remain |
 | Employee pickers (leave, attendance create, crew assignment, planning pool, Hikvision link, user link, announcements, department manager, bulk documents) | Active + current company |
 | Documents index folders, compliance table, search, expiry summary, dashboard document health, expiry alerts | Active employees |
 | Contracts directory, no-contract list, contract summary | Active employees |
@@ -99,7 +99,7 @@ which requires `company_id` + `status = active` (and excludes soft-deleted rows)
 
 | Exception | Why |
 |-----------|-----|
-| Employee directory with explicit `status` | HR must be able to find inactive/terminated people |
+| Employee directory with explicit `status` or `status=all` | HR must be able to find inactive/terminated people, or browse every status |
 | Sea service module | Employment/crew **history**, not current roster |
 | Payroll `forPeriod` still requires **current** `employees.status = active` plus contracts overlapping the period start | Existing payroll generation rule; do not treat this as “as-of status” |
 | Leave pending / awaiting-approval counts | In-progress workflow must remain actionable after inactivation is blocked going forward; existing pending rows stay visible |

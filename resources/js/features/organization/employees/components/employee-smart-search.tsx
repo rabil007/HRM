@@ -5,31 +5,33 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import type { EmployeeFilters } from '@/features/organization/employees/components/employee-filters-sheet';
 import {
+    directoryScopeChips,
     formatUnresolvedItem,
     hasApplyableSmartSearchFilters,
     smartSearchResolvedPreview,
 } from '@/features/organization/employees/lib/employee-smart-search';
-import { useEmployeeSmartSearch } from '@/features/organization/employees/use-employee-smart-search';
+import type { useEmployeeSmartSearch } from '@/features/organization/employees/use-employee-smart-search';
 
 export function EmployeeSmartSearch({
     currentFilters,
-    onApplyFilters,
+    search,
 }: {
     currentFilters: EmployeeFilters;
-    onApplyFilters: (next: EmployeeFilters) => void;
+    search: ReturnType<typeof useEmployeeSmartSearch>;
 }) {
-    const { prompt, loading, error, result, onPromptChange, onSubmit } =
-        useEmployeeSmartSearch({
-            currentFilters,
-            onApplyFilters,
-        });
+    const { prompt, loading, error, result, owned, onPromptChange, onSubmit } =
+        search;
 
     const previewChips =
         result === null
             ? []
-            : smartSearchResolvedPreview(result.filters, result.labels);
-    const hasAppliedFilters =
-        result !== null && hasApplyableSmartSearchFilters(result.filters);
+            : smartSearchResolvedPreview(result.applied, owned, currentFilters);
+    const scopeChips = directoryScopeChips(currentFilters);
+    const hasAppliedFilters = previewChips.length > 0;
+    const filtersUnchanged =
+        result !== null &&
+        !hasApplyableSmartSearchFilters(result.filters) &&
+        previewChips.length === 0;
 
     return (
         <section
@@ -60,7 +62,10 @@ export function EmployeeSmartSearch({
                             id="employee-smart-search-help"
                             className="mt-0.5 text-xs text-muted-foreground"
                         >
-                            Describe the employees you want to find.
+                            Use Smart Search for filters like “active Filipino
+                            crew” or “employees missing DOB”. Use the regular
+                            search above for a specific name, employee number,
+                            email or phone.
                         </p>
                     </div>
                 </div>
@@ -76,7 +81,7 @@ export function EmployeeSmartSearch({
                         id="employee-smart-search-prompt"
                         value={prompt}
                         onChange={(event) => onPromptChange(event.target.value)}
-                        placeholder="e.g. active Filipino AB crew in Crewing"
+                        placeholder="e.g. employees without email"
                         autoComplete="off"
                         maxLength={200}
                         aria-describedby="employee-smart-search-help"
@@ -85,7 +90,7 @@ export function EmployeeSmartSearch({
                     {loading ? (
                         <span className="absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1.5 text-xs text-muted-foreground">
                             <Spinner className="size-3.5" />
-                            Searching...
+                            <span>Searching...</span>
                         </span>
                     ) : null}
                 </div>
@@ -116,11 +121,35 @@ export function EmployeeSmartSearch({
                                 ))}
                             </div>
                         </div>
+                    ) : filtersUnchanged ? (
+                        <div className="space-y-1 text-sm text-muted-foreground">
+                            <p>No Smart Search filters were applied.</p>
+                            <p>The current employee list was not changed.</p>
+                        </div>
                     ) : (
                         <p className="text-sm text-muted-foreground">
                             No supported Smart Search filters were found.
                         </p>
                     )}
+
+                    {scopeChips.length > 0 ? (
+                        <div className="space-y-2">
+                            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                                Directory scope
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {scopeChips.map((chip) => (
+                                    <Badge
+                                        key={chip.key}
+                                        variant="secondary"
+                                        className="font-normal"
+                                    >
+                                        {chip.title} · {chip.label}
+                                    </Badge>
+                                ))}
+                            </div>
+                        </div>
+                    ) : null}
 
                     {result.unresolved.length > 0 ? (
                         <ul className="space-y-1 text-sm text-foreground">
@@ -129,6 +158,19 @@ export function EmployeeSmartSearch({
                                     key={`${item.field}:${item.term}:${item.reason}`}
                                 >
                                     Could not apply ·{' '}
+                                    {formatUnresolvedItem(item)}
+                                </li>
+                            ))}
+                        </ul>
+                    ) : null}
+
+                    {result.ambiguous.length > 0 ? (
+                        <ul className="space-y-1 text-sm text-foreground">
+                            {result.ambiguous.map((item) => (
+                                <li
+                                    key={`ambiguous:${item.field}:${item.term}:${item.reason}`}
+                                >
+                                    Needs clarification ·{' '}
                                     {formatUnresolvedItem(item)}
                                 </li>
                             ))}

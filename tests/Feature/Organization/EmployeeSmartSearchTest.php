@@ -9,6 +9,7 @@ use App\Models\Rank;
 use App\Models\User;
 use App\Services\EmployeeSmartSearchInterpreter;
 use App\Services\Settings\AiSettingsService;
+use App\Support\Employees\EmployeeSmartSearchPromptGuard;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Ai\Prompts\AgentPrompt;
@@ -118,11 +119,17 @@ test('authorized employee viewer can interpret a valid prompt', function () {
         ->assertJsonPath('filters.department_id', (string) $fixtures['department']->id)
         ->assertJsonPath('filters.nationality_id', (string) $fixtures['country']->id)
         ->assertJsonPath('filters.rank_id', (string) $fixtures['rank']->id)
-        ->assertJsonPath('labels.status', 'Active')
-        ->assertJsonPath('labels.department', 'Crewing')
-        ->assertJsonPath('labels.nationality', 'Philippines')
-        ->assertJsonPath('labels.rank', 'AB')
+        ->assertJsonPath('applied.0.key', 'status:equals')
+        ->assertJsonPath('applied.0.label', 'HR status')
+        ->assertJsonPath('applied.0.value', 'Active')
+        ->assertJsonPath('applied.1.key', 'department:equals')
+        ->assertJsonPath('applied.1.value', 'Crewing')
+        ->assertJsonPath('applied.2.key', 'nationality:equals')
+        ->assertJsonPath('applied.2.value', 'Philippines')
+        ->assertJsonPath('applied.3.key', 'rank:equals')
+        ->assertJsonPath('applied.3.value', 'AB')
         ->assertJsonPath('unresolved', [])
+        ->assertJsonPath('ambiguous', [])
         ->assertJsonPath('unsupported', []);
 
     expect(array_keys($response->json('filters')))->toEqualCanonicalizing([
@@ -279,7 +286,8 @@ test('canonical HR status is returned correctly', function () {
     interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'employees on leave')
         ->assertOk()
         ->assertJsonPath('filters.status', 'on_leave')
-        ->assertJsonPath('labels.status', 'On leave');
+        ->assertJsonPath('applied.0.key', 'status:equals')
+        ->assertJsonPath('applied.0.value', 'On leave');
 });
 
 test('canonical crew status is validated using existing crew-status rules', function () {
@@ -293,7 +301,8 @@ test('canonical crew status is validated using existing crew-status rules', func
     interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'crew on vessel')
         ->assertOk()
         ->assertJsonPath('filters.crew_status', 'on_vessel')
-        ->assertJsonPath('labels.crew_status', 'On vessel');
+        ->assertJsonPath('applied.0.key', 'crew_status:equals')
+        ->assertJsonPath('applied.0.value', 'On vessel');
 
     EmployeeSmartSearchInterpreter::fake([
         fakeSmartSearchIntent(['crew_status' => 'at_sea']),
@@ -358,8 +367,8 @@ test('ambiguous values are not guessed', function () {
     interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'Officer crew')
         ->assertOk()
         ->assertJsonMissingPath('filters.position_id')
-        ->assertJsonPath('unresolved.0.field', 'position')
-        ->assertJsonPath('unresolved.0.reason', 'ambiguous');
+        ->assertJsonPath('ambiguous.0.field', 'position')
+        ->assertJsonPath('ambiguous.0.reason', 'ambiguous');
 });
 
 test('unsupported concepts are reported rather than fabricated', function () {
@@ -391,9 +400,10 @@ test('malformed extra AI fields cannot become query filters', function () {
     ]);
 
     EmployeeSmartSearchInterpreter::fake([
-        fakeSmartSearchIntent([
+        array_merge(fakeSmartSearchIntent([
             'status' => 'active',
             'department' => 'Crewing',
+        ]), [
             'company_id' => $fixtures['otherCompany']->id,
             'department_id' => $fixtures['otherDepartment']->id,
             'employees' => [
@@ -415,9 +425,10 @@ test('malformed extra AI fields cannot become query filters', function () {
 
     $payload = $response->json();
 
-    expect($payload)->toHaveKeys(['filters', 'labels', 'unresolved', 'unsupported'])
+    expect($payload)->toHaveKeys(['filters', 'applied', 'unresolved', 'ambiguous', 'unsupported'])
         ->and($payload)->not->toHaveKey('employees')
         ->and($payload)->not->toHaveKey('company_id')
+        ->and($payload)->not->toHaveKey('labels')
         ->and($payload['filters'])->toBe([
             'department_id' => (string) $fixtures['department']->id,
             'status' => 'active',
@@ -514,7 +525,7 @@ test('successful response contains no employee records or sensitive fields', fun
 
     $payload = $response->json();
 
-    expect(array_keys($payload))->toEqualCanonicalizing(['filters', 'labels', 'unresolved', 'unsupported'])
+    expect(array_keys($payload))->toEqualCanonicalizing(['filters', 'applied', 'unresolved', 'ambiguous', 'unsupported'])
         ->and(json_encode($payload))->not->toContain('Do Not Leak')
         ->and(json_encode($payload))->not->toContain('0500000000')
         ->and(json_encode($payload))->not->toContain('noleak@example.test')
@@ -534,7 +545,7 @@ test('raw and fenced OpenRouter JSON still resolve employee smart search filters
     interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'active crew')
         ->assertOk()
         ->assertJsonPath('filters.status', 'active')
-        ->assertJsonPath('labels.status', 'Active');
+        ->assertJsonPath('applied.0.value', 'Active');
 })->with([
     'raw json' => [json_encode(fakeSmartSearchIntent(['status' => 'active']))],
     'fenced json' => ["```json\n".json_encode(fakeSmartSearchIntent(['status' => 'active']))."\n```"],
@@ -565,9 +576,11 @@ test('malformed AI structured output fails closed', function (string $content) {
     'invalid json' => ['not json secret-should-not-leak'],
     'json array' => ['[]'],
     'missing schema' => [json_encode(['hello' => 'world', 'secret' => 'secret-should-not-leak'])],
-    'missing unsupported terms' => [json_encode(['status' => 'active'])],
+    'missing criteria' => [json_encode(['unsupported_terms' => []])],
+    'missing unsupported terms' => [json_encode(['criteria' => [], 'ambiguous_terms' => []])],
     'wrong field types' => [json_encode([
-        'status' => ['active'],
+        'criteria' => ['active'],
+        'ambiguous_terms' => [],
         'unsupported_terms' => [],
         'secret' => 'secret-should-not-leak',
     ])],
@@ -581,13 +594,16 @@ test('unexpected extra AI fields cannot become employee filters', function () {
     $fixtures = makeEmployeeSmartSearchFixtures();
 
     fakeOpenRouterSmartSearchContent(json_encode([
-        'status' => 'active',
+        'criteria' => [
+            ['concept' => 'status', 'operator' => 'equals', 'value' => 'active'],
+        ],
+        'ambiguous_terms' => [],
+        'unsupported_terms' => [],
         'company_id' => $fixtures['otherCompany']->id,
         'department_id' => $fixtures['otherDepartment']->id,
         'position_id' => $fixtures['otherPosition']->id,
         'filters' => ['status' => 'terminated'],
         'sql' => 'select * from employees',
-        'unsupported_terms' => [],
     ]));
     Http::preventStrayRequests();
 
@@ -619,7 +635,8 @@ test('employee directory receives smart_search_enabled when the platform setting
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/employees')
-            ->where('smart_search_enabled', true)
+            ->where('smart_search_available', true)
+            ->missing('smart_search_enabled')
             ->missing('ai')
             ->missing('provider')
             ->missing('model')
@@ -655,7 +672,8 @@ test('employee directory receives smart_search_enabled false when disabled', fun
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/employees')
-            ->where('smart_search_enabled', false)
+            ->where('smart_search_available', false)
+            ->missing('smart_search_enabled')
             ->missing('ai')
             ->missing('provider')
             ->missing('openai_api_key')
@@ -681,47 +699,52 @@ test('employee directory authorization is unchanged when smart search is enabled
         ->assertForbidden();
 });
 
-test('smart search resolver maps emirates id presence missing and present', function (string $value, string $label) {
-    enableEmployeeSmartSearch();
-    $fixtures = makeEmployeeSmartSearchFixtures();
-
-    EmployeeSmartSearchInterpreter::fake([
-        fakeSmartSearchIntent(['emirates_id_presence' => $value]),
-    ]);
-
-    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'employees with emirates id')
-        ->assertOk()
-        ->assertJsonPath('filters.emirates_id_presence', $value)
-        ->assertJsonPath('labels.emirates_id_presence', $label)
-        ->assertJsonMissingPath('filters.emirates_id');
-})->with([
-    'missing' => ['missing', 'Missing'],
-    'present' => ['present', 'Present'],
-]);
-
-test('smart search cannot turn an actual emirates id number into a filter', function () {
+test('smart search resolver maps emirates id missing and present completeness', function (string $operator) {
     enableEmployeeSmartSearch();
     $fixtures = makeEmployeeSmartSearchFixtures();
 
     EmployeeSmartSearchInterpreter::fake([
         fakeSmartSearchIntent([
-            'status' => 'active',
-            'emirates_id' => '784-1234-1234567-1',
-            'passport_number' => 'X123',
+            'criteria' => [[
+                'concept' => 'emirates_id',
+                'operator' => $operator,
+                'value' => null,
+            ]],
         ]),
     ]);
 
-    $response = interpretSmartSearch(
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'employees with emirates id')
+        ->assertOk()
+        ->assertJsonPath(
+            $operator === 'missing' ? 'filters.missing_fields' : 'filters.present_fields',
+            'emirates_id',
+        )
+        ->assertJsonPath('applied.0.key', 'emirates_id:'.$operator)
+        ->assertJsonPath('applied.0.label', 'Emirates ID')
+        ->assertJsonPath('applied.0.value', $operator === 'missing' ? 'Missing' : 'Present')
+        ->assertJsonMissingPath('filters.emirates_id')
+        ->assertJsonMissingPath('filters.emirates_id_presence');
+})->with([
+    'missing' => ['missing'],
+    'present' => ['present'],
+]);
+
+test('smart search blocks an actual emirates id number before the provider is called', function () {
+    enableEmployeeSmartSearch();
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    EmployeeSmartSearchInterpreter::fake([
+        fakeSmartSearchIntent(['status' => 'active']),
+    ]);
+
+    interpretSmartSearch(
         $fixtures['user'],
         $fixtures['company']->id,
-        'employees with emirates id 784-1234-1234567-1',
-    )->assertOk()
-        ->assertJsonPath('filters.status', 'active')
-        ->assertJsonMissingPath('filters.emirates_id')
-        ->assertJsonMissingPath('filters.emirates_id_presence')
-        ->assertJsonMissingPath('filters.passport_number');
+        'employee with Emirates ID 784-2000-1234567-1',
+    )->assertUnprocessable()
+        ->assertJsonPath('errors.prompt.0', EmployeeSmartSearchPromptGuard::MESSAGE);
 
-    expect(json_encode($response->json()))->not->toContain('784-1234-1234567-1');
+    EmployeeSmartSearchInterpreter::assertNeverPrompted();
 });
 
 test('interpret requests cannot submit emirates id values', function () {
@@ -733,6 +756,7 @@ test('interpret requests cannot submit emirates id values', function () {
     interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'AB', [
         'emirates_id' => '784-1234-1234567-1',
         'emirates_id_presence' => 'missing',
+        'missing_fields' => 'salary',
     ])->assertUnprocessable();
 
     EmployeeSmartSearchInterpreter::assertNeverPrompted();
@@ -783,4 +807,190 @@ test('stored model still overrides the fast default', function () {
     EmployeeSmartSearchInterpreter::assertPrompted(function (AgentPrompt $prompt): bool {
         return $prompt->model === 'gpt-explicit-override';
     });
+});
+
+test('all statuses are returned as an explicit directory filter', function () {
+    enableEmployeeSmartSearch();
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    EmployeeSmartSearchInterpreter::fake([
+        fakeSmartSearchIntent(['status' => 'all']),
+    ]);
+
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'all employees')
+        ->assertOk()
+        ->assertJsonPath('filters.status', 'all')
+        ->assertJsonPath('applied.0.key', 'status:equals')
+        ->assertJsonPath('applied.0.value', 'All statuses');
+});
+
+test('composite email missing is returned as a generic completeness filter', function () {
+    enableEmployeeSmartSearch();
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    EmployeeSmartSearchInterpreter::fake([
+        fakeSmartSearchIntent([
+            'criteria' => [[
+                'concept' => 'email',
+                'operator' => 'missing',
+                'value' => null,
+            ]],
+        ]),
+    ]);
+
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'employees without email')
+        ->assertOk()
+        ->assertJsonPath('filters.missing_fields', 'email')
+        ->assertJsonPath('applied.0.key', 'email:missing')
+        ->assertJsonPath('applied.0.label', 'Email')
+        ->assertJsonPath('applied.0.value', 'Missing')
+        ->assertJsonMissingPath('filters.work_email');
+});
+
+test('department codes resolve against the current company only', function () {
+    enableEmployeeSmartSearch();
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    EmployeeSmartSearchInterpreter::fake([
+        fakeSmartSearchIntent(['department' => 'CRW']),
+    ]);
+
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'CRW employees')
+        ->assertOk()
+        ->assertJsonPath('filters.department_id', (string) $fixtures['department']->id);
+});
+
+test('rank aliases resolve to the trusted canonical rank name', function () {
+    enableEmployeeSmartSearch();
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    $fixtures['rank']->update(['name' => 'Able Seaman']);
+
+    EmployeeSmartSearchInterpreter::fake([
+        fakeSmartSearchIntent(['rank' => 'AB']),
+    ]);
+
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'AB crew')
+        ->assertOk()
+        ->assertJsonPath('filters.rank_id', (string) $fixtures['rank']->id)
+        ->assertJsonPath('applied.0.value', 'Able Seaman');
+});
+
+test('contradictory criteria are not applied', function () {
+    enableEmployeeSmartSearch();
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    EmployeeSmartSearchInterpreter::fake([
+        fakeSmartSearchIntent([
+            'criteria' => [
+                ['concept' => 'nationality', 'operator' => 'equals', 'value' => 'Philippines'],
+                ['concept' => 'nationality', 'operator' => 'missing', 'value' => null],
+            ],
+        ]),
+    ]);
+
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'Indian employees with no nationality')
+        ->assertOk()
+        ->assertJsonPath('filters', [])
+        ->assertJsonPath('applied', [])
+        ->assertJsonPath('ambiguous.0.reason', 'conflict');
+});
+
+test('presence-only prompts are not blocked by the privacy guard', function (string $prompt) {
+    enableEmployeeSmartSearch();
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    EmployeeSmartSearchInterpreter::fake([
+        fakeSmartSearchIntent([
+            'criteria' => [[
+                'concept' => 'email',
+                'operator' => 'missing',
+                'value' => null,
+            ]],
+        ]),
+    ]);
+
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, $prompt)->assertOk();
+
+    EmployeeSmartSearchInterpreter::assertPrompted(
+        fn (AgentPrompt $agentPrompt): bool => $agentPrompt->prompt === $prompt,
+    );
+})->with([
+    'without email' => ['employees without email'],
+    'missing emirates id' => ['employees missing Emirates ID'],
+    'without phone' => ['employees without phone'],
+    'with passport' => ['employees with passport'],
+]);
+
+test('named person lookups are blocked before the provider is called', function () {
+    enableEmployeeSmartSearch();
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    EmployeeSmartSearchInterpreter::fake([fakeSmartSearchIntent(['status' => 'active'])]);
+
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'employee named Ahmed Khan')
+        ->assertUnprocessable();
+
+    EmployeeSmartSearchInterpreter::assertNeverPrompted();
+});
+
+test('enabled but unusable provider config hides smart search without leaking credentials', function () {
+    enableEmployeeSmartSearch('');
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    $response = test()->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get('/organization/employees')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employees')
+            ->where('smart_search_available', false)
+            ->missing('smart_search_enabled')
+            ->missing('has_api_key')
+            ->missing('provider')
+            ->missing('model'));
+
+    expect($response->getContent())->not->toContain('test-openai-key');
+});
+
+test('structurally incomplete nested criteria fail closed', function () {
+    enableEmployeeSmartSearch(null, [
+        'provider' => AiSettingsService::PROVIDER_OPENROUTER,
+        'openrouter_api_key' => 'sk-or-test-key',
+    ]);
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    fakeOpenRouterSmartSearchContent(json_encode([
+        'criteria' => [[
+            'concept' => 'status',
+            'operator' => 'equals',
+        ]],
+        'ambiguous_terms' => [],
+        'unsupported_terms' => [],
+    ]));
+    Http::preventStrayRequests();
+
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'active crew')
+        ->assertStatus(503)
+        ->assertJsonMissingPath('filters');
+});
+
+test('arbitrary AI concepts cannot become filters', function () {
+    enableEmployeeSmartSearch();
+    $fixtures = makeEmployeeSmartSearchFixtures();
+
+    EmployeeSmartSearchInterpreter::fake([
+        fakeSmartSearchIntent([
+            'criteria' => [[
+                'concept' => 'salary',
+                'operator' => 'equals',
+                'value' => '9000',
+            ]],
+            'unsupported_terms' => [],
+        ]),
+    ]);
+
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'high salary employees')
+        ->assertStatus(503)
+        ->assertJsonMissingPath('filters');
 });

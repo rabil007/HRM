@@ -37,6 +37,21 @@ class AiSettingsService
         return filter_var(config('employee-smart-search.enabled'), FILTER_VALIDATE_BOOLEAN);
     }
 
+    public function isSmartSearchAvailable(): bool
+    {
+        if (! $this->isSmartSearchEnabled()) {
+            return false;
+        }
+
+        try {
+            $this->runtimeConfig();
+        } catch (EmployeeSmartSearchUnavailableException) {
+            return false;
+        }
+
+        return true;
+    }
+
     public function selectedProvider(): string
     {
         $stored = $this->storedProvider();

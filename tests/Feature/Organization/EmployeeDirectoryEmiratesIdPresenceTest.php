@@ -8,7 +8,7 @@ use App\Support\Employees\EmployeeDirectoryFilters;
 use Illuminate\Http\Request;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function makeEmiratesIdPresenceFixtures(): array
+function makeDirectoryCompletenessFixtures(): array
 {
     ['user' => $user, 'companyA' => $company, 'companyB' => $otherCompany] = makeCompanyAuthorizationPair();
 
@@ -36,59 +36,67 @@ function makeEmiratesIdPresenceFixtures(): array
     return compact('user', 'company', 'otherCompany', 'department', 'country', 'rank');
 }
 
-function visitEmployeesWithPresence(array $fixtures, array $query = [])
+function visitEmployeesWithCompleteness(array $fixtures, array $query = [])
 {
     return test()->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
         ->get(route('organization.employees', $query));
 }
 
-test('employee directory filters accept emirates id presence missing and present', function () {
-    expect(EmployeeDirectoryFilters::fromArray(['emirates_id_presence' => 'missing'])->emiratesIdPresence)
-        ->toBe('missing')
+test('legacy emirates id presence query params map onto generic completeness', function () {
+    expect(EmployeeDirectoryFilters::fromArray(['emirates_id_presence' => 'missing'])->missingFields)
+        ->toBe('emirates_id')
         ->and(EmployeeDirectoryFilters::fromArray(['emirates_id_presence' => 'present'])->toQueryArray())
-        ->toBe(['emirates_id_presence' => 'present'])
+        ->toBe(['present_fields' => 'emirates_id'])
         ->and(EmployeeDirectoryFilters::fromRequest(
             Request::create('/organization/employees', 'GET', ['emirates_id_presence' => 'missing']),
-        )->emiratesIdPresence)->toBe('missing');
+        )->missingFields)->toBe('emirates_id');
 });
 
-test('missing emirates id presence matches null empty and whitespace values', function () {
-    $fixtures = makeEmiratesIdPresenceFixtures();
+test('missing emirates id matches null empty and whitespace values', function () {
+    $fixtures = makeDirectoryCompletenessFixtures();
 
     $nullId = Employee::factory()->forCompany($fixtures['company'])->create([
         'name' => 'Null Emirates',
         'emirates_id' => null,
         'status' => 'active',
+        'work_email' => 'a@example.test',
+        'personal_email' => 'b@example.test',
     ]);
     $emptyId = Employee::factory()->forCompany($fixtures['company'])->create([
         'name' => 'Empty Emirates',
         'emirates_id' => '',
         'status' => 'active',
+        'work_email' => 'a@example.test',
+        'personal_email' => 'b@example.test',
     ]);
     $whitespaceId = Employee::factory()->forCompany($fixtures['company'])->create([
         'name' => 'Whitespace Emirates',
         'emirates_id' => '   ',
         'status' => 'active',
+        'work_email' => 'a@example.test',
+        'personal_email' => 'b@example.test',
     ]);
     Employee::factory()->forCompany($fixtures['company'])->create([
         'name' => 'Filled Emirates',
         'emirates_id' => '784-1234-1234567-1',
         'status' => 'active',
+        'work_email' => 'a@example.test',
+        'personal_email' => 'b@example.test',
     ]);
 
-    visitEmployeesWithPresence($fixtures, ['emirates_id_presence' => 'missing'])
+    visitEmployeesWithCompleteness($fixtures, ['missing_fields' => 'emirates_id'])
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('employees', 3)
-            ->where('filters.emirates_id_presence', 'missing')
+            ->where('filters.missing_fields', 'emirates_id')
             ->where('employees.0.id', $emptyId->id)
             ->where('employees.1.id', $nullId->id)
             ->where('employees.2.id', $whitespaceId->id));
 });
 
-test('present emirates id presence matches filled values and excludes blanks', function () {
-    $fixtures = makeEmiratesIdPresenceFixtures();
+test('present emirates id matches filled values and excludes blanks', function () {
+    $fixtures = makeDirectoryCompletenessFixtures();
 
     $filled = Employee::factory()->forCompany($fixtures['company'])->create([
         'name' => 'Has Emirates',
@@ -111,16 +119,16 @@ test('present emirates id presence matches filled values and excludes blanks', f
         'status' => 'active',
     ]);
 
-    visitEmployeesWithPresence($fixtures, ['emirates_id_presence' => 'present'])
+    visitEmployeesWithCompleteness($fixtures, ['present_fields' => 'emirates_id'])
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('employees', 1)
             ->where('employees.0.id', $filled->id)
-            ->where('filters.emirates_id_presence', 'present'));
+            ->where('filters.present_fields', 'emirates_id'));
 });
 
-test('emirates id presence filter remains tenant scoped', function () {
-    $fixtures = makeEmiratesIdPresenceFixtures();
+test('legacy emirates id presence query still filters the directory', function () {
+    $fixtures = makeDirectoryCompletenessFixtures();
 
     $own = Employee::factory()->forCompany($fixtures['company'])->create([
         'name' => 'Own Missing',
@@ -133,57 +141,129 @@ test('emirates id presence filter remains tenant scoped', function () {
         'status' => 'active',
     ]);
 
-    $response = visitEmployeesWithPresence($fixtures, ['emirates_id_presence' => 'missing'])
+    $response = visitEmployeesWithCompleteness($fixtures, ['emirates_id_presence' => 'missing'])
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('employees', 1)
-            ->where('employees.0.id', $own->id));
+            ->where('employees.0.id', $own->id)
+            ->where('filters.missing_fields', 'emirates_id'));
 
     expect($response->getContent())->not->toContain('Other Missing');
 });
 
-test('emirates id presence composes with status department nationality and rank', function () {
-    $fixtures = makeEmiratesIdPresenceFixtures();
+test('composite email missing requires both work and personal email to be absent', function () {
+    $fixtures = makeDirectoryCompletenessFixtures();
+
+    $missingBoth = Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'No Emails',
+        'status' => 'active',
+        'work_email' => null,
+        'personal_email' => '  ',
+    ]);
+    Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Has Work Email',
+        'status' => 'active',
+        'work_email' => 'work@example.test',
+        'personal_email' => null,
+    ]);
+    Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Has Personal Email',
+        'status' => 'active',
+        'work_email' => '',
+        'personal_email' => 'personal@example.test',
+    ]);
+
+    visitEmployeesWithCompleteness($fixtures, ['missing_fields' => 'email'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.id', $missingBoth->id));
+});
+
+test('composite email present matches either work or personal email', function () {
+    $fixtures = makeDirectoryCompletenessFixtures();
+
+    $work = Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Work Only',
+        'status' => 'active',
+        'work_email' => 'work@example.test',
+        'personal_email' => null,
+    ]);
+    $personal = Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Personal Only',
+        'status' => 'active',
+        'work_email' => null,
+        'personal_email' => 'personal@example.test',
+    ]);
+    Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Neither Email',
+        'status' => 'active',
+        'work_email' => '',
+        'personal_email' => null,
+    ]);
+
+    visitEmployeesWithCompleteness($fixtures, ['present_fields' => 'email'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 2)
+            ->where('employees.0.id', $personal->id)
+            ->where('employees.1.id', $work->id));
+});
+
+test('work and personal email completeness are independent', function () {
+    $fixtures = makeDirectoryCompletenessFixtures();
+
+    $missingWork = Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Missing Work',
+        'status' => 'active',
+        'work_email' => null,
+        'personal_email' => 'personal@example.test',
+    ]);
+    Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Has Work',
+        'status' => 'active',
+        'work_email' => 'work@example.test',
+        'personal_email' => null,
+    ]);
+
+    visitEmployeesWithCompleteness($fixtures, ['missing_fields' => 'work_email'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.id', $missingWork->id));
+});
+
+test('phone nationality dob and passport completeness use the correct strategy', function () {
+    $fixtures = makeDirectoryCompletenessFixtures();
 
     $match = Employee::factory()->forCompany($fixtures['company'])->create([
-        'name' => 'Composed Match',
+        'name' => 'Incomplete Record',
         'status' => 'active',
-        'department_id' => $fixtures['department']->id,
-        'nationality_id' => $fixtures['country']->id,
-        'rank_id' => $fixtures['rank']->id,
-        'emirates_id' => null,
+        'phone' => '  ',
+        'nationality_id' => null,
+        'date_of_birth' => null,
+        'passport_number' => '',
     ]);
     Employee::factory()->forCompany($fixtures['company'])->create([
-        'name' => 'Wrong Status',
-        'status' => 'inactive',
-        'department_id' => $fixtures['department']->id,
-        'nationality_id' => $fixtures['country']->id,
-        'rank_id' => $fixtures['rank']->id,
-        'emirates_id' => null,
-    ]);
-    Employee::factory()->forCompany($fixtures['company'])->create([
-        'name' => 'Has Id',
+        'name' => 'Complete Record',
         'status' => 'active',
-        'department_id' => $fixtures['department']->id,
+        'phone' => '0500000000',
         'nationality_id' => $fixtures['country']->id,
-        'rank_id' => $fixtures['rank']->id,
-        'emirates_id' => '784-0000-0000000-0',
+        'date_of_birth' => '1990-01-01',
+        'passport_number' => 'A1234567',
     ]);
 
-    visitEmployeesWithPresence($fixtures, [
-        'status' => 'active',
-        'department_id' => (string) $fixtures['department']->id,
-        'nationality_id' => (string) $fixtures['country']->id,
-        'rank_id' => (string) $fixtures['rank']->id,
-        'emirates_id_presence' => 'missing',
+    visitEmployeesWithCompleteness($fixtures, [
+        'missing_fields' => 'phone,nationality,date_of_birth,passport_number',
     ])->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('employees', 1)
-            ->where('employees.0.id', $match->id));
+            ->where('employees.0.id', $match->id)
+            ->where('filters.missing_fields', 'nationality,passport_number,phone,date_of_birth'));
 });
 
-test('unsupported emirates id presence values match no employees', function () {
-    $fixtures = makeEmiratesIdPresenceFixtures();
+test('unknown completeness keys fail closed and do not broaden results', function () {
+    $fixtures = makeDirectoryCompletenessFixtures();
 
     Employee::factory()->forCompany($fixtures['company'])->create([
         'name' => 'Should Not Broaden',
@@ -196,9 +276,74 @@ test('unsupported emirates id presence values match no employees', function () {
         'status' => 'active',
     ]);
 
-    visitEmployeesWithPresence($fixtures, ['emirates_id_presence' => '784-1234-1234567-1'])
+    visitEmployeesWithCompleteness($fixtures, ['missing_fields' => 'salary,iban'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 0));
+});
+
+test('unsupported legacy emirates id presence values match no employees', function () {
+    $fixtures = makeDirectoryCompletenessFixtures();
+
+    Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Should Not Broaden',
+        'emirates_id' => '784-1234-1234567-1',
+        'status' => 'active',
+    ]);
+    Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Also Hidden',
+        'emirates_id' => null,
+        'status' => 'active',
+    ]);
+
+    visitEmployeesWithCompleteness($fixtures, ['emirates_id_presence' => '784-1234-1234567-1'])
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('employees', 0)
-            ->where('filters.emirates_id_presence', '784-1234-1234567-1'));
+            ->where('filters.missing_fields', '_invalid'));
+});
+
+test('blank status defaults to active and all omits the hr status predicate', function () {
+    $fixtures = makeDirectoryCompletenessFixtures();
+
+    $active = Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Active Person',
+        'status' => 'active',
+        'work_email' => null,
+        'personal_email' => null,
+    ]);
+    $inactive = Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Inactive Person',
+        'status' => 'inactive',
+        'work_email' => null,
+        'personal_email' => null,
+    ]);
+
+    visitEmployeesWithCompleteness($fixtures, ['missing_fields' => 'email'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.id', $active->id)
+            ->where('filters.status', ''));
+
+    visitEmployeesWithCompleteness($fixtures, ['status' => 'all', 'missing_fields' => 'email'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 2)
+            ->where('employees.0.id', $active->id)
+            ->where('employees.1.id', $inactive->id)
+            ->where('filters.status', 'all'));
+});
+
+test('invalid status values fail closed', function () {
+    $fixtures = makeDirectoryCompletenessFixtures();
+
+    Employee::factory()->forCompany($fixtures['company'])->create([
+        'name' => 'Visible Otherwise',
+        'status' => 'active',
+    ]);
+
+    visitEmployeesWithCompleteness($fixtures, ['status' => 'not-a-status'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('employees', 0));
 });

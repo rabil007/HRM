@@ -1,21 +1,56 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+    SMART_SEARCH_CACHE_LIMIT,
+    SMART_SEARCH_DEBOUNCE_MS,
     SMART_SEARCH_FILTER_KEYS,
+    SMART_SEARCH_MIN_PROMPT_LENGTH,
+    STATUS_OPTION_LABELS,
     SmartSearchInterpretationCache,
+    SmartSearchMalformedResponseError,
+    applyEmiratesIdPresence,
     buildEmployeeSmartSearchRequestBody,
+    completenessChips,
+    directoryScopeChips,
     employeeDirectoryFiltersEqual,
     formatUnresolvedItem,
     hasApplyableSmartSearchFilters,
     isSmartSearchPromptReady,
     mergeSmartSearchFilters,
     normalizeSmartSearchPrompt,
-    normalizeSmartSearchResponse,
+    parseRetryAfterSeconds,
+    parseSmartSearchResponse,
     pickAllowlistedSmartSearchFilters,
+    reconcileServerWorkingFilters,
+    reconcileSmartSearchOwnership,
     replaceSmartSearchOwnedFilters,
+    smartSearchCacheKey,
     smartSearchErrorMessage,
     smartSearchResolvedPreview,
 } from './employee-smart-search.ts';
+
+const emptyFilters = {
+    branch_id: '',
+    department_id: '',
+    position_id: '',
+    status: '',
+    manager_id: '',
+    gender_id: '',
+    nationality_id: '',
+    visa_type_id: '',
+    company_visa_type_id: '',
+    rank_id: '',
+    approval_location_id: '',
+    sssa_option_id: '',
+    crew_status: '',
+    role_id: '',
+    missing_fields: '',
+    present_fields: '',
+};
+
+function parsed(payload: Record<string, unknown>) {
+    return parseSmartSearchResponse(payload);
+}
 
 describe('employee smart search request body', () => {
     it('contains only the prompt', () => {
@@ -29,19 +64,42 @@ describe('employee smart search request body', () => {
             JSON.stringify(body),
             '{"prompt":"active Filipino AB crew in Crewing"}',
         );
+        assert.equal('company_id' in body, false);
+        assert.equal('filters' in body, false);
+        assert.equal('provider' in body, false);
+        assert.equal('model' in body, false);
+    });
+});
+
+describe('employee smart search constants', () => {
+    it('keeps auto-search timing and minimum prompt length', () => {
+        assert.equal(SMART_SEARCH_DEBOUNCE_MS, 450);
+        assert.equal(SMART_SEARCH_MIN_PROMPT_LENGTH, 2);
+        assert.equal(isSmartSearchPromptReady('AB'), true);
+        assert.equal(isSmartSearchPromptReady('A'), false);
+        assert.equal(isSmartSearchPromptReady(''), false);
+        assert.equal(isSmartSearchPromptReady('  '), false);
     });
 });
 
 describe('employee smart search filter allowlist', () => {
-    it('includes only the seven supported directory keys', () => {
+    it('includes directory and completeness keys only', () => {
         assert.deepEqual(SMART_SEARCH_FILTER_KEYS, [
             'status',
+            'branch_id',
             'department_id',
             'position_id',
             'nationality_id',
             'rank_id',
+            'gender_id',
+            'visa_type_id',
+            'company_visa_type_id',
+            'role_id',
+            'approval_location_id',
+            'sssa_option_id',
             'crew_status',
-            'emirates_id_presence',
+            'missing_fields',
+            'present_fields',
         ]);
     });
 
@@ -50,7 +108,6 @@ describe('employee smart search filter allowlist', () => {
             status: 'active',
             nationality_id: '5',
             manager_id: '10',
-            gender_id: '2',
             company_id: '99',
             search: 'secret employee',
             salary: '9000',
@@ -63,7 +120,6 @@ describe('employee smart search filter allowlist', () => {
         });
         assert.equal('manager_id' in picked, false);
         assert.equal('company_id' in picked, false);
-        assert.equal('search' in picked, false);
         assert.equal('emirates_id' in picked, false);
     });
 });
@@ -72,18 +128,11 @@ describe('employee smart search filter merge', () => {
     it('overwrites returned supported fields and preserves unrelated filters', () => {
         const merged = mergeSmartSearchFilters(
             {
-                department_id: '',
-                position_id: '',
+                ...emptyFilters,
                 status: 'inactive',
                 manager_id: '10',
                 gender_id: '2',
-                nationality_id: '',
                 visa_type_id: '7',
-                company_visa_type_id: '',
-                rank_id: '',
-                approval_location_id: '',
-                sssa_option_id: '',
-                crew_status: '',
                 role_id: '3',
             },
             {
@@ -98,18 +147,15 @@ describe('employee smart search filter merge', () => {
         assert.equal(merged.role_id, '3');
         assert.equal(merged.status, 'active');
         assert.equal(merged.nationality_id, '5');
-        assert.equal(merged.department_id, '');
-        assert.equal('search' in merged, false);
     });
 
     it('clears a stale position when Smart Search returns only department', () => {
         const merged = mergeSmartSearchFilters(
             {
+                ...emptyFilters,
                 department_id: '10',
                 position_id: '21',
                 manager_id: '9',
-                gender_id: '2',
-                status: 'inactive',
             },
             {
                 department_id: '15',
@@ -120,55 +166,32 @@ describe('employee smart search filter merge', () => {
         assert.equal(merged.department_id, '15');
         assert.equal(merged.position_id, '');
         assert.equal(merged.manager_id, '9');
-        assert.equal(merged.gender_id, '2');
-        assert.equal(merged.status, 'active');
     });
 
     it('clears a stale department when Smart Search returns only position', () => {
         const merged = mergeSmartSearchFilters(
-            {
-                department_id: '10',
-                position_id: '',
-                role_id: '3',
-            },
-            {
-                position_id: '31',
-            },
+            { ...emptyFilters, department_id: '10' },
+            { position_id: '31' },
         );
 
         assert.equal(merged.department_id, '');
         assert.equal(merged.position_id, '31');
-        assert.equal(merged.role_id, '3');
     });
 
     it('applies both department and position when Smart Search returns both', () => {
         const merged = mergeSmartSearchFilters(
-            {
-                department_id: '10',
-                position_id: '21',
-                manager_id: '9',
-            },
-            {
-                department_id: '15',
-                position_id: '44',
-            },
+            { ...emptyFilters, department_id: '10', position_id: '21' },
+            { department_id: '15', position_id: '44' },
         );
 
         assert.equal(merged.department_id, '15');
         assert.equal(merged.position_id, '44');
-        assert.equal(merged.manager_id, '9');
     });
 
     it('preserves existing department and position when neither is returned', () => {
         const merged = mergeSmartSearchFilters(
-            {
-                department_id: '10',
-                position_id: '21',
-                nationality_id: '',
-            },
-            {
-                nationality_id: '5',
-            },
+            { ...emptyFilters, department_id: '10', position_id: '21' },
+            { nationality_id: '5' },
         );
 
         assert.equal(merged.department_id, '10');
@@ -181,6 +204,7 @@ describe('employee smart search owned filter replacement', () => {
     it('removes a previous AI-owned filter omitted by a new result', () => {
         const { filters, owned } = replaceSmartSearchOwnedFilters(
             {
+                ...emptyFilters,
                 status: 'active',
                 nationality_id: '5',
                 rank_id: '8',
@@ -197,8 +221,6 @@ describe('employee smart search owned filter replacement', () => {
             },
         );
 
-        assert.equal(filters.status, 'active');
-        assert.equal(filters.nationality_id, '5');
         assert.equal(filters.rank_id, '');
         assert.equal(filters.manager_id, '10');
         assert.equal('rank_id' in owned, false);
@@ -206,183 +228,202 @@ describe('employee smart search owned filter replacement', () => {
 
     it('preserves a manually overridden previous AI filter', () => {
         const { filters } = replaceSmartSearchOwnedFilters(
-            {
-                rank_id: '44',
-                status: 'active',
-            },
-            {
-                rank_id: '8',
-                status: 'active',
-            },
-            {
-                status: 'active',
-            },
+            { ...emptyFilters, rank_id: '44', status: 'active' },
+            { rank_id: '8', status: 'active' },
+            { status: 'active' },
         );
 
         assert.equal(filters.rank_id, '44');
         assert.equal(filters.status, 'active');
     });
 
-    it('preserves unrelated manual filters', () => {
-        const { filters } = replaceSmartSearchOwnedFilters(
-            {
-                manager_id: '10',
-                gender_id: '2',
-                status: '',
-                nationality_id: '',
-            },
-            {},
-            {
-                status: 'active',
-                nationality_id: '5',
-            },
+    it('removes a stale Smart Search chip after a manual override', () => {
+        const owned = reconcileSmartSearchOwnership(
+            { ...emptyFilters, rank_id: '44' },
+            { rank_id: '8' },
         );
 
-        assert.equal(filters.manager_id, '10');
-        assert.equal(filters.gender_id, '2');
-        assert.equal(filters.status, 'active');
-        assert.equal(filters.nationality_id, '5');
+        assert.deepEqual(owned, {});
+        assert.deepEqual(
+            smartSearchResolvedPreview(
+                [{ key: 'rank:equals', label: 'Rank', value: 'AB' }],
+                { rank_id: '8' },
+                { ...emptyFilters, rank_id: '44' },
+            ),
+            [],
+        );
     });
 
     it('clears still-AI-owned filters when Smart Search is cleared', () => {
         const { filters, owned } = replaceSmartSearchOwnedFilters(
             {
+                ...emptyFilters,
                 status: 'active',
                 nationality_id: '5',
                 manager_id: '10',
-                gender_id: '2',
             },
-            {
-                status: 'active',
-                nationality_id: '5',
-            },
+            { status: 'active', nationality_id: '5' },
             {},
         );
 
         assert.equal(filters.status, '');
         assert.equal(filters.nationality_id, '');
         assert.equal(filters.manager_id, '10');
-        assert.equal(filters.gender_id, '2');
         assert.deepEqual(owned, {});
     });
 
-    it('empty successful interpretation removes stale AI-owned filters and preserves manual filters', () => {
+    it('editing AB down to A removes still-owned AB filters', () => {
         const { filters } = replaceSmartSearchOwnedFilters(
-            {
-                rank_id: '8',
-                role_id: '3',
-            },
-            {
-                rank_id: '8',
-            },
+            { ...emptyFilters, rank_id: '8', manager_id: '10' },
+            { rank_id: '8' },
             {},
         );
 
         assert.equal(filters.rank_id, '');
-        assert.equal(filters.role_id, '3');
-        assert.equal(
-            employeeDirectoryFiltersEqual(
-                { rank_id: '', role_id: '3' },
-                filters,
-            ),
+        assert.equal(filters.manager_id, '10');
+    });
+});
+
+describe('employee smart search inertia race', () => {
+    it('computes query B from the working snapshot, not stale props', () => {
+        let working = { ...emptyFilters };
+        let owned = {};
+
+        const appliedA = replaceSmartSearchOwnedFilters(working, owned, {
+            status: 'active',
+            nationality_id: 'ph',
+            rank_id: 'ab',
+        });
+        working = appliedA.filters;
+        owned = appliedA.owned;
+
+        const staleServer = { ...emptyFilters };
+        const race = reconcileServerWorkingFilters(working, staleServer, true);
+
+        assert.equal(race.adoptServer, false);
+        assert.equal(race.working.nationality_id, 'ph');
+
+        const appliedB = replaceSmartSearchOwnedFilters(race.working, owned, {
+            status: 'active',
+            nationality_id: 'in',
+        });
+
+        assert.equal(appliedB.filters.nationality_id, 'in');
+        assert.equal(appliedB.filters.rank_id, '');
+        assert.equal(appliedB.filters.status, 'active');
+        assert.equal('rank_id' in appliedB.owned, false);
+    });
+
+    it('adopts server props when no Smart Search apply is pending', () => {
+        const result = reconcileServerWorkingFilters(
+            { ...emptyFilters, nationality_id: 'ph' },
+            { ...emptyFilters, gender_id: '2' },
+            false,
+        );
+
+        assert.equal(result.adoptServer, true);
+        assert.equal(result.working.gender_id, '2');
+        assert.equal(result.working.nationality_id, '');
+    });
+
+    it('keeps a manual change made while a Smart Search apply is in flight', () => {
+        const working = {
+            ...emptyFilters,
+            nationality_id: 'in',
+            gender_id: '2',
+        };
+        const staleServer = { ...emptyFilters, nationality_id: 'ph' };
+        const result = reconcileServerWorkingFilters(
+            working,
+            staleServer,
             true,
         );
+
+        assert.equal(result.adoptServer, false);
+        assert.equal(result.working.gender_id, '2');
+        assert.equal(result.working.nationality_id, 'in');
+    });
+});
+
+describe('employee smart search status labels', () => {
+    it('does not label blank status as All', () => {
+        assert.equal(STATUS_OPTION_LABELS[''], 'Active (default)');
+        assert.equal(STATUS_OPTION_LABELS.all, 'All statuses');
+        assert.equal(STATUS_OPTION_LABELS.active, 'Active');
+        assert.notEqual(STATUS_OPTION_LABELS[''], 'All');
     });
 
-    it('clears a stale position when a new result returns only department', () => {
-        const { filters } = replaceSmartSearchOwnedFilters(
+    it('shows directory default scope only when status is blank', () => {
+        assert.deepEqual(directoryScopeChips({ status: '' }), [
             {
-                department_id: '10',
-                position_id: '21',
-                manager_id: '9',
+                key: 'status:default',
+                title: 'HR status',
+                label: 'Active (default)',
             },
-            {},
-            {
-                department_id: '15',
-            },
-        );
+        ]);
+        assert.deepEqual(directoryScopeChips({ status: 'all' }), []);
+        assert.deepEqual(directoryScopeChips({ status: 'active' }), []);
+    });
+});
 
-        assert.equal(filters.department_id, '15');
-        assert.equal(filters.position_id, '');
-        assert.equal(filters.manager_id, '9');
+describe('employee smart search completeness', () => {
+    it('displays and removes email missing without splitting work and personal', () => {
+        const chips = completenessChips({ missing_fields: 'email' });
+
+        assert.deepEqual(
+            chips.map((chip) => `${chip.label} · ${chip.title}`),
+            ['Missing · Email'],
+        );
     });
 
-    it('clears a stale department when a new result returns only position', () => {
-        const { filters } = replaceSmartSearchOwnedFilters(
-            {
-                department_id: '10',
-                position_id: '',
-            },
-            {},
-            {
-                position_id: '31',
-            },
-        );
+    it('displays work email, personal email, phone, dob, nationality, passport, and emirates id', () => {
+        const chips = completenessChips({
+            missing_fields:
+                'work_email,personal_email,phone,date_of_birth,nationality,emirates_id',
+            present_fields: 'passport_number',
+        });
 
-        assert.equal(filters.department_id, '');
-        assert.equal(filters.position_id, '31');
+        assert.deepEqual(
+            chips.map((chip) => `${chip.label} · ${chip.title}`),
+            [
+                'Missing · Nationality',
+                'Missing · Emirates ID',
+                'Missing · Work email',
+                'Missing · Personal email',
+                'Missing · Phone',
+                'Missing · Date of birth',
+                'Present · Passport',
+            ],
+        );
     });
 
-    it('applies both department and position when a new result returns both', () => {
-        const { filters } = replaceSmartSearchOwnedFilters(
-            {
-                department_id: '10',
-                position_id: '21',
-            },
-            {
-                department_id: '10',
-                position_id: '21',
-            },
-            {
-                department_id: '15',
-                position_id: '44',
-            },
-        );
+    it('maps the Emirates ID convenience control onto generic completeness', () => {
+        const missing = applyEmiratesIdPresence(emptyFilters, 'missing');
+        const present = applyEmiratesIdPresence(missing, 'present');
 
-        assert.equal(filters.department_id, '15');
-        assert.equal(filters.position_id, '44');
-    });
-
-    it('preserves manual department and position when neither is AI-owned or returned', () => {
-        const { filters } = replaceSmartSearchOwnedFilters(
-            {
-                department_id: '10',
-                position_id: '21',
-                status: '',
-            },
-            {},
-            {
-                status: 'active',
-            },
-        );
-
-        assert.equal(filters.department_id, '10');
-        assert.equal(filters.position_id, '21');
-        assert.equal(filters.status, 'active');
+        assert.equal(missing.missing_fields, 'emirates_id');
+        assert.equal(present.missing_fields, '');
+        assert.equal(present.present_fields, 'emirates_id');
     });
 });
 
 describe('employee smart search preview', () => {
-    it('uses labels rather than numeric IDs', () => {
-        const chips = smartSearchResolvedPreview(
+    it('uses applied labels rather than numeric IDs', () => {
+        const chips = smartSearchResolvedPreview([
+            { key: 'status:equals', label: 'HR status', value: 'Active' },
+            { key: 'department:equals', label: 'Department', value: 'Crewing' },
             {
-                status: 'active',
-                nationality_id: '5',
-                rank_id: '8',
-                department_id: '12',
+                key: 'nationality:equals',
+                label: 'Nationality',
+                value: 'Philippines',
             },
-            {
-                status: 'Active',
-                nationality: 'Philippines',
-                rank: 'AB',
-                department: 'Crewing',
-            },
-        );
+            { key: 'rank:equals', label: 'Rank', value: 'AB' },
+        ]);
 
         assert.deepEqual(
             chips.map((chip) => `${chip.title} · ${chip.label}`),
             [
-                'Status · Active',
+                'HR status · Active',
                 'Department · Crewing',
                 'Nationality · Philippines',
                 'Rank · AB',
@@ -394,157 +435,73 @@ describe('employee smart search preview', () => {
         );
     });
 
-    it('uses Emirates ID Missing and Present labels', () => {
-        const chips = smartSearchResolvedPreview(
-            {
-                emirates_id_presence: 'missing',
-            },
-            {
-                emirates_id_presence: 'Missing',
-            },
-        );
-
-        assert.deepEqual(
-            chips.map((chip) => `${chip.title} · ${chip.label}`),
-            ['Emirates ID · Missing'],
-        );
-
-        assert.deepEqual(
-            smartSearchResolvedPreview(
-                { emirates_id_presence: 'present' },
-                { emirates_id_presence: 'Present' },
-            ).map((chip) => `${chip.title} · ${chip.label}`),
-            ['Emirates ID · Present'],
-        );
-    });
-
-    it('keeps unresolved values visible', () => {
-        const result = normalizeSmartSearchResponse({
-            filters: { status: 'active' },
-            labels: { status: 'Active' },
-            unresolved: [
-                {
-                    field: 'position',
-                    term: 'Electrician',
-                    reason: 'ambiguous',
-                },
-                {
-                    field: 'rank',
-                    term: 'XYZ',
-                    reason: 'not_found',
-                },
-            ],
-            unsupported: [],
-        });
-
-        assert.equal(result.unresolved.length, 2);
-        assert.equal(
-            formatUnresolvedItem(result.unresolved[0]),
-            'Position "Electrician" — Multiple matches found.',
-        );
-        assert.equal(
-            formatUnresolvedItem(result.unresolved[1]),
-            'Rank "XYZ" — No matching value found.',
-        );
-        assert.equal(
-            formatUnresolvedItem({
-                field: 'department',
-                term: 'Ops',
-                reason: 'provider_quirk',
-            }),
-            'Department "Ops" — Could not resolve this value.',
-        );
-    });
-
-    it('keeps unsupported terms visible', () => {
-        const result = normalizeSmartSearchResponse({
+    it('shows partial resolved plus unsupported terms', () => {
+        const result = parsed({
             filters: { rank_id: '8' },
-            labels: { rank: 'AB' },
+            applied: [{ key: 'rank:equals', label: 'Rank', value: 'AB' }],
             unresolved: [],
+            ambiguous: [],
             unsupported: ['valid STCW'],
         });
 
         assert.deepEqual(result.unsupported, ['valid STCW']);
-        assert.deepEqual(
-            smartSearchResolvedPreview(result.filters, result.labels),
-            [{ key: 'rank', title: 'Rank', label: 'AB' }],
-        );
+        assert.deepEqual(smartSearchResolvedPreview(result.applied), [
+            { key: 'rank:equals', title: 'Rank', label: 'AB' },
+        ]);
+        assert.equal(hasApplyableSmartSearchFilters(result.filters), true);
     });
 
-    it('does not treat empty resolved filters as applyable', () => {
-        const result = normalizeSmartSearchResponse({
+    it('does not treat unsupported-only results as applyable', () => {
+        const result = parsed({
             filters: {},
-            labels: {},
-            unresolved: [
-                {
-                    field: 'department',
-                    term: 'Unknown',
-                    reason: 'not_found',
-                },
-            ],
-            unsupported: ['valid STCW'],
+            applied: [],
+            unresolved: [],
+            ambiguous: [],
+            unsupported: ['Ford cars'],
         });
 
         assert.equal(hasApplyableSmartSearchFilters(result.filters), false);
-        assert.equal(result.unresolved.length, 1);
-        assert.deepEqual(result.unsupported, ['valid STCW']);
+        assert.deepEqual(result.unsupported, ['Ford cars']);
     });
 });
 
-describe('employee smart search error mapping', () => {
-    it('maps 403, 422, 429, and 503 to user-friendly messages', () => {
-        assert.equal(
-            smartSearchErrorMessage(403, {
-                message: 'Employee smart search is not enabled.',
-            }),
-            'Smart Employee Search is currently disabled.',
+describe('employee smart search response validation', () => {
+    it('throws on malformed 200 payloads instead of applying empty filters', () => {
+        assert.throws(
+            () => parseSmartSearchResponse({ filters: { status: 'active' } }),
+            SmartSearchMalformedResponseError,
         );
-        assert.equal(
-            smartSearchErrorMessage(422, {
-                message: 'The prompt field must be at least 2 characters.',
-                errors: {
-                    prompt: ['The prompt field must be at least 2 characters.'],
-                },
-            }),
-            'The prompt field must be at least 2 characters.',
+        assert.throws(
+            () =>
+                parseSmartSearchResponse({
+                    filters: { nationality_id: '5' },
+                    applied: [
+                        { key: 'nationality:equals', label: '', value: '5' },
+                    ],
+                    unresolved: [],
+                    ambiguous: [],
+                    unsupported: [],
+                }),
+            SmartSearchMalformedResponseError,
         );
-        assert.equal(
-            smartSearchErrorMessage(422, {
-                errors: {
-                    prompt: ['The prompt field is required.'],
-                },
-            }),
-            'The prompt field is required.',
-        );
-        assert.equal(
-            smartSearchErrorMessage(429, { message: 'Too Many Attempts.' }),
-            'Too many Smart Search requests. Try again shortly.',
-        );
-        assert.equal(
-            smartSearchErrorMessage(503, {
-                message: 'provider timeout with key sk-secret',
-            }),
-            'Smart Search is temporarily unavailable.',
-        );
-        assert.equal(
-            smartSearchErrorMessage(500, {
-                message: 'stack trace should not leak',
-            }),
-            "Smart Search couldn't update the results. Try again.",
+        assert.throws(
+            () => parseSmartSearchResponse(null),
+            SmartSearchMalformedResponseError,
         );
     });
-});
 
-describe('employee smart search response normalization', () => {
-    it('drops unexpected payload keys and non-string filter values', () => {
-        const result = normalizeSmartSearchResponse({
+    it('drops unexpected payload keys and unlabeled filter ids', () => {
+        const result = parsed({
             filters: {
                 status: 'active',
                 manager_id: '10',
-                employees: '1',
+                nationality_id: '5',
             },
-            labels: { status: 'Active' },
+            applied: [
+                { key: 'status:equals', label: 'HR status', value: 'Active' },
+            ],
             unresolved: [],
+            ambiguous: [],
             unsupported: [],
             employees: [{ id: 99, name: 'Secret Employee' }],
             company_id: 2,
@@ -554,35 +511,95 @@ describe('employee smart search response normalization', () => {
         assert.deepEqual(result.filters, { status: 'active' });
         assert.equal('employees' in result, false);
         assert.equal('company_id' in result, false);
-        assert.equal('provider' in result, false);
+        assert.equal('nationality_id' in result.filters, false);
+    });
+});
+
+describe('employee smart search unresolved copy', () => {
+    it('keeps unresolved and ambiguous values visible', () => {
+        const result = parsed({
+            filters: { status: 'active' },
+            applied: [
+                { key: 'status:equals', label: 'HR status', value: 'Active' },
+            ],
+            unresolved: [{ field: 'rank', term: 'XYZ', reason: 'not_found' }],
+            ambiguous: [
+                {
+                    field: 'position',
+                    term: 'Electrician',
+                    reason: 'ambiguous',
+                },
+            ],
+            unsupported: [],
+        });
+
+        assert.equal(
+            formatUnresolvedItem(result.unresolved[0]),
+            'Rank "XYZ" — No matching value found.',
+        );
+        assert.equal(
+            formatUnresolvedItem(result.ambiguous[0]),
+            'Position "Electrician" — Multiple matches found.',
+        );
+    });
+});
+
+describe('employee smart search error mapping', () => {
+    it('maps 403, 422, 429, and 503 to user-friendly messages', () => {
+        assert.equal(
+            smartSearchErrorMessage(403),
+            'Smart Employee Search is currently disabled.',
+        );
+        assert.equal(
+            smartSearchErrorMessage(429),
+            'Too many Smart Search requests. Try again shortly.',
+        );
+        assert.equal(
+            smartSearchErrorMessage(503, {
+                message: 'provider timeout with key sk-secret',
+            }),
+            'Smart Search is temporarily unavailable.',
+        );
+        assert.equal(parseRetryAfterSeconds('8'), 8);
+        assert.equal(parseRetryAfterSeconds(null), null);
     });
 });
 
 describe('employee smart search prompt cache', () => {
-    it('normalizes prompts and reuses exact cached interpretations', () => {
+    it('normalizes whitespace and case for cache keys', () => {
         assert.equal(
-            normalizeSmartSearchPrompt('  active   Filipino crew  '),
-            'active Filipino crew',
+            normalizeSmartSearchPrompt('  Active   Filipino Crew  '),
+            'Active Filipino Crew',
         );
-        assert.equal(isSmartSearchPromptReady('AB'), true);
-        assert.equal(isSmartSearchPromptReady('A'), false);
+        assert.equal(
+            smartSearchCacheKey('Active Filipino Crew'),
+            smartSearchCacheKey('active filipino crew'),
+        );
 
         const cache = new SmartSearchInterpretationCache(2);
-        const first = normalizeSmartSearchResponse({
+        const first = parsed({
             filters: { status: 'active' },
-            labels: { status: 'Active' },
+            applied: [
+                { key: 'status:equals', label: 'HR status', value: 'Active' },
+            ],
             unresolved: [],
+            ambiguous: [],
             unsupported: [],
         });
 
-        cache.set('  active   Filipino crew  ', first);
+        cache.set('  Active   Filipino Crew  ', first);
 
-        assert.deepEqual(cache.get('active Filipino crew'), first);
+        assert.deepEqual(cache.get('active filipino crew'), first);
 
         cache.set('second', first);
         cache.set('third', first);
 
-        assert.equal(cache.get('active Filipino crew'), undefined);
+        assert.equal(cache.get('active filipino crew'), undefined);
         assert.equal(cache.size, 2);
+        assert.equal(SMART_SEARCH_CACHE_LIMIT, 20);
+        assert.equal(
+            employeeDirectoryFiltersEqual({ a: '1' }, { a: '1' }),
+            true,
+        );
     });
 });

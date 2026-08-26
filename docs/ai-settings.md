@@ -36,38 +36,83 @@ An unsupported value stored in `ai_provider` does not fall back to OpenAI. Smart
 
 ## Smart Employee Search
 
-When the feature is enabled, **Smart Search Beta** appears on **Organization → Employees**. It is hidden entirely when the setting is off; the Employee Directory does not show a disabled AI panel.
+**Smart Search Beta** appears on **Organization → Employees** only when the feature is enabled **and** the selected provider has usable runtime credentials (`smart_search_available`). Employees never see provider, model, key, or “why it is missing” details. A temporary provider outage still returns a generic HTTP 503.
 
-Smart Search is a fast, automatic search box. Interpretation runs after a short debounce (~450ms) while typing, or immediately when the user presses Enter. There is no Interpret button and no Apply Filters confirmation. The request is not made on page load, on every keystroke, or for an empty value. Prompts of two or more characters (for example `AB`) remain valid.
+Smart Search is a fast, automatic filter box. Interpretation runs after a short debounce (~450ms) while typing, or immediately when the user presses Enter. There is no Interpret button and no Apply Filters confirmation. The request is not made on page load, on every keystroke, or for an empty value. Prompts of two or more characters (for example `AB`) remain valid. Enter cancels a pending debounce. Duplicate in-flight prompts are skipped. The latest request wins; an aborted or stale browser response cannot overwrite a newer interpretation.
 
-Resolved filters apply automatically through the existing Employee Directory query/filter pipeline (`useServerPaginationFilters`). Compact chips communicate what was applied. Unresolved values and unsupported terms remain visible and do not block applied filters.
+Architecture:
 
-Smart Search overwrites supported fields it resolved (`status`, `department_id`, `position_id`, `nationality_id`, `rank_id`, `crew_status`, `emirates_id_presence`). Previous AI-owned filters are replaced as the query changes: a field omitted by a new interpretation is cleared only when the current value still equals the value Smart Search last applied. Manual filters, including values the user changed after Smart Search applied them, are preserved. Unrelated existing manual filters and the normal Employee text search remain preserved.
+```text
+natural language
+    → privacy guard (before any provider call)
+    → bounded semantic criteria (AI language only)
+    → Laravel validates the closed schema
+    → trusted tenant-scoped master-data resolution
+    → deterministic Employee Directory filters
+```
 
-Department and Position are dependency-aware: changing Department via Smart Search clears a stale Position unless a new Position was also resolved, and resolving Position without Department clears a stale Department constraint.
+The AI never defines a database column, relation, query expression, company ID, record ID, SQL, or arbitrary filter. Concepts and operators come from `EmployeeSmartSearchConceptRegistry`. Structured output is strict: every object property is required, `additionalProperties` is false, and semantically optional values use `null` rather than omitted keys. Top-level `criteria`, `ambiguous_terms`, and `unsupported_terms` always exist (`[]` when empty). Nested criterion objects always include `concept`, `operator`, and `value`. Laravel’s decoder enforces the same contract and fails closed on malformed output.
 
-Clearing the Smart Search input cancels pending work, does not call the provider, and removes still-AI-owned filters while preserving manual filters and normal text search.
+Resolved filters apply automatically through the existing Employee Directory query/filter pipeline (`useServerPaginationFilters` with a partial Inertia reload of list/tree props). Compact **Results filtered** chips show Smart Search-owned conditions. **Directory scope** shows the default Active HR-status constraint when the user did not ask for a status. Unresolved, ambiguous, and unsupported terms remain visible and do not block applied filters.
 
-Normal Employee search remains a separate deterministic field for name, employee number, email, and phone. It is not sent to the AI provider.
+If nothing supported resolves (for example “who has Ford cars”), Smart Search does not re-apply directory filters merely to appear responsive. The UI states that no Smart Search filters were applied and the current list was not changed, then shows `Not supported yet · …`.
 
-Emirates ID completeness is a real directory filter (`emirates_id_presence=missing|present`). It is available in Employee Filters as Missing/Present, may appear in the URL and Saved Views, and treats NULL, empty, and whitespace-only Emirates ID values as missing. Smart Search can request that presence filter from natural language. Actual Emirates ID numbers are not sent to the provider and cannot become a lookup filter.
+### Closed concepts
 
-Pagination resets through the existing hook. The prompt itself is not stored in the database, localStorage, sessionStorage, URL parameters, or Saved Views. In-memory interpretation cache is only for the current mounted page session.
+Exact-value concepts (equals): HR status, branch, department, position, nationality, rank, gender, visa type, sponsor, role, approval location, SSSA option, crew status.
 
-When no model is explicitly configured, Smart Search uses a fast provider-specific default (`gpt-5.6-luna` for OpenAI, `openai/gpt-5.6-luna` for OpenRouter). An administrator’s stored model still wins. Employee Directory users do not see provider or model details.
+Missing/present concepts: Emirates ID, nationality, date of birth, passport number, work email, personal email, composite **email**, phone, home-country phone, branch, department, position, rank, gender, visa type, sponsor, nearest airport, emergency contact, emergency phone, hire date, place of birth.
 
-When Smart Employee Search is off in this UI, `POST /organization/employees/smart-search/interpret` reports that the feature is not enabled and does not call the provider. The interpretation route is rate limited (`throttle:30,1`).
+**Email** is composite and server-owned: missing means both work and personal email are absent; present means at least one exists. Display is `Email · Missing` unless the prompt asked for work or personal email specifically.
 
-When it is on, Laravel reads the selected provider, optional stored model or fast default, and decrypted API key from these settings, then interprets the user’s short prompt into existing Employee Directory filters. The provider receives only:
+Generic completeness is stored as canonical `missing_fields` / `present_fields` CSV keys (never raw AI/user field names). Unknown keys fail closed and never broaden results. The Emirates ID Missing/Present dropdown is a convenience control mapped onto those keys. Missing a value is **not** the same as an incomplete profile; “incomplete employee profiles” is unsupported.
+
+Intentionally excluded from Smart Search: salary, allowances, payroll, bank/IBAN, passwords, credentials, `company_id`, audit fields, arbitrary IDs, and **manager-by-person-name** (privacy: do not send person names to the provider; use the manual Manager filter).
+
+### Language and trusted resolution
+
+The model may normalize language (Indian employees, Indian country employees, employees from India → nationality India; Filipino → Philippines; department codes such as HR/CRW; rank abbreviations such as AB / Able Seaman). Laravel then resolves only against trusted active master data: exact name, exact code, or a small server-owned alias list. Numeric IDs from the model are ignored. Fuzzy similarity never auto-applies a candidate. Ambiguous matches are not guessed. “Working in UAE” is not silently mapped to nationality.
+
+Crew status uses `EmployeeCrewStatusFilter` labels (onboard, available, at home, ready to join, and so on). The word “crew” by itself is not a crew status.
+
+Contradictions (equals + missing, missing + present, two different equals on a single-valued concept) are not applied. Unsupported OR/negation is not guessed (`not active` is not `inactive`; `Indian or Filipino` is not reduced to one nationality).
+
+### HR status: Active default vs All
+
+A blank directory status still means **Active employees**. The Filters UI labels that option **Active (default)**, never **All**. `status=all` omits the HR-status predicate (All statuses). Explicit `active` / `inactive` / `on_leave` / `terminated` remain. Smart Search maps “all employees” / “regardless of status” to `all`, and does not treat “active and inactive” as `all`.
+
+### Privacy guard
+
+Before any provider call, `EmployeeSmartSearchPromptGuard` blocks obvious specific-person / identifier lookups (Emirates ID-looking values, email addresses, phone lookups, passport numbers after passport wording, employee-number wording, “named X”). Category language such as “employees without email” or “missing Emirates ID” is not blocked. Blocked prompts return a validation message directing the user to regular Employee search; they are not logged or stored, and the AI fake/provider is never called.
+
+Normal Employee search remains a separate deterministic field for name, employee number, email, and phone. It is not sent to the AI provider. Smart Search help text tells users which box to use.
+
+### Ownership, reset, and Saved Views
+
+Smart Search overwrites supported fields it resolved. Previous AI-owned filters are replaced as the query changes: a field omitted by a new interpretation is cleared only when the current value still equals the value Smart Search last applied. Manual overrides (Filters sheet, department tree, position, completeness chips) immediately drop Smart Search ownership for that key so stale chips disappear and are not reapplied while the prompt remains.
+
+Reset Filters cancels debounce/in-flight work, clears the prompt, ownership, chips, warnings, and last-successful-prompt cache entry, and restores the default directory. Applying a Saved View does the same for Smart Search state; the Saved View becomes authoritative. The natural-language prompt is never stored in Saved Views, the URL, localStorage, or sessionStorage.
+
+A working filter snapshot is updated **before** Inertia navigation so a second interpretation cannot be computed from stale server props.
+
+In-memory interpretation cache is mounted-page-only, bounded (~20), and case/whitespace-normalized. Blocked privacy-sensitive prompts are not cached. Client AbortController does not cancel an already-running provider request; debounce, cache, and duplicate suppression remain the cost controls.
+
+Pagination resets through the existing hook. Filter/search visits reload list, pagination, search, filters, and department-tree props; static option collections are lazy closures and are not rebuilt on every partial visit. Department-tree counts stay filter-dependent.
+
+When no model is explicitly configured, Smart Search uses a fast provider-specific default (`gpt-5.6-luna` for OpenAI, `openai/gpt-5.6-luna` for OpenRouter). An administrator’s stored model still wins.
+
+When Smart Employee Search is off, `POST /organization/employees/smart-search/interpret` reports that the feature is not enabled and does not call the provider. The interpretation route is rate limited (`throttle:30,1`). HTTP 429 shows a friendly message and does not auto-retry; a clean Retry-After cooldown suppresses further auto-search/Enter storms.
+
+When it is on, Laravel reads the selected provider, optional stored model or fast default, and decrypted API key from these settings. After the privacy guard, the provider receives only:
 
 - fixed interpreter instructions
 - the user’s short search prompt
 
 It does **not** receive employee rows, salaries, payroll, banking, passport/ID data, documents, current Employee Directory filters, `company_id`, or database credentials.
 
-The interpreter still does not search employees. It only returns existing directory filter values, which the Employee Directory UI applies automatically.
+The interpreter still does not search employees. It only returns closed semantic criteria, which Laravel resolves into existing directory filters.
 
-Malformed, empty, or unstructured provider output fails closed with HTTP 503 and `Employee smart search is temporarily unavailable.` It is never treated as a successful empty-filter result. Extra model fields are ignored and cannot become filters, database IDs, or SQL.
+Malformed, empty, unstructured, or structurally incomplete provider output fails closed with HTTP 503 and `Employee smart search is temporarily unavailable.` It is never treated as a successful empty-filter result. Extra model fields are ignored and cannot become filters, database IDs, or SQL. The frontend also rejects malformed HTTP 200 payloads without changing filters.
 
 ## Test connection
 

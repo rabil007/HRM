@@ -1,6 +1,8 @@
 import {
     buildEmployeeSmartSearchRequestBody,
-    normalizeSmartSearchResponse,
+    parseRetryAfterSeconds,
+    parseSmartSearchResponse,
+    SmartSearchMalformedResponseError,
     smartSearchErrorMessage,
 } from '@/features/organization/employees/lib/employee-smart-search';
 import type { NormalizedSmartSearchResult } from '@/features/organization/employees/lib/employee-smart-search';
@@ -23,10 +25,17 @@ function isAbortError(error: unknown): boolean {
 export class EmployeeSmartSearchRequestError extends Error {
     readonly status: number | null;
 
-    constructor(message: string, status: number | null = null) {
+    readonly retryAfterSeconds: number | null;
+
+    constructor(
+        message: string,
+        status: number | null = null,
+        retryAfterSeconds: number | null = null,
+    ) {
         super(message);
         this.name = 'EmployeeSmartSearchRequestError';
         this.status = status;
+        this.retryAfterSeconds = retryAfterSeconds;
     }
 }
 
@@ -81,12 +90,24 @@ export async function interpretEmployeeSmartSearch(
         throw new EmployeeSmartSearchRequestError(
             smartSearchErrorMessage(response.status, data),
             response.status,
+            parseRetryAfterSeconds(response.headers.get('Retry-After')),
         );
     }
 
     if (data === null) {
-        throw new EmployeeSmartSearchRequestError(smartSearchErrorMessage(0));
+        throw new EmployeeSmartSearchRequestError(smartSearchErrorMessage(503));
     }
 
-    return normalizeSmartSearchResponse(data);
+    try {
+        return parseSmartSearchResponse(data);
+    } catch (error) {
+        if (error instanceof SmartSearchMalformedResponseError) {
+            throw new EmployeeSmartSearchRequestError(
+                smartSearchErrorMessage(503),
+                503,
+            );
+        }
+
+        throw error;
+    }
 }

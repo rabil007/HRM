@@ -1,5 +1,6 @@
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
@@ -7,7 +8,15 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+    applyEmiratesIdPresence,
+    completenessChips,
+    emiratesIdPresenceValue,
+    removeCompletenessKey,
+    STATUS_OPTION_LABELS,
+} from '@/features/organization/employees/lib/employee-smart-search';
 import type {
+    BranchOption,
     CompanyVisaTypeOption,
     CountryOption,
     GenderOption,
@@ -21,6 +30,7 @@ import type {
 } from '../types';
 
 export type EmployeeFilters = {
+    branch_id: string;
     department_id: string;
     position_id: string;
     status: string;
@@ -34,10 +44,12 @@ export type EmployeeFilters = {
     sssa_option_id: string;
     crew_status: string;
     role_id: string;
-    emirates_id_presence: string;
+    missing_fields: string;
+    present_fields: string;
 };
 
 export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
+    branch_id: '',
     department_id: '',
     position_id: '',
     status: '',
@@ -51,7 +63,8 @@ export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
     sssa_option_id: '',
     crew_status: '',
     role_id: '',
-    emirates_id_presence: '',
+    missing_fields: '',
+    present_fields: '',
 };
 
 function csvIdSet(csv: string): Set<string> {
@@ -82,6 +95,7 @@ export function EmployeeFiltersSheet({
     value,
     onChange,
     onReset,
+    branches,
     positions,
     managers,
     genders,
@@ -98,6 +112,7 @@ export function EmployeeFiltersSheet({
     value: EmployeeFilters;
     onChange: (next: EmployeeFilters) => void;
     onReset: () => void;
+    branches: BranchOption[];
     positions: PositionOption[];
     managers: ManagerOption[];
     genders: GenderOption[];
@@ -120,6 +135,30 @@ export function EmployeeFiltersSheet({
                     <span className="text-[11px] font-bold tracking-wider text-primary uppercase">
                         Employment
                     </span>
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                        Branch
+                    </Label>
+                    <AppSelect
+                        value={value.branch_id}
+                        onValueChange={(v) =>
+                            onChange({ ...value, branch_id: v })
+                        }
+                        variant="dark"
+                        placeholder="All"
+                    >
+                        <AppSelectItem value="">All</AppSelectItem>
+                        {branches.map((branch) => (
+                            <AppSelectItem
+                                key={branch.id}
+                                value={String(branch.id)}
+                            >
+                                {branch.name ?? `#${branch.id}`}
+                            </AppSelectItem>
+                        ))}
+                    </AppSelect>
                 </div>
 
                 <div className="space-y-2">
@@ -260,9 +299,9 @@ export function EmployeeFiltersSheet({
                         Emirates ID
                     </Label>
                     <AppSelect
-                        value={value.emirates_id_presence}
+                        value={emiratesIdPresenceValue(value)}
                         onValueChange={(v) =>
-                            onChange({ ...value, emirates_id_presence: v })
+                            onChange(applyEmiratesIdPresence(value, v))
                         }
                         variant="dark"
                         placeholder="All"
@@ -330,14 +369,25 @@ export function EmployeeFiltersSheet({
                         value={value.status}
                         onValueChange={(v) => onChange({ ...value, status: v })}
                         variant="dark"
-                        placeholder="All"
+                        placeholder={STATUS_OPTION_LABELS['']}
                     >
-                        <AppSelectItem value="">All</AppSelectItem>
-                        <AppSelectItem value="active">Active</AppSelectItem>
-                        <AppSelectItem value="inactive">Inactive</AppSelectItem>
-                        <AppSelectItem value="on_leave">On leave</AppSelectItem>
+                        <AppSelectItem value="">
+                            {STATUS_OPTION_LABELS['']}
+                        </AppSelectItem>
+                        <AppSelectItem value="all">
+                            {STATUS_OPTION_LABELS.all}
+                        </AppSelectItem>
+                        <AppSelectItem value="active">
+                            {STATUS_OPTION_LABELS.active}
+                        </AppSelectItem>
+                        <AppSelectItem value="inactive">
+                            {STATUS_OPTION_LABELS.inactive}
+                        </AppSelectItem>
+                        <AppSelectItem value="on_leave">
+                            {STATUS_OPTION_LABELS.on_leave}
+                        </AppSelectItem>
                         <AppSelectItem value="terminated">
-                            Terminated
+                            {STATUS_OPTION_LABELS.terminated}
                         </AppSelectItem>
                     </AppSelect>
                 </div>
@@ -489,6 +539,43 @@ export function EmployeeFiltersSheet({
                         })}
                     </div>
                 </div>
+
+                {completenessChips(value).length > 0 ? (
+                    <div className="space-y-2 sm:col-span-2">
+                        <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                            Data completeness
+                        </Label>
+                        <div className="flex flex-wrap gap-2">
+                            {completenessChips(value).map((chip) => {
+                                const [concept, operator] = chip.key.split(':');
+
+                                return (
+                                    <Button
+                                        key={chip.key}
+                                        type="button"
+                                        variant="outline"
+                                        className="h-8 rounded-full px-3 text-xs font-normal"
+                                        onClick={() =>
+                                            onChange(
+                                                removeCompletenessKey(
+                                                    value,
+                                                    operator === 'present'
+                                                        ? 'present'
+                                                        : 'missing',
+                                                    concept,
+                                                ),
+                                            )
+                                        }
+                                        aria-label={`Remove ${chip.label} ${chip.title}`}
+                                    >
+                                        {chip.label} · {chip.title}
+                                        <span aria-hidden="true">×</span>
+                                    </Button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ) : null}
             </div>
         </FiltersSheet>
     );

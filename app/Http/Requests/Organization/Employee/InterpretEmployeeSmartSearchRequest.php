@@ -41,6 +41,8 @@ class InterpretEmployeeSmartSearchRequest extends FormRequest
             'role_id' => ['prohibited'],
             'emirates_id' => ['prohibited'],
             'emirates_id_presence' => ['prohibited'],
+            'missing_fields' => ['prohibited'],
+            'present_fields' => ['prohibited'],
             'filters' => ['prohibited'],
             'provider' => ['prohibited'],
             'model' => ['prohibited'],

@@ -47,11 +47,13 @@ export function SavedViewsControl({
     indexUrl,
     currentFilters,
     views = [],
+    onBeforeApply,
 }: {
     pageKey: SavedViewPageKey;
     indexUrl: string;
     currentFilters: Record<string, unknown>;
     views?: SavedView[];
+    onBeforeApply?: () => void;
 }) {
     const captured = useMemo(
         () => captureCurrentFilters(pageKey, currentFilters),
@@ -85,6 +87,7 @@ export function SavedViewsControl({
     };
 
     const applyView = (view: SavedView) => {
+        onBeforeApply?.();
         router.get(indexUrl, applySavedViewFilters(pageKey, view.filters), {
             preserveState: true,
             preserveScroll: true,

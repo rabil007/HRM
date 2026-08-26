@@ -88,44 +88,44 @@ test('authenticated users can create rename and delete their saved views', funct
     expect($user->savedViews()->count())->toBe(0);
 });
 
-test('employee saved views persist emirates id presence missing and present', function () {
+test('employee saved views persist generic completeness and status all', function () {
     [$user, $company] = savedViewUser();
 
     saveView($user, $company->id, [
         'page_key' => 'employees',
-        'name' => 'Missing Emirates ID',
-        'filters' => ['status' => 'active', 'emirates_id_presence' => 'missing'],
+        'name' => 'Missing email',
+        'filters' => ['status' => 'all', 'missing_fields' => 'email,date_of_birth'],
     ])->assertRedirect('/organization/employees');
 
     expect($user->savedViews()->first()?->filters)->toBe([
-        'status' => 'active',
-        'emirates_id_presence' => 'missing',
+        'status' => 'all',
+        'missing_fields' => 'email,date_of_birth',
     ]);
 
     saveView($user, $company->id, [
         'page_key' => 'employees',
-        'name' => 'Present Emirates ID',
+        'name' => 'Legacy Emirates ID',
         'filters' => ['emirates_id_presence' => 'present'],
     ])->assertRedirect('/organization/employees');
 
     expect(
-        $user->savedViews()->where('name', 'Present Emirates ID')->first()?->filters,
-    )->toBe(['emirates_id_presence' => 'present']);
+        $user->savedViews()->where('name', 'Legacy Emirates ID')->first()?->filters,
+    )->toBe(['present_fields' => 'emirates_id']);
 
     saveView($user, $company->id, [
         'page_key' => 'employees',
         'name' => 'Prompt should not save',
         'filters' => [
-            'emirates_id_presence' => 'present',
-            'prompt' => 'employees with empty emirates id',
+            'missing_fields' => 'email',
+            'prompt' => 'employees with empty email',
         ],
     ])->assertRedirect()->assertSessionHasErrors('filters');
 
     saveView($user, $company->id, [
         'page_key' => 'employees',
-        'name' => 'Actual Emirates ID',
-        'filters' => ['emirates_id_presence' => '784-1234-1234567-1'],
-    ])->assertRedirect()->assertSessionHasErrors('filters.emirates_id_presence');
+        'name' => 'Unknown completeness',
+        'filters' => ['missing_fields' => 'salary'],
+    ])->assertRedirect()->assertSessionHasErrors('filters.missing_fields');
 });
 
 test('duplicate names on the same page are rejected', function () {
