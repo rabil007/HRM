@@ -307,12 +307,13 @@ export default function DocumentsIndex({
                 summary={summary}
                 activeExpiry={isRequirementView ? null : initialExpiry}
                 onSelect={onExpiryChange}
-            />
-
-            <DocumentRequirementSummaryCards
-                summary={requirement_summary}
-                activeStatus={initialRequirementStatus}
-                onSelect={onRequirementStatusChange}
+                trailing={
+                    <DocumentRequirementSummaryCards
+                        summary={requirement_summary}
+                        activeStatus={initialRequirementStatus}
+                        onSelect={onRequirementStatusChange}
+                    />
+                }
             />
 
             <DocumentsActiveFilters

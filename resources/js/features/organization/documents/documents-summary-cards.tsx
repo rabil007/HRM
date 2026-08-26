@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { EXPIRY_FILTER_LABELS } from '@/features/organization/documents/document-expiry';
 import type { ExpiryFilter } from '@/features/organization/documents/document-expiry';
@@ -65,13 +66,20 @@ export function DocumentsSummaryCards({
     summary,
     activeExpiry,
     onSelect,
+    trailing,
 }: {
     summary: DocumentExpirySummary;
     activeExpiry: ExpiryFilter | null;
     onSelect: (expiry: ExpiryFilter) => void;
+    trailing?: ReactNode;
 }) {
     return (
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5 lg:gap-4">
+        <div
+            className={cn(
+                'mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:gap-4',
+                trailing ? 'md:grid-cols-6' : 'md:grid-cols-5',
+            )}
+        >
             {SUMMARY_ITEMS.map((item) => {
                 const isActive = item.expiry === activeExpiry;
                 const label =
@@ -111,6 +119,7 @@ export function DocumentsSummaryCards({
                     </button>
                 );
             })}
+            {trailing}
         </div>
     );
 }
