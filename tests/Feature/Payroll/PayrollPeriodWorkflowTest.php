@@ -149,20 +149,23 @@ test('mark paid without an explicit date defaults payment date to company-local 
     grantCompanyPermissions($user, $company, ['payroll.periods.mark_paid', 'payroll.periods.view']);
 
     [$period] = createApprovedPayrollPeriodWithRecord($company, $user);
+    $period->update(['start_date' => '2026-06-01', 'end_date' => '2026-06-30']);
 
     Carbon::setTestNow('2026-07-15 12:00:00');
 
-    $this->withSession(['current_company_id' => $company->id])
-        ->post(route('payroll.mark-paid', $period))
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
-        ->assertSessionHas('success');
+    try {
+        $this->withSession(['current_company_id' => $company->id])
+            ->post(route('payroll.mark-paid', $period))
+            ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
+            ->assertSessionHas('success');
 
-    $period->refresh();
-    expect($period->status)->toBe(PayrollPeriodStatus::Paid)
-        ->and($period->payment_date)->not->toBeNull()
-        ->and($period->payment_date->toDateString())->toBe('2026-07-15');
-
-    Carbon::setTestNow();
+        $period->refresh();
+        expect($period->status)->toBe(PayrollPeriodStatus::Paid)
+            ->and($period->payment_date)->not->toBeNull()
+            ->and($period->payment_date->toDateString())->toBe('2026-07-15');
+    } finally {
+        Carbon::setTestNow();
+    }
 });
 
 test('mark paid stores an explicitly supplied payment date', function () {
