@@ -16,6 +16,7 @@ import {
     reconcileServerWorkingFilters,
     reconcileSmartSearchOwnership,
     replaceSmartSearchOwnedFilters,
+    smartSearchFiltersEqual,
     smartSearchErrorMessage,
     SmartSearchInterpretationCache,
 } from '@/features/organization/employees/lib/employee-smart-search';
@@ -102,6 +103,10 @@ export function useEmployeeSmartSearch({
     };
 
     const setOwnedFilters = (next: SmartSearchFilters) => {
+        if (smartSearchFiltersEqual(ownedRef.current, next)) {
+            return;
+        }
+
         ownedRef.current = next;
         setOwned(next);
     };

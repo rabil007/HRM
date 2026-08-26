@@ -30,6 +30,7 @@ import {
     replaceSmartSearchOwnedFilters,
     smartSearchCacheKey,
     smartSearchErrorMessage,
+    smartSearchFiltersEqual,
     smartSearchResolvedPreview,
     smartSearchResultCopyKind,
 } from './employee-smart-search.ts';
@@ -84,6 +85,30 @@ describe('employee smart search constants', () => {
         assert.equal(isSmartSearchPromptReady('A'), false);
         assert.equal(isSmartSearchPromptReady(''), false);
         assert.equal(isSmartSearchPromptReady('  '), false);
+    });
+});
+
+describe('employee smart search ownership equality', () => {
+    it('treats equivalent ownership as unchanged', () => {
+        assert.equal(smartSearchFiltersEqual({}, {}), true);
+        assert.equal(
+            smartSearchFiltersEqual(
+                { status: 'active', nationality_id: '5' },
+                { nationality_id: '5', status: 'active' },
+            ),
+            true,
+        );
+    });
+
+    it('detects ownership value changes', () => {
+        assert.equal(
+            smartSearchFiltersEqual(
+                { status: 'active' },
+                { status: 'inactive' },
+            ),
+            false,
+        );
+        assert.equal(smartSearchFiltersEqual({ status: 'active' }, {}), false);
     });
 });
 
