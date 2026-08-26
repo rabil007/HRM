@@ -31,27 +31,18 @@ Each folder shows:
 - Link to employee document browse
 - Optional bulk ZIP download (`documents.download`)
 
-**Expiry summary cards** (top of page):
+**Summary cards** (one row on the Documents index):
 
 - Total documents
 - Expired
 - Expiring in 30 / 15 / 7 days
+- Missing (required-document compliance)
 
 These operational counts, the folder grid, compliance table, and global search include **active employees only**. Per-employee browse and the profile Documents tab remain available for inactive/terminated employees. See [Active employee visibility](./architecture/active-employee-visibility.md).
 
-Clicking a card switches to a **compliance table** filtered by that bucket (server-side, paginated).
+Clicking an expiry card switches to a **compliance table** filtered by that bucket (server-side, paginated). Missing is calculated from the active company's document requirement policies (see [Document requirement policy](#document-requirement-policy)). Clicking it opens employee × required document type rows that are currently missing. Active employees with **zero uploaded files** still appear here when they are missing a required document. Missing is calculated state — there is no `employee_documents` row for it. The employee browse page keeps the five expiry cards only.
 
-**Required-document cards** (second row):
-
-- Required
-- Valid
-- Expiring
-- Expired
-- Missing
-
-These counts are calculated from the active company's document requirement policies (see [Document requirement policy](#document-requirement-policy)). Clicking a card opens a paginated table of employee × required document type rows. Active employees with **zero uploaded files** still appear here when they are missing a required document. Missing is calculated state — there is no `employee_documents` row for it.
-
-Saved views on Documents may include `requirement_status` (`required`, `valid`, `expiring`, `expired`, `missing`) alongside `search`, `expiry`, and `department_id`.
+Saved views on Documents may include `requirement_status` (`required`, `valid`, `expiring`, `expired`, `missing`) alongside `search`, `expiry`, and `department_id`. Valid / expiring / expired / required remain available as URL or saved-view filters; they are not shown as cards.
 
 ## Employee browse page
 
