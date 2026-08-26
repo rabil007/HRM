@@ -48,16 +48,7 @@ class DocumentRequirement extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly([
-                'company_id',
-                'document_type_id',
-                'required_for_all',
-                'require_issue_date',
-                'require_expiry_date',
-                'require_document_number',
-                'is_active',
-            ])
-            ->logOnlyDirty();
+            ->dontLogEmptyChanges();
     }
 
     /**

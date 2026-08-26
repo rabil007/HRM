@@ -158,7 +158,7 @@ Company ID always comes from trusted `current_company_id`. Department and positi
 
 Documents index / profile compliance viewing still requires `documents.view`. Upload and replace still require `documents.upload`. Frontend `can` flags are UX only.
 
-Meaningful policy changes are activity-logged with a company-aware phrase such as `Passport: Optional → Required for all employees`. Audit rows are visible only with `audit.view`.
+Meaningful policy changes are activity-logged with a single company-aware phrase such as `Passport: Optional → Required for all employees`. Pivot (department / position / rank) changes are included in that phrase. Metadata-only edits use `required information updated`. Generic Spatie attribute dumps are not written for the same policy mutation. Audit rows are visible only with `audit.view`.
 
 ## Compliance calculation
 
@@ -171,11 +171,40 @@ For each required document type and employee, exactly one status is calculated:
 | `expiring` | Latest upload exists and is in the existing 30 / 15 / 7-day window |
 | `valid` | Latest upload exists and is neither expired nor currently expiring (including no expiry date) |
 
-The latest upload is the highest `employee_documents.id` per employee + document type (same idea as `latestUpload()`). An older superseded file does not satisfy the requirement.
+The canonical latest upload is **`created_at DESC`, then `id DESC`** (the same rule as `EmployeeDocument::latestUpload()`). Documents index bulk compliance and the employee profile Required Documents block both use `LatestEmployeeDocumentQuery` so they cannot disagree when IDs and timestamps are out of order (imports, restores, backfills). Equal `created_at` values are broken by the highest `id`. An older superseded file does not satisfy the requirement.
+
+`MAX(id)` is not the latest-document rule.
 
 Optional types are never reported as missing.
 
 Operational compliance (Documents index counts and tables) includes **active employees only**. Inactive and terminated people remain reachable from their employee record / per-employee document browse. See [Active employee visibility](./architecture/active-employee-visibility.md).
+
+### Unmapped legacy `document_type_id`
+
+Older `employee_documents` rows may still have `document_type_id = NULL` when a historical string `document_type` could not be matched to a `DocumentType`. Compliance only recognizes `employee_documents.document_type_id =` the required type ID. Those unmapped rows **do not** satisfy a requirement (the pair stays `missing`) until they are deterministically mapped. Runtime compliance does not fuzzy-match titles or slugs.
+
+`DocumentType` currently has a title (no slug). A leftover slug-like string such as `passport-copy` is unmatched unless it exactly equals a current title after trim/case normalization.
+
+Inspect and repair with:
+
+```bash
+php artisan employee-documents:audit-unmapped-types
+php artisan employee-documents:audit-unmapped-types --company=1
+php artisan employee-documents:backfill-document-types --dry-run
+php artisan employee-documents:backfill-document-types --dry-run --company=1
+php artisan employee-documents:backfill-document-types
+php artisan employee-documents:backfill-document-types --company=1
+```
+
+Rules:
+
+- The audit command is read-only. It prints counts by company and distinct legacy `document_type` values, plus whether a deterministic match exists. It does not print file paths, notes, or file contents.
+- Backfill maps a row only when there is **one** exact normalized match (`mb_strtolower(trim(...))`) against `DocumentType.title`, and against `slug` only if that column still exists.
+- `--dry-run` reports what would change and writes nothing.
+- Ambiguous keys (two types that normalize to the same title, or a title/slug collision) and unmatched values are left unchanged.
+- Rows that already have `document_type_id` are not selected. Re-running the command is safe.
+- `--company=` must be an existing company ID. Unknown or non-numeric values fail without writing.
+- Do not treat this as a substitute for mapping; compliance will keep reporting `missing` for leftover NULL `document_type_id` rows.
 
 ## Template fields vs document compliance
 
@@ -199,7 +228,9 @@ Not implemented: a separate requirements page, individual exceptions/waivers, ap
 | `DocumentBrowseQuery` | Folders, expiry compliance list, search results, summaries |
 | `DocumentRequirementResolver` | Which active company policies apply to an employee (OR matching) |
 | `DocumentComplianceQuery` | Required / valid / expiring / expired / missing pairs without N+1 |
-| `SyncDocumentRequirement` | Transactional company policy create/update + audit phrase |
+| `LatestEmployeeDocumentQuery` | Canonical latest upload per employee + type (`created_at DESC`, `id DESC`) |
+| `UnmappedEmployeeDocumentTypeMatcher` | Deterministic audit/backfill of NULL `document_type_id` rows |
+| `SyncDocumentRequirement` | Transactional company policy create/update + one human-readable audit event |
 | `StoresEmployeeDocument` | Create/replace on the private disk |
 | `EmployeePrivateFile` | Private-disk store/resolve with public fallback |
 | `DocumentPagePermissions` | Maps `documents.*` to Inertia `can` props |
@@ -208,7 +239,9 @@ Not implemented: a separate requirements page, individual exceptions/waivers, ap
 
 - `tests/Feature/Settings/MasterData/DocumentRequirementTest.php`
 - `tests/Feature/Organization/DocumentRequirementComplianceTest.php`
+- `tests/Feature/Organization/UnmappedEmployeeDocumentTypeCommandTest.php`
 - `tests/Unit/Support/DocumentRequirementResolverTest.php`
+- `tests/Unit/Support/LatestEmployeeDocumentQueryTest.php`
 - `tests/Feature/Organization/DocumentBrowseTest.php`
 - `tests/Feature/Organization/EmployeeDocumentsTest.php`
 - `tests/Feature/Organization/EmployeePrivateFileStorageTest.php`

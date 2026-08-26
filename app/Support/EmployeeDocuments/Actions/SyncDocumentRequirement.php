@@ -33,6 +33,7 @@ final class SyncDocumentRequirement
                 ->first();
 
             $previousPhrase = DocumentRequirementSummary::auditPhrase($requirement);
+            $previousMetadata = $this->metadataSnapshot($requirement);
 
             $isRequired = (bool) ($data['is_required'] ?? false);
             $requiredForAll = (bool) ($data['required_for_all'] ?? false);
@@ -67,6 +68,7 @@ final class SyncDocumentRequirement
                     'updated_by' => $user?->id,
                 ]);
             }
+            $requirement->disableLogging();
             $requirement->save();
 
             if ($isRequired) {
@@ -81,8 +83,13 @@ final class SyncDocumentRequirement
             $requirement->load(['departments:id,name', 'positions:id,title', 'ranks:id,name', 'documentType:id,title']);
 
             $nextPhrase = DocumentRequirementSummary::auditPhrase($requirement);
+            $nextMetadata = $this->metadataSnapshot($requirement);
 
-            if ($previousPhrase !== $nextPhrase) {
+            if ($previousPhrase !== $nextPhrase || $previousMetadata !== $nextMetadata) {
+                $description = $previousPhrase !== $nextPhrase
+                    ? sprintf('%s: %s → %s', $documentType->title, $previousPhrase, $nextPhrase)
+                    : sprintf('%s: required information updated', $documentType->title);
+
                 activity()
                     ->performedOn($requirement)
                     ->causedBy($user)
@@ -92,15 +99,29 @@ final class SyncDocumentRequirement
                         'document_type' => $documentType->title,
                         'old' => $previousPhrase,
                         'attributes' => $nextPhrase,
+                        'old_required_information' => $previousMetadata,
+                        'required_information' => $nextMetadata,
                     ])
                     ->tap(function (Activity $activity) use ($companyId): void {
                         $activity->company_id = $companyId;
                     })
-                    ->log(sprintf('%s: %s → %s', $documentType->title, $previousPhrase, $nextPhrase));
+                    ->log($description);
             }
 
             return $requirement;
         });
+    }
+
+    /**
+     * @return array{require_issue_date: bool, require_expiry_date: bool, require_document_number: bool}
+     */
+    private function metadataSnapshot(?DocumentRequirement $requirement): array
+    {
+        return [
+            'require_issue_date' => (bool) ($requirement?->require_issue_date ?? false),
+            'require_expiry_date' => (bool) ($requirement?->require_expiry_date ?? false),
+            'require_document_number' => (bool) ($requirement?->require_document_number ?? false),
+        ];
     }
 
     /**

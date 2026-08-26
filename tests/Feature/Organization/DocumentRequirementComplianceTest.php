@@ -380,3 +380,146 @@ test('users without documents view cannot open requirement compliance', function
 
     $this->get('/organization/documents?requirement_status=missing')->assertForbidden();
 });
+
+test('newer created_at wins over a higher id on the documents index and employee profile', function () {
+    Carbon::setTestNow('2026-05-20');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.view', 'employees.view']);
+    makeDocumentRequirement($company->id, $passportType->id, requiredForAll: true);
+
+    $newerValid = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/newer-valid.pdf',
+        'expiry_date' => '2027-01-01',
+        'status' => 'valid',
+        'created_at' => '2026-06-10 12:00:00',
+        'updated_at' => '2026-06-10 12:00:00',
+    ]);
+
+    $olderExpired = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/older-expired.pdf',
+        'expiry_date' => '2026-01-01',
+        'status' => 'expired',
+        'created_at' => '2026-01-10 12:00:00',
+        'updated_at' => '2026-01-10 12:00:00',
+    ]);
+
+    expect($olderExpired->id)->toBeGreaterThan($newerValid->id);
+
+    $this->get('/organization/documents?requirement_status=valid')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requirementDocuments.data', 1)
+            ->where('requirementDocuments.data.0.status', 'valid')
+            ->where('requirementDocuments.data.0.document_id', $newerValid->id)
+        );
+
+    $this->get('/organization/documents?requirement_status=expired')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requirementDocuments.data', 0)
+        );
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
+                ->has('required_documents', 1)
+                ->where('required_documents.0.status', 'valid')
+                ->where('required_documents.0.document_id', $newerValid->id)
+            )
+        );
+
+    Carbon::setTestNow();
+});
+
+test('equal created_at ties are broken by the highest id on the documents index and employee profile', function () {
+    Carbon::setTestNow('2026-05-20');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.view', 'employees.view']);
+    makeDocumentRequirement($company->id, $passportType->id, requiredForAll: true);
+
+    $tiedAt = '2026-06-10 12:00:00';
+
+    EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/tied-valid.pdf',
+        'expiry_date' => '2027-01-01',
+        'status' => 'valid',
+        'created_at' => $tiedAt,
+        'updated_at' => $tiedAt,
+    ]);
+
+    $higherIdExpired = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/tied-expired.pdf',
+        'expiry_date' => '2026-01-01',
+        'status' => 'expired',
+        'created_at' => $tiedAt,
+        'updated_at' => $tiedAt,
+    ]);
+
+    $this->get('/organization/documents?requirement_status=expired')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requirementDocuments.data', 1)
+            ->where('requirementDocuments.data.0.status', 'expired')
+            ->where('requirementDocuments.data.0.document_id', $higherIdExpired->id)
+        );
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
+                ->has('required_documents', 1)
+                ->where('required_documents.0.status', 'expired')
+                ->where('required_documents.0.document_id', $higherIdExpired->id)
+            )
+        );
+
+    Carbon::setTestNow();
+});
+
+test('unmapped null document_type_id rows do not satisfy required document compliance', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.view']);
+    makeDocumentRequirement($company->id, $passportType->id, requiredForAll: true);
+    makeUnmappedEmployeeDocument($company->id, $employee->id, $passportType->title);
+
+    $this->get('/organization/documents?requirement_status=missing')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('requirement_summary.missing', 1)
+            ->has('requirementDocuments.data', 1)
+            ->where('requirementDocuments.data.0.status', 'missing')
+            ->where('requirementDocuments.data.0.document_id', null)
+        );
+});

@@ -9,6 +9,7 @@ use App\Models\User;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Activitylog\Models\Activity;
 
 function documentRequirementPermissions(): array
 {
@@ -189,6 +190,47 @@ test('requirement changes are written to the company activity log', function () 
         'subject_id' => $requirement->id,
         'event' => 'updated',
         'description' => $passportType->title.': Optional → Required for all employees',
+    ]);
+
+    expect(Activity::query()
+        ->where('subject_type', DocumentRequirement::class)
+        ->where('subject_id', $requirement->id)
+        ->count())->toBe(1);
+});
+
+test('requirement metadata-only changes write a single custom activity event', function () {
+    ['company' => $company, 'passportType' => $passportType] = actingAsDocumentTypeManager();
+
+    $this->put("/settings/master-data/document-types/{$passportType->id}", [
+        'title' => $passportType->title,
+        'is_active' => true,
+        'is_required' => true,
+        'required_for_all' => true,
+    ])->assertRedirect();
+
+    $requirement = DocumentRequirement::query()
+        ->where('company_id', $company->id)
+        ->where('document_type_id', $passportType->id)
+        ->first();
+
+    $this->put("/settings/master-data/document-types/{$passportType->id}", [
+        'title' => $passportType->title,
+        'is_active' => true,
+        'is_required' => true,
+        'required_for_all' => true,
+        'require_document_number' => true,
+    ])->assertRedirect();
+
+    expect(Activity::query()
+        ->where('subject_type', DocumentRequirement::class)
+        ->where('subject_id', $requirement->id)
+        ->count())->toBe(2);
+
+    $this->assertDatabaseHas('activity_log', [
+        'subject_type' => DocumentRequirement::class,
+        'subject_id' => $requirement->id,
+        'event' => 'updated',
+        'description' => $passportType->title.': required information updated',
     ]);
 });
 

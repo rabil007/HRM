@@ -87,10 +87,9 @@ final class DocumentComplianceQuery
             ->forCompany((int) $employee->company_id)
             ->where('employee_id', $employee->id)
             ->whereIn('document_type_id', $requirements->pluck('document_type_id'))
+            ->whereIn('id', (new LatestEmployeeDocumentQuery)->idsForCompany((int) $employee->company_id, (int) $employee->id))
             ->with(['documentType:id,title'])
-            ->latestUpload()
             ->get()
-            ->unique('document_type_id')
             ->keyBy('document_type_id');
 
         return $requirements
@@ -155,11 +154,7 @@ final class DocumentComplianceQuery
         $today = now()->toDateString();
         $in30 = now()->addDays(30)->toDateString();
 
-        $latestDocuments = EmployeeDocument::query()
-            ->forCompany($companyId)
-            ->select('employee_id', 'document_type_id')
-            ->selectRaw('MAX(id) as id')
-            ->groupBy('employee_id', 'document_type_id');
+        $latestDocuments = (new LatestEmployeeDocumentQuery)->forCompany($companyId);
 
         return DB::query()
             ->fromSub($this->pairsQuery($companyId, $departmentId, $search), 'pairs')
