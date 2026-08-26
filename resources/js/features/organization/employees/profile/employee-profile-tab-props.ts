@@ -15,7 +15,7 @@ export const EMPLOYEE_PROFILE_TAB_PROPS: Record<EmployeeTab, string[]> = {
     languages: ['languages'],
     training: ['trainings', 'courses'],
     sea_service: ['sea_services', 'vessel_types', 'vessels', 'clients'],
-    documents: ['documents', 'document_types'],
+    documents: ['documents', 'required_documents', 'document_types'],
 };
 
 export function employeeProfileTabPropsMissing(

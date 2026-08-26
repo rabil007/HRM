@@ -59,9 +59,16 @@ describe('saved view catalog', () => {
             captureCurrentFilters('documents', {
                 search: '  ',
                 expiry: 'all',
+                requirement_status: '',
                 department_id: '',
             }),
             {},
+        );
+        assert.deepEqual(
+            captureCurrentFilters('documents', {
+                requirement_status: 'missing',
+            }),
+            { requirement_status: 'missing' },
         );
         assert.deepEqual(
             captureCurrentFilters('leave', {
@@ -116,6 +123,10 @@ describe('saved view catalog', () => {
             true,
         );
         assert.equal(savedViewFilterKeys('employees').includes('status'), true);
+        assert.equal(
+            savedViewFilterKeys('documents').includes('requirement_status'),
+            true,
+        );
         assert.equal(
             savedViewFilterKeys('employees').includes('emirates_id_presence'),
             false,

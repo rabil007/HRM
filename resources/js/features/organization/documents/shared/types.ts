@@ -81,6 +81,62 @@ export type DocumentExpirySummary = {
     expiring_7: number;
 };
 
+export type DocumentRequirementSummary = {
+    required: number;
+    valid: number;
+    expiring: number;
+    expired: number;
+    missing: number;
+};
+
+export type RequirementComplianceStatus =
+    | 'valid'
+    | 'expiring'
+    | 'expired'
+    | 'missing';
+
+export type RequirementStatusFilter =
+    | ''
+    | 'required'
+    | RequirementComplianceStatus;
+
+export type RequirementComplianceItem = {
+    employee_id: number;
+    employee_name: string;
+    employee_no: string;
+    department_name: string | null;
+    document_type_id: number;
+    document_type: string;
+    status: RequirementComplianceStatus;
+    expiry_status: DocumentExpiryStatus | null;
+    expiry_label: string;
+    expiry_date: string | null;
+    document_id: number | null;
+    document_name: string;
+};
+
+export type PaginatedRequirementDocuments = {
+    data: RequirementComplianceItem[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+};
+
+export type RequiredDocumentItem = {
+    document_type_id: number;
+    document_type: string;
+    status: RequirementComplianceStatus;
+    expiry_status: DocumentExpiryStatus | null;
+    expiry_label: string;
+    document_id: number | null;
+    require_issue_date: boolean;
+    require_expiry_date: boolean;
+    require_document_number: boolean;
+};
+
 export type PaginatedComplianceDocuments = {
     data: ComplianceDocumentItem[];
     current_page: number;

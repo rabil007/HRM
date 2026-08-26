@@ -11,7 +11,7 @@ This phase does **not** store arbitrary URLs, add Saved Views to Cmd/Ctrl+K, or 
 | Page key | List | View permission | Filter keys |
 |----------|------|-----------------|-------------|
 | `employees` | Employees | `employees.view` | `search`, `status` (including `all`), `branch_id`, `department_id`, `position_id`, `manager_id`, `gender_id`, `nationality_id`, `visa_type_id`, `company_visa_type_id`, `rank_id`, `approval_location_id`, `sssa_option_id`, `crew_status`, `role_id`, `missing_fields`, `present_fields` |
-| `documents` | Documents | `documents.view` | `search`, `expiry`, `department_id` |
+| `documents` | Documents | `documents.view` | `search`, `expiry`, `requirement_status`, `department_id` |
 | `crew` | Crew Assignments | `crew_operations.assignments.view` | `search`, `phase`, `status`, `vessel_id`, `rank_id`, `client_id`, `employee_id`, date ranges, tour/relief flags, optional `view` |
 | `leave` | Leave requests | `attendance.leave-requests.view` | `search`, `status`, `employee_id`, `leave_type_id`, `scope` |
 | `payroll` | Payroll periods hub | `payroll.periods.view` **or** `payroll.crew_timesheets.view` | `search`, `category`, `status`, `date_from`, `date_to` |

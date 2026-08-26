@@ -2,18 +2,22 @@
 
 namespace App\Http\Requests\Settings\MasterData;
 
+use App\Http\Requests\Settings\MasterData\Concerns\AppliesDocumentRequirementRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateDocumentTypeRequest extends FormRequest
 {
+    use AppliesDocumentRequirementRules;
+
     /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
     {
-        return true;
+        return (bool) $this->user();
     }
 
     /**
@@ -23,7 +27,7 @@ class UpdateDocumentTypeRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        return $this->documentRequirementRules([
             'title' => [
                 'required',
                 'string',
@@ -33,6 +37,15 @@ class UpdateDocumentTypeRequest extends FormRequest
                     ->whereNull('deleted_at'),
             ],
             'is_active' => ['sometimes', 'boolean'],
+        ]);
+    }
+
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $this->validateSelectedRequirementScopes($validator);
+            },
         ];
     }
 }

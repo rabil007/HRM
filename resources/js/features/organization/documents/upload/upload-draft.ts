@@ -58,11 +58,14 @@ export function defaultTitleFromFile(file: File): string {
     return name;
 }
 
-export function createUploadDraftFromFile(file: File): UploadDraft {
+export function createUploadDraftFromFile(
+    file: File,
+    documentTypeId = '',
+): UploadDraft {
     return {
         id: createUploadDraftId(),
         file,
-        document_type_id: '',
+        document_type_id: documentTypeId,
         title: defaultTitleFromFile(file),
         document_number: '',
         issue_date: '',

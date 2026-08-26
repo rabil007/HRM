@@ -1,5 +1,9 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import {
+    Root as RadioGroup,
+    Item as RadioItem,
+} from '@radix-ui/react-radio-group';
+import {
     AlertCircle,
     Download,
     FileSpreadsheet,
@@ -23,6 +27,7 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -48,22 +53,95 @@ import {
     hasFlashSuccess,
 } from '@/lib/first-validation-error';
 import { cn } from '@/lib/utils';
+import { DocumentRequirementMultiSelect } from '@/pages/settings/master-data/document-requirement-multi-select';
 import type { PaginationMeta } from '@/types/pagination';
+
+type DocumentRequirementPayload = {
+    is_required: boolean;
+    required_for_all: boolean;
+    department_ids: number[];
+    position_ids: number[];
+    rank_ids: number[];
+    require_issue_date: boolean;
+    require_expiry_date: boolean;
+    require_document_number: boolean;
+    label: string;
+};
 
 type DocumentType = {
     id: number;
     title: string;
     is_active: boolean;
+    requirement: DocumentRequirementPayload;
+};
+
+type DepartmentOption = {
+    id: number;
+    name: string;
+};
+
+type PositionOption = {
+    id: number;
+    title: string;
+};
+
+type RankOption = {
+    id: number;
+    name: string;
+};
+
+type DocumentTypeFormData = {
+    title: string;
+    is_active: boolean;
+    is_required: boolean;
+    required_for_all: boolean;
+    department_ids: number[];
+    position_ids: number[];
+    rank_ids: number[];
+    require_issue_date: boolean;
+    require_expiry_date: boolean;
+    require_document_number: boolean;
+};
+
+const emptyRequirement: DocumentRequirementPayload = {
+    is_required: false,
+    required_for_all: false,
+    department_ids: [],
+    position_ids: [],
+    rank_ids: [],
+    require_issue_date: false,
+    require_expiry_date: false,
+    require_document_number: false,
+    label: 'Optional',
+};
+
+const initialForm: DocumentTypeFormData = {
+    title: '',
+    is_active: true,
+    is_required: false,
+    required_for_all: false,
+    department_ids: [],
+    position_ids: [],
+    rank_ids: [],
+    require_issue_date: false,
+    require_expiry_date: false,
+    require_document_number: false,
 };
 
 export default function DocumentTypes({
     document_types,
     pagination,
     search = '',
+    departments = [],
+    positions = [],
+    ranks = [],
 }: {
     document_types: DocumentType[];
     pagination: PaginationMeta;
     search?: string;
+    departments?: DepartmentOption[];
+    positions?: PositionOption[];
+    ranks?: RankOption[];
 }) {
     const can = useSettingsMasterDataCan('document-types');
 
@@ -84,10 +162,7 @@ export default function DocumentTypes({
     const [importDragActive, setImportDragActive] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const form = useForm({
-        title: '',
-        is_active: true,
-    });
+    const form = useForm<DocumentTypeFormData>(initialForm);
 
     const rows = document_types;
 
@@ -95,10 +170,7 @@ export default function DocumentTypes({
         setCurrent(null);
         form.reset();
         form.clearErrors();
-        form.setData({
-            title: '',
-            is_active: true,
-        });
+        form.setData(initialForm);
         setSheetOpen(true);
     };
 
@@ -106,9 +178,18 @@ export default function DocumentTypes({
         setCurrent(doc);
         form.reset();
         form.clearErrors();
+        const requirement = doc.requirement ?? emptyRequirement;
         form.setData({
             title: doc.title,
             is_active: doc.is_active,
+            is_required: requirement.is_required,
+            required_for_all: requirement.required_for_all,
+            department_ids: requirement.department_ids,
+            position_ids: requirement.position_ids,
+            rank_ids: requirement.rank_ids,
+            require_issue_date: requirement.require_issue_date,
+            require_expiry_date: requirement.require_expiry_date,
+            require_document_number: requirement.require_document_number,
         });
         setSheetOpen(true);
     };
@@ -301,9 +382,10 @@ export default function DocumentTypes({
 
                 <div className="overflow-hidden rounded-xl border border-border/60">
                     <div className="overflow-x-auto">
-                        <div className="min-w-[640px]">
+                        <div className="min-w-[760px]">
                             <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
-                                <div className="col-span-8">Title</div>
+                                <div className="col-span-5">Title</div>
+                                <div className="col-span-3">Requirement</div>
                                 <div className="col-span-1">Active</div>
                                 <div className="col-span-3 text-right">
                                     Actions
@@ -315,8 +397,11 @@ export default function DocumentTypes({
                                     key={d.id}
                                     className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
                                 >
-                                    <div className="col-span-8 truncate text-sm font-medium">
+                                    <div className="col-span-5 truncate text-sm font-medium">
                                         {d.title}
+                                    </div>
+                                    <div className="col-span-3 truncate text-sm text-muted-foreground">
+                                        {d.requirement?.label ?? 'Optional'}
                                     </div>
                                     <div className="col-span-1 flex items-center">
                                         <Switch
@@ -595,7 +680,7 @@ export default function DocumentTypes({
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
                 <SheetContent
                     side="right"
-                    className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-md"
+                    className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-lg"
                 >
                     <SheetHeader className="border-b border-border/60 p-8 pb-6">
                         <SheetTitle className="text-xl font-bold tracking-tight">
@@ -604,7 +689,7 @@ export default function DocumentTypes({
                                 : 'New document type'}
                         </SheetTitle>
                         <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
-                            Used for employee documents and onboarding
+                            Used for employee documents and ongoing compliance
                             requirements.
                         </SheetDescription>
                     </SheetHeader>
@@ -614,47 +699,298 @@ export default function DocumentTypes({
                             e.preventDefault();
                             submit();
                         }}
-                        className="flex-1 space-y-5 overflow-y-auto p-8"
+                        className="flex-1 space-y-8 overflow-y-auto p-8"
                     >
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="title"
-                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
-                            >
-                                Title
-                            </Label>
-                            <Input
-                                id="title"
-                                value={form.data.title}
-                                onChange={(e) =>
-                                    form.setData('title', e.target.value)
-                                }
-                                className="h-11 rounded-xl border-border bg-card"
-                            />
-                            {form.errors.title ? (
-                                <div className="text-xs text-destructive">
-                                    {form.errors.title}
-                                </div>
-                            ) : null}
-                        </div>
-
-                        <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3">
+                        <section className="space-y-5">
                             <div>
-                                <div className="text-sm font-semibold">
-                                    Active
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                    Visible in dropdowns and templates.
-                                </div>
+                                <h3 className="text-sm font-semibold tracking-tight">
+                                    General
+                                </h3>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Document type label and whether it appears
+                                    in dropdowns.
+                                </p>
                             </div>
-                            <Switch
-                                disabled={!can.update}
-                                checked={form.data.is_active}
-                                onCheckedChange={(v) =>
-                                    form.setData('is_active', v)
-                                }
-                            />
-                        </div>
+
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="title"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                                >
+                                    Document Type
+                                </Label>
+                                <Input
+                                    id="title"
+                                    value={form.data.title}
+                                    onChange={(e) =>
+                                        form.setData('title', e.target.value)
+                                    }
+                                    className="h-11 rounded-xl border-border bg-card"
+                                />
+                                {form.errors.title ? (
+                                    <div className="text-xs text-destructive">
+                                        {form.errors.title}
+                                    </div>
+                                ) : null}
+                            </div>
+
+                            <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3">
+                                <div>
+                                    <div className="text-sm font-semibold">
+                                        Active
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                        Visible in dropdowns and templates.
+                                    </div>
+                                </div>
+                                <Switch
+                                    disabled={!can.update && !!current}
+                                    checked={form.data.is_active}
+                                    onCheckedChange={(v) =>
+                                        form.setData('is_active', v)
+                                    }
+                                />
+                            </div>
+                        </section>
+
+                        <section className="space-y-5">
+                            <div>
+                                <h3 className="text-sm font-semibold tracking-tight">
+                                    Employee Requirement
+                                </h3>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Company-specific compliance rules. Changing
+                                    an employee&apos;s department, position, or
+                                    rank updates who must hold this document.
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                    Requirement
+                                </p>
+                                <RadioGroup
+                                    value={
+                                        form.data.is_required
+                                            ? 'required'
+                                            : 'optional'
+                                    }
+                                    onValueChange={(value) =>
+                                        form.setData(
+                                            'is_required',
+                                            value === 'required',
+                                        )
+                                    }
+                                    className="grid gap-2"
+                                >
+                                    <RadioItem
+                                        value="optional"
+                                        className={cn(
+                                            'rounded-xl border bg-card p-3 text-left outline-none',
+                                            !form.data.is_required
+                                                ? 'border-primary ring-1 ring-primary'
+                                                : 'border-border',
+                                        )}
+                                    >
+                                        <div className="text-sm font-semibold">
+                                            Optional
+                                        </div>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            Not tracked as a required compliance
+                                            document.
+                                        </p>
+                                    </RadioItem>
+                                    <RadioItem
+                                        value="required"
+                                        className={cn(
+                                            'rounded-xl border bg-card p-3 text-left outline-none',
+                                            form.data.is_required
+                                                ? 'border-primary ring-1 ring-primary'
+                                                : 'border-border',
+                                        )}
+                                    >
+                                        <div className="text-sm font-semibold">
+                                            Required document
+                                        </div>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            Employees matching the scope below
+                                            must hold a current file.
+                                        </p>
+                                    </RadioItem>
+                                </RadioGroup>
+                            </div>
+
+                            {form.data.is_required ? (
+                                <>
+                                    <div className="space-y-2">
+                                        <p className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                            Required For
+                                        </p>
+                                        <RadioGroup
+                                            value={
+                                                form.data.required_for_all
+                                                    ? 'all'
+                                                    : 'selected'
+                                            }
+                                            onValueChange={(value) =>
+                                                form.setData(
+                                                    'required_for_all',
+                                                    value === 'all',
+                                                )
+                                            }
+                                            className="grid gap-2"
+                                        >
+                                            <RadioItem
+                                                value="all"
+                                                className={cn(
+                                                    'rounded-xl border bg-card p-3 text-left outline-none',
+                                                    form.data.required_for_all
+                                                        ? 'border-primary ring-1 ring-primary'
+                                                        : 'border-border',
+                                                )}
+                                            >
+                                                <div className="text-sm font-semibold">
+                                                    All employees
+                                                </div>
+                                            </RadioItem>
+                                            <RadioItem
+                                                value="selected"
+                                                className={cn(
+                                                    'rounded-xl border bg-card p-3 text-left outline-none',
+                                                    !form.data.required_for_all
+                                                        ? 'border-primary ring-1 ring-primary'
+                                                        : 'border-border',
+                                                )}
+                                            >
+                                                <div className="text-sm font-semibold">
+                                                    Selected groups
+                                                </div>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                    An employee matches if they
+                                                    belong to any selected
+                                                    department, position, or
+                                                    rank.
+                                                </p>
+                                            </RadioItem>
+                                        </RadioGroup>
+                                        {form.errors.required_for_all ? (
+                                            <div className="text-xs text-destructive">
+                                                {form.errors.required_for_all}
+                                            </div>
+                                        ) : null}
+                                    </div>
+
+                                    {!form.data.required_for_all ? (
+                                        <div className="space-y-4">
+                                            <DocumentRequirementMultiSelect
+                                                id="requirement-departments"
+                                                label="Departments"
+                                                options={departments.map(
+                                                    (department) => ({
+                                                        id: department.id,
+                                                        label: department.name,
+                                                    }),
+                                                )}
+                                                value={form.data.department_ids}
+                                                onChange={(ids) =>
+                                                    form.setData(
+                                                        'department_ids',
+                                                        ids,
+                                                    )
+                                                }
+                                                error={
+                                                    form.errors.department_ids
+                                                }
+                                            />
+                                            <DocumentRequirementMultiSelect
+                                                id="requirement-positions"
+                                                label="Positions"
+                                                options={positions.map(
+                                                    (position) => ({
+                                                        id: position.id,
+                                                        label: position.title,
+                                                    }),
+                                                )}
+                                                value={form.data.position_ids}
+                                                onChange={(ids) =>
+                                                    form.setData(
+                                                        'position_ids',
+                                                        ids,
+                                                    )
+                                                }
+                                                error={form.errors.position_ids}
+                                            />
+                                            <DocumentRequirementMultiSelect
+                                                id="requirement-ranks"
+                                                label="Ranks"
+                                                options={ranks.map((rank) => ({
+                                                    id: rank.id,
+                                                    label: rank.name,
+                                                }))}
+                                                value={form.data.rank_ids}
+                                                onChange={(ids) =>
+                                                    form.setData(
+                                                        'rank_ids',
+                                                        ids,
+                                                    )
+                                                }
+                                                error={form.errors.rank_ids}
+                                            />
+                                        </div>
+                                    ) : null}
+
+                                    <div className="space-y-3">
+                                        <p className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                            Required information
+                                        </p>
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <Checkbox
+                                                checked={
+                                                    form.data.require_issue_date
+                                                }
+                                                onCheckedChange={(checked) =>
+                                                    form.setData(
+                                                        'require_issue_date',
+                                                        checked === true,
+                                                    )
+                                                }
+                                            />
+                                            Issue date
+                                        </label>
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <Checkbox
+                                                checked={
+                                                    form.data
+                                                        .require_expiry_date
+                                                }
+                                                onCheckedChange={(checked) =>
+                                                    form.setData(
+                                                        'require_expiry_date',
+                                                        checked === true,
+                                                    )
+                                                }
+                                            />
+                                            Expiry date
+                                        </label>
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <Checkbox
+                                                checked={
+                                                    form.data
+                                                        .require_document_number
+                                                }
+                                                onCheckedChange={(checked) =>
+                                                    form.setData(
+                                                        'require_document_number',
+                                                        checked === true,
+                                                    )
+                                                }
+                                            />
+                                            Document number
+                                        </label>
+                                    </div>
+                                </>
+                            ) : null}
+                        </section>
 
                         <div className="flex items-center justify-end gap-2 pt-2">
                             <Button

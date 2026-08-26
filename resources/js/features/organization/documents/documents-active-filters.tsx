@@ -3,28 +3,40 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EXPIRY_FILTER_LABELS } from '@/features/organization/documents/document-expiry';
 import type { ExpiryFilter } from '@/features/organization/documents/document-expiry';
+import { requirementStatusLabel } from '@/features/organization/documents/document-requirement-compliance-table-row';
+import type { RequirementStatusFilter } from '@/features/organization/documents/shared/types';
 
 export function DocumentsActiveFilters({
     expiryFilter,
+    requirementStatus = '',
     search,
     departmentSelected = false,
     onClearExpiry,
+    onClearRequirement,
     onClearSearch,
     onClearDepartment,
 }: {
     expiryFilter: ExpiryFilter;
+    requirementStatus?: RequirementStatusFilter;
     search?: string;
     departmentSelected?: boolean;
     onClearExpiry?: () => void;
+    onClearRequirement?: () => void;
     onClearSearch?: () => void;
     onClearDepartment?: () => void;
 }) {
     const hasExpiryFilter = expiryFilter !== 'all';
+    const hasRequirementFilter = requirementStatus !== '';
     const hasSearch =
         (search?.trim() ?? '') !== '' && onClearSearch !== undefined;
     const hasDepartment = departmentSelected && onClearDepartment !== undefined;
 
-    if (!hasExpiryFilter && !hasSearch && !hasDepartment) {
+    if (
+        !hasExpiryFilter &&
+        !hasRequirementFilter &&
+        !hasSearch &&
+        !hasDepartment
+    ) {
         return null;
     }
 
@@ -33,6 +45,29 @@ export function DocumentsActiveFilters({
             <span className="text-xs font-medium text-muted-foreground/80">
                 Active filters
             </span>
+
+            {hasRequirementFilter ? (
+                <Badge
+                    variant="outline"
+                    className="gap-1 border-primary/25 bg-primary/5 pr-1 pl-2.5 font-normal"
+                >
+                    {requirementStatus === 'required'
+                        ? 'Required'
+                        : requirementStatusLabel(requirementStatus)}
+                    {onClearRequirement ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 rounded-full hover:bg-primary/10"
+                            onClick={onClearRequirement}
+                            aria-label="Clear requirement filter"
+                        >
+                            <X className="h-3 w-3" />
+                        </Button>
+                    ) : null}
+                </Badge>
+            ) : null}
 
             {hasExpiryFilter ? (
                 <Badge

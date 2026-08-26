@@ -4,6 +4,7 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\DocumentRequirement;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
@@ -66,6 +67,34 @@ function makeDocumentFixtures(): array
     );
 
     return compact('company', 'branch', 'employee', 'passportType', 'visaType');
+}
+
+/**
+ * @param  list<int>  $departmentIds
+ * @param  list<int>  $positionIds
+ * @param  list<int>  $rankIds
+ */
+function makeDocumentRequirement(
+    int $companyId,
+    int $documentTypeId,
+    bool $requiredForAll = false,
+    array $departmentIds = [],
+    array $positionIds = [],
+    array $rankIds = [],
+    bool $isActive = true,
+): DocumentRequirement {
+    $requirement = DocumentRequirement::query()->create([
+        'company_id' => $companyId,
+        'document_type_id' => $documentTypeId,
+        'required_for_all' => $requiredForAll,
+        'is_active' => $isActive,
+    ]);
+
+    $requirement->departments()->sync($departmentIds);
+    $requirement->positions()->sync($positionIds);
+    $requirement->ranks()->sync($rankIds);
+
+    return $requirement->fresh(['departments', 'positions', 'ranks']) ?? $requirement;
 }
 
 function minimalPdfBytes(): string

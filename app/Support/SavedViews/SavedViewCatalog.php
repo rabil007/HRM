@@ -180,6 +180,7 @@ final class SavedViewCatalog
             SavedViewPage::Documents => [
                 'search' => ['type' => 'search'],
                 'expiry' => ['type' => 'enum', 'values' => ['expired', 'expiring_30', 'expiring_15', 'expiring_7'], 'omit' => ['all']],
+                'requirement_status' => ['type' => 'enum', 'values' => ['required', 'valid', 'expiring', 'expired', 'missing']],
                 'department_id' => ['type' => 'id', 'model' => Department::class, 'company' => true],
             ],
             SavedViewPage::Crew => [

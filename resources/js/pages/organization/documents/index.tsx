@@ -1,9 +1,10 @@
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Main } from '@/components/layout/main';
 import { SavedViewsControl } from '@/components/saved-views-control';
 import { SearchBar } from '@/components/search-bar';
+import { DocumentRequirementSummaryCards } from '@/features/organization/documents/document-requirement-summary-cards';
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
@@ -12,6 +13,7 @@ import type { EmailTemplateOption } from '@/features/organization/documents/emai
 import { DocumentsIndexDocumentBulkActions } from '@/features/organization/documents/index/documents-index-document-bulk-actions';
 import { DocumentsIndexDocumentsTable } from '@/features/organization/documents/index/documents-index-documents-table';
 import { DocumentsIndexFolderGrid } from '@/features/organization/documents/index/documents-index-folder-grid';
+import { DocumentsIndexRequirementTable } from '@/features/organization/documents/index/documents-index-requirement-table';
 import { DocumentsIndexSearchResults } from '@/features/organization/documents/index/documents-index-search-results';
 import { resolveDocumentsIndexSearchMode } from '@/features/organization/documents/index/use-documents-index-search-mode';
 import type { ExpiryFilter } from '@/features/organization/documents/shared/document-expiry';
@@ -22,9 +24,13 @@ import type {
     ComplianceDocumentItem,
     DocumentExpirySummary,
     DocumentProfileItem,
+    DocumentRequirementSummary,
     DocumentTypeOption,
     EmployeeFolder,
     PaginatedComplianceDocuments,
+    PaginatedRequirementDocuments,
+    RequirementComplianceItem,
+    RequirementStatusFilter,
 } from '@/features/organization/documents/shared/types';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { useDocumentsIndexFilters } from '@/features/organization/documents/use-documents-index-filters';
@@ -35,13 +41,16 @@ import type { DepartmentTreeNode } from '@/features/organization/employees/types
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import type { SavedView } from '@/lib/saved-views';
 import { toast } from '@/lib/toast';
+import { UploadDocumentDialog } from '@/pages/organization/_components/documents/upload-dialog';
 import { documents } from '@/routes/organization';
 import documentRoutes from '@/routes/organization/documents';
 import { shareLinks as folderShareLinks } from '@/routes/organization/documents/folders';
 
 type Props = {
     summary: DocumentExpirySummary;
+    requirement_summary?: DocumentRequirementSummary;
     expiry: ExpiryFilter;
+    requirement_status?: RequirementStatusFilter;
     search: string;
     department_id?: string;
     department_tree?: DepartmentTreeNode[];
@@ -49,6 +58,7 @@ type Props = {
     employees: EmployeeFolder[];
     searchDocuments: PaginatedComplianceDocuments | null;
     complianceDocuments: PaginatedComplianceDocuments | null;
+    requirementDocuments?: PaginatedRequirementDocuments | null;
     document_types: DocumentTypeOption[];
     countries: PhoneCountryOption[];
     can: {
@@ -73,9 +83,19 @@ const EMPTY_SEARCH_DOCUMENTS: PaginatedComplianceDocuments = {
     to: null,
 };
 
+const EMPTY_REQUIREMENT_SUMMARY: DocumentRequirementSummary = {
+    required: 0,
+    valid: 0,
+    expiring: 0,
+    expired: 0,
+    missing: 0,
+};
+
 export default function DocumentsIndex({
     summary,
+    requirement_summary = EMPTY_REQUIREMENT_SUMMARY,
     expiry: initialExpiry,
+    requirement_status: initialRequirementStatus = '',
     search: initialSearch,
     department_id: initialDepartmentId = '',
     department_tree = [],
@@ -83,6 +103,7 @@ export default function DocumentsIndex({
     employees,
     searchDocuments,
     complianceDocuments,
+    requirementDocuments = null,
     document_types,
     countries = [],
     can,
@@ -98,6 +119,8 @@ export default function DocumentsIndex({
     >(null);
     const [isBulkDownloading, setIsBulkDownloading] = useState(false);
     const [folderShareModalOpen, setFolderShareModalOpen] = useState(false);
+    const [uploadRequirement, setUploadRequirement] =
+        useState<RequirementComplianceItem | null>(null);
 
     const folderIds = useMemo(
         () => employees.map((employee) => employee.employee_id),
@@ -145,20 +168,23 @@ export default function DocumentsIndex({
         isSearching,
         onSearchChange,
         onExpiryChange,
+        onRequirementStatusChange,
         onDepartmentChange,
         onPageChange,
     } = useDocumentsIndexFilters({
         url: documents.url(),
         initialSearch,
         initialExpiry,
+        initialRequirementStatus,
         initialDepartmentId,
         perPage: searchPerPage,
     });
 
-    const isComplianceView = initialExpiry !== 'all';
+    const isRequirementView = initialRequirementStatus !== '';
+    const isComplianceView = initialExpiry !== 'all' && !isRequirementView;
     const hasSearchQuery = initialSearch.trim() !== '';
     const searchMode = resolveDocumentsIndexSearchMode(
-        hasSearchQuery && !isComplianceView,
+        hasSearchQuery && !isComplianceView && !isRequirementView,
         employees.length,
         resolvedSearchDocuments.total,
     );
@@ -279,15 +305,23 @@ export default function DocumentsIndex({
 
             <DocumentsSummaryCards
                 summary={summary}
-                activeExpiry={initialExpiry}
+                activeExpiry={isRequirementView ? null : initialExpiry}
                 onSelect={onExpiryChange}
+            />
+
+            <DocumentRequirementSummaryCards
+                summary={requirement_summary}
+                activeStatus={initialRequirementStatus}
+                onSelect={onRequirementStatusChange}
             />
 
             <DocumentsActiveFilters
                 expiryFilter={initialExpiry}
+                requirementStatus={initialRequirementStatus}
                 search={initialSearch}
                 departmentSelected={Boolean(department_tree_selected_id)}
                 onClearExpiry={() => onExpiryChange('all')}
+                onClearRequirement={() => onRequirementStatusChange('')}
                 onClearSearch={() => onSearchChange('')}
                 onClearDepartment={() => onDepartmentChange(null)}
             />
@@ -319,6 +353,8 @@ export default function DocumentsIndex({
                                 currentFilters={{
                                     search: initialSearch,
                                     expiry: initialExpiry,
+                                    requirement_status:
+                                        initialRequirementStatus,
                                     department_id: initialDepartmentId,
                                 }}
                                 views={saved_views}
@@ -337,15 +373,66 @@ export default function DocumentsIndex({
                 ) : null}
             </div>
 
-            <DocumentsIndexDocumentBulkActions
-                selectedDocumentIds={selectedDocumentIds}
-                selectedDocuments={selectedDocuments}
-                onClear={clearDocumentSelection}
-                can={can}
-                countries={countries}
-            />
+            {!isRequirementView ? (
+                <DocumentsIndexDocumentBulkActions
+                    selectedDocumentIds={selectedDocumentIds}
+                    selectedDocuments={selectedDocuments}
+                    onClear={clearDocumentSelection}
+                    can={can}
+                    countries={countries}
+                />
+            ) : null}
 
-            {isComplianceView ? (
+            {isRequirementView ? (
+                requirementDocuments && requirementDocuments.data.length > 0 ? (
+                    <DocumentsIndexRequirementTable
+                        documents={requirementDocuments}
+                        canUpload={can.upload}
+                        onPageChange={onPageChange}
+                        onUpload={(item) => setUploadRequirement(item)}
+                        onView={(item) => {
+                            if (item.document_id === null) {
+                                return;
+                            }
+
+                            router.visit(
+                                buildDocumentShowUrl(
+                                    item.employee_id,
+                                    item.document_id,
+                                    {
+                                        from: 'index',
+                                        search: initialSearch,
+                                        page: requirementDocuments.current_page,
+                                    },
+                                ),
+                            );
+                        }}
+                        onReplace={(item) => {
+                            if (item.document_id === null) {
+                                return;
+                            }
+
+                            router.visit(
+                                buildDocumentShowUrl(
+                                    item.employee_id,
+                                    item.document_id,
+                                    {
+                                        from: 'index',
+                                        search: initialSearch,
+                                        page: requirementDocuments.current_page,
+                                    },
+                                ),
+                            );
+                        }}
+                    />
+                ) : (
+                    <DocumentsEmptyState
+                        context="index-requirement"
+                        expiryFilter={initialExpiry}
+                        hasSearch={hasSearchQuery}
+                    />
+                )
+            ) : isComplianceView ? (
                 complianceDocuments && complianceDocuments.data.length > 0 ? (
                     <DocumentsIndexDocumentsTable
                         documents={complianceDocuments}
@@ -413,6 +500,26 @@ export default function DocumentsIndex({
                     employeeIds={selectedFolderIds}
                     shareLinksUrl={folderShareLinks.url()}
                     onComplete={clearFolderSelection}
+                />
+            ) : null}
+            {uploadRequirement !== null ? (
+                <UploadDocumentDialog
+                    open
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setUploadRequirement(null);
+                        }
+                    }}
+                    employeeId={uploadRequirement.employee_id}
+                    employeeName={uploadRequirement.employee_name}
+                    documentTypes={document_types}
+                    initialDocumentTypeId={uploadRequirement.document_type_id}
+                    partialReloadKeys={[
+                        'requirementDocuments',
+                        'requirement_summary',
+                        'summary',
+                        'employees',
+                    ]}
                 />
             ) : null}
         </Main>

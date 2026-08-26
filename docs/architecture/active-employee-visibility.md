@@ -24,7 +24,7 @@ Current workforce pickers, create/update mutations, compliance widgets, and live
 |------|-----------|
 | Employee directory | Defaults to active when status is blank (UI: **Active (default)**, never **All**); `status=all` shows every HR status; explicit `active` / `inactive` / `on_leave` / `terminated` remain |
 | Employee pickers (leave, attendance create, crew assignment, planning pool, Hikvision link, user link, announcements, department manager, bulk documents) | Active + current company |
-| Documents index folders, compliance table, search, expiry summary, dashboard document health, expiry alerts | Active employees |
+| Documents index folders, expiry compliance table, required-document compliance, search, expiry summary, dashboard document health, expiry alerts | Active employees |
 | Contracts directory, no-contract list, contract summary | Active employees |
 | Bank account directory, operational summary (totals, primary/secondary, Ansari, missing) | Active employees |
 | Training directory, compliance summary, dashboard training | Active employees |

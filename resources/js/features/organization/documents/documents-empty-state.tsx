@@ -9,6 +9,7 @@ type EmptyStateContext =
     | 'index-folders'
     | 'index-search'
     | 'index-compliance'
+    | 'index-requirement'
     | 'employee-files';
 
 function resolveEmptyCopy(
@@ -20,6 +21,17 @@ function resolveEmptyCopy(
         return {
             title: 'No matching documents found',
             description: '',
+        };
+    }
+
+    if (context === 'index-requirement') {
+        return {
+            title: hasSearch
+                ? 'No matching required documents.'
+                : 'No required documents in this filter.',
+            description: hasSearch
+                ? 'Try a different term or another requirement status.'
+                : 'Configure document types as required, or choose another status.',
         };
     }
 

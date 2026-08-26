@@ -67,7 +67,7 @@ export function DocumentsSummaryCards({
     onSelect,
 }: {
     summary: DocumentExpirySummary;
-    activeExpiry: ExpiryFilter;
+    activeExpiry: ExpiryFilter | null;
     onSelect: (expiry: ExpiryFilter) => void;
 }) {
     return (

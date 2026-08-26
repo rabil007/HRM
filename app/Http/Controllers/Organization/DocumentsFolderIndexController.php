@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Organization;
 use App\Enums\SavedViewPage;
 use App\Http\Controllers\Controller;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
+use App\Support\EmployeeDocuments\DocumentComplianceQuery;
 use App\Support\EmployeeDocuments\DocumentDepartmentTree;
 use App\Support\EmployeeDocuments\DocumentExpiry;
 use App\Support\EmployeeDocuments\DocumentPagePermissions;
+use App\Support\EmployeeDocuments\DocumentRequirementComplianceStatus;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
 use App\Support\SavedViews\ApplyDefaultSavedView;
@@ -19,8 +21,11 @@ use Inertia\Response as InertiaResponse;
 
 class DocumentsFolderIndexController extends Controller
 {
-    public function __invoke(Request $request, DocumentBrowseQuery $browse): InertiaResponse|RedirectResponse
-    {
+    public function __invoke(
+        Request $request,
+        DocumentBrowseQuery $browse,
+        DocumentComplianceQuery $compliance,
+    ): InertiaResponse|RedirectResponse {
         $redirect = ApplyDefaultSavedView::maybeRedirect($request, SavedViewPage::Documents);
 
         if ($redirect !== null) {
@@ -31,9 +36,14 @@ class DocumentsFolderIndexController extends Controller
         $search = trim((string) $request->query('search', ''));
         $expiry = (string) $request->query('expiry', 'all');
         $departmentId = trim((string) $request->query('department_id', ''));
+        $requirementStatus = trim((string) $request->query('requirement_status', ''));
 
         if (! DocumentExpiry::isValidFilter($expiry)) {
             $expiry = 'all';
+        }
+
+        if ($requirementStatus !== '' && ! DocumentRequirementComplianceStatus::isValidFilter($requirementStatus)) {
+            $requirementStatus = '';
         }
 
         $directoryFilters = new EmployeeDirectoryFilters(departmentId: $departmentId);
@@ -42,7 +52,9 @@ class DocumentsFolderIndexController extends Controller
 
         $payload = [
             'summary' => $summary,
+            'requirement_summary' => $compliance->summary($companyId, $departmentId),
             'expiry' => $expiry,
+            'requirement_status' => $requirementStatus,
             'search' => $search,
             'department_id' => $departmentId,
             'department_tree' => DocumentDepartmentTree::for($companyId, $directoryFilters),
@@ -50,13 +62,22 @@ class DocumentsFolderIndexController extends Controller
             'employees' => [],
             'searchDocuments' => null,
             'complianceDocuments' => null,
+            'requirementDocuments' => null,
             'document_types' => EmployeeFormOptions::documentTypes(),
             'countries' => EmployeeFormOptions::for($companyId)['countries'],
             'can' => DocumentPagePermissions::for($request->user()),
             'saved_views' => SavedViewsForPage::props($request->user(), $companyId, SavedViewPage::Documents),
         ];
 
-        if ($expiry === 'all') {
+        if ($requirementStatus !== '') {
+            $payload['requirementDocuments'] = $compliance->paginate(
+                $companyId,
+                $requirementStatus,
+                $search !== '' ? $search : null,
+                $perPage,
+                $departmentId,
+            );
+        } elseif ($expiry === 'all') {
             $payload['employees'] = $browse->employeesWithDocuments(
                 $companyId,
                 $search !== '' ? $search : null,

@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
 import { useCallback, useState } from 'react';
 import type { ExpiryFilter } from '@/features/organization/documents/document-expiry';
+import type { RequirementStatusFilter } from '@/features/organization/documents/shared/types';
 import { useDebouncedSearchInput } from '@/hooks/use-debounced-search-input';
 
 function cleanParams(
@@ -21,12 +22,14 @@ export function useDocumentsIndexFilters({
     url,
     initialSearch,
     initialExpiry,
+    initialRequirementStatus = '',
     initialDepartmentId = '',
     perPage = 25,
 }: {
     url: string;
     initialSearch: string;
     initialExpiry: ExpiryFilter;
+    initialRequirementStatus?: RequirementStatusFilter;
     initialDepartmentId?: string;
     perPage?: number;
 }) {
@@ -38,12 +41,19 @@ export function useDocumentsIndexFilters({
         ): Record<string, string | number | null | undefined> => ({
             search: initialSearch || undefined,
             expiry: initialExpiry === 'all' ? undefined : initialExpiry,
+            requirement_status: initialRequirementStatus || undefined,
             department_id: initialDepartmentId || undefined,
             per_page: perPage,
             page: null,
             ...overrides,
         }),
-        [initialDepartmentId, initialExpiry, initialSearch, perPage],
+        [
+            initialDepartmentId,
+            initialExpiry,
+            initialRequirementStatus,
+            initialSearch,
+            perPage,
+        ],
     );
 
     const visit = useCallback(
@@ -57,7 +67,9 @@ export function useDocumentsIndexFilters({
                 replace: true,
                 only: only ?? [
                     'summary',
+                    'requirement_summary',
                     'expiry',
+                    'requirement_status',
                     'search',
                     'department_id',
                     'department_tree',
@@ -65,6 +77,7 @@ export function useDocumentsIndexFilters({
                     'employees',
                     'searchDocuments',
                     'complianceDocuments',
+                    'requirementDocuments',
                 ],
                 onFinish: () => {
                     setIsSearching(false);
@@ -94,6 +107,19 @@ export function useDocumentsIndexFilters({
             visit(
                 baseParams({
                     expiry: expiry === 'all' ? undefined : expiry,
+                    requirement_status: undefined,
+                }),
+            );
+        },
+        [baseParams, visit],
+    );
+
+    const onRequirementStatusChange = useCallback(
+        (status: RequirementStatusFilter) => {
+            visit(
+                baseParams({
+                    requirement_status: status || undefined,
+                    expiry: undefined,
                 }),
             );
         },
@@ -130,6 +156,7 @@ export function useDocumentsIndexFilters({
         isSearching,
         onSearchChange,
         onExpiryChange,
+        onRequirementStatusChange,
         onDepartmentChange,
         onPageChange,
     };

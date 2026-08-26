@@ -66,11 +66,6 @@ function uploadDraftToFormData(draft: UploadDraft): Record<string, unknown> {
     };
 }
 
-const DOCUMENTS_RELOAD = {
-    preserveScroll: true,
-    only: ['documents'],
-};
-
 export function UploadDocumentDialog({
     open,
     onOpenChange,
@@ -79,6 +74,8 @@ export function UploadDocumentDialog({
     documentTypes,
     ensureEmployee,
     templateFields = null,
+    initialDocumentTypeId = null,
+    partialReloadKeys = ['documents', 'required_documents'],
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -87,6 +84,8 @@ export function UploadDocumentDialog({
     documentTypes: DocumentTypeOption[];
     ensureEmployee?: () => Promise<number>;
     templateFields?: Record<string, TemplateFieldConfig> | null;
+    initialDocumentTypeId?: number | null;
+    partialReloadKeys?: string[];
 }): ReactElement {
     const {
         showField,
@@ -181,60 +180,70 @@ export function UploadDocumentDialog({
         clearMissingRequired();
     }, [clearMissingRequired]);
 
-    const addUploadFiles = useCallback(async (files: File[]) => {
-        const supportedFiles = files.filter((file) =>
-            isSupportedUploadFile(file),
-        );
+    const addUploadFiles = useCallback(
+        async (files: File[]) => {
+            const supportedFiles = files.filter((file) =>
+                isSupportedUploadFile(file),
+            );
 
-        if (supportedFiles.length !== files.length) {
-            toast.error('Only PDF, JPG, JPEG, and PNG files are supported.');
-        }
+            if (supportedFiles.length !== files.length) {
+                toast.error(
+                    'Only PDF, JPG, JPEG, and PNG files are supported.',
+                );
+            }
 
-        if (supportedFiles.length === 0) {
-            return;
-        }
+            if (supportedFiles.length === 0) {
+                return;
+            }
 
-        setIsCompressingFiles(true);
+            setIsCompressingFiles(true);
 
-        let preparedFiles = supportedFiles;
+            let preparedFiles = supportedFiles;
 
-        try {
-            preparedFiles = await prepareUploadFiles(supportedFiles);
-        } catch {
-            toast.error('Could not prepare one or more files for upload.');
-        } finally {
-            setIsCompressingFiles(false);
-        }
+            try {
+                preparedFiles = await prepareUploadFiles(supportedFiles);
+            } catch {
+                toast.error('Could not prepare one or more files for upload.');
+            } finally {
+                setIsCompressingFiles(false);
+            }
 
-        setDrafts((current) => {
-            const next = [...current];
-            let addedId: string | null = null;
+            setDrafts((current) => {
+                const next = [...current];
+                let addedId: string | null = null;
 
-            for (const file of preparedFiles) {
-                if (next.length >= MAX_UPLOAD_FILES) {
-                    toast.error(
-                        `You can upload up to ${MAX_UPLOAD_FILES} files at once.`,
+                for (const file of preparedFiles) {
+                    if (next.length >= MAX_UPLOAD_FILES) {
+                        toast.error(
+                            `You can upload up to ${MAX_UPLOAD_FILES} files at once.`,
+                        );
+
+                        break;
+                    }
+
+                    if (fileMatchesExistingDraft(next, file)) {
+                        continue;
+                    }
+
+                    const draft = createUploadDraftFromFile(
+                        file,
+                        initialDocumentTypeId !== null
+                            ? String(initialDocumentTypeId)
+                            : '',
                     );
-
-                    break;
+                    next.push(draft);
+                    addedId = draft.id;
                 }
 
-                if (fileMatchesExistingDraft(next, file)) {
-                    continue;
+                if (addedId) {
+                    setSelectedDraftId(addedId);
                 }
 
-                const draft = createUploadDraftFromFile(file);
-                next.push(draft);
-                addedId = draft.id;
-            }
-
-            if (addedId) {
-                setSelectedDraftId(addedId);
-            }
-
-            return next;
-        });
-    }, []);
+                return next;
+            });
+        },
+        [initialDocumentTypeId],
+    );
 
     const removeDraft = useCallback((draftId: string) => {
         setDrafts((current) => {
@@ -390,7 +399,8 @@ export function UploadDocumentDialog({
             } as RequestPayload,
             {
                 forceFormData: true,
-                ...DOCUMENTS_RELOAD,
+                preserveScroll: true,
+                only: partialReloadKeys,
                 onProgress: (event) => {
                     setUploadProgress({
                         percentage: event?.percentage ?? 0,
@@ -426,6 +436,7 @@ export function UploadDocumentDialog({
         ensureEmployee,
         isUploading,
         onOpenChange,
+        partialReloadKeys,
         resetUploadDialog,
         templateFields,
         validateRequired,

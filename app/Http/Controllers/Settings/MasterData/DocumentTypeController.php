@@ -8,56 +8,120 @@ use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\ImportDocumentTypesRequest;
 use App\Http\Requests\Settings\MasterData\StoreDocumentTypeRequest;
 use App\Http\Requests\Settings\MasterData\UpdateDocumentTypeRequest;
+use App\Models\DocumentRequirement;
 use App\Models\DocumentType;
+use App\Support\EmployeeDocuments\Actions\SyncDocumentRequirement;
+use App\Support\EmployeeDocuments\DocumentRequirementFormOptions;
+use App\Support\EmployeeDocuments\DocumentRequirementPresenter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 class DocumentTypeController extends Controller
 {
     use PaginatesMasterDataIndex;
     use ReturnsQuickCreateJson;
 
-    public function index()
+    public function index(Request $request): InertiaResponse
     {
+        $companyId = (int) $request->attributes->get('current_company_id');
+
         $page = $this->paginateMasterDataIndex(
-            request(),
+            $request,
             DocumentType::query()
                 ->orderBy('title')
+                ->with([
+                    'requirements' => fn ($query) => $query
+                        ->where('company_id', $companyId)
+                        ->with([
+                            'departments:id,name',
+                            'positions:id,title',
+                            'ranks:id,name',
+                        ]),
+                ])
                 ->select(['id', 'title', 'is_active']),
             ['title'],
+            function (DocumentType $documentType) {
+                $requirement = $documentType->requirements->first();
+
+                return [
+                    'id' => $documentType->id,
+                    'title' => $documentType->title,
+                    'is_active' => (bool) $documentType->is_active,
+                    'requirement' => DocumentRequirementPresenter::toArray(
+                        $requirement instanceof DocumentRequirement ? $requirement : null,
+                    ),
+                ];
+            },
         );
 
         return Inertia::render('settings/master-data/document-types', [
             'document_types' => $page['items'],
             'pagination' => $page['pagination'],
             'search' => $page['search'],
+            ...DocumentRequirementFormOptions::for($companyId),
         ]);
     }
 
-    public function store(StoreDocumentTypeRequest $request): JsonResponse|RedirectResponse
+    public function store(StoreDocumentTypeRequest $request, SyncDocumentRequirement $sync): JsonResponse|RedirectResponse
     {
-        $data = $request->validated();
-        $data['is_active'] = $data['is_active'] ?? true;
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $validated = $request->validated();
+        $typeData = Arr::only($validated, ['title', 'is_active']);
+        $typeData['is_active'] = $typeData['is_active'] ?? true;
 
-        return $this->createOrReturnExistingQuickCreate(
-            $request,
-            DocumentType::class,
-            $data,
-            redirect()->route('settings.master-data.document-types.index')->with('success', 'Document type created successfully.'),
-            'title',
-        );
+        return DB::transaction(function () use ($request, $sync, $companyId, $validated, $typeData): JsonResponse|RedirectResponse {
+            $existing = $this->findExistingQuickCreate(DocumentType::class, 'title', (string) $typeData['title']);
+
+            if ($existing !== null) {
+                return $this->storeRedirectOrQuickCreateJson(
+                    $request,
+                    $existing,
+                    redirect()->route('settings.master-data.document-types.index')->with('success', 'Document type created successfully.'),
+                    'title',
+                );
+            }
+
+            $documentType = DocumentType::query()->create($typeData);
+
+            if ($request->exists('is_required')) {
+                $sync->handle($companyId, $documentType, $validated, $request->user());
+            }
+
+            return $this->storeRedirectOrQuickCreateJson(
+                $request,
+                $documentType,
+                redirect()->route('settings.master-data.document-types.index')->with('success', 'Document type created successfully.'),
+                'title',
+            );
+        });
     }
 
-    public function update(UpdateDocumentTypeRequest $request, DocumentType $document_type)
-    {
-        $document_type->update($request->validated());
+    public function update(
+        UpdateDocumentTypeRequest $request,
+        DocumentType $document_type,
+        SyncDocumentRequirement $sync,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $validated = $request->validated();
+
+        DB::transaction(function () use ($request, $document_type, $sync, $companyId, $validated): void {
+            $document_type->update(Arr::only($validated, ['title', 'is_active']));
+
+            if ($request->exists('is_required')) {
+                $sync->handle($companyId, $document_type, $validated, $request->user());
+            }
+        });
 
         return redirect()->route('settings.master-data.document-types.index')->with('success', 'Document type updated successfully.');
     }
 
-    public function destroy(DocumentType $document_type)
+    public function destroy(DocumentType $document_type): RedirectResponse
     {
         $document_type->delete();
 
@@ -74,7 +138,7 @@ class DocumentTypeController extends Controller
         ]);
     }
 
-    public function import(ImportDocumentTypesRequest $request)
+    public function import(ImportDocumentTypesRequest $request): RedirectResponse
     {
         $uploaded = $request->file('file');
         $path = $uploaded->getRealPath() ?: $uploaded->path();

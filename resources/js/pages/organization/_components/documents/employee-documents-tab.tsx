@@ -3,9 +3,14 @@ import { FolderOpen } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TabsContent } from '@/components/ui/tabs';
+import {
+    requirementStatusClass,
+    requirementStatusLabel,
+} from '@/features/organization/documents/document-requirement-compliance-table-row';
 import { EmployeeDocumentMobileCard } from '@/features/organization/documents/employee-document-mobile-card';
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
@@ -15,6 +20,7 @@ import type {
     DocumentBrowseItem,
     DocumentProfileItem,
     DocumentTypeOption,
+    RequiredDocumentItem,
 } from '@/features/organization/documents/shared/types';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { cn } from '@/lib/utils';
@@ -38,7 +44,7 @@ import documentRoutes, {
 
 const DOCUMENTS_RELOAD = {
     preserveScroll: true,
-    only: ['documents'],
+    only: ['documents', 'required_documents'],
 };
 
 export type EmployeeDocumentsTabProps = {
@@ -46,6 +52,7 @@ export type EmployeeDocumentsTabProps = {
         id: number | null;
     };
     documents: DocumentProfileItem[];
+    required_documents?: RequiredDocumentItem[];
     document_types: DocumentTypeOption[];
     can: {
         documents_upload: boolean;
@@ -88,6 +95,7 @@ function toBrowseItem(doc: DocumentProfileItem): DocumentBrowseItem {
 export function EmployeeDocumentsTab({
     employee,
     documents,
+    required_documents = [],
     document_types,
     can,
     ensureEmployee,
@@ -97,6 +105,9 @@ export function EmployeeDocumentsTab({
     const hasEmployeeId = employeeId !== null && employeeId > 0;
     const selectionMode = can.documents_delete && hasEmployeeId;
     const [uploadOpen, setUploadOpen] = useState(false);
+    const [uploadDocumentTypeId, setUploadDocumentTypeId] = useState<
+        number | null
+    >(null);
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
     const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
     const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -143,6 +154,112 @@ export function EmployeeDocumentsTab({
                 />
             ) : null}
 
+            {required_documents.length > 0 ? (
+                <div className="mb-6 overflow-hidden rounded-xl border border-border/60">
+                    <div className="border-b border-border/60 px-4 py-3">
+                        <h3 className="text-sm font-semibold">
+                            Required Documents
+                        </h3>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                            Current compliance for this employee&apos;s
+                            department, position, and rank.
+                        </p>
+                    </div>
+                    <div className="divide-y divide-border/60">
+                        {required_documents.map((item) => {
+                            const matchingDoc =
+                                item.document_id !== null
+                                    ? documents.find(
+                                          (doc) => doc.id === item.document_id,
+                                      )
+                                    : undefined;
+
+                            return (
+                                <div
+                                    key={item.document_type_id}
+                                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-medium">
+                                            {item.document_type}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {item.expiry_label}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Badge
+                                            variant="outline"
+                                            className={cn(
+                                                'font-normal',
+                                                requirementStatusClass(
+                                                    item.status,
+                                                ),
+                                            )}
+                                        >
+                                            {requirementStatusLabel(
+                                                item.status,
+                                            )}
+                                        </Badge>
+                                        {item.status === 'missing' &&
+                                        can.documents_upload ? (
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setUploadDocumentTypeId(
+                                                        item.document_type_id,
+                                                    );
+                                                    setUploadOpen(true);
+                                                }}
+                                            >
+                                                Upload
+                                            </Button>
+                                        ) : null}
+                                        {item.document_id !== null &&
+                                        hasEmployeeId ? (
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() =>
+                                                    router.visit(
+                                                        buildDocumentShowUrl(
+                                                            employeeId,
+                                                            item.document_id as number,
+                                                            {
+                                                                from: 'profile',
+                                                            },
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                View
+                                            </Button>
+                                        ) : null}
+                                        {item.status === 'expired' &&
+                                        matchingDoc &&
+                                        can.documents_upload ? (
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() =>
+                                                    setReplaceDoc(matchingDoc)
+                                                }
+                                            >
+                                                Replace
+                                            </Button>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            ) : null}
+
             <EmployeeRecordsPanel
                 title="Documents"
                 count={documents.length}
@@ -171,7 +288,10 @@ export function EmployeeDocumentsTab({
                             <Button
                                 size="sm"
                                 className="h-8 gap-1.5 text-xs"
-                                onClick={() => setUploadOpen(true)}
+                                onClick={() => {
+                                    setUploadDocumentTypeId(null);
+                                    setUploadOpen(true);
+                                }}
                             >
                                 + Upload Document
                             </Button>
@@ -367,12 +487,19 @@ export function EmployeeDocumentsTab({
 
             <UploadDocumentDialog
                 open={uploadOpen}
-                onOpenChange={setUploadOpen}
+                onOpenChange={(open) => {
+                    setUploadOpen(open);
+
+                    if (!open) {
+                        setUploadDocumentTypeId(null);
+                    }
+                }}
                 employeeId={employeeId}
                 employeeName={employee.name}
                 documentTypes={document_types}
                 ensureEmployee={ensureEmployee}
                 templateFields={templateFields}
+                initialDocumentTypeId={uploadDocumentTypeId}
             />
 
             {hasEmployeeId ? (

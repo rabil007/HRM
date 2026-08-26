@@ -38,4 +38,9 @@ class DocumentType extends Model
     {
         return $this->hasMany(CompanyDocument::class);
     }
+
+    public function requirements(): HasMany
+    {
+        return $this->hasMany(DocumentRequirement::class);
+    }
 }

@@ -37,7 +37,7 @@ export function ReplaceDocumentDialog({
     employeeId,
     onOpenChange,
     templateFields = null,
-    partialReloadKeys = ['documents'],
+    partialReloadKeys = ['documents', 'required_documents'],
 }: {
     document: DocumentProfileItem | null;
     employeeId: number;

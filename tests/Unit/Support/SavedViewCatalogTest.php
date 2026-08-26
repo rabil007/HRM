@@ -77,8 +77,12 @@ test('employee saved views reject unknown completeness concepts and prompts', fu
 test('empty and default values are omitted', function () {
     expect(SavedViewCatalog::forApply(SavedViewPage::Documents, [
         'expiry' => 'all',
+        'requirement_status' => '',
         'search' => '  ',
     ]))->toBe([])
+        ->and(SavedViewCatalog::forApply(SavedViewPage::Documents, [
+            'requirement_status' => 'missing',
+        ]))->toBe(['requirement_status' => 'missing'])
         ->and(SavedViewCatalog::forApply(SavedViewPage::Leave, [
             'status' => 'pending',
             'scope' => 'my',
