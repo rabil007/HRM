@@ -93,6 +93,80 @@ describe('employee smart search filter merge', () => {
         assert.equal(merged.department_id, '');
         assert.equal('search' in merged, false);
     });
+
+    it('clears a stale position when Smart Search returns only department', () => {
+        const merged = mergeSmartSearchFilters(
+            {
+                department_id: '10',
+                position_id: '21',
+                manager_id: '9',
+                gender_id: '2',
+                status: 'inactive',
+            },
+            {
+                department_id: '15',
+                status: 'active',
+            },
+        );
+
+        assert.equal(merged.department_id, '15');
+        assert.equal(merged.position_id, '');
+        assert.equal(merged.manager_id, '9');
+        assert.equal(merged.gender_id, '2');
+        assert.equal(merged.status, 'active');
+    });
+
+    it('clears a stale department when Smart Search returns only position', () => {
+        const merged = mergeSmartSearchFilters(
+            {
+                department_id: '10',
+                position_id: '',
+                role_id: '3',
+            },
+            {
+                position_id: '31',
+            },
+        );
+
+        assert.equal(merged.department_id, '');
+        assert.equal(merged.position_id, '31');
+        assert.equal(merged.role_id, '3');
+    });
+
+    it('applies both department and position when Smart Search returns both', () => {
+        const merged = mergeSmartSearchFilters(
+            {
+                department_id: '10',
+                position_id: '21',
+                manager_id: '9',
+            },
+            {
+                department_id: '15',
+                position_id: '44',
+            },
+        );
+
+        assert.equal(merged.department_id, '15');
+        assert.equal(merged.position_id, '44');
+        assert.equal(merged.manager_id, '9');
+    });
+
+    it('preserves existing department and position when neither is returned', () => {
+        const merged = mergeSmartSearchFilters(
+            {
+                department_id: '10',
+                position_id: '21',
+                nationality_id: '',
+            },
+            {
+                nationality_id: '5',
+            },
+        );
+
+        assert.equal(merged.department_id, '10');
+        assert.equal(merged.position_id, '21');
+        assert.equal(merged.nationality_id, '5');
+    });
 });
 
 describe('employee smart search preview', () => {

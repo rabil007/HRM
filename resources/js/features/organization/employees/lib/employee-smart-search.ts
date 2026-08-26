@@ -77,14 +77,47 @@ export function pickAllowlistedSmartSearchFilters(
     return picked;
 }
 
+function hasResolvedSmartSearchFilter(
+    filters: SmartSearchFilters,
+    key: SmartSearchFilterKey,
+): boolean {
+    const value = filters[key];
+
+    return typeof value === 'string' && value.trim() !== '';
+}
+
 export function mergeSmartSearchFilters<T extends Record<string, string>>(
     currentFilters: T,
     smartSearchFilters: SmartSearchFilters,
 ): T {
-    return {
+    const merged = {
         ...currentFilters,
         ...smartSearchFilters,
     };
+    const resolvedDepartment = hasResolvedSmartSearchFilter(
+        smartSearchFilters,
+        'department_id',
+    );
+    const resolvedPosition = hasResolvedSmartSearchFilter(
+        smartSearchFilters,
+        'position_id',
+    );
+
+    if (resolvedDepartment && !resolvedPosition) {
+        return {
+            ...merged,
+            position_id: '',
+        };
+    }
+
+    if (resolvedPosition && !resolvedDepartment) {
+        return {
+            ...merged,
+            department_id: '',
+        };
+    }
+
+    return merged;
 }
 
 export function hasApplyableSmartSearchFilters(
