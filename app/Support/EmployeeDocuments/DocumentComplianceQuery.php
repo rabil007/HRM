@@ -224,25 +224,31 @@ final class DocumentComplianceQuery
             })
             ->where(function (Builder $query): void {
                 $query->where('document_requirements.required_for_all', true)
-                    ->orWhereExists(function (Builder $sub): void {
-                        $sub->from('document_requirement_department')
-                            ->whereColumn('document_requirement_department.document_requirement_id', 'document_requirements.id')
-                            ->whereColumn('document_requirement_department.department_id', 'employees.department_id');
-                    })
-                    ->orWhereExists(function (Builder $sub): void {
-                        $sub->from('document_requirement_position')
-                            ->whereColumn('document_requirement_position.document_requirement_id', 'document_requirements.id')
-                            ->whereColumn('document_requirement_position.position_id', 'employees.position_id');
-                    })
-                    ->orWhereExists(function (Builder $sub): void {
-                        $sub->from('document_requirement_rank')
-                            ->whereColumn('document_requirement_rank.document_requirement_id', 'document_requirements.id')
-                            ->whereColumn('document_requirement_rank.rank_id', 'employees.rank_id');
-                    })
-                    ->orWhereExists(function (Builder $sub): void {
-                        $sub->from('document_requirement_project')
-                            ->whereColumn('document_requirement_project.document_requirement_id', 'document_requirements.id')
-                            ->whereColumn('document_requirement_project.project_id', 'employees.project_id');
+                    ->orWhere(function (Builder $selectedScopes): void {
+                        $this->constrainScopeCategory(
+                            $selectedScopes,
+                            'document_requirement_department',
+                            'department_id',
+                            'employees.department_id',
+                        );
+                        $this->constrainScopeCategory(
+                            $selectedScopes,
+                            'document_requirement_position',
+                            'position_id',
+                            'employees.position_id',
+                        );
+                        $this->constrainScopeCategory(
+                            $selectedScopes,
+                            'document_requirement_rank',
+                            'rank_id',
+                            'employees.rank_id',
+                        );
+                        $this->constrainScopeCategory(
+                            $selectedScopes,
+                            'document_requirement_project',
+                            'project_id',
+                            'employees.project_id',
+                        );
                     });
             })
             ->when($search !== '', function (Builder $query) use ($search): void {
@@ -261,5 +267,29 @@ final class DocumentComplianceQuery
                 'document_requirements.document_type_id',
                 'document_types.title as document_type_title',
             ]);
+    }
+
+    /**
+     * AND across selected scope categories; OR within a category.
+     * A category with no pivot rows imposes no restriction.
+     */
+    private function constrainScopeCategory(
+        Builder $query,
+        string $pivotTable,
+        string $foreignKey,
+        string $employeeColumn,
+    ): void {
+        $query->where(function (Builder $category) use ($pivotTable, $foreignKey, $employeeColumn): void {
+            $category
+                ->whereNotExists(function (Builder $sub) use ($pivotTable): void {
+                    $sub->from($pivotTable)
+                        ->whereColumn($pivotTable.'.document_requirement_id', 'document_requirements.id');
+                })
+                ->orWhereExists(function (Builder $sub) use ($pivotTable, $foreignKey, $employeeColumn): void {
+                    $sub->from($pivotTable)
+                        ->whereColumn($pivotTable.'.document_requirement_id', 'document_requirements.id')
+                        ->whereColumn($pivotTable.'.'.$foreignKey, $employeeColumn);
+                });
+        });
     }
 }

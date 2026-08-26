@@ -895,10 +895,15 @@ export default function DocumentTypes({
                                                     Selected groups
                                                 </div>
                                                 <p className="mt-1 text-xs text-muted-foreground">
-                                                    An employee matches if they
-                                                    belong to any selected
-                                                    department, position, rank,
-                                                    or project.
+                                                    Employees must match each
+                                                    selected category. Within a
+                                                    category, matching any
+                                                    selected value is enough.
+                                                </p>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                    Example: Crew department +
+                                                    Captain/Chief Engineer rank
+                                                    + ADNOC/ARAMCO project.
                                                 </p>
                                             </RadioItem>
                                         </RadioGroup>

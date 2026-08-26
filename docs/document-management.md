@@ -116,11 +116,29 @@ Implemented scopes are **all employees**, **department**, **position**, **rank**
 
 ### Matching
 
-Selected organizational scopes use **OR** matching, not AND.
+Selected organizational scopes use **AND** matching **between** categories and **OR** matching **within** a category.
 
-Example: STCW required for Crew **or** rank Captain **or** project ADNOC. An employee in Accounts assigned to ADNOC still requires STCW. An employee does **not** need to match both department and project.
+For every scope category that contains one or more selected values, the employee must match at least one value from that category. Categories with no selections are ignored.
 
-`required_for_all` applies to every operational (active) employee in the company, regardless of department, position, rank, or project.
+Example:
+
+- Department: Crew
+- Rank: Captain, Chief Engineer
+- Project: ADNOC, ARAMCO
+
+means:
+
+Department = Crew
+**AND**
+Rank = Captain **OR** Chief Engineer
+**AND**
+Project = ADNOC **OR** ARAMCO
+
+An employee in Crew with rank Captain assigned to Project XYZ is **not** required. Empty Position (and any other unselected category) imposes no restriction.
+
+A selected category does not match when the employee value is `NULL` (for example, Project = ADNOC and `employee.project_id` is empty).
+
+`required_for_all` applies to every operational (active) employee in the company, regardless of department, position, rank, or project. It bypasses selected-group matching.
 
 Requirements are resolved dynamically from the employee’s current company, department, position, rank, and `project_id`. Changing those attributes changes currently applicable requirements. Policies are not snapshotted onto the employee. Historical uploads are never deleted when requirements change.
 
@@ -219,7 +237,7 @@ Not implemented: a separate requirements page, individual exceptions/waivers, ap
 | Class | Role |
 |-------|------|
 | `DocumentBrowseQuery` | Folders, expiry compliance list, search results, summaries |
-| `DocumentRequirementResolver` | Which active company policies apply to an employee (OR matching) |
+| `DocumentRequirementResolver` | Which active company policies apply to an employee (AND between selected categories; OR within a category) |
 | `DocumentComplianceQuery` | Required / valid / expiring / expired / missing pairs without N+1 |
 | `LatestEmployeeDocumentQuery` | Canonical latest upload per employee + type (`created_at DESC`, `id DESC`) |
 | `UnmappedEmployeeDocumentTypeMatcher` | Deterministic audit/backfill of NULL `document_type_id` rows |

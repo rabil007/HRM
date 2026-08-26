@@ -69,7 +69,7 @@ test('requirement can apply to all employees', function () {
         ->and($requirement->is_active)->toBeTrue();
 });
 
-test('requirement can apply to one or more departments using or matching', function () {
+test('requirement can persist multiple selected departments', function () {
     ['company' => $company, 'passportType' => $passportType] = actingAsDocumentTypeManager();
 
     $crew = Department::query()->create([
