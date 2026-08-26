@@ -87,4 +87,21 @@ describe('record selection helpers', () => {
         );
         assert.equal(isAllVisibleSelected(selected, [3, 4]), false);
     });
+
+    it('selects and clears only currently visible ids', () => {
+        const selected = addSelectedIds(new Set<number>(), [1]);
+        const withVisible = addSelectedIds(selected, [2, 3]);
+        const withoutVisible = removeSelectedIds(withVisible, [2, 3]);
+
+        assert.deepEqual(
+            [...withVisible].sort((a, b) => a - b),
+            [1, 2, 3],
+        );
+        assert.deepEqual([...withoutVisible], [1]);
+        assert.equal(
+            headerCheckboxState(true, true) === true &&
+                headerCheckboxState(false, true) === 'indeterminate',
+            true,
+        );
+    });
 });

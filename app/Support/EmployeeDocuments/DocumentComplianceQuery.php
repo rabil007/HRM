@@ -207,6 +207,7 @@ final class DocumentComplianceQuery
                     'employees.department_id as department_id',
                     'employees.position_id as position_id',
                     'employees.rank_id as rank_id',
+                    'employees.project_id as project_id',
                     'employees.company_id as company_id',
                 ]),
                 'employees',
@@ -237,6 +238,11 @@ final class DocumentComplianceQuery
                         $sub->from('document_requirement_rank')
                             ->whereColumn('document_requirement_rank.document_requirement_id', 'document_requirements.id')
                             ->whereColumn('document_requirement_rank.rank_id', 'employees.rank_id');
+                    })
+                    ->orWhereExists(function (Builder $sub): void {
+                        $sub->from('document_requirement_project')
+                            ->whereColumn('document_requirement_project.document_requirement_id', 'document_requirements.id')
+                            ->whereColumn('document_requirement_project.project_id', 'employees.project_id');
                     });
             })
             ->when($search !== '', function (Builder $query) use ($search): void {

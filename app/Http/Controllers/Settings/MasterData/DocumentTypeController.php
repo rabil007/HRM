@@ -42,6 +42,7 @@ class DocumentTypeController extends Controller
                             'departments:id,name',
                             'positions:id,title',
                             'ranks:id,name',
+                            'projects:id,title',
                         ]),
                 ])
                 ->select(['id', 'title', 'is_active']),

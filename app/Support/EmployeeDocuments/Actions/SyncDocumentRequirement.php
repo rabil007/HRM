@@ -18,6 +18,7 @@ final class SyncDocumentRequirement
      *     department_ids?: list<int|string>,
      *     position_ids?: list<int|string>,
      *     rank_ids?: list<int|string>,
+     *     project_ids?: list<int|string>,
      *     require_issue_date?: bool,
      *     require_expiry_date?: bool,
      *     require_document_number?: bool
@@ -29,7 +30,7 @@ final class SyncDocumentRequirement
             $requirement = DocumentRequirement::query()
                 ->forCompany($companyId)
                 ->where('document_type_id', $documentType->id)
-                ->with(['departments:id,name', 'positions:id,title', 'ranks:id,name', 'documentType:id,title'])
+                ->with(['departments:id,name', 'positions:id,title', 'ranks:id,name', 'projects:id,title', 'documentType:id,title'])
                 ->first();
 
             $previousPhrase = DocumentRequirementSummary::auditPhrase($requirement);
@@ -40,6 +41,7 @@ final class SyncDocumentRequirement
             $departmentIds = $this->integerIds($data['department_ids'] ?? []);
             $positionIds = $this->integerIds($data['position_ids'] ?? []);
             $rankIds = $this->integerIds($data['rank_ids'] ?? []);
+            $projectIds = $this->integerIds($data['project_ids'] ?? []);
 
             if (! $isRequired && $requirement === null) {
                 return null;
@@ -75,12 +77,14 @@ final class SyncDocumentRequirement
                 $requirement->departments()->sync($departmentIds);
                 $requirement->positions()->sync($positionIds);
                 $requirement->ranks()->sync($rankIds);
+                $requirement->projects()->sync($projectIds);
             }
 
             $requirement->unsetRelation('departments');
             $requirement->unsetRelation('positions');
             $requirement->unsetRelation('ranks');
-            $requirement->load(['departments:id,name', 'positions:id,title', 'ranks:id,name', 'documentType:id,title']);
+            $requirement->unsetRelation('projects');
+            $requirement->load(['departments:id,name', 'positions:id,title', 'ranks:id,name', 'projects:id,title', 'documentType:id,title']);
 
             $nextPhrase = DocumentRequirementSummary::auditPhrase($requirement);
             $nextMetadata = $this->metadataSnapshot($requirement);

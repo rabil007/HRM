@@ -15,7 +15,7 @@ This is separate from [document index search](./document-search.md), which stays
 | Departments | Name, code | Department show |
 | Positions | Title, grade | Position show |
 | Payroll | Period name | Payroll period show |
-| Commands | Sidebar destinations from `getSidebarData()` / `nav-visibility.ts` | Existing module URLs |
+| Commands | Accessible sidebar destinations **plus** authorized Settings destinations that are intentionally omitted from the sidebar (especially Master Data) | Existing module URLs |
 
 Empty groups are omitted. Each record group is capped at **5** results (`LIMIT` on the query, not a client slice).
 
@@ -63,9 +63,13 @@ Result URLs are the same show routes the rest of the app uses; opening a hit sti
 - Route: `search` → `GlobalSearchController`
 - Query: `App\Support\Search\GlobalSearchQuery`
 - Presentation: `App\Support\Search\GlobalSearchResultPresenter`
-- Palette: `resources/js/components/command-menu.tsx` + `resources/js/hooks/use-global-search.ts`
+- Palette: `resources/js/components/command-menu.tsx`, `resources/js/lib/settings-nav.ts`, `resources/js/hooks/use-global-search.ts`
 
 Accessible [navigation favorites](./navigation-favorites.md) appear as a Favorites command group and are omitted from the normal command list so destinations are not duplicated. Record search is unchanged.
+
+Cmd/Ctrl+K navigation commands are **not** limited to visible sidebar items. Settings keeps many Master Data pages out of the sidebar on purpose; those pages remain discoverable in the palette when the current user/company/platform context grants the matching view permission (`filterSettingsNavItems` / `auth.permissions` / `auth.platform`). Duplicate URLs already present in the sidebar (for example Settings → Security) are shown once. Frontend visibility is UX only; destination routes stay backend-authorized.
+
+Record-search categories are unchanged. Searching “project” opens the Settings → Master Data → Projects **module**; it does not search Project master-data records.
 
 When the query is empty, [recent items](./recent-items.md) appear as a Recent group (loaded once when the palette opens). At 2+ characters, matching recents stay visible above live record search.
 

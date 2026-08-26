@@ -73,6 +73,7 @@ function makeDocumentFixtures(): array
  * @param  list<int>  $departmentIds
  * @param  list<int>  $positionIds
  * @param  list<int>  $rankIds
+ * @param  list<int>  $projectIds
  */
 function makeDocumentRequirement(
     int $companyId,
@@ -82,6 +83,7 @@ function makeDocumentRequirement(
     array $positionIds = [],
     array $rankIds = [],
     bool $isActive = true,
+    array $projectIds = [],
 ): DocumentRequirement {
     $requirement = DocumentRequirement::query()->create([
         'company_id' => $companyId,
@@ -93,8 +95,9 @@ function makeDocumentRequirement(
     $requirement->departments()->sync($departmentIds);
     $requirement->positions()->sync($positionIds);
     $requirement->ranks()->sync($rankIds);
+    $requirement->projects()->sync($projectIds);
 
-    return $requirement->fresh(['departments', 'positions', 'ranks']) ?? $requirement;
+    return $requirement->fresh(['departments', 'positions', 'ranks', 'projects']) ?? $requirement;
 }
 
 function minimalPdfBytes(): string

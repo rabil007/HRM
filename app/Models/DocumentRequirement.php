@@ -106,4 +106,10 @@ class DocumentRequirement extends Model
         return $this->belongsToMany(Rank::class, 'document_requirement_rank')
             ->orderBy('name');
     }
+
+    public function projects(): BelongsToMany
+    {
+        return $this->belongsToMany(Project::class, 'document_requirement_project')
+            ->orderBy('title');
+    }
 }

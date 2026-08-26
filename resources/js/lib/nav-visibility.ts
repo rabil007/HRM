@@ -88,6 +88,39 @@ export function hasSettingsAccess(
     );
 }
 
+function permissionNames(permission?: string | readonly string[]): string[] {
+    if (!permission) {
+        return [];
+    }
+
+    return typeof permission === 'string' ? [permission] : [...permission];
+}
+
+export function filterSettingsNavItems<
+    T extends {
+        permission?: string | readonly string[];
+        platformOnly?: boolean;
+    },
+>(
+    items: T[],
+    permissions: string[],
+    platform: NavPlatformAccess = NO_PLATFORM_ACCESS,
+): T[] {
+    return items.filter((item) => {
+        if (item.platformOnly) {
+            return platform.view;
+        }
+
+        if (!item.permission) {
+            return true;
+        }
+
+        return permissionNames(item.permission).some((permission) =>
+            permissions.includes(permission),
+        );
+    });
+}
+
 export function crewOperationsHref(permissions: string[]): string {
     if (has(permissions, 'crew_operations.overview.view')) {
         return '/organization/crew-operations';

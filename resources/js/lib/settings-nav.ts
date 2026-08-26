@@ -21,13 +21,14 @@ import {
     Users,
     Wallet,
 } from 'lucide-react';
+import { excludeOccupiedCommandGroups } from './global-search';
 import {
+    filterSettingsNavItems,
     hasSettingsAccess,
     NO_PLATFORM_ACCESS,
     SETTINGS_HUB_VIEW_PERMISSIONS,
-} from '@/lib/nav-visibility';
-import type { NavPlatformAccess } from '@/lib/nav-visibility';
-import { edit as hikvisionIntegrationSettings } from '@/routes/integrations/hikvision';
+} from './nav-visibility';
+import type { NavPlatformAccess } from './nav-visibility';
 
 export type SettingsNavItem = {
     title: string;
@@ -37,14 +38,6 @@ export type SettingsNavItem = {
     icon: LucideIcon;
     color?: string;
 };
-
-function permissionNames(permission?: string | readonly string[]): string[] {
-    if (!permission) {
-        return [];
-    }
-
-    return typeof permission === 'string' ? [permission] : [...permission];
-}
 
 export const SETTINGS_SYSTEM_ITEMS: SettingsNavItem[] = [
     {
@@ -87,7 +80,7 @@ export const SETTINGS_SYSTEM_ITEMS: SettingsNavItem[] = [
 export const SETTINGS_INTEGRATION_ITEMS: SettingsNavItem[] = [
     {
         title: 'Hikvision',
-        href: hikvisionIntegrationSettings.url(),
+        href: '/settings/integrations/hikvision',
         permission: 'settings.integrations.hikvision.view',
         icon: Camera,
         color: 'bg-sky-500/10 text-sky-600',
@@ -206,27 +199,65 @@ export const SETTINGS_VIEW_PERMISSIONS: string[] = [
     ...SETTINGS_HUB_VIEW_PERMISSIONS,
 ];
 
-export function filterSettingsNavItems(
-    items: SettingsNavItem[],
+export type SettingsNavGroup = {
+    title: string;
+    description: string;
+    commandHeading: string;
+    items: SettingsNavItem[];
+};
+
+export const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
+    {
+        title: 'System',
+        description:
+            'Application branding, email, WhatsApp, security, and appearance.',
+        commandHeading: 'Settings · System',
+        items: SETTINGS_SYSTEM_ITEMS,
+    },
+    {
+        title: 'Integrations',
+        description:
+            'Company-owned integrations such as Hikvision access control.',
+        commandHeading: 'Settings · Integrations',
+        items: SETTINGS_INTEGRATION_ITEMS,
+    },
+    {
+        title: 'Master data',
+        description:
+            'Reference data used across employees, payroll, and compliance.',
+        commandHeading: 'Settings · Master Data',
+        items: SETTINGS_MASTER_DATA_ITEMS,
+    },
+];
+
+export function accessibleSettingsNavGroups(
     permissions: string[],
     platform: NavPlatformAccess = NO_PLATFORM_ACCESS,
-): SettingsNavItem[] {
-    return items.filter((item) => {
-        if (item.platformOnly) {
-            return platform.view;
-        }
-
-        if (!item.permission) {
-            return true;
-        }
-
-        return permissionNames(item.permission).some((permission) =>
-            permissions.includes(permission),
-        );
-    });
+): SettingsNavGroup[] {
+    return SETTINGS_NAV_GROUPS.map((group) => ({
+        ...group,
+        items: filterSettingsNavItems(group.items, permissions, platform),
+    })).filter((group) => group.items.length > 0);
 }
 
-export { hasSettingsAccess };
+export function extraSettingsCommandGroups(
+    permissions: string[],
+    platform: NavPlatformAccess = NO_PLATFORM_ACCESS,
+    occupiedUrls: ReadonlySet<string> = new Set(),
+): Array<{ title: string; items: Array<{ title: string; url: string }> }> {
+    return excludeOccupiedCommandGroups(
+        accessibleSettingsNavGroups(permissions, platform).map((group) => ({
+            title: group.commandHeading,
+            items: group.items.map((item) => ({
+                title: item.title,
+                url: item.href,
+            })),
+        })),
+        occupiedUrls,
+    );
+}
+
+export { filterSettingsNavItems, hasSettingsAccess };
 
 export function getSettingsSidebarSubItems(
     permissions: string[],

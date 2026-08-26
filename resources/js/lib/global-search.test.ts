@@ -3,6 +3,8 @@ import { describe, it } from 'node:test';
 import {
     GLOBAL_SEARCH_DEBOUNCE_MS,
     GLOBAL_SEARCH_MAX_QUERY_LENGTH,
+    collectNavGroupUrls,
+    commandItemSearchValue,
     commandResultValue,
     destinationMatchesQuery,
     filterCommandGroupsForQuery,
@@ -11,6 +13,7 @@ import {
     isCommandPaletteHotkey,
     isStaleSearchResponse,
     orderedRecordGroups,
+    RECORD_GROUP_ORDER,
     recordSearchEmptyMessage,
     shouldRequestRecordSearch,
     shouldUseCmdkClientFilter,
@@ -259,6 +262,161 @@ describe('record-search destination filtering', () => {
         assert.deepEqual(
             filterCommandGroupsForQuery(groups, '').map((group) => group.title),
             ['Employees', 'Crew Operations'],
+        );
+    });
+
+    it('finds Settings Master Data destinations by title and group context', () => {
+        const groups = [
+            {
+                title: 'Employees',
+                items: [{ title: 'Employees', url: '/organization/employees' }],
+            },
+            {
+                title: 'Settings · Master Data',
+                items: [
+                    {
+                        title: 'Document types',
+                        url: '/settings/master-data/document-types',
+                    },
+                    {
+                        title: 'Projects',
+                        url: '/settings/master-data/projects',
+                    },
+                    {
+                        title: 'Ranks',
+                        url: '/settings/master-data/ranks',
+                    },
+                    {
+                        title: 'Countries',
+                        url: '/settings/master-data/countries',
+                    },
+                    {
+                        title: 'Banks',
+                        url: '/settings/master-data/banks',
+                    },
+                    {
+                        title: 'Clients',
+                        url: '/settings/master-data/clients',
+                    },
+                    {
+                        title: 'Visa types',
+                        url: '/settings/master-data/visa-types',
+                    },
+                    {
+                        title: 'Approval locations',
+                        url: '/settings/master-data/approval-locations',
+                    },
+                    {
+                        title: 'SSSA options',
+                        url: '/settings/master-data/sssa-options',
+                    },
+                    {
+                        title: 'Vessel types',
+                        url: '/settings/master-data/vessel-types',
+                    },
+                    {
+                        title: 'Courses',
+                        url: '/settings/master-data/courses',
+                    },
+                    {
+                        title: 'Genders',
+                        url: '/settings/master-data/genders',
+                    },
+                    {
+                        title: 'Religions',
+                        url: '/settings/master-data/religions',
+                    },
+                    {
+                        title: 'Currencies',
+                        url: '/settings/master-data/currencies',
+                    },
+                ],
+            },
+        ];
+
+        const queries: Array<[string, string]> = [
+            ['document type', 'Document types'],
+            ['project', 'Projects'],
+            ['projects', 'Projects'],
+            ['rank', 'Ranks'],
+            ['ranks', 'Ranks'],
+            ['country', 'Countries'],
+            ['countries', 'Countries'],
+            ['bank', 'Banks'],
+            ['banks', 'Banks'],
+            ['client', 'Clients'],
+            ['clients', 'Clients'],
+            ['visa', 'Visa types'],
+            ['approval location', 'Approval locations'],
+            ['SSSA', 'SSSA options'],
+            ['vessel type', 'Vessel types'],
+            ['course', 'Courses'],
+            ['gender', 'Genders'],
+            ['religion', 'Religions'],
+            ['currency', 'Currencies'],
+            ['master data project', 'Projects'],
+        ];
+
+        for (const [query, title] of queries) {
+            const filtered = filterCommandGroupsForQuery(groups, query);
+            const titles = filtered.flatMap((group) =>
+                group.items.map((item) => item.title),
+            );
+
+            assert.equal(
+                titles.includes(title),
+                true,
+                `expected "${query}" to find "${title}"`,
+            );
+        }
+
+        assert.deepEqual(
+            filterCommandGroupsForQuery(groups, 'document type').map(
+                (group) => group.title,
+            ),
+            ['Settings · Master Data'],
+        );
+    });
+
+    it('does not change record-search category order or favorites matching', () => {
+        assert.deepEqual(RECORD_GROUP_ORDER, [
+            'employees',
+            'documents',
+            'crew',
+            'vessels',
+            'payroll',
+            'departments',
+            'positions',
+        ]);
+        assert.deepEqual(
+            filterFavoritesForQuery(
+                [{ title: 'Employees' }, { title: 'Vessels' }],
+                'ves',
+            ).map((item) => item.title),
+            ['Vessels'],
+        );
+        assert.deepEqual(
+            collectNavGroupUrls([
+                {
+                    title: 'General',
+                    items: [
+                        {
+                            title: 'Settings',
+                            items: [
+                                {
+                                    title: 'Security',
+                                    url: '/settings/security',
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ]),
+            new Set(['/settings/security']),
+        );
+        assert.equal(
+            commandItemSearchValue('Settings · Master Data', 'Document types'),
+            'Settings · Master Data Document types',
         );
     });
 });

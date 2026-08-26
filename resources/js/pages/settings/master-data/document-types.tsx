@@ -52,6 +52,7 @@ import {
     firstValidationError,
     hasFlashSuccess,
 } from '@/lib/first-validation-error';
+import { headerCheckboxState } from '@/lib/record-selection';
 import { cn } from '@/lib/utils';
 import { DocumentRequirementMultiSelect } from '@/pages/settings/master-data/document-requirement-multi-select';
 import type { PaginationMeta } from '@/types/pagination';
@@ -62,6 +63,7 @@ type DocumentRequirementPayload = {
     department_ids: number[];
     position_ids: number[];
     rank_ids: number[];
+    project_ids: number[];
     require_issue_date: boolean;
     require_expiry_date: boolean;
     require_document_number: boolean;
@@ -90,6 +92,11 @@ type RankOption = {
     name: string;
 };
 
+type ProjectOption = {
+    id: number;
+    title: string;
+};
+
 type DocumentTypeFormData = {
     title: string;
     is_active: boolean;
@@ -98,6 +105,7 @@ type DocumentTypeFormData = {
     department_ids: number[];
     position_ids: number[];
     rank_ids: number[];
+    project_ids: number[];
     require_issue_date: boolean;
     require_expiry_date: boolean;
     require_document_number: boolean;
@@ -109,6 +117,7 @@ const emptyRequirement: DocumentRequirementPayload = {
     department_ids: [],
     position_ids: [],
     rank_ids: [],
+    project_ids: [],
     require_issue_date: false,
     require_expiry_date: false,
     require_document_number: false,
@@ -123,10 +132,26 @@ const initialForm: DocumentTypeFormData = {
     department_ids: [],
     position_ids: [],
     rank_ids: [],
+    project_ids: [],
     require_issue_date: false,
     require_expiry_date: false,
     require_document_number: false,
 };
+
+function policyFieldFlagsState(
+    data: Pick<
+        DocumentTypeFormData,
+        'require_issue_date' | 'require_expiry_date' | 'require_document_number'
+    >,
+): boolean | 'indeterminate' {
+    const selectedCount = [
+        data.require_issue_date,
+        data.require_expiry_date,
+        data.require_document_number,
+    ].filter(Boolean).length;
+
+    return headerCheckboxState(selectedCount === 3, selectedCount > 0);
+}
 
 export default function DocumentTypes({
     document_types,
@@ -135,6 +160,7 @@ export default function DocumentTypes({
     departments = [],
     positions = [],
     ranks = [],
+    projects = [],
 }: {
     document_types: DocumentType[];
     pagination: PaginationMeta;
@@ -142,6 +168,7 @@ export default function DocumentTypes({
     departments?: DepartmentOption[];
     positions?: PositionOption[];
     ranks?: RankOption[];
+    projects?: ProjectOption[];
 }) {
     const can = useSettingsMasterDataCan('document-types');
 
@@ -187,6 +214,7 @@ export default function DocumentTypes({
             department_ids: requirement.department_ids,
             position_ids: requirement.position_ids,
             rank_ids: requirement.rank_ids,
+            project_ids: requirement.project_ids,
             require_issue_date: requirement.require_issue_date,
             require_expiry_date: requirement.require_expiry_date,
             require_document_number: requirement.require_document_number,
@@ -760,8 +788,9 @@ export default function DocumentTypes({
                                 </h3>
                                 <p className="mt-1 text-xs text-muted-foreground">
                                     Company-specific compliance rules. Changing
-                                    an employee&apos;s department, position, or
-                                    rank updates who must hold this document.
+                                    an employee&apos;s department, position,
+                                    rank, or project updates who must hold this
+                                    document.
                                 </p>
                             </div>
 
@@ -868,8 +897,8 @@ export default function DocumentTypes({
                                                 <p className="mt-1 text-xs text-muted-foreground">
                                                     An employee matches if they
                                                     belong to any selected
-                                                    department, position, or
-                                                    rank.
+                                                    department, position, rank,
+                                                    or project.
                                                 </p>
                                             </RadioItem>
                                         </RadioGroup>
@@ -936,6 +965,24 @@ export default function DocumentTypes({
                                                 }
                                                 error={form.errors.rank_ids}
                                             />
+                                            <DocumentRequirementMultiSelect
+                                                id="requirement-projects"
+                                                label="Projects"
+                                                options={projects.map(
+                                                    (project) => ({
+                                                        id: project.id,
+                                                        label: project.title,
+                                                    }),
+                                                )}
+                                                value={form.data.project_ids}
+                                                onChange={(ids) =>
+                                                    form.setData(
+                                                        'project_ids',
+                                                        ids,
+                                                    )
+                                                }
+                                                error={form.errors.project_ids}
+                                            />
                                         </div>
                                     ) : null}
 
@@ -950,6 +997,29 @@ export default function DocumentTypes({
                                             valid, missing, expired, or expiring
                                             compliance.
                                         </p>
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <Checkbox
+                                                checked={policyFieldFlagsState(
+                                                    form.data,
+                                                )}
+                                                onCheckedChange={(checked) => {
+                                                    const next =
+                                                        checked === true;
+
+                                                    form.setData({
+                                                        ...form.data,
+                                                        require_issue_date:
+                                                            next,
+                                                        require_expiry_date:
+                                                            next,
+                                                        require_document_number:
+                                                            next,
+                                                    });
+                                                }}
+                                                aria-label="Select all policy field flags"
+                                            />
+                                            Select all
+                                        </label>
                                         <label className="flex items-center gap-2 text-sm">
                                             <Checkbox
                                                 checked={

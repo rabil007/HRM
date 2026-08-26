@@ -22,6 +22,7 @@ final class DocumentRequirementResolver
                 'departments:id,name',
                 'positions:id,title',
                 'ranks:id,name',
+                'projects:id,title',
             ])
             ->get()
             ->unique('document_type_id')
@@ -62,6 +63,10 @@ final class DocumentRequirementResolver
         }
 
         if ($employee->rank_id !== null && $requirement->ranks->contains('id', $employee->rank_id)) {
+            return true;
+        }
+
+        if ($employee->project_id !== null && $requirement->projects->contains('id', $employee->project_id)) {
             return true;
         }
 

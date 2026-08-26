@@ -18,7 +18,7 @@ Upload and CRUD on the profile use `organization.employees.documents.*` routes.
 - Model: `App\Models\EmployeeDocument`
 - Key fields: `document_type_id`, `title`, `original_filename`, `file_path`, `issue_date`, `expiry_date`, `document_number`, `status`, `mime_type`, `size_bytes`
 - Document type labels come from `document_types` or legacy `document_type` / `type` fields
-- Company requirement policy: `document_requirements` plus `document_requirement_department` / `_position` / `_rank` (see [Document requirement policy](#document-requirement-policy))
+- Company requirement policy: `document_requirements` plus `document_requirement_department` / `_position` / `_rank` / `_project` (see [Document requirement policy](#document-requirement-policy))
 
 ## Index page (folders)
 
@@ -110,19 +110,21 @@ A type may be:
 
 - Optional (no active policy, or an inactive stored policy)
 - Required for all employees in the active company
-- Required for selected groups: departments, positions, and/or ranks
+- Required for selected groups: departments, positions, ranks, and/or projects
 
-V1 scopes are only **all employees**, **department**, **position**, and **rank**. Project, client, nationality, visa type, branch, vessel, and per-employee exceptions are not implemented.
+Implemented scopes are **all employees**, **department**, **position**, **rank**, and **project**. Client, nationality, visa type, branch, vessel, and per-employee exceptions are not implemented.
 
 ### Matching
 
 Selected organizational scopes use **OR** matching, not AND.
 
-Example: STCW required for Crew **or** rank Captain **or** rank Chief Engineer. An employee in Accounts with rank Captain still requires STCW. An employee does **not** need to match both department and rank.
+Example: STCW required for Crew **or** rank Captain **or** project ADNOC. An employee in Accounts assigned to ADNOC still requires STCW. An employee does **not** need to match both department and project.
 
-`required_for_all` applies to every operational (active) employee in the company, regardless of department, position, or rank.
+`required_for_all` applies to every operational (active) employee in the company, regardless of department, position, rank, or project.
 
-Requirements are resolved dynamically from the employee’s current company, department, position, and rank. Changing those attributes changes currently applicable requirements. Policies are not snapshotted onto the employee. Historical uploads are never deleted when requirements change.
+Requirements are resolved dynamically from the employee’s current company, department, position, rank, and `project_id`. Changing those attributes changes currently applicable requirements. Policies are not snapshotted onto the employee. Historical uploads are never deleted when requirements change.
+
+Projects are **global** master data in the current schema (`projects` has no `company_id`). Project scope uses the employee’s current `project_id` and the `document_requirement_project` pivot, but the DocumentRequirement **policy** remains company-scoped. Company B employees assigned to the same global Project do not inherit Company A’s policy.
 
 Inactive document types are ignored. Soft-deleting a document type does not delete employee files or destroy the stored company policy; reactivating the type restores the previous policy unless it was edited. The list Active toggle and CSV import update only `title` / `is_active` and do not erase requirement configuration.
 
@@ -145,11 +147,11 @@ Requirement configuration reuses document type permissions:
 - `settings.master-data.document-types.update`
 - `settings.master-data.document-types.delete`
 
-Company ID always comes from trusted `current_company_id`. Department and position IDs must belong to the active company. Ranks remain global master data. Company A cannot attach Company B organization IDs or overwrite Company B’s policy.
+Company ID always comes from trusted `current_company_id`. Department and position IDs must belong to the active company. Ranks and Projects remain global master data. Company A cannot attach Company B organization IDs or overwrite Company B’s policy.
 
 Documents index / profile compliance viewing still requires `documents.view`. Upload and replace still require `documents.upload`. Frontend `can` flags are UX only.
 
-Meaningful policy changes are activity-logged with a single company-aware phrase such as `Passport: Optional → Required for all employees`. Pivot (department / position / rank) changes are included in that phrase. Metadata-only edits use `required information updated`. Generic Spatie attribute dumps are not written for the same policy mutation. Audit rows are visible only with `audit.view`.
+Meaningful policy changes are activity-logged with a single company-aware phrase such as `Passport: Optional → Required for all employees`. Pivot (department / position / rank / project) changes are included in that phrase. Metadata-only edits use `required information updated`. Generic Spatie attribute dumps are not written for the same policy mutation. Audit rows are visible only with `audit.view`.
 
 ## Compliance calculation
 
@@ -202,7 +204,7 @@ Rules:
 | | Employee profile template | Document requirement policy |
 |--|---------------------------|-----------------------------|
 | Purpose | Which fields appear / are required on employee forms and the Documents tab uploader | Which document types an employee must currently hold |
-| Scope | Template configuration | Active company + department / position / rank |
+| Scope | Template configuration | Active company + department / position / rank / project |
 | Blocks employee create? | Template required fields on the create form | No |
 | Missing file | N/A (form field) | Compliance status `missing` |
 
@@ -210,7 +212,7 @@ Do not merge the two. If both mention issue date / expiry / document number, the
 
 ## V1 exclusions
 
-Not implemented: a separate requirements page, individual exceptions/waivers, approval of exceptions, client/project/branch/nationality/visa/vessel/crew-assignment scopes, automatic email / WhatsApp / Web Push reminders for missing required documents, employee self-service upload, blocking employee creation / payroll / crew mobilisation, OCR, or AI classification.
+Not implemented: a separate requirements page, individual exceptions/waivers, approval of exceptions, client/branch/nationality/visa/vessel/crew-assignment scopes, automatic email / WhatsApp / Web Push reminders for missing required documents, employee self-service upload, blocking employee creation / payroll / crew mobilisation, OCR, or AI classification.
 
 ## Backend services
 

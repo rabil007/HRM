@@ -6,13 +6,13 @@ Favorites remain explicit module/destination pins. Recent Items remember show pa
 
 ## Supported record types
 
-| Type | Show page | View permission |
-|------|-----------|-----------------|
-| Employee | Employee show | `employees.view` |
-| Document | Employee document show | `documents.view` |
-| Crew assignment | Crew assignment show | `crew_operations.assignments.view` |
-| Vessel | Vessel show | `crew_operations.vessels.view` |
-| Payroll period | Payroll period show | `payroll.periods.view` **or** `payroll.crew_timesheets.view` |
+| Type            | Show page              | View permission                                              |
+| --------------- | ---------------------- | ------------------------------------------------------------ |
+| Employee        | Employee show          | `employees.view`                                             |
+| Document        | Employee document show | `documents.view`                                             |
+| Crew assignment | Crew assignment show   | `crew_operations.assignments.view`                           |
+| Vessel          | Vessel show            | `crew_operations.vessels.view`                               |
+| Payroll period  | Payroll period show    | `payroll.periods.view` **or** `payroll.crew_timesheets.view` |
 
 Only these catalog values are stored (`employee`, `document`, `crew_assignment`, `vessel`, `payroll_period`). Clients cannot submit a model class name, href, or extra record type.
 
@@ -46,12 +46,12 @@ Missing permission hides the row without deleting it, so restoring the permissio
 
 ## Cmd/Ctrl+K
 
-Recent Items are loaded once when the palette opens (`GET /recent-items`), not on every keystroke.
+Recent Items are loaded once when the palette opens (`GET /recent-items`), not on every keystroke. The client effect must depend only on palette `open`. Inertia `useHttp()` returns a new object each render; using that object as an effect dependency retriggers the request in a loop (429 + maximum update depth).
 
-| Query | Surface |
-|-------|---------|
-| Empty | Favorites, Recent, Commands |
-| 1 character | Favorites, Commands |
+| Query         | Surface                                                                     |
+| ------------- | --------------------------------------------------------------------------- |
+| Empty         | Favorites, Recent, Commands                                                 |
+| 1 character   | Favorites, Commands                                                         |
 | 2+ characters | Matching favorites, matching recents, live record search, matching commands |
 
 An empty recent list does not render a Recent heading. Mobile uses the same command dialog.
@@ -60,8 +60,8 @@ Recent Items are **not** added to the sidebar.
 
 ## Routes
 
-| Method | Path | Name |
-|--------|------|------|
-| GET | `/recent-items` | `recent-items` |
+| Method | Path            | Name           |
+| ------ | --------------- | -------------- |
+| GET    | `/recent-items` | `recent-items` |
 
 Authenticated + verified. `user_id`, `company_id`, `record_type`, and `record_id` query parameters are prohibited.

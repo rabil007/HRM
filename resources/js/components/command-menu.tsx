@@ -30,12 +30,15 @@ import { useGlobalSearch } from '@/hooks/use-global-search';
 import { useNavigationFavorites } from '@/hooks/use-navigation-favorites';
 import { useRecentItems } from '@/hooks/use-recent-items';
 import {
+    collectNavGroupUrls,
+    commandItemSearchValue,
     commandResultValue,
     filterCommandGroupsForQuery,
     filterFavoritesForQuery,
     recordSearchEmptyMessage,
     shouldUseCmdkClientFilter,
 } from '@/lib/global-search';
+import { NO_PLATFORM_ACCESS } from '@/lib/nav-visibility';
 import { excludeUrlsFromNavGroups } from '@/lib/navigation-favorites';
 import {
     matchingRecentItems,
@@ -43,6 +46,7 @@ import {
     recentItemHeading,
     shouldRenderRecentGroup,
 } from '@/lib/recent-items';
+import { extraSettingsCommandGroups } from '@/lib/settings-nav';
 import type { Auth } from '@/types/auth';
 
 const RECORD_ICONS: Record<string, LucideIcon> = {
@@ -71,9 +75,30 @@ export function CommandMenu() {
     );
     const commandGroups = React.useMemo(() => {
         const favoriteUrls = new Set(accessibleItems.map((item) => item.url));
+        const sidebarCommandGroups = excludeUrlsFromNavGroups(
+            sidebarData.navGroups,
+            favoriteUrls,
+        );
+        const occupiedUrls = collectNavGroupUrls(sidebarCommandGroups);
 
-        return excludeUrlsFromNavGroups(sidebarData.navGroups, favoriteUrls);
-    }, [accessibleItems, sidebarData.navGroups]);
+        for (const url of favoriteUrls) {
+            occupiedUrls.add(url);
+        }
+
+        return [
+            ...sidebarCommandGroups,
+            ...extraSettingsCommandGroups(
+                auth?.permissions ?? [],
+                auth?.platform ?? NO_PLATFORM_ACCESS,
+                occupiedUrls,
+            ),
+        ];
+    }, [
+        accessibleItems,
+        auth?.permissions,
+        auth?.platform,
+        sidebarData.navGroups,
+    ]);
     const visibleFavorites = React.useMemo(
         () => filterFavoritesForQuery(accessibleItems, query),
         [accessibleItems, query],
@@ -206,12 +231,13 @@ export function CommandMenu() {
                                     return (
                                         <CommandItem
                                             key={`${navItem.url}-${i}`}
-                                            value={navItem.title}
+                                            value={commandItemSearchValue(
+                                                group.title,
+                                                navItem.title,
+                                            )}
                                             onSelect={() => {
                                                 runCommand(() => {
-                                                    router.visit(
-                                                        navItem.url as string,
-                                                    );
+                                                    router.visit(navItem.url);
                                                 });
                                             }}
                                         >
@@ -223,10 +249,19 @@ export function CommandMenu() {
                                     );
                                 }
 
-                                return navItem.items?.map((subItem, j) => (
+                                const nestedItems =
+                                    'items' in navItem
+                                        ? navItem.items
+                                        : undefined;
+
+                                return nestedItems?.map((subItem, j) => (
                                     <CommandItem
                                         key={`${navItem.title}-${subItem.url}-${j}`}
-                                        value={`${navItem.title}-${subItem.url}`}
+                                        value={commandItemSearchValue(
+                                            group.title,
+                                            navItem.title,
+                                            subItem.title,
+                                        )}
                                         onSelect={() => {
                                             runCommand(() => {
                                                 router.visit(subItem.url);

@@ -38,6 +38,11 @@ trait AppliesDocumentRequirementRules
                 'integer',
                 Rule::exists('ranks', 'id')->whereNull('deleted_at'),
             ],
+            'project_ids' => ['sometimes', 'array'],
+            'project_ids.*' => [
+                'integer',
+                Rule::exists('projects', 'id')->whereNull('deleted_at'),
+            ],
             'require_issue_date' => ['sometimes', 'boolean'],
             'require_expiry_date' => ['sometimes', 'boolean'],
             'require_document_number' => ['sometimes', 'boolean'],
@@ -53,15 +58,16 @@ trait AppliesDocumentRequirementRules
         $departmentIds = $this->input('department_ids', []);
         $positionIds = $this->input('position_ids', []);
         $rankIds = $this->input('rank_ids', []);
+        $projectIds = $this->input('project_ids', []);
 
-        if (! is_array($departmentIds) || ! is_array($positionIds) || ! is_array($rankIds)) {
+        if (! is_array($departmentIds) || ! is_array($positionIds) || ! is_array($rankIds) || ! is_array($projectIds)) {
             return;
         }
 
-        if ($departmentIds === [] && $positionIds === [] && $rankIds === []) {
+        if ($departmentIds === [] && $positionIds === [] && $rankIds === [] && $projectIds === []) {
             $validator->errors()->add(
                 'required_for_all',
-                'Select at least one department, position, or rank, or require the document for all employees.',
+                'Select at least one department, position, rank, or project, or require the document for all employees.',
             );
         }
     }
