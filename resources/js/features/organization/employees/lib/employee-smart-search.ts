@@ -357,6 +357,15 @@ export function reconcileSmartSearchOwnership<T extends Record<string, string>>(
     return next;
 }
 
+export function smartSearchFiltersEqual(
+    left: SmartSearchFilters,
+    right: SmartSearchFilters,
+): boolean {
+    return SMART_SEARCH_FILTER_KEYS.every(
+        (key) => (left[key] ?? '') === (right[key] ?? ''),
+    );
+}
+
 export function employeeDirectoryFiltersEqual<T extends Record<string, string>>(
     left: T,
     right: T,

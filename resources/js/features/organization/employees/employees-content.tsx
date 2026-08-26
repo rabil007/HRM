@@ -171,24 +171,27 @@ export function EmployeesContent({
         null,
     );
 
-    const filters: EmployeeFilters = {
-        branch_id: initialFilters.branch_id ?? '',
-        department_id: initialFilters.department_id ?? '',
-        position_id: initialFilters.position_id ?? '',
-        status: initialFilters.status ?? '',
-        manager_id: initialFilters.manager_id ?? '',
-        gender_id: initialFilters.gender_id ?? '',
-        nationality_id: initialFilters.nationality_id ?? '',
-        visa_type_id: initialFilters.visa_type_id ?? '',
-        company_visa_type_id: initialFilters.company_visa_type_id ?? '',
-        rank_id: initialFilters.rank_id ?? '',
-        approval_location_id: initialFilters.approval_location_id ?? '',
-        sssa_option_id: initialFilters.sssa_option_id ?? '',
-        crew_status: initialFilters.crew_status ?? '',
-        role_id: initialFilters.role_id ?? '',
-        missing_fields: initialFilters.missing_fields ?? '',
-        present_fields: initialFilters.present_fields ?? '',
-    };
+    const filters = useMemo<EmployeeFilters>(
+        () => ({
+            branch_id: initialFilters.branch_id ?? '',
+            department_id: initialFilters.department_id ?? '',
+            position_id: initialFilters.position_id ?? '',
+            status: initialFilters.status ?? '',
+            manager_id: initialFilters.manager_id ?? '',
+            gender_id: initialFilters.gender_id ?? '',
+            nationality_id: initialFilters.nationality_id ?? '',
+            visa_type_id: initialFilters.visa_type_id ?? '',
+            company_visa_type_id: initialFilters.company_visa_type_id ?? '',
+            rank_id: initialFilters.rank_id ?? '',
+            approval_location_id: initialFilters.approval_location_id ?? '',
+            sssa_option_id: initialFilters.sssa_option_id ?? '',
+            crew_status: initialFilters.crew_status ?? '',
+            role_id: initialFilters.role_id ?? '',
+            missing_fields: initialFilters.missing_fields ?? '',
+            present_fields: initialFilters.present_fields ?? '',
+        }),
+        [initialFilters],
+    );
 
     const smartSearch = useEmployeeSmartSearch({
         currentFilters: filters,
