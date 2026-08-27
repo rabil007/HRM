@@ -107,13 +107,10 @@ export function DocumentsTemplatesContent({
         title: string;
         contentHtml: string;
         unresolvedPlaceholders: string[];
-        previewMode: 'sample' | 'employee';
-        employeeName?: string | null;
     }>({
         title: '',
         contentHtml: '',
         unresolvedPlaceholders: [],
-        previewMode: 'sample',
     });
 
     const form = useForm<TemplateFormData>({
@@ -211,7 +208,6 @@ export function DocumentsTemplatesContent({
             title: template.name,
             contentHtml: '',
             unresolvedPlaceholders: [],
-            previewMode: 'sample',
         });
 
         try {
@@ -234,8 +230,6 @@ export function DocumentsTemplatesContent({
                 title: data.name,
                 contentHtml: data.content_html,
                 unresolvedPlaceholders: data.unresolved_placeholders || [],
-                previewMode: data.preview_mode || 'sample',
-                employeeName: data.employee_name,
             });
         } catch {
             setPreviewData({
@@ -243,7 +237,6 @@ export function DocumentsTemplatesContent({
                 contentHtml:
                     '<p class="text-destructive">Failed to generate preview.</p>',
                 unresolvedPlaceholders: [],
-                previewMode: 'sample',
             });
         } finally {
             setPreviewLoading(false);
@@ -257,7 +250,6 @@ export function DocumentsTemplatesContent({
             title: name || 'Draft Template Preview',
             contentHtml: '',
             unresolvedPlaceholders: [],
-            previewMode: 'sample',
         });
 
         try {
@@ -284,8 +276,6 @@ export function DocumentsTemplatesContent({
                 title: data.name,
                 contentHtml: data.content_html,
                 unresolvedPlaceholders: data.unresolved_placeholders || [],
-                previewMode: data.preview_mode || 'sample',
-                employeeName: data.employee_name,
             });
         } catch {
             setPreviewData({
@@ -293,7 +283,6 @@ export function DocumentsTemplatesContent({
                 contentHtml:
                     '<p class="text-destructive">Failed to generate draft preview.</p>',
                 unresolvedPlaceholders: [],
-                previewMode: 'sample',
             });
         } finally {
             setPreviewLoading(false);
@@ -691,8 +680,6 @@ export function DocumentsTemplatesContent({
                 contentHtml={previewData.contentHtml}
                 unresolvedPlaceholders={previewData.unresolvedPlaceholders}
                 isLoading={previewLoading}
-                previewMode={previewData.previewMode}
-                employeeName={previewData.employeeName}
             />
 
             {/* Delete Dialog */}

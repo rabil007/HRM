@@ -673,7 +673,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:documents.templates.create')
         ->name('organization.documents.templates.store');
     Route::post('organization/documents/templates/preview-draft', [DocumentGenerationTemplatePreviewController::class, 'previewDraft'])
-        ->middleware('can:documents.templates.create')
         ->name('organization.documents.templates.preview-draft');
     Route::get('organization/documents/templates/{template}/preview', [DocumentGenerationTemplatePreviewController::class, 'preview'])
         ->middleware('can:documents.templates.view')

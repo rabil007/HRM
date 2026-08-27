@@ -48,7 +48,7 @@ Documents → Templates serves as the centralized company custom document templa
    - Optional association to `document_types` for categorization.
    - Managed via right-side form sheet with interactive merge field insertion.
    - Duplication creates a company-scoped copy starting in `draft` with a unique `(Copy)` suffix.
-   - Preview system allows safe HTML rendering with sample data or active company employee data without database side-effects or workflow triggers.
+   - Preview system renders safe in-memory HTML preview with sample data only (real-employee preview is intentionally deferred). No database side-effects or workflow triggers.
    - **Allowed Merge Fields**: Strict allowlist catalog (`App\Support\Documents\DocumentTemplateMergeFields`) covering:
      - *Employee*: `{{employee_name}}`, `{{employee_no}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{phone}}`, `{{gender}}`, `{{joining_date}}`
      - *Organization*: `{{company_name}}`, `{{department_name}}`, `{{position_name}}`, `{{branch_name}}`
@@ -73,7 +73,7 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents/requests` | Signature requests | `bulk_documents.view` |
 | `/organization/documents/templates` | Custom and System Document Templates | `documents.templates.view` \| `bulk_documents.view` \| `settings.master-data.document-types.view` \| platform view |
 | `/organization/documents/templates` (POST) | Store custom document template | `documents.templates.create` |
-| `/organization/documents/templates/preview-draft` (POST) | Render preview for unsaved draft | `documents.templates.create` |
+| `/organization/documents/templates/preview-draft` (POST) | Render preview for unsaved draft | `documents.templates.create` \| `documents.templates.update` |
 | `/organization/documents/templates/{template}/preview` (GET) | Render preview for saved template | `documents.templates.view` |
 | `/organization/documents/templates/{template}` (PUT) | Update custom document template | `documents.templates.update` |
 | `/organization/documents/templates/{template}/duplicate` (POST) | Duplicate custom template in company | `documents.templates.update` |

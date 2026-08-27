@@ -16,8 +16,6 @@ export function TemplatePreviewDialog({
     contentHtml,
     unresolvedPlaceholders = [],
     isLoading = false,
-    previewMode = 'sample',
-    employeeName,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -25,8 +23,6 @@ export function TemplatePreviewDialog({
     contentHtml: string;
     unresolvedPlaceholders?: string[];
     isLoading?: boolean;
-    previewMode?: 'sample' | 'employee';
-    employeeName?: string | null;
 }) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -39,9 +35,7 @@ export function TemplatePreviewDialog({
                         </DialogTitle>
                     </div>
                     <DialogDescription>
-                        {previewMode === 'employee' && employeeName
-                            ? `Previewing with data for employee: ${employeeName}`
-                            : 'Previewing with sample organization and employee data.'}
+                        Previewing with sample organization and employee data.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -67,7 +61,7 @@ export function TemplatePreviewDialog({
                                 </div>
                             )}
 
-                            <div className="min-h-[360px] rounded-xl border border-border/80 bg-background/80 p-8 font-sans text-sm leading-relaxed whitespace-pre-wrap text-foreground shadow-sm">
+                            <div className="min-h-[360px] rounded-xl border border-border/80 bg-background/80 p-8 font-sans text-sm leading-relaxed whitespace-pre-wrap text-foreground shadow-xs">
                                 <div
                                     dangerouslySetInnerHTML={{
                                         __html: contentHtml,

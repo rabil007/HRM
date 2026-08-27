@@ -398,11 +398,47 @@ test('preview draft renders without persisting template', function () {
 
     expect($data['content_html'])->toContain('Dear Jane Smith at Gulf Maritime, placeholder {{unresolved_code}}.');
     expect($data['unresolved_placeholders'])->toContain('{{unresolved_code}}');
+    expect($data['preview_mode'])->toBe('sample');
 
     expect(DocumentGenerationTemplate::query()->count())->toBe($initialCount);
 });
 
-test('preview with employee resolves employee data', function () {
+test('preview draft allows update-only user to preview draft edits', function () {
+    $user = User::factory()->create();
+    $company = createDocTemplatesTestCompany('Update Only Maritime');
+
+    grantCompanyPermissions($user, $company, ['documents.templates.update']);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->postJson(route('organization.documents.templates.preview-draft'), [
+            'name' => 'Draft Edit Preview',
+            'content' => 'Updated draft content for {{employee_name}}.',
+        ]);
+
+    $response->assertOk();
+    $data = $response->json();
+
+    expect($data['content_html'])->toContain('Updated draft content for Jane Smith.');
+    expect($data['preview_mode'])->toBe('sample');
+});
+
+test('preview draft rejects users without create or update permissions', function () {
+    $user = User::factory()->create();
+    $company = createDocTemplatesTestCompany('Restricted Co');
+
+    grantCompanyPermissions($user, $company, ['documents.templates.view']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->postJson(route('organization.documents.templates.preview-draft'), [
+            'name' => 'Unauthorized Draft Preview',
+            'content' => 'Hello {{employee_name}}',
+        ])
+        ->assertForbidden();
+});
+
+test('preview ignores employee_id and always renders with sample data only', function () {
     $user = User::factory()->create();
     $company = createDocTemplatesTestCompany('Marine Services');
     $employee = Employee::factory()->forCompany($company)->create([
@@ -417,17 +453,36 @@ test('preview with employee resolves employee data', function () {
 
     grantCompanyPermissions($user, $company, ['documents.templates.view']);
 
-    $response = $this->actingAs($user)
+    // Stored template preview ignores employee_id
+    $responseStored = $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->getJson(route('organization.documents.templates.preview', [
             'template' => $template->id,
             'employee_id' => $employee->id,
         ]));
 
-    $response->assertOk();
-    $data = $response->json();
+    $responseStored->assertOk();
+    $dataStored = $responseStored->json();
 
-    expect($data['content_html'])->toContain('Member: Captain Jack Sparrow (CAPT-001)');
-    expect($data['preview_mode'])->toBe('employee');
-    expect($data['employee_name'])->toBe('Captain Jack Sparrow');
+    expect($dataStored['content_html'])->toContain('Member: Jane Smith (EMP-1042)');
+    expect($dataStored['content_html'])->not->toContain('Captain Jack Sparrow');
+    expect($dataStored['preview_mode'])->toBe('sample');
+
+    // Draft preview also ignores employee_id
+    grantCompanyPermissions($user, $company, ['documents.templates.create']);
+
+    $responseDraft = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->postJson(route('organization.documents.templates.preview-draft'), [
+            'name' => 'Draft Memo',
+            'content' => 'Member: {{employee_name}} ({{employee_no}})',
+            'employee_id' => $employee->id,
+        ]);
+
+    $responseDraft->assertOk();
+    $dataDraft = $responseDraft->json();
+
+    expect($dataDraft['content_html'])->toContain('Member: Jane Smith (EMP-1042)');
+    expect($dataDraft['content_html'])->not->toContain('Captain Jack Sparrow');
+    expect($dataDraft['preview_mode'])->toBe('sample');
 });
