@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Main } from '@/components/layout/main';
@@ -8,6 +8,7 @@ import { DocumentRequirementSummaryCards } from '@/features/organization/documen
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
+import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
 import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
 import { DocumentsIndexDocumentBulkActions } from '@/features/organization/documents/index/documents-index-document-bulk-actions';
@@ -38,12 +39,15 @@ import { FolderShareLinksModal } from '@/features/organization/documents/whatsap
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
+import { documentsModuleSectionFromUrl } from '@/lib/documents-module-nav';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import type { SavedView } from '@/lib/saved-views';
 import { toast } from '@/lib/toast';
 import { UploadDocumentDialog } from '@/pages/organization/_components/documents/upload-dialog';
 import { documents } from '@/routes/organization';
-import documentRoutes from '@/routes/organization/documents';
+import documentRoutes, {
+    library as documentsLibrary,
+} from '@/routes/organization/documents';
 import { shareLinks as folderShareLinks } from '@/routes/organization/documents/folders';
 
 type Props = {
@@ -71,6 +75,7 @@ type Props = {
         email_templates: EmailTemplateOption[];
     };
     saved_views?: SavedView[];
+    module_section?: 'overview' | 'library';
 };
 
 const EMPTY_SEARCH_DOCUMENTS: PaginatedComplianceDocuments = {
@@ -108,7 +113,18 @@ export default function DocumentsIndex({
     countries = [],
     can,
     saved_views = [],
+    module_section,
 }: Props) {
+    const page = usePage();
+    const resolvedSection =
+        module_section ??
+        (documentsModuleSectionFromUrl(page.url) === 'library'
+            ? 'library'
+            : 'overview');
+    const indexUrl =
+        resolvedSection === 'library'
+            ? documentsLibrary.url()
+            : documents.url();
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
     const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(
         null,
@@ -172,7 +188,7 @@ export default function DocumentsIndex({
         onDepartmentChange,
         onPageChange,
     } = useDocumentsIndexFilters({
-        url: documents.url(),
+        url: indexUrl,
         initialSearch,
         initialExpiry,
         initialRequirementStatus,
@@ -299,9 +315,13 @@ export default function DocumentsIndex({
 
     return (
         <Main>
-            <Head title="Documents" />
+            <Head
+                title={resolvedSection === 'library' ? 'Library' : 'Overview'}
+            />
 
             <DocumentsBreadcrumbs items={[{ title: 'Documents' }]} />
+
+            <DocumentsModuleNav />
 
             <DocumentsSummaryCards
                 summary={summary}

@@ -2,11 +2,56 @@
 
 Employee documents are stored per company and linked to employees. HR can browse by folder, manage files on the employee profile, track expiry, and measure **required-document compliance** (valid, expiring, expired, missing).
 
+## Unified Documents module (transitional)
+
+Documents is one sidebar group with these destinations:
+
+| Path | Section | Reuses | Permission |
+|------|---------|--------|------------|
+| `/organization/documents` | Overview | Current Documents index | `documents.view` |
+| `/organization/documents/library` | Library | Same Documents index (no query fork) | `documents.view` |
+| `/organization/documents/generate` | Generate & Send | Current Bulk Documents roster | `bulk_documents.view` |
+| `/organization/documents/requests` | Requests | Current bulk signature-request view | `bulk_documents.view` |
+| `/organization/documents/templates` | Templates | Transitional bridge only | Any of `bulk_documents.view`, `settings.master-data.document-types.view`, or platform view |
+| `/organization/documents/activity` | Activity | Current bulk generation history | `bulk_documents.view` |
+
+Overview and Library currently share `DocumentsFolderIndexController` and the existing index page. Active navigation follows the URL so Overview and Library are distinct even though the page body is the same.
+
+Generate, Requests, and Activity share `BulkDocumentsController`. Explicit module routes set a `module_view` route default (`roster` / `signatures` / `history`). That value is resolved before the legacy `view` query string.
+
+### Legacy Bulk URLs
+
+These remain valid GET bookmarks and keep their existing route names. POST/PUT/DELETE bulk action routes are unchanged.
+
+| Legacy URL | Active module section |
+|------------|------------------------|
+| `/organization/documents/bulk` | Generate & Send |
+| `/organization/documents/bulk?view=signatures` | Requests |
+| `/organization/documents/bulk?view=history` | Activity |
+
+The standalone **Bulk generate** sidebar item is removed. Favorites key `documents.bulk` now points at Generate & Send.
+
+### Templates bridge
+
+Phase 1 does not add a template builder, workflow engine, or new permissions. The Templates screen only exposes:
+
+1. **System generation templates** from `BulkDocumentTypeRegistry` (Salary Declaration, Salary Certificate). These are protected legacy renderers, not Document Types.
+2. A link to **Settings → Master Data → Document Types** when the user has `settings.master-data.document-types.view`.
+3. A link to **Settings → Application → signature placement** when the user has platform view.
+
+Salary Certificate / Salary Declaration PDF layout, Browsershot, Puppeteer, FPDI stamping, and requirement/compliance calculations are unchanged.
+
 ## Routes
 
 | Path | Purpose | Permission |
 |------|---------|------------|
-| `/organization/documents` | Folder index + global search | `documents.view` |
+| `/organization/documents` | Unified Overview (existing folder index + global search) | `documents.view` |
+| `/organization/documents/library` | Unified Library (same index as Overview) | `documents.view` |
+| `/organization/documents/generate` | Generate & Send (bulk roster) | `bulk_documents.view` |
+| `/organization/documents/requests` | Signature requests | `bulk_documents.view` |
+| `/organization/documents/templates` | Transitional templates bridge | See Templates bridge above |
+| `/organization/documents/activity` | Bulk generation history | `bulk_documents.view` |
+| `/organization/documents/bulk` | Legacy Bulk Documents index | `bulk_documents.view` |
 | `/organization/documents/employees/{employee}` | Employee document browse | `documents.view` |
 | `/organization/employees/{employee}` (Documents tab) | Upload, edit, versions on profile | `documents.view` / `documents.upload` / `documents.delete` |
 
@@ -253,6 +298,8 @@ Not implemented: a separate requirements page, individual exceptions/waivers, ap
 - `tests/Feature/Organization/UnmappedEmployeeDocumentTypeCommandTest.php`
 - `tests/Unit/Support/DocumentRequirementResolverTest.php`
 - `tests/Unit/Support/LatestEmployeeDocumentQueryTest.php`
+- `tests/Feature/Organization/DocumentsModuleTest.php`
+- `tests/Unit/Support/DocumentsModuleAccessTest.php`
 - `tests/Feature/Organization/DocumentBrowseTest.php`
 - `tests/Feature/Organization/EmployeeDocumentsTest.php`
 - `tests/Feature/Organization/EmployeePrivateFileStorageTest.php`

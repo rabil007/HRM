@@ -7,10 +7,9 @@ import {
 import { useAuthPermissions } from '@/hooks/use-has-permission';
 import { isSidebarUrlVisible, NO_PLATFORM_ACCESS } from '@/lib/nav-visibility';
 import {
-    destinationKeyFromPathname,
+    destinationKeyFromPageUrl,
     findNavigationDestination,
     isFavoriteDestinationKey,
-    pathnameFromPageUrl,
     resolveAccessibleFavoriteItems,
 } from '@/lib/navigation-favorites';
 import type { Auth } from '@/types/auth';
@@ -22,8 +21,7 @@ export function useNavigationFavorites() {
         (page.props.auth as Auth | undefined)?.platform ?? NO_PLATFORM_ACCESS;
     const sharedKeys = page.props.favorite_destination_keys;
     const keys = useMemo(() => sharedKeys ?? [], [sharedKeys]);
-    const pathname = pathnameFromPageUrl(page.url);
-    const currentKey = destinationKeyFromPathname(pathname);
+    const currentKey = destinationKeyFromPageUrl(page.url);
     const currentDestination = currentKey
         ? findNavigationDestination(currentKey)
         : undefined;

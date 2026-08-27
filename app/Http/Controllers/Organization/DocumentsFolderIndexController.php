@@ -29,6 +29,15 @@ class DocumentsFolderIndexController extends Controller
         $redirect = ApplyDefaultSavedView::maybeRedirect($request, SavedViewPage::Documents);
 
         if ($redirect !== null) {
+            $routeName = $request->route()?->getName();
+
+            if ($routeName === 'organization.documents.library') {
+                $query = [];
+                parse_str((string) parse_url($redirect->getTargetUrl(), PHP_URL_QUERY), $query);
+
+                return redirect()->route($routeName, $query);
+            }
+
             return $redirect;
         }
 
@@ -67,6 +76,7 @@ class DocumentsFolderIndexController extends Controller
             'countries' => EmployeeFormOptions::for($companyId)['countries'],
             'can' => DocumentPagePermissions::for($request->user()),
             'saved_views' => SavedViewsForPage::props($request->user(), $companyId, SavedViewPage::Documents),
+            'module_section' => $request->routeIs('organization.documents.library') ? 'library' : 'overview',
         ];
 
         if ($requirementStatus !== '') {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { isSidebarUrlVisible } from './nav-visibility.ts';
 import {
+    destinationKeyFromPageUrl,
     destinationKeyFromPathname,
     excludeUrlsFromNavGroups,
     isFavoriteDestinationKey,
@@ -33,6 +34,14 @@ describe('pathname matching', () => {
             'documents.bulk',
         );
         assert.equal(
+            destinationKeyFromPathname('/organization/documents/generate'),
+            'documents.bulk',
+        );
+        assert.equal(
+            destinationKeyFromPathname('/organization/documents/library'),
+            'documents.library',
+        );
+        assert.equal(
             destinationKeyFromPathname('/organization/documents'),
             'documents',
         );
@@ -49,6 +58,51 @@ describe('pathname matching', () => {
             'crew.vessel-manning',
         );
         assert.equal(destinationKeyFromPathname('/settings/application'), null);
+        assert.equal(
+            destinationKeyFromPageUrl(
+                '/organization/documents/bulk?view=signatures',
+            ),
+            'documents.requests',
+        );
+        assert.equal(
+            destinationKeyFromPageUrl(
+                '/organization/documents/bulk?view=history',
+            ),
+            'documents.activity',
+        );
+    });
+});
+
+describe('unified Documents destinations', () => {
+    it('keeps Documents as one group without a standalone Bulk generate destination', () => {
+        const documents = NAVIGATION_DESTINATIONS.filter(
+            (destination) => destination.group === 'Documents',
+        );
+
+        assert.deepEqual(
+            documents.map((destination) => destination.label),
+            [
+                'Overview',
+                'Library',
+                'Generate & Send',
+                'Requests',
+                'Templates',
+                'Activity',
+            ],
+        );
+        assert.equal(
+            NAVIGATION_DESTINATIONS.some(
+                (destination) => destination.label === 'Bulk generate',
+            ),
+            false,
+        );
+        assert.equal(
+            NAVIGATION_DESTINATIONS.some(
+                (destination) =>
+                    destination.href === '/organization/documents/bulk',
+            ),
+            false,
+        );
     });
 });
 
@@ -196,6 +250,49 @@ describe('accessible favorite rendering', () => {
 });
 
 describe('command palette de-duplication', () => {
+    it('removes nested Documents destinations from commands when favorited', () => {
+        const groups = excludeUrlsFromNavGroups(
+            [
+                {
+                    title: 'Employees',
+                    items: [
+                        {
+                            title: 'Documents',
+                            items: [
+                                {
+                                    title: 'Overview',
+                                    url: '/organization/documents',
+                                },
+                                {
+                                    title: 'Generate & Send',
+                                    url: '/organization/documents/generate',
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+            new Set(['/organization/documents/generate']),
+        );
+
+        assert.deepEqual(groups, [
+            {
+                title: 'Employees',
+                items: [
+                    {
+                        title: 'Documents',
+                        items: [
+                            {
+                                title: 'Overview',
+                                url: '/organization/documents',
+                            },
+                        ],
+                    },
+                ],
+            },
+        ]);
+    });
+
     it('removes favorite urls from the normal commands groups', () => {
         const groups = excludeUrlsFromNavGroups(
             [

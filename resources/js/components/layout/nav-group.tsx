@@ -26,6 +26,7 @@ import {
     SidebarMenuSubItem,
     useSidebar,
 } from '@/components/ui/sidebar';
+import { isDocumentsModuleNavUrlActive } from '@/lib/documents-module-nav';
 import type {
     NavCollapsible,
     NavItem,
@@ -217,6 +218,12 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
     const path = href.split('?')[0];
 
     if ('url' in item && item.url) {
+        const documentsActive = isDocumentsModuleNavUrlActive(href, item.url);
+
+        if (documentsActive !== null) {
+            return documentsActive;
+        }
+
         if (
             item.url === '/payroll' &&
             (path.startsWith('/payroll/records') ||
@@ -245,14 +252,6 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
         }
 
         if (
-            item.url === '/organization/documents' &&
-            (path === '/organization/documents/bulk' ||
-                path.startsWith('/organization/documents/bulk/'))
-        ) {
-            return false;
-        }
-
-        if (
             path === item.url ||
             (item.url !== '/' && path.startsWith(`${item.url}/`))
         ) {
@@ -265,7 +264,8 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
             (i) =>
                 i.url &&
                 (i.url === path ||
-                    (i.url !== '/' && path.startsWith(`${i.url}/`))),
+                    (i.url !== '/' && path.startsWith(`${i.url}/`)) ||
+                    isDocumentsModuleNavUrlActive(href, i.url) === true),
         ) ||
         (mainNav &&
             path.split('/')[1] !== '' &&
