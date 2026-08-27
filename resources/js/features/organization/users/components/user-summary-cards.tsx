@@ -50,19 +50,24 @@ const PRESENCE_ITEMS: {
 export function UserSummaryCards({
     summary,
     activePresence,
+    invitationsActive = false,
     onSelectPresence,
+    onSelectInvitations,
 }: {
     summary: UserDirectorySummary;
     activePresence: string;
+    invitationsActive?: boolean;
     onSelectPresence: (presence: PresenceQuickFilter) => void;
+    onSelectInvitations: () => void;
 }) {
     const pendingInvites = summary.pending_invites;
-    const canRevealInvitations = pendingInvites > 0;
+    const canRevealInvitations = pendingInvites > 0 || invitationsActive;
 
     return (
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {PRESENCE_ITEMS.map((item) => {
-                const isActive = item.presence === activePresence;
+                const isActive =
+                    !invitationsActive && item.presence === activePresence;
 
                 return (
                     <button
@@ -99,12 +104,20 @@ export function UserSummaryCards({
             })}
 
             {canRevealInvitations ? (
-                <a
-                    href="#pending-invitations"
+                <button
+                    type="button"
+                    onClick={onSelectInvitations}
+                    aria-pressed={invitationsActive}
                     aria-label={`Show ${pendingInvites} pending invitations`}
-                    className="block h-full w-full cursor-pointer rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
+                    className="h-full w-full cursor-pointer rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
                 >
-                    <Card className="h-full glass-card border-violet-500/15 bg-violet-500/[0.04] transition-all duration-200 hover:border-violet-500/30">
+                    <Card
+                        className={cn(
+                            'h-full glass-card border-violet-500/15 bg-violet-500/[0.04] transition-all duration-200 hover:border-violet-500/30',
+                            invitationsActive &&
+                                'border-violet-500/40 ring-1 ring-violet-500/25',
+                        )}
+                    >
                         <CardContent className="p-5">
                             <div className="flex items-center justify-between gap-2">
                                 <p className="text-[11px] font-semibold tracking-wide text-muted-foreground/80 uppercase">
@@ -120,7 +133,7 @@ export function UserSummaryCards({
                             </p>
                         </CardContent>
                     </Card>
-                </a>
+                </button>
             ) : (
                 <Card className="h-full glass-card border-border dark:border-white/5">
                     <CardContent className="p-5">

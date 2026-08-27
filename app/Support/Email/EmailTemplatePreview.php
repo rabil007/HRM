@@ -73,6 +73,12 @@ final class EmailTemplatePreview
                 bodyHtml: $renderedBody,
                 includeCompanyFooter: $includeCompanyFooter,
             ),
+            'user_invitation' => $this->renderUserInvitation(
+                subject: $renderedSubject,
+                organizationName: $organizationName,
+                bodyHtml: $renderedBody,
+                includeCompanyFooter: $includeCompanyFooter,
+            ),
             default => $this->renderPlainPreview($renderedSubject, $renderedBody, $includeCompanyFooter),
         };
 
@@ -218,6 +224,12 @@ final class EmailTemplatePreview
             '{{highest_severity}}' => 'CRITICAL',
             '{{crew_operations_url}}' => url('/organization/crew-operations'),
             '{{alerts_table}}' => CrewOperationalAlertDigestPresenter::sampleTable(),
+            '{{invitee_name}}' => 'Alex Invitee',
+            '{{inviter_name}}' => 'Jordan Admin',
+            '{{brand_name}}' => $organizationName,
+            '{{accept_url}}' => url('/invitations/accept?token=preview-token'),
+            '{{expires_at}}' => now()->addDays(7)->format('M j, Y'),
+            '{{role_name}}' => 'Manager',
         ];
     }
 
@@ -231,6 +243,20 @@ final class EmailTemplatePreview
             'subjectLine' => $subject,
             'organizationName' => $organizationName,
             'bodyHtml' => $bodyHtml,
+            'includeCompanyFooter' => $includeCompanyFooter,
+        ])->render();
+    }
+
+    private function renderUserInvitation(
+        string $subject,
+        string $organizationName,
+        string $bodyHtml,
+        bool $includeCompanyFooter,
+    ): string {
+        return View::make('mail.bulk-document', [
+            'subjectLine' => $subject,
+            'bodyMessage' => $bodyHtml,
+            'organizationName' => $organizationName,
             'includeCompanyFooter' => $includeCompanyFooter,
         ])->render();
     }

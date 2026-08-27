@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import type { RequirementComplianceItem } from '@/features/organization/documents/shared/types';
+import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { cn } from '@/lib/utils';
 
 const STATUS_CLASSES: Record<string, string> = {
@@ -44,7 +45,16 @@ export function DocumentRequirementComplianceTableRow({
                 dataTableBodyRowClass(false),
                 canOpenDocument && 'cursor-pointer',
             )}
-            onClick={() => {
+            onClick={(event) => {
+                const target = event.target;
+
+                if (
+                    !(target instanceof Element) ||
+                    target.closest('a, button, [data-row-ignore-click]')
+                ) {
+                    return;
+                }
+
                 if (canOpenDocument) {
                     onView?.(item);
                 }
@@ -52,9 +62,13 @@ export function DocumentRequirementComplianceTableRow({
         >
             <TableCell className={cn(dataTableCellClass(), 'min-w-[140px]')}>
                 <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">
+                    <EmployeeProfileLink
+                        employeeId={item.employee_id}
+                        className="block truncate text-sm font-semibold text-foreground hover:text-primary"
+                        stopRowNavigation
+                    >
                         {item.employee_name}
-                    </p>
+                    </EmployeeProfileLink>
                     <p className="truncate font-mono text-[11px] text-muted-foreground/75">
                         {item.employee_no}
                     </p>

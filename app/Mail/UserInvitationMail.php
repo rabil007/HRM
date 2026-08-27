@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\UserInvitation;
+use App\Support\Users\ComposeUserInvitationMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Mail\Mailable;
@@ -15,6 +16,16 @@ class UserInvitationMail extends Mailable implements ShouldBeEncrypted
 {
     use Queueable, SerializesModels;
 
+    /**
+     * @var array{
+     *     subject: string,
+     *     body: string,
+     *     companyName: string,
+     *     includeCompanyFooter: bool,
+     * }|null
+     */
+    private ?array $composed = null;
+
     public function __construct(
         public UserInvitation $invitation,
         public string $token
@@ -26,7 +37,7 @@ class UserInvitationMail extends Mailable implements ShouldBeEncrypted
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "Invitation to join {$this->invitation->company->name}",
+            subject: $this->composed()['subject'],
         );
     }
 
@@ -35,14 +46,16 @@ class UserInvitationMail extends Mailable implements ShouldBeEncrypted
      */
     public function content(): Content
     {
+        $composed = $this->composed();
+
         return new Content(
-            markdown: 'emails.users.invitation',
+            view: 'mail.bulk-document',
             with: [
-                'acceptUrl' => route('invitations.accept', ['token' => $this->token]),
-                'inviterName' => $this->invitation->inviter->name ?? 'An administrator',
-                'companyName' => $this->invitation->company->name,
-                'expiresAt' => $this->invitation->expires_at->format('M j, Y'),
-            ]
+                'subjectLine' => $composed['subject'],
+                'bodyMessage' => $composed['body'],
+                'organizationName' => $composed['companyName'],
+                'includeCompanyFooter' => $composed['includeCompanyFooter'],
+            ],
         );
     }
 
@@ -54,5 +67,21 @@ class UserInvitationMail extends Mailable implements ShouldBeEncrypted
     public function attachments(): array
     {
         return [];
+    }
+
+    /**
+     * @return array{
+     *     subject: string,
+     *     body: string,
+     *     companyName: string,
+     *     includeCompanyFooter: bool,
+     * }
+     */
+    private function composed(): array
+    {
+        return $this->composed ??= app(ComposeUserInvitationMail::class)->handle(
+            $this->invitation,
+            $this->token,
+        );
     }
 }

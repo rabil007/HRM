@@ -105,6 +105,9 @@ class UserController extends Controller
         $status = trim((string) request()->query('status', ''));
         $roleId = trim((string) request()->query('role_id', ''));
         $presence = trim((string) request()->query('presence', ''));
+        $view = trim((string) request()->query('view', '')) === 'invitations'
+            ? 'invitations'
+            : '';
 
         $paginator = $query->paginateForCompany(
             $companyId,
@@ -230,6 +233,7 @@ class UserController extends Controller
                 'status' => $status,
                 'role_id' => $roleId,
                 'presence' => $presence,
+                'view' => $view,
             ],
             'summary' => $summary,
             'roles' => $roles,

@@ -26,6 +26,7 @@ test('required document with no employee document is missing', function () {
             ->where('requirement_summary.missing', 1)
             ->has('requirementDocuments.data', 1)
             ->where('requirementDocuments.data.0.employee_id', $employee->id)
+            ->where('requirementDocuments.data.0.employee_name', $employee->name)
             ->where('requirementDocuments.data.0.document_type_id', $passportType->id)
             ->where('requirementDocuments.data.0.status', 'missing')
             ->where('requirementDocuments.data.0.document_id', null)

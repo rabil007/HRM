@@ -845,6 +845,7 @@ test('users directory summary counts are tenant-scoped and match presence filter
     $invitationEmails = collect($index->viewData('page')['props']['invitations'])->pluck('email')->all();
 
     expect($filters['presence'])->toBe('')
+        ->and($filters['view'])->toBe('')
         ->and($summary['online'])->toBeGreaterThanOrEqual(1)
         ->and($summary['never'])->toBeGreaterThanOrEqual(2)
         ->and($summary['pending_invites'])->toBe(1)
@@ -887,6 +888,51 @@ test('users directory summary counts are tenant-scoped and match presence filter
         ->and($neverIds)->toContain($neverUser->id)
         ->and($neverIds)->toContain($memberUser->id)
         ->and($neverIds)->not->toContain($onlineUser->id);
+});
+
+test('users directory can switch to the pending invitations list view', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.view']);
+
+    UserInvitation::query()->create([
+        'company_id' => $companyA->id,
+        'email' => 'pending-a@example.com',
+        'name' => 'Pending A',
+        'invited_by' => $admin->id,
+        'token_hash' => hash('sha256', 'pending-view-a-token'),
+        'expires_at' => now()->addDays(7),
+        'last_sent_at' => now(),
+    ]);
+    UserInvitation::query()->create([
+        'company_id' => $companyB->id,
+        'email' => 'pending-b@example.com',
+        'name' => 'Pending B',
+        'invited_by' => $admin->id,
+        'token_hash' => hash('sha256', 'pending-view-b-token'),
+        'expires_at' => now()->addDays(7),
+        'last_sent_at' => now(),
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->get(route('organization.users', ['view' => 'invitations']))
+        ->assertOk();
+
+    $filters = $response->viewData('page')['props']['filters'];
+    $invitationEmails = collect($response->viewData('page')['props']['invitations'])->pluck('email')->all();
+
+    expect($filters['view'])->toBe('invitations')
+        ->and($filters['presence'])->toBe('')
+        ->and($invitationEmails)->toContain('pending-a@example.com')
+        ->and($invitationEmails)->not->toContain('pending-b@example.com');
+
+    $ignored = $this->actingAs($admin)
+        ->get(route('organization.users', ['view' => 'unknown']))
+        ->assertOk();
+
+    expect($ignored->viewData('page')['props']['filters']['view'])->toBe('');
 });
 
 test('presence summary cards compose with role filters instead of replacing them', function () {

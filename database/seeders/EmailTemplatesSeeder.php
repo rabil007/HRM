@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\EmailTemplateCategory;
 use App\Models\EmailTemplate;
+use App\Support\Users\ComposeUserInvitationMail;
 use Illuminate\Database\Seeder;
 
 class EmailTemplatesSeeder extends Seeder
@@ -17,6 +18,7 @@ class EmailTemplatesSeeder extends Seeder
         self::seedLeaveRequestApprovedTemplate();
         self::seedLeaveRequestRejectedTemplate();
         self::seedPasswordResetTemplate();
+        self::seedUserInvitationTemplate();
         self::seedBulkSalaryDeclarationTemplate();
         self::seedBulkSalaryDeclarationSignReminderTemplate();
         self::seedBulkSalaryCertificateTemplate();
@@ -239,6 +241,34 @@ Employee: {{employee_name}}
 Leave type: {{leave_type}}
 Dates: {{start_date}} to {{end_date}}
 TEXT;
+    }
+
+    public static function seedUserInvitationTemplate(): EmailTemplate
+    {
+        $existing = EmailTemplate::withTrashed()->where('slug', 'user_invitation')->first();
+
+        if ($existing !== null) {
+            if ($existing->trashed()) {
+                $existing->restore();
+            }
+
+            return $existing->fresh() ?? $existing;
+        }
+
+        return EmailTemplate::query()->create([
+            'slug' => 'user_invitation',
+            'label' => 'User invitation',
+            'category' => EmailTemplateCategory::Notification,
+            'to_preset' => null,
+            'cc_preset' => null,
+            'dispatch_at' => null,
+            'subject' => 'Invitation to join {{company_name}}',
+            'body_html' => ComposeUserInvitationMail::defaultBodyHtml(),
+            'enabled' => true,
+            'include_company_footer' => true,
+            'is_default' => false,
+            'sort_order' => 4,
+        ])->fresh();
     }
 
     public static function seedPasswordResetTemplate(): EmailTemplate
