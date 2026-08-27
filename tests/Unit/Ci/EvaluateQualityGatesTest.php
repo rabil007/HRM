@@ -32,8 +32,8 @@ test('quality gates pass when every required job succeeds', function () {
         'run_frontend_static' => true,
         'run_frontend_build' => true,
         'run_pest' => true,
-        'expected_pest_shards' => 3,
-        'found_pest_shards' => [1, 2, 3],
+        'expected_pest_shards' => 6,
+        'found_pest_shards' => [1, 2, 3, 4, 5, 6],
         'vite_build_present' => true,
         'scope' => 'full',
     ]);
@@ -59,6 +59,26 @@ test('quality gates fail when a required job fails', function () {
         ->and($result['errors'])->toContain('Pest did not succeed (result=failure).');
 });
 
+test('quality gates fail when frontend static fails', function () {
+    $result = oms_ci_evaluate_quality_gates([
+        'changes_result' => 'success',
+        'pint_result' => 'success',
+        'frontend_static_result' => 'failure',
+        'frontend_build_result' => 'success',
+        'pest_result' => 'success',
+        'run_pint' => true,
+        'run_frontend_static' => true,
+        'run_frontend_build' => true,
+        'run_pest' => true,
+        'expected_pest_shards' => 6,
+        'found_pest_shards' => [1, 2, 3, 4, 5, 6],
+        'vite_build_present' => true,
+    ]);
+
+    expect($result['ok'])->toBeFalse()
+        ->and($result['errors'])->toContain('Frontend Static did not succeed (result=failure).');
+});
+
 test('quality gates fail when a required job is cancelled', function () {
     $result = oms_ci_evaluate_quality_gates([
         'changes_result' => 'success',
@@ -70,7 +90,7 @@ test('quality gates fail when a required job is cancelled', function () {
         'run_frontend_static' => true,
         'run_frontend_build' => true,
         'run_pest' => true,
-        'found_pest_shards' => [1, 2, 3],
+        'found_pest_shards' => [1, 2, 3, 4, 5, 6],
         'vite_build_present' => true,
     ]);
 
@@ -89,7 +109,7 @@ test('quality gates fail when a required job does not run', function () {
         'run_frontend_static' => true,
         'run_frontend_build' => true,
         'run_pest' => true,
-        'found_pest_shards' => [1, 2, 3],
+        'found_pest_shards' => [1, 2, 3, 4, 5, 6],
         'vite_build_present' => true,
     ]);
 
@@ -108,8 +128,8 @@ test('quality gates fail when pest shards are missing', function () {
         'run_frontend_static' => true,
         'run_frontend_build' => true,
         'run_pest' => true,
-        'expected_pest_shards' => 3,
-        'found_pest_shards' => [1, 2],
+        'expected_pest_shards' => 6,
+        'found_pest_shards' => [1, 2, 3, 4, 5],
         'vite_build_present' => true,
     ]);
 
@@ -164,7 +184,8 @@ test('backend-only expected skips still pass the aggregator', function () {
         'run_frontend_static' => false,
         'run_frontend_build' => true,
         'run_pest' => true,
-        'found_pest_shards' => [1, 2, 3],
+        'expected_pest_shards' => 6,
+        'found_pest_shards' => [1, 2, 3, 4, 5, 6],
         'vite_build_present' => true,
         'scope' => 'backend-only',
     ]);

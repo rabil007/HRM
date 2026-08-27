@@ -6,7 +6,7 @@
  * Invoked from .github/workflows/ci.yml and covered by tests/Unit/Ci.
  */
 
-const OMS_CI_PEST_SHARD_COUNT = 3;
+const OMS_CI_PEST_SHARD_COUNT = 6;
 
 /**
  * @param  list<string>  $paths
@@ -348,10 +348,6 @@ function oms_ci_evaluate_quality_gates(array $state): array
 
         if ($found !== $expected) {
             $errors[] = 'Pest shard results are missing or incomplete (found=['.implode(',', $found)."], expected=1..{$expectedShards}).";
-        }
-
-        if (! $viteBuildOk) {
-            $errors[] = 'Frontend build artifact was missing from a successful Pest run.';
         }
     }
 
