@@ -42,7 +42,7 @@ jobs:
       scope: ${{ steps.classify.outputs.scope }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -120,7 +120,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -135,7 +135,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: composer-${{ runner.os }}-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
@@ -143,7 +143,7 @@ jobs:
             composer-${{ runner.os }}-${{ env.PHP_VERSION }}-
 
       - name: Cache Pint
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .pint.cache
           key: pint-${{ runner.os }}-${{ hashFiles('composer.lock', 'pint.json') }}-${{ github.sha }}
@@ -164,7 +164,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -175,7 +175,7 @@ jobs:
           ini-values: memory_limit=1G
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -186,42 +186,42 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: composer-${{ runner.os }}-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
           restore-keys: |
             composer-${{ runner.os }}-${{ env.PHP_VERSION }}-
 
-      - name: Cache ESLint
-        uses: actions/cache@v4
-        with:
-          path: node_modules/.cache/.eslintcache
-          key: eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.*') }}-${{ github.sha }}
-          restore-keys: |
-            eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.*') }}-
-
-      - name: Cache Prettier
-        uses: actions/cache@v4
-        with:
-          path: node_modules/.cache/prettier
-          key: prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc*') }}-${{ github.sha }}
-          restore-keys: |
-            prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc*') }}-
-
-      - name: Cache TypeScript build info
-        uses: actions/cache@v4
-        with:
-          path: node_modules/.cache/tsbuildinfo
-          key: tsbuildinfo-${{ runner.os }}-${{ hashFiles('package-lock.json', 'tsconfig.json') }}-${{ github.sha }}
-          restore-keys: |
-            tsbuildinfo-${{ runner.os }}-${{ hashFiles('package-lock.json', 'tsconfig.json') }}-
-
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Install Node dependencies
         run: npm ci --prefer-offline
+
+      - name: Cache ESLint
+        uses: actions/cache@v6
+        with:
+          path: .cache/.eslintcache
+          key: eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.*') }}-${{ github.sha }}
+          restore-keys: |
+            eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.*') }}-
+
+      - name: Cache Prettier
+        uses: actions/cache@v6
+        with:
+          path: .cache/.prettiercache
+          key: prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc*') }}-${{ github.sha }}
+          restore-keys: |
+            prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc*') }}-
+
+      - name: Cache TypeScript build info
+        uses: actions/cache@v6
+        with:
+          path: .cache/tsbuildinfo
+          key: tsbuildinfo-${{ runner.os }}-${{ hashFiles('package-lock.json', 'tsconfig.json') }}-${{ github.sha }}
+          restore-keys: |
+            tsbuildinfo-${{ runner.os }}-${{ hashFiles('package-lock.json', 'tsconfig.json') }}-
 
       - name: Prepare Laravel environment
         run: |
@@ -235,10 +235,10 @@ jobs:
         run: |
           set -uo pipefail
 
-          mkdir -p node_modules/.cache
+          mkdir -p .cache
 
-          npx eslint . --cache --cache-strategy content --cache-location node_modules/.cache/.eslintcache > /tmp/eslint.log 2>&1 & pid_eslint=$!
-          npx prettier --check resources/ --cache --cache-strategy content > /tmp/prettier.log 2>&1 & pid_prettier=$!
+          npx eslint . --cache --cache-strategy content --cache-location .cache/.eslintcache > /tmp/eslint.log 2>&1 & pid_eslint=$!
+          npx prettier --check resources/ --cache --cache-strategy content --cache-location .cache/.prettiercache > /tmp/prettier.log 2>&1 & pid_prettier=$!
           npm run types:check > /tmp/types.log 2>&1 & pid_types=$!
           npm run test:frontend > /tmp/frontend-test.log 2>&1 & pid_test=$!
 
@@ -278,7 +278,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -289,7 +289,7 @@ jobs:
           ini-values: memory_limit=1G
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -300,7 +300,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: composer-${{ runner.os }}-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
@@ -335,7 +335,7 @@ jobs:
           } > ci-vite-build-meta
 
       - name: Upload Vite build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.VITE_BUILD_ARTIFACT }}
           path: |
@@ -346,7 +346,7 @@ jobs:
           retention-days: 7
 
       - name: Upload Vite build marker
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.VITE_BUILD_ARTIFACT }}-meta
           path: ci-vite-build-meta
@@ -366,7 +366,7 @@ jobs:
         shard: [1, 2, 3, 4, 5, 6]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -381,7 +381,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: composer-${{ runner.os }}-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}

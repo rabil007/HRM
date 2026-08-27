@@ -59,7 +59,7 @@ Examples that force **full** CI (both sides):
 | ESLint | Frontend Static → `npm run lint:check` | `npm run lint:check` |
 | Prettier | Frontend Static → `npm run format:check` | `npm run format:check` |
 | Frontend tests | Frontend Static → `npm run test:frontend` | `npm run test:frontend` |
-| TypeScript | TypeScript → `npm run types:check` | `npm run types:check` |
+| TypeScript | Frontend Static → TypeScript → `npm run types:check` | `npm run types:check` |
 | Production build | Frontend Build → `npm run build` | `npm run build` |
 
 Frontend Build uploads `public/build` as a workflow artifact named `vite-build-<sha>-<run_id>-<run_attempt>`. Deploy downloads this artifact directly.
@@ -120,9 +120,9 @@ CI caches:
 - Composer download cache (keyed by `composer.lock`)
 - npm download cache (via `actions/setup-node`)
 - Pint persistent style cache (`.pint.cache`)
-- ESLint content cache (`node_modules/.cache/.eslintcache`)
-- Prettier content cache (`node_modules/.cache/prettier`)
-- TypeScript incremental build cache (`node_modules/.cache/tsbuildinfo`)
+- ESLint content cache (`.cache/.eslintcache`)
+- Prettier content cache (`.cache/.prettiercache`)
+- TypeScript incremental build cache (`.cache/tsbuildinfo`)
 
 It does not cache `vendor/` or `node_modules/` as restore artifacts. `PUPPETEER_SKIP_DOWNLOAD=true` is set across CI jobs to skip downloading unnecessary browser binaries during `npm ci`.
 
