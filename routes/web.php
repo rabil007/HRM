@@ -93,6 +93,8 @@ use App\Http\Controllers\Organization\DocumentFileDownloadController;
 use App\Http\Controllers\Organization\DocumentFilePreviewController;
 use App\Http\Controllers\Organization\DocumentFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentFolderShareLinksController;
+use App\Http\Controllers\Organization\DocumentGenerationTemplateController;
+use App\Http\Controllers\Organization\DocumentGenerationTemplatePreviewController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
 use App\Http\Controllers\Organization\DocumentShareController;
 use App\Http\Controllers\Organization\DocumentsOverviewController;
@@ -667,6 +669,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
     Route::get('organization/documents/templates', DocumentsTemplatesController::class)
         ->name('organization.documents.templates');
+    Route::post('organization/documents/templates', [DocumentGenerationTemplateController::class, 'store'])
+        ->middleware('can:documents.templates.create')
+        ->name('organization.documents.templates.store');
+    Route::post('organization/documents/templates/preview-draft', [DocumentGenerationTemplatePreviewController::class, 'previewDraft'])
+        ->middleware('can:documents.templates.create')
+        ->name('organization.documents.templates.preview-draft');
+    Route::get('organization/documents/templates/{template}/preview', [DocumentGenerationTemplatePreviewController::class, 'preview'])
+        ->middleware('can:documents.templates.view')
+        ->name('organization.documents.templates.preview');
+    Route::put('organization/documents/templates/{template}', [DocumentGenerationTemplateController::class, 'update'])
+        ->middleware('can:documents.templates.update')
+        ->name('organization.documents.templates.update');
+    Route::post('organization/documents/templates/{template}/duplicate', [DocumentGenerationTemplateController::class, 'duplicate'])
+        ->middleware('can:documents.templates.update')
+        ->name('organization.documents.templates.duplicate');
+    Route::delete('organization/documents/templates/{template}', [DocumentGenerationTemplateController::class, 'destroy'])
+        ->middleware('can:documents.templates.delete')
+        ->name('organization.documents.templates.destroy');
     Route::post('organization/documents/bulk/generate', [GenerateBulkDocumentsController::class, 'store'])
         ->middleware('can:bulk_documents.generate')
         ->name('organization.documents.bulk.generate');

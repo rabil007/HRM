@@ -229,6 +229,7 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
     '/organization/documents/activity': (permissions) =>
         has(permissions, 'bulk_documents.view'),
     '/organization/documents/templates': (permissions, platform) =>
+        has(permissions, 'documents.templates.view') ||
         has(permissions, 'bulk_documents.view') ||
         has(permissions, 'settings.master-data.document-types.view') ||
         platform.view,
