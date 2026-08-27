@@ -7,14 +7,7 @@ use App\Models\User;
 use Inertia\Inertia;
 
 test('inertia json responses are not stored in browser or cdn cache', function () {
-    $manifestPath = public_path('build/manifest.json');
-
-    if (file_exists($manifestPath)) {
-        $version = hash_file('xxh128', $manifestPath);
-    } else {
-        $version = 'test-manifest-version';
-        Inertia::version($version);
-    }
+    $version = app(\App\Http\Middleware\HandleInertiaRequests::class)->version(request());
 
     $user = User::factory()->create();
 
