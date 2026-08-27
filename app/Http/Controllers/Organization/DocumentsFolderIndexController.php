@@ -4,12 +4,11 @@ namespace App\Http\Controllers\Organization;
 
 use App\Enums\SavedViewPage;
 use App\Http\Controllers\Controller;
+use App\Support\Documents\DocumentsLibraryQueryState;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use App\Support\EmployeeDocuments\DocumentComplianceQuery;
 use App\Support\EmployeeDocuments\DocumentDepartmentTree;
-use App\Support\EmployeeDocuments\DocumentExpiry;
 use App\Support\EmployeeDocuments\DocumentPagePermissions;
-use App\Support\EmployeeDocuments\DocumentRequirementComplianceStatus;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
 use App\Support\SavedViews\ApplyDefaultSavedView;
@@ -29,31 +28,15 @@ class DocumentsFolderIndexController extends Controller
         $redirect = ApplyDefaultSavedView::maybeRedirect($request, SavedViewPage::Documents);
 
         if ($redirect !== null) {
-            $routeName = $request->route()?->getName();
-
-            if ($routeName === 'organization.documents.library') {
-                $query = [];
-                parse_str((string) parse_url($redirect->getTargetUrl(), PHP_URL_QUERY), $query);
-
-                return redirect()->route($routeName, $query);
-            }
-
             return $redirect;
         }
 
         $companyId = (int) $request->attributes->get('current_company_id');
-        $search = trim((string) $request->query('search', ''));
-        $expiry = (string) $request->query('expiry', 'all');
-        $departmentId = trim((string) $request->query('department_id', ''));
-        $requirementStatus = trim((string) $request->query('requirement_status', ''));
-
-        if (! DocumentExpiry::isValidFilter($expiry)) {
-            $expiry = 'all';
-        }
-
-        if ($requirementStatus !== '' && ! DocumentRequirementComplianceStatus::isValidFilter($requirementStatus)) {
-            $requirementStatus = '';
-        }
+        $libraryQuery = DocumentsLibraryQueryState::fromRequest($request);
+        $search = $libraryQuery->search;
+        $expiry = $libraryQuery->expiry;
+        $departmentId = $libraryQuery->departmentId;
+        $requirementStatus = $libraryQuery->requirementStatus;
 
         $directoryFilters = new EmployeeDirectoryFilters(departmentId: $departmentId);
         $summary = $browse->expirySummary($companyId, departmentId: $departmentId);
@@ -76,7 +59,7 @@ class DocumentsFolderIndexController extends Controller
             'countries' => EmployeeFormOptions::for($companyId)['countries'],
             'can' => DocumentPagePermissions::for($request->user()),
             'saved_views' => SavedViewsForPage::props($request->user(), $companyId, SavedViewPage::Documents),
-            'module_section' => $request->routeIs('organization.documents.library') ? 'library' : 'overview',
+            'module_section' => 'library',
         ];
 
         if ($requirementStatus !== '') {

@@ -57,7 +57,7 @@ test('documents folder index returns only employees with document counts', funct
         'status' => 'valid',
     ]);
 
-    $this->get('/organization/documents')
+    $this->get('/organization/documents/library')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/documents/index')
@@ -93,14 +93,14 @@ test('documents folder index supports search', function () {
         'status' => 'valid',
     ]);
 
-    $this->get('/organization/documents?search=DOC001')
+    $this->get('/organization/documents/library?search=DOC001')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('employees', 1)
             ->where('search', 'DOC001')
         );
 
-    $this->get('/organization/documents?search=missing')
+    $this->get('/organization/documents/library?search=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('employees', 0)
@@ -130,7 +130,7 @@ test('documents folder index returns matching files when searching document fiel
         'status' => 'valid',
     ]);
 
-    $this->get('/organization/documents?search=784-1990')
+    $this->get('/organization/documents/library?search=784-1990')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('search', '784-1990')
@@ -140,14 +140,14 @@ test('documents folder index returns matching files when searching document fiel
             ->has('employees', 0)
         );
 
-    $this->get('/organization/documents?search=Emirates')
+    $this->get('/organization/documents/library?search=Emirates')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('searchDocuments.data', 1)
             ->where('searchDocuments.data.0.document_type', $passportType->title)
         );
 
-    $this->get('/organization/documents?search=EID-scan')
+    $this->get('/organization/documents/library?search=EID-scan')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('searchDocuments.data', 1)
@@ -238,7 +238,7 @@ test('documents folder index expiry summary counts only tracked documents', func
         'status' => 'expiring_soon',
     ]);
 
-    $this->get('/organization/documents')
+    $this->get('/organization/documents/library')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('summary.total_documents', 3)
@@ -282,7 +282,7 @@ test('expired filter excludes documents without expiry date', function () {
         'status' => 'expired',
     ]);
 
-    $this->get('/organization/documents?expiry=expired')
+    $this->get('/organization/documents/library?expiry=expired')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('expiry', 'expired')
@@ -421,7 +421,7 @@ test('documents module pages expose upload permission and profile metadata for m
             ->where('documents.0.notes', 'Primary passport')
         );
 
-    $this->get('/organization/documents?expiry=expired')
+    $this->get('/organization/documents/library?expiry=expired')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('can.upload', true)
@@ -557,6 +557,13 @@ test('document show page back navigation respects from query', function () {
         'status' => 'valid',
     ]);
 
+    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('back.label', 'Back to files')
+            ->where('back.href', route('organization.documents.employee', $employee))
+        );
+
     $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}?from=profile")
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
@@ -564,26 +571,37 @@ test('document show page back navigation respects from query', function () {
             ->where('back.href', route('organization.employees.show', $employee).'#documents')
         );
 
-    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}?from=index&expiry=expired&search=visa&page=2")
+    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}?from=index&expiry=expired&search=visa&requirement_status=missing&department_id=8&page=2")
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('back.label', 'Back to documents')
             ->where('back.href', route('organization.documents', [
-                'expiry' => 'expired',
                 'search' => 'visa',
+                'expiry' => 'expired',
+                'requirement_status' => 'missing',
+                'department_id' => '8',
                 'page' => '2',
             ]))
         );
 
-    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}?from=library&expiry=expired&search=visa&page=2")
+    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}?from=library&expiry=expired&search=visa&requirement_status=missing&department_id=8&page=2")
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('back.label', 'Back to Library')
             ->where('back.href', route('organization.documents.library', [
-                'expiry' => 'expired',
                 'search' => 'visa',
+                'expiry' => 'expired',
+                'requirement_status' => 'missing',
+                'department_id' => '8',
                 'page' => '2',
             ]))
+        );
+
+    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}?from=library&expiry=bogus&requirement_status=nope&department_id=abc&company_id=99&page=1")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('back.label', 'Back to Library')
+            ->where('back.href', route('organization.documents.library'))
         );
 });
 

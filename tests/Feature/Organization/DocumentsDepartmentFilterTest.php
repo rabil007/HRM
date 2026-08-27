@@ -48,7 +48,7 @@ test('documents folder index filters employees by department using shared tree',
         ]);
     }
 
-    $this->get(route('organization.documents'))
+    $this->get(route('organization.documents.library'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/documents/index')
@@ -57,7 +57,7 @@ test('documents folder index filters employees by department using shared tree',
             ->where('summary.total_documents', 2)
             ->where('department_tree_selected_id', null));
 
-    $this->get(route('organization.documents', [
+    $this->get(route('organization.documents.library', [
         'department_id' => $departmentA->id,
     ]))
         ->assertOk()
@@ -113,7 +113,7 @@ test('documents compliance view respects department filter', function () {
         ]);
     }
 
-    $this->get(route('organization.documents', [
+    $this->get(route('organization.documents.library', [
         'expiry' => 'expired',
         'department_id' => $departmentA->id,
     ]))

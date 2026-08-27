@@ -43,6 +43,49 @@ function normalizePath(url: string): { path: string; search: string } {
     return { path, search };
 }
 
+export type DocumentsLibraryQueryInput = {
+    search?: string;
+    expiry?: string;
+    requirement_status?: string;
+    department_id?: string;
+    page?: number | string;
+};
+
+export function documentsLibraryQuery(
+    input: DocumentsLibraryQueryInput,
+): Record<string, string> {
+    const query: Record<string, string> = {};
+    const search = input.search?.trim() ?? '';
+
+    if (search !== '') {
+        query.search = search;
+    }
+
+    if (input.expiry && input.expiry !== 'all') {
+        query.expiry = input.expiry;
+    }
+
+    const requirementStatus = input.requirement_status?.trim() ?? '';
+
+    if (requirementStatus !== '') {
+        query.requirement_status = requirementStatus;
+    }
+
+    const departmentId = input.department_id?.trim() ?? '';
+
+    if (departmentId !== '') {
+        query.department_id = departmentId;
+    }
+
+    const page = Number(input.page ?? 0);
+
+    if (page > 1) {
+        query.page = String(page);
+    }
+
+    return query;
+}
+
 export function documentsModuleIndexPath(
     section: Extract<DocumentsModuleSection, 'overview' | 'library'>,
 ): string {

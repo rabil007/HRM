@@ -24,7 +24,6 @@ import type { WhatsAppTemplateOption } from '@/features/organization/documents/w
 import { formatDisplayDate } from '@/lib/format-date';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { formatBytes } from '@/lib/utils';
-import { documents } from '@/routes/organization';
 import documentRoutes from '@/routes/organization/documents';
 import { show as employeeShow } from '@/routes/organization/employees';
 
@@ -94,7 +93,10 @@ export default function DocumentShow({
             <Main>
                 <DocumentsBreadcrumbs
                     items={[
-                        { title: 'Documents', href: documents.url() },
+                        {
+                            title: 'Documents',
+                            href: documentRoutes.library.url(),
+                        },
                         {
                             title: employee.name,
                             href: documentRoutes.employee.url({

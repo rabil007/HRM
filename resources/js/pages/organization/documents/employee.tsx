@@ -62,7 +62,6 @@ import { resolveDefaultWhatsAppTemplate } from '@/features/organization/document
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { toast } from '@/lib/toast';
-import { documents } from '@/routes/organization';
 import documentRoutes from '@/routes/organization/documents';
 import { shareLinks } from '@/routes/organization/documents/employee/files';
 import { shareLinks as folderShareLinks } from '@/routes/organization/documents/folders';
@@ -306,7 +305,7 @@ export default function EmployeeDocumentsBrowse({
 
             <DocumentsBreadcrumbs
                 items={[
-                    { title: 'Documents', href: documents.url() },
+                    { title: 'Documents', href: documentRoutes.library.url() },
                     { title: employee.name },
                 ]}
             />

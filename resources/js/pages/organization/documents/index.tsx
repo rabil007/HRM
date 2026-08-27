@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Main } from '@/components/layout/main';
@@ -39,15 +39,10 @@ import { FolderShareLinksModal } from '@/features/organization/documents/whatsap
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
-import {
-    documentsModuleSectionFromUrl,
-    documentsShowBackFromSection,
-} from '@/lib/documents-module-nav';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import type { SavedView } from '@/lib/saved-views';
 import { toast } from '@/lib/toast';
 import { UploadDocumentDialog } from '@/pages/organization/_components/documents/upload-dialog';
-import { documents } from '@/routes/organization';
 import documentRoutes, {
     library as documentsLibrary,
 } from '@/routes/organization/documents';
@@ -116,21 +111,9 @@ export default function DocumentsIndex({
     countries = [],
     can,
     saved_views = [],
-    module_section,
 }: Props) {
-    const page = usePage();
-    const resolvedSection =
-        module_section ??
-        (documentsModuleSectionFromUrl(page.url) === 'library'
-            ? 'library'
-            : 'overview');
-    const indexUrl =
-        resolvedSection === 'library'
-            ? documentsLibrary.url()
-            : documents.url();
-    const documentShowFrom = documentsShowBackFromSection(
-        resolvedSection === 'library' ? 'library' : 'overview',
-    );
+    const indexUrl = documentsLibrary.url();
+    const documentShowFrom = 'library' as const;
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
     const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(
         null,
@@ -304,6 +287,8 @@ export default function DocumentsIndex({
             from: documentShowFrom,
             expiry: initialExpiry,
             search: initialSearch,
+            requirement_status: initialRequirementStatus,
+            department_id: initialDepartmentId,
             page: isComplianceView
                 ? complianceDocuments?.current_page
                 : resolvedSearchDocuments.current_page,
@@ -321,9 +306,7 @@ export default function DocumentsIndex({
 
     return (
         <Main>
-            <Head
-                title={resolvedSection === 'library' ? 'Library' : 'Overview'}
-            />
+            <Head title="Library" />
 
             <DocumentsBreadcrumbs items={[{ title: 'Documents' }]} />
 
@@ -429,6 +412,9 @@ export default function DocumentsIndex({
                                     {
                                         from: documentShowFrom,
                                         search: initialSearch,
+                                        requirement_status:
+                                            initialRequirementStatus,
+                                        department_id: initialDepartmentId,
                                         page: requirementDocuments.current_page,
                                     },
                                 ),
@@ -446,6 +432,9 @@ export default function DocumentsIndex({
                                     {
                                         from: documentShowFrom,
                                         search: initialSearch,
+                                        requirement_status:
+                                            initialRequirementStatus,
+                                        department_id: initialDepartmentId,
                                         page: requirementDocuments.current_page,
                                     },
                                 ),

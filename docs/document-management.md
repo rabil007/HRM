@@ -2,24 +2,28 @@
 
 Employee documents are stored per company and linked to employees. HR can browse by folder, manage files on the employee profile, track expiry, and measure **required-document compliance** (valid, expiring, expired, missing).
 
-## Unified Documents module (transitional)
+## Unified Documents module
 
 Documents is one sidebar group with these destinations:
 
 | Path | Section | Reuses | Permission |
 |------|---------|--------|------------|
-| `/organization/documents` | Overview | Current Documents index | `documents.view` |
-| `/organization/documents/library` | Library | Same Documents index (no query fork) | `documents.view` |
+| `/organization/documents` | Overview | Compact summary of existing document counts | `documents.view` |
+| `/organization/documents/library` | Library | Canonical browse / search / compliance workspace | `documents.view` |
 | `/organization/documents/generate` | Generate & Send | Current Bulk Documents roster | `bulk_documents.view` |
 | `/organization/documents/requests` | Requests | Current bulk signature-request view | `bulk_documents.view` |
 | `/organization/documents/templates` | Templates | Transitional bridge only | Any of `bulk_documents.view`, `settings.master-data.document-types.view`, or platform view |
 | `/organization/documents/activity` | Activity | Current bulk generation history | `bulk_documents.view` |
 
-Overview and Library currently share `DocumentsFolderIndexController` and the existing index page. Active navigation follows the URL so Overview and Library are distinct even though the page body is the same.
+**Overview** is a lightweight operational dashboard. It shows expiry and required-document counts, needs-attention actions, and permission-aware shortcuts. It does not render the document table, folder grid, search, or Saved Views. Summary cards and attention actions open Library with the matching supported filter (`expiry=expired`, `expiry=expiring_7` / `expiring_15` / `expiring_30`, `requirement_status=missing`). Overview never applies a default Documents Saved View.
 
-Saved views use the shared `documents` page key and stay on the current section URL: applying a view on Library remains `/organization/documents/library`, and Overview remains `/organization/documents`. Opening a document from Library uses `from=library` so **Back to Library** returns to Library with the same supported `search` / `expiry` / `page` query state. Overview keeps `from=index` (**Back to documents**). Employee-folder and employee-profile back-navigation are unchanged. Employee browse URLs (`/organization/documents/employees/{employee}` and nested files) resolve to the Library favorites destination, not Overview.
+**Library** is the canonical browsing workspace: employee folders, global search, expiry / required-document / department filters, Saved Views, pagination, tables, and bulk file/folder actions. `DocumentsFolderIndexController` serves Library only. Saved Views keep the `documents` page key and apply on Library (`organization.documents.library`). Applying or defaulting a Documents Saved View from Library stays on Library.
 
-Generate, Requests, and Activity share `BulkDocumentsController`. Explicit module routes set a `module_view` route default (`roster` / `signatures` / `history`). That value is resolved before the legacy `view` query string.
+Opening a document from Library uses `from=library` so **Back to Library** restores supported list state: `search`, `expiry`, `requirement_status`, `department_id`, and `page` (validated with the current filter rules). Overview document links use `from=index` (**Back to documents**). Employee-folder back stays **Back to files**. Employee-profile back stays **Back to employee profile**. Query `company_id` is ignored for ownership; list/controller tenant scoping remains authoritative. Employee browse URLs (`/organization/documents/employees/{employee}` and nested files) resolve to the Library favorites destination, not Overview.
+
+Old filtered Overview bookmarks such as `/organization/documents?search=`, `?expiry=`, `?requirement_status=`, `?department_id=`, and `?page=` redirect to the equivalent Library URL with those supported keys preserved. Unknown parameters are not redirected and are not copied. Plain `/organization/documents` stays Overview.
+
+Generate, Requests, and Activity share `BulkDocumentsController`. Explicit module routes set a `module_view` route default (`roster` / `signatures` / `history`). That value is resolved before the legacy `view` query string. Those flows, and the Templates bridge, are unchanged in this phase. Protected Salary Declaration / Salary Certificate PDF layout, Browsershot, Puppeteer, FPDI stamping, and the public e-sign workflow are unchanged.
 
 ### Legacy Bulk URLs
 
@@ -47,8 +51,8 @@ Salary Certificate / Salary Declaration PDF layout, Browsershot, Puppeteer, FPDI
 
 | Path | Purpose | Permission |
 |------|---------|------------|
-| `/organization/documents` | Unified Overview (existing folder index + global search) | `documents.view` |
-| `/organization/documents/library` | Unified Library (same index as Overview) | `documents.view` |
+| `/organization/documents` | Documents Overview (summary dashboard) | `documents.view` |
+| `/organization/documents/library` | Documents Library (browse / search / compliance) | `documents.view` |
 | `/organization/documents/generate` | Generate & Send (bulk roster) | `bulk_documents.view` |
 | `/organization/documents/requests` | Signature requests | `bulk_documents.view` |
 | `/organization/documents/templates` | Transitional templates bridge | See Templates bridge above |
@@ -67,9 +71,9 @@ Upload and CRUD on the profile use `organization.employees.documents.*` routes.
 - Document type labels come from `document_types` or legacy `document_type` / `type` fields
 - Company requirement policy: `document_requirements` plus `document_requirement_department` / `_position` / `_rank` / `_project` (see [Document requirement policy](#document-requirement-policy))
 
-## Index page (folders)
+## Library (folders)
 
-**Default view:** grid of employee folders (only employees who have at least one document).
+**Default view:** grid of employee folders (only employees who have at least one document). Path: `/organization/documents/library`.
 
 Each folder shows:
 
@@ -78,7 +82,7 @@ Each folder shows:
 - Link to employee document browse
 - Optional bulk ZIP download (`documents.download`)
 
-**Summary cards** (one row on the Documents index):
+**Summary cards** (one row on Library; Overview uses the same counts as links into Library):
 
 - Total documents
 - Expired
@@ -89,13 +93,13 @@ These operational counts, the folder grid, compliance table, and global search i
 
 Clicking an expiry card switches to a **compliance table** filtered by that bucket (server-side, paginated). Missing is calculated from the active company's document requirement policies (see [Document requirement policy](#document-requirement-policy)). Clicking it opens employee × required document type rows that are currently missing. Active employees with **zero uploaded files** still appear here when they are missing a required document. Missing is calculated state — there is no `employee_documents` row for it. The employee browse page keeps the five expiry cards only.
 
-Saved views on Documents may include `requirement_status` (`required`, `valid`, `expiring`, `expired`, `missing`) alongside `search`, `expiry`, and `department_id`. Valid / expiring / expired / required remain available as URL or saved-view filters; they are not shown as cards.
+Saved views on Documents belong to Library and may include `requirement_status` (`required`, `valid`, `expiring`, `expired`, `missing`) alongside `search`, `expiry`, and `department_id`. Valid / expiring / expired / required remain available as URL or saved-view filters; they are not shown as cards.
 
 ## Employee browse page
 
 Path: `/organization/documents/employees/{id}`
 
-- Breadcrumb: Documents → Employee name
+- Breadcrumb: Documents (Library) → Employee name
 - Same expiry summary cards (scoped to that employee)
 - File table: name, type, document number, issue/expiry, size, status, uploaded by
 - Client-side filter by file search and expiry on the loaded set
@@ -283,6 +287,8 @@ Not implemented: a separate requirements page, individual exceptions/waivers, ap
 
 | Class | Role |
 |-------|------|
+| `DocumentsOverviewQuery` | Overview counts and needs-attention items from existing browse/compliance summaries |
+| `DocumentsLibraryQueryState` | Sanitize supported Library query keys for redirects, back-navigation, and Library |
 | `DocumentBrowseQuery` | Folders, expiry compliance list, search results, summaries |
 | `DocumentRequirementResolver` | Which active company policies apply to an employee (AND between selected categories; OR within a category) |
 | `DocumentComplianceQuery` | Required / valid / expiring / expired / missing pairs without N+1 |

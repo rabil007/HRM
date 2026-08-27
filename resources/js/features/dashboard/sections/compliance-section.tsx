@@ -1,5 +1,6 @@
 import { ShieldCheck, FileText, AlertTriangle, Clock } from 'lucide-react';
 import { documents } from '@/routes/organization';
+import { library } from '@/routes/organization/documents';
 import { DashboardMetricCard } from '../components/dashboard-metric-card';
 import { DashboardSection } from '../components/dashboard-section';
 import type {
@@ -52,7 +53,7 @@ export function ComplianceSection({ compliance }: ComplianceSectionProps) {
                     iconColor="text-rose-500"
                     badgeText={compliance.expired > 0 ? 'Critical' : 'None'}
                     badgeVariant={compliance.expired > 0 ? 'danger' : 'success'}
-                    href={documents.url({ query: { expiry: 'expired' } })}
+                    href={library.url({ query: { expiry: 'expired' } })}
                 />
 
                 <DashboardMetricCard
@@ -64,7 +65,7 @@ export function ComplianceSection({ compliance }: ComplianceSectionProps) {
                     badgeVariant={
                         compliance.expiring_7 > 0 ? 'warning' : 'default'
                     }
-                    href={documents.url({ query: { expiry: 'expiring_7' } })}
+                    href={library.url({ query: { expiry: 'expiring_7' } })}
                 />
 
                 <DashboardMetricCard

@@ -175,8 +175,16 @@ export type DocumentShowItem = DocumentProfileItem & {
     versions: DocumentVersionItem[];
 };
 
+export type DocumentShowListBackContext = {
+    expiry?: string;
+    search?: string;
+    requirement_status?: string;
+    department_id?: string;
+    page?: number;
+};
+
 export type DocumentShowBackContext =
     | { from: 'employee-browse' }
     | { from: 'profile' }
-    | { from: 'index'; expiry?: string; search?: string; page?: number }
-    | { from: 'library'; expiry?: string; search?: string; page?: number };
+    | ({ from: 'index' } & DocumentShowListBackContext)
+    | ({ from: 'library' } & DocumentShowListBackContext);

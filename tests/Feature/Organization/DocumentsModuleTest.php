@@ -32,9 +32,10 @@ test('documents view users can open overview and library but not generate routes
     $this->get(route('organization.documents'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents/index')
-            ->where('module_section', 'overview')
-            ->has('employees', 1));
+            ->component('organization/documents/overview')
+            ->where('summary.total_documents', 1)
+            ->has('attention')
+            ->missing('employees'));
 
     $this->get(route('organization.documents.library'))
         ->assertOk()
@@ -250,10 +251,97 @@ test('library default saved view redirect stays on library', function () {
 
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('organization.documents'))
-        ->assertRedirect(route('organization.documents', [
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/overview'));
+});
+
+test('filtered overview urls redirect to library with supported query state', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.view']);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents', [
             'search' => 'visa',
-            'expiry' => 'expiring_30',
+            'expiry' => 'expired',
+            'requirement_status' => 'missing',
+            'department_id' => '12',
+            'page' => '2',
+            'company_id' => '99',
+            'foo' => 'bar',
+        ]))
+        ->assertRedirect(route('organization.documents.library', [
+            'search' => 'visa',
+            'expiry' => 'expired',
+            'requirement_status' => 'missing',
+            'department_id' => '12',
+            'page' => '2',
         ]));
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents', [
+            'foo' => 'bar',
+            'company_id' => $company->id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/overview'));
+});
+
+test('overview summary stays scoped to the active company', function () {
+    ['user' => $user, 'companyA' => $companyA, 'companyB' => $companyB] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $companyA, ['documents.view']);
+    grantCompanyPermissions($user, $companyB, ['documents.view']);
+
+    $employeeA = Employee::factory()->forCompany($companyA)->create([
+        'name' => 'Alpha Overview Employee',
+        'status' => 'active',
+    ]);
+    $employeeB = Employee::factory()->forCompany($companyB)->create([
+        'name' => 'Beta Overview Employee',
+        'status' => 'active',
+    ]);
+
+    $documentType = DocumentType::query()->firstOrCreate(
+        ['title' => 'Passport Copy'],
+        ['is_active' => true],
+    );
+
+    EmployeeDocument::query()->create([
+        'company_id' => $companyA->id,
+        'employee_id' => $employeeA->id,
+        'document_type_id' => $documentType->id,
+        'type' => 'other',
+        'document_type' => (string) $documentType->id,
+        'file_path' => 'employee-documents/a.pdf',
+        'expiry_date' => now()->subDay()->toDateString(),
+        'status' => 'expired',
+    ]);
+
+    EmployeeDocument::query()->create([
+        'company_id' => $companyB->id,
+        'employee_id' => $employeeB->id,
+        'document_type_id' => $documentType->id,
+        'type' => 'other',
+        'document_type' => (string) $documentType->id,
+        'file_path' => 'employee-documents/b.pdf',
+        'expiry_date' => now()->subDay()->toDateString(),
+        'status' => 'expired',
+    ]);
+
+    $this->withSession(['current_company_id' => $companyA->id])
+        ->get(route('organization.documents'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/overview')
+            ->where('summary.total_documents', 1)
+            ->where('summary.expired', 1)
+            ->where('attention.0.query.expiry', 'expired'));
 });
 
 test('generate stays scoped to the active company', function () {

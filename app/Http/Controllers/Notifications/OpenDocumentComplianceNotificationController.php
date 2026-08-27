@@ -32,7 +32,7 @@ class OpenDocumentComplianceNotificationController extends Controller
             $registrar->setPermissionsTeamId($previousTeamId);
         }
 
-        return redirect()->route('organization.documents', [
+        return redirect()->route('organization.documents.library', [
             'expiry' => DocumentExpiryStatus::Expiring30->value,
         ]);
     }

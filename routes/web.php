@@ -95,6 +95,7 @@ use App\Http\Controllers\Organization\DocumentFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentFolderShareLinksController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
 use App\Http\Controllers\Organization\DocumentShareController;
+use App\Http\Controllers\Organization\DocumentsOverviewController;
 use App\Http\Controllers\Organization\DocumentsTemplatesController;
 use App\Http\Controllers\Organization\EmployeeBankAccountController;
 use App\Http\Controllers\Organization\EmployeeBankAccountsBrowseController;
@@ -638,7 +639,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/employees/{employee}/profile-template', [EmployeeController::class, 'assignProfileTemplate'])->middleware('can:employees.update')->name('organization.employees.profile-template.assign');
     Route::delete('organization/employees/{employee}', [EmployeeController::class, 'destroy'])->middleware('can:employees.delete')->name('organization.employees.destroy');
     Route::middleware('can:documents.view')->group(function () {
-        Route::get('organization/documents', DocumentsFolderIndexController::class)->name('organization.documents');
+        Route::get('organization/documents', DocumentsOverviewController::class)->name('organization.documents');
         Route::get('organization/documents/library', DocumentsFolderIndexController::class)->name('organization.documents.library');
         Route::get('organization/documents/employees/{employee}', EmployeeDocumentsBrowseController::class)->name('organization.documents.employee');
         Route::get('organization/documents/employees/{employee}/files/{document}', EmployeeDocumentShowController::class)->name('organization.documents.employee.files.show');

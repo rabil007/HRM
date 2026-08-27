@@ -67,7 +67,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 | Guide | Audience | Topics |
 |-------|----------|--------|
 | [Dashboard](./dashboard.md) | HR, developers | Analytics, charts, document health, workforce trends |
-| [Document management](./document-management.md) | HR, developers | Folders, employee browse, upload, expiry, required-document compliance |
+| [Document management](./document-management.md) | HR, developers | Overview, Library, folders, employee browse, upload, expiry, required-document compliance |
 | [Document search](./document-search.md) | HR, developers | Documents index search UX, result modes, backend queries |
 | [Global search](./global-search.md) | HR, developers | Cmd/Ctrl+K omnibox: commands plus permission-aware record search |
 | [Navigation favorites](./navigation-favorites.md) | HR, developers | Personal pinned navigation destinations; permission-aware, not record shortcuts |

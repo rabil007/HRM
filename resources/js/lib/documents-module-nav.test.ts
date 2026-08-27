@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
     canViewDocumentsModuleSection,
     documentsModuleIndexPath,
+    documentsLibraryQuery,
     documentsModuleSectionFromUrl,
     documentsShowBackFromSection,
     isDocumentsModuleNavUrlActive,
@@ -79,6 +80,33 @@ describe('documents module URL mapping', () => {
         );
         assert.equal(documentsShowBackFromSection('overview'), 'index');
         assert.equal(documentsShowBackFromSection('library'), 'library');
+    });
+
+    it('builds library query state from supported filters only', () => {
+        assert.deepEqual(
+            documentsLibraryQuery({
+                search: ' visa ',
+                expiry: 'expired',
+                requirement_status: 'missing',
+                department_id: '12',
+                page: 2,
+            }),
+            {
+                search: 'visa',
+                expiry: 'expired',
+                requirement_status: 'missing',
+                department_id: '12',
+                page: '2',
+            },
+        );
+        assert.deepEqual(
+            documentsLibraryQuery({
+                expiry: 'all',
+                search: '  ',
+                page: 1,
+            }),
+            {},
+        );
     });
 
     it('keeps overview inactive on other documents module urls', () => {

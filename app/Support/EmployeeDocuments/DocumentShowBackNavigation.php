@@ -3,6 +3,7 @@
 namespace App\Support\EmployeeDocuments;
 
 use App\Models\Employee;
+use App\Support\Documents\DocumentsLibraryQueryState;
 use Illuminate\Http\Request;
 
 class DocumentShowBackNavigation
@@ -39,23 +40,6 @@ class DocumentShowBackNavigation
      */
     private static function indexQuery(Request $request): array
     {
-        $query = [];
-
-        $expiry = (string) $request->query('expiry', 'all');
-        if (DocumentExpiry::isValidFilter($expiry) && $expiry !== 'all') {
-            $query['expiry'] = $expiry;
-        }
-
-        $search = trim((string) $request->query('search', ''));
-        if ($search !== '') {
-            $query['search'] = $search;
-        }
-
-        $page = (int) $request->query('page', 0);
-        if ($page > 1) {
-            $query['page'] = (string) $page;
-        }
-
-        return $query;
+        return DocumentsLibraryQueryState::fromRequest($request)->toQuery();
     }
 }

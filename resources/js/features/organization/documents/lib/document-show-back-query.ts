@@ -16,6 +16,14 @@ export function documentShowBackQuery(
             query.search = back.search.trim();
         }
 
+        if (back.requirement_status?.trim()) {
+            query.requirement_status = back.requirement_status.trim();
+        }
+
+        if (back.department_id?.trim()) {
+            query.department_id = back.department_id.trim();
+        }
+
         if (back.page && back.page > 1) {
             query.page = String(back.page);
         }
