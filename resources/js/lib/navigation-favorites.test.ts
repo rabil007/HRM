@@ -46,6 +46,16 @@ describe('pathname matching', () => {
             'documents',
         );
         assert.equal(
+            destinationKeyFromPathname('/organization/documents/employees/12'),
+            'documents.library',
+        );
+        assert.equal(
+            destinationKeyFromPathname(
+                '/organization/documents/employees/12/files/55',
+            ),
+            'documents.library',
+        );
+        assert.equal(
             destinationKeyFromPathname('/payroll/overview'),
             'payroll.overview',
         );

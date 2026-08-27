@@ -178,4 +178,5 @@ export type DocumentShowItem = DocumentProfileItem & {
 export type DocumentShowBackContext =
     | { from: 'employee-browse' }
     | { from: 'profile' }
-    | { from: 'index'; expiry?: string; search?: string; page?: number };
+    | { from: 'index'; expiry?: string; search?: string; page?: number }
+    | { from: 'library'; expiry?: string; search?: string; page?: number };

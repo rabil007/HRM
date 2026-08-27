@@ -43,6 +43,18 @@ function normalizePath(url: string): { path: string; search: string } {
     return { path, search };
 }
 
+export function documentsModuleIndexPath(
+    section: Extract<DocumentsModuleSection, 'overview' | 'library'>,
+): string {
+    return DOCUMENTS_MODULE_PATHS[section];
+}
+
+export function documentsShowBackFromSection(
+    section: Extract<DocumentsModuleSection, 'overview' | 'library'>,
+): 'index' | 'library' {
+    return section === 'library' ? 'library' : 'index';
+}
+
 export function documentsModuleSectionFromUrl(
     url: string,
 ): DocumentsModuleSection | null {

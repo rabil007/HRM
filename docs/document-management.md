@@ -17,6 +17,8 @@ Documents is one sidebar group with these destinations:
 
 Overview and Library currently share `DocumentsFolderIndexController` and the existing index page. Active navigation follows the URL so Overview and Library are distinct even though the page body is the same.
 
+Saved views use the shared `documents` page key and stay on the current section URL: applying a view on Library remains `/organization/documents/library`, and Overview remains `/organization/documents`. Opening a document from Library uses `from=library` so **Back to Library** returns to Library with the same supported `search` / `expiry` / `page` query state. Overview keeps `from=index` (**Back to documents**). Employee-folder and employee-profile back-navigation are unchanged. Employee browse URLs (`/organization/documents/employees/{employee}` and nested files) resolve to the Library favorites destination, not Overview.
+
 Generate, Requests, and Activity share `BulkDocumentsController`. Explicit module routes set a `module_view` route default (`roster` / `signatures` / `history`). That value is resolved before the legacy `view` query string.
 
 ### Legacy Bulk URLs

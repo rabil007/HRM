@@ -23,6 +23,10 @@ class DocumentShowBackNavigation
                 'href' => route('organization.documents', self::indexQuery($request)),
                 'label' => 'Back to documents',
             ],
+            'library' => [
+                'href' => route('organization.documents.library', self::indexQuery($request)),
+                'label' => 'Back to Library',
+            ],
             default => [
                 'href' => route('organization.documents.employee', $employee),
                 'label' => 'Back to files',

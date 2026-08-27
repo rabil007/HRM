@@ -3,6 +3,7 @@
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\SavedView;
 use App\Models\User;
 use Database\Seeders\PermissionsSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -222,6 +223,37 @@ test('library stays scoped to the active company', function () {
             ->component('organization/documents/index')
             ->has('employees', 1)
             ->where('employees.0.employee_id', $employeeA->id));
+});
+
+test('library default saved view redirect stays on library', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.view']);
+
+    SavedView::factory()->create([
+        'user_id' => $user->id,
+        'company_id' => $company->id,
+        'page_key' => 'documents',
+        'name' => 'Expiring in 30 days',
+        'filters' => ['expiry' => 'expiring_30', 'search' => 'visa'],
+        'is_default' => true,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents.library'))
+        ->assertRedirect(route('organization.documents.library', [
+            'search' => 'visa',
+            'expiry' => 'expiring_30',
+        ]));
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents'))
+        ->assertRedirect(route('organization.documents', [
+            'search' => 'visa',
+            'expiry' => 'expiring_30',
+        ]));
 });
 
 test('generate stays scoped to the active company', function () {

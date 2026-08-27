@@ -318,6 +318,13 @@ export function destinationKeyFromPageUrl(url: string): string | null {
         return 'documents.bulk';
     }
 
+    if (
+        normalized === '/organization/documents/employees' ||
+        normalized.startsWith('/organization/documents/employees/')
+    ) {
+        return 'documents.library';
+    }
+
     if (normalized === '/organization/documents') {
         return 'documents';
     }

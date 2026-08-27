@@ -574,6 +574,17 @@ test('document show page back navigation respects from query', function () {
                 'page' => '2',
             ]))
         );
+
+    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}?from=library&expiry=expired&search=visa&page=2")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('back.label', 'Back to Library')
+            ->where('back.href', route('organization.documents.library', [
+                'expiry' => 'expired',
+                'search' => 'visa',
+                'page' => '2',
+            ]))
+        );
 });
 
 test('document show page hides recent activity without audit permission', function () {

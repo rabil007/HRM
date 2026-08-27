@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     canViewDocumentsModuleSection,
+    documentsModuleIndexPath,
     documentsModuleSectionFromUrl,
+    documentsShowBackFromSection,
     isDocumentsModuleNavUrlActive,
     visibleDocumentsModuleSections,
 } from './documents-module-nav.ts';
@@ -64,6 +66,19 @@ describe('documents module URL mapping', () => {
             documentsModuleSectionFromUrl('/organization/documents/templates'),
             'templates',
         );
+    });
+
+    it('keeps saved views on the active overview or library path', () => {
+        assert.equal(
+            documentsModuleIndexPath('overview'),
+            '/organization/documents',
+        );
+        assert.equal(
+            documentsModuleIndexPath('library'),
+            '/organization/documents/library',
+        );
+        assert.equal(documentsShowBackFromSection('overview'), 'index');
+        assert.equal(documentsShowBackFromSection('library'), 'library');
     });
 
     it('keeps overview inactive on other documents module urls', () => {

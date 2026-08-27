@@ -39,7 +39,10 @@ import { FolderShareLinksModal } from '@/features/organization/documents/whatsap
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
-import { documentsModuleSectionFromUrl } from '@/lib/documents-module-nav';
+import {
+    documentsModuleSectionFromUrl,
+    documentsShowBackFromSection,
+} from '@/lib/documents-module-nav';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import type { SavedView } from '@/lib/saved-views';
 import { toast } from '@/lib/toast';
@@ -125,6 +128,9 @@ export default function DocumentsIndex({
         resolvedSection === 'library'
             ? documentsLibrary.url()
             : documents.url();
+    const documentShowFrom = documentsShowBackFromSection(
+        resolvedSection === 'library' ? 'library' : 'overview',
+    );
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
     const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(
         null,
@@ -295,7 +301,7 @@ export default function DocumentsIndex({
 
     const buildViewHref = (doc: ComplianceDocumentItem) =>
         buildDocumentShowUrl(doc.employee_id, doc.id, {
-            from: 'index',
+            from: documentShowFrom,
             expiry: initialExpiry,
             search: initialSearch,
             page: isComplianceView
@@ -370,7 +376,7 @@ export default function DocumentsIndex({
                             ) : null}
                             <SavedViewsControl
                                 pageKey="documents"
-                                indexUrl={documents.url()}
+                                indexUrl={indexUrl}
                                 currentFilters={{
                                     search: initialSearch,
                                     expiry: initialExpiry,
@@ -421,7 +427,7 @@ export default function DocumentsIndex({
                                     item.employee_id,
                                     item.document_id,
                                     {
-                                        from: 'index',
+                                        from: documentShowFrom,
                                         search: initialSearch,
                                         page: requirementDocuments.current_page,
                                     },
@@ -438,7 +444,7 @@ export default function DocumentsIndex({
                                     item.employee_id,
                                     item.document_id,
                                     {
-                                        from: 'index',
+                                        from: documentShowFrom,
                                         search: initialSearch,
                                         page: requirementDocuments.current_page,
                                     },
