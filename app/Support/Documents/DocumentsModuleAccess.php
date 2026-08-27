@@ -49,9 +49,30 @@ final class DocumentsModuleAccess
         return PlatformAuthorization::canView($user);
     }
 
+    public static function canViewCustomTemplates(?User $user): bool
+    {
+        return $user?->can('documents.templates.view') ?? false;
+    }
+
+    public static function canCreateCustomTemplates(?User $user): bool
+    {
+        return $user?->can('documents.templates.create') ?? false;
+    }
+
+    public static function canUpdateCustomTemplates(?User $user): bool
+    {
+        return $user?->can('documents.templates.update') ?? false;
+    }
+
+    public static function canDeleteCustomTemplates(?User $user): bool
+    {
+        return $user?->can('documents.templates.delete') ?? false;
+    }
+
     public static function canViewTemplates(?User $user): bool
     {
-        return self::canViewSystemTemplates($user)
+        return self::canViewCustomTemplates($user)
+            || self::canViewSystemTemplates($user)
             || self::canViewDocumentTypes($user)
             || self::canViewSignaturePlacement($user);
     }

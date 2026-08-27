@@ -37,15 +37,31 @@ These remain valid GET bookmarks and keep their existing route names. POST/PUT/D
 
 The standalone **Bulk generate** sidebar item is removed. Favorites key `documents.bulk` now points at Generate & Send.
 
-### Templates bridge
+### Document Templates
 
-Phase 1 does not add a template builder, workflow engine, or new permissions. The Templates screen only exposes:
+Documents → Templates serves as the centralized company custom document template management area while preserving protected system generation templates:
 
-1. **System generation templates** from `BulkDocumentTypeRegistry` (Salary Declaration, Salary Certificate). These are protected legacy renderers, not Document Types.
-2. A link to **Settings → Master Data → Document Types** when the user has `settings.master-data.document-types.view`.
-3. A link to **Settings → Application → signature placement** when the user has platform view.
+1. **Company Custom Templates** (`document_generation_templates`):
+   - Scoped to the active company.
+   - Lifecycle statuses: `draft`, `active`, `inactive`.
+   - Permissions: `documents.templates.view`, `documents.templates.create`, `documents.templates.update`, `documents.templates.delete`.
+   - Optional association to `document_types` for categorization.
+   - Managed via right-side form sheet with interactive merge field insertion.
+   - Duplication creates a company-scoped copy starting in `draft` with a unique `(Copy)` suffix.
+   - Preview system renders safe in-memory HTML preview with sample data only (real-employee preview is intentionally deferred). No database side-effects or workflow triggers.
+   - **Allowed Merge Fields**: Strict allowlist catalog (`App\Support\Documents\DocumentTemplateMergeFields`) covering:
+     - *Employee*: `{{employee_name}}`, `{{employee_no}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{phone}}`, `{{gender}}`, `{{joining_date}}`
+     - *Organization*: `{{company_name}}`, `{{department_name}}`, `{{position_name}}`, `{{branch_name}}`
+     - *System*: `{{today}}`, `{{current_year}}`
+     - Sensitive fields (bank/IBAN, salary, passport number, Emirates ID, credentials) are strictly forbidden. Content with unsupported placeholders is rejected at validation.
 
-Salary Certificate / Salary Declaration PDF layout, Browsershot, Puppeteer, FPDI stamping, and requirement/compliance calculations are unchanged.
+2. **System generation templates** from `BulkDocumentTypeRegistry` (Salary Declaration, Salary Certificate):
+   - Protected application renderers used by Generate & Send.
+   - Layout is code-owned and not editable from this UI.
+
+3. **Configuration shortcuts**:
+   - Link to **Settings → Master Data → Document Types** when user has `settings.master-data.document-types.view`.
+   - Link to **Settings → Application → signature placement** when user has platform view.
 
 ## Routes
 
@@ -55,7 +71,13 @@ Salary Certificate / Salary Declaration PDF layout, Browsershot, Puppeteer, FPDI
 | `/organization/documents/library` | Documents Library (browse / search / compliance) | `documents.view` |
 | `/organization/documents/generate` | Generate & Send (bulk roster) | `bulk_documents.view` |
 | `/organization/documents/requests` | Signature requests | `bulk_documents.view` |
-| `/organization/documents/templates` | Transitional templates bridge | See Templates bridge above |
+| `/organization/documents/templates` | Custom and System Document Templates | `documents.templates.view` \| `bulk_documents.view` \| `settings.master-data.document-types.view` \| platform view |
+| `/organization/documents/templates` (POST) | Store custom document template | `documents.templates.create` |
+| `/organization/documents/templates/preview-draft` (POST) | Render preview for unsaved draft | `documents.templates.create` \| `documents.templates.update` |
+| `/organization/documents/templates/{template}/preview` (GET) | Render preview for saved template | `documents.templates.view` |
+| `/organization/documents/templates/{template}` (PUT) | Update custom document template | `documents.templates.update` |
+| `/organization/documents/templates/{template}/duplicate` (POST) | Duplicate custom template in company | `documents.templates.update` |
+| `/organization/documents/templates/{template}` (DELETE) | Delete custom template | `documents.templates.delete` |
 | `/organization/documents/activity` | Bulk generation history | `bulk_documents.view` |
 | `/organization/documents/bulk` | Legacy Bulk Documents index | `bulk_documents.view` |
 | `/organization/documents/employees/{employee}` | Employee document browse | `documents.view` |

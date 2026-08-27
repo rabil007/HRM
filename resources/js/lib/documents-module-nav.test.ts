@@ -167,7 +167,11 @@ describe('documents module visibility', () => {
         );
     });
 
-    it('shows templates for document types or platform access', () => {
+    it('shows templates for document types, custom templates view, or platform access', () => {
+        assert.deepEqual(
+            visibleDocumentsModuleSections(['documents.templates.view']),
+            ['templates'],
+        );
         assert.deepEqual(
             visibleDocumentsModuleSections([
                 'settings.master-data.document-types.view',
