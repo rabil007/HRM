@@ -1,13 +1,13 @@
 <?php
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
-use Inertia\Inertia;
 
 test('inertia json responses are not stored in browser or cdn cache', function () {
-    $version = app(\App\Http\Middleware\HandleInertiaRequests::class)->version(request());
+    $version = app(HandleInertiaRequests::class)->version(request());
 
     $user = User::factory()->create();
 
