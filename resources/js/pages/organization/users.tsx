@@ -3,6 +3,7 @@ import { UsersContent } from '@/features/organization/users';
 import type {
     EmployeeForLinking,
     User,
+    UserInvitation,
 } from '@/features/organization/users/types';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -11,14 +12,18 @@ export default function Users({
     pagination,
     search,
     filters,
+    summary,
     roles,
+    invitations,
     employees_for_linking,
 }: {
     users: User[];
     pagination: PaginationMeta;
     search: string;
-    filters: { status: string; role_id: string };
+    filters: { status: string; role_id: string; presence: string };
     roles: { id: number; name: string }[];
+    summary: { total: number; online: number; never: number; pending_invites: number };
+    invitations: UserInvitation[];
     employees_for_linking: EmployeeForLinking[];
 }) {
     return (
@@ -29,7 +34,9 @@ export default function Users({
                 pagination={pagination}
                 search={search}
                 filters={filters}
+                summary={summary}
                 roles={roles}
+                invitations={invitations}
                 employeesForLinking={employees_for_linking}
             />
         </>

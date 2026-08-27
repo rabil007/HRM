@@ -149,8 +149,6 @@ export default function UserDetails({
     const form = useForm<UserFormData>({
         name: user.name ?? '',
         email: user.email ?? '',
-        password: '',
-        password_confirmation: '',
         avatar: null,
         use_employee_avatar: false,
         employee_id: user.linked_employee?.id ?? '',

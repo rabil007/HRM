@@ -9,6 +9,7 @@ use App\Http\Controllers\Attendance\LeaveApprovalSettingController;
 use App\Http\Controllers\Attendance\LeaveRequestAttachmentController;
 use App\Http\Controllers\Attendance\LeaveRequestController;
 use App\Http\Controllers\Attendance\LeaveTypeController;
+use App\Http\Controllers\Auth\AcceptUserInvitationController;
 use App\Http\Controllers\DatabaseViewerController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
@@ -135,6 +136,8 @@ use App\Http\Controllers\Organization\TrainingsExportController;
 use App\Http\Controllers\Organization\TrainingsImportController;
 use App\Http\Controllers\Organization\TrainingsIndexController;
 use App\Http\Controllers\Organization\UserController;
+use App\Http\Controllers\Organization\UserInvitationController;
+use App\Http\Controllers\Organization\UserSecurityController;
 use App\Http\Controllers\Organization\VesselController;
 use App\Http\Controllers\Organization\VesselManningController;
 use App\Http\Controllers\Organization\VoidCrewAssignmentController;
@@ -235,6 +238,9 @@ Route::match(['get', 'post'], 'webhooks/hikvision', HikvisionWebhookController::
 Route::match(['get', 'post'], 'integrations/hikvision/webhook/{publicIntegrationId}', HikvisionWebhookController::class)
     ->middleware('throttle:120,1')
     ->name('webhooks.hikvision');
+
+Route::get('/invitations/accept', [AcceptUserInvitationController::class, 'show'])->name('invitations.accept');
+Route::post('/invitations/accept', [AcceptUserInvitationController::class, 'store'])->name('invitations.accept.store');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['platform:view', 'privileged.2fa'])->group(function () {
@@ -415,6 +421,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/users/{user}/memberships', [UserController::class, 'storeMembership'])->middleware(['can:users.update', 'privileged.2fa'])->name('organization.users.memberships.store');
     Route::put('organization/users/{user}/memberships/{company}', [UserController::class, 'updateMembership'])->middleware(['can:users.update', 'privileged.2fa'])->name('organization.users.memberships.update');
     Route::delete('organization/users/{user}/memberships/{company}', [UserController::class, 'destroyMembership'])->middleware(['can:users.update', 'privileged.2fa'])->name('organization.users.memberships.destroy');
+
+    Route::post('organization/user-invitations', [UserInvitationController::class, 'store'])->middleware(['can:users.create', 'privileged.2fa'])->name('organization.user-invitations.store');
+    Route::post('organization/user-invitations/{invitation}/resend', [UserInvitationController::class, 'resend'])->middleware(['can:users.create', 'privileged.2fa'])->name('organization.user-invitations.resend');
+    Route::delete('organization/user-invitations/{invitation}', [UserInvitationController::class, 'destroy'])->middleware(['can:users.delete', 'privileged.2fa'])->name('organization.user-invitations.destroy');
+
+    Route::post('organization/users/{user}/security/password-reset', [UserSecurityController::class, 'sendPasswordResetLink'])->middleware(['can:users.password_reset', 'privileged.2fa'])->name('organization.users.security.password-reset');
+    Route::post('organization/users/{user}/security/revoke-sessions', [UserSecurityController::class, 'revokeSessions'])->middleware(['can:users.sessions.revoke', 'privileged.2fa'])->name('organization.users.security.revoke-sessions');
 
     Route::get('organization/crew-operations', CrewOperationsDashboardController::class)->middleware('can:crew_operations.overview.view')->name('organization.crew-operations.index');
 

@@ -201,6 +201,8 @@ class PermissionsSeeder extends Seeder
             'users.update',
             'users.delete',
             'users.export',
+            'users.password_reset',
+            'users.sessions.revoke',
 
             'employees.view',
             'employees.create',

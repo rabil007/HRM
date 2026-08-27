@@ -1,4 +1,5 @@
-import { Eye, Pencil, Trash2, User as UserIcon } from 'lucide-react';
+import { router } from '@inertiajs/react';
+import { Eye, Pencil, Trash2, User as UserIcon, Shield, KeyRound, LogOut } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,7 +9,17 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
+import {
+    passwordReset,
+    revokeSessions,
+} from '@/routes/organization/users/security';
 import type { User } from '../types';
 
 export function UserCard({
@@ -16,11 +27,15 @@ export function UserCard({
     onEdit,
     onDelete,
     onToggleStatus,
+    canPasswordReset,
+    canRevokeSessions,
 }: {
     user: User;
     onEdit?: (user: User) => void;
     onDelete?: (user: User) => void;
     onToggleStatus?: (user: User, enabled: boolean) => void;
+    canPasswordReset?: boolean;
+    canRevokeSessions?: boolean;
 }) {
     const statusClass =
         user.status === 'active'
@@ -92,6 +107,29 @@ export function UserCard({
                             #{String(user.id).padStart(4, '0')}
                         </div>
                     </div>
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 dark:border-white/6 dark:bg-white/4">
+                        <div className="text-xs font-semibold text-muted-foreground/80">
+                            Presence
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold">
+                                {user.presence === 'online' ? 'Online' : user.presence === 'recent' ? 'Recently active' : user.presence === 'offline' ? 'Offline' : 'Never'}
+                            </span>
+                            <div className={`h-2.5 w-2.5 rounded-full ${user.presence === 'online' ? 'bg-emerald-500' : user.presence === 'recent' ? 'bg-amber-500' : 'bg-muted-foreground/30'}`} />
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 dark:border-white/6 dark:bg-white/4">
+                        <div className="text-xs font-semibold text-muted-foreground/80">
+                            2FA Status
+                        </div>
+                        <div className="text-sm font-bold">
+                            {user.two_factor_enabled ? (
+                                <span className="text-emerald-600 dark:text-emerald-400">Enabled</span>
+                            ) : (
+                                <span className="text-muted-foreground">Disabled</span>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </CardContent>
 
@@ -159,6 +197,54 @@ export function UserCard({
                             >
                                 <Trash2 className="h-4 w-4" />
                             </Button>
+                        ) : null}
+
+                        {onEdit && (canPasswordReset || canRevokeSessions) ? (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
+                                        title="Security Actions"
+                                    >
+                                        <Shield className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                    {canPasswordReset && (
+                                        <DropdownMenuItem
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+
+                                                if (confirm('Send a password reset link to this user?')) {
+                                                    router.post(passwordReset.url({ user: user.id }), {}, { preserveScroll: true });
+                                                }
+                                            }}
+                                            className="cursor-pointer"
+                                        >
+                                            <KeyRound className="mr-2 h-4 w-4" />
+                                            <span>Reset Password</span>
+                                        </DropdownMenuItem>
+                                    )}
+                                    {canRevokeSessions && (
+                                        <DropdownMenuItem
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+
+                                                if (confirm('Revoke all active sessions for this user?')) {
+                                                    router.post(revokeSessions.url({ user: user.id }), {}, { preserveScroll: true });
+                                                }
+                                            }}
+                                            className="cursor-pointer"
+                                        >
+                                            <LogOut className="mr-2 h-4 w-4" />
+                                            <span>Revoke Sessions</span>
+                                        </DropdownMenuItem>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         ) : null}
                     </div>
                 </div>

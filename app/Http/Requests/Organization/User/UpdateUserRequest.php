@@ -30,7 +30,6 @@ class UpdateUserRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', new UniqueUserEmail($userId)],
-            'password' => $this->optionalPasswordRules(),
             'avatar' => ['nullable', 'file', 'image', 'max:2048'],
             'use_employee_avatar' => ['sometimes', 'boolean'],
             'employee_id' => [

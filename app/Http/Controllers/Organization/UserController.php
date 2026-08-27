@@ -13,23 +13,28 @@ use App\Http\Requests\Organization\User\UpdateUserStatusRequest;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\User;
+use App\Models\UserInvitation;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Uploads\UploadedFileStorage;
 use App\Support\Users\Actions\CopyEmployeeAvatarToUser;
 use App\Support\Users\Actions\CreateOrganizationUser;
 use App\Support\Users\Actions\SyncUserEmployeeLink;
+use App\Support\Users\GlobalIdentityAccessGuard;
+use App\Support\Users\LastCompanyOwnerGuard;
 use App\Support\Users\UserAvatar;
+use App\Support\Users\UserDirectoryQuery;
 use App\Support\Users\UserMembershipAccess;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Role as SpatieRole;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class UserController extends Controller
 {
@@ -93,31 +98,25 @@ class UserController extends Controller
             ->all();
     }
 
-    public function index()
+    public function index(UserDirectoryQuery $query)
     {
         $companyId = (int) request()->attributes->get('current_company_id');
         $perPage = $this->resolvePerPage(request());
         $search = trim((string) request()->query('search', ''));
         $status = trim((string) request()->query('status', ''));
         $roleId = trim((string) request()->query('role_id', ''));
+        $presence = trim((string) request()->query('presence', ''));
 
-        $paginator = User::query()
-            ->where('company_id', $companyId)
-            ->when($status, fn ($q) => $q->where('status', $status))
-            ->when($roleId, function ($q) use ($roleId) {
-                $q->whereHas('roles', function ($inner) use ($roleId) {
-                    $inner->whereKey($roleId);
-                });
-            })
-            ->when($search, function ($q) use ($search) {
-                $q->where(function ($inner) use ($search) {
-                    $inner->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
-                });
-            })
-            ->latest('id')
-            ->paginate($perPage)
-            ->withQueryString();
+        $paginator = $query->paginateForCompany(
+            $companyId,
+            $perPage,
+            $search,
+            $status,
+            $roleId,
+            $presence
+        );
+
+        $summary = $query->summaryForCompany($companyId);
 
         $users = $paginator;
 
@@ -146,9 +145,27 @@ class UserController extends Controller
         $company = Company::query()->whereKey($companyId)->first(['id', 'name', 'slug']);
         $companyPayload = $this->companyPayload($company);
 
+        $now = time();
+        $onlineThreshold = $now - (5 * 60);
+        $recentThreshold = $now - (30 * 60);
+
         $users->setCollection(
-            $users->getCollection()->map(function (User $user) use ($roleByUserId, $employeeByUserId, $companyPayload) {
+            $users->getCollection()->map(function (User $user) use ($roleByUserId, $employeeByUserId, $companyPayload, $onlineThreshold, $recentThreshold) {
                 $role = $roleByUserId->get($user->id);
+                $latestActivity = $user->latest_activity ? (int) $user->latest_activity : null;
+
+                $presenceState = 'never';
+                if ($latestActivity) {
+                    if ($latestActivity >= $onlineThreshold) {
+                        $presenceState = 'online';
+                    } elseif ($latestActivity >= $recentThreshold) {
+                        $presenceState = 'recent';
+                    } else {
+                        $presenceState = 'offline';
+                    }
+                } elseif ($user->last_login_at) {
+                    $presenceState = 'offline';
+                }
 
                 return [
                     'id' => $user->id,
@@ -162,6 +179,9 @@ class UserController extends Controller
                     'avatar' => $this->avatarUrl($user->avatar),
                     'status' => $user->status,
                     'last_login_at' => $user->last_login_at,
+                    'last_active_at' => $latestActivity ? Carbon::createFromTimestamp($latestActivity)->toIso8601String() : null,
+                    'presence' => $presenceState,
+                    'two_factor_enabled' => ! empty($user->two_factor_secret),
                     'created_at' => $user->created_at,
                     'linked_employee' => $this->linkedEmployeePayload($employeeByUserId->get($user->id)),
                 ];
@@ -173,6 +193,27 @@ class UserController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
+        $invitations = UserInvitation::with('role')
+            ->where('company_id', $companyId)
+            ->whereNull('accepted_at')
+            ->whereNull('revoked_at')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (UserInvitation $invitation) => [
+                'id' => $invitation->id,
+                'email' => $invitation->email,
+                'name' => $invitation->name,
+                'role' => $invitation->role ? [
+                    'id' => $invitation->role->id,
+                    'name' => $invitation->role->name,
+                ] : null,
+                'expires_at' => $invitation->expires_at->toIso8601String(),
+                'last_sent_at' => $invitation->last_sent_at?->toIso8601String(),
+                'created_at' => $invitation->created_at->toIso8601String(),
+            ]);
+
+        $summary['pending_invites'] = $invitations->count();
+
         return Inertia::render('organization/users', [
             'users' => $users->items(),
             'pagination' => $this->paginationMeta($paginator),
@@ -180,8 +221,11 @@ class UserController extends Controller
             'filters' => [
                 'status' => $status,
                 'role_id' => $roleId,
+                'presence' => $presence,
             ],
+            'summary' => $summary,
             'roles' => $roles,
+            'invitations' => $invitations,
             'employees_for_linking' => $this->employeesForLinking($companyId),
         ]);
     }
@@ -280,7 +324,7 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, User $user)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        abort_unless((int) $user->company_id === $companyId, 404);
+        GlobalIdentityAccessGuard::check($user, $companyId);
 
         $data = $request->validated();
         $data['company_id'] = $companyId;
@@ -292,13 +336,23 @@ class UserController extends Controller
 
         $data['status'] = $data['status'] ?? 'active';
 
-        app(SyncUserEmployeeLink::class)->handle($user, $companyId, $employeeId);
-
-        if (! empty($data['password'] ?? null)) {
-            $data['password'] = Hash::make((string) $data['password']);
-        } else {
-            unset($data['password']);
+        // Check LastCompanyOwnerGuard if status is changing to inactive or role is changing away from Owner
+        if ($data['status'] !== 'active' || (isset($roleId) && $roleId !== null)) {
+            $isRoleChangeToNonOwner = false;
+            if (isset($roleId)) {
+                $newRole = SpatieRole::find($roleId);
+                if (! $newRole || $newRole->name !== 'Owner') {
+                    $isRoleChangeToNonOwner = true;
+                }
+            }
+            if ($data['status'] !== 'active' || $isRoleChangeToNonOwner) {
+                if (! LastCompanyOwnerGuard::check($user, $companyId)) {
+                    return back()->with('error', 'Cannot perform this action: the company must have at least one active Owner.');
+                }
+            }
         }
+
+        app(SyncUserEmployeeLink::class)->handle($user, $companyId, $employeeId);
 
         if ($request->hasFile('avatar')) {
             if ($user->avatar) {
@@ -338,9 +392,21 @@ class UserController extends Controller
     public function destroy(User $user)
     {
         $companyId = (int) request()->attributes->get('current_company_id');
-        abort_unless((int) $user->company_id === $companyId, 404);
+        GlobalIdentityAccessGuard::check($user, $companyId);
 
-        $user->delete();
+        try {
+            DB::transaction(function () use ($user, $companyId) {
+                if (! LastCompanyOwnerGuard::check($user, $companyId)) {
+                    abort(400, 'Cannot delete user: the company must have at least one active Owner.');
+                }
+                $user->delete();
+            });
+        } catch (HttpException $e) {
+            if ($e->getStatusCode() === 400) {
+                return back()->with('error', $e->getMessage());
+            }
+            throw $e;
+        }
 
         return redirect()
             ->route('organization.users')
@@ -350,11 +416,24 @@ class UserController extends Controller
     public function updateStatus(UpdateUserStatusRequest $request, User $user)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        abort_unless((int) $user->company_id === $companyId, 404);
+        GlobalIdentityAccessGuard::check($user, $companyId);
 
-        $user->update([
-            'status' => $request->validated('status'),
-        ]);
+        try {
+            DB::transaction(function () use ($user, $request, $companyId) {
+                if ($request->validated('status') !== 'active' && ! LastCompanyOwnerGuard::check($user, $companyId)) {
+                    abort(400, 'Cannot deactivate user: the company must have at least one active Owner.');
+                }
+
+                $user->update([
+                    'status' => $request->validated('status'),
+                ]);
+            });
+        } catch (HttpException $e) {
+            if ($e->getStatusCode() === 400) {
+                return back()->with('error', $e->getMessage());
+            }
+            throw $e;
+        }
 
         return redirect()
             ->route('organization.users')
@@ -399,6 +478,21 @@ class UserController extends Controller
             ? (int) $data['role_id']
             : null;
 
+        if ($status !== 'active' || $roleId !== null) {
+            $isRoleChangeToNonOwner = false;
+            if ($roleId !== null) {
+                $newRole = SpatieRole::find($roleId);
+                if (! $newRole || $newRole->name !== 'Owner') {
+                    $isRoleChangeToNonOwner = true;
+                }
+            }
+            if ($status !== 'active' || $isRoleChangeToNonOwner) {
+                if (! LastCompanyOwnerGuard::check($user, $companyId)) {
+                    return back()->with('error', 'Cannot perform this action: the company must have at least one active Owner.');
+                }
+            }
+        }
+
         $user->companies()->updateExistingPivot($companyId, [
             'status' => $status,
         ]);
@@ -418,6 +512,10 @@ class UserController extends Controller
     public function destroyMembership(DestroyUserMembershipRequest $request, User $user, Company $company)
     {
         $companyId = (int) $company->id;
+
+        if (! LastCompanyOwnerGuard::check($user, $companyId)) {
+            return back()->with('error', 'Cannot remove membership: the company must have at least one active Owner.');
+        }
 
         $user->companies()->detach($companyId);
 

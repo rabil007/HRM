@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 export type UserFilters = {
     status: '' | 'active' | 'inactive' | 'suspended';
     role_id: string;
+    presence: '' | 'online' | 'recent' | 'offline' | 'never';
 };
 
 export function UserFiltersSheet({
@@ -67,6 +68,28 @@ export function UserFiltersSheet({
                                 {r.name}
                             </AppSelectItem>
                         ))}
+                    </AppSelect>
+                </div>
+                <div className="space-y-2">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                        Presence
+                    </Label>
+                    <AppSelect
+                        value={value.presence}
+                        onValueChange={(v) =>
+                            onChange({
+                                ...value,
+                                presence: v as UserFilters['presence'],
+                            })
+                        }
+                        variant="dark"
+                        placeholder="All"
+                    >
+                        <AppSelectItem value="">All</AppSelectItem>
+                        <AppSelectItem value="online">Online Now (≤5m)</AppSelectItem>
+                        <AppSelectItem value="recent">Recently Active (≤30m)</AppSelectItem>
+                        <AppSelectItem value="offline">Offline (&gt;30m)</AppSelectItem>
+                        <AppSelectItem value="never">Never Logged In</AppSelectItem>
                     </AppSelect>
                 </div>
             </div>
