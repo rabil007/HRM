@@ -6,13 +6,14 @@
  * Invoked from .github/workflows/ci.yml and covered by tests/Unit/Ci.
  */
 
-const OMS_CI_PEST_SHARD_COUNT = 3;
+const OMS_CI_PEST_SHARD_COUNT = 6;
 
 /**
  * @param  list<string>  $paths
  * @return array{
  *     pint: bool,
  *     frontend_static: bool,
+ *     frontend_types: bool,
  *     frontend_build: bool,
  *     pest: bool,
  *     docs_only: bool,
@@ -24,6 +25,7 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
     $full = [
         'pint' => true,
         'frontend_static' => true,
+        'frontend_types' => true,
         'frontend_build' => true,
         'pest' => true,
         'docs_only' => false,
@@ -80,6 +82,7 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
         return [
             'pint' => false,
             'frontend_static' => false,
+            'frontend_types' => false,
             'frontend_build' => false,
             'pest' => false,
             'docs_only' => true,
@@ -95,6 +98,7 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
         return [
             'pint' => true,
             'frontend_static' => false,
+            'frontend_types' => false,
             'frontend_build' => true,
             'pest' => true,
             'docs_only' => false,
@@ -105,6 +109,7 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
     return [
         'pint' => false,
         'frontend_static' => true,
+        'frontend_types' => true,
         'frontend_build' => true,
         'pest' => false,
         'docs_only' => false,
@@ -314,6 +319,7 @@ function oms_ci_evaluate_quality_gates(array $state): array
     $jobs = [
         'pint' => 'PHP Style (Pint)',
         'frontend_static' => 'Frontend Static',
+        'frontend_types' => 'TypeScript',
         'frontend_build' => 'Frontend Build',
         'pest' => 'Pest',
     ];
@@ -348,10 +354,6 @@ function oms_ci_evaluate_quality_gates(array $state): array
 
         if ($found !== $expected) {
             $errors[] = 'Pest shard results are missing or incomplete (found=['.implode(',', $found)."], expected=1..{$expectedShards}).";
-        }
-
-        if (! $viteBuildOk) {
-            $errors[] = 'Frontend build artifact was missing from a successful Pest run.';
         }
     }
 
@@ -438,6 +440,7 @@ function oms_ci_cli_classify(array $argv): int
     oms_ci_emit_outputs([
         'pint' => oms_ci_bool_string($result['pint']),
         'frontend_static' => oms_ci_bool_string($result['frontend_static']),
+        'frontend_types' => oms_ci_bool_string($result['frontend_types']),
         'frontend_build' => oms_ci_bool_string($result['frontend_build']),
         'pest' => oms_ci_bool_string($result['pest']),
         'docs_only' => oms_ci_bool_string($result['docs_only']),
@@ -445,10 +448,11 @@ function oms_ci_cli_classify(array $argv): int
     ]);
 
     fwrite(STDOUT, sprintf(
-        "CI scope=%s pint=%s frontend_static=%s frontend_build=%s pest=%s docs_only=%s\n",
+        "CI scope=%s pint=%s frontend_static=%s frontend_types=%s frontend_build=%s pest=%s docs_only=%s\n",
         $result['scope'],
         oms_ci_bool_string($result['pint']),
         oms_ci_bool_string($result['frontend_static']),
+        oms_ci_bool_string($result['frontend_types']),
         oms_ci_bool_string($result['frontend_build']),
         oms_ci_bool_string($result['pest']),
         oms_ci_bool_string($result['docs_only']),
@@ -502,10 +506,12 @@ function oms_ci_cli_quality_gates(): int
         'changes_result' => getenv('CHANGES_RESULT') ?: '',
         'pint_result' => getenv('PINT_RESULT') ?: '',
         'frontend_static_result' => getenv('FRONTEND_STATIC_RESULT') ?: '',
+        'frontend_types_result' => getenv('FRONTEND_TYPES_RESULT') ?: '',
         'frontend_build_result' => getenv('FRONTEND_BUILD_RESULT') ?: '',
         'pest_result' => getenv('PEST_RESULT') ?: '',
         'run_pint' => getenv('RUN_PINT') ?: 'false',
         'run_frontend_static' => getenv('RUN_FRONTEND_STATIC') ?: 'false',
+        'run_frontend_types' => getenv('RUN_FRONTEND_TYPES') ?: 'false',
         'run_frontend_build' => getenv('RUN_FRONTEND_BUILD') ?: 'false',
         'run_pest' => getenv('RUN_PEST') ?: 'false',
         'docs_only' => getenv('DOCS_ONLY') ?: 'false',
@@ -522,6 +528,7 @@ function oms_ci_cli_quality_gates(): int
     fwrite(STDOUT, "docs_only={$docsOnly}\n");
     fwrite(STDOUT, 'run_pint='.(getenv('RUN_PINT') ?: '').' pint_result='.(getenv('PINT_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'run_frontend_static='.(getenv('RUN_FRONTEND_STATIC') ?: '').' frontend_static_result='.(getenv('FRONTEND_STATIC_RESULT') ?: '')."\n");
+    fwrite(STDOUT, 'run_frontend_types='.(getenv('RUN_FRONTEND_TYPES') ?: '').' frontend_types_result='.(getenv('FRONTEND_TYPES_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'run_frontend_build='.(getenv('RUN_FRONTEND_BUILD') ?: '').' frontend_build_result='.(getenv('FRONTEND_BUILD_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'run_pest='.(getenv('RUN_PEST') ?: '').' pest_result='.(getenv('PEST_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'changes_result='.(getenv('CHANGES_RESULT') ?: '')."\n");

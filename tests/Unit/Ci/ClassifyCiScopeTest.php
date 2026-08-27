@@ -15,6 +15,7 @@ test('docs-only paths skip application jobs', function () {
     expect($result)->toMatchArray([
         'pint' => false,
         'frontend_static' => false,
+        'frontend_types' => false,
         'frontend_build' => false,
         'pest' => false,
         'docs_only' => true,
@@ -33,6 +34,7 @@ test('backend-only paths run pint pest and the vite build', function () {
     expect($result)->toMatchArray([
         'pint' => true,
         'frontend_static' => false,
+        'frontend_types' => false,
         'frontend_build' => true,
         'pest' => true,
         'docs_only' => false,
@@ -51,6 +53,7 @@ test('frontend-only paths skip pint and pest', function () {
     expect($result)->toMatchArray([
         'pint' => false,
         'frontend_static' => true,
+        'frontend_types' => true,
         'frontend_build' => true,
         'pest' => false,
         'docs_only' => false,
@@ -62,6 +65,7 @@ test('shared or mixed application paths run full CI', function (array $paths) {
     expect(oms_ci_classify_paths($paths))->toMatchArray([
         'pint' => true,
         'frontend_static' => true,
+        'frontend_types' => true,
         'frontend_build' => true,
         'pest' => true,
         'docs_only' => false,
@@ -126,6 +130,7 @@ test('classify CLI writes GitHub outputs for docs-only paths', function () {
     expect($exitCode)->toBe(0)
         ->and((string) file_get_contents($output))->toContain("docs_only=true\n")
         ->and((string) file_get_contents($output))->toContain("scope=docs-only\n")
+        ->and((string) file_get_contents($output))->toContain("frontend_types=false\n")
         ->and((string) file_get_contents($output))->toContain("pest=false\n");
 
     unlink($output);

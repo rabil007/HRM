@@ -4,12 +4,16 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use Inertia\Inertia;
 
 test('inertia json responses are not stored in browser or cdn cache', function () {
     $manifestPath = public_path('build/manifest.json');
 
-    if (! file_exists($manifestPath)) {
-        $this->markTestSkipped('Vite manifest is not built.');
+    if (file_exists($manifestPath)) {
+        $version = hash_file('xxh128', $manifestPath);
+    } else {
+        $version = 'test-manifest-version';
+        Inertia::version($version);
     }
 
     $user = User::factory()->create();
@@ -40,8 +44,6 @@ test('inertia json responses are not stored in browser or cdn cache', function (
     ]);
 
     grantCompanyPermissions($user, $company, ['positions.view']);
-
-    $version = hash_file('xxh128', $manifestPath);
 
     $response = $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])

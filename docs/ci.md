@@ -11,24 +11,20 @@ Detect changes
     |
     +-- PHP Style (Pint)
     |
-    +-- Frontend Static
-    |     ESLint, Prettier, TypeScript, frontend tests
+    +-- Frontend Static (ESLint, Prettier, unit tests in parallel)
     |
-    +-- Frontend Build
-          Wayfinder, npm run build, upload public/build
-                    |
-          +---------+---------+
-          |         |         |
-       Pest 1    Pest 2    Pest 3
-          |         |         |
-          +---------+---------+
-                    |
-              Quality gates
+    +-- TypeScript (Wayfinder + incremental tsc)
+    |
+    +-- Frontend Build (Wayfinder, npm run build, uploads public/build)
+    |
+    +-- Pest 1/6 .. Pest 6/6 (decoupled from Vite build via withoutVite())
+              |
+        Quality gates (near-zero overhead aggregator)
 ```
 
 1. **Detect changes** — classifies the diff as `docs-only`, `backend-only`, `frontend-only`, or `full`. Unknown paths force full CI.
-2. Independent checks run in parallel. Pest shards wait only for the Vite build artifact (Inertia tests need `public/build/manifest.json`).
-3. **Quality gates** — aggregator job that must succeed. Expected skips (for example docs-only) still pass this aggregator when change detection succeeds.
+2. Independent checks run fully in parallel. Backend tests are decoupled from Vite via `withoutVite()` in `tests/TestCase.php`, allowing all 6 Pest shards to start immediately alongside Frontend Build rather than waiting for it.
+3. **Quality gates** — near-zero overhead aggregator job (~2-3s) that verifies all required jobs completed successfully without requiring PHP, Composer, or artifact marker downloads. Expected skips (for example docs-only) still pass this aggregator when change detection succeeds.
 
 Docs-only paths include `docs/*`, `.cursor/*`, `.agents/*`, `.gemini/*`, root-level `*.md`, and a short list of agent/tooling files. Any unrecognized path forces full CI.
 
@@ -36,12 +32,12 @@ Docs-only paths include `docs/*`, `.cursor/*`, `.agents/*`, `.gemini/*`, root-le
 
 Classification is fail-safe: empty or unreadable diffs run full CI. Shared or uncertain application files also run full CI.
 
-| Scope | Pint | Frontend static | Frontend build | Pest |
-|-------|------|-----------------|----------------|------|
-| `docs-only` | skip | skip | skip | skip |
-| `backend-only` | run | skip | run | run (3 shards) |
-| `frontend-only` | skip | run | run | skip |
-| `full` | run | run | run | run (3 shards) |
+| Scope | Pint | Frontend static | TypeScript | Frontend build | Pest |
+|-------|------|-----------------|------------|----------------|------|
+| `docs-only` | skip | skip | skip | skip | skip |
+| `backend-only` | run | skip | skip | run | run (6 shards) |
+| `frontend-only` | skip | run | run | run | skip |
+| `full` | run | run | run | run | run (6 shards) |
 
 Examples that force **full** CI (both sides):
 
@@ -54,23 +50,23 @@ Examples that force **full** CI (both sides):
 - `.github/` (including this workflow)
 - any path the classifier does not recognize
 
-`backend-only` still builds the frontend because Pest needs the Vite manifest. `frontend-only` still runs the production build gate.
+`backend-only` still builds the frontend as an independent build gate and for deployment artifact readiness. `frontend-only` still runs the production build gate.
 
 ## Required gates (full application CI)
 
 | Gate | Job / step | Local command |
 |------|------------|---------------|
 | PHP formatting | PHP Style (Pint) → `composer lint:check` | `composer lint:check` (`pint --parallel --test`) |
-| Pest | Pest 1/3, 2/3, 3/3 (each file runs in exactly one shard) | `php artisan test --compact` or `composer test` |
+| Pest | Pest 1/6 .. 6/6 (each file runs in exactly one shard) | `php artisan test --compact` or `composer test` |
 | ESLint | Frontend Static → `npm run lint:check` | `npm run lint:check` |
 | Prettier | Frontend Static → `npm run format:check` | `npm run format:check` |
-| TypeScript | Frontend Static → `npm run types:check` | `npm run types:check` |
 | Frontend tests | Frontend Static → `npm run test:frontend` | `npm run test:frontend` |
+| TypeScript | TypeScript → `npm run types:check` | `npm run types:check` |
 | Production build | Frontend Build → `npm run build` | `npm run build` |
 
-Frontend Build uploads `public/build` as a workflow artifact named `vite-build-<sha>-<run_id>-<run_attempt>`. Each Pest shard downloads that same artifact and refuses to start without `public/build/manifest.json` for this SHA. Shards do not rebuild Vite.
+Frontend Build uploads `public/build` as a workflow artifact named `vite-build-<sha>-<run_id>-<run_attempt>`. Deploy downloads this artifact directly.
 
-Pest sharding is deterministic file round-robin over `tests/Unit/**/*Test.php` and `tests/Feature/**/*Test.php` via `.github/scripts/ci.php`. Pest 4.4 in this repo has no native `--shard` flag; the helper splits the suite so the full set runs exactly once. Tests keep sqlite `:memory:` and `RefreshDatabase` isolation (one runner per shard, not Pest `--parallel`). Helpers used by more than one test file must live in `tests/Support/` (loaded from `tests/Pest.php`) so a shard that does not load the original defining file still has them.
+Pest sharding is deterministic file round-robin over `tests/Unit/**/*Test.php` and `tests/Feature/**/*Test.php` across 6 shards via `.github/scripts/ci.php`. Pest 4.4 in this repo has no native `--shard` flag; the helper splits the suite so the full set runs exactly once. Tests keep sqlite `:memory:` and `RefreshDatabase` isolation (one runner per shard, not Pest `--parallel`). Helpers used by more than one test file must live in `tests/Support/` (loaded from `tests/Pest.php`) so a shard that does not load the original defining file still has them.
 
 Run the same local set:
 
@@ -122,7 +118,15 @@ Do not commit those directories.
 
 ## Caching
 
-CI caches Composer’s **download** cache (keyed by `composer.lock`) and npm’s **download** cache (via `actions/setup-node`). It does not cache `vendor/` or `node_modules/` as restore artifacts. Puppeteer browsers are cached under `~/.cache/puppeteer` on jobs that run `npm ci`.
+CI caches:
+- Composer download cache (keyed by `composer.lock`)
+- npm download cache (via `actions/setup-node`)
+- Pint persistent style cache (`.pint.cache`)
+- ESLint content cache (`node_modules/.cache/.eslintcache`)
+- Prettier content cache (`node_modules/.cache/prettier`)
+- TypeScript incremental build cache (`node_modules/.cache/tsbuildinfo`)
+
+It does not cache `vendor/` or `node_modules/` as restore artifacts. `PUPPETEER_SKIP_DOWNLOAD=true` is set across CI jobs to skip downloading unnecessary browser binaries during `npm ci`.
 
 ## Permissions
 

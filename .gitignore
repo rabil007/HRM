@@ -1,4 +1,7 @@
 /.phpunit.cache
+/.pint.cache
+/.eslintcache
+/tsconfig.tsbuildinfo
 /bootstrap/ssr
 /node_modules
 /public/build
