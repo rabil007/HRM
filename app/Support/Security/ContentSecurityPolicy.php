@@ -40,7 +40,7 @@ final class ContentSecurityPolicy
             'base-uri' => ["'self'"],
             'form-action' => ["'self'"],
             'object-src' => ["'none'"],
-            'frame-ancestors' => ["'none'"],
+            'frame-ancestors' => self::frameAncestors(),
             'script-src' => $scriptSrc,
             'style-src' => $styleSrc,
             'img-src' => $imgSrc,
@@ -97,6 +97,41 @@ final class ContentSecurityPolicy
         }
 
         return $directives;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function frameAncestors(): array
+    {
+        $configured = config('security.headers.csp.frame_ancestors');
+
+        if (is_array($configured)) {
+            $raw = $configured;
+        } elseif (is_string($configured) && trim($configured) !== '') {
+            $normalized = str_replace(',', ' ', $configured);
+            $raw = preg_split('/\s+/', trim($normalized)) ?: [];
+        } else {
+            return ["'self'"];
+        }
+
+        $ancestors = [];
+
+        foreach ($raw as $token) {
+            if (! is_string($token)) {
+                continue;
+            }
+
+            $token = trim($token);
+
+            if ($token === '') {
+                continue;
+            }
+
+            $ancestors[] = $token;
+        }
+
+        return array_values(array_unique($ancestors)) ?: ["'self'"];
     }
 
     /**

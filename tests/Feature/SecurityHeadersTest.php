@@ -123,3 +123,31 @@ test('session cookies stay httponly with lax same-site', function () {
     expect(config('session.http_only'))->toBeTrue()
         ->and(config('session.same_site'))->toBe('lax');
 });
+
+test('x-frame-options defaults to sameorigin and can be omitted or customized', function () {
+    $response = $this->get(route('login'));
+    $response->assertOk();
+    $response->assertHeader('X-Frame-Options', 'SAMEORIGIN');
+
+    config(['security.headers.x_frame_options' => false]);
+    $responseDisabled = $this->get(route('login'));
+    $responseDisabled->assertOk();
+    $responseDisabled->assertHeaderMissing('X-Frame-Options');
+
+    config(['security.headers.x_frame_options' => 'DENY']);
+    $responseDeny = $this->get(route('login'));
+    $responseDeny->assertOk();
+    $responseDeny->assertHeader('X-Frame-Options', 'DENY');
+});
+
+test('csp frame-ancestors includes configured framing parents on responses', function () {
+    config(['security.headers.csp.frame_ancestors' => "'self' https://portal.overseas-ms.com"]);
+
+    $response = $this->get(route('login'));
+    $response->assertOk();
+
+    $csp = (string) $response->headers->get('Content-Security-Policy');
+    $directives = ContentSecurityPolicy::parse($csp);
+
+    expect($directives['frame-ancestors'] ?? [])->toBe(["'self'", 'https://portal.overseas-ms.com']);
+});

@@ -143,7 +143,7 @@ test('legacy signed share url downloads the document file', function () {
         ->assertOk()
         ->assertDownload('Passport_Copy.pdf')
         ->assertHeader('X-Content-Type-Options', 'nosniff')
-        ->assertHeader('X-Frame-Options', 'DENY');
+        ->assertHeader('X-Frame-Options', 'SAMEORIGIN');
 });
 
 test('invalid signed share url is forbidden', function () {
@@ -269,7 +269,7 @@ test('password protected legacy share link requires password input', function ()
         ->assertOk()
         ->assertDownload('Passport_Copy.pdf')
         ->assertHeader('X-Content-Type-Options', 'nosniff')
-        ->assertHeader('X-Frame-Options', 'DENY');
+        ->assertHeader('X-Frame-Options', 'SAMEORIGIN');
 });
 
 test('users can create folder share links with upload permission', function () {

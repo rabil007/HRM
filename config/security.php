@@ -33,6 +33,10 @@ return [
     'headers' => [
         'csp' => [
             'report_only' => env('SECURITY_CSP_REPORT_ONLY', false),
+            'frame_ancestors' => env(
+                'SECURITY_CSP_FRAME_ANCESTORS',
+                "'self' https://*.overseas-ms.com https://overseas-ms.com",
+            ),
             'vite_dev_origins' => array_values(array_filter(array_map(
                 trim(...),
                 explode(',', (string) env(
@@ -41,6 +45,7 @@ return [
                 )),
             ))),
         ],
+        'x_frame_options' => env('SECURITY_X_FRAME_OPTIONS', 'SAMEORIGIN'),
         'hsts' => [
             'enabled' => env('SECURITY_HSTS'),
             'max_age' => 31536000,

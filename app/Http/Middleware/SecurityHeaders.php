@@ -44,7 +44,15 @@ class SecurityHeaders
 
     private function applyFramingProtection(Response $response): void
     {
-        $response->headers->set('X-Frame-Options', 'DENY');
+        $frameOptions = config('security.headers.x_frame_options', 'SAMEORIGIN');
+
+        if ($frameOptions === false || $frameOptions === null || $frameOptions === '' || in_array(strtolower((string) $frameOptions), ['false', 'off', 'none'], true)) {
+            $response->headers->remove('X-Frame-Options');
+
+            return;
+        }
+
+        $response->headers->set('X-Frame-Options', (string) $frameOptions);
     }
 
     private function applyStaticHeaders(Response $response): void
