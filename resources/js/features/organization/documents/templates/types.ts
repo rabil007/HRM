@@ -9,6 +9,7 @@ export type TemplateVersionSummary = {
     source_pdf_page_count: number | null;
     placement_count: number;
     has_placements: boolean;
+    placement_config?: PlacementConfig | null;
     published_at: string | null;
     created_at: string | null;
     updated_at: string | null;

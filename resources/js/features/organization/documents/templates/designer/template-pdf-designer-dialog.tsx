@@ -18,8 +18,18 @@ import {
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -84,6 +94,8 @@ export function TemplatePdfDesignerDialog({
     const [isPublishing, setIsPublishing] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -93,6 +105,18 @@ export function TemplatePdfDesignerDialog({
     useEffect(() => {
         placementsRef.current = placements;
     }, [placements]);
+
+    const canvasSizeRef = useRef(canvasSize);
+    useEffect(() => {
+        canvasSizeRef.current = canvasSize;
+    }, [canvasSize]);
+
+    const isSamplePreviewRef = useRef(isSamplePreview);
+    useEffect(() => {
+        isSamplePreviewRef.current = isSamplePreview;
+    }, [isSamplePreview]);
+
+    const pdfDocRef = useRef<any>(null);
 
     // Map of merge fields for quick lookup
     const mergeFieldsMap = useMemo(() => {
@@ -131,11 +155,14 @@ export function TemplatePdfDesignerDialog({
         if (open && version) {
             const rawPlacements = initialConfig?.placements || [];
             setPlacements(rawPlacements);
+            placementsRef.current = rawPlacements;
             setCurrentPage(1);
             setTotalPages(version.source_pdf_page_count || 1);
             setSelectedPlacementId(null);
             setIsSamplePreview(false);
             setErrorMessage(null);
+            setHasUnsavedChanges(false);
+            pdfDocRef.current = null;
         }
     }, [open, version, initialConfig]);
 
@@ -183,7 +210,219 @@ export function TemplatePdfDesignerDialog({
         canvas.requestRenderAll();
     }, []);
 
-    // Render PDF page and Fabric objects
+    // Sync placement objects onto Fabric canvas for a specific page without reloading the PDF
+    const syncPlacementObjects = useCallback(
+        (
+            canvas: Canvas,
+            items: PdfPlacementItem[],
+            page: number,
+            preview: boolean,
+            width: number,
+            height: number,
+        ) => {
+            const existing = canvas
+                .getObjects()
+                .filter(
+                    (obj) =>
+                        Boolean((obj.get('data') as { id?: string })?.id) ||
+                        Boolean(
+                            (obj.get('data') as { parentId?: string })
+                                ?.parentId,
+                        ),
+                );
+            existing.forEach((obj) => canvas.remove(obj));
+            labelRefs.current.clear();
+
+            const pagePlacements = items.filter((p) => p.page === page);
+
+            pagePlacements.forEach((item) => {
+                const pixel = normalizedToPixel(
+                    {
+                        x: item.x,
+                        y: item.y,
+                        width: item.width,
+                        height: item.height,
+                    },
+                    width,
+                    height,
+                );
+
+                const fieldMeta = mergeFieldsMap.get(item.field);
+                const displayText = preview
+                    ? fieldMeta?.sample || item.field
+                    : fieldMeta?.label || item.field;
+
+                const rect = new Rect({
+                    left: pixel.left,
+                    top: pixel.top,
+                    width: pixel.width,
+                    height: pixel.height,
+                    fill: preview
+                        ? 'rgba(16, 185, 129, 0.2)'
+                        : 'rgba(59, 130, 246, 0.25)',
+                    stroke: preview ? '#059669' : '#2563eb',
+                    strokeWidth: 1.5,
+                    cornerColor: '#2563eb',
+                    cornerStyle: 'circle',
+                    transparentCorners: false,
+                    hasRotatingPoint: false,
+                    lockRotation: true,
+                    selectable: !preview,
+                    evented: !preview,
+                });
+                rect.set('data', { id: item.id });
+
+                const align = item.text_align || 'left';
+                let labelLeft = pixel.left + 6;
+                let originX: 'left' | 'center' | 'right' = 'left';
+
+                if (align === 'center') {
+                    labelLeft = pixel.left + pixel.width / 2;
+                    originX = 'center';
+                } else if (align === 'right') {
+                    labelLeft = pixel.left + pixel.width - 6;
+                    originX = 'right';
+                }
+
+                const label = new FabricText(displayText, {
+                    left: labelLeft,
+                    top: pixel.top + 4,
+                    fontSize: item.font_size || 12,
+                    fontWeight: item.font_weight || 'normal',
+                    fill: preview ? '#065f46' : '#1e3a8a',
+                    selectable: false,
+                    evented: false,
+                    originX,
+                });
+                label.set('data', { parentId: item.id });
+
+                canvas.add(rect);
+                canvas.add(label);
+                labelRefs.current.set(item.id, label);
+            });
+
+            canvas.requestRenderAll();
+        },
+        [mergeFieldsMap],
+    );
+
+    // Attach drag, scale, and selection events to canvas once
+    const attachCanvasEvents = useCallback(
+        (canvas: Canvas) => {
+            canvas.on('object:moving', (e) => {
+                const target = e.target;
+
+                if (!target) {
+                    return;
+                }
+
+                syncLabels(canvas);
+                const id = (target.get('data') as { id?: string })?.id;
+
+                if (!id) {
+                    return;
+                }
+
+                const bounds = target.getBoundingRect();
+                const dims = canvasSizeRef.current;
+
+                if (dims.width <= 0 || dims.height <= 0) {
+                    return;
+                }
+
+                const norm = pixelToNormalized(
+                    {
+                        left: bounds.left,
+                        top: bounds.top,
+                        width: bounds.width,
+                        height: bounds.height,
+                    },
+                    dims.width,
+                    dims.height,
+                );
+
+                setHasUnsavedChanges(true);
+                setPlacements((prev) => {
+                    const updated = prev.map((p) =>
+                        p.id === id ? { ...p, x: norm.x, y: norm.y } : p,
+                    );
+                    placementsRef.current = updated;
+
+                    return updated;
+                });
+            });
+
+            canvas.on('object:scaling', (e) => {
+                const target = e.target;
+
+                if (!target) {
+                    return;
+                }
+
+                syncLabels(canvas);
+                const id = (target.get('data') as { id?: string })?.id;
+
+                if (!id) {
+                    return;
+                }
+
+                const bounds = target.getBoundingRect();
+                const dims = canvasSizeRef.current;
+
+                if (dims.width <= 0 || dims.height <= 0) {
+                    return;
+                }
+
+                const norm = pixelToNormalized(
+                    {
+                        left: bounds.left,
+                        top: bounds.top,
+                        width: bounds.width,
+                        height: bounds.height,
+                    },
+                    dims.width,
+                    dims.height,
+                );
+
+                setHasUnsavedChanges(true);
+                setPlacements((prev) => {
+                    const updated = prev.map((p) =>
+                        p.id === id
+                            ? {
+                                  ...p,
+                                  x: norm.x,
+                                  y: norm.y,
+                                  width: norm.width,
+                                  height: norm.height,
+                              }
+                            : p,
+                    );
+                    placementsRef.current = updated;
+
+                    return updated;
+                });
+            });
+
+            canvas.on('selection:created', (e) => {
+                const target = e.selected?.[0];
+                const id = (target?.get('data') as { id?: string })?.id;
+                setSelectedPlacementId(id || null);
+            });
+
+            canvas.on('selection:updated', (e) => {
+                const target = e.selected?.[0];
+                const id = (target?.get('data') as { id?: string })?.id;
+                setSelectedPlacementId(id || null);
+            });
+
+            canvas.on('selection:cleared', () => {
+                setSelectedPlacementId(null);
+            });
+        },
+        [syncLabels],
+    );
+
+    // Render PDF page background image and initialize placement objects
     useEffect(() => {
         if (!open || !template || !version) {
             return;
@@ -196,27 +435,34 @@ export function TemplatePdfDesignerDialog({
             setErrorMessage(null);
 
             try {
-                const pdfUrl = sourcePdf.url({
-                    template: template.id,
-                    version: version.id,
-                });
-                const response = await fetch(pdfUrl, {
-                    credentials: 'same-origin',
-                });
+                let pdf = pdfDocRef.current;
 
-                if (!response.ok) {
-                    throw new Error('Failed to stream private template PDF.');
+                if (!pdf) {
+                    const pdfUrl = sourcePdf.url({
+                        template: template.id,
+                        version: version.id,
+                    });
+                    const response = await fetch(pdfUrl, {
+                        credentials: 'same-origin',
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(
+                            'Failed to stream private template PDF.',
+                        );
+                    }
+
+                    const data = await response.arrayBuffer();
+                    const pdfjs = await getPdfJs();
+                    pdf = await pdfjs.getDocument({ data }).promise;
+
+                    if (cancelled) {
+                        return;
+                    }
+
+                    pdfDocRef.current = pdf;
+                    setTotalPages(pdf.numPages);
                 }
-
-                const data = await response.arrayBuffer();
-                const pdfjs = await getPdfJs();
-                const pdf = await pdfjs.getDocument({ data }).promise;
-
-                if (cancelled) {
-                    return;
-                }
-
-                setTotalPages(pdf.numPages);
 
                 const pageNumber = Math.min(
                     Math.max(1, currentPage),
@@ -224,19 +470,16 @@ export function TemplatePdfDesignerDialog({
                 );
                 const pdfPage = await pdf.getPage(pageNumber);
 
-                const container = containerRef.current;
-
-                if (!container || cancelled) {
+                if (cancelled) {
                     return;
                 }
 
-                // Scale PDF to fit container width smoothly (max 850px)
-                const baseViewport = pdfPage.getViewport({ scale: 1 });
-                const availableWidth = Math.min(
-                    container.clientWidth - 48,
-                    850,
+                const unscaledViewport = pdfPage.getViewport({ scale: 1 });
+                const targetWidth = Math.min(
+                    900,
+                    Math.max(600, window.innerWidth * 0.55),
                 );
-                const scale = availableWidth / baseViewport.width;
+                const scale = targetWidth / unscaledViewport.width;
                 const viewport = pdfPage.getViewport({ scale });
 
                 const offscreen = document.createElement('canvas');
@@ -277,6 +520,7 @@ export function TemplatePdfDesignerDialog({
                         selection: false,
                     });
                     fabricCanvasRef.current = canvas;
+                    attachCanvasEvents(canvas);
                 } else if (canvas) {
                     canvas.setDimensions({
                         width: viewport.width,
@@ -288,184 +532,19 @@ export function TemplatePdfDesignerDialog({
                     return;
                 }
 
-                // Set PDF background image
                 const bgImage = await FabricImage.fromURL(backgroundUrl);
                 canvas.backgroundImage = bgImage;
 
-                // Clear previous objects
-                canvas.clear();
-                labelRefs.current.clear();
-                canvas.backgroundImage = bgImage;
-
-                // Render placement boxes for this page
-                const pagePlacements = placements.filter(
-                    (p) => p.page === pageNumber,
+                // Sync placement objects for this page immediately
+                syncPlacementObjects(
+                    canvas,
+                    placementsRef.current,
+                    pageNumber,
+                    isSamplePreviewRef.current,
+                    viewport.width,
+                    viewport.height,
                 );
 
-                pagePlacements.forEach((item) => {
-                    const pixel = normalizedToPixel(
-                        {
-                            x: item.x,
-                            y: item.y,
-                            width: item.width,
-                            height: item.height,
-                        },
-                        viewport.width,
-                        viewport.height,
-                    );
-
-                    const fieldMeta = mergeFieldsMap.get(item.field);
-                    const displayText = isSamplePreview
-                        ? fieldMeta?.sample || item.field
-                        : fieldMeta?.label || item.field;
-
-                    const rect = new Rect({
-                        left: pixel.left,
-                        top: pixel.top,
-                        width: pixel.width,
-                        height: pixel.height,
-                        fill: isSamplePreview
-                            ? 'rgba(16, 185, 129, 0.2)'
-                            : 'rgba(59, 130, 246, 0.25)',
-                        stroke: isSamplePreview ? '#059669' : '#2563eb',
-                        strokeWidth: 1.5,
-                        cornerColor: '#2563eb',
-                        cornerStyle: 'circle',
-                        transparentCorners: false,
-                        hasRotatingPoint: false,
-                        lockRotation: true,
-                        selectable: !isSamplePreview,
-                        evented: !isSamplePreview,
-                    });
-                    rect.set('data', { id: item.id });
-
-                    const align = item.text_align || 'left';
-                    let labelLeft = pixel.left + 6;
-                    let originX: 'left' | 'center' | 'right' = 'left';
-
-                    if (align === 'center') {
-                        labelLeft = pixel.left + pixel.width / 2;
-                        originX = 'center';
-                    } else if (align === 'right') {
-                        labelLeft = pixel.left + pixel.width - 6;
-                        originX = 'right';
-                    }
-
-                    const label = new FabricText(displayText, {
-                        left: labelLeft,
-                        top: pixel.top + 4,
-                        originX,
-                        fontSize: item.font_size || 12,
-                        fontWeight: item.font_weight || 'normal',
-                        fill: isSamplePreview ? '#065f46' : '#1e3a8a',
-                        selectable: false,
-                        evented: false,
-                    });
-                    label.set('data', { parentId: item.id });
-
-                    canvas.add(rect);
-                    canvas.add(label);
-                    labelRefs.current.set(item.id, label);
-                });
-
-                // Attach event listeners for object move & scale
-                canvas.off('object:moving');
-                canvas.off('object:scaling');
-                canvas.off('selection:created');
-                canvas.off('selection:updated');
-                canvas.off('selection:cleared');
-
-                canvas.on('object:moving', (e) => {
-                    const target = e.target;
-
-                    if (!target) {
-                        return;
-                    }
-
-                    syncLabels(canvas);
-                    const id = (target.get('data') as { id?: string })?.id;
-
-                    if (!id) {
-                        return;
-                    }
-
-                    const bounds = target.getBoundingRect();
-                    const norm = pixelToNormalized(
-                        {
-                            left: bounds.left,
-                            top: bounds.top,
-                            width: bounds.width,
-                            height: bounds.height,
-                        },
-                        viewport.width,
-                        viewport.height,
-                    );
-
-                    setPlacements((prev) =>
-                        prev.map((p) =>
-                            p.id === id ? { ...p, x: norm.x, y: norm.y } : p,
-                        ),
-                    );
-                });
-
-                canvas.on('object:scaling', (e) => {
-                    const target = e.target;
-
-                    if (!target) {
-                        return;
-                    }
-
-                    syncLabels(canvas);
-                    const id = (target.get('data') as { id?: string })?.id;
-
-                    if (!id) {
-                        return;
-                    }
-
-                    const bounds = target.getBoundingRect();
-                    const norm = pixelToNormalized(
-                        {
-                            left: bounds.left,
-                            top: bounds.top,
-                            width: bounds.width,
-                            height: bounds.height,
-                        },
-                        viewport.width,
-                        viewport.height,
-                    );
-
-                    setPlacements((prev) =>
-                        prev.map((p) =>
-                            p.id === id
-                                ? {
-                                      ...p,
-                                      x: norm.x,
-                                      y: norm.y,
-                                      width: norm.width,
-                                      height: norm.height,
-                                  }
-                                : p,
-                        ),
-                    );
-                });
-
-                canvas.on('selection:created', (e) => {
-                    const target = e.selected?.[0];
-                    const id = (target?.get('data') as { id?: string })?.id;
-                    setSelectedPlacementId(id || null);
-                });
-
-                canvas.on('selection:updated', (e) => {
-                    const target = e.selected?.[0];
-                    const id = (target?.get('data') as { id?: string })?.id;
-                    setSelectedPlacementId(id || null);
-                });
-
-                canvas.on('selection:cleared', () => {
-                    setSelectedPlacementId(null);
-                });
-
-                canvas.requestRenderAll();
                 setIsLoadingPdf(false);
             } catch (err: any) {
                 if (!cancelled) {
@@ -482,8 +561,41 @@ export function TemplatePdfDesignerDialog({
         return () => {
             cancelled = true;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, template, version, currentPage, isSamplePreview]);
+    }, [
+        open,
+        template,
+        version,
+        currentPage,
+        attachCanvasEvents,
+        syncPlacementObjects,
+    ]);
+
+    // Fast sync for sample preview toggle without reloading the PDF
+    useEffect(() => {
+        const canvas = fabricCanvasRef.current;
+
+        if (
+            canvas &&
+            canvasSize.width > 0 &&
+            canvasSize.height > 0 &&
+            !isLoadingPdf
+        ) {
+            syncPlacementObjects(
+                canvas,
+                placementsRef.current,
+                currentPage,
+                isSamplePreview,
+                canvasSize.width,
+                canvasSize.height,
+            );
+        }
+    }, [
+        isSamplePreview,
+        currentPage,
+        canvasSize,
+        isLoadingPdf,
+        syncPlacementObjects,
+    ]);
 
     // Handle adding a merge field placement to current page
     const handleAddFieldPlacement = (fieldKey: string) => {
@@ -518,7 +630,13 @@ export function TemplatePdfDesignerDialog({
             text_align: 'left',
         };
 
-        setPlacements((prev) => [...prev, newPlacement]);
+        setHasUnsavedChanges(true);
+        setPlacements((prev) => {
+            const updated = [...prev, newPlacement];
+            placementsRef.current = updated;
+
+            return updated;
+        });
 
         // Add to active Fabric canvas
         const canvas = fabricCanvasRef.current;
@@ -562,7 +680,13 @@ export function TemplatePdfDesignerDialog({
 
     // Remove selected placement
     const handleDeletePlacement = (id: string) => {
-        setPlacements((prev) => prev.filter((p) => p.id !== id));
+        setHasUnsavedChanges(true);
+        setPlacements((prev) => {
+            const updated = prev.filter((p) => p.id !== id);
+            placementsRef.current = updated;
+
+            return updated;
+        });
         setSelectedPlacementId(null);
 
         const canvas = fabricCanvasRef.current;
@@ -586,73 +710,84 @@ export function TemplatePdfDesignerDialog({
         }
     };
 
-    // Save placements
-    const handleSavePlacements = async () => {
+    // Save placements via Inertia PUT mutation
+    const handleSavePlacements = (
+        onSuccessCallback?: () => void,
+    ): Promise<boolean> => {
         if (!template || !version) {
-            return;
+            return Promise.resolve(false);
         }
 
         setIsSaving(true);
         setErrorMessage(null);
 
-        try {
-            const res = await fetch(
+        return new Promise<boolean>((resolve) => {
+            router.put(
                 savePlacements.url({
                     template: template.id,
                     version: version.id,
                 }),
                 {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Accept: 'application/json',
-                        'X-CSRF-TOKEN':
-                            (
-                                document.querySelector(
-                                    'meta[name="csrf-token"]',
-                                ) as HTMLMetaElement
-                            )?.content || '',
+                    placements: placementsRef.current.map((p) => ({
+                        id: p.id,
+                        field: p.field,
+                        page: p.page,
+                        x: p.x,
+                        y: p.y,
+                        width: p.width,
+                        height: p.height,
+                        font_size: p.font_size || 12,
+                        font_weight: p.font_weight || 'normal',
+                        text_align: p.text_align || 'left',
+                    })),
+                },
+                {
+                    preserveScroll: true,
+                    preserveState: true,
+                    onSuccess: () => {
+                        setIsSaving(false);
+                        setHasUnsavedChanges(false);
+
+                        if (onSaved) {
+                            onSaved();
+                        }
+
+                        if (onSuccessCallback) {
+                            onSuccessCallback();
+                        }
+
+                        resolve(true);
                     },
-                    body: JSON.stringify({
-                        placements: placements.map((p) => ({
-                            id: p.id,
-                            field: p.field,
-                            page: p.page,
-                            x: p.x,
-                            y: p.y,
-                            width: p.width,
-                            height: p.height,
-                            font_size: p.font_size || 12,
-                            font_weight: p.font_weight || 'normal',
-                            text_align: p.text_align || 'left',
-                        })),
-                    }),
+                    onError: (err) => {
+                        setIsSaving(false);
+                        const msg =
+                            (Object.values(err)[0] as string) ||
+                            'Failed to save placements.';
+                        setErrorMessage(msg);
+                        resolve(false);
+                    },
                 },
             );
-
-            if (!res.ok) {
-                const data = await res.json();
-
-                throw new Error(data.message || 'Failed to save placements.');
-            }
-
-            setIsSaving(false);
-
-            if (onSaved) {
-                onSaved();
-            }
-
-            router.reload({ only: ['custom_templates'] });
-        } catch (err: any) {
-            setIsSaving(false);
-            setErrorMessage(err.message || 'An error occurred while saving.');
-        }
+        });
     };
 
-    // Publish version
-    const handlePublish = () => {
+    // Publish version with atomic save if dirty
+    const handlePublish = async () => {
         if (!template || !version) {
             return;
+        }
+
+        setErrorMessage(null);
+
+        if (hasUnsavedChanges) {
+            setIsPublishing(true);
+            const saved = await handleSavePlacements();
+
+            if (!saved) {
+                setIsPublishing(false);
+
+                return;
+            }
         }
 
         setIsPublishing(true);
@@ -663,19 +798,31 @@ export function TemplatePdfDesignerDialog({
             }),
             {},
             {
+                preserveScroll: true,
                 onSuccess: () => {
                     setIsPublishing(false);
+                    setHasUnsavedChanges(false);
                     onOpenChange(false);
                 },
                 onError: (err) => {
                     setIsPublishing(false);
                     setErrorMessage(
                         (Object.values(err)[0] as string) ||
-                            'Failed to publish.',
+                            'Failed to publish version.',
                     );
                 },
             },
         );
+    };
+
+    const handleSafeOpenChange = (newOpen: boolean) => {
+        if (!newOpen && hasUnsavedChanges) {
+            setIsDiscardConfirmOpen(true);
+
+            return;
+        }
+
+        onOpenChange(newOpen);
     };
 
     const selectedPlacement = placements.find(
@@ -683,7 +830,7 @@ export function TemplatePdfDesignerDialog({
     );
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={handleSafeOpenChange}>
             <DialogContent className="flex h-[92vh] w-[1400px] max-w-[96vw] flex-col overflow-hidden p-0">
                 <DialogHeader className="flex shrink-0 flex-row items-center justify-between border-b border-border/80 px-6 py-3">
                     <div className="flex items-center gap-3">
@@ -770,8 +917,8 @@ export function TemplatePdfDesignerDialog({
                         <Button
                             type="button"
                             size="sm"
-                            variant="outline"
-                            onClick={handleSavePlacements}
+                            variant={hasUnsavedChanges ? 'default' : 'outline'}
+                            onClick={() => handleSavePlacements()}
                             disabled={isSaving || isLoadingPdf}
                         >
                             {isSaving ? (
@@ -783,6 +930,9 @@ export function TemplatePdfDesignerDialog({
                                 <>
                                     <Save className="mr-1.5 size-3.5" />
                                     Save Placements
+                                    {hasUnsavedChanges && (
+                                        <span className="ml-1.5 size-1.5 rounded-full bg-amber-400" />
+                                    )}
                                 </>
                             )}
                         </Button>
@@ -798,7 +948,9 @@ export function TemplatePdfDesignerDialog({
                             {isPublishing ? (
                                 <>
                                     <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                                    Publishing...
+                                    {hasUnsavedChanges
+                                        ? 'Saving & Publishing...'
+                                        : 'Publishing...'}
                                 </>
                             ) : (
                                 <>
@@ -877,7 +1029,7 @@ export function TemplatePdfDesignerDialog({
                                                             isLoadingPdf ||
                                                             isSamplePreview
                                                         }
-                                                        title={`Place ${field.label} on Page ${currentPage}`}
+                                                        title={`Add ${field.label} to page`}
                                                     >
                                                         <Plus className="size-3.5" />
                                                     </Button>
@@ -890,13 +1042,13 @@ export function TemplatePdfDesignerDialog({
                         </div>
                     </div>
 
-                    {/* Center Area: PDF Canvas */}
+                    {/* Center Area: PDF Page Canvas & Placement Layer */}
                     <div
                         ref={containerRef}
-                        className="relative flex flex-1 flex-col items-center overflow-y-auto bg-muted/40 p-6"
+                        className="flex flex-1 flex-col items-center overflow-y-auto bg-muted/40 p-6"
                     >
-                        {/* Selected placement toolbar */}
-                        {selectedPlacement && !isSamplePreview && (
+                        {/* Floating Selection Toolbar */}
+                        {selectedPlacement && (
                             <div className="sticky top-0 z-10 mb-4 flex items-center gap-3 rounded-xl border border-border/80 bg-background/95 px-4 py-2 shadow-sm backdrop-blur">
                                 <span className="text-xs font-semibold text-foreground">
                                     {mergeFieldsMap.get(selectedPlacement.field)
@@ -915,8 +1067,9 @@ export function TemplatePdfDesignerDialog({
                                         )}
                                         onValueChange={(val) => {
                                             const size = Number(val);
-                                            setPlacements((prev) =>
-                                                prev.map((p) =>
+                                            setHasUnsavedChanges(true);
+                                            setPlacements((prev) => {
+                                                const updated = prev.map((p) =>
                                                     p.id ===
                                                     selectedPlacement.id
                                                         ? {
@@ -924,8 +1077,11 @@ export function TemplatePdfDesignerDialog({
                                                               font_size: size,
                                                           }
                                                         : p,
-                                                ),
-                                            );
+                                                );
+                                                placementsRef.current = updated;
+
+                                                return updated;
+                                            });
                                             const label = labelRefs.current.get(
                                                 selectedPlacement.id,
                                             );
@@ -967,13 +1123,14 @@ export function TemplatePdfDesignerDialog({
                                         }
                                         className="size-7"
                                         onClick={() => {
-                                            const weight =
+                                            const weight: 'bold' | 'normal' =
                                                 selectedPlacement.font_weight ===
                                                 'bold'
                                                     ? 'normal'
                                                     : 'bold';
-                                            setPlacements((prev) =>
-                                                prev.map((p) =>
+                                            setHasUnsavedChanges(true);
+                                            setPlacements((prev) => {
+                                                const updated = prev.map((p) =>
                                                     p.id ===
                                                     selectedPlacement.id
                                                         ? {
@@ -982,8 +1139,11 @@ export function TemplatePdfDesignerDialog({
                                                                   weight,
                                                           }
                                                         : p,
-                                                ),
-                                            );
+                                                );
+                                                placementsRef.current = updated;
+
+                                                return updated;
+                                            });
                                             const label = labelRefs.current.get(
                                                 selectedPlacement.id,
                                             );
@@ -1024,17 +1184,28 @@ export function TemplatePdfDesignerDialog({
                                                     className="size-7"
                                                     title={`Align ${align}`}
                                                     onClick={() => {
-                                                        setPlacements((prev) =>
-                                                            prev.map((p) =>
-                                                                p.id ===
-                                                                selectedPlacement.id
-                                                                    ? {
-                                                                          ...p,
-                                                                          text_align:
-                                                                              align,
-                                                                      }
-                                                                    : p,
-                                                            ),
+                                                        setHasUnsavedChanges(
+                                                            true,
+                                                        );
+                                                        setPlacements(
+                                                            (prev) => {
+                                                                const updated =
+                                                                    prev.map(
+                                                                        (p) =>
+                                                                            p.id ===
+                                                                            selectedPlacement.id
+                                                                                ? {
+                                                                                      ...p,
+                                                                                      text_align:
+                                                                                          align,
+                                                                                  }
+                                                                                : p,
+                                                                    );
+                                                                placementsRef.current =
+                                                                    updated;
+
+                                                                return updated;
+                                                            },
                                                         );
 
                                                         const canvas =
@@ -1142,6 +1313,42 @@ export function TemplatePdfDesignerDialog({
                     </div>
                 </div>
             </DialogContent>
+
+            <AlertDialog
+                open={isDiscardConfirmOpen}
+                onOpenChange={setIsDiscardConfirmOpen}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            Unsaved Placement Changes
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You have unsaved changes in your document layout.
+                            Are you sure you want to discard them?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel
+                            onClick={() => setIsDiscardConfirmOpen(false)}
+                        >
+                            Keep Editing
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className={buttonVariants({
+                                variant: 'destructive',
+                            })}
+                            onClick={() => {
+                                setIsDiscardConfirmOpen(false);
+                                setHasUnsavedChanges(false);
+                                onOpenChange(false);
+                            }}
+                        >
+                            Discard Changes
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </Dialog>
     );
 }

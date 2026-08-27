@@ -179,6 +179,7 @@ class DocumentGenerationTemplateVersion extends Model
             'source_pdf_page_count' => $this->source_pdf_page_count,
             'placement_count' => count($placements),
             'has_placements' => count($placements) > 0,
+            'placement_config' => $this->placement_config,
             'published_at' => $this->published_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

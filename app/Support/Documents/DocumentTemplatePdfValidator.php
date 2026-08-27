@@ -3,6 +3,7 @@
 namespace App\Support\Documents;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use setasign\Fpdi\Fpdi;
 use setasign\Fpdi\FpdiException;
@@ -92,8 +93,14 @@ final class DocumentTemplatePdfValidator
                 $field => 'Unable to read the PDF. The file may be corrupt, damaged, or password-protected.',
             ]);
         } catch (Throwable $e) {
+            Log::warning('Document template PDF parse error', [
+                'field' => $field,
+                'exception_class' => get_class($e),
+                'exception_message' => $e->getMessage(),
+            ]);
+
             throw ValidationException::withMessages([
-                $field => 'The uploaded PDF could not be processed: '.$e->getMessage(),
+                $field => 'The uploaded PDF could not be processed. Please verify the file and try again.',
             ]);
         }
 

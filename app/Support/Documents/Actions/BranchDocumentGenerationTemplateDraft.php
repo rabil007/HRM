@@ -17,51 +17,55 @@ final class BranchDocumentGenerationTemplateDraft
      */
     public function handle(DocumentGenerationTemplate $template, ?int $userId = null): DocumentGenerationTemplateVersion
     {
-        return DB::transaction(function () use ($template, $userId): DocumentGenerationTemplateVersion {
-            /** @var DocumentGenerationTemplate $locked */
-            $locked = DocumentGenerationTemplate::query()
-                ->whereKey($template->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+        $newPdfPath = null;
+        $companyId = (int) $template->company_id;
 
-            // 1. Enforce at most one Draft per template
-            $existingDraft = $locked->draftVersion;
-            if ($existingDraft !== null) {
-                return $existingDraft;
-            }
+        try {
+            return DB::transaction(function () use ($template, $userId, &$newPdfPath, &$companyId): DocumentGenerationTemplateVersion {
+                /** @var DocumentGenerationTemplate $locked */
+                $locked = DocumentGenerationTemplate::query()
+                    ->whereKey($template->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-            // 2. Allocate next version number
-            $nextVersion = ((int) $locked->versions()->max('version')) + 1;
-            if ($nextVersion < 1) {
-                $nextVersion = 1;
-            }
+                $companyId = (int) $locked->company_id;
 
-            // 3. Resolve source version to branch from
-            $sourceVersion = $locked->publishedVersion ?? $locked->versions()->latest('version')->first();
+                // 1. Enforce at most one Draft per template
+                $existingDraft = $locked->draftVersion;
+                if ($existingDraft !== null) {
+                    return $existingDraft;
+                }
 
-            $content = null;
-            $newPdfPath = null;
-            $originalName = null;
-            $sizeBytes = null;
-            $pageCount = null;
-            $placementConfig = null;
+                // 2. Allocate next version number
+                $nextVersion = ((int) $locked->versions()->max('version')) + 1;
+                if ($nextVersion < 1) {
+                    $nextVersion = 1;
+                }
 
-            if ($locked->isContent()) {
-                $content = $sourceVersion?->content ?? (string) $locked->content;
-            } elseif ($locked->isPdfOverlay() && $sourceVersion?->source_pdf_path) {
-                // Physically copy source PDF to ensure complete immutability of published file
-                $newPdfPath = DocumentTemplateStorage::copyPdf(
-                    $sourceVersion->source_pdf_path,
-                    $locked->company_id,
-                );
+                // 3. Resolve source version to branch from
+                $sourceVersion = $locked->publishedVersion ?? $locked->versions()->latest('version')->first();
 
-                $originalName = $sourceVersion->source_pdf_original_name;
-                $sizeBytes = $sourceVersion->source_pdf_size_bytes;
-                $pageCount = $sourceVersion->source_pdf_page_count;
-                $placementConfig = $sourceVersion->placement_config;
-            }
+                $content = null;
+                $originalName = null;
+                $sizeBytes = null;
+                $pageCount = null;
+                $placementConfig = null;
 
-            try {
+                if ($locked->isContent()) {
+                    $content = $sourceVersion?->content ?? (string) $locked->content;
+                } elseif ($locked->isPdfOverlay() && $sourceVersion?->source_pdf_path) {
+                    // Physically copy source PDF to ensure complete immutability of published file
+                    $newPdfPath = DocumentTemplateStorage::copyPdf(
+                        $sourceVersion->source_pdf_path,
+                        $locked->company_id,
+                    );
+
+                    $originalName = $sourceVersion->source_pdf_original_name;
+                    $sizeBytes = $sourceVersion->source_pdf_size_bytes;
+                    $pageCount = $sourceVersion->source_pdf_page_count;
+                    $placementConfig = $sourceVersion->placement_config;
+                }
+
                 $draft = DocumentGenerationTemplateVersion::query()->create([
                     'company_id' => $locked->company_id,
                     'document_generation_template_id' => $locked->id,
@@ -78,7 +82,6 @@ final class BranchDocumentGenerationTemplateDraft
                     'updated_by' => $userId,
                 ]);
 
-                $companyId = (int) $locked->company_id;
                 activity('document_templates')
                     ->performedOn($locked)
                     ->causedBy($userId)
@@ -93,14 +96,14 @@ final class BranchDocumentGenerationTemplateDraft
                     ->log("Created draft version {$nextVersion} for template {$locked->name}");
 
                 return $draft;
-            } catch (Throwable $e) {
-                // Filesystem cleanup compensation if DB creation fails
-                if ($newPdfPath !== null) {
-                    DocumentTemplateStorage::deletePdf($newPdfPath, $locked->company_id);
-                }
-
-                throw $e;
+            });
+        } catch (Throwable $e) {
+            // Filesystem cleanup compensation if DB creation/commit fails
+            if ($newPdfPath !== null) {
+                DocumentTemplateStorage::deletePdf($newPdfPath, $companyId);
             }
-        });
+
+            throw $e;
+        }
     }
 }

@@ -569,3 +569,117 @@ test('save placements validates and stores text alignment options', function () 
     expect($placements[1]['text_align'])->toBe('center');
     expect($placements[2]['text_align'])->toBe('right');
 });
+
+it('includes placement_config in version toArraySummary', function () {
+    $company = createPdfTestCompany('Placement Summary Co');
+    $template = DocumentGenerationTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Summary Test',
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+        'status' => DocumentGenerationTemplateStatus::Draft,
+        'content' => '',
+    ]);
+
+    $config = [
+        'schema_version' => 1,
+        'placements' => [
+            ['id' => 'p1', 'field' => '{{employee_name}}', 'page' => 1, 'x' => 0.1, 'y' => 0.1, 'width' => 0.2, 'height' => 0.05],
+        ],
+    ];
+
+    $version = DocumentGenerationTemplateVersion::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'version' => 1,
+        'status' => DocumentGenerationTemplateVersionStatus::Draft,
+        'placement_config' => $config,
+    ]);
+
+    $summary = $version->toArraySummary();
+    expect($summary)->toHaveKey('placement_config')
+        ->and($summary['placement_config'])->toBe($config);
+});
+
+it('returns safe error message when uploaded PDF is corrupt', function () {
+    $user = User::factory()->create();
+    $company = createPdfTestCompany('Corrupt PDF Co');
+    grantCompanyPermissions($user, $company, ['documents.templates.create']);
+
+    $corruptPdf = UploadedFile::fake()->createWithContent('corrupt.pdf', "%PDF-1.4\nCorrupt internal structure that FPDI cannot parse");
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.templates.store'), [
+            'name' => 'Corrupt PDF Template',
+            'template_format' => 'pdf_overlay',
+            'file' => $corruptPdf,
+        ]);
+
+    $response->assertSessionHasErrors('file');
+    $error = session('errors')->first('file');
+    expect($error === 'The uploaded PDF could not be processed. Please verify the file and try again.'
+        || $error === 'Unable to read the PDF. The file may be corrupt, damaged, or password-protected.')->toBeTrue();
+});
+
+it('supports Inertia redirects for getOrCreateDraft and savePlacements', function () {
+    $user = User::factory()->create();
+    $company = createPdfTestCompany('Inertia Draft Co');
+    grantCompanyPermissions($user, $company, ['documents.templates.update', 'documents.templates.view']);
+
+    $pdfPath = DocumentTemplateStorage::storePdf(
+        UploadedFile::fake()->createWithContent('base.pdf', createSamplePdfContent(1)),
+        $company->id,
+    );
+
+    $template = DocumentGenerationTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Inertia Template',
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+        'status' => DocumentGenerationTemplateStatus::Draft,
+        'content' => '',
+    ]);
+
+    $draft = DocumentGenerationTemplateVersion::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'version' => 1,
+        'status' => DocumentGenerationTemplateVersionStatus::Draft,
+        'source_pdf_path' => $pdfPath,
+        'source_pdf_original_name' => 'base.pdf',
+        'source_pdf_size_bytes' => 1000,
+        'source_pdf_page_count' => 1,
+    ]);
+
+    // getOrCreateDraft via Inertia (without Accept: application/json)
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from(route('organization.documents.templates'))
+        ->post(route('organization.documents.templates.draft', ['template' => $template->id]));
+
+    $response->assertRedirect(route('organization.documents.templates'))
+        ->assertSessionHas('success', 'Draft prepared.');
+
+    // savePlacements via Inertia
+    $saveResponse = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from(route('organization.documents.templates'))
+        ->put(route('organization.documents.templates.versions.placements.save', [
+            'template' => $template->id,
+            'version' => $draft->id,
+        ]), [
+            'placements' => [
+                [
+                    'id' => 'p1',
+                    'field' => '{{employee_name}}',
+                    'page' => 1,
+                    'x' => 0.1,
+                    'y' => 0.1,
+                    'width' => 0.2,
+                    'height' => 0.05,
+                ],
+            ],
+        ]);
+
+    $saveResponse->assertRedirect(route('organization.documents.templates'))
+        ->assertSessionHas('success', 'Placements saved.');
+});

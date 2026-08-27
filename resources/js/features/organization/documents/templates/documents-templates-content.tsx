@@ -14,8 +14,9 @@ import {
     Send,
     Trash2,
     UploadCloud,
+    X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
@@ -152,6 +153,54 @@ export function DocumentsTemplatesContent({
     const [replacingVersion, setReplacingVersion] =
         useState<TemplateVersionSummary | null>(null);
 
+    const [pendingDesignerTemplateId, setPendingDesignerTemplateId] = useState<
+        number | null
+    >(null);
+    const [pendingReplacePdfTemplateId, setPendingReplacePdfTemplateId] =
+        useState<number | null>(null);
+    const [isActionLoading, setIsActionLoading] = useState(false);
+    const [actionError, setActionError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (pendingDesignerTemplateId !== null) {
+            const matched = customTemplates.find(
+                (t) => t.id === pendingDesignerTemplateId,
+            );
+
+            if (matched?.draft_version) {
+                setDesignerTemplate(matched);
+                setDesignerVersion(matched.draft_version);
+                setDesignerConfig(
+                    matched.draft_version.placement_config ?? {
+                        schema_version: 1,
+                        placements: [],
+                    },
+                );
+                setIsDesignerOpen(true);
+                setPendingDesignerTemplateId(null);
+                setIsActionLoading(false);
+            }
+        }
+
+        if (pendingReplacePdfTemplateId !== null) {
+            const matched = customTemplates.find(
+                (t) => t.id === pendingReplacePdfTemplateId,
+            );
+
+            if (matched?.draft_version) {
+                setReplacingTemplate(matched);
+                setReplacingVersion(matched.draft_version);
+                setIsReplacePdfOpen(true);
+                setPendingReplacePdfTemplateId(null);
+                setIsActionLoading(false);
+            }
+        }
+    }, [
+        customTemplates,
+        pendingDesignerTemplateId,
+        pendingReplacePdfTemplateId,
+    ]);
+
     const form = useForm<TemplateFormData>({
         name: '',
         description: '',
@@ -208,62 +257,70 @@ export function DocumentsTemplatesContent({
         }
     };
 
-    const handleOpenDesigner = async (template: CustomTemplate) => {
-        try {
-            // Get or branch the single Draft version for editing
-            const res = await fetch(
-                draftTemplate.url({ template: template.id }),
-                {
-                    method: 'POST',
-                    headers: {
-                        Accept: 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': getCsrfToken(),
-                    },
+    const handleOpenDesigner = (template: CustomTemplate) => {
+        setActionError(null);
+
+        if (template.draft_version) {
+            setDesignerTemplate(template);
+            setDesignerVersion(template.draft_version);
+            setDesignerConfig(
+                template.draft_version.placement_config ?? {
+                    schema_version: 1,
+                    placements: [],
                 },
             );
-
-            if (!res.ok) {
-                throw new Error('Failed to load editable template draft.');
-            }
-
-            const data = await res.json();
-            setDesignerTemplate(template);
-            setDesignerVersion(data.draft);
-            setDesignerConfig(data.placement_config);
             setIsDesignerOpen(true);
-        } catch (err) {
-            console.error('Error opening designer:', err);
+
+            return;
         }
+
+        setIsActionLoading(true);
+        setPendingDesignerTemplateId(template.id);
+        router.post(
+            draftTemplate.url({ template: template.id }),
+            {},
+            {
+                preserveScroll: true,
+                onError: (err) => {
+                    setIsActionLoading(false);
+                    setPendingDesignerTemplateId(null);
+                    const msg =
+                        (Object.values(err)[0] as string) ||
+                        'Failed to prepare template draft.';
+                    setActionError(msg);
+                },
+            },
+        );
     };
 
-    const handleOpenReplacePdf = async (template: CustomTemplate) => {
-        try {
-            const res = await fetch(
-                draftTemplate.url({ template: template.id }),
-                {
-                    method: 'POST',
-                    headers: {
-                        Accept: 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': getCsrfToken(),
-                    },
-                },
-            );
+    const handleOpenReplacePdf = (template: CustomTemplate) => {
+        setActionError(null);
 
-            if (!res.ok) {
-                throw new Error(
-                    'Failed to prepare template draft for replacement.',
-                );
-            }
-
-            const data = await res.json();
+        if (template.draft_version) {
             setReplacingTemplate(template);
-            setReplacingVersion(data.draft);
+            setReplacingVersion(template.draft_version);
             setIsReplacePdfOpen(true);
-        } catch (err) {
-            console.error('Error opening replace PDF:', err);
+
+            return;
         }
+
+        setIsActionLoading(true);
+        setPendingReplacePdfTemplateId(template.id);
+        router.post(
+            draftTemplate.url({ template: template.id }),
+            {},
+            {
+                preserveScroll: true,
+                onError: (err) => {
+                    setIsActionLoading(false);
+                    setPendingReplacePdfTemplateId(null);
+                    const msg =
+                        (Object.values(err)[0] as string) ||
+                        'Failed to prepare template draft for replacement.';
+                    setActionError(msg);
+                },
+            },
+        );
     };
 
     const handlePublishDraft = (
@@ -444,6 +501,20 @@ export function DocumentsTemplatesContent({
                         </p>
                     </div>
 
+                    {actionError && (
+                        <div className="flex items-center justify-between rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-2.5 text-xs text-destructive">
+                            <span>{actionError}</span>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-5"
+                                onClick={() => setActionError(null)}
+                            >
+                                <X className="size-3" />
+                            </Button>
+                        </div>
+                    )}
+
                     {can.view_templates ? (
                         customTemplates.length > 0 ? (
                             <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-xs">
@@ -611,6 +682,9 @@ export function DocumentsTemplatesContent({
                                                                         size="icon"
                                                                         className="h-8 w-8 text-primary"
                                                                         title="Design Merge Fields"
+                                                                        disabled={
+                                                                            isActionLoading
+                                                                        }
                                                                         onClick={() =>
                                                                             handleOpenDesigner(
                                                                                 template,
@@ -692,6 +766,9 @@ export function DocumentsTemplatesContent({
                                                                                 {isPdf && (
                                                                                     <>
                                                                                         <DropdownMenuItem
+                                                                                            disabled={
+                                                                                                isActionLoading
+                                                                                            }
                                                                                             onClick={() =>
                                                                                                 handleOpenDesigner(
                                                                                                     template,
@@ -706,6 +783,9 @@ export function DocumentsTemplatesContent({
                                                                                             </span>
                                                                                         </DropdownMenuItem>
                                                                                         <DropdownMenuItem
+                                                                                            disabled={
+                                                                                                isActionLoading
+                                                                                            }
                                                                                             onClick={() =>
                                                                                                 handleOpenReplacePdf(
                                                                                                     template,
@@ -926,7 +1006,13 @@ export function DocumentsTemplatesContent({
                                                         asChild
                                                     >
                                                         <Link
-                                                            href={applicationSettings.url()}
+                                                            href={applicationSettings.url(
+                                                                {
+                                                                    query: {
+                                                                        tab: 'esign',
+                                                                    },
+                                                                },
+                                                            )}
                                                         >
                                                             <PenLine className="mr-1.5 size-3.5" />
                                                             Configure E-Sign
@@ -970,7 +1056,7 @@ export function DocumentsTemplatesContent({
                                 </code>
                                 ,{' '}
                                 <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">
-                                    {'{{salary_basic}}'}
+                                    {'{{employee_no}}'}
                                 </code>
                                 , and{' '}
                                 <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">

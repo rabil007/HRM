@@ -23,7 +23,7 @@ Opening a document from Library uses `from=library` so **Back to Library** resto
 
 Old filtered Overview bookmarks such as `/organization/documents?search=`, `?expiry=`, `?requirement_status=`, `?department_id=`, and `?page=` redirect to the equivalent Library URL with those supported keys preserved. Unknown parameters are not redirected and are not copied. Plain `/organization/documents` stays Overview.
 
-Generate, Requests, and Activity share `BulkDocumentsController`. Explicit module routes set a `module_view` route default (`roster` / `signatures` / `history`). That value is resolved before the legacy `view` query string. Those flows, and the Templates bridge, are unchanged in this phase. Protected Salary Declaration / Salary Certificate PDF layout, Browsershot, Puppeteer, FPDI stamping, and the public e-sign workflow are unchanged.
+Generate, Requests, and Activity share `BulkDocumentsController`. Explicit module routes set a `module_view` route default (`roster` / `signatures` / `history`). That value is resolved before the legacy `view` query string. Those flows remain unchanged in this phase. Templates bridge now supports company-owned content and visual PDF overlay templates with controlled merge fields and Fabric.js visual placement; system templates bridge remains available. Protected Salary Declaration / Salary Certificate PDF layout, Browsershot, Puppeteer, FPDI stamping, and the public e-sign workflow are unchanged.
 
 ### Legacy Bulk URLs
 
@@ -44,7 +44,7 @@ Documents → Templates serves as the centralized company custom document templa
 1. **Company Custom Templates** (`document_generation_templates`):
    - Scoped to the active company.
    - **Formats**:
-     - `content`: Rich text/HTML template with merge field insertion.
+     - `content`: Text/content template with controlled merge fields.
      - `pdf_overlay`: Branded uploaded PDF with visual merge field placement. Format cannot be changed after creation.
    - **Template Identity & Immutability**:
      - The parent model `DocumentGenerationTemplate` manages company-level identity, metadata (`name`, `description`, `document_type_id`, `template_format`), lifecycle status (`draft`, `active`, `inactive`), and pointer to `published_version_id`.
@@ -363,7 +363,7 @@ See [Document search](./document-search.md) and [Document sharing](./document-sh
 ## Phase 3B: Custom Document Generation Templates & PDF Placement
 
 Custom document templates allow companies to author custom HR documents in two formats:
-1. **HTML Content templates** (`template_format = 'content'`) with rich text and merge fields.
+1. **Content templates** (`template_format = 'content'`) with controlled merge fields.
 2. **PDF Overlay templates** (`template_format = 'pdf_overlay'`) with private source PDF storage and visual drag-and-drop merge field placement via Fabric.js.
 
 ### Template & Version Architecture

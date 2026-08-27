@@ -74,7 +74,7 @@ class DocumentGenerationTemplateController extends Controller
         Request $request,
         DocumentGenerationTemplate $template,
         BranchDocumentGenerationTemplateDraft $action,
-    ): JsonResponse {
+    ): JsonResponse|RedirectResponse {
         abort_unless($request->user()?->can('documents.templates.update') ?? false, 403);
 
         $companyId = (int) $request->attributes->get('current_company_id');
@@ -83,11 +83,15 @@ class DocumentGenerationTemplateController extends Controller
 
         $draft = $action->handle($template, $request->user()?->id);
 
-        return response()->json([
-            'draft' => $draft->toArraySummary(),
-            'placement_config' => $draft->placement_config,
-            'template' => $template->fresh(['publishedVersion', 'draftVersion'])->toBrowseArray(),
-        ]);
+        if ($request->wantsJson()) {
+            return response()->json([
+                'draft' => $draft->toArraySummary(),
+                'placement_config' => $draft->placement_config,
+                'template' => $template->fresh(['publishedVersion', 'draftVersion'])->toBrowseArray(),
+            ]);
+        }
+
+        return back()->with('success', 'Draft prepared.');
     }
 
     public function sourcePdf(
@@ -112,7 +116,7 @@ class DocumentGenerationTemplateController extends Controller
         DocumentGenerationTemplate $template,
         DocumentGenerationTemplateVersion $version,
         SaveDocumentGenerationTemplatePlacements $action,
-    ): Response {
+    ): JsonResponse|RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_if($companyId <= 0, 403);
         abort_unless((int) $template->company_id === $companyId, 404);
