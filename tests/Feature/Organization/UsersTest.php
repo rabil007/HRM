@@ -5,6 +5,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\User;
+use App\Models\UserInvitation;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
@@ -762,4 +763,192 @@ test('show page capabilities hide global identity mutation for membership-only u
         ->and($memberCapabilities['can_password_reset'])->toBeFalse()
         ->and($memberCapabilities['can_revoke_sessions'])->toBeFalse()
         ->and($memberCapabilities['can_manage_membership'])->toBeTrue();
+});
+
+test('users directory summary counts are tenant-scoped and match presence filters', function () {
+    config(['session.driver' => 'database']);
+
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.view']);
+
+    $onlineUser = User::factory()->create([
+        'company_id' => $companyA->id,
+        'status' => 'active',
+        'last_login_at' => now(),
+    ]);
+    DB::table('sessions')->insert([
+        'id' => 'summary-online-session',
+        'user_id' => $onlineUser->id,
+        'ip_address' => '127.0.0.1',
+        'user_agent' => 'Pest',
+        'payload' => 'payload',
+        'last_activity' => time() - 60,
+    ]);
+
+    $neverUser = User::factory()->create([
+        'company_id' => $companyA->id,
+        'status' => 'active',
+        'last_login_at' => null,
+    ]);
+
+    $memberUser = User::factory()->create([
+        'company_id' => $companyB->id,
+        'status' => 'active',
+        'last_login_at' => null,
+    ]);
+    $memberUser->companies()->attach($companyA->id, ['status' => 'active']);
+
+    $otherCompanyUser = User::factory()->create([
+        'company_id' => $companyB->id,
+        'status' => 'active',
+    ]);
+
+    UserInvitation::query()->create([
+        'company_id' => $companyA->id,
+        'email' => 'pending-a@example.com',
+        'name' => 'Pending A',
+        'invited_by' => $admin->id,
+        'token_hash' => hash('sha256', 'pending-a-token'),
+        'expires_at' => now()->addDays(7),
+        'last_sent_at' => now(),
+    ]);
+    UserInvitation::query()->create([
+        'company_id' => $companyA->id,
+        'email' => 'revoked-a@example.com',
+        'name' => 'Revoked A',
+        'invited_by' => $admin->id,
+        'token_hash' => hash('sha256', 'revoked-a-token'),
+        'expires_at' => now()->addDays(7),
+        'revoked_at' => now(),
+        'last_sent_at' => now(),
+    ]);
+    UserInvitation::query()->create([
+        'company_id' => $companyB->id,
+        'email' => 'pending-b@example.com',
+        'name' => 'Pending B',
+        'invited_by' => $admin->id,
+        'token_hash' => hash('sha256', 'pending-b-token'),
+        'expires_at' => now()->addDays(7),
+        'last_sent_at' => now(),
+    ]);
+
+    $index = $this->actingAs($admin)
+        ->get(route('organization.users'))
+        ->assertOk();
+
+    $summary = $index->viewData('page')['props']['summary'];
+    $filters = $index->viewData('page')['props']['filters'];
+    $ids = collect($index->viewData('page')['props']['users'])->pluck('id')->all();
+    $invitationEmails = collect($index->viewData('page')['props']['invitations'])->pluck('email')->all();
+
+    expect($filters['presence'])->toBe('')
+        ->and($summary['online'])->toBeGreaterThanOrEqual(1)
+        ->and($summary['never'])->toBeGreaterThanOrEqual(2)
+        ->and($summary['pending_invites'])->toBe(1)
+        ->and($summary['total'])->toBe($index->viewData('page')['props']['pagination']['total'])
+        ->and($ids)->toContain($onlineUser->id)
+        ->and($ids)->toContain($neverUser->id)
+        ->and($ids)->toContain($memberUser->id)
+        ->and($ids)->not->toContain($otherCompanyUser->id)
+        ->and($invitationEmails)->toContain('pending-a@example.com')
+        ->and($invitationEmails)->not->toContain('pending-b@example.com')
+        ->and($invitationEmails)->not->toContain('revoked-a@example.com');
+
+    $online = $this->actingAs($admin)
+        ->get(route('organization.users', ['presence' => 'online']))
+        ->assertOk();
+
+    $onlineIds = collect($online->viewData('page')['props']['users'])->pluck('id')->all();
+    $onlineSummary = $online->viewData('page')['props']['summary'];
+    $onlineFilters = $online->viewData('page')['props']['filters'];
+
+    expect($onlineFilters['presence'])->toBe('online')
+        ->and($onlineSummary['pending_invites'])->toBe(1)
+        ->and($online->viewData('page')['props']['pagination']['total'])->toBe($onlineSummary['online'])
+        ->and($onlineIds)->toContain($onlineUser->id)
+        ->and($onlineIds)->not->toContain($neverUser->id)
+        ->and($onlineIds)->not->toContain($memberUser->id)
+        ->and($onlineIds)->not->toContain($otherCompanyUser->id);
+
+    $never = $this->actingAs($admin)
+        ->get(route('organization.users', ['presence' => 'never']))
+        ->assertOk();
+
+    $neverIds = collect($never->viewData('page')['props']['users'])->pluck('id')->all();
+    $neverFilters = $never->viewData('page')['props']['filters'];
+
+    $neverSummary = $never->viewData('page')['props']['summary'];
+
+    expect($neverFilters['presence'])->toBe('never')
+        ->and($never->viewData('page')['props']['pagination']['total'])->toBe($neverSummary['never'])
+        ->and($neverIds)->toContain($neverUser->id)
+        ->and($neverIds)->toContain($memberUser->id)
+        ->and($neverIds)->not->toContain($onlineUser->id);
+});
+
+test('presence summary cards compose with role filters instead of replacing them', function () {
+    config(['session.driver' => 'database']);
+
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $company = $pair['companyA'];
+    grantCompanyPermissions($admin, $company, ['users.view']);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR Manager',
+        'guard_name' => 'web',
+    ]);
+
+    $onlineHr = User::factory()->create([
+        'company_id' => $company->id,
+        'status' => 'active',
+        'last_login_at' => now(),
+    ]);
+    $onlineHr->assignRole($role);
+    DB::table('sessions')->insert([
+        'id' => 'online-hr-session',
+        'user_id' => $onlineHr->id,
+        'ip_address' => '127.0.0.1',
+        'user_agent' => 'Pest',
+        'payload' => 'payload',
+        'last_activity' => time() - 30,
+    ]);
+
+    $onlineOther = User::factory()->create([
+        'company_id' => $company->id,
+        'status' => 'active',
+        'last_login_at' => now(),
+    ]);
+    DB::table('sessions')->insert([
+        'id' => 'online-other-session',
+        'user_id' => $onlineOther->id,
+        'ip_address' => '127.0.0.1',
+        'user_agent' => 'Pest',
+        'payload' => 'payload',
+        'last_activity' => time() - 30,
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->get(route('organization.users', [
+            'presence' => 'online',
+            'role_id' => $role->id,
+        ]))
+        ->assertOk();
+
+    $ids = collect($response->viewData('page')['props']['users'])->pluck('id')->all();
+    $filters = $response->viewData('page')['props']['filters'];
+    $summary = $response->viewData('page')['props']['summary'];
+
+    expect($filters['presence'])->toBe('online')
+        ->and((string) $filters['role_id'])->toBe((string) $role->id)
+        ->and($ids)->toContain($onlineHr->id)
+        ->and($ids)->not->toContain($onlineOther->id)
+        ->and($summary['online'])->toBeGreaterThanOrEqual(2)
+        ->and($response->viewData('page')['props']['pagination']['total'])->toBe(1);
 });

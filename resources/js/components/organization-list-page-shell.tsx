@@ -10,6 +10,7 @@ type OrganizationListPageShellProps = {
     description?: string;
     kicker?: string;
     headerRight?: ReactNode;
+    aboveSearch?: ReactNode;
     search: {
         value: string;
         onChange: (value: string) => void;
@@ -29,6 +30,7 @@ export function OrganizationListPageShell({
     description,
     kicker,
     headerRight,
+    aboveSearch,
     search,
     filtersButton,
     children,
@@ -42,6 +44,8 @@ export function OrganizationListPageShell({
                 description={description}
                 right={headerRight}
             />
+
+            {aboveSearch}
 
             <SearchBar
                 placeholder={search.placeholder}

@@ -24,6 +24,13 @@ export type EmployeeForLinking = LinkedEmployee & {
     user_id: number | null;
 };
 
+export type UserDirectorySummary = {
+    total: number;
+    online: number;
+    never: number;
+    pending_invites: number;
+};
+
 export type UserCapabilities = {
     can_edit_global_identity: boolean;
     can_delete_global_identity: boolean;

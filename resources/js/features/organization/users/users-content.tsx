@@ -37,6 +37,7 @@ import { useOrganizationCrudList } from '@/hooks/use-organization-crud-list';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { buildListExportUrl } from '@/lib/build-list-export-url';
 import { toast } from '@/lib/toast';
+import { users as usersIndex } from '@/routes/organization';
 import {
     resend as resendInvitation,
     destroy as destroyInvitation,
@@ -52,10 +53,12 @@ import { UserFiltersSheet } from './components/user-filters-sheet';
 import type { UserFilters } from './components/user-filters-sheet';
 import { UserFormSheet } from './components/user-form-sheet';
 import { UserInvitationSheet } from './components/user-invitation-sheet';
+import { UserSummaryCards } from './components/user-summary-cards';
 import type {
     EmployeeForLinking,
     User,
     UserCapabilities,
+    UserDirectorySummary,
     UserFormData,
     UserInvitation,
 } from './types';
@@ -83,12 +86,7 @@ export function UsersContent({
     search: string;
     filters: { status: string; role_id: string; presence: string };
     roles: { id: number; name: string }[];
-    summary: {
-        total: number;
-        online: number;
-        never: number;
-        pending_invites: number;
-    };
+    summary: UserDirectorySummary;
     invitations: UserInvitation[];
     employeesForLinking: EmployeeForLinking[];
 }) {
@@ -109,7 +107,7 @@ export function UsersContent({
         useState<UserInvitation | null>(null);
 
     const list = useServerPaginationFilters({
-        url: '/organization/users',
+        url: usersIndex.url(),
         search: initialSearch,
         filters: initialFilters,
         pagination,
@@ -222,6 +220,10 @@ export function UsersContent({
         list.applyFilters(next);
     };
 
+    const applyPresenceFilter = (presence: '' | 'online' | 'never') => {
+        handleFiltersChange({ ...filters, presence });
+    };
+
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') =>
         buildListExportUrl('/organization/users/export', {
             search: initialSearch,
@@ -276,43 +278,15 @@ export function UsersContent({
                 onClick: () => crud.setIsFiltersOpen(true),
                 activeFiltersCount,
             }}
+            aboveSearch={
+                <UserSummaryCards
+                    summary={summary}
+                    activePresence={filters.presence}
+                    onSelectPresence={applyPresenceFilter}
+                />
+            }
             pagination={<Pagination {...list.paginationProps} label="users" />}
         >
-            <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="flex flex-col justify-between rounded-2xl glass-card p-5">
-                    <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-                        Total Users
-                    </h3>
-                    <p className="mt-2 text-3xl font-bold tracking-tight">
-                        {summary.total}
-                    </p>
-                </div>
-                <div className="flex flex-col justify-between rounded-2xl glass-card p-5">
-                    <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-                        Online Now
-                    </h3>
-                    <p className="mt-2 text-3xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
-                        {summary.online}
-                    </p>
-                </div>
-                <div className="flex flex-col justify-between rounded-2xl glass-card p-5">
-                    <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-                        Never Logged In
-                    </h3>
-                    <p className="mt-2 text-3xl font-bold tracking-tight text-amber-600 dark:text-amber-500">
-                        {summary.never}
-                    </p>
-                </div>
-                <div className="flex flex-col justify-between rounded-2xl glass-card p-5 opacity-50">
-                    <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-                        Pending Invites
-                    </h3>
-                    <p className="mt-2 text-3xl font-bold tracking-tight">
-                        {summary.pending_invites}
-                    </p>
-                </div>
-            </div>
-
             {crud.view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     {users.map((user) => (
@@ -582,7 +556,7 @@ export function UsersContent({
             {users.length === 0 ? <EmptyState title="No users found." /> : null}
 
             {invitations.length > 0 ? (
-                <div className="mt-12">
+                <div id="pending-invitations" className="mt-12 scroll-mt-24">
                     <h2 className="mb-4 text-xl font-bold tracking-tight">
                         Pending Invitations
                     </h2>
