@@ -21,7 +21,12 @@ export default function Users({
     users: User[];
     pagination: PaginationMeta;
     search: string;
-    filters: { status: string; role_id: string; presence: string };
+    filters: {
+        status: string;
+        role_id: string;
+        presence: string;
+        view: string;
+    };
     roles: { id: number; name: string }[];
     summary: UserDirectorySummary;
     invitations: UserInvitation[];

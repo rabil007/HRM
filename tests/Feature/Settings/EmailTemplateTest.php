@@ -203,6 +203,20 @@ test('platform users can preview saved email templates as html', function () {
         ->assertSee('Jane Smith', false);
 });
 
+test('platform users can preview the user invitation email template', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
+
+    $template = EmailTemplate::query()->where('slug', 'user_invitation')->firstOrFail();
+
+    $this->actingAs($user)
+        ->get(route('application.email-templates.preview', $template))
+        ->assertOk()
+        ->assertSee('Invitation to join', false)
+        ->assertSee('Alex Invitee', false)
+        ->assertSee('Accept invitation', false);
+});
+
 test('platform users can preview draft email template content', function () {
     $user = User::factory()->create();
     grantPlatformAccess($user, 'view');

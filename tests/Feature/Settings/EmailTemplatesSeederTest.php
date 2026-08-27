@@ -30,7 +30,8 @@ test('email templates seeder is idempotent', function () {
         ->and(EmailTemplate::query()->where('slug', 'leave_request_updated')->count())->toBe(1)
         ->and(EmailTemplate::query()->where('slug', 'leave_request_approver_action_required')->count())->toBe(1)
         ->and(EmailTemplate::query()->where('slug', 'leave_request_approved')->count())->toBe(1)
-        ->and(EmailTemplate::query()->where('slug', 'leave_request_rejected')->count())->toBe(1);
+        ->and(EmailTemplate::query()->where('slug', 'leave_request_rejected')->count())->toBe(1)
+        ->and(EmailTemplate::query()->where('slug', 'user_invitation')->count())->toBe(1);
 });
 
 test('email templates seeder creates default leave request submitted template', function () {
@@ -98,4 +99,37 @@ test('email templates seeder creates default password reset template', function 
         ->and($template->body_html)->toContain('{{user_name}}')
         ->and($template->body_html)->toContain('{{reset_url}}')
         ->and($template->body_html)->toContain('{{expire_minutes}}');
+});
+
+test('email templates seeder creates default user invitation template', function () {
+    EmailTemplate::query()->where('slug', 'user_invitation')->forceDelete();
+
+    (new EmailTemplatesSeeder)->run();
+
+    $template = EmailTemplate::query()->where('slug', 'user_invitation')->first();
+
+    expect($template)->not->toBeNull()
+        ->and($template->category)->toBe(EmailTemplateCategory::Notification)
+        ->and($template->is_default)->toBeFalse()
+        ->and($template->enabled)->toBeTrue()
+        ->and($template->subject)->toContain('{{company_name}}')
+        ->and($template->body_html)->toContain('{{invitee_name}}')
+        ->and($template->body_html)->toContain('{{inviter_name}}')
+        ->and($template->body_html)->toContain('{{accept_url}}')
+        ->and($template->body_html)->toContain('{{expires_at}}');
+});
+
+test('email templates seeder preserves customized user invitation template', function () {
+    $template = EmailTemplatesSeeder::seedUserInvitationTemplate();
+    $template->update([
+        'subject' => 'Custom invite subject',
+        'body_html' => 'Custom invite body',
+    ]);
+
+    (new EmailTemplatesSeeder)->run();
+
+    $template->refresh();
+
+    expect($template->subject)->toBe('Custom invite subject')
+        ->and($template->body_html)->toBe('Custom invite body');
 });

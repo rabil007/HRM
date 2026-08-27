@@ -2,6 +2,7 @@
 
 use App\Mail\UserInvitationMail;
 use App\Models\Company;
+use App\Models\EmailTemplate;
 use App\Models\Employee;
 use App\Models\User;
 use App\Models\UserInvitation;
@@ -442,6 +443,88 @@ test('UserInvitationMail implements ShouldBeEncrypted to protect the invitation 
         ShouldBeEncrypted::class,
         class_implements(UserInvitationMail::class) ?: [],
     ))->toBeTrue();
+});
+
+test('invitation email uses branded email template layout', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $company = $pair['companyA'];
+
+    $token = Str::random(40);
+    $invitation = UserInvitation::create([
+        'company_id' => $company->id,
+        'email' => 'invitee@example.com',
+        'name' => 'Alex Invitee',
+        'invited_by' => $admin->id,
+        'token_hash' => hash('sha256', $token),
+        'expires_at' => now()->addDays(7),
+    ]);
+
+    $mail = new UserInvitationMail($invitation, $token);
+    $html = $mail->render();
+
+    expect($mail->envelope()->subject)->toBe("Invitation to join {$company->name}")
+        ->and($html)->toContain('email-btn-link')
+        ->and($html)->toContain('Accept invitation')
+        ->and($html)->toContain('Alex Invitee')
+        ->and($html)->toContain($admin->name)
+        ->and($html)->toContain($company->name)
+        ->and($html)->toContain(route('invitations.accept', ['token' => $token]))
+        ->and($html)->toContain('color-scheme')
+        ->and($html)->not->toContain("You've been invited!");
+});
+
+test('invitation email uses customized user invitation template copy', function () {
+    $template = EmailTemplate::query()->where('slug', 'user_invitation')->firstOrFail();
+    $template->update([
+        'subject' => 'Please join {{company_name}}',
+        'body_html' => 'Custom invite for {{invitee_name}} at {{accept_url}}',
+    ]);
+
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $company = $pair['companyA'];
+
+    $token = Str::random(40);
+    $invitation = UserInvitation::create([
+        'company_id' => $company->id,
+        'email' => 'custom-invitee@example.com',
+        'name' => 'Sam Invitee',
+        'invited_by' => $admin->id,
+        'token_hash' => hash('sha256', $token),
+        'expires_at' => now()->addDays(7),
+    ]);
+
+    $mail = new UserInvitationMail($invitation, $token);
+    $html = $mail->render();
+
+    expect($mail->envelope()->subject)->toBe("Please join {$company->name}")
+        ->and($html)->toContain('Custom invite for Sam Invitee')
+        ->and($html)->toContain(route('invitations.accept', ['token' => $token]));
+});
+
+test('invitation email keeps branded fallback when the template is disabled', function () {
+    EmailTemplate::query()->where('slug', 'user_invitation')->update(['enabled' => false]);
+
+    $pair = makeCompanyAuthorizationPair();
+    $company = $pair['companyA'];
+
+    $token = Str::random(40);
+    $invitation = UserInvitation::create([
+        'company_id' => $company->id,
+        'email' => 'fallback-invitee@example.com',
+        'name' => 'Taylor Invitee',
+        'invited_by' => null,
+        'token_hash' => hash('sha256', $token),
+        'expires_at' => now()->addDays(7),
+    ]);
+
+    $html = (new UserInvitationMail($invitation, $token))->render();
+
+    expect($html)->toContain('email-btn-link')
+        ->and($html)->toContain('Taylor Invitee')
+        ->and($html)->toContain('An administrator')
+        ->and($html)->toContain(route('invitations.accept', ['token' => $token]));
 });
 
 test('invitation acceptance fails if linked employee was assigned to another user after invite was created', function () {

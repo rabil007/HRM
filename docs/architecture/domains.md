@@ -752,7 +752,7 @@ Assigned approvers may view a request and act on their current pending step only
 
 Privileged administrators with `attendance.leave-requests.view` + `view_all` + `delete_any` may **void and remove** a request in any status via `AdministrativelyDeleteLeaveRequest`. That path soft-deletes the request, records the prior status and reason, reverses balance exactly once (pending release / approved used reversal / no mutation for rejected or cancelled), cancels only open approval steps, preserves completed approvals/comments/provenance and attachment files, and writes a company-scoped audit activity visible to `audit.view`.
 
-`SetCurrentCompany` only activates active companies with an active `company_user` membership (or the legacy home-company path when no pivot row exists). EmailTemplatesSeeder creates missing leave templates without overwriting administrator subject/body/enabled/preset customizations, including `leave_request_updated` and `leave_request_approver_action_required`.
+`SetCurrentCompany` only activates active companies with an active `company_user` membership (or the legacy home-company path when no pivot row exists). EmailTemplatesSeeder creates missing leave templates without overwriting administrator subject/body/enabled/preset customizations, including `leave_request_updated` and `leave_request_approver_action_required`. It also creates a missing `user_invitation` template without overwriting administrator customizations.
 
 ### Production rollout (leave approvals)
 
