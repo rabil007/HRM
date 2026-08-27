@@ -12,7 +12,7 @@ Documents is one sidebar group with these destinations:
 | `/organization/documents/library` | Library | Canonical browse / search / compliance workspace | `documents.view` |
 | `/organization/documents/generate` | Generate & Send | Current Bulk Documents roster | `bulk_documents.view` |
 | `/organization/documents/requests` | Requests | Current bulk signature-request view | `bulk_documents.view` |
-| `/organization/documents/templates` | Templates | Transitional bridge only | Any of `bulk_documents.view`, `settings.master-data.document-types.view`, or platform view |
+| `/organization/documents/templates` | Templates | Company custom and system generation templates | Any of `documents.templates.view`, `bulk_documents.view`, `settings.master-data.document-types.view`, or platform view |
 | `/organization/documents/activity` | Activity | Current bulk generation history | `bulk_documents.view` |
 
 **Overview** is a lightweight operational dashboard. It shows expiry and required-document counts, needs-attention actions, and permission-aware shortcuts. It does not render the document table, folder grid, search, or Saved Views. Summary cards and attention actions open Library with the matching supported filter (`expiry=expired`, `expiry=expiring_7` / `expiring_15` / `expiring_30`, `requirement_status=missing`). Overview never applies a default Documents Saved View.
