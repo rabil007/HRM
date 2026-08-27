@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Organization\DocumentGenerationTemplate;
 
 use App\Enums\DocumentGenerationTemplateFormat;
-use App\Enums\DocumentGenerationTemplateStatus;
 use App\Support\Documents\DocumentTemplateMergeFields;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
@@ -60,7 +59,7 @@ class StoreDocumentGenerationTemplateRequest extends FormRequest
                 $isPdf ? 'required' : 'prohibited',
                 'file',
             ],
-            'status' => ['nullable', Rule::enum(DocumentGenerationTemplateStatus::class)],
+            'status' => ['prohibited'],
             'company_id' => ['prohibited'],
             'created_by' => ['prohibited'],
             'updated_by' => ['prohibited'],

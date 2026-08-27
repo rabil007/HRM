@@ -45,6 +45,18 @@ import {
 } from '@/components/ui/table';
 import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import { edit as applicationSettings } from '@/routes/application';
+import {
+    activate as activateTemplate,
+    deactivate as deactivateTemplate,
+    destroy as destroyTemplate,
+    draft as draftTemplate,
+    duplicate as duplicateTemplate,
+    preview as previewTemplate,
+    previewDraft as previewDraftTemplate,
+    store as storeTemplate,
+    update as updateTemplate,
+} from '@/routes/organization/documents/templates';
+import { publish as publishTemplateVersion } from '@/routes/organization/documents/templates/versions';
 import { index as documentTypesIndex } from '@/routes/settings/master-data/document-types';
 import { TemplateCreateChoiceDialog } from './components/template-create-choice-dialog';
 import { TemplateDeleteDialog } from './components/template-delete-dialog';
@@ -145,7 +157,6 @@ export function DocumentsTemplatesContent({
         description: '',
         document_type_id: null,
         content: '',
-        status: 'draft',
     });
 
     const handleOpenCreateContent = () => {
@@ -157,7 +168,6 @@ export function DocumentsTemplatesContent({
             description: '',
             document_type_id: null,
             content: '',
-            status: 'draft',
         });
         setIsFormOpen(true);
     };
@@ -165,30 +175,30 @@ export function DocumentsTemplatesContent({
     const handleOpenEdit = (template: CustomTemplate) => {
         setEditingTemplate(template);
         form.clearErrors();
+        const editorContent =
+            template.draft_version?.content ??
+            template.published_version?.content ??
+            template.content;
         form.setData({
             name: template.name,
             description: template.description ?? '',
             document_type_id: template.document_type_id,
-            content: template.content,
-            status: template.status,
+            content: editorContent,
         });
         setIsFormOpen(true);
     };
 
     const handleFormSubmit = () => {
         if (editingTemplate) {
-            form.put(
-                `/organization/documents/templates/${editingTemplate.id}`,
-                {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        setIsFormOpen(false);
-                        form.reset();
-                    },
+            form.put(updateTemplate.url({ template: editingTemplate.id }), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setIsFormOpen(false);
+                    form.reset();
                 },
-            );
+            });
         } else {
-            form.post('/organization/documents/templates', {
+            form.post(storeTemplate.url(), {
                 preserveScroll: true,
                 onSuccess: () => {
                     setIsFormOpen(false);
@@ -202,7 +212,7 @@ export function DocumentsTemplatesContent({
         try {
             // Get or branch the single Draft version for editing
             const res = await fetch(
-                `/organization/documents/templates/${template.id}/draft`,
+                draftTemplate.url({ template: template.id }),
                 {
                     method: 'POST',
                     headers: {
@@ -230,7 +240,7 @@ export function DocumentsTemplatesContent({
     const handleOpenReplacePdf = async (template: CustomTemplate) => {
         try {
             const res = await fetch(
-                `/organization/documents/templates/${template.id}/draft`,
+                draftTemplate.url({ template: template.id }),
                 {
                     method: 'POST',
                     headers: {
@@ -261,7 +271,10 @@ export function DocumentsTemplatesContent({
         versionId: number,
     ) => {
         router.post(
-            `/organization/documents/templates/${template.id}/versions/${versionId}/publish`,
+            publishTemplateVersion.url({
+                template: template.id,
+                version: versionId,
+            }),
             {},
             { preserveScroll: true },
         );
@@ -269,7 +282,7 @@ export function DocumentsTemplatesContent({
 
     const handleActivate = (template: CustomTemplate) => {
         router.post(
-            `/organization/documents/templates/${template.id}/activate`,
+            activateTemplate.url({ template: template.id }),
             {},
             { preserveScroll: true },
         );
@@ -277,7 +290,7 @@ export function DocumentsTemplatesContent({
 
     const handleDeactivate = (template: CustomTemplate) => {
         router.post(
-            `/organization/documents/templates/${template.id}/deactivate`,
+            deactivateTemplate.url({ template: template.id }),
             {},
             { preserveScroll: true },
         );
@@ -285,7 +298,7 @@ export function DocumentsTemplatesContent({
 
     const handleDuplicate = (template: CustomTemplate) => {
         router.post(
-            `/organization/documents/templates/${template.id}/duplicate`,
+            duplicateTemplate.url({ template: template.id }),
             {},
             { preserveScroll: true },
         );
@@ -301,16 +314,13 @@ export function DocumentsTemplatesContent({
             return;
         }
 
-        router.delete(
-            `/organization/documents/templates/${deletingTemplate.id}`,
-            {
-                preserveScroll: true,
-                onSuccess: () => {
-                    setIsDeleteOpen(false);
-                    setDeletingTemplate(null);
-                },
+        router.delete(destroyTemplate.url({ template: deletingTemplate.id }), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setIsDeleteOpen(false);
+                setDeletingTemplate(null);
             },
-        );
+        });
     };
 
     const handlePreviewStored = async (template: CustomTemplate) => {
@@ -324,7 +334,7 @@ export function DocumentsTemplatesContent({
 
         try {
             const res = await fetch(
-                `/organization/documents/templates/${template.id}/preview`,
+                previewTemplate.url({ template: template.id }),
                 {
                     headers: {
                         Accept: 'application/json',
@@ -365,22 +375,19 @@ export function DocumentsTemplatesContent({
         });
 
         try {
-            const res = await fetch(
-                '/organization/documents/templates/preview-draft',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Accept: 'application/json',
-                        'X-CSRF-TOKEN': getCsrfToken(),
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    body: JSON.stringify({
-                        name: name || 'Draft Template Preview',
-                        content,
-                    }),
+            const res = await fetch(previewDraftTemplate.url(), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
                 },
-            );
+                body: JSON.stringify({
+                    name: name || 'Draft Template Preview',
+                    content,
+                }),
+            });
 
             if (!res.ok) {
                 throw new Error('Failed to generate draft preview');

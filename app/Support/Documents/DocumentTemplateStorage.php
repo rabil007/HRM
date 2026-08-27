@@ -34,12 +34,17 @@ final class DocumentTemplateStorage
 
     public static function copyPdf(string $sourcePath, int $companyId): string
     {
-        $targetDirectory = self::directory($companyId);
-        $targetPath = "{$targetDirectory}/".(string) Str::uuid().'.pdf';
+        $expectedPrefix = self::directory($companyId).'/';
+        if (! str_starts_with($sourcePath, $expectedPrefix)) {
+            throw new \InvalidArgumentException('Source template PDF path is outside company boundary.');
+        }
 
         if (! Storage::disk(self::DISK)->exists($sourcePath)) {
             throw new \RuntimeException('Source template PDF does not exist for copying.');
         }
+
+        $targetDirectory = self::directory($companyId);
+        $targetPath = "{$targetDirectory}/".(string) Str::uuid().'.pdf';
 
         $copied = Storage::disk(self::DISK)->copy($sourcePath, $targetPath);
 

@@ -1,6 +1,9 @@
 import { router } from '@inertiajs/react';
 import { Canvas, FabricImage, FabricText, Rect } from 'fabric';
 import {
+    AlignCenter,
+    AlignLeft,
+    AlignRight,
     Bold,
     ChevronLeft,
     ChevronRight,
@@ -32,6 +35,11 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { getPdfJs } from '@/lib/pdfjs';
+import {
+    publish as publishVersion,
+    sourcePdf,
+} from '@/routes/organization/documents/templates/versions';
+import { save as savePlacements } from '@/routes/organization/documents/templates/versions/placements';
 import { normalizedToPixel, pixelToNormalized } from '../lib/coordinates';
 import type {
     CustomTemplate,
@@ -81,6 +89,10 @@ export function TemplatePdfDesignerDialog({
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const fabricCanvasRef = useRef<Canvas | null>(null);
     const labelRefs = useRef<Map<string, FabricText>>(new Map());
+    const placementsRef = useRef(placements);
+    useEffect(() => {
+        placementsRef.current = placements;
+    }, [placements]);
 
     // Map of merge fields for quick lookup
     const mergeFieldsMap = useMemo(() => {
@@ -146,9 +158,25 @@ export function TemplatePdfDesignerDialog({
 
             if (rect) {
                 const bounds = rect.getBoundingRect();
+                const placement = placementsRef.current.find(
+                    (p) => p.id === id,
+                );
+                const align = placement?.text_align || 'left';
+                let labelLeft = bounds.left + 6;
+                let originX: 'left' | 'center' | 'right' = 'left';
+
+                if (align === 'center') {
+                    labelLeft = bounds.left + bounds.width / 2;
+                    originX = 'center';
+                } else if (align === 'right') {
+                    labelLeft = bounds.left + bounds.width - 6;
+                    originX = 'right';
+                }
+
                 label.set({
-                    left: bounds.left + 6,
+                    left: labelLeft,
                     top: bounds.top + 4,
+                    originX,
                 });
             }
         });
@@ -168,7 +196,10 @@ export function TemplatePdfDesignerDialog({
             setErrorMessage(null);
 
             try {
-                const pdfUrl = `/organization/documents/templates/${template.id}/versions/${version.id}/source-pdf`;
+                const pdfUrl = sourcePdf.url({
+                    template: template.id,
+                    version: version.id,
+                });
                 const response = await fetch(pdfUrl, {
                     credentials: 'same-origin',
                 });
@@ -308,9 +339,22 @@ export function TemplatePdfDesignerDialog({
                     });
                     rect.set('data', { id: item.id });
 
+                    const align = item.text_align || 'left';
+                    let labelLeft = pixel.left + 6;
+                    let originX: 'left' | 'center' | 'right' = 'left';
+
+                    if (align === 'center') {
+                        labelLeft = pixel.left + pixel.width / 2;
+                        originX = 'center';
+                    } else if (align === 'right') {
+                        labelLeft = pixel.left + pixel.width - 6;
+                        originX = 'right';
+                    }
+
                     const label = new FabricText(displayText, {
-                        left: pixel.left + 6,
+                        left: labelLeft,
                         top: pixel.top + 4,
+                        originX,
                         fontSize: item.font_size || 12,
                         fontWeight: item.font_weight || 'normal',
                         fill: isSamplePreview ? '#065f46' : '#1e3a8a',
@@ -552,34 +596,39 @@ export function TemplatePdfDesignerDialog({
         setErrorMessage(null);
 
         try {
-            const url = `/organization/documents/templates/${template.id}/versions/${version.id}/placements`;
-            const res = await fetch(url, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                    'X-CSRF-TOKEN':
-                        (
-                            document.querySelector(
-                                'meta[name="csrf-token"]',
-                            ) as HTMLMetaElement
-                        )?.content || '',
-                },
-                body: JSON.stringify({
-                    placements: placements.map((p) => ({
-                        id: p.id,
-                        field: p.field,
-                        page: p.page,
-                        x: p.x,
-                        y: p.y,
-                        width: p.width,
-                        height: p.height,
-                        font_size: p.font_size || 12,
-                        font_weight: p.font_weight || 'normal',
-                        text_align: p.text_align || 'left',
-                    })),
+            const res = await fetch(
+                savePlacements.url({
+                    template: template.id,
+                    version: version.id,
                 }),
-            });
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        'X-CSRF-TOKEN':
+                            (
+                                document.querySelector(
+                                    'meta[name="csrf-token"]',
+                                ) as HTMLMetaElement
+                            )?.content || '',
+                    },
+                    body: JSON.stringify({
+                        placements: placements.map((p) => ({
+                            id: p.id,
+                            field: p.field,
+                            page: p.page,
+                            x: p.x,
+                            y: p.y,
+                            width: p.width,
+                            height: p.height,
+                            font_size: p.font_size || 12,
+                            font_weight: p.font_weight || 'normal',
+                            text_align: p.text_align || 'left',
+                        })),
+                    }),
+                },
+            );
 
             if (!res.ok) {
                 const data = await res.json();
@@ -608,7 +657,10 @@ export function TemplatePdfDesignerDialog({
 
         setIsPublishing(true);
         router.post(
-            `/organization/documents/templates/${template.id}/versions/${version.id}/publish`,
+            publishVersion.url({
+                template: template.id,
+                version: version.id,
+            }),
             {},
             {
                 onSuccess: () => {
@@ -944,6 +996,118 @@ export function TemplatePdfDesignerDialog({
                                     >
                                         <Bold className="size-3.5" />
                                     </Button>
+                                </div>
+
+                                <div className="flex items-center gap-0.5 border-l border-border pl-2">
+                                    {(['left', 'center', 'right'] as const).map(
+                                        (align) => {
+                                            const isSelected =
+                                                (selectedPlacement.text_align ||
+                                                    'left') === align;
+                                            const Icon =
+                                                align === 'left'
+                                                    ? AlignLeft
+                                                    : align === 'center'
+                                                      ? AlignCenter
+                                                      : AlignRight;
+
+                                            return (
+                                                <Button
+                                                    key={align}
+                                                    type="button"
+                                                    size="icon"
+                                                    variant={
+                                                        isSelected
+                                                            ? 'default'
+                                                            : 'ghost'
+                                                    }
+                                                    className="size-7"
+                                                    title={`Align ${align}`}
+                                                    onClick={() => {
+                                                        setPlacements((prev) =>
+                                                            prev.map((p) =>
+                                                                p.id ===
+                                                                selectedPlacement.id
+                                                                    ? {
+                                                                          ...p,
+                                                                          text_align:
+                                                                              align,
+                                                                      }
+                                                                    : p,
+                                                            ),
+                                                        );
+
+                                                        const canvas =
+                                                            fabricCanvasRef.current;
+
+                                                        if (canvas) {
+                                                            const rect = canvas
+                                                                .getObjects()
+                                                                .find(
+                                                                    (obj) =>
+                                                                        (
+                                                                            obj.get(
+                                                                                'data',
+                                                                            ) as {
+                                                                                id?: string;
+                                                                            }
+                                                                        )
+                                                                            ?.id ===
+                                                                        selectedPlacement.id,
+                                                                );
+                                                            const label =
+                                                                labelRefs.current.get(
+                                                                    selectedPlacement.id,
+                                                                );
+
+                                                            if (rect && label) {
+                                                                const bounds =
+                                                                    rect.getBoundingRect();
+                                                                let labelLeft =
+                                                                    bounds.left +
+                                                                    6;
+                                                                let originX:
+                                                                    | 'left'
+                                                                    | 'center'
+                                                                    | 'right' =
+                                                                    'left';
+
+                                                                if (
+                                                                    align ===
+                                                                    'center'
+                                                                ) {
+                                                                    labelLeft =
+                                                                        bounds.left +
+                                                                        bounds.width /
+                                                                            2;
+                                                                    originX =
+                                                                        'center';
+                                                                } else if (
+                                                                    align ===
+                                                                    'right'
+                                                                ) {
+                                                                    labelLeft =
+                                                                        bounds.left +
+                                                                        bounds.width -
+                                                                        6;
+                                                                    originX =
+                                                                        'right';
+                                                                }
+
+                                                                label.set({
+                                                                    left: labelLeft,
+                                                                    originX,
+                                                                });
+                                                                canvas.requestRenderAll();
+                                                            }
+                                                        }
+                                                    }}
+                                                >
+                                                    <Icon className="size-3.5" />
+                                                </Button>
+                                            );
+                                        },
+                                    )}
                                 </div>
 
                                 <Button

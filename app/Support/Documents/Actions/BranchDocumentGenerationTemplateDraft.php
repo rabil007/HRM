@@ -7,6 +7,7 @@ use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Support\Documents\DocumentTemplateStorage;
 use Illuminate\Support\Facades\DB;
+use Spatie\Activitylog\Models\Activity;
 use Throwable;
 
 final class BranchDocumentGenerationTemplateDraft
@@ -77,11 +78,16 @@ final class BranchDocumentGenerationTemplateDraft
                     'updated_by' => $userId,
                 ]);
 
+                $companyId = (int) $locked->company_id;
                 activity('document_templates')
                     ->performedOn($locked)
                     ->causedBy($userId)
+                    ->tap(function (Activity $activity) use ($companyId): void {
+                        $activity->company_id = $companyId;
+                    })
                     ->withProperties([
                         'action' => 'draft_version_created',
+                        'template_id' => $locked->id,
                         'version' => $nextVersion,
                     ])
                     ->log("Created draft version {$nextVersion} for template {$locked->name}");

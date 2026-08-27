@@ -20,10 +20,10 @@ class DocumentGenerationTemplateVersionFactory extends Factory
     public function definition(): array
     {
         return [
-            'company_id' => DocumentGenerationTemplate::factory(),
-            'document_generation_template_id' => function (array $attributes) {
-                return $attributes['company_id'];
-            },
+            'document_generation_template_id' => DocumentGenerationTemplate::factory(),
+            'company_id' => fn (array $attributes) => DocumentGenerationTemplate::query()
+                ->whereKey($attributes['document_generation_template_id'])
+                ->value('company_id'),
             'version' => 1,
             'status' => DocumentGenerationTemplateVersionStatus::Draft,
             'content' => "Dear {{employee_name}},\n\nWelcome to {{company_name}}.",

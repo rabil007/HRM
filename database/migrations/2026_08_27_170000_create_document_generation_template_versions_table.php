@@ -120,7 +120,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('document_generation_templates', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('published_version_id');
+            $table->dropForeign('doc_gen_tmpl_pub_ver_fk');
+            $table->dropColumn('published_version_id');
             $table->dropIndex('doc_gen_tmpl_comp_format_idx');
             $table->dropColumn('template_format');
         });

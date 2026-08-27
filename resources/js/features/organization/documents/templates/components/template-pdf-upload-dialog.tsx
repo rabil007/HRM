@@ -20,6 +20,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { store as storeTemplate } from '@/routes/organization/documents/templates';
 import type { DocumentTypeOption } from '../types';
 
 type Props = {
@@ -114,7 +115,7 @@ export function TemplatePdfUploadDialog({
 
         formData.append('file', file);
 
-        router.post('/organization/documents/templates', formData, {
+        router.post(storeTemplate.url(), formData, {
             forceFormData: true,
             onSuccess: () => {
                 setIsSubmitting(false);

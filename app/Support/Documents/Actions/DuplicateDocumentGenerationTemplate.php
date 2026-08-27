@@ -9,6 +9,7 @@ use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\User;
 use App\Support\Documents\DocumentTemplateStorage;
 use Illuminate\Support\Facades\DB;
+use Spatie\Activitylog\Models\Activity;
 use Throwable;
 
 final class DuplicateDocumentGenerationTemplate
@@ -28,13 +29,17 @@ final class DuplicateDocumentGenerationTemplate
 
         try {
             return DB::transaction(function () use ($template, $sourceVersion, $uniqueName, $newPdfPath, $actor): DocumentGenerationTemplate {
+                $duplicateContent = $template->isContent()
+                    ? (string) ($sourceVersion?->content ?? $template->content)
+                    : '';
+
                 $copy = DocumentGenerationTemplate::query()->create([
                     'company_id' => $template->company_id,
                     'name' => $uniqueName,
                     'description' => $template->description,
                     'document_type_id' => $template->document_type_id,
                     'template_format' => $template->template_format,
-                    'content' => $template->content,
+                    'content' => $duplicateContent,
                     'status' => DocumentGenerationTemplateStatus::Draft,
                     'published_version_id' => null,
                     'created_by' => $actor?->id,
@@ -46,7 +51,7 @@ final class DuplicateDocumentGenerationTemplate
                     'document_generation_template_id' => $copy->id,
                     'version' => 1,
                     'status' => DocumentGenerationTemplateVersionStatus::Draft,
-                    'content' => $template->isContent() ? ($sourceVersion?->content ?? $template->content) : null,
+                    'content' => $template->isContent() ? $duplicateContent : null,
                     'source_pdf_path' => $newPdfPath,
                     'source_pdf_original_name' => $sourceVersion?->source_pdf_original_name,
                     'source_pdf_size_bytes' => $sourceVersion?->source_pdf_size_bytes,
@@ -57,15 +62,19 @@ final class DuplicateDocumentGenerationTemplate
                     'updated_by' => $actor?->id,
                 ]);
 
-                activity()
+                $companyId = (int) $copy->company_id;
+                activity('document_templates')
                     ->performedOn($copy)
                     ->causedBy($actor)
                     ->event('duplicated')
+                    ->tap(function (Activity $activity) use ($companyId): void {
+                        $activity->company_id = $companyId;
+                    })
                     ->withProperties([
+                        'action' => 'template_duplicated',
                         'source_id' => $template->id,
-                        'source_name' => $template->name,
                         'name' => $copy->name,
-                        'company_id' => $copy->company_id,
+                        'template_id' => $copy->id,
                     ])
                     ->log("Duplicated template '{$template->name}' as '{$copy->name}'");
 

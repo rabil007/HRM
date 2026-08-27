@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\DocumentGenerationTemplateFormat;
 use App\Enums\DocumentGenerationTemplateStatus;
 use App\Models\Company;
 use App\Models\Country;
@@ -49,11 +50,27 @@ class DocumentGenerationTemplateFactory extends Factory
             'name' => $this->faker->unique()->words(3, true).' Letter',
             'description' => $this->faker->sentence(),
             'document_type_id' => null,
+            'template_format' => DocumentGenerationTemplateFormat::Content,
             'content' => "To Whom It May Concern,\n\nThis is to certify that {{employee_name}} (Employee No: {{employee_no}}) is employed with {{company_name}} as {{position_name}} in the {{department_name}} department.\n\nDate: {{today}}\n\nSincerely,\nHR Department",
             'status' => DocumentGenerationTemplateStatus::Draft,
             'created_by' => null,
             'updated_by' => null,
         ];
+    }
+
+    public function content(): static
+    {
+        return $this->state(fn () => [
+            'template_format' => DocumentGenerationTemplateFormat::Content,
+        ]);
+    }
+
+    public function pdfOverlay(): static
+    {
+        return $this->state(fn () => [
+            'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+            'content' => '',
+        ]);
     }
 
     public function active(): static

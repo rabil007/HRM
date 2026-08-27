@@ -8,6 +8,7 @@ use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use DomainException;
 use Illuminate\Support\Facades\DB;
+use Spatie\Activitylog\Models\Activity;
 
 final class PublishDocumentGenerationTemplateVersion
 {
@@ -58,11 +59,16 @@ final class PublishDocumentGenerationTemplateVersion
             $template->updated_by = $userId;
             $template->save();
 
+            $companyId = (int) $template->company_id;
             activity('document_templates')
                 ->performedOn($template)
                 ->causedBy($userId)
+                ->tap(function (Activity $activity) use ($companyId): void {
+                    $activity->company_id = $companyId;
+                })
                 ->withProperties([
                     'action' => 'template_version_published',
+                    'template_id' => $template->id,
                     'version' => $lockedVersion->version,
                 ])
                 ->log("Published version {$lockedVersion->version} for template {$template->name}");

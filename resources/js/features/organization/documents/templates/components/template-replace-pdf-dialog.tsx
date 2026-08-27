@@ -11,6 +11,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { replacePdf } from '@/routes/organization/documents/templates/versions';
 import type { CustomTemplate, TemplateVersionSummary } from '../types';
 
 type Props = {
@@ -82,7 +83,7 @@ export function TemplateReplacePdfDialog({
         formData.append('file', file);
 
         router.post(
-            `/organization/documents/templates/${template.id}/versions/${version.id}/replace-pdf`,
+            replacePdf.url({ template: template.id, version: version.id }),
             formData,
             {
                 forceFormData: true,

@@ -11,6 +11,7 @@ use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\User;
 use App\Support\Documents\Actions\BranchDocumentGenerationTemplateDraft;
 use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
+use App\Support\Documents\Actions\UpdateDocumentGenerationTemplate;
 use Database\Seeders\PermissionsSeeder;
 
 function createVersionTestCompany(string $name = 'Version Test Co'): Company
@@ -185,6 +186,190 @@ test('activate and deactivate manage template lifecycle explicitly', function ()
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->post(route('organization.documents.templates.activate', ['template' => $template->id]))
+        ->assertRedirect();
+
+    expect($template->fresh()->status)->toBe(DocumentGenerationTemplateStatus::Active);
+});
+
+test('version factory default creation succeeds with matching company id', function () {
+    $version = DocumentGenerationTemplateVersion::factory()->create();
+
+    expect($version)->toBeInstanceOf(DocumentGenerationTemplateVersion::class);
+    expect($version->document_generation_template_id)->not->toBeNull();
+    expect($version->company_id)->toBe($version->template->company_id);
+});
+
+test('version status transitions are strictly enforced', function () {
+    $company = createVersionTestCompany();
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create();
+
+    $published = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create([
+        'version' => 1,
+    ]);
+
+    // Published -> Draft fails
+    expect(fn () => $published->update(['status' => DocumentGenerationTemplateVersionStatus::Draft]))
+        ->toThrow(DomainException::class, 'Cannot transition a published version to draft.');
+
+    // Published -> Archived succeeds
+    $published->update(['status' => DocumentGenerationTemplateVersionStatus::Archived]);
+    expect($published->fresh()->isArchived())->toBeTrue();
+
+    // Archived -> Draft fails
+    expect(fn () => $published->update(['status' => DocumentGenerationTemplateVersionStatus::Draft]))
+        ->toThrow(DomainException::class, 'Cannot transition an archived version to draft.');
+
+    // Archived -> Published fails
+    expect(fn () => $published->update(['status' => DocumentGenerationTemplateVersionStatus::Published]))
+        ->toThrow(DomainException::class, 'Cannot transition an archived version to published.');
+});
+
+test('published version protected fields cannot be modified', function () {
+    $company = createVersionTestCompany();
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create();
+
+    $published = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create([
+        'version' => 1,
+        'content' => 'Frozen content',
+        'source_pdf_path' => 'path.pdf',
+        'placement_config' => ['schema_version' => 1],
+    ]);
+
+    expect(fn () => $published->update(['source_pdf_path' => 'new-path.pdf']))
+        ->toThrow(DomainException::class, 'Cannot modify source_pdf_path on an immutable template version.');
+    $published->refresh();
+
+    expect(fn () => $published->update(['placement_config' => ['schema_version' => 2]]))
+        ->toThrow(DomainException::class, 'Cannot modify placement_config on an immutable template version.');
+    $published->refresh();
+
+    expect(fn () => $published->update(['version' => 99]))
+        ->toThrow(DomainException::class, 'Cannot modify version on an immutable template version.');
+    $published->refresh();
+
+    expect(fn () => $published->update(['published_at' => now()->subDay()]))
+        ->toThrow(DomainException::class, 'Cannot modify published_at on an immutable template version.');
+    $published->refresh();
+
+    expect(fn () => $published->update(['company_id' => 99999]))
+        ->toThrow(DomainException::class, 'Cannot modify company_id on an immutable template version.');
+    $published->refresh();
+
+    expect(fn () => $published->update(['document_generation_template_id' => 99999]))
+        ->toThrow(DomainException::class, 'Cannot modify document_generation_template_id on an immutable template version.');
+});
+
+test('newly created content template starts in draft with v1 draft and null published_version_id', function () {
+    $user = User::factory()->create();
+    $company = createVersionTestCompany();
+    grantCompanyPermissions($user, $company, ['documents.templates.create']);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.templates.store'), [
+            'name' => 'Initial Draft Content Template',
+            'content' => 'Initial draft text {{employee_name}}',
+        ]);
+
+    $response->assertRedirect();
+
+    $template = DocumentGenerationTemplate::query()->where('name', 'Initial Draft Content Template')->firstOrFail();
+    expect($template->status)->toBe(DocumentGenerationTemplateStatus::Draft);
+    expect($template->published_version_id)->toBeNull();
+
+    $draft = $template->draftVersion;
+    expect($draft)->not->toBeNull();
+    expect($draft->version)->toBe(1);
+    expect($draft->status)->toBe(DocumentGenerationTemplateVersionStatus::Draft);
+    expect($draft->content)->toBe('Initial draft text {{employee_name}}');
+});
+
+test('editing draft content does not change parent content when a published version exists', function () {
+    $user = User::factory()->create();
+    $company = createVersionTestCompany();
+    grantCompanyPermissions($user, $company, ['documents.templates.update']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'name' => 'Published Template',
+        'template_format' => DocumentGenerationTemplateFormat::Content,
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'content' => 'V1 Published Text {{employee_name}}',
+    ]);
+
+    $v1 = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create([
+        'version' => 1,
+        'content' => 'V1 Published Text {{employee_name}}',
+    ]);
+    $template->published_version_id = $v1->id;
+    $template->save();
+
+    // HR edits the template
+    $updater = new UpdateDocumentGenerationTemplate;
+    $updater->handle($template, [
+        'content' => 'V2 Unapproved Draft Text {{employee_name}}',
+    ], $user);
+
+    $template->refresh();
+    // Parent content MUST remain pointing to V1 published content!
+    expect($template->content)->toBe('V1 Published Text {{employee_name}}');
+
+    // But the draft version has the new text
+    $draft = $template->draftVersion;
+    expect($draft)->not->toBeNull();
+    expect($draft->version)->toBe(2);
+    expect($draft->content)->toBe('V2 Unapproved Draft Text {{employee_name}}');
+});
+
+test('activate rejects template when published_version_id is invalid or inconsistent', function () {
+    $user = User::factory()->create();
+    $company = createVersionTestCompany();
+    grantCompanyPermissions($user, $company, ['documents.templates.update']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Draft,
+        'published_version_id' => null,
+    ]);
+
+    // 1. Activation with null published_version_id fails (422)
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.templates.activate', $template))
+        ->assertStatus(422);
+
+    // 2. Activation pointing to Draft version fails (422)
+    $draft = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 1,
+        'status' => DocumentGenerationTemplateVersionStatus::Draft,
+    ]);
+    $template->published_version_id = $draft->id;
+    $template->saveQuietly();
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.templates.activate', $template))
+        ->assertStatus(422);
+
+    // 3. Activation pointing to a version from another template fails (422)
+    $otherTemplate = DocumentGenerationTemplate::factory()->forCompany($company)->create();
+    $otherVersion = DocumentGenerationTemplateVersion::factory()->forTemplate($otherTemplate)->published()->create();
+    $template->published_version_id = $otherVersion->id;
+    $template->saveQuietly();
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.templates.activate', $template))
+        ->assertStatus(422);
+
+    // 4. Legitimate activation pointing to own Published version succeeds
+    $validPublished = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create([
+        'version' => 2,
+    ]);
+    $template->published_version_id = $validPublished->id;
+    $template->saveQuietly();
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.templates.activate', $template))
         ->assertRedirect();
 
     expect($template->fresh()->status)->toBe(DocumentGenerationTemplateStatus::Active);

@@ -359,3 +359,41 @@ Not implemented: a separate requirements page, individual exceptions/waivers, ap
 - `tests/Feature/Organization/DocumentShareTest.php`
 
 See [Document search](./document-search.md) and [Document sharing](./document-sharing.md) for specialized flows.
+
+## Phase 3B: Custom Document Generation Templates & PDF Placement
+
+Custom document templates allow companies to author custom HR documents in two formats:
+1. **HTML Content templates** (`template_format = 'content'`) with rich text and merge fields.
+2. **PDF Overlay templates** (`template_format = 'pdf_overlay'`) with private source PDF storage and visual drag-and-drop merge field placement via Fabric.js.
+
+### Template & Version Architecture
+
+- **`DocumentGenerationTemplate`**: Company-owned template identity (`name`, `description`, `document_type_id`, `template_format`, `status`, `published_version_id`).
+- **`DocumentGenerationTemplateVersion`**: Immutable renderable version (`version`, `status`, `content`, `source_pdf_path`, `placement_config`, `published_at`).
+
+### Lifecycle Semantics
+
+- **Version Lifecycle**: `Draft` -> `Published` -> `Archived`.
+  - Versions start as `Draft`. Once published, they are frozen and immutable (`content`, `placement_config`, and PDF attachments cannot be modified).
+  - Publishing a new version automatically moves the previously published version to `Archived`.
+- **Publish vs Activate**:
+  - **Publish** (`versions/{version}/publish`): Transitions a Draft version to `Published`, archives the previous version, points `published_version_id` to the published version, and sets parent template status to `Active`.
+  - **Activate / Deactivate** (`templates/{template}/activate`, `templates/{template}/deactivate`): Controls company availability. Activation strictly requires a valid `published_version_id` belonging to the active company and template with status `Published`.
+  - Normal create/update form submissions do **not** accept `status`. Templates always begin in `Draft` and can only be published through the explicit publish action.
+- **Parent Content Semantics**:
+  - `parent.content` continues representing the **current published content** for backwards compatibility with legacy callers.
+  - When editing a new draft version, `parent.content` is not overwritten until that draft is explicitly published.
+  - For templates that have never been published, `parent.content` syncs with draft edits.
+  - The editor always resolves content in order: `draft_version.content ?? published_version.content ?? parent.content`.
+
+### PDF Storage & Security Boundary
+
+- All uploaded template PDFs are stored on Laravel's private `local` disk (`storage/app/private/document-generation-templates/{companyId}/{uuid}.pdf`).
+- Previews and streaming enforce company authorization and tenant directory boundaries (`document-generation-templates/{companyId}/`).
+- Files are deleted only after database deletion completes successfully.
+
+### Visual Placement & Normalized Coordinates
+
+- Placements use normalized percentages (`0.0` to `1.0`) for `x`, `y`, `width`, and `height` relative to page dimensions, guaranteeing crisp rendering across arbitrary display DPIs and print paper sizes.
+- Supported text alignment options: `left`, `center`, `right`. Alignment is stored in the placement configuration and rendered visually in both Fabric.js canvas placement boxes and sample data preview.
+

@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Organization\DocumentGenerationTemplate;
 
-use App\Enums\DocumentGenerationTemplateStatus;
 use App\Models\DocumentGenerationTemplate;
 use App\Support\Documents\DocumentTemplateMergeFields;
 use Illuminate\Foundation\Http\FormRequest;
@@ -55,7 +54,7 @@ class UpdateDocumentGenerationTemplateRequest extends FormRequest
                     }
                 },
             ],
-            'status' => ['required', Rule::enum(DocumentGenerationTemplateStatus::class)],
+            'status' => ['prohibited'],
             'company_id' => ['prohibited'],
             'created_by' => ['prohibited'],
             'updated_by' => ['prohibited'],

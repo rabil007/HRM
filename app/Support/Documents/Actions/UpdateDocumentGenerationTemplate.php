@@ -2,7 +2,6 @@
 
 namespace App\Support\Documents\Actions;
 
-use App\Enums\DocumentGenerationTemplateStatus;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -14,8 +13,7 @@ final class UpdateDocumentGenerationTemplate
      *     name?: string,
      *     description?: ?string,
      *     document_type_id?: ?int,
-     *     content?: string,
-     *     status?: string|DocumentGenerationTemplateStatus
+     *     content?: string
      * }  $data
      */
     public function handle(DocumentGenerationTemplate $template, array $data, ?User $actor = null): DocumentGenerationTemplate
@@ -44,26 +42,9 @@ final class UpdateDocumentGenerationTemplate
                 $draft->updated_by = $actor?->id;
                 $draft->save();
 
-                // Keep parent content in sync for legacy compatibility
-                $payload['content'] = (string) $data['content'];
-            }
-
-            if (array_key_exists('status', $data)) {
-                $status = $data['status'];
-                if (is_string($status)) {
-                    $status = DocumentGenerationTemplateStatus::from($status);
-                }
-
-                if ($status === DocumentGenerationTemplateStatus::Active) {
-                    // If publishing an active status, ensure draft gets published
-                    $draft = $template->draftVersion;
-                    if ($draft !== null) {
-                        (new PublishDocumentGenerationTemplateVersion)->handle($draft, $actor?->id);
-                    } else {
-                        $payload['status'] = DocumentGenerationTemplateStatus::Active;
-                    }
-                } else {
-                    $payload['status'] = $status;
+                // Keep parent content in sync for legacy compatibility ONLY IF never published
+                if ($template->published_version_id === null) {
+                    $payload['content'] = (string) $data['content'];
                 }
             }
 

@@ -9,11 +9,17 @@ use App\Models\Currency;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\User;
+use App\Support\Documents\Actions\BranchDocumentGenerationTemplateDraft;
+use App\Support\Documents\Actions\DuplicateDocumentGenerationTemplate;
+use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
+use App\Support\Documents\Actions\ReplaceDocumentGenerationTemplatePdf;
+use App\Support\Documents\Actions\SaveDocumentGenerationTemplatePlacements;
 use App\Support\Documents\DocumentTemplateStorage;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\Fpdi;
+use Spatie\Activitylog\Models\Activity;
 
 function createPdfTestCompany(string $name = 'PDF Test Co'): Company
 {
@@ -358,4 +364,208 @@ test('deleting pdf template cleans up all source pdf files from disk', function 
     expect(Storage::disk(DocumentTemplateStorage::DISK)->exists($path1))->toBeFalse();
     expect(Storage::disk(DocumentTemplateStorage::DISK)->exists($path2))->toBeFalse();
     expect(DocumentGenerationTemplate::query()->find($template->id))->toBeNull();
+});
+
+test('save placements rejects when version is concurrently published', function () {
+    $company = createPdfTestCompany();
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 1,
+        'status' => DocumentGenerationTemplateVersionStatus::Draft,
+        'source_pdf_page_count' => 1,
+    ]);
+
+    // Simulate concurrent publish
+    $version->status = DocumentGenerationTemplateVersionStatus::Published;
+    $version->saveQuietly();
+
+    $action = new SaveDocumentGenerationTemplatePlacements;
+
+    expect(fn () => $action->handle($version->fresh(), [
+        [
+            'field' => '{{employee_name}}',
+            'page' => 1,
+            'x' => 0.1,
+            'y' => 0.1,
+            'width' => 0.2,
+            'height' => 0.05,
+        ],
+    ]))->toThrow(DomainException::class, 'Published or archived template versions cannot be edited.');
+});
+
+test('replace pdf rejects when version is concurrently published and cleans up file', function () {
+    $company = createPdfTestCompany();
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+    ]);
+
+    $oldPdfContent = createSamplePdfContent(1);
+    $oldPath = DocumentTemplateStorage::directory($company->id).'/original.pdf';
+    Storage::disk(DocumentTemplateStorage::DISK)->put($oldPath, $oldPdfContent);
+
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 1,
+        'status' => DocumentGenerationTemplateVersionStatus::Draft,
+        'source_pdf_path' => $oldPath,
+        'source_pdf_page_count' => 1,
+    ]);
+
+    // Simulate concurrent publish
+    $version->status = DocumentGenerationTemplateVersionStatus::Published;
+    $version->saveQuietly();
+
+    $newFile = UploadedFile::fake()->createWithContent('new.pdf', createSamplePdfContent(2));
+    $action = new ReplaceDocumentGenerationTemplatePdf;
+
+    expect(fn () => $action->handle($version->fresh(), $newFile))
+        ->toThrow(DomainException::class, 'Published or archived template versions cannot be edited.');
+
+    // Original file remains
+    expect(Storage::disk(DocumentTemplateStorage::DISK)->exists($oldPath))->toBeTrue();
+    // Newly uploaded file was cleaned up (only original exists in directory)
+    $files = Storage::disk(DocumentTemplateStorage::DISK)->files(DocumentTemplateStorage::directory($company->id));
+    expect($files)->toHaveCount(1);
+    expect($files[0])->toBe($oldPath);
+});
+
+test('copyPdf rejects source path outside company directory boundary', function () {
+    $companyA = createPdfTestCompany('Company A');
+    $companyB = createPdfTestCompany('Company B');
+
+    $fileContent = createSamplePdfContent(1);
+    $pathA = DocumentTemplateStorage::directory($companyA->id).'/company_a.pdf';
+    Storage::disk(DocumentTemplateStorage::DISK)->put($pathA, $fileContent);
+
+    // Attempting to copy Company A's PDF into Company B must fail
+    expect(fn () => DocumentTemplateStorage::copyPdf($pathA, $companyB->id))
+        ->toThrow(InvalidArgumentException::class, 'Source template PDF path is outside company boundary.');
+
+    // Attempting to copy an arbitrary relative or malicious path must fail
+    expect(fn () => DocumentTemplateStorage::copyPdf('../secret.pdf', $companyA->id))
+        ->toThrow(InvalidArgumentException::class, 'Source template PDF path is outside company boundary.');
+});
+
+test('manual activity events record company_id and avoid logging sensitive contents', function () {
+    $user = User::factory()->create();
+    $company = createPdfTestCompany();
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'name' => 'Audit Test Template',
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+    ]);
+
+    $pdfPath = DocumentTemplateStorage::directory($company->id).'/test.pdf';
+    Storage::disk(DocumentTemplateStorage::DISK)->put($pdfPath, createSamplePdfContent(1));
+
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 1,
+        'status' => DocumentGenerationTemplateVersionStatus::Draft,
+        'source_pdf_path' => $pdfPath,
+        'source_pdf_page_count' => 1,
+    ]);
+
+    // 1. Save Placements
+    $saver = new SaveDocumentGenerationTemplatePlacements;
+    $saver->handle($version, [
+        [
+            'field' => '{{employee_name}}',
+            'page' => 1,
+            'x' => 0.1,
+            'y' => 0.1,
+            'width' => 0.2,
+            'height' => 0.05,
+            'text_align' => 'center',
+        ],
+    ], $user->id);
+
+    $placementActivity = Activity::forSubject($template)->latest('id')->first();
+    expect($placementActivity)->not->toBeNull();
+    expect($placementActivity->company_id)->toBe($company->id);
+    expect($placementActivity->properties->toArray())->not->toHaveKey('placement_config');
+
+    // 2. Publish
+    $publisher = new PublishDocumentGenerationTemplateVersion;
+    $publisher->handle($version, $user->id);
+
+    $publishActivity = Activity::forSubject($template)->latest('id')->first();
+    expect($publishActivity)->not->toBeNull();
+    expect($publishActivity->company_id)->toBe($company->id);
+
+    // 3. Branch Draft
+    $brancher = new BranchDocumentGenerationTemplateDraft;
+    $brancher->handle($template, $user->id);
+
+    $branchActivity = Activity::forSubject($template)->latest('id')->first();
+    expect($branchActivity)->not->toBeNull();
+    expect($branchActivity->company_id)->toBe($company->id);
+
+    // 4. Duplicate
+    $duplicator = new DuplicateDocumentGenerationTemplate;
+    $copy = $duplicator->handle($template, $user);
+
+    $duplicateActivity = Activity::forSubject($copy)->latest('id')->first();
+    expect($duplicateActivity)->not->toBeNull();
+    expect($duplicateActivity->company_id)->toBe($company->id);
+    expect($duplicateActivity->properties->toArray())->not->toHaveKey('content');
+});
+
+test('save placements validates and stores text alignment options', function () {
+    $user = User::factory()->create();
+    $company = createPdfTestCompany();
+    grantCompanyPermissions($user, $company, ['documents.templates.update']);
+
+    $pdfPath = DocumentTemplateStorage::directory($company->id).'/test.pdf';
+    Storage::disk(DocumentTemplateStorage::DISK)->put($pdfPath, createSamplePdfContent(1));
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+    ]);
+
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 1,
+        'status' => DocumentGenerationTemplateVersionStatus::Draft,
+        'source_pdf_path' => $pdfPath,
+        'source_pdf_page_count' => 1,
+    ]);
+
+    $saver = new SaveDocumentGenerationTemplatePlacements;
+    $updated = $saver->handle($version, [
+        [
+            'id' => 'p-left',
+            'field' => '{{employee_name}}',
+            'page' => 1,
+            'x' => 0.1,
+            'y' => 0.1,
+            'width' => 0.2,
+            'height' => 0.05,
+            'text_align' => 'left',
+        ],
+        [
+            'id' => 'p-center',
+            'field' => '{{company_name}}',
+            'page' => 1,
+            'x' => 0.1,
+            'y' => 0.2,
+            'width' => 0.2,
+            'height' => 0.05,
+            'text_align' => 'center',
+        ],
+        [
+            'id' => 'p-right',
+            'field' => '{{today}}',
+            'page' => 1,
+            'x' => 0.1,
+            'y' => 0.3,
+            'width' => 0.2,
+            'height' => 0.05,
+            'text_align' => 'right',
+        ],
+    ], $user->id);
+
+    $placements = $updated->placement_config['placements'];
+    expect($placements[0]['text_align'])->toBe('left');
+    expect($placements[1]['text_align'])->toBe('center');
+    expect($placements[2]['text_align'])->toBe('right');
 });

@@ -46,8 +46,35 @@ class DocumentGenerationTemplateVersion extends Model
     protected static function booted(): void
     {
         static::updating(function (DocumentGenerationTemplateVersion $version): void {
-            // If the version is not in Draft status and renderable attributes are being modified, reject
-            if (! $version->isDraft()) {
+            $rawOriginal = $version->getRawOriginal('status') ?? $version->getOriginal('status');
+            $originalStatus = $rawOriginal instanceof DocumentGenerationTemplateVersionStatus
+                ? $rawOriginal
+                : DocumentGenerationTemplateVersionStatus::tryFrom((string) $rawOriginal);
+
+            // Lifecycle status transition validations based on original persisted state
+            if ($originalStatus === DocumentGenerationTemplateVersionStatus::Published) {
+                if ($version->isDirty('status')) {
+                    if ($version->status === DocumentGenerationTemplateVersionStatus::Draft) {
+                        throw new DomainException('Cannot transition a published version to draft.');
+                    }
+                    if ($version->status !== DocumentGenerationTemplateVersionStatus::Archived) {
+                        throw new DomainException("Cannot transition a published version to {$version->status->value}.");
+                    }
+                }
+            } elseif ($originalStatus === DocumentGenerationTemplateVersionStatus::Archived) {
+                if ($version->isDirty('status')) {
+                    if ($version->status === DocumentGenerationTemplateVersionStatus::Draft) {
+                        throw new DomainException('Cannot transition an archived version to draft.');
+                    }
+                    if ($version->status === DocumentGenerationTemplateVersionStatus::Published) {
+                        throw new DomainException('Cannot transition an archived version to published.');
+                    }
+                    throw new DomainException('Cannot modify status on an archived template version.');
+                }
+            }
+
+            // Once originally Published or Archived, renderable and identity attributes must remain immutable
+            if ($originalStatus !== DocumentGenerationTemplateVersionStatus::Draft) {
                 $dirty = array_keys($version->getDirty());
                 $protectedAttributes = [
                     'content',
@@ -57,6 +84,9 @@ class DocumentGenerationTemplateVersion extends Model
                     'source_pdf_page_count',
                     'placement_config',
                     'version',
+                    'published_at',
+                    'company_id',
+                    'document_generation_template_id',
                 ];
 
                 foreach ($protectedAttributes as $attr) {

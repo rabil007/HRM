@@ -21,6 +21,7 @@ use App\Support\Documents\DocumentTemplateStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class DocumentGenerationTemplateController extends Controller
@@ -178,6 +179,15 @@ class DocumentGenerationTemplateController extends Controller
         abort_unless((int) $template->company_id === $companyId, 404);
         abort_if($template->published_version_id === null, 422, 'Cannot activate a template with no published version.');
 
+        $publishedVersion = $template->publishedVersion;
+        if ($publishedVersion === null
+            || (int) $publishedVersion->document_generation_template_id !== (int) $template->id
+            || (int) $publishedVersion->company_id !== $companyId
+            || ! $publishedVersion->isPublished()
+        ) {
+            abort(422, 'Cannot activate a template without a valid published version.');
+        }
+
         $template->status = DocumentGenerationTemplateStatus::Active;
         $template->updated_by = $request->user()?->id;
         $template->save();
@@ -212,14 +222,30 @@ class DocumentGenerationTemplateController extends Controller
         abort_if($companyId <= 0, 403);
         abort_unless((int) $template->company_id === $companyId, 404);
 
-        // Safely clean up private PDF files for all versions of this template
+        // 1. Collect company-safe private PDF paths before DB deletion
+        $pdfPaths = [];
+        $expectedPrefix = DocumentTemplateStorage::directory($companyId).'/';
         foreach ($template->versions as $version) {
-            if ($version->source_pdf_path) {
-                DocumentTemplateStorage::deletePdf($version->source_pdf_path, $companyId);
+            if ($version->source_pdf_path && str_starts_with($version->source_pdf_path, $expectedPrefix)) {
+                $pdfPaths[] = $version->source_pdf_path;
             }
         }
 
+        // 2. Perform DB deletion first
         $template->delete();
+
+        // 3. After successful DB deletion, clean up physical files
+        foreach ($pdfPaths as $path) {
+            try {
+                DocumentTemplateStorage::deletePdf($path, $companyId);
+            } catch (\Throwable $e) {
+                Log::error('Failed to clean up orphaned template PDF after deletion', [
+                    'path' => $path,
+                    'company_id' => $companyId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         return back()->with('success', 'Template deleted.');
     }
