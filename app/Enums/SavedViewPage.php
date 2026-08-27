@@ -16,7 +16,7 @@ enum SavedViewPage: string
     {
         return match ($this) {
             self::Employees => 'organization.employees',
-            self::Documents => 'organization.documents',
+            self::Documents => 'organization.documents.library',
             self::Crew => 'organization.crew-assignments.index',
             self::Leave => 'attendance.leave-requests.index',
             self::Payroll => 'payroll.index',

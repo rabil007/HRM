@@ -64,6 +64,7 @@ import {
     canRegenerateSignatureAlignment,
 } from '@/features/organization/documents/bulk/bulk-signatures-table';
 import { SignatureStatusBadge } from '@/features/organization/documents/bulk/signature-status-badge';
+import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import { downloadBinaryExport } from '@/features/organization/documents/shared/download-binary-export';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
 import { DepartmentEmployeeTree } from '@/features/organization/employees/components/department-employee-tree';
@@ -73,7 +74,11 @@ import { useRecordSelection } from '@/hooks/use-record-selection';
 import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import documentRoutes from '@/routes/organization/documents';
+import documentRoutes, {
+    activity as documentsActivity,
+    generate as documentsGenerate,
+    requests as documentsRequests,
+} from '@/routes/organization/documents';
 import { EMPTY_BULK_DOCUMENT_FILTERS } from './types';
 import type {
     BulkDocumentFilters,
@@ -86,14 +91,24 @@ import type {
     LatestSignatureRepairRun,
 } from './types';
 
-const BULK_URL = '/organization/documents/bulk';
+function documentsSectionUrl(view: BulkDocumentsView): string {
+    if (view === 'signatures') {
+        return documentsRequests.url();
+    }
+
+    if (view === 'history') {
+        return documentsActivity.url();
+    }
+
+    return documentsGenerate.url();
+}
 
 function buildQuery(
     documentTypeKey: string,
     filters: BulkDocumentFilters,
     search: string,
     generationFilter: BulkGenerationFilter,
-    view: BulkDocumentsView,
+    _view: BulkDocumentsView,
     signatureFilter: BulkSignatureFilter = 'all',
     emailFilter: BulkEmailFilter = 'all',
     pagination?: { page?: number | null; perPage: number },
@@ -102,14 +117,6 @@ function buildQuery(
         document_type_key: documentTypeKey,
         per_page: String(pagination?.perPage ?? 20),
     };
-
-    if (view === 'history') {
-        query.view = 'history';
-    }
-
-    if (view === 'signatures') {
-        query.view = 'signatures';
-    }
 
     if (signatureFilter !== 'all') {
         query.signature_filter = signatureFilter;
@@ -1277,7 +1284,7 @@ export function BulkDocumentsContent({
             page: number | null = null,
         ) => {
             router.get(
-                BULK_URL,
+                documentsSectionUrl(nextView),
                 buildQuery(
                     nextType,
                     nextFilters,
@@ -1425,7 +1432,7 @@ export function BulkDocumentsContent({
     const setPerPage = useCallback(
         (perPage: number) => {
             router.get(
-                BULK_URL,
+                documentsSectionUrl(view),
                 buildQuery(
                     document_type_key,
                     filters,
@@ -1619,8 +1626,20 @@ export function BulkDocumentsContent({
     return (
         <Main>
             <PageHeader
-                title="Bulk generate"
-                description={`Generate and manage ${selectedTypeLabel} documents for multiple employees.`}
+                title={
+                    isSignaturesView
+                        ? 'Requests'
+                        : isHistoryView
+                          ? 'Activity'
+                          : 'Generate & Send'
+                }
+                description={
+                    isSignaturesView
+                        ? `Review and manage ${selectedTypeLabel} signature requests.`
+                        : isHistoryView
+                          ? `Generation history for ${selectedTypeLabel}.`
+                          : `Generate and send ${selectedTypeLabel} documents for multiple employees.`
+                }
                 right={
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                         <AppSelect
@@ -1662,6 +1681,8 @@ export function BulkDocumentsContent({
                     </div>
                 }
             />
+
+            <DocumentsModuleNav />
 
             {/* Summary cards */}
             {isRosterView && supportsEsignature ? (

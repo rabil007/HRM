@@ -356,7 +356,7 @@ test('document crew leave and payroll pages save and list supported filters', fu
         'page_key' => 'documents',
         'name' => 'Expiring in 30 days',
         'filters' => ['expiry' => 'expiring_30', 'department_id' => (string) $department->id],
-    ], '/organization/documents')->assertRedirect();
+    ], '/organization/documents/library')->assertRedirect();
 
     saveView($user, $company->id, [
         'page_key' => 'crew',
@@ -382,7 +382,7 @@ test('document crew leave and payroll pages save and list supported filters', fu
         'filters' => ['status' => 'draft'],
     ], '/payroll')->assertRedirect();
 
-    visitList($user, $company->id, 'organization.documents', ['expiry' => 'expiring_30'])
+    visitList($user, $company->id, 'organization.documents.library', ['expiry' => 'expiring_30'])
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('expiry', 'expiring_30')

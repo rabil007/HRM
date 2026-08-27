@@ -4,7 +4,7 @@ The authenticated Cmd/Ctrl+K omnibox also searches documents (number, title, typ
 
 ## Where
 
-- Page: `/organization/documents`
+- Page: `/organization/documents/library`
 - UI: sticky search bar below summary cards
 - Placeholder: `Search employee, document no, file name...`
 

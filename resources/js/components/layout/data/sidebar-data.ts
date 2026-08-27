@@ -29,6 +29,8 @@ import {
     Waves,
     BarChart3,
     FilePenLine,
+    History,
+    Folder,
     ShieldCheck,
     Database,
     ListTodo,
@@ -48,6 +50,13 @@ import {
     training,
 } from '@/routes/organization';
 import { index as crewMovementCorrections } from '@/routes/organization/crew-movement-corrections';
+import {
+    activity as documentsActivity,
+    generate as documentsGenerate,
+    library as documentsLibrary,
+    requests as documentsRequests,
+    templates as documentsTemplates,
+} from '@/routes/organization/documents';
 import { index as crewMovementHistory } from '@/routes/organization/reports/crew-movement-history';
 import type { SidebarData } from '../types';
 
@@ -129,11 +138,41 @@ const baseSidebarData: SidebarData = {
                     url: '/organization/employees',
                     icon: Users,
                 },
-                { title: 'Documents', url: documents.url(), icon: FileText },
                 {
-                    title: 'Bulk generate',
-                    url: '/organization/documents/bulk',
-                    icon: FileStack,
+                    title: 'Documents',
+                    icon: FileText,
+                    items: [
+                        {
+                            title: 'Overview',
+                            url: documents.url(),
+                            icon: LayoutDashboard,
+                        },
+                        {
+                            title: 'Library',
+                            url: documentsLibrary.url(),
+                            icon: Folder,
+                        },
+                        {
+                            title: 'Generate & Send',
+                            url: documentsGenerate.url(),
+                            icon: FileStack,
+                        },
+                        {
+                            title: 'Requests',
+                            url: documentsRequests.url(),
+                            icon: FilePenLine,
+                        },
+                        {
+                            title: 'Templates',
+                            url: documentsTemplates.url(),
+                            icon: ClipboardList,
+                        },
+                        {
+                            title: 'Activity',
+                            url: documentsActivity.url(),
+                            icon: History,
+                        },
+                    ],
                 },
                 {
                     title: 'Contracts',

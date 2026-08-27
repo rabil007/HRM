@@ -12,6 +12,7 @@ use App\Support\BulkDocuments\BulkDocumentPagePermissions;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentSignatureRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\Documents\DocumentsModuleAccess;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
@@ -53,11 +54,7 @@ class BulkDocumentsController extends Controller
             'not_emailed' => 'not_emailed',
             default => 'all',
         };
-        $view = match ($request->query('view')) {
-            'history' => 'history',
-            'signatures' => 'signatures',
-            default => 'roster',
-        };
+        $view = DocumentsModuleAccess::resolveBulkView($request);
         $formOptions = EmployeeFormOptions::for($companyId);
 
         if ($view === 'history') {

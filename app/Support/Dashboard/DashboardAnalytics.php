@@ -645,7 +645,7 @@ final class DashboardAnalytics
                         'description' => sprintf('%d employee documents have passed their expiration date.', $expiredDocs),
                         'count' => $expiredDocs,
                         'severity' => 'critical',
-                        'href' => route('organization.documents', ['expiry' => 'expired']),
+                        'href' => route('organization.documents.library', ['expiry' => 'expired']),
                         'action_label' => 'Review Documents',
                     ];
                 }
@@ -666,7 +666,7 @@ final class DashboardAnalytics
                         'description' => sprintf('%d documents will expire within 7 days.', $expiring7Docs),
                         'count' => $expiring7Docs,
                         'severity' => 'warning',
-                        'href' => route('organization.documents', ['expiry' => 'expiring_7']),
+                        'href' => route('organization.documents.library', ['expiry' => 'expiring_7']),
                         'action_label' => 'View Expiring',
                     ];
                 }

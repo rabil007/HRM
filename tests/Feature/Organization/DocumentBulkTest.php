@@ -321,11 +321,11 @@ test('users can bulk delete documents across employees from the documents index'
         'status' => 'valid',
     ]);
 
-    $this->from('/organization/documents?search=be')
+    $this->from('/organization/documents/library?search=be')
         ->delete(route('organization.documents.files.bulk-destroy'), [
             'document_ids' => [$docA->id, $docB->id],
         ])
-        ->assertRedirect('/organization/documents?search=be')
+        ->assertRedirect('/organization/documents/library?search=be')
         ->assertSessionHas('success');
 
     expect(EmployeeDocument::query()->whereKey($docA->id)->exists())->toBeFalse();

@@ -8,6 +8,7 @@ import { DocumentRequirementSummaryCards } from '@/features/organization/documen
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
+import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
 import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
 import { DocumentsIndexDocumentBulkActions } from '@/features/organization/documents/index/documents-index-document-bulk-actions';
@@ -42,8 +43,9 @@ import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import type { SavedView } from '@/lib/saved-views';
 import { toast } from '@/lib/toast';
 import { UploadDocumentDialog } from '@/pages/organization/_components/documents/upload-dialog';
-import { documents } from '@/routes/organization';
-import documentRoutes from '@/routes/organization/documents';
+import documentRoutes, {
+    library as documentsLibrary,
+} from '@/routes/organization/documents';
 import { shareLinks as folderShareLinks } from '@/routes/organization/documents/folders';
 
 type Props = {
@@ -71,6 +73,7 @@ type Props = {
         email_templates: EmailTemplateOption[];
     };
     saved_views?: SavedView[];
+    module_section?: 'overview' | 'library';
 };
 
 const EMPTY_SEARCH_DOCUMENTS: PaginatedComplianceDocuments = {
@@ -109,6 +112,8 @@ export default function DocumentsIndex({
     can,
     saved_views = [],
 }: Props) {
+    const indexUrl = documentsLibrary.url();
+    const documentShowFrom = 'library' as const;
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
     const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(
         null,
@@ -172,7 +177,7 @@ export default function DocumentsIndex({
         onDepartmentChange,
         onPageChange,
     } = useDocumentsIndexFilters({
-        url: documents.url(),
+        url: indexUrl,
         initialSearch,
         initialExpiry,
         initialRequirementStatus,
@@ -279,9 +284,11 @@ export default function DocumentsIndex({
 
     const buildViewHref = (doc: ComplianceDocumentItem) =>
         buildDocumentShowUrl(doc.employee_id, doc.id, {
-            from: 'index',
+            from: documentShowFrom,
             expiry: initialExpiry,
             search: initialSearch,
+            requirement_status: initialRequirementStatus,
+            department_id: initialDepartmentId,
             page: isComplianceView
                 ? complianceDocuments?.current_page
                 : resolvedSearchDocuments.current_page,
@@ -299,9 +306,11 @@ export default function DocumentsIndex({
 
     return (
         <Main>
-            <Head title="Documents" />
+            <Head title="Library" />
 
             <DocumentsBreadcrumbs items={[{ title: 'Documents' }]} />
+
+            <DocumentsModuleNav />
 
             <DocumentsSummaryCards
                 summary={summary}
@@ -350,7 +359,7 @@ export default function DocumentsIndex({
                             ) : null}
                             <SavedViewsControl
                                 pageKey="documents"
-                                indexUrl={documents.url()}
+                                indexUrl={indexUrl}
                                 currentFilters={{
                                     search: initialSearch,
                                     expiry: initialExpiry,
@@ -401,8 +410,11 @@ export default function DocumentsIndex({
                                     item.employee_id,
                                     item.document_id,
                                     {
-                                        from: 'index',
+                                        from: documentShowFrom,
                                         search: initialSearch,
+                                        requirement_status:
+                                            initialRequirementStatus,
+                                        department_id: initialDepartmentId,
                                         page: requirementDocuments.current_page,
                                     },
                                 ),
@@ -418,8 +430,11 @@ export default function DocumentsIndex({
                                     item.employee_id,
                                     item.document_id,
                                     {
-                                        from: 'index',
+                                        from: documentShowFrom,
                                         search: initialSearch,
+                                        requirement_status:
+                                            initialRequirementStatus,
+                                        department_id: initialDepartmentId,
                                         page: requirementDocuments.current_page,
                                     },
                                 ),

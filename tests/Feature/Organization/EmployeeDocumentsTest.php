@@ -343,7 +343,7 @@ test('documents folder index lists employees with uploads', function () {
         'status' => 'expired',
     ]);
 
-    $this->get('/organization/documents')
+    $this->get('/organization/documents/library')
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/documents/index')
             ->has('employees', 1)

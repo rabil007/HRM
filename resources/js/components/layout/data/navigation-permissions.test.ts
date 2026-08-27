@@ -317,6 +317,78 @@ describe('Platform navigation', () => {
     });
 });
 
+describe('Documents navigation', () => {
+    const documentsUrls = [
+        '/organization/documents',
+        '/organization/documents/library',
+        '/organization/documents/generate',
+        '/organization/documents/requests',
+        '/organization/documents/templates',
+        '/organization/documents/activity',
+    ];
+
+    it('shows overview and library only for documents.view', () => {
+        assert.deepEqual(visibleGroupUrls(documentsUrls, ['documents.view']), [
+            '/organization/documents',
+            '/organization/documents/library',
+        ]);
+        assert.equal(
+            isSidebarUrlVisible('/organization/documents/generate', [
+                'documents.view',
+            ]),
+            false,
+        );
+    });
+
+    it('shows generate requests and activity for bulk_documents.view', () => {
+        assert.deepEqual(
+            visibleGroupUrls(documentsUrls, ['bulk_documents.view']),
+            [
+                '/organization/documents/generate',
+                '/organization/documents/requests',
+                '/organization/documents/templates',
+                '/organization/documents/activity',
+            ],
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/documents', [
+                'bulk_documents.view',
+            ]),
+            false,
+        );
+    });
+
+    it('shows templates for document types or platform access', () => {
+        assert.equal(
+            isSidebarUrlVisible('/organization/documents/templates', [
+                'settings.master-data.document-types.view',
+            ]),
+            true,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/documents/templates', [], {
+                view: true,
+                manage: false,
+                database: false,
+            }),
+            true,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/documents/templates', [
+                'documents.view',
+            ]),
+            false,
+        );
+    });
+
+    it('does not treat the legacy bulk URL as a Documents sidebar destination', () => {
+        assert.equal(
+            documentsUrls.includes('/organization/documents/bulk'),
+            false,
+        );
+    });
+});
+
 describe('Parent groups', () => {
     it('hides a group when every child is inaccessible', () => {
         assert.deepEqual(visibleGroupUrls(CREW_URLS, ['employees.view']), []);

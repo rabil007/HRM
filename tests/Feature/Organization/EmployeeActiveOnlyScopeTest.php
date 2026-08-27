@@ -142,7 +142,7 @@ test('document operational expiry summary excludes terminated employees', functi
         ]);
     }
 
-    $this->get(route('organization.documents'))
+    $this->get(route('organization.documents.library'))
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
             ->where('summary.total_documents', 1)

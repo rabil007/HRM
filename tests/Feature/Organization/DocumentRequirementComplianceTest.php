@@ -19,7 +19,7 @@ test('required document with no employee document is missing', function () {
     grantCompanyPermissions($user, $company, ['documents.view']);
     makeDocumentRequirement($company->id, $passportType->id, requiredForAll: true);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('requirement_status', 'missing')
@@ -68,7 +68,7 @@ test('required valid expired and expiring documents map to compliance statuses',
         'status' => 'expired',
     ]);
 
-    $this->get('/organization/documents?requirement_status=valid')
+    $this->get('/organization/documents/library?requirement_status=valid')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -76,7 +76,7 @@ test('required valid expired and expiring documents map to compliance statuses',
             ->where('requirementDocuments.data.0.document_type_id', $passportType->id)
         );
 
-    $this->get('/organization/documents?requirement_status=expired')
+    $this->get('/organization/documents/library?requirement_status=expired')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -87,7 +87,7 @@ test('required valid expired and expiring documents map to compliance statuses',
     $stcwDoc = EmployeeDocument::query()->where('document_type_id', $stcw->id)->first();
     $stcwDoc->update(['expiry_date' => '2026-05-25', 'status' => 'expiring_soon']);
 
-    $this->get('/organization/documents?requirement_status=expiring')
+    $this->get('/organization/documents/library?requirement_status=expiring')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -104,7 +104,7 @@ test('optional missing documents are not reported', function () {
     ['company' => $company, 'passportType' => $passportType] = makeDocumentFixtures();
     grantCompanyPermissions($user, $company, ['documents.view']);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('requirement_summary.required', 0)
@@ -145,7 +145,7 @@ test('department scoped requirement does not affect employees in another departm
 
     makeDocumentRequirement($company->id, $passportType->id, departmentIds: [$crew->id]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -170,13 +170,13 @@ test('changing employee department or rank changes requirements dynamically', fu
 
     $employee->update(['department_id' => $scopes['marine']->id, 'rank_id' => null]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('requirementDocuments.data', 0));
 
     $employee->update(['department_id' => $scopes['crew']->id, 'rank_id' => $scopes['captain']->id]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -185,13 +185,13 @@ test('changing employee department or rank changes requirements dynamically', fu
 
     $employee->update(['department_id' => $scopes['marine']->id, 'rank_id' => $scopes['captain']->id]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('requirementDocuments.data', 0));
 
     $employee->update(['department_id' => $scopes['crew']->id, 'rank_id' => null]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('requirementDocuments.data', 0));
 });
@@ -206,7 +206,7 @@ test('required for all applies regardless of organizational assignment', functio
 
     $employee->update(['department_id' => null, 'position_id' => null, 'rank_id' => null]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -247,14 +247,14 @@ test('superseded older upload does not satisfy the current requirement', functio
         'status' => 'expired',
     ]);
 
-    $this->get('/organization/documents?requirement_status=expired')
+    $this->get('/organization/documents/library?requirement_status=expired')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
             ->where('requirementDocuments.data.0.status', 'expired')
         );
 
-    $this->get('/organization/documents?requirement_status=valid')
+    $this->get('/organization/documents/library?requirement_status=valid')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('requirementDocuments.data', 0));
 
@@ -269,11 +269,11 @@ test('active employee with zero uploaded documents appears as missing required d
     grantCompanyPermissions($user, $company, ['documents.view']);
     makeDocumentRequirement($company->id, $passportType->id, requiredForAll: true);
 
-    $this->get('/organization/documents')
+    $this->get('/organization/documents/library')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('employees', 0));
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -291,7 +291,7 @@ test('inactive employees are excluded from operational requirement compliance', 
 
     $employee->update(['status' => 'inactive']);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('requirement_summary.missing', 0)
@@ -300,7 +300,7 @@ test('inactive employees are excluded from operational requirement compliance', 
 
     $employee->update(['status' => 'terminated']);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('requirement_summary.missing', 0)
@@ -317,7 +317,7 @@ test('company a rules do not apply to company b employees', function () {
     grantCompanyPermissions($user, $companyA, ['documents.view']);
     makeDocumentRequirement($companyA->id, $passportType->id, requiredForAll: true);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -362,7 +362,7 @@ test('same document type matched by department and rank appears once', function 
 
     makeDocumentRequirement($company->id, $passportType->id, departmentIds: [$crew->id], rankIds: [$captain->id]);
 
-    $this->get('/organization/documents?requirement_status=required')
+    $this->get('/organization/documents/library?requirement_status=required')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -377,7 +377,7 @@ test('users without documents view cannot open requirement compliance', function
     ['company' => $company] = makeDocumentFixtures();
     grantCompanyPermissions($user, $company, ['employees.view']);
 
-    $this->get('/organization/documents?requirement_status=missing')->assertForbidden();
+    $this->get('/organization/documents/library?requirement_status=missing')->assertForbidden();
 });
 
 test('newer created_at wins over a higher id on the documents index and employee profile', function () {
@@ -418,7 +418,7 @@ test('newer created_at wins over a higher id on the documents index and employee
 
     expect($olderExpired->id)->toBeGreaterThan($newerValid->id);
 
-    $this->get('/organization/documents?requirement_status=valid')
+    $this->get('/organization/documents/library?requirement_status=valid')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -426,7 +426,7 @@ test('newer created_at wins over a higher id on the documents index and employee
             ->where('requirementDocuments.data.0.document_id', $newerValid->id)
         );
 
-    $this->get('/organization/documents?requirement_status=expired')
+    $this->get('/organization/documents/library?requirement_status=expired')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 0)
@@ -483,7 +483,7 @@ test('equal created_at ties are broken by the highest id on the documents index 
         'updated_at' => $tiedAt,
     ]);
 
-    $this->get('/organization/documents?requirement_status=expired')
+    $this->get('/organization/documents/library?requirement_status=expired')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -513,7 +513,7 @@ test('unmapped null document_type_id rows do not satisfy required document compl
     makeDocumentRequirement($company->id, $passportType->id, requiredForAll: true);
     makeUnmappedEmployeeDocument($company->id, $employee->id, $passportType->title);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('requirement_summary.missing', 1)
@@ -545,7 +545,7 @@ test('project scoped missing documents appear in bulk compliance', function () {
     $employee->update(['project_id' => $adnoc->id]);
     makeDocumentRequirement($company->id, $passportType->id, projectIds: [$adnoc->id]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('requirement_summary.missing', 1)
@@ -580,7 +580,7 @@ test('company a project policy does not create company b missing compliance rows
 
     makeDocumentRequirement($companyA->id, $passportType->id, projectIds: [$adnoc->id]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -622,7 +622,7 @@ test('crew seafarer captain assigned to another project is not required until pr
         ->and($compliance->summary($company->id)['missing'])->toBe(0)
         ->and($compliance->summary($company->id)['required'])->toBe(0);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('requirement_summary.missing', 0)
@@ -644,7 +644,7 @@ test('crew seafarer captain assigned to another project is not required until pr
         ->and($compliance->itemsForEmployee($matchedEmployee))->toHaveCount(1)
         ->and($compliance->summary($company->id)['missing'])->toBe(1);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('requirement_summary.missing', 1)
@@ -731,7 +731,7 @@ test('bulk missing list uses and matching across selected categories', function 
         'project_id' => $scopes['otherProject']->id,
     ]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('requirement_summary.missing', 0)
@@ -740,7 +740,7 @@ test('bulk missing list uses and matching across selected categories', function 
 
     $employee->update(['project_id' => $scopes['adnoc']->id]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('requirement_summary.missing', 1)
@@ -761,7 +761,7 @@ test('changing employee project_id onto and off a selected project updates missi
 
     $employee->update(['project_id' => $scopes['adnoc']->id]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -770,13 +770,13 @@ test('changing employee project_id onto and off a selected project updates missi
 
     $employee->update(['project_id' => $scopes['otherProject']->id]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('requirementDocuments.data', 0));
 
     $employee->update(['project_id' => $scopes['adnoc']->id]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -806,7 +806,7 @@ test('empty position category does not restrict bulk missing compliance', functi
         'project_id' => $scopes['otherProject']->id,
     ]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)
@@ -835,7 +835,7 @@ test('required for all remains required when selected scopes would not match', f
         'project_id' => $scopes['otherProject']->id,
     ]);
 
-    $this->get('/organization/documents?requirement_status=missing')
+    $this->get('/organization/documents/library?requirement_status=missing')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirementDocuments.data', 1)

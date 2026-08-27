@@ -56,7 +56,7 @@ test('recipient with membership and documents.view opens compliance page for tha
     $this->actingAs($user)
         ->withSession(['current_company_id' => $otherCompany->id])
         ->get(route('notifications.documents.compliance.open', $company))
-        ->assertRedirect(route('organization.documents', [
+        ->assertRedirect(route('organization.documents.library', [
             'expiry' => DocumentExpiryStatus::Expiring30->value,
         ]));
 

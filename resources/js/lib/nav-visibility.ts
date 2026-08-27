@@ -220,8 +220,18 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
         has(permissions, 'reports.crew_movement_history.view'),
     '/organization/documents': (permissions) =>
         has(permissions, 'documents.view'),
-    '/organization/documents/bulk': (permissions) =>
+    '/organization/documents/library': (permissions) =>
+        has(permissions, 'documents.view'),
+    '/organization/documents/generate': (permissions) =>
         has(permissions, 'bulk_documents.view'),
+    '/organization/documents/requests': (permissions) =>
+        has(permissions, 'bulk_documents.view'),
+    '/organization/documents/activity': (permissions) =>
+        has(permissions, 'bulk_documents.view'),
+    '/organization/documents/templates': (permissions, platform) =>
+        has(permissions, 'bulk_documents.view') ||
+        has(permissions, 'settings.master-data.document-types.view') ||
+        platform.view,
     '/organization/contracts': (permissions) =>
         has(permissions, 'contracts.view'),
     '/organization/bank-accounts': (permissions) =>

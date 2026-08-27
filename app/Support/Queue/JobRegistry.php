@@ -100,7 +100,7 @@ final class JobRegistry
                 'name' => 'GenerateBulkDocumentsJob',
                 'class' => 'App\Jobs\GenerateBulkDocumentsJob',
                 'purpose' => 'Renders bulk employee documents (salary declarations, certificates, etc.) and stores them as employee documents.',
-                'trigger' => 'Manually from Organization → Documents → Bulk generate.',
+                'trigger' => 'Manually from Organization → Documents → Generate & Send.',
                 'queue' => 'default',
                 'connection' => 'database',
                 'parameters' => [
@@ -119,7 +119,7 @@ final class JobRegistry
                 'name' => 'RegenerateAlignedSignedBulkDocumentPdfsJob',
                 'class' => 'App\Jobs\RegenerateAlignedSignedBulkDocumentPdfsJob',
                 'purpose' => 'Re-renders selected signed salary declaration PDFs via HTML template for correct signature alignment.',
-                'trigger' => 'Auto after public e-sign submit (one request); also manually from Organization → Documents → Bulk → Signatures (Regenerate alignment).',
+                'trigger' => 'Auto after public e-sign submit (one request); also manually from Organization → Documents → Requests (Regenerate alignment).',
                 'queue' => 'default',
                 'connection' => 'database',
                 'parameters' => [

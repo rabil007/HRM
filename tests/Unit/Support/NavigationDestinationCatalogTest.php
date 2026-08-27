@@ -32,6 +32,36 @@ test('vessel manning cannot unlock the vessels destination', function () {
         ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.vessel-manning'))->toBeTrue();
 });
 
+test('documents destinations form one unified group without a standalone bulk generate href', function () {
+    $documents = array_values(array_filter(
+        NavigationDestinationCatalog::all(),
+        fn (array $destination): bool => $destination['group'] === 'Documents',
+    ));
+
+    expect(array_column($documents, 'label'))->toBe([
+        'Overview',
+        'Library',
+        'Generate & Send',
+        'Requests',
+        'Templates',
+        'Activity',
+    ])
+        ->and(array_column($documents, 'href'))->not->toContain('/organization/documents/bulk')
+        ->and(array_column($documents, 'label'))->not->toContain('Bulk generate');
+});
+
+test('templates destination is accessible through any current templates-bridge permission', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+
+    expect(NavigationDestinationCatalog::isAccessibleKey($user, 'documents.templates'))->toBeFalse();
+
+    grantCompanyPermissions($user, $company, ['settings.master-data.document-types.view']);
+
+    expect(NavigationDestinationCatalog::isAccessibleKey($user, 'documents.templates'))->toBeTrue()
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'documents.bulk'))->toBeFalse();
+});
+
 test('vessels.view cannot unlock the vessel manning destination', function () {
     $user = User::factory()->create();
     ['company' => $company] = makeDocumentFixtures();

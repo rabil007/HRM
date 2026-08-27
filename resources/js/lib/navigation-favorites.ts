@@ -78,15 +78,39 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
     },
     {
         key: 'documents',
-        label: 'Documents',
+        label: 'Overview',
         href: '/organization/documents',
-        group: 'Employees',
+        group: 'Documents',
+    },
+    {
+        key: 'documents.library',
+        label: 'Library',
+        href: '/organization/documents/library',
+        group: 'Documents',
     },
     {
         key: 'documents.bulk',
-        label: 'Bulk generate',
-        href: '/organization/documents/bulk',
-        group: 'Employees',
+        label: 'Generate & Send',
+        href: '/organization/documents/generate',
+        group: 'Documents',
+    },
+    {
+        key: 'documents.requests',
+        label: 'Requests',
+        href: '/organization/documents/requests',
+        group: 'Documents',
+    },
+    {
+        key: 'documents.templates',
+        label: 'Templates',
+        href: '/organization/documents/templates',
+        group: 'Documents',
+    },
+    {
+        key: 'documents.activity',
+        label: 'Activity',
+        href: '/organization/documents/activity',
+        group: 'Documents',
     },
     {
         key: 'contracts',
@@ -270,7 +294,41 @@ export function pathnameFromPageUrl(url: string): string {
 }
 
 export function destinationKeyFromPathname(pathname: string): string | null {
-    const normalized = pathnameFromPageUrl(pathname);
+    return destinationKeyFromPageUrl(pathname);
+}
+
+export function destinationKeyFromPageUrl(url: string): string | null {
+    const [rawPath = url, search = ''] = url.split('?');
+    const normalized = pathnameFromPageUrl(rawPath);
+
+    if (
+        normalized === '/organization/documents/bulk' ||
+        normalized.startsWith('/organization/documents/bulk/')
+    ) {
+        const view = new URLSearchParams(search).get('view');
+
+        if (view === 'signatures') {
+            return 'documents.requests';
+        }
+
+        if (view === 'history') {
+            return 'documents.activity';
+        }
+
+        return 'documents.bulk';
+    }
+
+    if (
+        normalized === '/organization/documents/employees' ||
+        normalized.startsWith('/organization/documents/employees/')
+    ) {
+        return 'documents.library';
+    }
+
+    if (normalized === '/organization/documents') {
+        return 'documents';
+    }
+
     let match: { key: string; href: string } | null = null;
 
     for (const destination of NAVIGATION_DESTINATIONS) {

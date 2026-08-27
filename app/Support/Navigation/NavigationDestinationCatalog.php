@@ -29,8 +29,12 @@ final class NavigationDestinationCatalog
             ['key' => 'organization.users', 'label' => 'Users', 'href' => '/organization/users', 'group' => 'Organization', 'permissions' => ['users.view'], 'platform' => null],
             ['key' => 'organization.employee-templates', 'label' => 'Employee templates', 'href' => '/organization/templates/employee-profile', 'group' => 'Organization', 'permissions' => ['employee_profile_templates.view'], 'platform' => null],
             ['key' => 'employees', 'label' => 'Employees', 'href' => '/organization/employees', 'group' => 'Employees', 'permissions' => ['employees.view'], 'platform' => null],
-            ['key' => 'documents', 'label' => 'Documents', 'href' => '/organization/documents', 'group' => 'Employees', 'permissions' => ['documents.view'], 'platform' => null],
-            ['key' => 'documents.bulk', 'label' => 'Bulk generate', 'href' => '/organization/documents/bulk', 'group' => 'Employees', 'permissions' => ['bulk_documents.view'], 'platform' => null],
+            ['key' => 'documents', 'label' => 'Overview', 'href' => '/organization/documents', 'group' => 'Documents', 'permissions' => ['documents.view'], 'platform' => null],
+            ['key' => 'documents.library', 'label' => 'Library', 'href' => '/organization/documents/library', 'group' => 'Documents', 'permissions' => ['documents.view'], 'platform' => null],
+            ['key' => 'documents.bulk', 'label' => 'Generate & Send', 'href' => '/organization/documents/generate', 'group' => 'Documents', 'permissions' => ['bulk_documents.view'], 'platform' => null],
+            ['key' => 'documents.requests', 'label' => 'Requests', 'href' => '/organization/documents/requests', 'group' => 'Documents', 'permissions' => ['bulk_documents.view'], 'platform' => null],
+            ['key' => 'documents.templates', 'label' => 'Templates', 'href' => '/organization/documents/templates', 'group' => 'Documents', 'permissions' => ['bulk_documents.view', 'settings.master-data.document-types.view'], 'platform' => 'view'],
+            ['key' => 'documents.activity', 'label' => 'Activity', 'href' => '/organization/documents/activity', 'group' => 'Documents', 'permissions' => ['bulk_documents.view'], 'platform' => null],
             ['key' => 'contracts', 'label' => 'Contracts', 'href' => '/organization/contracts', 'group' => 'Employees', 'permissions' => ['contracts.view'], 'platform' => null],
             ['key' => 'bank-accounts', 'label' => 'Bank Accounts', 'href' => '/organization/bank-accounts', 'group' => 'Employees', 'permissions' => ['bank_accounts.view'], 'platform' => null],
             ['key' => 'training', 'label' => 'Training', 'href' => '/organization/training', 'group' => 'Employees', 'permissions' => ['training.view'], 'platform' => null],
@@ -95,18 +99,18 @@ final class NavigationDestinationCatalog
     {
         $platform = $destination['platform'];
 
-        if ($platform === 'view') {
-            return PlatformAuthorization::canView($user);
+        if ($platform === 'view' && PlatformAuthorization::canView($user)) {
+            return true;
         }
 
-        if ($platform === 'database') {
-            return PlatformAuthorization::canViewDatabase($user);
+        if ($platform === 'database' && PlatformAuthorization::canViewDatabase($user)) {
+            return true;
         }
 
         $permissions = $destination['permissions'];
 
         if ($permissions === []) {
-            return true;
+            return $platform === null;
         }
 
         foreach ($permissions as $permission) {
