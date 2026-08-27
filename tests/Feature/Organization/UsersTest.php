@@ -687,7 +687,11 @@ test('per-row capabilities are correctly set for home-company and membership-onl
     $admin = $pair['user'];
     $companyA = $pair['companyA'];
     $companyB = $pair['companyB'];
-    grantCompanyPermissions($admin, $companyA, ['users.view']);
+    grantCompanyPermissions($admin, $companyA, [
+        'users.view',
+        'users.password_reset',
+        'users.sessions.revoke',
+    ]);
 
     // Home company user (company_id = A)
     $homeUser = User::factory()->create(['company_id' => $companyA->id, 'status' => 'active']);
@@ -708,10 +712,54 @@ test('per-row capabilities are correctly set for home-company and membership-onl
     // Home-company user gets global identity capabilities
     expect($homePayload['capabilities']['can_edit_global_identity'])->toBeTrue()
         ->and($homePayload['capabilities']['can_delete_global_identity'])->toBeTrue()
+        ->and($homePayload['capabilities']['can_password_reset'])->toBeTrue()
+        ->and($homePayload['capabilities']['can_revoke_sessions'])->toBeTrue()
         ->and($homePayload['capabilities']['can_manage_membership'])->toBeTrue();
 
     // Membership-only user must NOT have global identity capabilities
     expect($memberPayload['capabilities']['can_edit_global_identity'])->toBeFalse()
         ->and($memberPayload['capabilities']['can_delete_global_identity'])->toBeFalse()
+        ->and($memberPayload['capabilities']['can_password_reset'])->toBeFalse()
+        ->and($memberPayload['capabilities']['can_revoke_sessions'])->toBeFalse()
         ->and($memberPayload['capabilities']['can_manage_membership'])->toBeTrue();
+});
+
+test('show page capabilities hide global identity mutation for membership-only users', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, [
+        'users.view',
+        'users.update',
+        'users.password_reset',
+        'users.sessions.revoke',
+    ]);
+
+    $homeUser = User::factory()->create(['company_id' => $companyA->id, 'status' => 'active']);
+    $memberUser = User::factory()->create(['company_id' => $companyB->id, 'status' => 'active']);
+    $memberUser->companies()->attach($companyA->id, ['status' => 'active']);
+
+    $homePage = $this->actingAs($admin)
+        ->get("/organization/users/{$homeUser->id}")
+        ->assertOk();
+
+    $homeCapabilities = $homePage->viewData('page')['props']['user']['capabilities'];
+
+    expect($homeCapabilities['can_edit_global_identity'])->toBeTrue()
+        ->and($homeCapabilities['can_delete_global_identity'])->toBeTrue()
+        ->and($homeCapabilities['can_password_reset'])->toBeTrue()
+        ->and($homeCapabilities['can_revoke_sessions'])->toBeTrue();
+
+    $memberPage = $this->actingAs($admin)
+        ->get("/organization/users/{$memberUser->id}")
+        ->assertOk();
+
+    $memberCapabilities = $memberPage->viewData('page')['props']['user']['capabilities'];
+
+    expect($memberCapabilities['can_edit_global_identity'])->toBeFalse()
+        ->and($memberCapabilities['can_delete_global_identity'])->toBeFalse()
+        ->and($memberCapabilities['can_password_reset'])->toBeFalse()
+        ->and($memberCapabilities['can_revoke_sessions'])->toBeFalse()
+        ->and($memberCapabilities['can_manage_membership'])->toBeTrue();
 });

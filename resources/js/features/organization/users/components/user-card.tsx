@@ -1,12 +1,11 @@
-import { router } from '@inertiajs/react';
 import {
     Eye,
-    Pencil,
-    Trash2,
-    User as UserIcon,
-    Shield,
     KeyRound,
     LogOut,
+    Pencil,
+    Shield,
+    Trash2,
+    User as UserIcon,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,10 +23,6 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
-import {
-    passwordReset,
-    revokeSessions,
-} from '@/routes/organization/users/security';
 import type { User } from '../types';
 
 export function UserCard({
@@ -35,15 +30,15 @@ export function UserCard({
     onEdit,
     onDelete,
     onToggleStatus,
-    canPasswordReset,
-    canRevokeSessions,
+    onPasswordReset,
+    onRevokeSessions,
 }: {
     user: User;
     onEdit?: (user: User) => void;
     onDelete?: (user: User) => void;
     onToggleStatus?: (user: User, enabled: boolean) => void;
-    canPasswordReset?: boolean;
-    canRevokeSessions?: boolean;
+    onPasswordReset?: (user: User) => void;
+    onRevokeSessions?: (user: User) => void;
 }) {
     const statusClass =
         user.status === 'active'
@@ -219,7 +214,7 @@ export function UserCard({
                             </Button>
                         ) : null}
 
-                        {onEdit && (canPasswordReset || canRevokeSessions) ? (
+                        {onPasswordReset || onRevokeSessions ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button
@@ -236,60 +231,30 @@ export function UserCard({
                                     align="end"
                                     className="w-48"
                                 >
-                                    {canPasswordReset && (
+                                    {onPasswordReset ? (
                                         <DropdownMenuItem
                                             onClick={(e) => {
                                                 e.stopPropagation();
-
-                                                if (
-                                                    confirm(
-                                                        'Send a password reset link to this user?',
-                                                    )
-                                                ) {
-                                                    router.post(
-                                                        passwordReset.url({
-                                                            user: user.id,
-                                                        }),
-                                                        {},
-                                                        {
-                                                            preserveScroll: true,
-                                                        },
-                                                    );
-                                                }
+                                                onPasswordReset(user);
                                             }}
                                             className="cursor-pointer"
                                         >
                                             <KeyRound className="mr-2 h-4 w-4" />
                                             <span>Reset Password</span>
                                         </DropdownMenuItem>
-                                    )}
-                                    {canRevokeSessions && (
+                                    ) : null}
+                                    {onRevokeSessions ? (
                                         <DropdownMenuItem
                                             onClick={(e) => {
                                                 e.stopPropagation();
-
-                                                if (
-                                                    confirm(
-                                                        'Revoke all active sessions for this user?',
-                                                    )
-                                                ) {
-                                                    router.post(
-                                                        revokeSessions.url({
-                                                            user: user.id,
-                                                        }),
-                                                        {},
-                                                        {
-                                                            preserveScroll: true,
-                                                        },
-                                                    );
-                                                }
+                                                onRevokeSessions(user);
                                             }}
                                             className="cursor-pointer"
                                         >
                                             <LogOut className="mr-2 h-4 w-4" />
                                             <span>Revoke Sessions</span>
                                         </DropdownMenuItem>
-                                    )}
+                                    ) : null}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : null}

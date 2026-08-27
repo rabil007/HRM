@@ -175,11 +175,13 @@ Membership store/update/destroy are **active-company** operations, matching the 
 
 Anyone with `users.update` in the active company may assign any role that exists **for that company**, including Owner. Editing the role/permission matrix remains `roles.update`. This is the current product policy, not a wildcard across tenants.
 
-The Users directory lists people who have active membership in the active company (either home `users.company_id` or an active `company_user` membership pivot). Users who belong natively to Company A and have active membership in Company B are visible and manageable within Company B's tenant context. Cross-company management of global identity properties (email, password, global status, global session revocation) is strictly guarded by `GlobalIdentityAccessGuard` to prevent non-home tenant administrators from modifying global credentials.
+The Users directory lists people who have active membership in the active company (either home `users.company_id` or an active `company_user` membership pivot). Users who belong natively to Company A and have active membership in Company B are visible within Company B's tenant context. Membership-only users can have their **company membership** managed in that tenant; their **global identity** (name, email, avatar, global status, password, sessions, deletion) can be mutated only from their home company. Frontend row/card/detail actions also require the matching per-user `capabilities` flags in addition to the actor's Spatie permission; those flags are UX only — `GlobalIdentityAccessGuard` remains the backend boundary.
+
+Normal User Edit never changes passwords. A submitted `password` field on user update is ignored: the stored hash, remember token, and sessions stay as they are. Password changes happen only through the user's Security settings, Fortify reset, or the admin password-reset security action.
 
 ### Last Active Owner Protection
 
-The `LastCompanyOwnerGuard` ensures that a tenant company never ends up with zero active Owners. The guard inspects the company's active owners (users with the Spatie `Owner` role in that company, `users.status = 'active'`, and an active company membership) within a database transaction using row-level locking (`lockForUpdate()`). An action is rejected if it would deactivate, reassign away from Owner, delete, or detach the membership of the company's sole remaining active Owner.
+The `LastCompanyOwnerGuard` ensures that a tenant company never ends up with zero active Owners. The guard inspects the company's active owners (users with the Spatie `Owner` role in that company, `users.status = 'active'`, and an active company membership) within a database transaction using row-level locking (`lockForUpdate()`). An action is rejected if it would deactivate, reassign away from Owner, delete, or detach the membership of the company's sole remaining active Owner. User Update runs that locked check before applying any requested change, so a rejected last-Owner mutation does not leave employee links, identity fields, roles, or avatars partially updated.
 
 ### User Invitations and Acceptance Flow
 
@@ -194,8 +196,8 @@ Tenant administrators with `users.create` may invite users into the company via 
 
 ### User Security Operations
 
-Administrators with `users.password_reset` or `users.sessions.revoke` (subject to `privileged.2fa` enforcement) may manage security actions:
-- **Password Reset**: Sends a standard Fortify password reset link to the user's email. Restricted to the user's home company via `GlobalIdentityAccessGuard`.
+Administrators with `users.password_reset` or `users.sessions.revoke` (subject to `privileged.2fa` enforcement) may manage security actions against **home-company** users:
+- **Password Reset**: Sends a standard Fortify password reset link to the user's email. Restricted to the user's home company via `GlobalIdentityAccessGuard`. This is the admin path for credential rotation; it is not part of normal User Edit.
 - **Session Revocation**: Uses `InvalidateUserSessions` to rotate the user's `remember_token` and delete all active database sessions, immediately terminating sessions across all devices.
 - **Audit Logging**: All invitation events, security actions, and membership changes are logged to Spatie Activity Log tagged with the company ID.
 
@@ -258,10 +260,10 @@ Mass updates that skip model events (`User::query()->update(...)`) do not run re
 
 A password change is treated as a security-sensitive account change, same family as disabling the user: leftover sessions must not keep working.
 
-Eloquent `User` updates that change `password` run `InvalidateUserSessions` (Security settings, Fortify reset, and admin user edit when a new password is submitted):
+Eloquent `User` updates that change `password` run `InvalidateUserSessions` (Security settings and Fortify reset). Normal organization User Edit cannot set or rotate another user's password:
 
 - rotate the remember token
-- delete other `sessions` rows when `session.driver` is `database` (the acting user's **current** session is kept when they change their own password; reset and admin changes drop every session for that user)
+- delete other `sessions` rows when `session.driver` is `database` (the acting user's **current** session is kept when they change their own password; Fortify reset completions drop every session for that user)
 
 Laravel `AuthenticateSession` (`auth.session` on the `web` group) is the request-time net for leftover sessions on any driver: the stored password hash must match. After a password change, another browser is logged out on its next request even if that store was not bulk-deleted.
 

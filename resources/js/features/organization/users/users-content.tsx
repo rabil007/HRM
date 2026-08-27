@@ -1,7 +1,8 @@
 import { router, useForm } from '@inertiajs/react';
-import { Plus, Mail, Shield, KeyRound, LogOut } from 'lucide-react';
+import { KeyRound, LogOut, Mail, Plus, Shield } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -11,7 +12,6 @@ import {
     dataTableCellClass,
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
-import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { ListTableCrudActions } from '@/components/list-table-actions';
@@ -52,8 +52,21 @@ import { UserFiltersSheet } from './components/user-filters-sheet';
 import type { UserFilters } from './components/user-filters-sheet';
 import { UserFormSheet } from './components/user-form-sheet';
 import { UserInvitationSheet } from './components/user-invitation-sheet';
-import type { UserInvitation } from './types';
-import type { EmployeeForLinking, User, UserFormData } from './types';
+import type {
+    EmployeeForLinking,
+    User,
+    UserCapabilities,
+    UserFormData,
+    UserInvitation,
+} from './types';
+
+function allowsCapability(
+    actorCan: boolean,
+    user: User,
+    capability: keyof UserCapabilities,
+): boolean {
+    return actorCan && Boolean(user.capabilities?.[capability]);
+}
 
 export function UsersContent({
     users,
@@ -87,10 +100,13 @@ export function UsersContent({
     const canPasswordReset = useHasPermission('users.password_reset');
     const canRevokeSessions = useHasPermission('users.sessions.revoke');
 
-    // Controlled confirmation dialogs replacing native confirm()
-    const [passwordResetTarget, setPasswordResetTarget] = useState<User | null>(null);
-    const [revokeSessionsTarget, setRevokeSessionsTarget] = useState<User | null>(null);
-    const [revokeInvitationTarget, setRevokeInvitationTarget] = useState<UserInvitation | null>(null);
+    const [passwordResetTarget, setPasswordResetTarget] = useState<User | null>(
+        null,
+    );
+    const [revokeSessionsTarget, setRevokeSessionsTarget] =
+        useState<User | null>(null);
+    const [revokeInvitationTarget, setRevokeInvitationTarget] =
+        useState<UserInvitation | null>(null);
 
     const list = useServerPaginationFilters({
         url: '/organization/users',
@@ -303,13 +319,51 @@ export function UsersContent({
                         <UserCard
                             key={user.id}
                             user={user}
-                            onEdit={canUpdate ? handleEdit : undefined}
-                            onDelete={canDelete ? crud.openDelete : undefined}
-                            onToggleStatus={
-                                canUpdate ? toggleStatus : undefined
+                            onEdit={
+                                allowsCapability(
+                                    canUpdate,
+                                    user,
+                                    'can_edit_global_identity',
+                                )
+                                    ? handleEdit
+                                    : undefined
                             }
-                            canPasswordReset={canPasswordReset}
-                            canRevokeSessions={canRevokeSessions}
+                            onDelete={
+                                allowsCapability(
+                                    canDelete,
+                                    user,
+                                    'can_delete_global_identity',
+                                )
+                                    ? crud.openDelete
+                                    : undefined
+                            }
+                            onToggleStatus={
+                                allowsCapability(
+                                    canUpdate,
+                                    user,
+                                    'can_edit_global_identity',
+                                )
+                                    ? toggleStatus
+                                    : undefined
+                            }
+                            onPasswordReset={
+                                allowsCapability(
+                                    canPasswordReset,
+                                    user,
+                                    'can_password_reset',
+                                )
+                                    ? setPasswordResetTarget
+                                    : undefined
+                            }
+                            onRevokeSessions={
+                                allowsCapability(
+                                    canRevokeSessions,
+                                    user,
+                                    'can_revoke_sessions',
+                                )
+                                    ? setRevokeSessionsTarget
+                                    : undefined
+                            }
                         />
                     ))}
                 </div>
@@ -329,155 +383,198 @@ export function UsersContent({
                         </DataTableHeaderRow>
                     </TableHeader>
                     <TableBody>
-                        {users.map((user) => (
-                            <TableRow
-                                key={user.id}
-                                className={dataTableBodyRowClass()}
-                                onClick={() =>
-                                    router.visit(
-                                        `/organization/users/${user.id}`,
-                                    )
-                                }
-                            >
-                                <TableCell
-                                    className={dataTableCellPrimaryClass()}
+                        {users.map((user) => {
+                            const canEditUser = allowsCapability(
+                                canUpdate,
+                                user,
+                                'can_edit_global_identity',
+                            );
+                            const canDeleteUser = allowsCapability(
+                                canDelete,
+                                user,
+                                'can_delete_global_identity',
+                            );
+                            const canResetUserPassword = allowsCapability(
+                                canPasswordReset,
+                                user,
+                                'can_password_reset',
+                            );
+                            const canRevokeUserSessions = allowsCapability(
+                                canRevokeSessions,
+                                user,
+                                'can_revoke_sessions',
+                            );
+                            const showSecurityActions =
+                                canResetUserPassword || canRevokeUserSessions;
+
+                            return (
+                                <TableRow
+                                    key={user.id}
+                                    className={dataTableBodyRowClass()}
+                                    onClick={() =>
+                                        router.visit(
+                                            `/organization/users/${user.id}`,
+                                        )
+                                    }
                                 >
-                                    {user.name}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {user.email}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {user.role?.name ?? '—'}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    <div
-                                        className="flex items-center gap-3"
-                                        onClick={(event) =>
-                                            event.stopPropagation()
-                                        }
+                                    <TableCell
+                                        className={dataTableCellPrimaryClass()}
                                     >
-                                        {canUpdate ? (
-                                            <Switch
-                                                checked={
-                                                    user.status === 'active'
-                                                }
-                                                onCheckedChange={(checked) =>
-                                                    toggleStatus(user, checked)
-                                                }
-                                            />
-                                        ) : null}
-                                        <span className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                            {user.status ?? '—'}
-                                        </span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    <div className="flex items-center gap-2">
+                                        {user.name}
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass()}>
+                                        {user.email}
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass()}>
+                                        {user.role?.name ?? '—'}
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass()}>
                                         <div
-                                            className={`h-2 w-2 rounded-full ${user.presence === 'online' ? 'bg-emerald-500' : user.presence === 'recent' ? 'bg-amber-500' : 'bg-muted-foreground/30'}`}
-                                        />
-                                        <span className="text-sm font-medium">
-                                            {user.presence === 'online'
-                                                ? 'Online'
-                                                : user.presence === 'recent'
-                                                  ? 'Recently active'
-                                                  : user.presence === 'offline'
-                                                    ? 'Offline'
-                                                    : 'Never'}
-                                        </span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {user.two_factor_enabled ? (
-                                        <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                                            Enabled
-                                        </span>
-                                    ) : (
-                                        <span className="text-muted-foreground">
-                                            Disabled
-                                        </span>
-                                    )}
-                                </TableCell>
-                                <TableCell
-                                    className={dataTableActionsCellClass()}
-                                >
-                                    <div className="flex items-center justify-end gap-1">
-                                        {canUpdate &&
-                                        (canPasswordReset ||
-                                            canRevokeSessions) ? (
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
-                                                        title="Security Actions"
+                                            className="flex items-center gap-3"
+                                            onClick={(event) =>
+                                                event.stopPropagation()
+                                            }
+                                        >
+                                            {canEditUser ? (
+                                                <Switch
+                                                    checked={
+                                                        user.status === 'active'
+                                                    }
+                                                    onCheckedChange={(
+                                                        checked,
+                                                    ) =>
+                                                        toggleStatus(
+                                                            user,
+                                                            checked,
+                                                        )
+                                                    }
+                                                />
+                                            ) : null}
+                                            <span className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                                {user.status ?? '—'}
+                                            </span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass()}>
+                                        <div className="flex items-center gap-2">
+                                            <div
+                                                className={`h-2 w-2 rounded-full ${user.presence === 'online' ? 'bg-emerald-500' : user.presence === 'recent' ? 'bg-amber-500' : 'bg-muted-foreground/30'}`}
+                                            />
+                                            <span className="text-sm font-medium">
+                                                {user.presence === 'online'
+                                                    ? 'Online'
+                                                    : user.presence === 'recent'
+                                                      ? 'Recently active'
+                                                      : user.presence ===
+                                                          'offline'
+                                                        ? 'Offline'
+                                                        : 'Never'}
+                                            </span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass()}>
+                                        {user.two_factor_enabled ? (
+                                            <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                                                Enabled
+                                            </span>
+                                        ) : (
+                                            <span className="text-muted-foreground">
+                                                Disabled
+                                            </span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell
+                                        className={dataTableActionsCellClass()}
+                                    >
+                                        <div className="flex items-center justify-end gap-1">
+                                            {showSecurityActions ? (
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger
+                                                        asChild
                                                     >
-                                                        <Shield className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent
-                                                    align="end"
-                                                    className="w-48"
-                                                >
-                                                    {canPasswordReset && user.capabilities?.can_password_reset && (
-                                                        <DropdownMenuItem
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setPasswordResetTarget(user);
-                                                            }}
-                                                            className="cursor-pointer"
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
+                                                            title="Security Actions"
                                                         >
-                                                            <KeyRound className="mr-2 h-4 w-4" />
-                                                            <span>
-                                                                Reset Password
-                                                            </span>
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                    {canRevokeSessions && user.capabilities?.can_revoke_sessions && (
-                                                        <DropdownMenuItem
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setRevokeSessionsTarget(user);
-                                                            }}
-                                                            className="cursor-pointer"
-                                                        >
-                                                            <LogOut className="mr-2 h-4 w-4" />
-                                                            <span>
-                                                                Revoke Sessions
-                                                            </span>
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        ) : null}
-                                        <ListTableCrudActions
-                                            viewHref={`/organization/users/${user.id}`}
-                                            onEdit={
-                                                canUpdate
-                                                    ? (event) => {
-                                                          event.stopPropagation();
-                                                          handleEdit(user);
-                                                      }
-                                                    : undefined
-                                            }
-                                            onDelete={
-                                                canDelete
-                                                    ? (event) => {
-                                                          event.stopPropagation();
-                                                          crud.openDelete(user);
-                                                      }
-                                                    : undefined
-                                            }
-                                            showEdit={canUpdate}
-                                            showDelete={canDelete}
-                                        />
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                                                            <Shield className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent
+                                                        align="end"
+                                                        className="w-48"
+                                                    >
+                                                        {canResetUserPassword ? (
+                                                            <DropdownMenuItem
+                                                                onClick={(
+                                                                    e,
+                                                                ) => {
+                                                                    e.stopPropagation();
+                                                                    setPasswordResetTarget(
+                                                                        user,
+                                                                    );
+                                                                }}
+                                                                className="cursor-pointer"
+                                                            >
+                                                                <KeyRound className="mr-2 h-4 w-4" />
+                                                                <span>
+                                                                    Reset
+                                                                    Password
+                                                                </span>
+                                                            </DropdownMenuItem>
+                                                        ) : null}
+                                                        {canRevokeUserSessions ? (
+                                                            <DropdownMenuItem
+                                                                onClick={(
+                                                                    e,
+                                                                ) => {
+                                                                    e.stopPropagation();
+                                                                    setRevokeSessionsTarget(
+                                                                        user,
+                                                                    );
+                                                                }}
+                                                                className="cursor-pointer"
+                                                            >
+                                                                <LogOut className="mr-2 h-4 w-4" />
+                                                                <span>
+                                                                    Revoke
+                                                                    Sessions
+                                                                </span>
+                                                            </DropdownMenuItem>
+                                                        ) : null}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            ) : null}
+                                            <ListTableCrudActions
+                                                viewHref={`/organization/users/${user.id}`}
+                                                onEdit={
+                                                    canEditUser
+                                                        ? (event) => {
+                                                              event.stopPropagation();
+                                                              handleEdit(user);
+                                                          }
+                                                        : undefined
+                                                }
+                                                onDelete={
+                                                    canDeleteUser
+                                                        ? (event) => {
+                                                              event.stopPropagation();
+                                                              crud.openDelete(
+                                                                  user,
+                                                              );
+                                                          }
+                                                        : undefined
+                                                }
+                                                showEdit={canEditUser}
+                                                showDelete={canDeleteUser}
+                                            />
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
                     </TableBody>
                 </OrganizationDataTable>
             )}
@@ -563,7 +660,9 @@ export function UsersContent({
                                                     className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setRevokeInvitationTarget(invitation);
+                                                        setRevokeInvitationTarget(
+                                                            invitation,
+                                                        );
                                                     }}
                                                 >
                                                     Revoke
@@ -616,58 +715,78 @@ export function UsersContent({
                 onConfirm={confirmDelete}
             />
 
-            {/* Password reset confirmation dialog */}
             <ConfirmDeleteDialog
                 open={passwordResetTarget !== null}
-                onOpenChange={(open) => { if (!open) setPasswordResetTarget(null); }}
+                onOpenChange={(open) => !open && setPasswordResetTarget(null)}
                 title="Send Password Reset Link"
-                description={passwordResetTarget ? `Send a password reset link to ${passwordResetTarget.email}?` : ''}
+                description={
+                    passwordResetTarget
+                        ? `Send a password reset link to ${passwordResetTarget.email}?`
+                        : ''
+                }
                 confirmText="Send Reset Link"
                 onConfirm={() => {
                     if (passwordResetTarget) {
                         router.post(
-                            passwordReset.url({ user: passwordResetTarget.id }),
+                            passwordReset.url({
+                                user: passwordResetTarget.id,
+                            }),
                             {},
                             { preserveScroll: true },
                         );
                     }
+
                     setPasswordResetTarget(null);
                 }}
             />
 
-            {/* Revoke sessions confirmation dialog */}
             <ConfirmDeleteDialog
                 open={revokeSessionsTarget !== null}
-                onOpenChange={(open) => { if (!open) setRevokeSessionsTarget(null); }}
+                onOpenChange={(open) => !open && setRevokeSessionsTarget(null)}
                 title="Revoke Active Sessions"
-                description={revokeSessionsTarget ? `Revoke all active sessions for ${revokeSessionsTarget.email}? They will be signed out immediately.` : ''}
+                description={
+                    revokeSessionsTarget
+                        ? `Revoke all active sessions for ${revokeSessionsTarget.email}? They will be signed out immediately.`
+                        : ''
+                }
                 confirmText="Revoke Sessions"
                 onConfirm={() => {
                     if (revokeSessionsTarget) {
                         router.post(
-                            revokeSessions.url({ user: revokeSessionsTarget.id }),
+                            revokeSessions.url({
+                                user: revokeSessionsTarget.id,
+                            }),
                             {},
                             { preserveScroll: true },
                         );
                     }
+
                     setRevokeSessionsTarget(null);
                 }}
             />
 
-            {/* Revoke invitation confirmation dialog */}
             <ConfirmDeleteDialog
                 open={revokeInvitationTarget !== null}
-                onOpenChange={(open) => { if (!open) setRevokeInvitationTarget(null); }}
+                onOpenChange={(open) =>
+                    !open && setRevokeInvitationTarget(null)
+                }
                 title="Revoke Invitation"
-                description={revokeInvitationTarget ? `Revoke the invitation sent to ${revokeInvitationTarget.email}? They will no longer be able to accept it.` : ''}
+                description={
+                    revokeInvitationTarget
+                        ? `Revoke the invitation sent to ${revokeInvitationTarget.email}? They will no longer be able to accept it.`
+                        : ''
+                }
                 confirmText="Revoke"
                 onConfirm={() => {
                     if (revokeInvitationTarget) {
                         router.delete(
-                            destroyInvitation.url({ invitation: revokeInvitationTarget.id }),
+                            destroyInvitation.url({
+                                invitation: revokeInvitationTarget.id,
+                            }),
                             { preserveScroll: true },
                         );
                     }
+
                     setRevokeInvitationTarget(null);
                 }}
             />

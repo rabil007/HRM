@@ -16,10 +16,10 @@ use App\Models\User;
 use App\Models\UserInvitation;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\Pagination\ResolvesPerPage;
-use App\Support\Uploads\UploadedFileStorage;
 use App\Support\Users\Actions\CopyEmployeeAvatarToUser;
 use App\Support\Users\Actions\CreateOrganizationUser;
 use App\Support\Users\Actions\SyncUserEmployeeLink;
+use App\Support\Users\Actions\UpdateOrganizationUser;
 use App\Support\Users\GlobalIdentityAccessGuard;
 use App\Support\Users\LastCompanyOwnerGuard;
 use App\Support\Users\UserAvatar;
@@ -29,7 +29,6 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
@@ -351,65 +350,27 @@ class UserController extends Controller
         GlobalIdentityAccessGuard::check($user, $companyId);
 
         $data = $request->validated();
-        $data['company_id'] = $companyId;
-        $roleId = $data['role_id'] ?? null;
+        $roleId = isset($data['role_id']) && $data['role_id'] !== '' && $data['role_id'] !== null
+            ? (int) $data['role_id']
+            : null;
         $employeeId = isset($data['employee_id']) && $data['employee_id'] !== '' && $data['employee_id'] !== null
             ? (int) $data['employee_id']
             : null;
-        unset($data['role_id'], $data['employee_id']);
-
-        // Password is never mutated via normal edit — use the Security panel.
-        unset($data['password']);
-
-        $data['status'] = $data['status'] ?? 'active';
-
-        app(SyncUserEmployeeLink::class)->handle($user, $companyId, $employeeId);
-
-        if ($request->hasFile('avatar')) {
-            if ($user->avatar) {
-                Storage::disk('public')->delete($user->avatar);
-            }
-
-            $data['avatar'] = UploadedFileStorage::store(
-                $request->file('avatar'),
-                'user-avatars',
-                'public',
-            );
-        } elseif ($request->boolean('use_employee_avatar')) {
-            unset($data['avatar']);
-
-            if (! app(CopyEmployeeAvatarToUser::class)->handle($user, $companyId)) {
-                return back()
-                    ->withErrors(['avatar' => 'No employee photo is available for this user.'])
-                    ->withInput();
-            }
-        } else {
-            unset($data['avatar']);
-        }
 
         try {
-            DB::transaction(function () use ($user, $data, $companyId, $roleId) {
-                // LastCompanyOwnerGuard runs inside the transaction so its lockForUpdate()
-                // prevents a concurrent request from racing past the same guard.
-                $isRoleChangeToNonOwner = false;
-                if ($roleId !== null) {
-                    $newRole = SpatieRole::find($roleId);
-                    $isRoleChangeToNonOwner = ! $newRole || $newRole->name !== 'Owner';
-                }
-                if ($data['status'] !== 'active' || $isRoleChangeToNonOwner) {
-                    if (! LastCompanyOwnerGuard::check($user, $companyId)) {
-                        abort(400, 'Cannot perform this action: the company must have at least one active Owner.');
-                    }
-                }
-
-                $user->update($data);
-
-                UserMembershipAccess::syncRole(
-                    $user,
-                    $companyId,
-                    ! empty($roleId) ? (int) $roleId : null,
-                );
-            });
+            app(UpdateOrganizationUser::class)->handle(
+                $user,
+                $companyId,
+                [
+                    'name' => (string) $data['name'],
+                    'email' => (string) $data['email'],
+                    'status' => (string) ($data['status'] ?? 'active'),
+                ],
+                $roleId,
+                $employeeId,
+                $request->file('avatar'),
+                $request->boolean('use_employee_avatar'),
+            );
         } catch (HttpException $e) {
             if ($e->getStatusCode() === 400) {
                 return back()->with('error', $e->getMessage());

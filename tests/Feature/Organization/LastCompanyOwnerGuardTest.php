@@ -1,9 +1,12 @@
 <?php
 
 use App\Models\Company;
+use App\Models\Employee;
 use App\Models\User;
 use App\Support\Users\LastCompanyOwnerGuard;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -213,4 +216,192 @@ test('Company A Owner state cannot affect Company B', function () {
 
     // Guard check for Company B is true (user is not an Owner in B, removing does not affect B)
     expect(LastCompanyOwnerGuard::check($user, $companyB->id))->toBeTrue();
+});
+
+test('rejected last Owner update does not leave employee linkage or user fields changed', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $owner = $pair['user'];
+    $company = $pair['companyA'];
+
+    $ownerRole = Role::create([
+        'name' => 'Owner',
+        'guard_name' => 'web',
+        'company_id' => $company->id,
+    ]);
+    $memberRole = Role::create([
+        'name' => 'Member',
+        'guard_name' => 'web',
+        'company_id' => $company->id,
+    ]);
+
+    $owner->update([
+        'company_id' => $company->id,
+        'status' => 'active',
+        'name' => 'Sole Owner',
+        'email' => 'sole-owner@example.com',
+    ]);
+    setupOwnerWithPermissions($owner, $company, $ownerRole, ['users.update']);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'user_id' => null,
+        'status' => 'active',
+    ]);
+
+    $originalName = $owner->name;
+    $originalEmail = $owner->email;
+
+    $this->actingAs($owner)
+        ->put(route('organization.users.update', $owner), [
+            'name' => 'Hijacked Name',
+            'email' => 'hijacked@example.com',
+            'role_id' => $memberRole->id,
+            'status' => 'inactive',
+            'employee_id' => $employee->id,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('error', 'Cannot perform this action: the company must have at least one active Owner.');
+
+    $fresh = $owner->fresh();
+
+    expect($fresh->name)->toBe($originalName)
+        ->and($fresh->email)->toBe($originalEmail)
+        ->and($fresh->status)->toBe('active')
+        ->and($employee->fresh()->user_id)->toBeNull();
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    expect($fresh->hasRole('Owner'))->toBeTrue();
+});
+
+test('rejected last Owner update does not replace or delete the previous avatar', function () {
+    Storage::fake('public');
+
+    $pair = makeCompanyAuthorizationPair();
+    $owner = $pair['user'];
+    $company = $pair['companyA'];
+
+    $ownerRole = Role::create([
+        'name' => 'Owner',
+        'guard_name' => 'web',
+        'company_id' => $company->id,
+    ]);
+    $memberRole = Role::create([
+        'name' => 'Member',
+        'guard_name' => 'web',
+        'company_id' => $company->id,
+    ]);
+
+    $existingAvatar = UploadedFile::fake()->image('existing.jpg')->store('user-avatars', 'public');
+
+    $owner->update([
+        'company_id' => $company->id,
+        'status' => 'active',
+        'avatar' => $existingAvatar,
+    ]);
+    setupOwnerWithPermissions($owner, $company, $ownerRole, ['users.update']);
+
+    $this->actingAs($owner)
+        ->put(route('organization.users.update', $owner), [
+            'name' => $owner->name,
+            'email' => $owner->email,
+            'role_id' => $memberRole->id,
+            'status' => 'active',
+            'avatar' => UploadedFile::fake()->image('replacement.jpg'),
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('error', 'Cannot perform this action: the company must have at least one active Owner.');
+
+    expect($owner->fresh()->avatar)->toBe($existingAvatar)
+        ->and(Storage::disk('public')->exists($existingAvatar))->toBeTrue()
+        ->and(Storage::disk('public')->files('user-avatars'))->toBe([$existingAvatar]);
+});
+
+test('non-last Owner update still applies employee linkage and identity fields', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $owner1 = $pair['user'];
+    $company = $pair['companyA'];
+
+    $owner2 = User::factory()->create([
+        'company_id' => $company->id,
+        'status' => 'active',
+    ]);
+
+    $ownerRole = Role::create([
+        'name' => 'Owner',
+        'guard_name' => 'web',
+        'company_id' => $company->id,
+    ]);
+    $memberRole = Role::create([
+        'name' => 'Member',
+        'guard_name' => 'web',
+        'company_id' => $company->id,
+    ]);
+
+    $owner1->update(['company_id' => $company->id, 'status' => 'active', 'name' => 'First Owner']);
+    setupOwnerWithPermissions($owner1, $company, $ownerRole, ['users.update']);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $owner2->assignRole($ownerRole);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'user_id' => null,
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($owner1)
+        ->put(route('organization.users.update', $owner1), [
+            'name' => 'Updated Owner Name',
+            'email' => $owner1->email,
+            'role_id' => $memberRole->id,
+            'status' => 'active',
+            'employee_id' => $employee->id,
+        ])
+        ->assertRedirect(route('organization.users'))
+        ->assertSessionHas('success');
+
+    expect($owner1->fresh()->name)->toBe('Updated Owner Name')
+        ->and($employee->fresh()->user_id)->toBe($owner1->id);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    expect($owner1->fresh()->hasRole('Owner'))->toBeFalse()
+        ->and($owner1->fresh()->hasRole('Member'))->toBeTrue();
+});
+
+test('membership-only users cannot have global identity mutated from another company', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.update']);
+
+    $memberUser = User::factory()->create([
+        'company_id' => $companyB->id,
+        'status' => 'active',
+        'name' => 'Foreign Identity',
+        'email' => 'foreign-identity@example.com',
+    ]);
+    $memberUser->companies()->attach($companyA->id, ['status' => 'active']);
+
+    $employee = Employee::factory()->forCompany($companyA)->create([
+        'user_id' => null,
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $companyA->id])
+        ->put(route('organization.users.update', $memberUser), [
+            'name' => 'Mutated Identity',
+            'email' => 'mutated-identity@example.com',
+            'role_id' => '',
+            'status' => 'inactive',
+            'employee_id' => $employee->id,
+        ])
+        ->assertForbidden();
+
+    $fresh = $memberUser->fresh();
+
+    expect($fresh->name)->toBe('Foreign Identity')
+        ->and($fresh->email)->toBe('foreign-identity@example.com')
+        ->and($fresh->status)->toBe('active')
+        ->and((int) $fresh->company_id)->toBe($companyB->id)
+        ->and($employee->fresh()->user_id)->toBeNull();
 });
