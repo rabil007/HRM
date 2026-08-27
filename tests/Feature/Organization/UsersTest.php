@@ -5,6 +5,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\User;
+use App\Models\UserInvitation;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
@@ -418,7 +419,7 @@ test('user update can link and unlink an employee', function () {
     expect($employee->fresh()->user_id)->toBeNull();
 });
 
-test('user update requires matching password confirmation when changing password', function () {
+test('user update ignores password field and does not mutate the stored hash', function () {
     $auth = User::factory()->create();
     $this->actingAs($auth);
 
@@ -447,27 +448,31 @@ test('user update requires matching password confirmation when changing password
         'status' => 'active',
     ]);
 
+    $originalHash = bcrypt('original-password');
+
     $targetUser = User::query()->create([
         'company_id' => $company->id,
         'name' => 'Password User',
         'email' => 'password-user@example.com',
-        'password' => bcrypt('password123'),
+        'password' => $originalHash,
         'status' => 'active',
     ]);
 
     grantCompanyPermissions($auth, $company, ['users.update']);
 
-    $this->from('/organization/users')
-        ->put("/organization/users/{$targetUser->id}", [
-            'name' => 'Password User',
-            'email' => 'password-user@example.com',
-            'password' => 'new-password-123',
-            'password_confirmation' => 'different-password',
-            'role_id' => '',
-            'status' => 'active',
-        ])
-        ->assertRedirect('/organization/users')
-        ->assertSessionHasErrors('password');
+    // Submitting a password field via normal edit should be silently ignored
+    $this->put("/organization/users/{$targetUser->id}", [
+        'name' => 'Password User',
+        'email' => 'password-user@example.com',
+        'password' => 'new-password-123',
+        'password_confirmation' => 'new-password-123',
+        'role_id' => '',
+        'status' => 'active',
+    ])->assertRedirect('/organization/users');
+
+    // The stored password hash must not have changed
+    $refreshed = $targetUser->fresh();
+    expect($refreshed->password)->toBe($originalHash);
 });
 
 test('user directory index can be filtered by role', function () {
@@ -523,4 +528,427 @@ test('user directory index can be filtered by role', function () {
 
     expect($ids)->toContain($userWithRole->id);
     expect($ids)->not->toContain($otherUser->id);
+});
+
+test('users directory lists both home-company users and multi-company members', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.view']);
+
+    // User 1: home company is Company A
+    $homeUser = User::factory()->create([
+        'company_id' => $companyA->id,
+        'status' => 'active',
+    ]);
+
+    // User 2: home company is Company B, but has membership in Company A
+    $memberUser = User::factory()->create([
+        'company_id' => $companyB->id,
+        'status' => 'active',
+    ]);
+    $memberUser->companies()->attach($companyA->id, ['status' => 'active']);
+
+    // User 3: belongs only to Company B
+    $otherCompanyUser = User::factory()->create([
+        'company_id' => $companyB->id,
+        'status' => 'active',
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->get(route('organization.users'))
+        ->assertOk();
+
+    $ids = collect($response->viewData('page')['props']['users'])->pluck('id')->all();
+
+    expect($ids)->toContain($homeUser->id)
+        ->and($ids)->toContain($memberUser->id)
+        ->and($ids)->not->toContain($otherCompanyUser->id);
+});
+
+test('users directory can be filtered by presence and exposes two_factor_enabled as boolean', function () {
+    config(['session.driver' => 'database']);
+
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $company = $pair['companyA'];
+    grantCompanyPermissions($admin, $company, ['users.view']);
+
+    // Online user (active session 2 minutes ago) with confirmed 2FA
+    $onlineUser = User::factory()->withTwoFactor()->create([
+        'company_id' => $company->id,
+        'status' => 'active',
+    ]);
+    DB::table('sessions')->insert([
+        'id' => 'online-session',
+        'user_id' => $onlineUser->id,
+        'ip_address' => '127.0.0.1',
+        'user_agent' => 'Pest',
+        'payload' => 'payload',
+        'last_activity' => time() - 120, // 2 mins ago
+    ]);
+
+    // Never-active user (no login, no session) without 2FA
+    $neverUser = User::factory()->create([
+        'company_id' => $company->id,
+        'status' => 'active',
+        'last_login_at' => null,
+    ]);
+
+    // Filter by online presence
+    $responseOnline = $this->actingAs($admin)
+        ->get(route('organization.users', ['presence' => 'online']))
+        ->assertOk();
+
+    $usersOnline = collect($responseOnline->viewData('page')['props']['users']);
+    $idsOnline = $usersOnline->pluck('id')->all();
+
+    expect($idsOnline)->toContain($onlineUser->id)
+        ->and($idsOnline)->not->toContain($neverUser->id);
+
+    $onlinePayload = $usersOnline->firstWhere('id', $onlineUser->id);
+    expect($onlinePayload['two_factor_enabled'])->toBeTrue()
+        ->and($onlinePayload)->not->toHaveKey('two_factor_secret')
+        ->and($onlinePayload)->not->toHaveKey('two_factor_recovery_codes');
+
+    // Filter by never presence
+    $responseNever = $this->actingAs($admin)
+        ->get(route('organization.users', ['presence' => 'never']))
+        ->assertOk();
+
+    $usersNever = collect($responseNever->viewData('page')['props']['users']);
+    $idsNever = $usersNever->pluck('id')->all();
+
+    expect($idsNever)->toContain($neverUser->id)
+        ->and($idsNever)->not->toContain($onlineUser->id);
+
+    $neverPayload = $usersNever->firstWhere('id', $neverUser->id);
+    expect($neverPayload['two_factor_enabled'])->toBeFalse();
+});
+
+test('membership-only user is accessible via show() when active membership exists', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.view']);
+
+    // User whose home company is B but has an active membership in A
+    $memberUser = User::factory()->create(['company_id' => $companyB->id, 'status' => 'active']);
+    $memberUser->companies()->attach($companyA->id, ['status' => 'active']);
+
+    $this->actingAs($admin)
+        ->get("/organization/users/{$memberUser->id}")
+        ->assertOk();
+});
+
+test('membership-only user show() returns 404 when membership is inactive', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.view']);
+
+    $memberUser = User::factory()->create(['company_id' => $companyB->id, 'status' => 'active']);
+    $memberUser->companies()->attach($companyA->id, ['status' => 'inactive']);
+
+    $this->actingAs($admin)
+        ->get("/organization/users/{$memberUser->id}")
+        ->assertNotFound();
+});
+
+test('inactive membership excludes user from users directory', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.view']);
+
+    // User with INACTIVE membership in Company A
+    $inactiveMember = User::factory()->create(['company_id' => $companyB->id, 'status' => 'active']);
+    $inactiveMember->companies()->attach($companyA->id, ['status' => 'inactive']);
+
+    // User with ACTIVE membership in Company A
+    $activeMember = User::factory()->create(['company_id' => $companyB->id, 'status' => 'active']);
+    $activeMember->companies()->attach($companyA->id, ['status' => 'active']);
+
+    $response = $this->actingAs($admin)
+        ->get(route('organization.users'))
+        ->assertOk();
+
+    $ids = collect($response->viewData('page')['props']['users'])->pluck('id')->all();
+
+    expect($ids)->toContain($activeMember->id)
+        ->and($ids)->not->toContain($inactiveMember->id);
+});
+
+test('per-row capabilities are correctly set for home-company and membership-only users', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, [
+        'users.view',
+        'users.password_reset',
+        'users.sessions.revoke',
+    ]);
+
+    // Home company user (company_id = A)
+    $homeUser = User::factory()->create(['company_id' => $companyA->id, 'status' => 'active']);
+
+    // Membership-only user (home company = B, membership in A)
+    $memberUser = User::factory()->create(['company_id' => $companyB->id, 'status' => 'active']);
+    $memberUser->companies()->attach($companyA->id, ['status' => 'active']);
+
+    $response = $this->actingAs($admin)
+        ->get(route('organization.users'))
+        ->assertOk();
+
+    $usersPayload = collect($response->viewData('page')['props']['users']);
+
+    $homePayload = $usersPayload->firstWhere('id', $homeUser->id);
+    $memberPayload = $usersPayload->firstWhere('id', $memberUser->id);
+
+    // Home-company user gets global identity capabilities
+    expect($homePayload['capabilities']['can_edit_global_identity'])->toBeTrue()
+        ->and($homePayload['capabilities']['can_delete_global_identity'])->toBeTrue()
+        ->and($homePayload['capabilities']['can_password_reset'])->toBeTrue()
+        ->and($homePayload['capabilities']['can_revoke_sessions'])->toBeTrue()
+        ->and($homePayload['capabilities']['can_manage_membership'])->toBeTrue();
+
+    // Membership-only user must NOT have global identity capabilities
+    expect($memberPayload['capabilities']['can_edit_global_identity'])->toBeFalse()
+        ->and($memberPayload['capabilities']['can_delete_global_identity'])->toBeFalse()
+        ->and($memberPayload['capabilities']['can_password_reset'])->toBeFalse()
+        ->and($memberPayload['capabilities']['can_revoke_sessions'])->toBeFalse()
+        ->and($memberPayload['capabilities']['can_manage_membership'])->toBeTrue();
+});
+
+test('show page capabilities hide global identity mutation for membership-only users', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, [
+        'users.view',
+        'users.update',
+        'users.password_reset',
+        'users.sessions.revoke',
+    ]);
+
+    $homeUser = User::factory()->create(['company_id' => $companyA->id, 'status' => 'active']);
+    $memberUser = User::factory()->create(['company_id' => $companyB->id, 'status' => 'active']);
+    $memberUser->companies()->attach($companyA->id, ['status' => 'active']);
+
+    $homePage = $this->actingAs($admin)
+        ->get("/organization/users/{$homeUser->id}")
+        ->assertOk();
+
+    $homeCapabilities = $homePage->viewData('page')['props']['user']['capabilities'];
+
+    expect($homeCapabilities['can_edit_global_identity'])->toBeTrue()
+        ->and($homeCapabilities['can_delete_global_identity'])->toBeTrue()
+        ->and($homeCapabilities['can_password_reset'])->toBeTrue()
+        ->and($homeCapabilities['can_revoke_sessions'])->toBeTrue();
+
+    $memberPage = $this->actingAs($admin)
+        ->get("/organization/users/{$memberUser->id}")
+        ->assertOk();
+
+    $memberCapabilities = $memberPage->viewData('page')['props']['user']['capabilities'];
+
+    expect($memberCapabilities['can_edit_global_identity'])->toBeFalse()
+        ->and($memberCapabilities['can_delete_global_identity'])->toBeFalse()
+        ->and($memberCapabilities['can_password_reset'])->toBeFalse()
+        ->and($memberCapabilities['can_revoke_sessions'])->toBeFalse()
+        ->and($memberCapabilities['can_manage_membership'])->toBeTrue();
+});
+
+test('users directory summary counts are tenant-scoped and match presence filters', function () {
+    config(['session.driver' => 'database']);
+
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.view']);
+
+    $onlineUser = User::factory()->create([
+        'company_id' => $companyA->id,
+        'status' => 'active',
+        'last_login_at' => now(),
+    ]);
+    DB::table('sessions')->insert([
+        'id' => 'summary-online-session',
+        'user_id' => $onlineUser->id,
+        'ip_address' => '127.0.0.1',
+        'user_agent' => 'Pest',
+        'payload' => 'payload',
+        'last_activity' => time() - 60,
+    ]);
+
+    $neverUser = User::factory()->create([
+        'company_id' => $companyA->id,
+        'status' => 'active',
+        'last_login_at' => null,
+    ]);
+
+    $memberUser = User::factory()->create([
+        'company_id' => $companyB->id,
+        'status' => 'active',
+        'last_login_at' => null,
+    ]);
+    $memberUser->companies()->attach($companyA->id, ['status' => 'active']);
+
+    $otherCompanyUser = User::factory()->create([
+        'company_id' => $companyB->id,
+        'status' => 'active',
+    ]);
+
+    UserInvitation::query()->create([
+        'company_id' => $companyA->id,
+        'email' => 'pending-a@example.com',
+        'name' => 'Pending A',
+        'invited_by' => $admin->id,
+        'token_hash' => hash('sha256', 'pending-a-token'),
+        'expires_at' => now()->addDays(7),
+        'last_sent_at' => now(),
+    ]);
+    UserInvitation::query()->create([
+        'company_id' => $companyA->id,
+        'email' => 'revoked-a@example.com',
+        'name' => 'Revoked A',
+        'invited_by' => $admin->id,
+        'token_hash' => hash('sha256', 'revoked-a-token'),
+        'expires_at' => now()->addDays(7),
+        'revoked_at' => now(),
+        'last_sent_at' => now(),
+    ]);
+    UserInvitation::query()->create([
+        'company_id' => $companyB->id,
+        'email' => 'pending-b@example.com',
+        'name' => 'Pending B',
+        'invited_by' => $admin->id,
+        'token_hash' => hash('sha256', 'pending-b-token'),
+        'expires_at' => now()->addDays(7),
+        'last_sent_at' => now(),
+    ]);
+
+    $index = $this->actingAs($admin)
+        ->get(route('organization.users'))
+        ->assertOk();
+
+    $summary = $index->viewData('page')['props']['summary'];
+    $filters = $index->viewData('page')['props']['filters'];
+    $ids = collect($index->viewData('page')['props']['users'])->pluck('id')->all();
+    $invitationEmails = collect($index->viewData('page')['props']['invitations'])->pluck('email')->all();
+
+    expect($filters['presence'])->toBe('')
+        ->and($summary['online'])->toBeGreaterThanOrEqual(1)
+        ->and($summary['never'])->toBeGreaterThanOrEqual(2)
+        ->and($summary['pending_invites'])->toBe(1)
+        ->and($summary['total'])->toBe($index->viewData('page')['props']['pagination']['total'])
+        ->and($ids)->toContain($onlineUser->id)
+        ->and($ids)->toContain($neverUser->id)
+        ->and($ids)->toContain($memberUser->id)
+        ->and($ids)->not->toContain($otherCompanyUser->id)
+        ->and($invitationEmails)->toContain('pending-a@example.com')
+        ->and($invitationEmails)->not->toContain('pending-b@example.com')
+        ->and($invitationEmails)->not->toContain('revoked-a@example.com');
+
+    $online = $this->actingAs($admin)
+        ->get(route('organization.users', ['presence' => 'online']))
+        ->assertOk();
+
+    $onlineIds = collect($online->viewData('page')['props']['users'])->pluck('id')->all();
+    $onlineSummary = $online->viewData('page')['props']['summary'];
+    $onlineFilters = $online->viewData('page')['props']['filters'];
+
+    expect($onlineFilters['presence'])->toBe('online')
+        ->and($onlineSummary['pending_invites'])->toBe(1)
+        ->and($online->viewData('page')['props']['pagination']['total'])->toBe($onlineSummary['online'])
+        ->and($onlineIds)->toContain($onlineUser->id)
+        ->and($onlineIds)->not->toContain($neverUser->id)
+        ->and($onlineIds)->not->toContain($memberUser->id)
+        ->and($onlineIds)->not->toContain($otherCompanyUser->id);
+
+    $never = $this->actingAs($admin)
+        ->get(route('organization.users', ['presence' => 'never']))
+        ->assertOk();
+
+    $neverIds = collect($never->viewData('page')['props']['users'])->pluck('id')->all();
+    $neverFilters = $never->viewData('page')['props']['filters'];
+
+    $neverSummary = $never->viewData('page')['props']['summary'];
+
+    expect($neverFilters['presence'])->toBe('never')
+        ->and($never->viewData('page')['props']['pagination']['total'])->toBe($neverSummary['never'])
+        ->and($neverIds)->toContain($neverUser->id)
+        ->and($neverIds)->toContain($memberUser->id)
+        ->and($neverIds)->not->toContain($onlineUser->id);
+});
+
+test('presence summary cards compose with role filters instead of replacing them', function () {
+    config(['session.driver' => 'database']);
+
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $company = $pair['companyA'];
+    grantCompanyPermissions($admin, $company, ['users.view']);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR Manager',
+        'guard_name' => 'web',
+    ]);
+
+    $onlineHr = User::factory()->create([
+        'company_id' => $company->id,
+        'status' => 'active',
+        'last_login_at' => now(),
+    ]);
+    $onlineHr->assignRole($role);
+    DB::table('sessions')->insert([
+        'id' => 'online-hr-session',
+        'user_id' => $onlineHr->id,
+        'ip_address' => '127.0.0.1',
+        'user_agent' => 'Pest',
+        'payload' => 'payload',
+        'last_activity' => time() - 30,
+    ]);
+
+    $onlineOther = User::factory()->create([
+        'company_id' => $company->id,
+        'status' => 'active',
+        'last_login_at' => now(),
+    ]);
+    DB::table('sessions')->insert([
+        'id' => 'online-other-session',
+        'user_id' => $onlineOther->id,
+        'ip_address' => '127.0.0.1',
+        'user_agent' => 'Pest',
+        'payload' => 'payload',
+        'last_activity' => time() - 30,
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->get(route('organization.users', [
+            'presence' => 'online',
+            'role_id' => $role->id,
+        ]))
+        ->assertOk();
+
+    $ids = collect($response->viewData('page')['props']['users'])->pluck('id')->all();
+    $filters = $response->viewData('page')['props']['filters'];
+    $summary = $response->viewData('page')['props']['summary'];
+
+    expect($filters['presence'])->toBe('online')
+        ->and((string) $filters['role_id'])->toBe((string) $role->id)
+        ->and($ids)->toContain($onlineHr->id)
+        ->and($ids)->not->toContain($onlineOther->id)
+        ->and($summary['online'])->toBeGreaterThanOrEqual(2)
+        ->and($response->viewData('page')['props']['pagination']['total'])->toBe(1);
 });

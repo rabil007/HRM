@@ -192,7 +192,7 @@ test('password reset deletes other database sessions and does not keep the user 
         ->and(Hash::check('reset-password-1', $user->fresh()->password))->toBeTrue();
 });
 
-test('admin password change invalidates the target users sessions without logging the admin out', function () {
+test('malicious password field on user update does not change password or invalidate sessions', function () {
     config(['session.driver' => 'database']);
 
     $admin = User::factory()->create();
@@ -202,6 +202,7 @@ test('admin password change invalidates the target users sessions without loggin
         'status' => 'active',
     ]);
     $tokenBefore = $target->remember_token;
+    $hashBefore = $target->password;
 
     DB::table('sessions')->insert([
         'id' => 'target-other-session',
@@ -224,7 +225,11 @@ test('admin password change invalidates the target users sessions without loggin
         ->assertRedirect(route('organization.users'));
 
     $this->assertAuthenticatedAs($admin);
-    expect($target->fresh()->remember_token)->not->toBe($tokenBefore)
-        ->and(Hash::check('admin-set-password', $target->fresh()->password))->toBeTrue()
-        ->and(DB::table('sessions')->where('user_id', $target->id)->count())->toBe(0);
+
+    $fresh = $target->fresh();
+
+    expect($fresh->password)->toBe($hashBefore)
+        ->and(Hash::check('admin-set-password', $fresh->password))->toBeFalse()
+        ->and($fresh->remember_token)->toBe($tokenBefore)
+        ->and(DB::table('sessions')->where('user_id', $target->id)->count())->toBe(1);
 });

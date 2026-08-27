@@ -23,6 +23,8 @@ final class PrivilegedTwoFactorPolicy
         'users.create',
         'users.update',
         'users.delete',
+        'users.password_reset',
+        'users.sessions.revoke',
         'settings.application.update',
         'settings.integrations.whatsapp.update',
         'settings.integrations.hikvision.update',

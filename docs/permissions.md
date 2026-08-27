@@ -175,9 +175,40 @@ Membership store/update/destroy are **active-company** operations, matching the 
 
 Anyone with `users.update` in the active company may assign any role that exists **for that company**, including Owner. Editing the role/permission matrix remains `roles.update`. This is the current product policy, not a wildcard across tenants.
 
-The Users directory lists people whose **home** `users.company_id` is the active company. A person whose home company is A and who only has membership in B does not appear in B's directory, and B's user show/destroy URLs 404 while B is active. That is UX/data-model debt, not a cross-tenant leak. Membership store/update/destroy still manage B members while B is active.
+The Users directory lists people who have active membership in the active company (either home `users.company_id` or an active `company_user` membership pivot). Users who belong natively to Company A and have active membership in Company B are visible within Company B's tenant context. Membership-only users can have their **company membership** managed in that tenant; their **global identity** (name, email, avatar, global status, password, sessions, deletion) can be mutated only from their home company. Frontend row/card/detail actions also require the matching per-user `capabilities` flags in addition to the actor's Spatie permission; those flags are UX only — `GlobalIdentityAccessGuard` remains the backend boundary.
 
-There is no last-Owner or self-membership-removal guard. Removing a membership detaches `company_user` and clears that team's role. The next request recovers through `SetCurrentCompany` (fallback to another accessible company, or no tenant). Product has not required a last-admin lock.
+Normal User Edit never changes passwords. A submitted `password` field on user update is ignored: the stored hash, remember token, and sessions stay as they are. Password changes happen only through the user's Security settings, Fortify reset, or the admin password-reset security action.
+
+### Last Active Owner Protection
+
+The `LastCompanyOwnerGuard` ensures that a tenant company never ends up with zero active Owners. The guard inspects the company's active owners (users with the Spatie `Owner` role in that company, `users.status = 'active'`, and an active company membership) within a database transaction using row-level locking (`lockForUpdate()`). An action is rejected if it would deactivate, reassign away from Owner, delete, or detach the membership of the company's sole remaining active Owner. User Update runs that locked check before applying any requested change, so a rejected last-Owner mutation does not leave employee links, identity fields, roles, or avatars partially updated.
+
+### User Invitations and Acceptance Flow
+
+Tenant administrators with `users.create` may invite users into the company via `UserInvitation`:
+- **Cryptographic Tokens**: Each invitation generates a cryptographically secure 40-character random token. Only the SHA-256 hash (`token_hash`) is persisted at rest.
+- **Tenant Isolation**: Invited roles and employees are strictly validated to belong to `current_company_id`. Employees must be unlinked (`user_id IS NULL`).
+- **Resend & Revoke**: Resending an invitation invalidates the previous token by re-generating a fresh token and extending expiration by 7 days. Revoking immediately marks the invitation inactive.
+- **Dual-Path Acceptance**:
+  - **New User Flow**: If the invited email does not exist as a global identity, the user sets up their name and password (matching standard Fortify password policy). Upon acceptance, the User is created, linked to the company, assigned their role/employee, logged in, and redirected to the dashboard.
+  - **Existing User Flow (Zero 2FA / Password Bypass)**: If an account already exists for the invited email, the acceptance flow **NEVER** bypasses login or 2FA. Merely possessing an invitation token does not grant authentication. Unauthenticated visitors are prompted to sign in with their existing credentials. Once authenticated via Fortify (including any required 2FA challenge), the acceptance endpoint verifies that the authenticated user matches the invitation email before linking membership and roles.
+- **Fail-Fast Concurrency**: Acceptance operations lock the invitation row with `lockForUpdate()`. Invalid, expired, accepted, or revoked invitations fail closed with immediate transaction rollback.
+
+### User Security Operations
+
+Administrators with `users.password_reset` or `users.sessions.revoke` (subject to `privileged.2fa` enforcement) may manage security actions against **home-company** users:
+- **Password Reset**: Sends a standard Fortify password reset link to the user's email. Restricted to the user's home company via `GlobalIdentityAccessGuard`. This is the admin path for credential rotation; it is not part of normal User Edit.
+- **Session Revocation**: Uses `InvalidateUserSessions` to rotate the user's `remember_token` and delete all active database sessions, immediately terminating sessions across all devices.
+- **Audit Logging**: All invitation events, security actions, and membership changes are logged to Spatie Activity Log tagged with the company ID.
+
+### Presence & Directory Telemetry
+
+User presence is computed server-side from database session activity and login history:
+- **Online**: Active session activity within the last 5 minutes.
+- **Recent**: Active session activity between 5 and 30 minutes ago.
+- **Offline**: Activity older than 30 minutes or previous login with no active session.
+- **Never**: No login or session activity recorded.
+- **Two-Factor Status**: Displayed strictly as a boolean (`two_factor_enabled`) indicating whether Fortify 2FA has been fully confirmed; secrets and recovery codes are never exposed.
 
 ## Global user account status
 
@@ -229,10 +260,10 @@ Mass updates that skip model events (`User::query()->update(...)`) do not run re
 
 A password change is treated as a security-sensitive account change, same family as disabling the user: leftover sessions must not keep working.
 
-Eloquent `User` updates that change `password` run `InvalidateUserSessions` (Security settings, Fortify reset, and admin user edit when a new password is submitted):
+Eloquent `User` updates that change `password` run `InvalidateUserSessions` (Security settings and Fortify reset). Normal organization User Edit cannot set or rotate another user's password:
 
 - rotate the remember token
-- delete other `sessions` rows when `session.driver` is `database` (the acting user's **current** session is kept when they change their own password; reset and admin changes drop every session for that user)
+- delete other `sessions` rows when `session.driver` is `database` (the acting user's **current** session is kept when they change their own password; Fortify reset completions drop every session for that user)
 
 Laravel `AuthenticateSession` (`auth.session` on the `web` group) is the request-time net for leftover sessions on any driver: the stored password hash must match. After a password change, another browser is logged out on its next request even if that store was not bulk-deleted.
 

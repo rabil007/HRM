@@ -22,6 +22,7 @@ import type {
     User,
     UserFormData,
 } from '@/features/organization/users/types';
+import { useHasPermission } from '@/hooks/use-has-permission';
 import {
     formatDisplayDate,
     formatDisplayDateTime,
@@ -146,11 +147,13 @@ export default function UserDetails({
         Record<number, boolean>
     >({});
 
+    const canEditGlobalIdentity =
+        useHasPermission('users.update') &&
+        Boolean(user.capabilities?.can_edit_global_identity);
+
     const form = useForm<UserFormData>({
         name: user.name ?? '',
         email: user.email ?? '',
-        password: '',
-        password_confirmation: '',
         avatar: null,
         use_employee_avatar: false,
         employee_id: user.linked_employee?.id ?? '',
@@ -241,12 +244,14 @@ export default function UserDetails({
                             >
                                 {status.label}
                             </Badge>
-                            <Button
-                                className="h-10 rounded-xl px-5"
-                                onClick={() => setOpen(true)}
-                            >
-                                Edit user
-                            </Button>
+                            {canEditGlobalIdentity ? (
+                                <Button
+                                    className="h-10 rounded-xl px-5"
+                                    onClick={() => setOpen(true)}
+                                >
+                                    Edit user
+                                </Button>
+                            ) : null}
                         </div>
                     </div>
                 </div>
@@ -561,21 +566,23 @@ export default function UserDetails({
                     </Card>
                 ) : null}
 
-                <UserFormSheet
-                    open={open}
-                    onOpenChange={setOpen}
-                    user={user}
-                    roles={roles}
-                    employeesForLinking={employees_for_linking}
-                    form={form}
-                    onSubmit={() => {
-                        form.put(`/organization/users/${user.id}`, {
-                            preserveScroll: true,
-                            forceFormData: true,
-                            onSuccess: () => setOpen(false),
-                        });
-                    }}
-                />
+                {canEditGlobalIdentity ? (
+                    <UserFormSheet
+                        open={open}
+                        onOpenChange={setOpen}
+                        user={user}
+                        roles={roles}
+                        employeesForLinking={employees_for_linking}
+                        form={form}
+                        onSubmit={() => {
+                            form.put(`/organization/users/${user.id}`, {
+                                preserveScroll: true,
+                                forceFormData: true,
+                                onSuccess: () => setOpen(false),
+                            });
+                        }}
+                    />
+                ) : null}
             </Main>
         </>
     );
