@@ -11,7 +11,7 @@ Middleware: `App\Http\Middleware\SecurityHeaders`, registered last on the `web` 
 | Header | Laravel value | Notes |
 |--------|---------------|--------|
 | `Content-Security-Policy` | See [CSP](#content-security-policy) | Enforced by default. `SECURITY_CSP_REPORT_ONLY=true` switches to `Content-Security-Policy-Report-Only` and removes the enforcing header. No reporting endpoint. |
-| `X-Frame-Options` | `DENY` | Defense in depth with CSP `frame-ancestors 'none'`. |
+| `X-Frame-Options` | `SAMEORIGIN` | Configurable via `SECURITY_X_FRAME_OPTIONS`. Set to `false` to omit and rely solely on CSP `frame-ancestors`. |
 | `X-Content-Type-Options` | `nosniff` | Applied to HTML, JSON, downloads, and `/sw.js`. |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | Avoids leaking signed-URL paths on HTTPS cross-origin navigations; keeps a same-origin referrer. |
 | `Permissions-Policy` | Restricts unused device APIs | See [Permissions-Policy](#permissions-policy). |
@@ -96,7 +96,7 @@ default-src 'self'
 base-uri 'self'
 form-action 'self'
 object-src 'none'
-frame-ancestors 'none'
+frame-ancestors 'self' https://*.overseas-ms.com https://overseas-ms.com
 script-src 'self'
 style-src 'self' 'unsafe-inline'
 img-src 'self' data: blob:
@@ -144,15 +144,18 @@ Local HTTP and Herd HTTPS with `APP_ENV=local` do not send HSTS. Production HTTP
 
 ## Frame protection
 
-All OMS-HRM HTML surfaces are **not** embeddable:
+Framing is protected via both CSP `frame-ancestors` and `X-Frame-Options`:
+
+- `SECURITY_X_FRAME_OPTIONS` (default: `SAMEORIGIN`) sets the `X-Frame-Options` header. Set to `false` or empty when embedding across origins to let CSP `frame-ancestors` govern framing.
+- `SECURITY_CSP_FRAME_ANCESTORS` (default: `'self' https://*.overseas-ms.com https://overseas-ms.com`) configures the allowed framing parents in Content-Security-Policy.
 
 | Surface | `frame-ancestors` | `X-Frame-Options` |
 |---------|-------------------|-------------------|
-| Authenticated app | `'none'` | `DENY` |
-| Login / Fortify / Security | `'none'` | `DENY` |
-| Public signed document share | `'none'` | `DENY` |
-| Public e-sign | `'none'` | `DENY` |
-| Public announcements | `'none'` | `DENY` (also `DenyFraming`) |
+| Authenticated app | `'self'` + configured origins | `SAMEORIGIN` (or omitted if disabled) |
+| Login / Fortify / Security | `'self'` + configured origins | `SAMEORIGIN` (or omitted if disabled) |
+| Public signed document share | `'self'` + configured origins | `SAMEORIGIN` (or omitted if disabled) |
+| Public e-sign | `'self'` + configured origins | `SAMEORIGIN` (or omitted if disabled) |
+| Public announcements | `'self'` + configured origins | `DENY` (enforced by `DenyFraming`) |
 
 Same-origin PDF/document **previews** use `<iframe src={same-origin file URL}>` or `srcDoc`. That is `frame-src 'self'`, not a `frame-ancestors` exception. `object-src` stays `'none'`; pdf.js uses a worker + canvas, not `<object>`.
 
