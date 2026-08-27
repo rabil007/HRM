@@ -115,7 +115,6 @@ test('store creates custom template with valid allowed merge fields', function (
             'name' => 'General Welcome Letter',
             'description' => 'Issued to new joiners',
             'document_type_id' => $docType->id,
-            'status' => 'draft',
             'content' => $content,
         ]);
 
@@ -154,7 +153,6 @@ test('store rejects content with unsupported or forbidden merge fields', functio
         ->withSession(['current_company_id' => $company->id])
         ->post(route('organization.documents.templates.store'), [
             'name' => 'Financial Statement',
-            'status' => 'active',
             'content' => $badContent,
         ]);
 
@@ -162,6 +160,23 @@ test('store rejects content with unsupported or forbidden merge fields', functio
     $this->assertDatabaseMissing('document_generation_templates', [
         'name' => 'Financial Statement',
     ]);
+});
+
+test('store rejects status field in payload', function () {
+    $user = User::factory()->create();
+    $company = createDocTemplatesTestCompany();
+
+    grantCompanyPermissions($user, $company, ['documents.templates.create']);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.templates.store'), [
+            'name' => 'Draft Letter',
+            'content' => 'Hello {{employee_name}}',
+            'status' => 'draft',
+        ]);
+
+    $response->assertSessionHasErrors(['status']);
 });
 
 test('store rejects duplicate template name in same company but allows in different company', function () {
@@ -181,7 +196,6 @@ test('store rejects duplicate template name in same company but allows in differ
         ->withSession(['current_company_id' => $companyA->id])
         ->post(route('organization.documents.templates.store'), [
             'name' => 'Verification Letter',
-            'status' => 'draft',
             'content' => 'Hello {{employee_name}}',
         ]);
 
@@ -192,7 +206,6 @@ test('store rejects duplicate template name in same company but allows in differ
         ->withSession(['current_company_id' => $companyB->id])
         ->post(route('organization.documents.templates.store'), [
             'name' => 'Verification Letter',
-            'status' => 'draft',
             'content' => 'Hello {{employee_name}}',
         ]);
 
@@ -218,7 +231,6 @@ test('update modifies template attributes and ignores unique rule for self', fun
         ->put(route('organization.documents.templates.update', $template), [
             'name' => 'Old Title', // same name, should not trigger duplicate error
             'description' => 'Updated description',
-            'status' => 'active',
             'content' => 'Updated content for {{employee_name}}',
         ]);
 
@@ -226,10 +238,27 @@ test('update modifies template attributes and ignores unique rule for self', fun
     $response->assertSessionHas('success', 'Template updated.');
 
     $template->refresh();
-    expect($template->status)->toBe(DocumentGenerationTemplateStatus::Active);
+    expect($template->status)->toBe(DocumentGenerationTemplateStatus::Draft);
     expect($template->description)->toBe('Updated description');
     expect($template->content)->toBe('Updated content for {{employee_name}}');
     expect($template->updated_by)->toBe($user->id);
+});
+
+test('update rejects status field in payload', function () {
+    $user = User::factory()->create();
+    $company = createDocTemplatesTestCompany();
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create();
+
+    grantCompanyPermissions($user, $company, ['documents.templates.update']);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->put(route('organization.documents.templates.update', $template), [
+            'name' => 'Updated Title',
+            'status' => 'active',
+        ]);
+
+    $response->assertSessionHasErrors(['status']);
 });
 
 test('update cannot modify another companys template', function () {
@@ -245,7 +274,6 @@ test('update cannot modify another companys template', function () {
         ->withSession(['current_company_id' => $companyA->id])
         ->put(route('organization.documents.templates.update', $templateB), [
             'name' => 'Hacked Name',
-            'status' => 'active',
             'content' => 'Some content',
         ])
         ->assertNotFound();

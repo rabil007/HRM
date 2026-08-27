@@ -12,7 +12,7 @@ Documents is one sidebar group with these destinations:
 | `/organization/documents/library` | Library | Canonical browse / search / compliance workspace | `documents.view` |
 | `/organization/documents/generate` | Generate & Send | Current Bulk Documents roster | `bulk_documents.view` |
 | `/organization/documents/requests` | Requests | Current bulk signature-request view | `bulk_documents.view` |
-| `/organization/documents/templates` | Templates | Transitional bridge only | Any of `bulk_documents.view`, `settings.master-data.document-types.view`, or platform view |
+| `/organization/documents/templates` | Templates | Company custom and system generation templates | Any of `documents.templates.view`, `bulk_documents.view`, `settings.master-data.document-types.view`, or platform view |
 | `/organization/documents/activity` | Activity | Current bulk generation history | `bulk_documents.view` |
 
 **Overview** is a lightweight operational dashboard. It shows expiry and required-document counts, needs-attention actions, and permission-aware shortcuts. It does not render the document table, folder grid, search, or Saved Views. Summary cards and attention actions open Library with the matching supported filter (`expiry=expired`, `expiry=expiring_7` / `expiring_15` / `expiring_30`, `requirement_status=missing`). Overview never applies a default Documents Saved View.
@@ -23,7 +23,7 @@ Opening a document from Library uses `from=library` so **Back to Library** resto
 
 Old filtered Overview bookmarks such as `/organization/documents?search=`, `?expiry=`, `?requirement_status=`, `?department_id=`, and `?page=` redirect to the equivalent Library URL with those supported keys preserved. Unknown parameters are not redirected and are not copied. Plain `/organization/documents` stays Overview.
 
-Generate, Requests, and Activity share `BulkDocumentsController`. Explicit module routes set a `module_view` route default (`roster` / `signatures` / `history`). That value is resolved before the legacy `view` query string. Those flows, and the Templates bridge, are unchanged in this phase. Protected Salary Declaration / Salary Certificate PDF layout, Browsershot, Puppeteer, FPDI stamping, and the public e-sign workflow are unchanged.
+Generate, Requests, and Activity share `BulkDocumentsController`. Explicit module routes set a `module_view` route default (`roster` / `signatures` / `history`). That value is resolved before the legacy `view` query string. Those flows remain unchanged in this phase. Templates bridge now supports company-owned content and visual PDF overlay templates with controlled merge fields and Fabric.js visual placement; system templates bridge remains available. Protected Salary Declaration / Salary Certificate PDF layout, Browsershot, Puppeteer, FPDI stamping, and the public e-sign workflow are unchanged.
 
 ### Legacy Bulk URLs
 
@@ -43,12 +43,27 @@ Documents → Templates serves as the centralized company custom document templa
 
 1. **Company Custom Templates** (`document_generation_templates`):
    - Scoped to the active company.
-   - Lifecycle statuses: `draft`, `active`, `inactive`.
-   - Permissions: `documents.templates.view`, `documents.templates.create`, `documents.templates.update`, `documents.templates.delete`.
-   - Optional association to `document_types` for categorization.
-   - Managed via right-side form sheet with interactive merge field insertion.
-   - Duplication creates a company-scoped copy starting in `draft` with a unique `(Copy)` suffix.
-   - Preview system renders safe in-memory HTML preview with sample data only (real-employee preview is intentionally deferred). No database side-effects or workflow triggers.
+   - **Formats**:
+     - `content`: Text/content template with controlled merge fields.
+     - `pdf_overlay`: Branded uploaded PDF with visual merge field placement. Format cannot be changed after creation.
+   - **Template Identity & Immutability**:
+     - The parent model `DocumentGenerationTemplate` manages company-level identity, metadata (`name`, `description`, `document_type_id`, `template_format`), lifecycle status (`draft`, `active`, `inactive`), and pointer to `published_version_id`.
+     - Authoritative renderable data resides in `DocumentGenerationTemplateVersion` (`version`, `status`, `content`, `source_pdf_path`, `placement_config`, `published_at`).
+     - **Strict Immutability**: Published and archived versions cannot be altered. Editing an active template branches a new single `draft` version (`version = max + 1`), preserving historical published versions and source files indefinitely.
+     - Concurrency-safe draft branching (`BranchDocumentGenerationTemplateDraft`) guarantees at most one draft per template.
+   - **Visual Merge-Field Placement**:
+     - Visual designer operates exclusively on a draft version using Fabric.js and PDF.js.
+     - Normalized coordinates `[0.0, 1.0]` ensure resolution-independent placement across any viewer or print scale.
+     - Placement schema version 1 enforces bounds (`0 <= x, y <= 1`, `0 < width, height <= 1`, `x + width <= 1`), valid page numbers, and allowed merge fields.
+     - In-place sample preview toggle previews dynamic fields directly on the canvas without querying real employees.
+   - **PDF Storage & Compensation**:
+     - Stored on the `local` private disk under `document-generation-templates/{companyId}/{uuid}.pdf`.
+     - Duplication physically copies the source PDF to a new private UUID path so mutable paths are never shared.
+     - Replacement clears placements for that draft and removes the old file. Database rollback compensation cleans up orphaned files on failure.
+   - **Explicit Lifecycle**:
+     - `Publish`: Promotes draft version to published (`published_at = now()`), archives prior published versions, and sets parent template to `active`.
+     - `Deactivate`: Changes parent template to `inactive` without modifying version history.
+     - `Activate`: Re-enables an inactive template that has a published version.
    - **Allowed Merge Fields**: Strict allowlist catalog (`App\Support\Documents\DocumentTemplateMergeFields`) covering:
      - *Employee*: `{{employee_name}}`, `{{employee_no}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{phone}}`, `{{gender}}`, `{{joining_date}}`
      - *Organization*: `{{company_name}}`, `{{department_name}}`, `{{position_name}}`, `{{branch_name}}`
@@ -78,6 +93,13 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents/templates/{template}` (PUT) | Update custom document template | `documents.templates.update` |
 | `/organization/documents/templates/{template}/duplicate` (POST) | Duplicate custom template in company | `documents.templates.update` |
 | `/organization/documents/templates/{template}` (DELETE) | Delete custom template | `documents.templates.delete` |
+| `/organization/documents/templates/{template}/draft` (POST) | Get or branch editable draft version | `documents.templates.update` |
+| `/organization/documents/templates/{template}/versions/{version}/source-pdf` (GET) | Stream private source PDF | `documents.templates.view` |
+| `/organization/documents/templates/{template}/versions/{version}/placements` (PUT) | Save visual placements to draft | `documents.templates.update` |
+| `/organization/documents/templates/{template}/versions/{version}/replace-pdf` (POST) | Replace PDF on draft version | `documents.templates.update` |
+| `/organization/documents/templates/{template}/versions/{version}/publish` (POST) | Publish draft version | `documents.templates.update` |
+| `/organization/documents/templates/{template}/activate` (POST) | Activate template | `documents.templates.update` |
+| `/organization/documents/templates/{template}/deactivate` (POST) | Deactivate template | `documents.templates.update` |
 | `/organization/documents/activity` | Bulk generation history | `bulk_documents.view` |
 | `/organization/documents/bulk` | Legacy Bulk Documents index | `bulk_documents.view` |
 | `/organization/documents/employees/{employee}` | Employee document browse | `documents.view` |
@@ -337,3 +359,41 @@ Not implemented: a separate requirements page, individual exceptions/waivers, ap
 - `tests/Feature/Organization/DocumentShareTest.php`
 
 See [Document search](./document-search.md) and [Document sharing](./document-sharing.md) for specialized flows.
+
+## Phase 3B: Custom Document Generation Templates & PDF Placement
+
+Custom document templates allow companies to author custom HR documents in two formats:
+1. **Content templates** (`template_format = 'content'`) with controlled merge fields.
+2. **PDF Overlay templates** (`template_format = 'pdf_overlay'`) with private source PDF storage and visual drag-and-drop merge field placement via Fabric.js.
+
+### Template & Version Architecture
+
+- **`DocumentGenerationTemplate`**: Company-owned template identity (`name`, `description`, `document_type_id`, `template_format`, `status`, `published_version_id`).
+- **`DocumentGenerationTemplateVersion`**: Immutable renderable version (`version`, `status`, `content`, `source_pdf_path`, `placement_config`, `published_at`).
+
+### Lifecycle Semantics
+
+- **Version Lifecycle**: `Draft` -> `Published` -> `Archived`.
+  - Versions start as `Draft`. Once published, they are frozen and immutable (`content`, `placement_config`, and PDF attachments cannot be modified).
+  - Publishing a new version automatically moves the previously published version to `Archived`.
+- **Publish vs Activate**:
+  - **Publish** (`versions/{version}/publish`): Transitions a Draft version to `Published`, archives the previous version, points `published_version_id` to the published version, and sets parent template status to `Active`.
+  - **Activate / Deactivate** (`templates/{template}/activate`, `templates/{template}/deactivate`): Controls company availability. Activation strictly requires a valid `published_version_id` belonging to the active company and template with status `Published`.
+  - Normal create/update form submissions do **not** accept `status`. Templates always begin in `Draft` and can only be published through the explicit publish action.
+- **Parent Content Semantics**:
+  - `parent.content` continues representing the **current published content** for backwards compatibility with legacy callers.
+  - When editing a new draft version, `parent.content` is not overwritten until that draft is explicitly published.
+  - For templates that have never been published, `parent.content` syncs with draft edits.
+  - The editor always resolves content in order: `draft_version.content ?? published_version.content ?? parent.content`.
+
+### PDF Storage & Security Boundary
+
+- All uploaded template PDFs are stored on Laravel's private `local` disk (`storage/app/private/document-generation-templates/{companyId}/{uuid}.pdf`).
+- Previews and streaming enforce company authorization and tenant directory boundaries (`document-generation-templates/{companyId}/`).
+- Files are deleted only after database deletion completes successfully.
+
+### Visual Placement & Normalized Coordinates
+
+- Placements use normalized percentages (`0.0` to `1.0`) for `x`, `y`, `width`, and `height` relative to page dimensions, guaranteeing crisp rendering across arbitrary display DPIs and print paper sizes.
+- Supported text alignment options: `left`, `center`, `right`. Alignment is stored in the placement configuration and rendered visually in both Fabric.js canvas placement boxes and sample data preview.
+

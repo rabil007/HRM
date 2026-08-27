@@ -2,8 +2,9 @@
 
 namespace App\Http\Requests\Organization\DocumentGenerationTemplate;
 
-use App\Enums\DocumentGenerationTemplateStatus;
+use App\Enums\DocumentGenerationTemplateFormat;
 use App\Support\Documents\DocumentTemplateMergeFields;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -20,8 +21,11 @@ class StoreDocumentGenerationTemplateRequest extends FormRequest
     public function rules(): array
     {
         $companyId = (int) $this->attributes->get('current_company_id');
+        $format = $this->input('template_format', DocumentGenerationTemplateFormat::Content->value);
+        $isPdf = $format === DocumentGenerationTemplateFormat::PdfOverlay->value;
 
         return [
+            'template_format' => ['nullable', Rule::enum(DocumentGenerationTemplateFormat::class)],
             'name' => [
                 'required',
                 'string',
@@ -38,10 +42,10 @@ class StoreDocumentGenerationTemplateRequest extends FormRequest
                     ->whereNull('deleted_at'),
             ],
             'content' => [
-                'required',
+                $isPdf ? 'nullable' : 'required',
                 'string',
-                function (string $attribute, mixed $value, \Closure $fail): void {
-                    if (! is_string($value)) {
+                function (string $attribute, mixed $value, Closure $fail) use ($isPdf): void {
+                    if ($isPdf || ! is_string($value)) {
                         return;
                     }
 
@@ -51,7 +55,11 @@ class StoreDocumentGenerationTemplateRequest extends FormRequest
                     }
                 },
             ],
-            'status' => ['required', Rule::enum(DocumentGenerationTemplateStatus::class)],
+            'file' => [
+                $isPdf ? 'required' : 'prohibited',
+                'file',
+            ],
+            'status' => ['prohibited'],
             'company_id' => ['prohibited'],
             'created_by' => ['prohibited'],
             'updated_by' => ['prohibited'],

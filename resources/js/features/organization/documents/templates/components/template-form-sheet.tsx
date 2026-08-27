@@ -22,7 +22,6 @@ export type TemplateFormData = {
     description: string;
     document_type_id: string | number | null;
     content: string;
-    status: 'draft' | 'active' | 'inactive';
 };
 
 export function TemplateFormSheet({
@@ -132,85 +131,45 @@ export function TemplateFormSheet({
                             )}
                         </div>
 
-                        {/* Document Type and Status row */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <Label
-                                    htmlFor="document_type_id"
-                                    className="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
-                                >
-                                    Document Type
-                                </Label>
-                                <AppSelect
-                                    value={
-                                        form.data.document_type_id
-                                            ? String(form.data.document_type_id)
-                                            : 'none'
-                                    }
-                                    onValueChange={(val) =>
-                                        form.setData(
-                                            'document_type_id',
-                                            val === 'none' ? null : Number(val),
-                                        )
-                                    }
-                                    placeholder="Select document type"
-                                >
-                                    <AppSelectItem value="none">
-                                        (None / General)
+                        {/* Document Type */}
+                        <div className="space-y-1.5">
+                            <Label
+                                htmlFor="document_type_id"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
+                            >
+                                Document Type
+                            </Label>
+                            <AppSelect
+                                value={
+                                    form.data.document_type_id
+                                        ? String(form.data.document_type_id)
+                                        : 'none'
+                                }
+                                onValueChange={(val) =>
+                                    form.setData(
+                                        'document_type_id',
+                                        val === 'none' ? null : Number(val),
+                                    )
+                                }
+                                placeholder="Select document type"
+                            >
+                                <AppSelectItem value="none">
+                                    (None / General)
+                                </AppSelectItem>
+                                {documentTypes.map((type) => (
+                                    <AppSelectItem
+                                        key={type.id}
+                                        value={String(type.id)}
+                                    >
+                                        {type.title}
                                     </AppSelectItem>
-                                    {documentTypes.map((type) => (
-                                        <AppSelectItem
-                                            key={type.id}
-                                            value={String(type.id)}
-                                        >
-                                            {type.title}
-                                        </AppSelectItem>
-                                    ))}
-                                </AppSelect>
-                                {form.errors.document_type_id && (
-                                    <p className="text-xs text-destructive">
-                                        {form.errors.document_type_id}
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label
-                                    htmlFor="status"
-                                    className="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
-                                >
-                                    Status{' '}
-                                    <span className="text-destructive">*</span>
-                                </Label>
-                                <AppSelect
-                                    value={form.data.status}
-                                    onValueChange={(val) =>
-                                        form.setData(
-                                            'status',
-                                            val as
-                                                | 'draft'
-                                                | 'active'
-                                                | 'inactive',
-                                        )
-                                    }
-                                    placeholder="Select status"
-                                >
-                                    <AppSelectItem value="draft">
-                                        Draft
-                                    </AppSelectItem>
-                                    <AppSelectItem value="active">
-                                        Active
-                                    </AppSelectItem>
-                                    <AppSelectItem value="inactive">
-                                        Inactive
-                                    </AppSelectItem>
-                                </AppSelect>
-                                {form.errors.status && (
-                                    <p className="text-xs text-destructive">
-                                        {form.errors.status}
-                                    </p>
-                                )}
-                            </div>
+                                ))}
+                            </AppSelect>
+                            {form.errors.document_type_id && (
+                                <p className="text-xs text-destructive">
+                                    {form.errors.document_type_id}
+                                </p>
+                            )}
                         </div>
 
                         {/* Description */}
