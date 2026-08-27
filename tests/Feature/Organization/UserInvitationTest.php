@@ -5,8 +5,10 @@ use App\Models\Company;
 use App\Models\Employee;
 use App\Models\User;
 use App\Models\UserInvitation;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 
 test('authorized users can invite a user to the active company', function () {
@@ -433,4 +435,107 @@ test('acceptance locks row and fails fast if state becomes invalid during transa
     // Execution must fail-fast without creating a duplicate user or logging in
     expect(User::where('email', 'concurrent@example.com')->exists())->toBeFalse();
     $this->assertGuest();
+});
+
+test('UserInvitationMail implements ShouldBeEncrypted to protect the invitation token in queue payload', function () {
+    expect(in_array(
+        ShouldBeEncrypted::class,
+        class_implements(UserInvitationMail::class) ?: [],
+    ))->toBeTrue();
+});
+
+test('invitation acceptance fails if linked employee was assigned to another user after invite was created', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $company = $pair['companyA'];
+
+    $employee = Employee::factory()->forCompany($company)->create(['user_id' => null]);
+
+    $token = Str::random(40);
+    $invitation = UserInvitation::create([
+        'company_id' => $company->id,
+        'email' => 'race-employee@example.com',
+        'name' => 'Race Test',
+        'role_id' => null,
+        'employee_id' => $employee->id,
+        'invited_by' => null,
+        'token_hash' => hash('sha256', $token),
+        'expires_at' => now()->addDays(7),
+    ]);
+
+    // Simulate race: another user gets linked to the employee between invite and acceptance
+    $otherUser = User::factory()->create(['company_id' => $company->id]);
+    $employee->update(['user_id' => $otherUser->id]);
+
+    $response = $this->post(route('invitations.accept.store'), [
+        'token' => $token,
+        'name' => 'Race Test User',
+        'password' => 'Password!123',
+        'password_confirmation' => 'Password!123',
+    ]);
+
+    // Should fail with a meaningful error message
+    $response->assertRedirect(route('login'));
+    expect($response->getSession()->get('status'))->toContain('already assigned');
+
+    // No new user should have been created for the racing email
+    expect(User::where('email', 'race-employee@example.com')->exists())->toBeFalse();
+});
+
+test('resend invitation rejects stale accepted invitation inside transaction', function () {
+    Mail::fake();
+
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $company = $pair['companyA'];
+    grantCompanyPermissions($admin, $company, ['users.create']);
+
+    $token = Str::random(40);
+    $invitation = UserInvitation::create([
+        'company_id' => $company->id,
+        'email' => 'resend-race@example.com',
+        'name' => 'Resend Race',
+        'role_id' => null,
+        'employee_id' => null,
+        'invited_by' => $admin->id,
+        'token_hash' => hash('sha256', $token),
+        'expires_at' => now()->addDays(7),
+    ]);
+
+    // Accept the invitation (simulating concurrent acceptance)
+    $invitation->update(['accepted_at' => now()]);
+
+    $response = $this->actingAs($admin)
+        ->post(route('organization.user-invitations.resend', $invitation));
+
+    $response->assertRedirect();
+    expect($response->getSession()->get('error'))->not->toBeNull();
+    Mail::assertNothingSent();
+});
+
+test('revoke invitation rejects already accepted invitation inside transaction', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $company = $pair['companyA'];
+    grantCompanyPermissions($admin, $company, ['users.delete']);
+
+    $invitation = UserInvitation::create([
+        'company_id' => $company->id,
+        'email' => 'revoke-race@example.com',
+        'name' => 'Revoke Race',
+        'role_id' => null,
+        'employee_id' => null,
+        'invited_by' => $admin->id,
+        'token_hash' => hash('sha256', Str::random(40)),
+        'expires_at' => now()->addDays(7),
+        'accepted_at' => now(), // Already accepted
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->delete(route('organization.user-invitations.destroy', $invitation));
+
+    $response->assertRedirect();
+    expect($response->getSession()->get('error'))->not->toBeNull();
+
+    // accepted_at should still be set (not cleared)
+    expect($invitation->fresh()->accepted_at)->not->toBeNull();
 });

@@ -8,7 +8,19 @@ use Spatie\Permission\Models\Role;
 
 class UserInvitation extends Model
 {
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'company_id',
+        'email',
+        'name',
+        'role_id',
+        'employee_id',
+        'invited_by',
+        'token_hash',
+        'expires_at',
+        'accepted_at',
+        'revoked_at',
+        'last_sent_at',
+    ];
 
     protected function casts(): array
     {

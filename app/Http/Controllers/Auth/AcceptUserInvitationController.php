@@ -136,7 +136,7 @@ class AcceptUserInvitationController extends Controller
                     UserMembershipAccess::syncRole($targetUser, $lockedInvitation->company_id, $lockedInvitation->role_id);
                 }
 
-                // Link employee if set, belongs to company, and is unlinked
+                // Link employee if set, belongs to company, and is still unlinked
                 if ($lockedInvitation->employee_id) {
                     $employee = Employee::where('id', $lockedInvitation->employee_id)
                         ->where('company_id', $lockedInvitation->company_id)
@@ -146,6 +146,17 @@ class AcceptUserInvitationController extends Controller
 
                     if ($employee) {
                         $employee->update(['user_id' => $targetUser->id]);
+                    } else {
+                        // Employee exists but was linked to another account between invitation and acceptance
+                        $employeeExists = Employee::where('id', $lockedInvitation->employee_id)
+                            ->where('company_id', $lockedInvitation->company_id)
+                            ->lockForUpdate()
+                            ->exists();
+
+                        if ($employeeExists) {
+                            throw new \DomainException('The linked employee record was already assigned to another account. Please contact your administrator.');
+                        }
+                        // Employee deleted/moved — skip silently
                     }
                 }
 

@@ -20,22 +20,24 @@ class UserSecurityController extends Controller
             ['email' => $user->email]
         );
 
-        activity()
-            ->causedBy($request->user())
-            ->performedOn($user)
-            ->withProperties([
-                'company_id' => $companyId,
-                'target_user_id' => $user->id,
-                'email' => $user->email,
-            ])
-            ->tap(function ($activity) use ($companyId): void {
-                $activity->company_id = $companyId;
-            })
-            ->log('sent admin password reset link');
+        if ($status === Password::RESET_LINK_SENT) {
+            activity()
+                ->causedBy($request->user())
+                ->performedOn($user)
+                ->withProperties([
+                    'company_id' => $companyId,
+                    'target_user_id' => $user->id,
+                    'email' => $user->email,
+                ])
+                ->tap(function ($activity) use ($companyId): void {
+                    $activity->company_id = $companyId;
+                })
+                ->log('sent admin password reset link');
 
-        return back()->with('status', $status === Password::RESET_LINK_SENT
-            ? 'Password reset link sent to '.$user->email.'.'
-            : 'Unable to send password reset link.');
+            return back()->with('status', 'Password reset link sent to '.$user->email.'.');
+        }
+
+        return back()->with('error', 'Unable to send password reset link. Please try again.');
     }
 
     public function revokeSessions(Request $request, User $user)
@@ -57,6 +59,6 @@ class UserSecurityController extends Controller
             })
             ->log('revoked user sessions');
 
-        return back()->with('status', 'All active sessions for this user have been revoked.');
+        return back()->with('status', 'User sessions have been revoked.');
     }
 }

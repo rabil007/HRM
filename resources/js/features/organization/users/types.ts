@@ -24,6 +24,14 @@ export type EmployeeForLinking = LinkedEmployee & {
     user_id: number | null;
 };
 
+export type UserCapabilities = {
+    can_edit_global_identity: boolean;
+    can_delete_global_identity: boolean;
+    can_password_reset: boolean;
+    can_revoke_sessions: boolean;
+    can_manage_membership: boolean;
+};
+
 export type User = {
     id: number;
     company: { id: number; name: string | null } | null;
@@ -38,6 +46,7 @@ export type User = {
     two_factor_enabled?: boolean;
     created_at?: string;
     linked_employee?: LinkedEmployee | null;
+    capabilities?: UserCapabilities;
 };
 
 export type UserFormData = {

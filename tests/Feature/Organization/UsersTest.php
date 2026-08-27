@@ -418,7 +418,7 @@ test('user update can link and unlink an employee', function () {
     expect($employee->fresh()->user_id)->toBeNull();
 });
 
-test('user update requires matching password confirmation when changing password', function () {
+test('user update ignores password field and does not mutate the stored hash', function () {
     $auth = User::factory()->create();
     $this->actingAs($auth);
 
@@ -447,27 +447,31 @@ test('user update requires matching password confirmation when changing password
         'status' => 'active',
     ]);
 
+    $originalHash = bcrypt('original-password');
+
     $targetUser = User::query()->create([
         'company_id' => $company->id,
         'name' => 'Password User',
         'email' => 'password-user@example.com',
-        'password' => bcrypt('password123'),
+        'password' => $originalHash,
         'status' => 'active',
     ]);
 
     grantCompanyPermissions($auth, $company, ['users.update']);
 
-    $this->from('/organization/users')
-        ->put("/organization/users/{$targetUser->id}", [
-            'name' => 'Password User',
-            'email' => 'password-user@example.com',
-            'password' => 'new-password-123',
-            'password_confirmation' => 'different-password',
-            'role_id' => '',
-            'status' => 'active',
-        ])
-        ->assertRedirect('/organization/users')
-        ->assertSessionHasErrors('password');
+    // Submitting a password field via normal edit should be silently ignored
+    $this->put("/organization/users/{$targetUser->id}", [
+        'name' => 'Password User',
+        'email' => 'password-user@example.com',
+        'password' => 'new-password-123',
+        'password_confirmation' => 'new-password-123',
+        'role_id' => '',
+        'status' => 'active',
+    ])->assertRedirect('/organization/users');
+
+    // The stored password hash must not have changed
+    $refreshed = $targetUser->fresh();
+    expect($refreshed->password)->toBe($originalHash);
 });
 
 test('user directory index can be filtered by role', function () {
@@ -620,4 +624,94 @@ test('users directory can be filtered by presence and exposes two_factor_enabled
 
     $neverPayload = $usersNever->firstWhere('id', $neverUser->id);
     expect($neverPayload['two_factor_enabled'])->toBeFalse();
+});
+
+test('membership-only user is accessible via show() when active membership exists', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.view']);
+
+    // User whose home company is B but has an active membership in A
+    $memberUser = User::factory()->create(['company_id' => $companyB->id, 'status' => 'active']);
+    $memberUser->companies()->attach($companyA->id, ['status' => 'active']);
+
+    $this->actingAs($admin)
+        ->get("/organization/users/{$memberUser->id}")
+        ->assertOk();
+});
+
+test('membership-only user show() returns 404 when membership is inactive', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.view']);
+
+    $memberUser = User::factory()->create(['company_id' => $companyB->id, 'status' => 'active']);
+    $memberUser->companies()->attach($companyA->id, ['status' => 'inactive']);
+
+    $this->actingAs($admin)
+        ->get("/organization/users/{$memberUser->id}")
+        ->assertNotFound();
+});
+
+test('inactive membership excludes user from users directory', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.view']);
+
+    // User with INACTIVE membership in Company A
+    $inactiveMember = User::factory()->create(['company_id' => $companyB->id, 'status' => 'active']);
+    $inactiveMember->companies()->attach($companyA->id, ['status' => 'inactive']);
+
+    // User with ACTIVE membership in Company A
+    $activeMember = User::factory()->create(['company_id' => $companyB->id, 'status' => 'active']);
+    $activeMember->companies()->attach($companyA->id, ['status' => 'active']);
+
+    $response = $this->actingAs($admin)
+        ->get(route('organization.users'))
+        ->assertOk();
+
+    $ids = collect($response->viewData('page')['props']['users'])->pluck('id')->all();
+
+    expect($ids)->toContain($activeMember->id)
+        ->and($ids)->not->toContain($inactiveMember->id);
+});
+
+test('per-row capabilities are correctly set for home-company and membership-only users', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.view']);
+
+    // Home company user (company_id = A)
+    $homeUser = User::factory()->create(['company_id' => $companyA->id, 'status' => 'active']);
+
+    // Membership-only user (home company = B, membership in A)
+    $memberUser = User::factory()->create(['company_id' => $companyB->id, 'status' => 'active']);
+    $memberUser->companies()->attach($companyA->id, ['status' => 'active']);
+
+    $response = $this->actingAs($admin)
+        ->get(route('organization.users'))
+        ->assertOk();
+
+    $usersPayload = collect($response->viewData('page')['props']['users']);
+
+    $homePayload = $usersPayload->firstWhere('id', $homeUser->id);
+    $memberPayload = $usersPayload->firstWhere('id', $memberUser->id);
+
+    // Home-company user gets global identity capabilities
+    expect($homePayload['capabilities']['can_edit_global_identity'])->toBeTrue()
+        ->and($homePayload['capabilities']['can_delete_global_identity'])->toBeTrue()
+        ->and($homePayload['capabilities']['can_manage_membership'])->toBeTrue();
+
+    // Membership-only user must NOT have global identity capabilities
+    expect($memberPayload['capabilities']['can_edit_global_identity'])->toBeFalse()
+        ->and($memberPayload['capabilities']['can_delete_global_identity'])->toBeFalse()
+        ->and($memberPayload['capabilities']['can_manage_membership'])->toBeTrue();
 });

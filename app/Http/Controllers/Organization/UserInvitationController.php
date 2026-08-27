@@ -7,6 +7,7 @@ use App\Http\Requests\Organization\User\StoreUserInvitationRequest;
 use App\Models\UserInvitation;
 use App\Support\Users\InviteUser;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class UserInvitationController extends Controller
 {
@@ -42,19 +43,38 @@ class UserInvitationController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $invitation->company_id === $companyId, 404);
 
-        $invitation->update(['revoked_at' => now()]);
+        try {
+            DB::transaction(function () use ($invitation, $companyId, $request): void {
+                /** @var UserInvitation $locked */
+                $locked = UserInvitation::where('id', $invitation->id)->lockForUpdate()->firstOrFail();
 
-        activity()
-            ->causedBy($request->user())
-            ->performedOn($invitation)
-            ->withProperties([
-                'company_id' => $companyId,
-                'email' => $invitation->email,
-            ])
-            ->tap(function ($activity) use ($companyId): void {
-                $activity->company_id = $companyId;
-            })
-            ->log('revoked user invitation');
+                // Already accepted invitations must not be revoked
+                if ($locked->accepted_at !== null) {
+                    throw new \DomainException('Cannot revoke an already accepted invitation.');
+                }
+
+                if ($locked->revoked_at !== null) {
+                    // Already revoked — idempotent, nothing to do
+                    return;
+                }
+
+                $locked->update(['revoked_at' => now()]);
+
+                activity()
+                    ->causedBy($request->user())
+                    ->performedOn($locked)
+                    ->withProperties([
+                        'company_id' => $companyId,
+                        'email' => $locked->email,
+                    ])
+                    ->tap(function ($activity) use ($companyId): void {
+                        $activity->company_id = $companyId;
+                    })
+                    ->log('revoked user invitation');
+            });
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         return back()->with('success', 'Invitation revoked successfully.');
     }

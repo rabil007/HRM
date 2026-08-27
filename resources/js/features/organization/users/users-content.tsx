@@ -11,6 +11,7 @@ import {
     dataTableCellClass,
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { ListTableCrudActions } from '@/components/list-table-actions';
@@ -85,6 +86,12 @@ export function UsersContent({
     const canExport = useHasPermission('users.export');
     const canPasswordReset = useHasPermission('users.password_reset');
     const canRevokeSessions = useHasPermission('users.sessions.revoke');
+
+    // Controlled confirmation dialogs replacing native confirm()
+    const [passwordResetTarget, setPasswordResetTarget] = useState<User | null>(null);
+    const [revokeSessionsTarget, setRevokeSessionsTarget] = useState<User | null>(null);
+    const [revokeInvitationTarget, setRevokeInvitationTarget] = useState<UserInvitation | null>(null);
+
     const list = useServerPaginationFilters({
         url: '/organization/users',
         search: initialSearch,
@@ -415,28 +422,11 @@ export function UsersContent({
                                                     align="end"
                                                     className="w-48"
                                                 >
-                                                    {canPasswordReset && (
+                                                    {canPasswordReset && user.capabilities?.can_password_reset && (
                                                         <DropdownMenuItem
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-
-                                                                if (
-                                                                    confirm(
-                                                                        'Send a password reset link to this user?',
-                                                                    )
-                                                                ) {
-                                                                    router.post(
-                                                                        passwordReset.url(
-                                                                            {
-                                                                                user: user.id,
-                                                                            },
-                                                                        ),
-                                                                        {},
-                                                                        {
-                                                                            preserveScroll: true,
-                                                                        },
-                                                                    );
-                                                                }
+                                                                setPasswordResetTarget(user);
                                                             }}
                                                             className="cursor-pointer"
                                                         >
@@ -446,28 +436,11 @@ export function UsersContent({
                                                             </span>
                                                         </DropdownMenuItem>
                                                     )}
-                                                    {canRevokeSessions && (
+                                                    {canRevokeSessions && user.capabilities?.can_revoke_sessions && (
                                                         <DropdownMenuItem
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-
-                                                                if (
-                                                                    confirm(
-                                                                        'Revoke all active sessions for this user?',
-                                                                    )
-                                                                ) {
-                                                                    router.post(
-                                                                        revokeSessions.url(
-                                                                            {
-                                                                                user: user.id,
-                                                                            },
-                                                                        ),
-                                                                        {},
-                                                                        {
-                                                                            preserveScroll: true,
-                                                                        },
-                                                                    );
-                                                                }
+                                                                setRevokeSessionsTarget(user);
                                                             }}
                                                             className="cursor-pointer"
                                                         >
@@ -590,24 +563,7 @@ export function UsersContent({
                                                     className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-
-                                                        if (
-                                                            confirm(
-                                                                'Are you sure you want to revoke this invitation?',
-                                                            )
-                                                        ) {
-                                                            router.delete(
-                                                                destroyInvitation.url(
-                                                                    {
-                                                                        invitation:
-                                                                            invitation.id,
-                                                                    },
-                                                                ),
-                                                                {
-                                                                    preserveScroll: true,
-                                                                },
-                                                            );
-                                                        }
+                                                        setRevokeInvitationTarget(invitation);
                                                     }}
                                                 >
                                                     Revoke
@@ -658,6 +614,62 @@ export function UsersContent({
                 onOpenChange={crud.setIsDeleteDialogOpen}
                 user={crud.currentEntity}
                 onConfirm={confirmDelete}
+            />
+
+            {/* Password reset confirmation dialog */}
+            <ConfirmDeleteDialog
+                open={passwordResetTarget !== null}
+                onOpenChange={(open) => { if (!open) setPasswordResetTarget(null); }}
+                title="Send Password Reset Link"
+                description={passwordResetTarget ? `Send a password reset link to ${passwordResetTarget.email}?` : ''}
+                confirmText="Send Reset Link"
+                onConfirm={() => {
+                    if (passwordResetTarget) {
+                        router.post(
+                            passwordReset.url({ user: passwordResetTarget.id }),
+                            {},
+                            { preserveScroll: true },
+                        );
+                    }
+                    setPasswordResetTarget(null);
+                }}
+            />
+
+            {/* Revoke sessions confirmation dialog */}
+            <ConfirmDeleteDialog
+                open={revokeSessionsTarget !== null}
+                onOpenChange={(open) => { if (!open) setRevokeSessionsTarget(null); }}
+                title="Revoke Active Sessions"
+                description={revokeSessionsTarget ? `Revoke all active sessions for ${revokeSessionsTarget.email}? They will be signed out immediately.` : ''}
+                confirmText="Revoke Sessions"
+                onConfirm={() => {
+                    if (revokeSessionsTarget) {
+                        router.post(
+                            revokeSessions.url({ user: revokeSessionsTarget.id }),
+                            {},
+                            { preserveScroll: true },
+                        );
+                    }
+                    setRevokeSessionsTarget(null);
+                }}
+            />
+
+            {/* Revoke invitation confirmation dialog */}
+            <ConfirmDeleteDialog
+                open={revokeInvitationTarget !== null}
+                onOpenChange={(open) => { if (!open) setRevokeInvitationTarget(null); }}
+                title="Revoke Invitation"
+                description={revokeInvitationTarget ? `Revoke the invitation sent to ${revokeInvitationTarget.email}? They will no longer be able to accept it.` : ''}
+                confirmText="Revoke"
+                onConfirm={() => {
+                    if (revokeInvitationTarget) {
+                        router.delete(
+                            destroyInvitation.url({ invitation: revokeInvitationTarget.id }),
+                            { preserveScroll: true },
+                        );
+                    }
+                    setRevokeInvitationTarget(null);
+                }}
             />
         </OrganizationListPageShell>
     );

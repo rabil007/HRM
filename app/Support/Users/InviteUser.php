@@ -5,6 +5,7 @@ namespace App\Support\Users;
 use App\Mail\UserInvitationMail;
 use App\Models\User;
 use App\Models\UserInvitation;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -52,20 +53,27 @@ class InviteUser
 
     public function resend(UserInvitation $invitation): void
     {
-        if ($invitation->accepted_at !== null || $invitation->revoked_at !== null) {
-            throw new \DomainException('Cannot resend an accepted or revoked invitation.');
-        }
+        $token = DB::transaction(function () use ($invitation): string {
+            /** @var UserInvitation $locked */
+            $locked = UserInvitation::where('id', $invitation->id)->lockForUpdate()->firstOrFail();
 
-        // When resending, issue a fresh cryptographically random token (invalidating previous token)
-        // and extend expiration by 7 days
-        $token = Str::random(40);
+            if ($locked->accepted_at !== null || $locked->revoked_at !== null) {
+                throw new \DomainException('Cannot resend an accepted or revoked invitation.');
+            }
 
-        $invitation->update([
-            'token_hash' => hash('sha256', $token),
-            'expires_at' => now()->addDays(7),
-        ]);
+            // Issue a fresh cryptographically random token (invalidating previous token)
+            // and extend expiration by 7 days.
+            $newToken = Str::random(40);
 
-        $this->sendInvitationEmail($invitation, $token);
+            $locked->update([
+                'token_hash' => hash('sha256', $newToken),
+                'expires_at' => now()->addDays(7),
+            ]);
+
+            return $newToken;
+        });
+
+        $this->sendInvitationEmail($invitation->fresh(), $token);
 
         activity()
             ->causedBy(auth()->user())

@@ -4,13 +4,14 @@ namespace App\Mail;
 
 use App\Models\UserInvitation;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class UserInvitationMail extends Mailable
+class UserInvitationMail extends Mailable implements ShouldBeEncrypted
 {
     use Queueable, SerializesModels;
 

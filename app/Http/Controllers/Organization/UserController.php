@@ -29,7 +29,6 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
@@ -150,10 +149,12 @@ class UserController extends Controller
         $onlineThreshold = $now - (5 * 60);
         $recentThreshold = $now - (30 * 60);
 
+        $requestUser = request()->user();
         $users->setCollection(
-            $users->getCollection()->map(function (User $user) use ($roleByUserId, $employeeByUserId, $companyPayload, $onlineThreshold, $recentThreshold) {
+            $users->getCollection()->map(function (User $user) use ($roleByUserId, $employeeByUserId, $companyPayload, $onlineThreshold, $recentThreshold, $companyId, $requestUser) {
                 $role = $roleByUserId->get($user->id);
                 $latestActivity = $user->latest_activity ? (int) $user->latest_activity : null;
+                $isHomeCompanyUser = (int) $user->company_id === $companyId;
 
                 $presenceState = 'never';
                 if ($latestActivity) {
@@ -185,6 +186,13 @@ class UserController extends Controller
                     'two_factor_enabled' => $user->hasEnabledTwoFactorAuthentication(),
                     'created_at' => $user->created_at,
                     'linked_employee' => $this->linkedEmployeePayload($employeeByUserId->get($user->id)),
+                    'capabilities' => [
+                        'can_edit_global_identity' => $isHomeCompanyUser,
+                        'can_delete_global_identity' => $isHomeCompanyUser,
+                        'can_password_reset' => $isHomeCompanyUser && ($requestUser?->can('users.password_reset') ?? false),
+                        'can_revoke_sessions' => $isHomeCompanyUser && ($requestUser?->can('users.sessions.revoke') ?? false),
+                        'can_manage_membership' => true,
+                    ],
                 ];
             })
         );
@@ -234,7 +242,15 @@ class UserController extends Controller
     public function show(User $user)
     {
         $companyId = (int) request()->attributes->get('current_company_id');
-        abort_unless((int) $user->company_id === $companyId, 404);
+
+        // Allow if home company OR active company_user membership
+        $isHomeCompanyUser = (int) $user->company_id === $companyId;
+        $isMember = $isHomeCompanyUser
+            || $user->companies()
+                ->wherePivot('company_id', $companyId)
+                ->wherePivot('status', 'active')
+                ->exists();
+        abort_unless($isMember, 404);
 
         $role = DB::table('spatie_model_has_roles')
             ->join('spatie_roles', 'spatie_roles.id', '=', 'spatie_model_has_roles.role_id')
@@ -277,6 +293,13 @@ class UserController extends Controller
                 'created_at' => $user->created_at,
                 'updated_at' => $user->updated_at,
                 'linked_employee' => $this->linkedEmployeePayload($linkedEmployee),
+                'capabilities' => [
+                    'can_edit_global_identity' => $isHomeCompanyUser,
+                    'can_delete_global_identity' => $isHomeCompanyUser,
+                    'can_password_reset' => $isHomeCompanyUser && ($request->user()?->can('users.password_reset') ?? false),
+                    'can_revoke_sessions' => $isHomeCompanyUser && ($request->user()?->can('users.sessions.revoke') ?? false),
+                    'can_manage_membership' => true,
+                ],
             ],
             'roles' => $roles,
             'recent_activity' => RecentActivityQuery::for(
@@ -335,23 +358,10 @@ class UserController extends Controller
             : null;
         unset($data['role_id'], $data['employee_id']);
 
-        $data['status'] = $data['status'] ?? 'active';
+        // Password is never mutated via normal edit — use the Security panel.
+        unset($data['password']);
 
-        // Check LastCompanyOwnerGuard if status is changing to inactive or role is changing away from Owner
-        if ($data['status'] !== 'active' || (isset($roleId) && $roleId !== null)) {
-            $isRoleChangeToNonOwner = false;
-            if (isset($roleId)) {
-                $newRole = SpatieRole::find($roleId);
-                if (! $newRole || $newRole->name !== 'Owner') {
-                    $isRoleChangeToNonOwner = true;
-                }
-            }
-            if ($data['status'] !== 'active' || $isRoleChangeToNonOwner) {
-                if (! LastCompanyOwnerGuard::check($user, $companyId)) {
-                    return back()->with('error', 'Cannot perform this action: the company must have at least one active Owner.');
-                }
-            }
-        }
+        $data['status'] = $data['status'] ?? 'active';
 
         app(SyncUserEmployeeLink::class)->handle($user, $companyId, $employeeId);
 
@@ -377,21 +387,35 @@ class UserController extends Controller
             unset($data['avatar']);
         }
 
-        if (! empty($data['password'] ?? null)) {
-            $data['password'] = Hash::make((string) $data['password']);
-        } else {
-            unset($data['password']);
+        try {
+            DB::transaction(function () use ($user, $data, $companyId, $roleId) {
+                // LastCompanyOwnerGuard runs inside the transaction so its lockForUpdate()
+                // prevents a concurrent request from racing past the same guard.
+                $isRoleChangeToNonOwner = false;
+                if ($roleId !== null) {
+                    $newRole = SpatieRole::find($roleId);
+                    $isRoleChangeToNonOwner = ! $newRole || $newRole->name !== 'Owner';
+                }
+                if ($data['status'] !== 'active' || $isRoleChangeToNonOwner) {
+                    if (! LastCompanyOwnerGuard::check($user, $companyId)) {
+                        abort(400, 'Cannot perform this action: the company must have at least one active Owner.');
+                    }
+                }
+
+                $user->update($data);
+
+                UserMembershipAccess::syncRole(
+                    $user,
+                    $companyId,
+                    ! empty($roleId) ? (int) $roleId : null,
+                );
+            });
+        } catch (HttpException $e) {
+            if ($e->getStatusCode() === 400) {
+                return back()->with('error', $e->getMessage());
+            }
+            throw $e;
         }
-
-        DB::transaction(function () use ($user, $data, $companyId, $roleId) {
-            $user->update($data);
-
-            UserMembershipAccess::syncRole(
-                $user,
-                $companyId,
-                ! empty($roleId) ? (int) $roleId : null,
-            );
-        });
 
         return redirect()
             ->route('organization.users')

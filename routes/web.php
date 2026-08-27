@@ -239,8 +239,12 @@ Route::match(['get', 'post'], 'integrations/hikvision/webhook/{publicIntegration
     ->middleware('throttle:120,1')
     ->name('webhooks.hikvision');
 
-Route::get('/invitations/accept', [AcceptUserInvitationController::class, 'show'])->name('invitations.accept');
-Route::post('/invitations/accept', [AcceptUserInvitationController::class, 'store'])->name('invitations.accept.store');
+Route::get('/invitations/accept', [AcceptUserInvitationController::class, 'show'])
+    ->middleware('throttle:30,1')
+    ->name('invitations.accept');
+Route::post('/invitations/accept', [AcceptUserInvitationController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->name('invitations.accept.store');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['platform:view', 'privileged.2fa'])->group(function () {

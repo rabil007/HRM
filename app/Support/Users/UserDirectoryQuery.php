@@ -49,7 +49,8 @@ class UserDirectoryQuery
                     $inner->select(DB::raw(1))
                         ->from('company_user')
                         ->whereColumn('company_user.user_id', 'users.id')
-                        ->where('company_user.company_id', $companyId);
+                        ->where('company_user.company_id', $companyId)
+                        ->where('company_user.status', 'active');
                 });
         });
 
@@ -142,7 +143,8 @@ class UserDirectoryQuery
                     $inner->select(DB::raw(1))
                         ->from('company_user')
                         ->whereColumn('company_user.user_id', 'users.id')
-                        ->where('company_user.company_id', $companyId);
+                        ->where('company_user.company_id', $companyId)
+                        ->where('company_user.status', 'active');
                 });
         });
 
