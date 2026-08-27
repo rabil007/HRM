@@ -7,30 +7,46 @@ use App\Models\Company;
 use App\Models\Employee;
 use App\Models\User;
 use App\Models\UserInvitation;
+use App\Support\Auth\UserEmailIdentity;
 use App\Support\Users\UserMembershipAccess;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class AcceptUserInvitationController extends Controller
 {
-    public function show(Request $request)
+    public function show(Request $request): Response|RedirectResponse
     {
-        $token = $request->query('token');
-        if (! $token) {
+        $token = (string) $request->query('token');
+        if ($token === '') {
             abort(404);
         }
 
-        $invitation = UserInvitation::where('token_hash', hash('sha256', $token))->firstOrFail();
+        $invitation = UserInvitation::with(['company', 'role'])
+            ->where('token_hash', hash('sha256', $token))
+            ->first();
 
-        if ($invitation->expires_at->isPast() || $invitation->accepted_at || $invitation->revoked_at) {
+        if (! $invitation || $invitation->isInvalidOrExpired()) {
             return redirect()->route('login')->with('status', 'This invitation is invalid or has expired.');
         }
 
-        $userExists = User::where('email', $invitation->email)->exists();
+        $emailIdentity = new UserEmailIdentity;
+        $userExists = $emailIdentity->matchingNonDeleted($invitation->email)->exists();
+
+        $currentUser = $request->user();
+        $isAuthenticated = $currentUser !== null;
+        $isMatchingUser = false;
+
+        if ($isAuthenticated) {
+            $isMatchingUser = UserEmailIdentity::normalize($currentUser->email) === UserEmailIdentity::normalize($invitation->email);
+        } elseif ($userExists) {
+            $request->session()->put('url.intended', route('invitations.accept', ['token' => $token]));
+        }
 
         return Inertia::render('auth/accept-invitation', [
             'invitation' => [
@@ -40,75 +56,128 @@ class AcceptUserInvitationController extends Controller
             ],
             'token' => $token,
             'userExists' => $userExists,
+            'isAuthenticated' => $isAuthenticated,
+            'isMatchingUser' => $isMatchingUser,
+            'currentUserEmail' => $currentUser?->email,
         ]);
     }
 
     public function store(Request $request)
     {
-        $request->validate([
-            'token' => ['required', 'string'],
-            'password' => ['nullable', 'confirmed', Password::defaults()],
-        ]);
+        $token = (string) $request->input('token');
+        if ($token === '') {
+            abort(404);
+        }
 
-        $invitation = UserInvitation::where('token_hash', hash('sha256', $request->input('token')))->firstOrFail();
+        $invitation = UserInvitation::with('company')
+            ->where('token_hash', hash('sha256', $token))
+            ->first();
 
-        if ($invitation->expires_at->isPast() || $invitation->accepted_at || $invitation->revoked_at) {
+        if (! $invitation || $invitation->isInvalidOrExpired()) {
             return redirect()->route('login')->with('status', 'This invitation is invalid or has expired.');
         }
 
-        $user = User::where('email', $invitation->email)->first();
+        $emailIdentity = new UserEmailIdentity;
+        $normalizedEmail = UserEmailIdentity::normalize($invitation->email);
+        $userExists = $emailIdentity->matchingNonDeleted($normalizedEmail)->exists();
 
-        if (! $user) {
+        if ($userExists) {
+            // SECURITY BLOCKER 1: Existing global users MUST NOT bypass authentication or 2FA.
+            if (! Auth::check()) {
+                $request->session()->put('url.intended', route('invitations.accept', ['token' => $token]));
+
+                return redirect()->route('login')->with('status', 'Please sign in to accept this invitation.');
+            }
+
+            $currentUser = $request->user();
+            if (UserEmailIdentity::normalize($currentUser->email) !== $normalizedEmail) {
+                abort(403, 'Authenticated user does not match the invitation email.');
+            }
+        } else {
             $request->validate([
-                'password' => ['required', 'confirmed', Password::defaults()],
                 'name' => ['required', 'string', 'max:255'],
+                'password' => ['required', 'confirmed', Password::defaults()],
             ]);
         }
 
-        DB::transaction(function () use ($request, $invitation, &$user) {
-            $lockedInvitation = UserInvitation::where('id', $invitation->id)->lockForUpdate()->first();
+        try {
+            $user = DB::transaction(function () use ($request, $invitation, $userExists, $normalizedEmail) {
+                // SECURITY BLOCKER 2: Lock invitation and fail-fast with an exception if state is invalid!
+                $lockedInvitation = UserInvitation::where('id', $invitation->id)->lockForUpdate()->first();
 
-            if ($lockedInvitation->expires_at->isPast() || $lockedInvitation->accepted_at || $lockedInvitation->revoked_at) {
-                return redirect()->route('login')->with('status', 'This invitation is invalid or has expired.');
-            }
+                if (! $lockedInvitation || $lockedInvitation->isInvalidOrExpired()) {
+                    throw new \DomainException('This invitation is invalid or has expired.');
+                }
 
-            if (! $user) {
-                // Ensure duplicate email is not created concurrently
-                $user = User::where('email', $invitation->email)->lockForUpdate()->first();
-                if (! $user) {
-                    $user = User::create([
-                        'name' => $request->input('name') ?? $invitation->name,
-                        'email' => $invitation->email,
-                        'password' => Hash::make($request->input('password')),
-                        'company_id' => $invitation->company_id, // Default company
+                if ($userExists) {
+                    $targetUser = Auth::user();
+                } else {
+                    $existing = User::whereRaw('LOWER(email) = ?', [$normalizedEmail])->lockForUpdate()->first();
+                    if ($existing) {
+                        throw new \DomainException('An account with this email was just created. Please sign in to accept the invitation.');
+                    }
+
+                    $targetUser = User::create([
+                        'name' => (string) $request->input('name', $lockedInvitation->name ?? 'User'),
+                        'email' => $lockedInvitation->email,
+                        'password' => Hash::make((string) $request->input('password')),
+                        'company_id' => $lockedInvitation->company_id,
                         'status' => 'active',
                     ]);
                 }
-            }
 
-            // Link user to the company
-            $membershipAccess = app(UserMembershipAccess::class);
-            $company = Company::find($invitation->company_id);
-            $membershipAccess->linkToCompany($user, $company);
+                // Link user to company
+                $membershipAccess = app(UserMembershipAccess::class);
+                $company = Company::findOrFail($lockedInvitation->company_id);
+                $membershipAccess->linkToCompany($targetUser, $company);
 
-            if ($invitation->role_id) {
-                UserMembershipAccess::syncRole($user, $invitation->company_id, $invitation->role_id);
-            }
+                // Sync role if set and belongs to company
+                if ($lockedInvitation->role_id) {
+                    UserMembershipAccess::syncRole($targetUser, $lockedInvitation->company_id, $lockedInvitation->role_id);
+                }
 
-            if ($invitation->employee_id) {
-                Employee::where('id', $invitation->employee_id)
-                    ->where('company_id', $invitation->company_id)
-                    ->whereNull('user_id')
-                    ->update(['user_id' => $user->id]);
-            }
+                // Link employee if set, belongs to company, and is unlinked
+                if ($lockedInvitation->employee_id) {
+                    $employee = Employee::where('id', $lockedInvitation->employee_id)
+                        ->where('company_id', $lockedInvitation->company_id)
+                        ->whereNull('user_id')
+                        ->lockForUpdate()
+                        ->first();
 
-            $lockedInvitation->update([
-                'accepted_at' => now(),
-            ]);
-        });
+                    if ($employee) {
+                        $employee->update(['user_id' => $targetUser->id]);
+                    }
+                }
 
-        Auth::login($user);
+                $lockedInvitation->update([
+                    'accepted_at' => now(),
+                ]);
 
-        return redirect()->route('dashboard');
+                activity()
+                    ->causedBy($targetUser)
+                    ->performedOn($lockedInvitation)
+                    ->withProperties([
+                        'company_id' => $lockedInvitation->company_id,
+                        'user_id' => $targetUser->id,
+                        'email' => $lockedInvitation->email,
+                    ])
+                    ->tap(function ($activity) use ($lockedInvitation): void {
+                        $activity->company_id = $lockedInvitation->company_id;
+                    })
+                    ->log('accepted user invitation');
+
+                return $targetUser;
+            });
+        } catch (\DomainException $e) {
+            return redirect()->route('login')->with('status', $e->getMessage());
+        }
+
+        // Only log in NEW users
+        if (! $userExists) {
+            Auth::login($user);
+            $request->session()->regenerate();
+        }
+
+        return redirect()->route('dashboard')->with('success', 'Invitation accepted successfully.');
     }
 }

@@ -36,8 +36,14 @@ import { useOrganizationCrudList } from '@/hooks/use-organization-crud-list';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { buildListExportUrl } from '@/lib/build-list-export-url';
 import { toast } from '@/lib/toast';
-import { resend as resendInvitation, destroy as destroyInvitation } from '@/routes/organization/user-invitations';
-import { passwordReset, revokeSessions } from '@/routes/organization/users/security';
+import {
+    resend as resendInvitation,
+    destroy as destroyInvitation,
+} from '@/routes/organization/user-invitations';
+import {
+    passwordReset,
+    revokeSessions,
+} from '@/routes/organization/users/security';
 import type { PaginationMeta } from '@/types/pagination';
 import { UserCard } from './components/user-card';
 import { UserDeleteDialog } from './components/user-delete-dialog';
@@ -63,7 +69,12 @@ export function UsersContent({
     search: string;
     filters: { status: string; role_id: string; presence: string };
     roles: { id: number; name: string }[];
-    summary: { total: number; online: number; never: number; pending_invites: number };
+    summary: {
+        total: number;
+        online: number;
+        never: number;
+        pending_invites: number;
+    };
     invitations: UserInvitation[];
     employeesForLinking: EmployeeForLinking[];
 }) {
@@ -213,7 +224,7 @@ export function UsersContent({
                             <Button
                                 onClick={() => setIsInviteOpen(true)}
                                 variant="outline"
-                                className="h-12 rounded-xl px-6 bg-background/50 border-primary/20 hover:bg-primary/5"
+                                className="h-12 rounded-xl border-primary/20 bg-background/50 px-6 hover:bg-primary/5"
                             >
                                 <Mail className="mr-2 h-4 w-4" />
                                 Invite User
@@ -245,21 +256,37 @@ export function UsersContent({
             pagination={<Pagination {...list.paginationProps} label="users" />}
         >
             <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="glass-card flex flex-col justify-between rounded-2xl p-5">
-                    <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">Total Users</h3>
-                    <p className="mt-2 text-3xl font-bold tracking-tight">{summary.total}</p>
+                <div className="flex flex-col justify-between rounded-2xl glass-card p-5">
+                    <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
+                        Total Users
+                    </h3>
+                    <p className="mt-2 text-3xl font-bold tracking-tight">
+                        {summary.total}
+                    </p>
                 </div>
-                <div className="glass-card flex flex-col justify-between rounded-2xl p-5">
-                    <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">Online Now</h3>
-                    <p className="mt-2 text-3xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">{summary.online}</p>
+                <div className="flex flex-col justify-between rounded-2xl glass-card p-5">
+                    <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
+                        Online Now
+                    </h3>
+                    <p className="mt-2 text-3xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
+                        {summary.online}
+                    </p>
                 </div>
-                <div className="glass-card flex flex-col justify-between rounded-2xl p-5">
-                    <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">Never Logged In</h3>
-                    <p className="mt-2 text-3xl font-bold tracking-tight text-amber-600 dark:text-amber-500">{summary.never}</p>
+                <div className="flex flex-col justify-between rounded-2xl glass-card p-5">
+                    <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
+                        Never Logged In
+                    </h3>
+                    <p className="mt-2 text-3xl font-bold tracking-tight text-amber-600 dark:text-amber-500">
+                        {summary.never}
+                    </p>
                 </div>
-                <div className="glass-card flex flex-col justify-between rounded-2xl p-5 opacity-50">
-                    <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">Pending Invites</h3>
-                    <p className="mt-2 text-3xl font-bold tracking-tight">{summary.pending_invites}</p>
+                <div className="flex flex-col justify-between rounded-2xl glass-card p-5 opacity-50">
+                    <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
+                        Pending Invites
+                    </h3>
+                    <p className="mt-2 text-3xl font-bold tracking-tight">
+                        {summary.pending_invites}
+                    </p>
                 </div>
             </div>
 
@@ -333,31 +360,45 @@ export function UsersContent({
                                                 }
                                             />
                                         ) : null}
-                                            <span className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                                {user.status ?? '—'}
-                                            </span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        <div className="flex items-center gap-2">
-                                            <div className={`h-2 w-2 rounded-full ${user.presence === 'online' ? 'bg-emerald-500' : user.presence === 'recent' ? 'bg-amber-500' : 'bg-muted-foreground/30'}`} />
-                                            <span className="text-sm font-medium">
-                                                {user.presence === 'online' ? 'Online' : user.presence === 'recent' ? 'Recently active' : user.presence === 'offline' ? 'Offline' : 'Never'}
-                                            </span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {user.two_factor_enabled ? (
-                                            <span className="text-emerald-600 dark:text-emerald-400 font-medium">Enabled</span>
-                                        ) : (
-                                            <span className="text-muted-foreground">Disabled</span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell
-                                        className={dataTableActionsCellClass()}
-                                    >
+                                        <span className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                            {user.status ?? '—'}
+                                        </span>
+                                    </div>
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    <div className="flex items-center gap-2">
+                                        <div
+                                            className={`h-2 w-2 rounded-full ${user.presence === 'online' ? 'bg-emerald-500' : user.presence === 'recent' ? 'bg-amber-500' : 'bg-muted-foreground/30'}`}
+                                        />
+                                        <span className="text-sm font-medium">
+                                            {user.presence === 'online'
+                                                ? 'Online'
+                                                : user.presence === 'recent'
+                                                  ? 'Recently active'
+                                                  : user.presence === 'offline'
+                                                    ? 'Offline'
+                                                    : 'Never'}
+                                        </span>
+                                    </div>
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {user.two_factor_enabled ? (
+                                        <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                                            Enabled
+                                        </span>
+                                    ) : (
+                                        <span className="text-muted-foreground">
+                                            Disabled
+                                        </span>
+                                    )}
+                                </TableCell>
+                                <TableCell
+                                    className={dataTableActionsCellClass()}
+                                >
                                     <div className="flex items-center justify-end gap-1">
-                                        {canUpdate && (canPasswordReset || canRevokeSessions) ? (
+                                        {canUpdate &&
+                                        (canPasswordReset ||
+                                            canRevokeSessions) ? (
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <Button
@@ -370,20 +411,39 @@ export function UsersContent({
                                                         <Shield className="h-4 w-4" />
                                                     </Button>
                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-48">
+                                                <DropdownMenuContent
+                                                    align="end"
+                                                    className="w-48"
+                                                >
                                                     {canPasswordReset && (
                                                         <DropdownMenuItem
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
 
-                                                                if (confirm('Send a password reset link to this user?')) {
-                                                                    router.post(passwordReset.url({ user: user.id }), {}, { preserveScroll: true });
+                                                                if (
+                                                                    confirm(
+                                                                        'Send a password reset link to this user?',
+                                                                    )
+                                                                ) {
+                                                                    router.post(
+                                                                        passwordReset.url(
+                                                                            {
+                                                                                user: user.id,
+                                                                            },
+                                                                        ),
+                                                                        {},
+                                                                        {
+                                                                            preserveScroll: true,
+                                                                        },
+                                                                    );
                                                                 }
                                                             }}
                                                             className="cursor-pointer"
                                                         >
                                                             <KeyRound className="mr-2 h-4 w-4" />
-                                                            <span>Reset Password</span>
+                                                            <span>
+                                                                Reset Password
+                                                            </span>
                                                         </DropdownMenuItem>
                                                     )}
                                                     {canRevokeSessions && (
@@ -391,14 +451,30 @@ export function UsersContent({
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
 
-                                                                if (confirm('Revoke all active sessions for this user?')) {
-                                                                    router.post(revokeSessions.url({ user: user.id }), {}, { preserveScroll: true });
+                                                                if (
+                                                                    confirm(
+                                                                        'Revoke all active sessions for this user?',
+                                                                    )
+                                                                ) {
+                                                                    router.post(
+                                                                        revokeSessions.url(
+                                                                            {
+                                                                                user: user.id,
+                                                                            },
+                                                                        ),
+                                                                        {},
+                                                                        {
+                                                                            preserveScroll: true,
+                                                                        },
+                                                                    );
                                                                 }
                                                             }}
                                                             className="cursor-pointer"
                                                         >
                                                             <LogOut className="mr-2 h-4 w-4" />
-                                                            <span>Revoke Sessions</span>
+                                                            <span>
+                                                                Revoke Sessions
+                                                            </span>
                                                         </DropdownMenuItem>
                                                     )}
                                                 </DropdownMenuContent>
@@ -437,33 +513,52 @@ export function UsersContent({
 
             {invitations.length > 0 ? (
                 <div className="mt-12">
-                    <h2 className="mb-4 text-xl font-bold tracking-tight">Pending Invitations</h2>
+                    <h2 className="mb-4 text-xl font-bold tracking-tight">
+                        Pending Invitations
+                    </h2>
                     <OrganizationDataTable minWidth="min-w-[800px]">
                         <TableHeader>
                             <DataTableHeaderRow>
-                                <DataTableHead className="pl-5">Email</DataTableHead>
+                                <DataTableHead className="pl-5">
+                                    Email
+                                </DataTableHead>
                                 <DataTableHead>Name</DataTableHead>
                                 <DataTableHead>Role</DataTableHead>
                                 <DataTableHead>Expires</DataTableHead>
-                                <DataTableHead className="text-right">Actions</DataTableHead>
+                                <DataTableHead className="text-right">
+                                    Actions
+                                </DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>
                             {invitations.map((invitation) => (
-                                <TableRow key={invitation.id} className={dataTableBodyRowClass()}>
-                                    <TableCell className={dataTableCellPrimaryClass()}>
+                                <TableRow
+                                    key={invitation.id}
+                                    className={dataTableBodyRowClass()}
+                                >
+                                    <TableCell
+                                        className={dataTableCellPrimaryClass()}
+                                    >
                                         {invitation.email}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        {invitation.name || <span className="text-muted-foreground italic">None</span>}
+                                        {invitation.name || (
+                                            <span className="text-muted-foreground italic">
+                                                None
+                                            </span>
+                                        )}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
                                         {invitation.role?.name || '—'}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        {new Date(invitation.expires_at).toLocaleDateString()}
+                                        {new Date(
+                                            invitation.expires_at,
+                                        ).toLocaleDateString()}
                                     </TableCell>
-                                    <TableCell className={dataTableActionsCellClass()}>
+                                    <TableCell
+                                        className={dataTableActionsCellClass()}
+                                    >
                                         <div className="flex justify-end gap-2">
                                             {canCreate ? (
                                                 <Button
@@ -471,9 +566,18 @@ export function UsersContent({
                                                     size="sm"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        router.post(resendInvitation.url({ invitation: invitation.id }), {}, {
-                                                            preserveScroll: true,
-                                                        });
+                                                        router.post(
+                                                            resendInvitation.url(
+                                                                {
+                                                                    invitation:
+                                                                        invitation.id,
+                                                                },
+                                                            ),
+                                                            {},
+                                                            {
+                                                                preserveScroll: true,
+                                                            },
+                                                        );
                                                     }}
                                                 >
                                                     Resend
@@ -487,10 +591,22 @@ export function UsersContent({
                                                     onClick={(e) => {
                                                         e.stopPropagation();
 
-                                                        if (confirm('Are you sure you want to revoke this invitation?')) {
-                                                            router.delete(destroyInvitation.url({ invitation: invitation.id }), {
-                                                                preserveScroll: true,
-                                                            });
+                                                        if (
+                                                            confirm(
+                                                                'Are you sure you want to revoke this invitation?',
+                                                            )
+                                                        ) {
+                                                            router.delete(
+                                                                destroyInvitation.url(
+                                                                    {
+                                                                        invitation:
+                                                                            invitation.id,
+                                                                    },
+                                                                ),
+                                                                {
+                                                                    preserveScroll: true,
+                                                                },
+                                                            );
                                                         }
                                                     }}
                                                 >
@@ -527,7 +643,13 @@ export function UsersContent({
                 onOpenChange={crud.setIsFiltersOpen}
                 value={filters}
                 onChange={handleFiltersChange}
-                onReset={() => handleFiltersChange({ status: '', role_id: '', presence: '' })}
+                onReset={() =>
+                    handleFiltersChange({
+                        status: '',
+                        role_id: '',
+                        presence: '',
+                    })
+                }
                 roles={roles}
             />
 

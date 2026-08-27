@@ -1,6 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { Mail, CheckCircle2 } from 'lucide-react';
-import { useEffect } from 'react';
+import { CheckCircle2, Info, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
@@ -35,12 +34,14 @@ export function UserInvitationSheet({
         role_id: '',
     });
 
-    useEffect(() => {
-        if (!open) {
+    const handleOpenChange = (nextOpen: boolean) => {
+        if (!nextOpen) {
             form.reset();
             form.clearErrors();
         }
-    }, [open]);
+
+        onOpenChange(nextOpen);
+    };
 
     const onSubmit = () => {
         form.post(storeInvitation.url(), {
@@ -58,9 +59,9 @@ export function UserInvitationSheet({
     };
 
     return (
-        <Sheet open={open} onOpenChange={onOpenChange}>
+        <Sheet open={open} onOpenChange={handleOpenChange}>
             <SheetContent
-                className="flex w-full flex-col p-0 sm:max-w-md border-l-0 shadow-2xl overflow-y-auto overflow-x-hidden"
+                className="flex w-full flex-col overflow-x-hidden overflow-y-auto border-l-0 p-0 shadow-2xl sm:max-w-md"
                 side="right"
             >
                 <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 p-6">
@@ -75,13 +76,31 @@ export function UserInvitationSheet({
                 </div>
 
                 <div className="flex-1 space-y-8 p-6">
+                    <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3.5 text-xs text-blue-800 dark:text-blue-200">
+                        <div className="flex items-start gap-2.5">
+                            <Info className="mt-0.5 size-4 shrink-0 text-blue-500" />
+                            <div className="space-y-1">
+                                <p className="font-semibold">
+                                    How invitations work
+                                </p>
+                                <p className="leading-relaxed text-muted-foreground">
+                                    Recipients with an existing account sign in
+                                    with their existing credentials to accept
+                                    membership. New users will be prompted to
+                                    set up their account and password.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="space-y-6">
                         <div className="space-y-2">
                             <Label
                                 htmlFor="email"
                                 className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
-                                Email Address <span className="text-destructive">*</span>
+                                Email Address{' '}
+                                <span className="text-destructive">*</span>
                             </Label>
                             <Input
                                 id="email"
@@ -121,7 +140,8 @@ export function UserInvitationSheet({
                                 </div>
                             ) : null}
                             <p className="text-xs text-muted-foreground">
-                                Providing a name helps personalize the invitation email.
+                                Providing a name helps personalize the
+                                invitation email.
                             </p>
                         </div>
 
@@ -156,7 +176,6 @@ export function UserInvitationSheet({
                                 </div>
                             ) : null}
                         </div>
-
                     </div>
                 </div>
 

@@ -1,9 +1,17 @@
-import { Head, useForm } from '@inertiajs/react';
-import { ArrowRight, Lock, User as UserIcon } from 'lucide-react';
+import { Head, Link, useForm } from '@inertiajs/react';
+import {
+    AlertTriangle,
+    ArrowRight,
+    CheckCircle2,
+    Lock,
+    LogIn,
+    User as UserIcon,
+} from 'lucide-react';
 import PasswordInput from '@/components/password-input';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
+import { login } from '@/routes';
 import { store } from '@/routes/invitations/accept';
 
 type Props = {
@@ -14,6 +22,9 @@ type Props = {
     };
     token: string;
     userExists: boolean;
+    isAuthenticated: boolean;
+    isMatchingUser: boolean;
+    currentUserEmail?: string | null;
 };
 
 const masterDataFieldLabelClass =
@@ -53,7 +64,14 @@ function IconInput({
     );
 }
 
-export default function AcceptInvitation({ invitation, token, userExists }: Props) {
+export default function AcceptInvitation({
+    invitation,
+    token,
+    userExists,
+    isAuthenticated,
+    isMatchingUser,
+    currentUserEmail,
+}: Props) {
     const { data, setData, post, processing, errors } = useForm({
         token: token,
         name: invitation.name || '',
@@ -72,108 +90,190 @@ export default function AcceptInvitation({ invitation, token, userExists }: Prop
 
             <div className="mb-6 rounded-xl border border-border bg-muted/30 p-4 text-center">
                 <p className="text-sm text-muted-foreground">
-                    You have been invited to join <span className="font-semibold text-foreground">{invitation.company}</span>
+                    You have been invited to join{' '}
+                    <span className="font-semibold text-foreground">
+                        {invitation.company}
+                    </span>
                     <br />
-                    as <span className="font-semibold text-foreground">{invitation.email}</span>
+                    as{' '}
+                    <span className="font-semibold text-foreground">
+                        {invitation.email}
+                    </span>
                 </p>
             </div>
 
-            <form
-                onSubmit={submit}
-                className="flex flex-col gap-4"
-            >
-                {!userExists && (
-                    <>
-                        <div className="flex flex-col gap-2">
-                            <label
-                                htmlFor="name"
-                                className={masterDataFieldLabelClass}
-                            >
-                                Your Name
-                            </label>
-                            <IconInput
-                                icon={<UserIcon className="size-4" />}
-                                error={errors.name}
-                            >
-                                <input
-                                    id="name"
-                                    type="text"
-                                    name="name"
-                                    required
-                                    autoFocus
-                                    placeholder="Jane Doe"
-                                    className="w-full"
-                                    value={data.name}
-                                    onChange={(e) => setData('name', e.target.value)}
-                                />
-                            </IconInput>
+            {userExists && !isAuthenticated ? (
+                <div className="space-y-6">
+                    <div className="rounded-xl border border-border bg-card p-5 text-sm">
+                        <div className="flex items-start gap-3">
+                            <LogIn className="mt-0.5 size-5 shrink-0 text-primary" />
+                            <div className="space-y-1">
+                                <p className="font-semibold text-foreground">
+                                    Existing Account Found
+                                </p>
+                                <p className="leading-relaxed text-muted-foreground">
+                                    An OMS-HRM account already exists for{' '}
+                                    <strong className="text-foreground">
+                                        {invitation.email}
+                                    </strong>
+                                    . Please sign in to verify your identity and
+                                    accept membership.
+                                </p>
+                            </div>
                         </div>
+                    </div>
 
-                        <div className="flex flex-col gap-2">
-                            <label
-                                htmlFor="password"
-                                className={masterDataFieldLabelClass}
-                            >
-                                Create Password
-                            </label>
-                            <IconInput
-                                icon={<Lock className="size-4" />}
-                                error={errors.password}
-                            >
-                                <PasswordInput
-                                    id="password"
-                                    name="password"
-                                    required
-                                    placeholder="••••••••"
-                                    value={data.password}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData('password', e.target.value)}
-                                />
-                            </IconInput>
+                    <Button
+                        asChild
+                        className="h-11 w-full rounded-xl font-semibold"
+                    >
+                        <Link href={login.url()}>
+                            Sign In to Accept
+                            <ArrowRight className="size-4" />
+                        </Link>
+                    </Button>
+                </div>
+            ) : userExists && isAuthenticated && !isMatchingUser ? (
+                <div className="space-y-6">
+                    <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-5 text-sm text-destructive">
+                        <div className="flex items-start gap-3">
+                            <AlertTriangle className="mt-0.5 size-5 shrink-0" />
+                            <div className="space-y-1">
+                                <p className="font-semibold">
+                                    Account Mismatch
+                                </p>
+                                <p className="leading-relaxed">
+                                    You are currently signed in as{' '}
+                                    <strong>{currentUserEmail}</strong>, but
+                                    this invitation was issued to{' '}
+                                    <strong>{invitation.email}</strong>.
+                                </p>
+                                <p className="text-xs opacity-90">
+                                    Please sign out and sign in with the invited
+                                    account to accept.
+                                </p>
+                            </div>
                         </div>
-
-                        <div className="flex flex-col gap-2">
-                            <label
-                                htmlFor="password_confirmation"
-                                className={masterDataFieldLabelClass}
-                            >
-                                Confirm Password
-                            </label>
-                            <IconInput
-                                icon={<Lock className="size-4" />}
-                            >
-                                <PasswordInput
-                                    id="password_confirmation"
-                                    name="password_confirmation"
-                                    required
-                                    placeholder="••••••••"
-                                    value={data.password_confirmation}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData('password_confirmation', e.target.value)}
-                                />
-                            </IconInput>
+                    </div>
+                </div>
+            ) : (
+                <form onSubmit={submit} className="flex flex-col gap-4">
+                    {userExists && isAuthenticated && isMatchingUser ? (
+                        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-200">
+                            <div className="flex items-center gap-2.5">
+                                <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
+                                <p>
+                                    Signed in as{' '}
+                                    <strong>{currentUserEmail}</strong>. Click
+                                    below to accept membership in{' '}
+                                    <strong>{invitation.company}</strong>.
+                                </p>
+                            </div>
                         </div>
-                    </>
-                )}
-
-                <div className="h-px bg-border/60 my-2" />
-
-                <Button
-                    type="submit"
-                    disabled={processing}
-                    className="h-11 w-full rounded-xl font-semibold"
-                >
-                    {processing ? (
-                        <>
-                            <Spinner />
-                            Accepting...
-                        </>
                     ) : (
                         <>
-                            Accept Invitation
-                            <ArrowRight className="size-4" />
+                            <div className="flex flex-col gap-2">
+                                <label
+                                    htmlFor="name"
+                                    className={masterDataFieldLabelClass}
+                                >
+                                    Your Name
+                                </label>
+                                <IconInput
+                                    icon={<UserIcon className="size-4" />}
+                                    error={errors.name}
+                                >
+                                    <input
+                                        id="name"
+                                        type="text"
+                                        name="name"
+                                        required
+                                        autoFocus
+                                        placeholder="Jane Doe"
+                                        className="w-full"
+                                        value={data.name}
+                                        onChange={(e) =>
+                                            setData('name', e.target.value)
+                                        }
+                                    />
+                                </IconInput>
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                                <label
+                                    htmlFor="password"
+                                    className={masterDataFieldLabelClass}
+                                >
+                                    Create Password
+                                </label>
+                                <IconInput
+                                    icon={<Lock className="size-4" />}
+                                    error={errors.password}
+                                >
+                                    <PasswordInput
+                                        id="password"
+                                        name="password"
+                                        required
+                                        placeholder="••••••••"
+                                        value={data.password}
+                                        onChange={(
+                                            e: React.ChangeEvent<HTMLInputElement>,
+                                        ) =>
+                                            setData('password', e.target.value)
+                                        }
+                                    />
+                                </IconInput>
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                                <label
+                                    htmlFor="password_confirmation"
+                                    className={masterDataFieldLabelClass}
+                                >
+                                    Confirm Password
+                                </label>
+                                <IconInput icon={<Lock className="size-4" />}>
+                                    <PasswordInput
+                                        id="password_confirmation"
+                                        name="password_confirmation"
+                                        required
+                                        placeholder="••••••••"
+                                        value={data.password_confirmation}
+                                        onChange={(
+                                            e: React.ChangeEvent<HTMLInputElement>,
+                                        ) =>
+                                            setData(
+                                                'password_confirmation',
+                                                e.target.value,
+                                            )
+                                        }
+                                    />
+                                </IconInput>
+                            </div>
                         </>
                     )}
-                </Button>
-            </form>
+
+                    <div className="my-2 h-px bg-border/60" />
+
+                    <Button
+                        type="submit"
+                        disabled={processing}
+                        className="h-11 w-full rounded-xl font-semibold"
+                    >
+                        {processing ? (
+                            <>
+                                <Spinner />
+                                Accepting...
+                            </>
+                        ) : (
+                            <>
+                                Accept Invitation
+                                <ArrowRight className="size-4" />
+                            </>
+                        )}
+                    </Button>
+                </form>
+            )}
         </>
     );
 }

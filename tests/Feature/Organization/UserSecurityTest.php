@@ -1,0 +1,143 @@
+<?php
+
+use App\Models\Company;
+use App\Models\User;
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
+
+test('authorized users can send an admin password reset link to a home-company user', function () {
+    Notification::fake();
+
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $company = $pair['companyA'];
+    grantCompanyPermissions($admin, $company, ['users.password_reset']);
+
+    $targetUser = User::factory()->create([
+        'company_id' => $company->id,
+        'email' => 'target@example.com',
+        'status' => 'active',
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->post(route('organization.users.security.password-reset', $targetUser));
+
+    $response->assertRedirect();
+    $response->assertSessionHas('status', 'Password reset link sent to target@example.com.');
+
+    Notification::assertSentTo($targetUser, ResetPassword::class);
+});
+
+test('unauthorized users cannot send a password reset link', function () {
+    Notification::fake();
+
+    $pair = makeCompanyAuthorizationPair();
+    $user = $pair['user'];
+    $company = $pair['companyA'];
+    grantCompanyPermissions($user, $company, ['users.view']); // Missing users.password_reset
+
+    $targetUser = User::factory()->create([
+        'company_id' => $company->id,
+        'email' => 'target@example.com',
+        'status' => 'active',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->post(route('organization.users.security.password-reset', $targetUser));
+
+    $response->assertForbidden();
+    Notification::assertNothingSent();
+});
+
+test('administrators cannot send password reset link to a user belonging to another home company', function () {
+    Notification::fake();
+
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.password_reset']);
+
+    // Target user belongs natively to Company B, but has a membership in Company A
+    $targetUser = User::factory()->create([
+        'company_id' => $companyB->id,
+        'status' => 'active',
+    ]);
+    $targetUser->companies()->attach($companyA->id, ['status' => 'active']);
+
+    $response = $this->actingAs($admin)
+        ->post(route('organization.users.security.password-reset', $targetUser));
+
+    $response->assertForbidden();
+    Notification::assertNothingSent();
+});
+
+test('authorized users can revoke all sessions for a home-company user', function () {
+    config(['session.driver' => 'database']);
+
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $company = $pair['companyA'];
+    grantCompanyPermissions($admin, $company, ['users.sessions.revoke']);
+
+    $targetUser = User::factory()->create([
+        'company_id' => $company->id,
+        'status' => 'active',
+    ]);
+    $tokenBefore = $targetUser->remember_token;
+
+    DB::table('sessions')->insert([
+        'id' => 'target-browser-session',
+        'user_id' => $targetUser->id,
+        'ip_address' => '127.0.0.1',
+        'user_agent' => 'Pest',
+        'payload' => 'payload',
+        'last_activity' => time(),
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->post(route('organization.users.security.revoke-sessions', $targetUser));
+
+    $response->assertRedirect();
+    $response->assertSessionHas('status', 'All active sessions for this user have been revoked.');
+
+    expect($targetUser->fresh()->remember_token)->not->toBe($tokenBefore)
+        ->and(DB::table('sessions')->where('user_id', $targetUser->id)->count())->toBe(0);
+});
+
+test('unauthorized users cannot revoke sessions', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $user = $pair['user'];
+    $company = $pair['companyA'];
+    grantCompanyPermissions($user, $company, ['users.view']); // Missing users.sessions.revoke
+
+    $targetUser = User::factory()->create([
+        'company_id' => $company->id,
+        'status' => 'active',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->post(route('organization.users.security.revoke-sessions', $targetUser));
+
+    $response->assertForbidden();
+});
+
+test('administrators cannot revoke sessions for a user belonging to another home company', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.sessions.revoke']);
+
+    $targetUser = User::factory()->create([
+        'company_id' => $companyB->id,
+        'status' => 'active',
+    ]);
+    $targetUser->companies()->attach($companyA->id, ['status' => 'active']);
+
+    $response = $this->actingAs($admin)
+        ->post(route('organization.users.security.revoke-sessions', $targetUser));
+
+    $response->assertForbidden();
+});

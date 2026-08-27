@@ -22,7 +22,12 @@ export default function Users({
     search: string;
     filters: { status: string; role_id: string; presence: string };
     roles: { id: number; name: string }[];
-    summary: { total: number; online: number; never: number; pending_invites: number };
+    summary: {
+        total: number;
+        online: number;
+        never: number;
+        pending_invites: number;
+    };
     invitations: UserInvitation[];
     employees_for_linking: EmployeeForLinking[];
 }) {

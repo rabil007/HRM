@@ -418,6 +418,58 @@ test('user update can link and unlink an employee', function () {
     expect($employee->fresh()->user_id)->toBeNull();
 });
 
+test('user update requires matching password confirmation when changing password', function () {
+    $auth = User::factory()->create();
+    $this->actingAs($auth);
+
+    $country = Country::query()->create([
+        'code' => 'PWD',
+        'name' => 'Passwordland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'PWD',
+        'name' => 'Password Currency',
+        'symbol' => 'P$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Password Co',
+        'slug' => 'password-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $targetUser = User::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Password User',
+        'email' => 'password-user@example.com',
+        'password' => bcrypt('password123'),
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($auth, $company, ['users.update']);
+
+    $this->from('/organization/users')
+        ->put("/organization/users/{$targetUser->id}", [
+            'name' => 'Password User',
+            'email' => 'password-user@example.com',
+            'password' => 'new-password-123',
+            'password_confirmation' => 'different-password',
+            'role_id' => '',
+            'status' => 'active',
+        ])
+        ->assertRedirect('/organization/users')
+        ->assertSessionHasErrors('password');
+});
+
 test('user directory index can be filtered by role', function () {
     $auth = User::factory()->create();
     $this->actingAs($auth);
@@ -471,4 +523,101 @@ test('user directory index can be filtered by role', function () {
 
     expect($ids)->toContain($userWithRole->id);
     expect($ids)->not->toContain($otherUser->id);
+});
+
+test('users directory lists both home-company users and multi-company members', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $companyA = $pair['companyA'];
+    $companyB = $pair['companyB'];
+    grantCompanyPermissions($admin, $companyA, ['users.view']);
+
+    // User 1: home company is Company A
+    $homeUser = User::factory()->create([
+        'company_id' => $companyA->id,
+        'status' => 'active',
+    ]);
+
+    // User 2: home company is Company B, but has membership in Company A
+    $memberUser = User::factory()->create([
+        'company_id' => $companyB->id,
+        'status' => 'active',
+    ]);
+    $memberUser->companies()->attach($companyA->id, ['status' => 'active']);
+
+    // User 3: belongs only to Company B
+    $otherCompanyUser = User::factory()->create([
+        'company_id' => $companyB->id,
+        'status' => 'active',
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->get(route('organization.users'))
+        ->assertOk();
+
+    $ids = collect($response->viewData('page')['props']['users'])->pluck('id')->all();
+
+    expect($ids)->toContain($homeUser->id)
+        ->and($ids)->toContain($memberUser->id)
+        ->and($ids)->not->toContain($otherCompanyUser->id);
+});
+
+test('users directory can be filtered by presence and exposes two_factor_enabled as boolean', function () {
+    config(['session.driver' => 'database']);
+
+    $pair = makeCompanyAuthorizationPair();
+    $admin = $pair['user'];
+    $company = $pair['companyA'];
+    grantCompanyPermissions($admin, $company, ['users.view']);
+
+    // Online user (active session 2 minutes ago) with confirmed 2FA
+    $onlineUser = User::factory()->withTwoFactor()->create([
+        'company_id' => $company->id,
+        'status' => 'active',
+    ]);
+    DB::table('sessions')->insert([
+        'id' => 'online-session',
+        'user_id' => $onlineUser->id,
+        'ip_address' => '127.0.0.1',
+        'user_agent' => 'Pest',
+        'payload' => 'payload',
+        'last_activity' => time() - 120, // 2 mins ago
+    ]);
+
+    // Never-active user (no login, no session) without 2FA
+    $neverUser = User::factory()->create([
+        'company_id' => $company->id,
+        'status' => 'active',
+        'last_login_at' => null,
+    ]);
+
+    // Filter by online presence
+    $responseOnline = $this->actingAs($admin)
+        ->get(route('organization.users', ['presence' => 'online']))
+        ->assertOk();
+
+    $usersOnline = collect($responseOnline->viewData('page')['props']['users']);
+    $idsOnline = $usersOnline->pluck('id')->all();
+
+    expect($idsOnline)->toContain($onlineUser->id)
+        ->and($idsOnline)->not->toContain($neverUser->id);
+
+    $onlinePayload = $usersOnline->firstWhere('id', $onlineUser->id);
+    expect($onlinePayload['two_factor_enabled'])->toBeTrue()
+        ->and($onlinePayload)->not->toHaveKey('two_factor_secret')
+        ->and($onlinePayload)->not->toHaveKey('two_factor_recovery_codes');
+
+    // Filter by never presence
+    $responseNever = $this->actingAs($admin)
+        ->get(route('organization.users', ['presence' => 'never']))
+        ->assertOk();
+
+    $usersNever = collect($responseNever->viewData('page')['props']['users']);
+    $idsNever = $usersNever->pluck('id')->all();
+
+    expect($idsNever)->toContain($neverUser->id)
+        ->and($idsNever)->not->toContain($onlineUser->id);
+
+    $neverPayload = $usersNever->firstWhere('id', $neverUser->id);
+    expect($neverPayload['two_factor_enabled'])->toBeFalse();
 });

@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Organization\User;
 
+use App\Support\Employees\ActiveCompanyEmployeeRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreUserInvitationRequest extends FormRequest
 {
@@ -12,7 +14,7 @@ class StoreUserInvitationRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('users.create');
+        return $this->user()?->can('users.create') ?? false;
     }
 
     /**
@@ -22,11 +24,21 @@ class StoreUserInvitationRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
         return [
             'email' => ['required', 'string', 'email', 'max:255'],
             'name' => ['nullable', 'string', 'max:255'],
-            'role_id' => ['nullable', 'integer', 'exists:spatie_roles,id'],
-            'employee_id' => ['nullable', 'integer', 'exists:employees,id'],
+            'role_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('spatie_roles', 'id')->where(fn ($query) => $query->where('company_id', $companyId)),
+            ],
+            'employee_id' => [
+                'nullable',
+                'integer',
+                ActiveCompanyEmployeeRule::exists($companyId)->whereNull('user_id'),
+            ],
         ];
     }
 }

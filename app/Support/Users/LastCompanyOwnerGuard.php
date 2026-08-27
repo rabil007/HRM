@@ -9,47 +9,57 @@ use Spatie\Permission\Models\Role;
 class LastCompanyOwnerGuard
 {
     /**
-     * Check if it's safe to perform an action that might remove or deactivate this user's Owner role.
-     * Returns true if safe, false if this would remove the last active Owner.
+     * Check if it's safe to perform an action that might remove, deactivate,
+     * or detach this user's Owner role in the specified company.
+     *
+     * Returns true if safe, false if this would remove the company's last active Owner.
      */
     public static function check(User $user, int $companyId): bool
     {
-        $ownerRole = Role::where('company_id', $companyId)->where('name', 'Owner')->first();
+        $ownerRole = Role::query()
+            ->where('company_id', $companyId)
+            ->where('name', 'Owner')
+            ->first();
 
         if (! $ownerRole) {
-            return true; // No Owner role defined, so it's safe
+            return true; // No Owner role defined for this tenant, safe
         }
 
-        $isOwner = DB::table('spatie_model_has_roles')
-            ->where('role_id', $ownerRole->id)
-            ->where('model_type', User::class)
-            ->where('model_id', $user->id)
-            ->where('company_id', $companyId)
-            ->exists();
-
-        if (! $isOwner) {
-            return true; // User is not an owner, safe to modify
-        }
-
-        $totalActiveOwners = DB::table('spatie_model_has_roles')
+        $activeOwnerUserIds = DB::table('spatie_model_has_roles')
             ->join('users', 'users.id', '=', 'spatie_model_has_roles.model_id')
             ->where('spatie_model_has_roles.role_id', $ownerRole->id)
             ->where('spatie_model_has_roles.model_type', User::class)
             ->where('spatie_model_has_roles.company_id', $companyId)
             ->where('users.status', 'active')
+            ->whereNull('users.deleted_at')
+            ->where(function ($query) use ($companyId) {
+                $query->whereExists(function ($inner) use ($companyId) {
+                    $inner->select(DB::raw(1))
+                        ->from('company_user')
+                        ->whereColumn('company_user.user_id', 'users.id')
+                        ->where('company_user.company_id', $companyId)
+                        ->where('company_user.status', 'active');
+                })->orWhere(function ($inner) use ($companyId) {
+                    $inner->where('users.company_id', $companyId)
+                        ->whereNotExists(function ($pivot) use ($companyId) {
+                            $pivot->select(DB::raw(1))
+                                ->from('company_user')
+                                ->whereColumn('company_user.user_id', 'users.id')
+                                ->where('company_user.company_id', $companyId);
+                        });
+                });
+            })
             ->lockForUpdate()
-            ->count();
+            ->pluck('users.id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
 
-        // If there are multiple active owners, it's safe to remove one
-        if ($totalActiveOwners > 1) {
+        // If target user is not one of the active owners, this action does not reduce the active owner count
+        if (! in_array((int) $user->id, $activeOwnerUserIds, true)) {
             return true;
         }
 
-        // If this user is active and there's only 1 active owner (them), it's unsafe.
-        if ($user->status === 'active' && $totalActiveOwners <= 1) {
-            return false;
-        }
-
-        return true;
+        // If there is only 1 active owner (or none), removing or deactivating this user leaves the company with 0 active owners
+        return count(array_unique($activeOwnerUserIds)) > 1;
     }
 }

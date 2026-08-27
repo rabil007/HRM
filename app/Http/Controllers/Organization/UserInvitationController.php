@@ -6,42 +6,55 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\User\StoreUserInvitationRequest;
 use App\Models\UserInvitation;
 use App\Support\Users\InviteUser;
+use Illuminate\Http\Request;
 
 class UserInvitationController extends Controller
 {
     public function store(StoreUserInvitationRequest $request, InviteUser $inviteUser)
     {
-        $companyId = request()->attributes->get('current_company_id');
+        $companyId = (int) $request->attributes->get('current_company_id');
 
-        $inviteUser->execute($request->validated(), $companyId, $request->user()->id);
+        $inviteUser->execute($request->validated(), $companyId, (int) $request->user()->id);
 
         return back()->with('success', 'Invitation sent successfully.');
     }
 
-    public function resend(UserInvitation $invitation, InviteUser $inviteUser)
+    public function resend(Request $request, UserInvitation $invitation, InviteUser $inviteUser)
     {
-        $this->authorize('users.create');
+        abort_unless($request->user()?->can('users.create'), 403);
 
-        $companyId = request()->attributes->get('current_company_id');
-        abort_if($invitation->company_id !== $companyId, 404);
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $invitation->company_id === $companyId, 404);
 
         try {
             $inviteUser->resend($invitation);
 
             return back()->with('success', 'Invitation resent successfully.');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage());
         }
     }
 
-    public function destroy(UserInvitation $invitation)
+    public function destroy(Request $request, UserInvitation $invitation)
     {
-        $this->authorize('users.delete');
+        abort_unless($request->user()?->can('users.delete'), 403);
 
-        $companyId = request()->attributes->get('current_company_id');
-        abort_if($invitation->company_id !== $companyId, 404);
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $invitation->company_id === $companyId, 404);
 
         $invitation->update(['revoked_at' => now()]);
+
+        activity()
+            ->causedBy($request->user())
+            ->performedOn($invitation)
+            ->withProperties([
+                'company_id' => $companyId,
+                'email' => $invitation->email,
+            ])
+            ->tap(function ($activity) use ($companyId): void {
+                $activity->company_id = $companyId;
+            })
+            ->log('revoked user invitation');
 
         return back()->with('success', 'Invitation revoked successfully.');
     }

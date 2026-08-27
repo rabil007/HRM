@@ -86,10 +86,18 @@ export function UserFiltersSheet({
                         placeholder="All"
                     >
                         <AppSelectItem value="">All</AppSelectItem>
-                        <AppSelectItem value="online">Online Now (≤5m)</AppSelectItem>
-                        <AppSelectItem value="recent">Recently Active (≤30m)</AppSelectItem>
-                        <AppSelectItem value="offline">Offline (&gt;30m)</AppSelectItem>
-                        <AppSelectItem value="never">Never Logged In</AppSelectItem>
+                        <AppSelectItem value="online">
+                            Online Now (≤5m)
+                        </AppSelectItem>
+                        <AppSelectItem value="recent">
+                            Recently Active (≤30m)
+                        </AppSelectItem>
+                        <AppSelectItem value="offline">
+                            Offline (&gt;30m)
+                        </AppSelectItem>
+                        <AppSelectItem value="never">
+                            Never Logged In
+                        </AppSelectItem>
                     </AppSelect>
                 </div>
             </div>

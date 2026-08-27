@@ -29,6 +29,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
@@ -181,7 +182,7 @@ class UserController extends Controller
                     'last_login_at' => $user->last_login_at,
                     'last_active_at' => $latestActivity ? Carbon::createFromTimestamp($latestActivity)->toIso8601String() : null,
                     'presence' => $presenceState,
-                    'two_factor_enabled' => ! empty($user->two_factor_secret),
+                    'two_factor_enabled' => $user->hasEnabledTwoFactorAuthentication(),
                     'created_at' => $user->created_at,
                     'linked_employee' => $this->linkedEmployeePayload($employeeByUserId->get($user->id)),
                 ];
@@ -376,13 +377,21 @@ class UserController extends Controller
             unset($data['avatar']);
         }
 
-        $user->update($data);
+        if (! empty($data['password'] ?? null)) {
+            $data['password'] = Hash::make((string) $data['password']);
+        } else {
+            unset($data['password']);
+        }
 
-        UserMembershipAccess::syncRole(
-            $user,
-            $companyId,
-            ! empty($roleId) ? (int) $roleId : null,
-        );
+        DB::transaction(function () use ($user, $data, $companyId, $roleId) {
+            $user->update($data);
+
+            UserMembershipAccess::syncRole(
+                $user,
+                $companyId,
+                ! empty($roleId) ? (int) $roleId : null,
+            );
+        });
 
         return redirect()
             ->route('organization.users')
@@ -478,31 +487,40 @@ class UserController extends Controller
             ? (int) $data['role_id']
             : null;
 
-        if ($status !== 'active' || $roleId !== null) {
-            $isRoleChangeToNonOwner = false;
-            if ($roleId !== null) {
-                $newRole = SpatieRole::find($roleId);
-                if (! $newRole || $newRole->name !== 'Owner') {
-                    $isRoleChangeToNonOwner = true;
+        try {
+            DB::transaction(function () use ($user, $companyId, $status, $roleId, $request) {
+                if ($status !== 'active' || $roleId !== null) {
+                    $isRoleChangeToNonOwner = false;
+                    if ($roleId !== null) {
+                        $newRole = SpatieRole::find($roleId);
+                        if (! $newRole || $newRole->name !== 'Owner') {
+                            $isRoleChangeToNonOwner = true;
+                        }
+                    }
+                    if ($status !== 'active' || $isRoleChangeToNonOwner) {
+                        if (! LastCompanyOwnerGuard::check($user, $companyId)) {
+                            abort(400, 'Cannot perform this action: the company must have at least one active Owner.');
+                        }
+                    }
                 }
+
+                $user->companies()->updateExistingPivot($companyId, [
+                    'status' => $status,
+                ]);
+
+                UserMembershipAccess::syncRole($user, $companyId, $roleId);
+
+                UserMembershipAccess::log($request, $user, $companyId, 'updated company membership', [
+                    'status' => $status,
+                    'role_id' => $roleId,
+                ]);
+            });
+        } catch (HttpException $e) {
+            if ($e->getStatusCode() === 400) {
+                return back()->with('error', $e->getMessage());
             }
-            if ($status !== 'active' || $isRoleChangeToNonOwner) {
-                if (! LastCompanyOwnerGuard::check($user, $companyId)) {
-                    return back()->with('error', 'Cannot perform this action: the company must have at least one active Owner.');
-                }
-            }
+            throw $e;
         }
-
-        $user->companies()->updateExistingPivot($companyId, [
-            'status' => $status,
-        ]);
-
-        UserMembershipAccess::syncRole($user, $companyId, $roleId);
-
-        UserMembershipAccess::log($request, $user, $companyId, 'updated company membership', [
-            'status' => $status,
-            'role_id' => $roleId,
-        ]);
 
         return redirect()
             ->route('organization.users.show', $user)
@@ -513,15 +531,24 @@ class UserController extends Controller
     {
         $companyId = (int) $company->id;
 
-        if (! LastCompanyOwnerGuard::check($user, $companyId)) {
-            return back()->with('error', 'Cannot remove membership: the company must have at least one active Owner.');
+        try {
+            DB::transaction(function () use ($user, $companyId, $request) {
+                if (! LastCompanyOwnerGuard::check($user, $companyId)) {
+                    abort(400, 'Cannot remove membership: the company must have at least one active Owner.');
+                }
+
+                $user->companies()->detach($companyId);
+
+                UserMembershipAccess::syncRole($user, $companyId, null);
+
+                UserMembershipAccess::log($request, $user, $companyId, 'removed company membership');
+            });
+        } catch (HttpException $e) {
+            if ($e->getStatusCode() === 400) {
+                return back()->with('error', $e->getMessage());
+            }
+            throw $e;
         }
-
-        $user->companies()->detach($companyId);
-
-        UserMembershipAccess::syncRole($user, $companyId, null);
-
-        UserMembershipAccess::log($request, $user, $companyId, 'removed company membership');
 
         return redirect()
             ->route('organization.users.show', $user)

@@ -1,7 +1,7 @@
 export type Company = {
     id: number;
     name: string;
-}
+};
 
 export interface UserInvitation {
     id: number;
@@ -11,7 +11,7 @@ export interface UserInvitation {
     expires_at: string;
     last_sent_at: string | null;
     created_at: string;
-};
+}
 
 export type LinkedEmployee = {
     id: number;

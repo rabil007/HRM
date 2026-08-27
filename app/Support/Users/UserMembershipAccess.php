@@ -46,6 +46,15 @@ final class UserMembershipAccess
         abort_unless($user->companies()->whereKey($companyId)->exists(), 404);
     }
 
+    public function linkToCompany(User $user, Company $company): void
+    {
+        $user->companies()->syncWithoutDetaching([
+            $company->id => [
+                'status' => 'active',
+            ],
+        ]);
+    }
+
     public static function syncRole(User $user, int $companyId, ?int $roleId): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($companyId);

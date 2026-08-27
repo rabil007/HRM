@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
             $table->string('email');
             $table->string('name')->nullable();
-            $table->unsignedBigInteger('role_id')->nullable();
+            $table->foreignId('role_id')->nullable()->constrained('spatie_roles')->nullOnDelete();
             $table->foreignId('employee_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('invited_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('token_hash', 64)->unique();

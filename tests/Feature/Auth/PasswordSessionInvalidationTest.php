@@ -191,3 +191,40 @@ test('password reset deletes other database sessions and does not keep the user 
     expect(DB::table('sessions')->where('user_id', $user->id)->count())->toBe(0)
         ->and(Hash::check('reset-password-1', $user->fresh()->password))->toBeTrue();
 });
+
+test('admin password change invalidates the target users sessions without logging the admin out', function () {
+    config(['session.driver' => 'database']);
+
+    $admin = User::factory()->create();
+    $company = setupCompanyWithSettingsPermissions($admin, ['users.update']);
+    $target = User::factory()->create([
+        'company_id' => $company->id,
+        'status' => 'active',
+    ]);
+    $tokenBefore = $target->remember_token;
+
+    DB::table('sessions')->insert([
+        'id' => 'target-other-session',
+        'user_id' => $target->id,
+        'ip_address' => '127.0.0.1',
+        'user_agent' => 'Pest',
+        'payload' => 'payload',
+        'last_activity' => time(),
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('organization.users.update', $target), [
+            'name' => $target->name,
+            'email' => $target->email,
+            'password' => 'admin-set-password',
+            'password_confirmation' => 'admin-set-password',
+            'role_id' => '',
+            'status' => 'active',
+        ])
+        ->assertRedirect(route('organization.users'));
+
+    $this->assertAuthenticatedAs($admin);
+    expect($target->fresh()->remember_token)->not->toBe($tokenBefore)
+        ->and(Hash::check('admin-set-password', $target->fresh()->password))->toBeTrue()
+        ->and(DB::table('sessions')->where('user_id', $target->id)->count())->toBe(0);
+});
