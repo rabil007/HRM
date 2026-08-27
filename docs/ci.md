@@ -11,9 +11,7 @@ Detect changes
     |
     +-- PHP Style (Pint)
     |
-    +-- Frontend Static (ESLint, Prettier, unit tests in parallel)
-    |
-    +-- TypeScript (Wayfinder + incremental tsc)
+    +-- Frontend Static (ESLint, Prettier, TypeScript, unit tests in parallel)
     |
     +-- Frontend Build (Wayfinder, npm run build, uploads public/build)
     |
@@ -32,12 +30,12 @@ Docs-only paths include `docs/*`, `.cursor/*`, `.agents/*`, `.gemini/*`, root-le
 
 Classification is fail-safe: empty or unreadable diffs run full CI. Shared or uncertain application files also run full CI.
 
-| Scope | Pint | Frontend static | TypeScript | Frontend build | Pest |
-|-------|------|-----------------|------------|----------------|------|
-| `docs-only` | skip | skip | skip | skip | skip |
-| `backend-only` | run | skip | skip | run | run (6 shards) |
-| `frontend-only` | skip | run | run | run | skip |
-| `full` | run | run | run | run | run (6 shards) |
+| Scope | Pint | Frontend static | Frontend build | Pest |
+|-------|------|-----------------|----------------|------|
+| `docs-only` | skip | skip | skip | skip |
+| `backend-only` | run | skip | run | run (6 shards) |
+| `frontend-only` | skip | run | run | skip |
+| `full` | run | run | run | run (6 shards) |
 
 Examples that force **full** CI (both sides):
 

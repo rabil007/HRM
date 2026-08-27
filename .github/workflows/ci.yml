@@ -36,7 +36,6 @@ jobs:
     outputs:
       pint: ${{ steps.classify.outputs.pint }}
       frontend_static: ${{ steps.classify.outputs.frontend_static }}
-      frontend_types: ${{ steps.classify.outputs.frontend_types }}
       frontend_build: ${{ steps.classify.outputs.frontend_build }}
       pest: ${{ steps.classify.outputs.pest }}
       docs_only: ${{ steps.classify.outputs.docs_only }}
@@ -167,75 +166,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Cache ESLint
-        uses: actions/cache@v4
-        with:
-          path: node_modules/.cache/.eslintcache
-          key: eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.*') }}-${{ github.sha }}
-          restore-keys: |
-            eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.*') }}-
-
-      - name: Cache Prettier
-        uses: actions/cache@v4
-        with:
-          path: node_modules/.cache/prettier
-          key: prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc*') }}-${{ github.sha }}
-          restore-keys: |
-            prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc*') }}-
-
-      - name: Install Node dependencies
-        run: npm ci --prefer-offline
-
-      - name: Run parallel frontend checks
-        run: |
-          set -uo pipefail
-
-          mkdir -p node_modules/.cache
-
-          npx eslint . --cache --cache-strategy content --cache-location node_modules/.cache/.eslintcache > /tmp/eslint.log 2>&1 & pid_eslint=$!
-          npx prettier --check resources/ --cache --cache-strategy content > /tmp/prettier.log 2>&1 & pid_prettier=$!
-          npm run test:frontend > /tmp/frontend-test.log 2>&1 & pid_test=$!
-
-          status_eslint=0; wait $pid_eslint || status_eslint=$?
-          status_prettier=0; wait $pid_prettier || status_prettier=$?
-          status_test=0; wait $pid_test || status_test=$?
-
-          echo "::group::ESLint ($( [ "${status_eslint:-0}" -eq 0 ] && echo 'PASSED' || echo 'FAILED' ))"
-          cat /tmp/eslint.log
-          echo "::endgroup::"
-
-          echo "::group::Prettier ($( [ "${status_prettier:-0}" -eq 0 ] && echo 'PASSED' || echo 'FAILED' ))"
-          cat /tmp/prettier.log
-          echo "::endgroup::"
-
-          echo "::group::Frontend Unit Tests ($( [ "${status_test:-0}" -eq 0 ] && echo 'PASSED' || echo 'FAILED' ))"
-          cat /tmp/frontend-test.log
-          echo "::endgroup::"
-
-          rm -f /tmp/eslint.log /tmp/prettier.log /tmp/frontend-test.log
-
-          if [[ ${status_eslint:-0} -ne 0 || ${status_prettier:-0} -ne 0 || ${status_test:-0} -ne 0 ]]; then
-            echo "One or more frontend checks failed: eslint=${status_eslint}, prettier=${status_prettier}, tests=${status_test}"
-            exit 1
-          fi
-
-  frontend_types:
-    name: TypeScript
-    needs: changes
-    if: needs.changes.outputs.frontend_types == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -263,6 +193,22 @@ jobs:
           restore-keys: |
             composer-${{ runner.os }}-${{ env.PHP_VERSION }}-
 
+      - name: Cache ESLint
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/.eslintcache
+          key: eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.*') }}-${{ github.sha }}
+          restore-keys: |
+            eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.*') }}-
+
+      - name: Cache Prettier
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/prettier
+          key: prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc*') }}-${{ github.sha }}
+          restore-keys: |
+            prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc*') }}-
+
       - name: Cache TypeScript build info
         uses: actions/cache@v4
         with:
@@ -285,8 +231,44 @@ jobs:
       - name: Generate Wayfinder types
         run: php artisan wayfinder:generate --with-form --no-interaction
 
-      - name: TypeScript
-        run: npm run types:check
+      - name: Run parallel frontend checks
+        run: |
+          set -uo pipefail
+
+          mkdir -p node_modules/.cache
+
+          npx eslint . --cache --cache-strategy content --cache-location node_modules/.cache/.eslintcache > /tmp/eslint.log 2>&1 & pid_eslint=$!
+          npx prettier --check resources/ --cache --cache-strategy content > /tmp/prettier.log 2>&1 & pid_prettier=$!
+          npm run types:check > /tmp/types.log 2>&1 & pid_types=$!
+          npm run test:frontend > /tmp/frontend-test.log 2>&1 & pid_test=$!
+
+          status_eslint=0; wait $pid_eslint || status_eslint=$?
+          status_prettier=0; wait $pid_prettier || status_prettier=$?
+          status_types=0; wait $pid_types || status_types=$?
+          status_test=0; wait $pid_test || status_test=$?
+
+          echo "::group::ESLint ($( [ "${status_eslint:-0}" -eq 0 ] && echo 'PASSED' || echo 'FAILED' ))"
+          cat /tmp/eslint.log
+          echo "::endgroup::"
+
+          echo "::group::Prettier ($( [ "${status_prettier:-0}" -eq 0 ] && echo 'PASSED' || echo 'FAILED' ))"
+          cat /tmp/prettier.log
+          echo "::endgroup::"
+
+          echo "::group::TypeScript ($( [ "${status_types:-0}" -eq 0 ] && echo 'PASSED' || echo 'FAILED' ))"
+          cat /tmp/types.log
+          echo "::endgroup::"
+
+          echo "::group::Frontend Unit Tests ($( [ "${status_test:-0}" -eq 0 ] && echo 'PASSED' || echo 'FAILED' ))"
+          cat /tmp/frontend-test.log
+          echo "::endgroup::"
+
+          rm -f /tmp/eslint.log /tmp/prettier.log /tmp/types.log /tmp/frontend-test.log
+
+          if [[ ${status_eslint:-0} -ne 0 || ${status_prettier:-0} -ne 0 || ${status_types:-0} -ne 0 || ${status_test:-0} -ne 0 ]]; then
+            echo "One or more frontend checks failed: eslint=${status_eslint}, prettier=${status_prettier}, types=${status_types}, tests=${status_test}"
+            exit 1
+          fi
 
   frontend_build:
     name: Frontend Build
@@ -429,24 +411,21 @@ jobs:
       - changes
       - pint
       - frontend_static
-      - frontend_types
       - frontend_build
       - pest
     if: always() && !cancelled()
-    runs-on: ubuntu-latest
     timeout-minutes: 5
+    runs-on: ubuntu-latest
     steps:
       - name: Evaluate CI result
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           PINT_RESULT: ${{ needs.pint.result }}
           FRONTEND_STATIC_RESULT: ${{ needs.frontend_static.result }}
-          FRONTEND_TYPES_RESULT: ${{ needs.frontend_types.result }}
           FRONTEND_BUILD_RESULT: ${{ needs.frontend_build.result }}
           PEST_RESULT: ${{ needs.pest.result }}
           RUN_PINT: ${{ needs.changes.outputs.pint }}
           RUN_FRONTEND_STATIC: ${{ needs.changes.outputs.frontend_static }}
-          RUN_FRONTEND_TYPES: ${{ needs.changes.outputs.frontend_types }}
           RUN_FRONTEND_BUILD: ${{ needs.changes.outputs.frontend_build }}
           RUN_PEST: ${{ needs.changes.outputs.pest }}
           DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
@@ -458,7 +437,6 @@ jobs:
           echo "docs_only=${DOCS_ONLY}"
           echo "run_pint=${RUN_PINT} pint_result=${PINT_RESULT}"
           echo "run_frontend_static=${RUN_FRONTEND_STATIC} frontend_static_result=${FRONTEND_STATIC_RESULT}"
-          echo "run_frontend_types=${RUN_FRONTEND_TYPES} frontend_types_result=${FRONTEND_TYPES_RESULT}"
           echo "run_frontend_build=${RUN_FRONTEND_BUILD} frontend_build_result=${FRONTEND_BUILD_RESULT}"
           echo "run_pest=${RUN_PEST} pest_result=${PEST_RESULT}"
           echo "changes_result=${CHANGES_RESULT}"
@@ -490,7 +468,6 @@ jobs:
 
           check_job "PHP Style (Pint)" "${RUN_PINT}" "${PINT_RESULT}"
           check_job "Frontend Static" "${RUN_FRONTEND_STATIC}" "${FRONTEND_STATIC_RESULT}"
-          check_job "TypeScript" "${RUN_FRONTEND_TYPES}" "${FRONTEND_TYPES_RESULT}"
           check_job "Frontend Build" "${RUN_FRONTEND_BUILD}" "${FRONTEND_BUILD_RESULT}"
           check_job "Pest" "${RUN_PEST}" "${PEST_RESULT}"
 
