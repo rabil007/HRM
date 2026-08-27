@@ -19,9 +19,12 @@ final class DocumentTemplatePreview
         DocumentGenerationTemplate $template,
         ?int $companyId = null,
     ): array {
+        $version = $template->publishedVersion ?? $template->draftVersion ?? $template->versions()->latest('version')->first();
+        $content = (string) ($version?->content ?? $template->content ?? '');
+
         return $this->render(
             name: $template->name,
-            content: $template->content,
+            content: $content,
             companyId: $companyId ?? $template->company_id,
         );
     }

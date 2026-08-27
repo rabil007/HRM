@@ -28,7 +28,7 @@ final class DocumentGenerationTemplateQuery
     {
         return DocumentGenerationTemplate::query()
             ->forCompany($companyId)
-            ->with(['documentType', 'creator', 'updater'])
+            ->with(['documentType', 'creator', 'updater', 'publishedVersion', 'draftVersion'])
             ->orderBy('name')
             ->get()
             ->map(fn (DocumentGenerationTemplate $template) => $template->toBrowseArray())

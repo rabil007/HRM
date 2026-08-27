@@ -43,12 +43,27 @@ Documents → Templates serves as the centralized company custom document templa
 
 1. **Company Custom Templates** (`document_generation_templates`):
    - Scoped to the active company.
-   - Lifecycle statuses: `draft`, `active`, `inactive`.
-   - Permissions: `documents.templates.view`, `documents.templates.create`, `documents.templates.update`, `documents.templates.delete`.
-   - Optional association to `document_types` for categorization.
-   - Managed via right-side form sheet with interactive merge field insertion.
-   - Duplication creates a company-scoped copy starting in `draft` with a unique `(Copy)` suffix.
-   - Preview system renders safe in-memory HTML preview with sample data only (real-employee preview is intentionally deferred). No database side-effects or workflow triggers.
+   - **Formats**:
+     - `content`: Rich text/HTML template with merge field insertion.
+     - `pdf_overlay`: Branded uploaded PDF with visual merge field placement. Format cannot be changed after creation.
+   - **Template Identity & Immutability**:
+     - The parent model `DocumentGenerationTemplate` manages company-level identity, metadata (`name`, `description`, `document_type_id`, `template_format`), lifecycle status (`draft`, `active`, `inactive`), and pointer to `published_version_id`.
+     - Authoritative renderable data resides in `DocumentGenerationTemplateVersion` (`version`, `status`, `content`, `source_pdf_path`, `placement_config`, `published_at`).
+     - **Strict Immutability**: Published and archived versions cannot be altered. Editing an active template branches a new single `draft` version (`version = max + 1`), preserving historical published versions and source files indefinitely.
+     - Concurrency-safe draft branching (`BranchDocumentGenerationTemplateDraft`) guarantees at most one draft per template.
+   - **Visual Merge-Field Placement**:
+     - Visual designer operates exclusively on a draft version using Fabric.js and PDF.js.
+     - Normalized coordinates `[0.0, 1.0]` ensure resolution-independent placement across any viewer or print scale.
+     - Placement schema version 1 enforces bounds (`0 <= x, y <= 1`, `0 < width, height <= 1`, `x + width <= 1`), valid page numbers, and allowed merge fields.
+     - In-place sample preview toggle previews dynamic fields directly on the canvas without querying real employees.
+   - **PDF Storage & Compensation**:
+     - Stored on the `local` private disk under `document-generation-templates/{companyId}/{uuid}.pdf`.
+     - Duplication physically copies the source PDF to a new private UUID path so mutable paths are never shared.
+     - Replacement clears placements for that draft and removes the old file. Database rollback compensation cleans up orphaned files on failure.
+   - **Explicit Lifecycle**:
+     - `Publish`: Promotes draft version to published (`published_at = now()`), archives prior published versions, and sets parent template to `active`.
+     - `Deactivate`: Changes parent template to `inactive` without modifying version history.
+     - `Activate`: Re-enables an inactive template that has a published version.
    - **Allowed Merge Fields**: Strict allowlist catalog (`App\Support\Documents\DocumentTemplateMergeFields`) covering:
      - *Employee*: `{{employee_name}}`, `{{employee_no}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{phone}}`, `{{gender}}`, `{{joining_date}}`
      - *Organization*: `{{company_name}}`, `{{department_name}}`, `{{position_name}}`, `{{branch_name}}`
@@ -78,6 +93,13 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents/templates/{template}` (PUT) | Update custom document template | `documents.templates.update` |
 | `/organization/documents/templates/{template}/duplicate` (POST) | Duplicate custom template in company | `documents.templates.update` |
 | `/organization/documents/templates/{template}` (DELETE) | Delete custom template | `documents.templates.delete` |
+| `/organization/documents/templates/{template}/draft` (POST) | Get or branch editable draft version | `documents.templates.update` |
+| `/organization/documents/templates/{template}/versions/{version}/source-pdf` (GET) | Stream private source PDF | `documents.templates.view` |
+| `/organization/documents/templates/{template}/versions/{version}/placements` (PUT) | Save visual placements to draft | `documents.templates.update` |
+| `/organization/documents/templates/{template}/versions/{version}/replace-pdf` (POST) | Replace PDF on draft version | `documents.templates.update` |
+| `/organization/documents/templates/{template}/versions/{version}/publish` (POST) | Publish draft version | `documents.templates.update` |
+| `/organization/documents/templates/{template}/activate` (POST) | Activate template | `documents.templates.update` |
+| `/organization/documents/templates/{template}/deactivate` (POST) | Deactivate template | `documents.templates.update` |
 | `/organization/documents/activity` | Bulk generation history | `bulk_documents.view` |
 | `/organization/documents/bulk` | Legacy Bulk Documents index | `bulk_documents.view` |
 | `/organization/documents/employees/{employee}` | Employee document browse | `documents.view` |

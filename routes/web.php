@@ -686,6 +686,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('organization/documents/templates/{template}', [DocumentGenerationTemplateController::class, 'destroy'])
         ->middleware('can:documents.templates.delete')
         ->name('organization.documents.templates.destroy');
+    Route::post('organization/documents/templates/{template}/draft', [DocumentGenerationTemplateController::class, 'getOrCreateDraft'])
+        ->middleware('can:documents.templates.update')
+        ->name('organization.documents.templates.draft');
+    Route::get('organization/documents/templates/{template}/versions/{version}/source-pdf', [DocumentGenerationTemplateController::class, 'sourcePdf'])
+        ->middleware('can:documents.templates.view')
+        ->name('organization.documents.templates.versions.source-pdf');
+    Route::put('organization/documents/templates/{template}/versions/{version}/placements', [DocumentGenerationTemplateController::class, 'savePlacements'])
+        ->middleware('can:documents.templates.update')
+        ->name('organization.documents.templates.versions.placements.save');
+    Route::post('organization/documents/templates/{template}/versions/{version}/replace-pdf', [DocumentGenerationTemplateController::class, 'replacePdf'])
+        ->middleware('can:documents.templates.update')
+        ->name('organization.documents.templates.versions.replace-pdf');
+    Route::post('organization/documents/templates/{template}/versions/{version}/publish', [DocumentGenerationTemplateController::class, 'publish'])
+        ->middleware('can:documents.templates.update')
+        ->name('organization.documents.templates.versions.publish');
+    Route::post('organization/documents/templates/{template}/activate', [DocumentGenerationTemplateController::class, 'activate'])
+        ->middleware('can:documents.templates.update')
+        ->name('organization.documents.templates.activate');
+    Route::post('organization/documents/templates/{template}/deactivate', [DocumentGenerationTemplateController::class, 'deactivate'])
+        ->middleware('can:documents.templates.update')
+        ->name('organization.documents.templates.deactivate');
     Route::post('organization/documents/bulk/generate', [GenerateBulkDocumentsController::class, 'store'])
         ->middleware('can:bulk_documents.generate')
         ->name('organization.documents.bulk.generate');
