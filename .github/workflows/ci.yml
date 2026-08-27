@@ -372,7 +372,7 @@ jobs:
           retention-days: 7
 
   pest:
-    name: Pest ${{ matrix.shard }}/${{ env.PEST_SHARD_TOTAL }}
+    name: Pest ${{ matrix.shard }}/6
     needs:
       - changes
     if: needs.changes.outputs.pest == 'true'
@@ -414,7 +414,7 @@ jobs:
           cp .env.example .env
           php artisan key:generate --no-interaction
 
-      - name: Pest shard ${{ matrix.shard }}/${{ env.PEST_SHARD_TOTAL }}
+      - name: Pest shard ${{ matrix.shard }}/6
         env:
           SHARD: ${{ matrix.shard }}
         run: |
