@@ -1,5 +1,10 @@
 import { Link, router } from '@inertiajs/react';
-import { ClipboardCheck, FilePenLine, Settings2 } from 'lucide-react';
+import {
+    ClipboardCheck,
+    FilePenLine,
+    FileSignature,
+    Settings2,
+} from 'lucide-react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
@@ -16,6 +21,7 @@ import type {
     BulkSignatureFilter,
 } from '@/features/organization/documents/bulk/types';
 import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
+import { RecipientRequestsTable } from '@/features/organization/documents/workflow/recipient-requests-table';
 import type { DocumentRequestsIndexProps } from '@/features/organization/documents/workflow/types';
 import { WorkflowRequestsTable } from '@/features/organization/documents/workflow/workflow-requests-table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
@@ -69,10 +75,12 @@ function mapSignaturePayloadToBulkProps(
 function RequestsTabSwitcher({
     tab,
     canViewReview,
+    canViewRecipient,
     canViewSignatures,
 }: {
-    tab: 'review' | 'signatures';
+    tab: 'review' | 'recipient' | 'signatures';
     canViewReview: boolean;
+    canViewRecipient: boolean;
     canViewSignatures: boolean;
 }) {
     return (
@@ -94,6 +102,25 @@ function RequestsTabSwitcher({
                 >
                     <ClipboardCheck className="h-3.5 w-3.5" />
                     Review &amp; Approval
+                </button>
+            ) : null}
+            {canViewRecipient ? (
+                <button
+                    type="button"
+                    onClick={() =>
+                        router.get(documentRoutes.requests.url(), {
+                            tab: 'recipient',
+                        })
+                    }
+                    className={cn(
+                        'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                        tab === 'recipient'
+                            ? 'bg-background text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground',
+                    )}
+                >
+                    <FileSignature className="h-3.5 w-3.5" />
+                    Signing &amp; Acknowledgement
                 </button>
             ) : null}
             {canViewSignatures ? (
@@ -127,6 +154,7 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
         filters,
         search: initialSearch,
         workflow_requests,
+        recipient_requests,
         pagination,
         signature_payload,
     } = props;
@@ -148,11 +176,12 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
             <DocumentsModuleNav />
             <PageHeader
                 title="Requests"
-                description="Review and approval workflows plus legacy signature requests."
+                description="Review and approval, unified signing and acknowledgement, plus legacy bulk signature requests."
                 right={
                     <RequestsTabSwitcher
                         tab={tab}
                         canViewReview={can.view}
+                        canViewRecipient={can.view_recipient_requests}
                         canViewSignatures={can.view_signatures}
                     />
                 }
@@ -287,6 +316,19 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
 
                     <WorkflowRequestsTable requests={workflow_requests} />
 
+                    <Pagination {...list.paginationProps} />
+                </div>
+            ) : null}
+
+            {tab === 'recipient' && can.view_recipient_requests ? (
+                <div className="space-y-4">
+                    <SearchBar
+                        value={list.searchInput}
+                        onChange={list.onSearchChange}
+                        placeholder="Search employee or document"
+                        className="max-w-md"
+                    />
+                    <RecipientRequestsTable requests={recipient_requests} />
                     <Pagination {...list.paginationProps} />
                 </div>
             ) : null}

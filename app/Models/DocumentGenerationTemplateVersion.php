@@ -24,6 +24,7 @@ class DocumentGenerationTemplateVersion extends Model
         'source_pdf_size_bytes',
         'source_pdf_page_count',
         'placement_config',
+        'signature_placement_config',
         'published_at',
         'created_by',
         'updated_by',
@@ -40,6 +41,7 @@ class DocumentGenerationTemplateVersion extends Model
             'source_pdf_size_bytes' => 'integer',
             'source_pdf_page_count' => 'integer',
             'placement_config' => 'array',
+            'signature_placement_config' => 'array',
             'published_at' => 'datetime',
         ];
     }
@@ -84,6 +86,7 @@ class DocumentGenerationTemplateVersion extends Model
                     'source_pdf_size_bytes',
                     'source_pdf_page_count',
                     'placement_config',
+                    'signature_placement_config',
                     'version',
                     'published_at',
                     'company_id',

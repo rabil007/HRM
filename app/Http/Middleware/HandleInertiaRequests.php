@@ -193,6 +193,8 @@ class HandleInertiaRequests extends Middleware
                 'success' => $request->session()->pull('success'),
                 'error' => $request->session()->pull('error'),
                 'info' => $request->session()->pull('info'),
+                'recipient_request_created' => $request->session()->pull('recipient_request_created'),
+                'recipient_request_link_regenerated' => $request->session()->pull('recipient_request_link_regenerated'),
             ],
             'auth' => [
                 'user' => $this->formatAuthUser($request->user()),

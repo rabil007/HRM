@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEligibility;
+use App\Support\Documents\RecipientRequests\DocumentRecipientRequestPagePermissions;
 use App\Support\Documents\Workflow\DocumentWorkflowEligibility;
 use App\Support\Documents\Workflow\DocumentWorkflowPresenter;
 use App\Support\Documents\Workflow\DocumentWorkflowPresetQuery;
@@ -55,6 +57,10 @@ class EmployeeDocumentShowController extends Controller
             ? app(DocumentWorkflowPresetQuery::class)->activeForCompany($companyId)
             : [];
 
+        $recipientPermissions = DocumentRecipientRequestPagePermissions::for($user);
+        $recipientEligibility = app(DocumentRecipientRequestEligibility::class)
+            ->forDocument($document, $companyId);
+
         return Inertia::render('organization/documents/show', [
             'document' => $document->toShowArray(),
             'employee' => [
@@ -74,6 +80,13 @@ class EmployeeDocumentShowController extends Controller
                     ? $workflowEligibility->assigneeOptions($companyId)
                     : [],
                 'presets' => $workflowPresets,
+            ],
+            'recipient_request' => [
+                'can' => $recipientPermissions,
+                'can_request_sign' => $recipientPermissions['create'] && $recipientEligibility['can_request_sign'],
+                'can_request_acknowledge' => $recipientPermissions['create'] && $recipientEligibility['can_request_acknowledge'],
+                'sign_blocked_reason' => $recipientEligibility['sign_blocked_reason'],
+                'acknowledge_blocked_reason' => $recipientEligibility['acknowledge_blocked_reason'],
             ],
             'back' => DocumentShowBackNavigation::resolve($request, $employee),
             'recent_activity' => RecentActivityQuery::for(

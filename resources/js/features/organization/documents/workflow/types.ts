@@ -17,6 +17,9 @@ export type DocumentWorkflowPermissions = {
     cancel: boolean;
     view_signatures: boolean;
     review_signatures: boolean;
+    view_recipient_requests: boolean;
+    create_recipient_requests: boolean;
+    cancel_recipient_requests: boolean;
 };
 
 export type WorkflowRequestListItem = {
@@ -217,12 +220,37 @@ export type DocumentRequestsSignaturePayload = {
 };
 
 export type DocumentRequestsIndexProps = {
-    tab: 'review' | 'signatures';
+    tab: 'review' | 'signatures' | 'recipient';
     can: DocumentWorkflowPermissions;
     preset_can: WorkflowPresetPermissions;
     filters: Record<string, string | boolean>;
     search: string;
     workflow_requests: WorkflowRequestListItem[];
+    recipient_requests: RecipientRequestListItem[];
     pagination: PaginationMeta;
     signature_payload: DocumentRequestsSignaturePayload | null;
+};
+
+export type RecipientRequestPermissions = {
+    view: boolean;
+    create: boolean;
+    cancel: boolean;
+};
+
+export type RecipientRequestListItem = {
+    id: number;
+    action: string;
+    action_label: string;
+    status: string;
+    status_label: string;
+    requested_at: string | null;
+    expires_at: string | null;
+    completed_at: string | null;
+    requested_by: { id: number | null; name: string | null };
+    document: { id: number | null; title: string | null };
+    employee: {
+        id: number | null;
+        name: string | null;
+        employee_no: string | null;
+    };
 };
