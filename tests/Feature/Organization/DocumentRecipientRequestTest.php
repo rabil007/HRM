@@ -381,19 +381,15 @@ test('stale sign submission persists superseded status and rejects safely', func
 
     $instance->refresh();
 
-    try {
-        app(SubmitDocumentRecipientSignature::class)->handle(
-            $recipientRequest,
-            [
-                'signed_name' => 'Employee Name',
-                'signature_data' => validSignatureDataUri(),
-                'consent' => true,
-            ],
-            Request::create('/document-action/test', 'POST'),
-        );
-    } catch (ValidationException $exception) {
-        expect($exception->errors()['token'][0])->toContain('updated');
-    }
+    expect(fn () => app(SubmitDocumentRecipientSignature::class)->handle(
+        $recipientRequest,
+        [
+            'signed_name' => 'Employee Name',
+            'signature_data' => validSignatureDataUri(),
+            'consent' => true,
+        ],
+        Request::create('/document-action/test', 'POST'),
+    ))->toThrow(ValidationException::class, 'updated');
 
     $recipientRequest->refresh();
     $instance->refresh();
@@ -425,15 +421,11 @@ test('stale acknowledgement submission persists superseded status and rejects sa
         "document-instances/{$company->id}/updated-ack-v2.pdf",
     );
 
-    try {
-        app(SubmitDocumentRecipientAcknowledgement::class)->handle(
-            $recipientRequest,
-            ['name' => 'Employee Name', 'acknowledgement' => true],
-            Request::create('/document-action/test', 'POST'),
-        );
-    } catch (ValidationException $exception) {
-        expect($exception->errors()['token'][0])->toContain('updated');
-    }
+    expect(fn () => app(SubmitDocumentRecipientAcknowledgement::class)->handle(
+        $recipientRequest,
+        ['name' => 'Employee Name', 'acknowledgement' => true],
+        Request::create('/document-action/test', 'POST'),
+    ))->toThrow(ValidationException::class, 'updated');
 
     $recipientRequest->refresh();
     $instance->refresh();
@@ -509,19 +501,15 @@ test('library replacement rolls back new file and preserves old file when signin
         throw new RuntimeException('Simulated post-library signing failure.');
     };
 
-    try {
-        app(SubmitDocumentRecipientSignature::class)->handle(
-            $result['request'],
-            [
-                'signed_name' => 'Employee Name',
-                'signature_data' => validSignatureDataUri(),
-                'consent' => true,
-            ],
-            Request::create('/document-action/test', 'POST'),
-        );
-    } catch (RuntimeException $exception) {
-        expect($exception->getMessage())->toContain('Simulated post-library signing failure');
-    }
+    expect(fn () => app(SubmitDocumentRecipientSignature::class)->handle(
+        $result['request'],
+        [
+            'signed_name' => 'Employee Name',
+            'signature_data' => validSignatureDataUri(),
+            'consent' => true,
+        ],
+        Request::create('/document-action/test', 'POST'),
+    ))->toThrow(RuntimeException::class, 'Simulated post-library signing failure');
 
     $document->refresh();
     $instance->refresh();
