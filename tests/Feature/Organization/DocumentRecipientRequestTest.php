@@ -2,6 +2,7 @@
 
 use App\Enums\DocumentGenerationTemplateStatus;
 use App\Enums\DocumentRecipientAction;
+use App\Enums\DocumentRecipientRequestEventType;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Enums\DocumentWorkflowRequestStatus;
 use App\Models\DocumentGenerationTemplate;
@@ -9,6 +10,7 @@ use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentInstance;
 use App\Models\DocumentInstanceVersion;
 use App\Models\DocumentRecipientRequest;
+use App\Models\DocumentRecipientRequestEvent;
 use App\Models\DocumentWorkflowRequest;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
@@ -17,6 +19,7 @@ use App\Support\Documents\RecipientRequests\Actions\CreateDocumentRecipientReque
 use App\Support\Documents\RecipientRequests\Actions\SubmitDocumentRecipientAcknowledgement;
 use App\Support\Documents\RecipientRequests\Actions\SubmitDocumentRecipientSignature;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestToken;
+use App\Support\Documents\RecipientRequests\DocumentRecipientSigningTransactionProbe;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -28,6 +31,7 @@ require_once __DIR__.'/../../Support/document-workflow-fixtures.php';
 beforeEach(function () {
     $this->seed(PermissionsSeeder::class);
     Storage::fake('local');
+    DocumentRecipientSigningTransactionProbe::reset();
 });
 
 function makeRecipientFixturesWithSignaturePlacement(?array $signaturePlacement = null): array
@@ -323,6 +327,274 @@ test('signing creates new immutable signed version and updates current version',
         ->and($version->checksum)->toBe($sourceChecksum)
         ->and($instance->versions()->count())->toBe(2);
 });
+
+function countRecipientEvents(DocumentRecipientRequest $request, DocumentRecipientRequestEventType $event): int
+{
+    return DocumentRecipientRequestEvent::query()
+        ->where('document_recipient_request_id', $request->id)
+        ->where('event', $event)
+        ->count();
+}
+
+function advanceDocumentInstanceCurrentVersion(DocumentInstance $instance, string $filePath): DocumentInstanceVersion
+{
+    $pdfBytes = minimalPdfBytes();
+
+    Storage::disk('local')->put($filePath, $pdfBytes);
+
+    $nextVersion = DocumentInstanceVersion::query()->create([
+        'company_id' => $instance->company_id,
+        'document_instance_id' => $instance->id,
+        'version' => (int) $instance->versions()->max('version') + 1,
+        'file_path' => $filePath,
+        'original_filename' => 'updated.pdf',
+        'size_bytes' => strlen($pdfBytes),
+        'checksum' => hash('sha256', $pdfBytes),
+    ]);
+
+    $instance->update(['current_version_id' => $nextVersion->id]);
+
+    return $nextVersion;
+}
+
+test('stale sign submission persists superseded status and rejects safely', function () {
+    ['company' => $company, 'document' => $document, 'instance' => $instance, 'version' => $version] = makeRecipientFixturesWithSignaturePlacement(
+        defaultSignaturePlacementConfig(),
+    );
+
+    $requester = User::factory()->create();
+    $result = app(CreateDocumentRecipientRequest::class)->handle(
+        $document,
+        DocumentRecipientAction::Sign,
+        $requester,
+        $company->id,
+    );
+
+    $recipientRequest = $result['request'];
+    $versionCountBefore = $instance->versions()->count();
+    $currentVersionIdBeforeStaleSubmit = $instance->current_version_id;
+
+    advanceDocumentInstanceCurrentVersion(
+        $instance,
+        "document-instances/{$company->id}/updated-v2.pdf",
+    );
+
+    $instance->refresh();
+
+    expect(fn () => app(SubmitDocumentRecipientSignature::class)->handle(
+        $recipientRequest,
+        [
+            'signed_name' => 'Employee Name',
+            'signature_data' => validSignatureDataUri(),
+            'consent' => true,
+        ],
+        Request::create('/document-action/test', 'POST'),
+    ))->toThrow(ValidationException::class, 'updated');
+
+    $recipientRequest->refresh();
+    $instance->refresh();
+
+    expect($recipientRequest->status)->toBe(DocumentRecipientRequestStatus::Superseded)
+        ->and($recipientRequest->result_document_instance_version_id)->toBeNull()
+        ->and(countRecipientEvents($recipientRequest, DocumentRecipientRequestEventType::RequestSuperseded))->toBe(1)
+        ->and($instance->versions()->count())->toBe($versionCountBefore + 1)
+        ->and($instance->current_version_id)->not->toBe($version->id)
+        ->and($instance->current_version_id)->not->toBe($currentVersionIdBeforeStaleSubmit);
+});
+
+test('stale acknowledgement submission persists superseded status and rejects safely', function () {
+    ['company' => $company, 'document' => $document, 'instance' => $instance, 'version' => $version] = makeGeneratedDocumentWorkflowFixtures();
+
+    $requester = User::factory()->create();
+    $result = app(CreateDocumentRecipientRequest::class)->handle(
+        $document,
+        DocumentRecipientAction::Acknowledge,
+        $requester,
+        $company->id,
+    );
+
+    $recipientRequest = $result['request'];
+    $versionCountBefore = $instance->versions()->count();
+
+    advanceDocumentInstanceCurrentVersion(
+        $instance,
+        "document-instances/{$company->id}/updated-ack-v2.pdf",
+    );
+
+    expect(fn () => app(SubmitDocumentRecipientAcknowledgement::class)->handle(
+        $recipientRequest,
+        ['name' => 'Employee Name', 'acknowledgement' => true],
+        Request::create('/document-action/test', 'POST'),
+    ))->toThrow(ValidationException::class, 'updated');
+
+    $recipientRequest->refresh();
+    $instance->refresh();
+
+    expect($recipientRequest->status)->toBe(DocumentRecipientRequestStatus::Superseded)
+        ->and($recipientRequest->completed_at)->toBeNull()
+        ->and($recipientRequest->result_document_instance_version_id)->toBeNull()
+        ->and(countRecipientEvents($recipientRequest, DocumentRecipientRequestEventType::RequestSuperseded))->toBe(1)
+        ->and($instance->versions()->count())->toBe($versionCountBefore + 1)
+        ->and($instance->current_version_id)->not->toBe($version->id);
+});
+
+test('successful sign completes current request without self supersede event', function () {
+    ['company' => $company, 'document' => $document, 'instance' => $instance] = makeRecipientFixturesWithSignaturePlacement(
+        defaultSignaturePlacementConfig(),
+    );
+
+    $requester = User::factory()->create();
+    $create = app(CreateDocumentRecipientRequest::class);
+
+    $signResult = $create->handle(
+        $document,
+        DocumentRecipientAction::Sign,
+        $requester,
+        $company->id,
+    );
+
+    $ackResult = $create->handle(
+        $document,
+        DocumentRecipientAction::Acknowledge,
+        $requester,
+        $company->id,
+    );
+
+    app(SubmitDocumentRecipientSignature::class)->handle(
+        $signResult['request'],
+        [
+            'signed_name' => 'Employee Name',
+            'signature_data' => validSignatureDataUri(),
+            'consent' => true,
+        ],
+        Request::create('/document-action/test', 'POST'),
+    );
+
+    $signResult['request']->refresh();
+    $ackResult['request']->refresh();
+
+    expect($signResult['request']->status)->toBe(DocumentRecipientRequestStatus::Completed)
+        ->and(countRecipientEvents($signResult['request'], DocumentRecipientRequestEventType::RequestSuperseded))->toBe(0)
+        ->and(countRecipientEvents($signResult['request'], DocumentRecipientRequestEventType::SignatureSubmitted))->toBe(1)
+        ->and(countRecipientEvents($signResult['request'], DocumentRecipientRequestEventType::SignedVersionCreated))->toBe(1)
+        ->and($ackResult['request']->status)->toBe(DocumentRecipientRequestStatus::Superseded)
+        ->and(countRecipientEvents($ackResult['request'], DocumentRecipientRequestEventType::RequestSuperseded))->toBe(1);
+});
+
+test('library replacement rolls back new file and preserves old file when signing transaction fails', function () {
+    ['company' => $company, 'document' => $document, 'instance' => $instance, 'version' => $version] = makeRecipientFixturesWithSignaturePlacement(
+        defaultSignaturePlacementConfig(),
+    );
+
+    $oldLibraryPath = (string) $document->file_path;
+    $versionCountBefore = $instance->versions()->count();
+
+    $requester = User::factory()->create();
+    $result = app(CreateDocumentRecipientRequest::class)->handle(
+        $document,
+        DocumentRecipientAction::Sign,
+        $requester,
+        $company->id,
+    );
+
+    DocumentRecipientSigningTransactionProbe::$afterLibrarySync = function (): void {
+        throw new RuntimeException('Simulated post-library signing failure.');
+    };
+
+    expect(fn () => app(SubmitDocumentRecipientSignature::class)->handle(
+        $result['request'],
+        [
+            'signed_name' => 'Employee Name',
+            'signature_data' => validSignatureDataUri(),
+            'consent' => true,
+        ],
+        Request::create('/document-action/test', 'POST'),
+    ))->toThrow(RuntimeException::class, 'Simulated post-library signing failure');
+
+    $document->refresh();
+    $instance->refresh();
+    $result['request']->refresh();
+
+    expect($document->file_path)->toBe($oldLibraryPath)
+        ->and(Storage::disk('local')->exists($oldLibraryPath))->toBeTrue()
+        ->and($result['request']->status)->toBe(DocumentRecipientRequestStatus::AwaitingAction)
+        ->and($result['request']->result_document_instance_version_id)->toBeNull()
+        ->and($instance->current_version_id)->toBe($version->id)
+        ->and($instance->versions()->count())->toBe($versionCountBefore);
+
+    $libraryFiles = Storage::disk('local')->allFiles("employee-documents/{$company->id}/{$document->employee_id}");
+    expect($libraryFiles)->toBe([$oldLibraryPath]);
+
+    $canonicalFiles = Storage::disk('local')->allFiles("document-instances/{$company->id}");
+    expect($canonicalFiles)->toHaveCount(1)
+        ->and($canonicalFiles[0])->toBe($version->file_path);
+});
+
+test('request creation binds locked current version instead of stale preloaded relation', function () {
+    ['company' => $company, 'document' => $document, 'instance' => $instance, 'version' => $version] = makeRecipientFixturesWithSignaturePlacement(
+        defaultSignaturePlacementConfig(),
+    );
+
+    $document->loadMissing('documentInstance.currentVersion');
+    expect($document->documentInstance?->currentVersion?->id)->toBe($version->id);
+
+    $nextVersion = advanceDocumentInstanceCurrentVersion(
+        $instance,
+        "document-instances/{$company->id}/locked-current.pdf",
+    );
+
+    $requester = User::factory()->create();
+    $result = app(CreateDocumentRecipientRequest::class)->handle(
+        $document,
+        DocumentRecipientAction::Acknowledge,
+        $requester,
+        $company->id,
+    );
+
+    expect($result['request']->source_document_instance_version_id)->toBe($nextVersion->id)
+        ->and($result['request']->source_document_instance_version_id)->not->toBe($version->id)
+        ->and($result['request']->source_checksum_sha256)->toBe($nextVersion->checksum);
+});
+
+test('old approved workflow on previous version does not authorize newer current version', function () {
+    ['company' => $company, 'document' => $document, 'instance' => $instance, 'version' => $version] = makeRecipientFixturesWithSignaturePlacement(
+        defaultSignaturePlacementConfig(),
+    );
+
+    DocumentWorkflowRequest::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'document_instance_version_id' => $version->id,
+        'status' => DocumentWorkflowRequestStatus::Approved,
+        'requested_by' => User::factory()->create()->id,
+        'requester_name_snapshot' => 'HR',
+        'requested_at' => now(),
+    ]);
+
+    $nextVersion = advanceDocumentInstanceCurrentVersion(
+        $instance,
+        "document-instances/{$company->id}/next-version.pdf",
+    );
+
+    DocumentWorkflowRequest::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'document_instance_version_id' => $nextVersion->id,
+        'status' => DocumentWorkflowRequestStatus::Pending,
+        'requested_by' => User::factory()->create()->id,
+        'requester_name_snapshot' => 'HR',
+        'requested_at' => now(),
+    ]);
+
+    $requester = User::factory()->create();
+
+    app(CreateDocumentRecipientRequest::class)->handle(
+        $document,
+        DocumentRecipientAction::Acknowledge,
+        $requester,
+        $company->id,
+    );
+})->throws(ValidationException::class);
 
 test('users without documents.recipient-requests.create cannot create recipient requests', function () {
     ['company' => $company, 'employee' => $employee, 'document' => $document] = makeGeneratedDocumentWorkflowFixtures();

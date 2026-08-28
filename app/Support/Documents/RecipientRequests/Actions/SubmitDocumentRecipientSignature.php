@@ -10,7 +10,9 @@ use App\Models\DocumentRecipientRequest;
 use App\Support\Documents\DocumentInstanceStorage;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
 use App\Support\Documents\RecipientRequests\DocumentRecipientSignatureStorage;
+use App\Support\Documents\RecipientRequests\DocumentRecipientSigningTransactionProbe;
 use App\Support\Documents\RecipientRequests\ResolveDocumentSignaturePlacement;
+use App\Support\Documents\RecipientRequests\SignedDocumentLibraryReplacement;
 use App\Support\Documents\RecipientRequests\StampSignedDocumentInstancePdf;
 use App\Support\Documents\RecipientRequests\SyncSignedDocumentInstanceToLibrary;
 use Illuminate\Http\Request;
@@ -21,6 +23,8 @@ use Illuminate\Validation\ValidationException;
 
 final class SubmitDocumentRecipientSignature
 {
+    private const STALE_VERSION = '__stale_version__';
+
     public function __construct(
         private ResolveDocumentSignaturePlacement $resolvePlacement,
         private StampSignedDocumentInstancePdf $stamper,
@@ -62,9 +66,10 @@ final class SubmitDocumentRecipientSignature
         $signaturePath = null;
         $tempSignedPath = null;
         $canonicalPath = null;
+        $libraryReplacement = null;
 
         try {
-            return DB::transaction(function () use ($request, $data, $httpRequest, &$signaturePath, &$tempSignedPath, &$canonicalPath): DocumentRecipientRequest {
+            $result = DB::transaction(function () use ($request, $data, $httpRequest, &$signaturePath, &$tempSignedPath, &$canonicalPath, &$libraryReplacement): DocumentRecipientRequest|string {
                 /** @var DocumentRecipientRequest $locked */
                 $locked = DocumentRecipientRequest::query()
                     ->whereKey($request->id)
@@ -94,11 +99,12 @@ final class SubmitDocumentRecipientSignature
                     ->firstOrFail();
 
                 if ((int) $instance->current_version_id !== (int) $sourceVersion->id) {
-                    $this->supersedeStale->markSuperseded($locked);
-
-                    throw ValidationException::withMessages([
-                        'token' => 'This document has been updated. Please request a new signing link.',
+                    $this->supersedeStale->markSuperseded($locked, [
+                        'document_instance_id' => $instance->id,
+                        'current_version_id' => $instance->current_version_id,
                     ]);
+
+                    return self::STALE_VERSION;
                 }
 
                 $placement = $this->resolvePlacement->forInstanceVersion($instance, $sourceVersion);
@@ -150,8 +156,6 @@ final class SubmitDocumentRecipientSignature
                     'status' => 'signed',
                 ]);
 
-                $this->supersedeStale->forInstanceVersionChange($instance->fresh(), (int) $locked->company_id);
-
                 $locked->update([
                     'status' => DocumentRecipientRequestStatus::Completed,
                     'completed_at' => now(),
@@ -164,7 +168,23 @@ final class SubmitDocumentRecipientSignature
                     'result_checksum_sha256' => $artifact['checksum'],
                 ]);
 
-                $this->syncLibrary->replaceLibraryFile($instance->fresh(), $tempSignedPath, (int) $locked->company_id);
+                $this->supersedeStale->forInstanceVersionChange(
+                    $instance->fresh(),
+                    (int) $locked->company_id,
+                    excludeRequestId: (int) $locked->id,
+                );
+
+                $libraryReplacement = $this->syncLibrary->prepareReplacement(
+                    $instance->fresh(),
+                    $tempSignedPath,
+                    (int) $locked->company_id,
+                );
+
+                if ($libraryReplacement instanceof SignedDocumentLibraryReplacement) {
+                    DB::afterCommit(fn () => $this->syncLibrary->finalizeReplacement($libraryReplacement));
+                }
+
+                DocumentRecipientSigningTransactionProbe::afterLibrarySync();
 
                 $this->eventRecorder->record(
                     $locked,
@@ -194,7 +214,20 @@ final class SubmitDocumentRecipientSignature
 
                 return $locked->fresh(['resultVersion', 'sourceVersion']);
             });
+
+            if ($result === self::STALE_VERSION) {
+                throw ValidationException::withMessages([
+                    'token' => 'This document has been updated. Please request a new signing link.',
+                ]);
+            }
+
+            /** @var DocumentRecipientRequest $result */
+            return $result;
         } catch (\Throwable $exception) {
+            if ($libraryReplacement instanceof SignedDocumentLibraryReplacement) {
+                $this->syncLibrary->rollbackReplacement($libraryReplacement);
+            }
+
             if ($canonicalPath !== null) {
                 DocumentInstanceStorage::deletePdf($canonicalPath, (int) $request->company_id);
             }

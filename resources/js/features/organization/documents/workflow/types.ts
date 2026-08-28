@@ -237,11 +237,18 @@ export type RecipientRequestPermissions = {
     cancel: boolean;
 };
 
+export type RecipientRequestStatus =
+    | 'awaiting_action'
+    | 'completed'
+    | 'expired'
+    | 'cancelled'
+    | 'superseded';
+
 export type RecipientRequestListItem = {
     id: number;
     action: string;
     action_label: string;
-    status: string;
+    status: RecipientRequestStatus;
     status_label: string;
     requested_at: string | null;
     expires_at: string | null;

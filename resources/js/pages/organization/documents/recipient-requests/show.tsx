@@ -10,7 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
-import type { RecipientRequestPermissions } from '@/features/organization/documents/workflow/types';
+import type {
+    RecipientRequestPermissions,
+    RecipientRequestStatus,
+} from '@/features/organization/documents/workflow/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import documentRoutes from '@/routes/organization/documents';
 
@@ -18,7 +21,7 @@ type RecipientRequestDetail = {
     id: number;
     action: string;
     action_label: string;
-    status: string;
+    status: RecipientRequestStatus;
     status_label: string;
     recipient_name: string;
     requested_at: string | null;

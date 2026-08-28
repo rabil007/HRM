@@ -7,25 +7,33 @@ use App\Models\EmployeeDocument;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
 use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Illuminate\Http\UploadedFile;
+use Throwable;
 
 final class SyncSignedDocumentInstanceToLibrary
 {
-    public function replaceLibraryFile(
+    public function prepareReplacement(
         DocumentInstance $instance,
         string $tempSignedPdfPath,
         int $companyId,
-    ): void {
-        $instance->loadMissing('employeeDocument');
+    ): ?SignedDocumentLibraryReplacement {
+        $employeeDocumentId = (int) ($instance->employee_document_id ?? 0);
 
-        $employeeDocument = $instance->employeeDocument;
-
-        if (! $employeeDocument instanceof EmployeeDocument) {
-            return;
+        if ($employeeDocumentId <= 0) {
+            return null;
         }
 
-        abort_unless((int) $employeeDocument->company_id === $companyId, 404);
+        $employeeDocument = EmployeeDocument::query()
+            ->whereKey($employeeDocumentId)
+            ->where('company_id', $companyId)
+            ->where('employee_id', $instance->employee_id)
+            ->lockForUpdate()
+            ->first();
 
-        $oldPath = $employeeDocument->file_path;
+        if (! $employeeDocument instanceof EmployeeDocument) {
+            return null;
+        }
+
+        $oldPath = (string) $employeeDocument->file_path;
 
         $uploadedFile = new UploadedFile(
             $tempSignedPdfPath,
@@ -35,7 +43,12 @@ final class SyncSignedDocumentInstanceToLibrary
             true,
         );
 
-        $directory = dirname((string) $oldPath);
+        $validatedOldPath = EmployeePrivateFile::validatedRelativePath(
+            $oldPath,
+            $companyId,
+            EmployeePrivateFileKind::Document,
+        );
+        $directory = $validatedOldPath !== null ? dirname($validatedOldPath) : '.';
 
         if ($directory === '.' || $directory === '') {
             $directory = "employee-documents/{$companyId}/{$employeeDocument->employee_id}";
@@ -51,18 +64,52 @@ final class SyncSignedDocumentInstanceToLibrary
             ],
         );
 
-        $sizeBytes = (int) filesize($tempSignedPdfPath);
-        $checksum = hash_file('sha256', $tempSignedPdfPath) ?: '';
+        try {
+            $sizeBytes = (int) filesize($tempSignedPdfPath);
+            $checksum = hash_file('sha256', $tempSignedPdfPath) ?: '';
 
-        $employeeDocument->update([
-            'file_path' => $newPath,
-            'size_bytes' => $sizeBytes,
-            'checksum' => $checksum,
-            'mime_type' => 'application/pdf',
-        ]);
+            $employeeDocument->update([
+                'file_path' => $newPath,
+                'size_bytes' => $sizeBytes,
+                'checksum' => $checksum,
+                'mime_type' => 'application/pdf',
+            ]);
+        } catch (Throwable $exception) {
+            EmployeePrivateFile::deleteStored(
+                $newPath,
+                $companyId,
+                EmployeePrivateFileKind::Document,
+            );
 
-        if ($oldPath !== null && $oldPath !== $newPath) {
-            EmployeePrivateFile::deleteStored((string) $oldPath, $companyId, EmployeePrivateFileKind::Document);
+            throw $exception;
         }
+
+        return new SignedDocumentLibraryReplacement(
+            newPath: $newPath,
+            oldPath: $oldPath,
+            companyId: $companyId,
+        );
+    }
+
+    public function finalizeReplacement(SignedDocumentLibraryReplacement $replacement): void
+    {
+        if ($replacement->oldPath === '' || $replacement->oldPath === $replacement->newPath) {
+            return;
+        }
+
+        EmployeePrivateFile::deleteStored(
+            $replacement->oldPath,
+            $replacement->companyId,
+            EmployeePrivateFileKind::Document,
+        );
+    }
+
+    public function rollbackReplacement(SignedDocumentLibraryReplacement $replacement): void
+    {
+        EmployeePrivateFile::deleteStored(
+            $replacement->newPath,
+            $replacement->companyId,
+            EmployeePrivateFileKind::Document,
+        );
     }
 }
