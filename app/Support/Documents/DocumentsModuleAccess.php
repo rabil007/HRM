@@ -26,7 +26,8 @@ final class DocumentsModuleAccess
 
     public static function canViewRequests(?User $user): bool
     {
-        return self::canViewGenerate($user);
+        return ($user?->can('documents.requests.view') ?? false)
+            || self::canViewGenerate($user);
     }
 
     public static function canViewActivity(?User $user): bool

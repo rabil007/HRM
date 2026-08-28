@@ -18,6 +18,7 @@ class DocumentPagePermissions
      *     share: bool,
      *     upload: bool,
      *     delete: bool,
+     *     request_approval: bool,
      *     whatsapp_template: bool,
      *     whatsapp_templates: list<array<string, mixed>>,
      *     email_templates: list<array<string, mixed>>
@@ -77,6 +78,7 @@ class DocumentPagePermissions
             'share' => $user?->can('documents.share') ?? false,
             'upload' => $user?->can('documents.upload') ?? false,
             'delete' => $user?->can('documents.delete') ?? false,
+            'request_approval' => $user?->can('documents.requests.create') ?? false,
             'whatsapp_template' => ($user?->can('documents.share') ?? false)
                 && $canView
                 && $whatsappConfigured

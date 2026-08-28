@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { History } from 'lucide-react';
+import { ClipboardCheck, History } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { DetailsHeader } from '@/components/details-header';
@@ -7,6 +7,7 @@ import { Main } from '@/components/layout/main';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
 import { RecentActivityCard } from '@/components/recent-activity-card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentShowHeaderActions } from '@/features/organization/documents/shared/document-actions/document-list-row-actions';
@@ -21,6 +22,8 @@ import type {
 } from '@/features/organization/documents/shared/types';
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
+import { RequestApprovalDialog } from '@/features/organization/documents/workflow/request-approval-dialog';
+import type { WorkflowAssigneeOption } from '@/features/organization/documents/workflow/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { formatBytes } from '@/lib/utils';
@@ -37,8 +40,19 @@ type Props = {
         share: boolean;
         upload: boolean;
         delete: boolean;
+        request_approval: boolean;
         whatsapp_template: boolean;
         whatsapp_templates: WhatsAppTemplateOption[];
+    };
+    workflow: {
+        summary: {
+            id: number;
+            status: string;
+            status_label: string;
+            show_url: string;
+        } | null;
+        can_create: boolean;
+        assignee_options: WorkflowAssigneeOption[];
     };
     back: {
         href: string;
@@ -73,6 +87,7 @@ export default function DocumentShow({
     countries,
     document_types,
     can,
+    workflow,
     back,
     recent_activity,
     can_view_audit,
@@ -81,6 +96,7 @@ export default function DocumentShow({
     const [replaceDoc, setReplaceDoc] = useState<DocumentShowItem | null>(null);
     const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
     const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
+    const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
 
     const pageTitle =
         doc.title || doc.document_name || doc.document_type_label || 'Document';
@@ -140,17 +156,29 @@ export default function DocumentShow({
                     backHref={back.href}
                     backLabel={back.label}
                     actions={
-                        <DocumentShowHeaderActions
-                            documentId={doc.id}
-                            fileUrl={doc.file_url}
-                            showDownload={can.download}
-                            showReplace={can.upload}
-                            onReplace={() => setReplaceDoc(doc)}
-                            showEdit={can.upload}
-                            onEdit={() => setEditDoc(doc)}
-                            showDelete={can.delete}
-                            onDelete={() => setDeleteDocId(doc.id)}
-                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                            {workflow.can_create ? (
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => setApprovalDialogOpen(true)}
+                                >
+                                    <ClipboardCheck className="mr-2 h-4 w-4" />
+                                    Request approval
+                                </Button>
+                            ) : null}
+                            <DocumentShowHeaderActions
+                                documentId={doc.id}
+                                fileUrl={doc.file_url}
+                                showDownload={can.download}
+                                showReplace={can.upload}
+                                onReplace={() => setReplaceDoc(doc)}
+                                showEdit={can.upload}
+                                onEdit={() => setEditDoc(doc)}
+                                showDelete={can.delete}
+                                onDelete={() => setDeleteDocId(doc.id)}
+                            />
+                        </div>
                     }
                 />
 
@@ -257,6 +285,24 @@ export default function DocumentShow({
                                     label="Generated by"
                                     value={doc.provenance.generated_by || '—'}
                                 />
+                                {workflow.summary ? (
+                                    <div className="flex items-start justify-between gap-4 border-b border-border/50 px-1 py-3 last:border-b-0">
+                                        <span className="text-[10px] font-bold tracking-[0.18em] text-muted-foreground/70 uppercase">
+                                            Workflow
+                                        </span>
+                                        <span className="max-w-[60%] text-right text-sm font-medium">
+                                            <Link
+                                                href={workflow.summary.show_url}
+                                                className="inline-flex items-center gap-2 hover:underline"
+                                            >
+                                                {workflow.summary.status_label}
+                                                <Badge variant="secondary">
+                                                    View request
+                                                </Badge>
+                                            </Link>
+                                        </span>
+                                    </div>
+                                ) : null}
                             </CardContent>
                         </Card>
                     ) : null}
@@ -335,6 +381,15 @@ export default function DocumentShow({
                     documentTypeLabel={doc.document_type}
                     templates={whatsappTemplates}
                     countries={countries}
+                />
+            ) : null}
+            {workflow.can_create ? (
+                <RequestApprovalDialog
+                    open={approvalDialogOpen}
+                    onOpenChange={setApprovalDialogOpen}
+                    employeeId={employee.id}
+                    documentId={doc.id}
+                    assigneeOptions={workflow.assignee_options}
                 />
             ) : null}
         </>
