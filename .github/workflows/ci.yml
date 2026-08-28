@@ -405,6 +405,11 @@ jobs:
           cp .env.example .env
           php artisan key:generate --no-interaction
 
+      - name: Install Browsershot Chrome
+        run: |
+          php artisan browsershot:install --no-interaction
+          php artisan browsershot:doctor --no-interaction
+
       - name: Verify Puppeteer is available
         run: test -d node_modules/puppeteer
 
