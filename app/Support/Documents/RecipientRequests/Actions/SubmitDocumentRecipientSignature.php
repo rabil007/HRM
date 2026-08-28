@@ -9,6 +9,7 @@ use App\Models\DocumentInstanceVersion;
 use App\Models\DocumentRecipientRequest;
 use App\Support\Documents\DocumentInstanceStorage;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
+use App\Support\Documents\RecipientRequests\DocumentRecipientRequestSourceGuard;
 use App\Support\Documents\RecipientRequests\DocumentRecipientSignatureStorage;
 use App\Support\Documents\RecipientRequests\DocumentRecipientSigningTransactionProbe;
 use App\Support\Documents\RecipientRequests\ResolveDocumentSignaturePlacement;
@@ -31,6 +32,7 @@ final class SubmitDocumentRecipientSignature
         private SyncSignedDocumentInstanceToLibrary $syncLibrary,
         private DocumentRecipientRequestEventRecorder $eventRecorder,
         private SupersedeStaleDocumentRecipientRequests $supersedeStale,
+        private DocumentRecipientRequestSourceGuard $sourceGuard,
     ) {}
 
     /**
@@ -95,6 +97,7 @@ final class SubmitDocumentRecipientSignature
                 $sourceVersion = DocumentInstanceVersion::query()
                     ->whereKey($locked->source_document_instance_version_id)
                     ->where('company_id', $locked->company_id)
+                    ->where('document_instance_id', $locked->document_instance_id)
                     ->lockForUpdate()
                     ->firstOrFail();
 
@@ -107,6 +110,8 @@ final class SubmitDocumentRecipientSignature
                     return self::STALE_VERSION;
                 }
 
+                $this->sourceGuard->assertExactSource($locked, $sourceVersion);
+
                 $placement = $this->resolvePlacement->forInstanceVersion($instance, $sourceVersion);
 
                 $signaturePath = DocumentRecipientSignatureStorage::storeFromDataUri(
@@ -115,7 +120,7 @@ final class SubmitDocumentRecipientSignature
                     (int) $locked->id,
                 );
 
-                [$binary, $extension] = DocumentRecipientSignatureStorage::decodeDataUri($data['signature_data']);
+                [, $extension] = DocumentRecipientSignatureStorage::decodeDataUri($data['signature_data']);
                 $imageType = $extension === 'jpg' ? 'JPEG' : 'PNG';
                 $signatureAbsolute = Storage::disk(DocumentRecipientSignatureStorage::DISK)->path($signaturePath);
 

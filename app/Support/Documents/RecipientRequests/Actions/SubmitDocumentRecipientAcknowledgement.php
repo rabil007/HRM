@@ -8,6 +8,7 @@ use App\Models\DocumentInstance;
 use App\Models\DocumentInstanceVersion;
 use App\Models\DocumentRecipientRequest;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
+use App\Support\Documents\RecipientRequests\DocumentRecipientRequestSourceGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -22,6 +23,7 @@ final class SubmitDocumentRecipientAcknowledgement
     public function __construct(
         private DocumentRecipientRequestEventRecorder $eventRecorder,
         private SupersedeStaleDocumentRecipientRequests $supersedeStale,
+        private DocumentRecipientRequestSourceGuard $sourceGuard,
     ) {}
 
     /**
@@ -80,6 +82,7 @@ final class SubmitDocumentRecipientAcknowledgement
             $sourceVersion = DocumentInstanceVersion::query()
                 ->whereKey($locked->source_document_instance_version_id)
                 ->where('company_id', $locked->company_id)
+                ->where('document_instance_id', $locked->document_instance_id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
@@ -91,6 +94,8 @@ final class SubmitDocumentRecipientAcknowledgement
 
                 return self::STALE_VERSION;
             }
+
+            $this->sourceGuard->assertExactSource($locked, $sourceVersion);
 
             $locked->update([
                 'status' => DocumentRecipientRequestStatus::Completed,

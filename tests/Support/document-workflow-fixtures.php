@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
-require_once __DIR__.'/../Support/document-fixtures.php';
+require_once __DIR__.'/document-fixtures.php';
 
 function addCompanyMembership(User $user, Company $company): void
 {
@@ -43,14 +43,7 @@ function giveCompanyPermission(User $user, Company $company, string $permission)
 }
 
 /**
- * @return array{
- *     company: Company,
- *     employee: Employee,
- *     document: EmployeeDocument,
- *     instance: DocumentInstance,
- *     version: DocumentInstanceVersion,
- *     template: DocumentGenerationTemplate,
- * }
+ * @return array{company: Company, employee: Employee, document: EmployeeDocument, instance: DocumentInstance, version: DocumentInstanceVersion, template: DocumentGenerationTemplate}
  */
 function makeGeneratedDocumentWorkflowFixtures(?Company $company = null): array
 {
@@ -65,8 +58,11 @@ function makeGeneratedDocumentWorkflowFixtures(?Company $company = null): array
 
     $libraryPath = "employee-documents/{$company->id}/{$employee->id}/letter.pdf";
     $canonicalPath = "document-instances/{$company->id}/canonical.pdf";
-    Storage::disk('local')->put($libraryPath, '%PDF-1.4 test');
-    Storage::disk('local')->put($canonicalPath, '%PDF-1.4 test');
+    $pdfBytes = '%PDF-1.4 test';
+    $sizeBytes = strlen($pdfBytes);
+    $checksum = hash('sha256', $pdfBytes);
+    Storage::disk('local')->put($libraryPath, $pdfBytes);
+    Storage::disk('local')->put($canonicalPath, $pdfBytes);
 
     $document = EmployeeDocument::query()->create([
         'company_id' => $company->id,
@@ -77,8 +73,8 @@ function makeGeneratedDocumentWorkflowFixtures(?Company $company = null): array
         'file_path' => $libraryPath,
         'original_filename' => 'letter.pdf',
         'mime_type' => 'application/pdf',
-        'size_bytes' => 100,
-        'checksum' => 'abc',
+        'size_bytes' => $sizeBytes,
+        'checksum' => $checksum,
         'current_version' => 1,
         'status' => 'valid',
     ]);
@@ -104,8 +100,8 @@ function makeGeneratedDocumentWorkflowFixtures(?Company $company = null): array
         'version' => 1,
         'file_path' => $canonicalPath,
         'original_filename' => 'canonical.pdf',
-        'size_bytes' => 100,
-        'checksum' => 'abc',
+        'size_bytes' => $sizeBytes,
+        'checksum' => $checksum,
     ]);
 
     $instance->update(['current_version_id' => $version->id]);
