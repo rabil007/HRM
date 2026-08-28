@@ -57,5 +57,15 @@ final class SupersedeStaleDocumentRecipientRequests
             DocumentRecipientRequestEventType::RequestSuperseded,
             metadata: $metadata,
         );
+
+        activity()
+            ->performedOn($request)
+            ->tap(fn ($activity) => $activity->company_id = $request->company_id)
+            ->withProperties([
+                'action' => 'recipient_request_superseded',
+                'document_recipient_request_id' => $request->id,
+                'status' => DocumentRecipientRequestStatus::Superseded->value,
+            ])
+            ->log('Recipient request superseded');
     }
 }
