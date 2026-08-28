@@ -197,7 +197,9 @@ export default function DocumentShow({
                                 <Button
                                     type="button"
                                     variant="secondary"
-                                    onClick={() => setAcknowledgeDialogOpen(true)}
+                                    onClick={() =>
+                                        setAcknowledgeDialogOpen(true)
+                                    }
                                 >
                                     <FileSignature className="mr-2 h-4 w-4" />
                                     Request acknowledgement

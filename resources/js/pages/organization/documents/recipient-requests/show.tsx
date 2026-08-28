@@ -164,7 +164,12 @@ export default function RecipientRequestShow({
                                 </span>
                                 <span>
                                     v{recipient_request.source_version.version}{' '}
-                                    ({recipient_request.source_version.checksum_abbrev})
+                                    (
+                                    {
+                                        recipient_request.source_version
+                                            .checksum_abbrev
+                                    }
+                                    )
                                 </span>
                             </div>
                             {recipient_request.result_version ? (

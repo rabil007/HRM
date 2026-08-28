@@ -94,8 +94,7 @@ export default function DocumentActionPage({
         );
     }
 
-    const formAction =
-        action === 'sign' ? submitSignUrl : submitAcknowledgeUrl;
+    const formAction = action === 'sign' ? submitSignUrl : submitAcknowledgeUrl;
 
     return (
         <>
@@ -123,9 +122,15 @@ export default function DocumentActionPage({
 
                     <section className="overflow-hidden rounded-2xl border bg-background shadow-sm">
                         <div className="flex items-center justify-between border-b px-4 py-2">
-                            <p className="text-sm font-medium">Document preview</p>
+                            <p className="text-sm font-medium">
+                                Document preview
+                            </p>
                             <Button variant="ghost" size="sm" asChild>
-                                <a href={documentUrl} target="_blank" rel="noreferrer">
+                                <a
+                                    href={documentUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
                                     <Download className="mr-1.5 size-4" />
                                     Open PDF
                                 </a>
@@ -139,7 +144,11 @@ export default function DocumentActionPage({
                     </section>
 
                     {formAction ? (
-                        <Form action={formAction} method="post" className="space-y-4">
+                        <Form
+                            action={formAction}
+                            method="post"
+                            className="space-y-4"
+                        >
                             {({ processing }) => (
                                 <>
                                     {submitError ? (
@@ -219,18 +228,23 @@ export default function DocumentActionPage({
                                             ) : (
                                                 <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/20 p-3.5">
                                                     <Checkbox
-                                                        checked={acknowledgement}
+                                                        checked={
+                                                            acknowledgement
+                                                        }
                                                         onCheckedChange={(
                                                             checked,
                                                         ) =>
                                                             setAcknowledgement(
-                                                                checked === true,
+                                                                checked ===
+                                                                    true,
                                                             )
                                                         }
                                                         className="mt-0.5"
                                                     />
                                                     <span className="text-sm leading-snug">
-                                                        {acknowledgementStatement}
+                                                        {
+                                                            acknowledgementStatement
+                                                        }
                                                     </span>
                                                 </label>
                                             )}

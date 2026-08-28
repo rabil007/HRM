@@ -1,5 +1,10 @@
 import { Link, router } from '@inertiajs/react';
-import { ClipboardCheck, FilePenLine, FileSignature, Settings2 } from 'lucide-react';
+import {
+    ClipboardCheck,
+    FilePenLine,
+    FileSignature,
+    Settings2,
+} from 'lucide-react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
