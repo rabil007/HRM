@@ -115,7 +115,7 @@ Document pages receive their UI flags from `DocumentPagePermissions::for($user)`
 ]
 ```
 
-Review/approval list and decision routes enforce `documents.requests.*` independently. A user with `documents.requests.approve` may only act on tasks assigned to them; review permission does not grant approval on approval-stage tasks.
+Review/approval list and decision routes enforce `documents.requests.*` independently. Workflow creation validates that each stage assignee holds the required company-scoped permission for that stage (`documents.requests.review` or `documents.requests.approve`) plus `documents.requests.view`. A user with `documents.requests.approve` may only act on tasks assigned to them; review permission does not grant approval on approval-stage tasks.
 
 The request creator cannot review or approve their own workflow request (backend enforced in Phase 5A).
 

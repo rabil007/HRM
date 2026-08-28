@@ -7,13 +7,63 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { BulkSignaturesTable } from '@/features/organization/documents/bulk/bulk-signatures-table';
+import { BulkDocumentsContent } from '@/features/organization/documents/bulk/bulk-documents-content';
+import type {
+    BulkDocumentCounts,
+    BulkDocumentsPageProps,
+    BulkEmailFilter,
+    BulkSignatureFilter,
+} from '@/features/organization/documents/bulk/types';
 import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import type { DocumentRequestsIndexProps } from '@/features/organization/documents/workflow/types';
 import { WorkflowRequestsTable } from '@/features/organization/documents/workflow/workflow-requests-table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { cn } from '@/lib/utils';
 import documentRoutes from '@/routes/organization/documents';
+
+function mapSignaturePayloadToBulkProps(
+    props: DocumentRequestsIndexProps,
+): BulkDocumentsPageProps {
+    const payload = props.signature_payload!;
+
+    return {
+        document_type_key: payload.document_type_key,
+        document_type_options: payload.document_type_options,
+        view: 'signatures',
+        embedded_in_requests: true,
+        filters: {
+            department_id: String(props.filters.department_id ?? ''),
+            position_id: String(props.filters.position_id ?? ''),
+            company_visa_type_id: String(
+                props.filters.company_visa_type_id ?? '',
+            ),
+            search: props.search,
+        },
+        search: props.search,
+        counts: payload.counts as BulkDocumentCounts,
+        employees: [],
+        signature_requests: payload.signature_requests,
+        activity: [],
+        pagination: props.pagination,
+        generation_filter: 'all',
+        email_filter: payload.email_filter as BulkEmailFilter,
+        signature_filter: payload.signature_filter as BulkSignatureFilter,
+        departments: payload.departments,
+        positions: payload.positions,
+        company_visa_types: payload.company_visa_types,
+        department_tree: payload.department_tree,
+        department_tree_selected_id: payload.department_tree_selected_id,
+        department_tree_selected_position_id:
+            payload.department_tree_selected_position_id,
+        company_name: payload.company_name,
+        email_template: null,
+        reminder_email_template: null,
+        latest_run: payload.latest_run,
+        latest_email_batch: payload.latest_email_batch,
+        latest_signature_repair_run: payload.latest_signature_repair_run,
+        can: payload.can,
+    };
+}
 
 function RequestsTabSwitcher({
     tab,
@@ -230,10 +280,8 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
             {tab === 'signatures' &&
             can.view_signatures &&
             signature_payload ? (
-                <BulkSignaturesTable
-                    requests={signature_payload.signature_requests}
-                    canReview={signature_payload.can.review_signatures}
-                    canDownload={signature_payload.can.download}
+                <BulkDocumentsContent
+                    {...mapSignaturePayloadToBulkProps(props)}
                 />
             ) : null}
         </Main>

@@ -14,7 +14,14 @@ import {
     CheckCircle2,
     X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    Fragment,
+} from 'react';
 import ApproveBulkDocumentSignaturesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/ApproveBulkDocumentSignaturesController';
 import DownloadApprovedBulkDocumentSignaturesPdfController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/DownloadApprovedBulkDocumentSignaturesPdfController';
 import DownloadApprovedBulkDocumentSignaturesZipController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/DownloadApprovedBulkDocumentSignaturesZipController';
@@ -121,6 +128,10 @@ function buildQuery(
 
     if (signatureFilter !== 'all') {
         query.signature_filter = signatureFilter;
+    }
+
+    if (_view === 'signatures') {
+        query.tab = 'signatures';
     }
 
     if (search.trim()) {
@@ -518,6 +529,7 @@ export function BulkDocumentsContent({
     is_custom_template,
     custom_template,
     view,
+    embedded_in_requests: embeddedInRequests = false,
     filters: initialFilters,
     search: initialSearch,
     counts,
@@ -1661,69 +1673,96 @@ export function BulkDocumentsContent({
         );
     }, [document_type_key, navigate, signature_filter, view]);
 
+    const Shell = embeddedInRequests ? Fragment : Main;
+
     return (
-        <Main>
-            <PageHeader
-                title={
-                    isSignaturesView
-                        ? 'Requests'
-                        : isHistoryView
-                          ? 'Activity'
-                          : 'Generate & Send'
-                }
-                description={
-                    isSignaturesView
-                        ? `Review and manage ${selectedTypeLabel} signature requests.`
-                        : isHistoryView
-                          ? `Generation history for ${selectedTypeLabel}.`
-                          : `Generate and send ${selectedTypeLabel} documents for multiple employees.`
-                }
-                right={
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                        <AppSelect
-                            value={document_type_key}
-                            onValueChange={(value) => navigate(value)}
-                            className="h-12 w-full rounded-xl sm:w-64"
-                        >
-                            {document_type_options.map((option) => (
-                                <AppSelectItem
-                                    key={option.value}
-                                    value={option.value}
-                                    keywords={option.category}
+        <Shell>
+            {!embeddedInRequests ? (
+                <>
+                    <PageHeader
+                        title={
+                            isSignaturesView
+                                ? 'Requests'
+                                : isHistoryView
+                                  ? 'Activity'
+                                  : 'Generate & Send'
+                        }
+                        description={
+                            isSignaturesView
+                                ? `Review and manage ${selectedTypeLabel} signature requests.`
+                                : isHistoryView
+                                  ? `Generation history for ${selectedTypeLabel}.`
+                                  : `Generate and send ${selectedTypeLabel} documents for multiple employees.`
+                        }
+                        right={
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                <AppSelect
+                                    value={document_type_key}
+                                    onValueChange={(value) => navigate(value)}
+                                    className="h-12 w-full rounded-xl sm:w-64"
                                 >
-                                    {option.category === 'Company Templates'
-                                        ? `📄 ${option.label}`
-                                        : option.label}
-                                </AppSelectItem>
-                            ))}
-                        </AppSelect>
+                                    {document_type_options.map((option) => (
+                                        <AppSelectItem
+                                            key={option.value}
+                                            value={option.value}
+                                            keywords={option.category}
+                                        >
+                                            {option.category ===
+                                            'Company Templates'
+                                                ? `📄 ${option.label}`
+                                                : option.label}
+                                        </AppSelectItem>
+                                    ))}
+                                </AppSelect>
 
-                        {isRosterView &&
-                        can.generate &&
-                        effectiveSelectedCount === 0 ? (
-                            <Button
-                                type="button"
-                                onClick={handleGenerate}
-                                disabled={
-                                    isGenerating ||
-                                    missingCount === 0 ||
-                                    isRunActive
-                                }
-                                className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                                {isRosterView &&
+                                can.generate &&
+                                effectiveSelectedCount === 0 ? (
+                                    <Button
+                                        type="button"
+                                        onClick={handleGenerate}
+                                        disabled={
+                                            isGenerating ||
+                                            missingCount === 0 ||
+                                            isRunActive
+                                        }
+                                        className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                                    >
+                                        {isGenerating ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <FileStack className="mr-2 h-4 w-4" />
+                                        )}
+                                        {generateLabel}
+                                    </Button>
+                                ) : null}
+                            </div>
+                        }
+                    />
+
+                    <DocumentsModuleNav />
+                </>
+            ) : (
+                <div className="mb-6 flex justify-end">
+                    <AppSelect
+                        value={document_type_key}
+                        onValueChange={(value) => navigate(value)}
+                        className="h-12 w-full rounded-xl sm:w-64"
+                    >
+                        {document_type_options.map((option) => (
+                            <AppSelectItem
+                                key={option.value}
+                                value={option.value}
+                                keywords={option.category}
                             >
-                                {isGenerating ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <FileStack className="mr-2 h-4 w-4" />
-                                )}
-                                {generateLabel}
-                            </Button>
-                        ) : null}
-                    </div>
-                }
-            />
-
-            <DocumentsModuleNav />
+                                {option.category === 'Company Templates'
+                                    ? `📄 ${option.label}`
+                                    : option.label}
+                            </AppSelectItem>
+                        ))}
+                    </AppSelect>
+                </div>
+            )}
 
             {/* Summary cards */}
             {isRosterView && supportsEsignature ? (
@@ -2524,11 +2563,13 @@ export function BulkDocumentsContent({
                                     Review employee signature submissions for{' '}
                                     {selectedTypeLabel}.
                                 </span>
-                                <BulkDocumentsViewSwitcher
-                                    value={view}
-                                    onChange={setView}
-                                    showSignatures={supportsEsignature}
-                                />
+                                {!embeddedInRequests ? (
+                                    <BulkDocumentsViewSwitcher
+                                        value={view}
+                                        onChange={setView}
+                                        showSignatures={supportsEsignature}
+                                    />
+                                ) : null}
                             </>
                         }
                     />
@@ -2641,7 +2682,7 @@ export function BulkDocumentsContent({
                 confirmButtonClassName="h-11 rounded-xl bg-primary px-6 text-primary-foreground hover:bg-primary/90"
                 onConfirm={approveSelectedSignatures}
             />
-        </Main>
+        </Shell>
     );
 }
 

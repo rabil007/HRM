@@ -101,6 +101,7 @@ use App\Http\Controllers\Organization\Documents\CompleteDocumentWorkflowTaskCont
 use App\Http\Controllers\Organization\Documents\CreateDocumentWorkflowRequestController;
 use App\Http\Controllers\Organization\Documents\DocumentRequestsIndexController;
 use App\Http\Controllers\Organization\Documents\DocumentWorkflowRequestShowController;
+use App\Http\Controllers\Organization\Documents\DocumentWorkflowVersionPreviewController;
 use App\Http\Controllers\Organization\Documents\RejectDocumentWorkflowTaskController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
 use App\Http\Controllers\Organization\DocumentShareController;
@@ -662,6 +663,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('can:documents.requests.view')->group(function () {
         Route::get('organization/documents/requests/{workflowRequest}', DocumentWorkflowRequestShowController::class)
             ->name('organization.documents.requests.show');
+        Route::get('organization/documents/requests/{workflowRequest}/version-preview', DocumentWorkflowVersionPreviewController::class)
+            ->name('organization.documents.requests.version-preview');
     });
     Route::middleware('can:documents.requests.create')->group(function () {
         Route::post('organization/documents/employees/{employee}/files/{document}/workflow-requests', CreateDocumentWorkflowRequestController::class)

@@ -34,7 +34,7 @@ final class DocumentWorkflowEligibility
     }
 
     /**
-     * @return list<array{id: int, name: string, email: string|null}>
+     * @return list<array{id: int, name: string, email: string|null, can_review: bool, can_approve: bool}>
      */
     public function assigneeOptions(int $companyId): array
     {

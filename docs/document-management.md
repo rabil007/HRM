@@ -569,6 +569,9 @@ If `DocumentInstance.current_version_id` later changes, existing workflow histor
 - The **final** stage must be `approve`. Earlier stages may be `review`.
 - Assignees are explicit internal company users validated against `current_company_id` membership (active pivot or legacy home-company rule).
 - Duplicate assignees within the same stage are rejected. The request creator cannot be assigned as a reviewer or approver.
+- The same user may appear in different stages when they hold the required permissions for each stage action.
+- Review/approval previews always stream the bound `DocumentInstanceVersion` artifact via a protected tenant-scoped route. Library file replacement or deletion does not change the PDF under review.
+- Stage assignees must hold the required company-scoped permission for their stage action (`documents.requests.review` or `documents.requests.approve`) and `documents.requests.view`.
 
 ### Completion rules
 
@@ -602,7 +605,7 @@ Legacy `/organization/documents/bulk?view=signatures` continues to work unchange
 
 ### Audit
 
-Workflow tables retain authoritative decision history (actor, time, notes). Company-scoped activity events are also written for `workflow_created`, `review_completed`, `approval_completed`, `task_rejected`, `stage_completed`, `workflow_approved`, `workflow_rejected`, and `workflow_cancelled` with safe metadata only (no PDF paths or merge values). `RecentActivityCard` on request detail remains gated by `audit.view`.
+Workflow tables retain authoritative decision history (actor, time, notes). Company-scoped activity events are also written for `workflow_created`, `review_completed`, `approval_completed`, `task_rejected`, `stage_completed`, `workflow_approved`, `workflow_rejected`, and `workflow_cancelled` with safe metadata only (IDs, status, action, sequence — no PDF paths, merge values, or duplicated decision free-text such as notes or cancel reasons). `RecentActivityCard` on request detail remains gated by `audit.view`.
 
 ### Explicitly not in Phase 5A
 

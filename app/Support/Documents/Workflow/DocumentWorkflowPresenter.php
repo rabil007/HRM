@@ -116,9 +116,9 @@ final class DocumentWorkflowPresenter
             'document' => [
                 'id' => $document?->id,
                 'title' => $document?->title ?? $instance?->title_snapshot,
-                'file_url' => $document !== null
-                    ? route('organization.documents.files.preview', ['document' => $document->id])
-                    : null,
+                'file_url' => route('organization.documents.requests.version-preview', [
+                    'workflowRequest' => $request->id,
+                ]),
                 'employee_id' => $document?->employee_id ?? $instance?->employee_id,
             ],
             'employee' => [
@@ -187,7 +187,7 @@ final class DocumentWorkflowPresenter
             'id' => $pending->id,
             'status' => $pending->status->value,
             'status_label' => $pending->status->label(),
-            'show_url' => route('organization.documents.requests.show', ['request' => $pending->id]),
+            'show_url' => route('organization.documents.requests.show', ['workflowRequest' => $pending->id]),
         ];
     }
 }

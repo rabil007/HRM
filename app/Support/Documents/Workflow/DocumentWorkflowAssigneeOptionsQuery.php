@@ -8,8 +8,12 @@ use Illuminate\Support\Facades\DB;
 
 final class DocumentWorkflowAssigneeOptionsQuery
 {
+    public function __construct(
+        private readonly DocumentWorkflowCompanyPermissions $workflowPermissions = new DocumentWorkflowCompanyPermissions,
+    ) {}
+
     /**
-     * @return list<array{id: int, name: string, email: string|null}>
+     * @return list<array{id: int, name: string, email: string|null, can_review: bool, can_approve: bool}>
      */
     public function forCompany(int $companyId): array
     {
@@ -37,6 +41,8 @@ final class DocumentWorkflowAssigneeOptionsQuery
                 'id' => $user->id,
                 'name' => (string) $user->name,
                 'email' => $user->email,
+                'can_review' => $this->workflowPermissions->canReview($user, $companyId),
+                'can_approve' => $this->workflowPermissions->canApprove($user, $companyId),
             ])
             ->values()
             ->all();

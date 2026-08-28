@@ -85,9 +85,6 @@ final class CancelDocumentWorkflowRequest
                 event: 'workflow_cancelled',
                 request: $request,
                 actor: $actor,
-                metadata: [
-                    'cancel_reason' => $normalizedReason,
-                ],
             );
 
             return $request->fresh(['stages.tasks']) ?? $request;

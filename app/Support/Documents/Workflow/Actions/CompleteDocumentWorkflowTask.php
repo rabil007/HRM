@@ -13,6 +13,7 @@ use App\Models\DocumentWorkflowTask;
 use App\Models\User;
 use App\Support\Documents\Workflow\DocumentWorkflowAccess;
 use App\Support\Documents\Workflow\DocumentWorkflowActivityLogger;
+use App\Support\Documents\Workflow\DocumentWorkflowLockOrder;
 use Illuminate\Support\Facades\DB;
 
 final class CompleteDocumentWorkflowTask
@@ -32,23 +33,10 @@ final class CompleteDocumentWorkflowTask
         DocumentWorkflowAccess::assertActorIsAssignee($task, $actor);
 
         return DB::transaction(function () use ($task, $actor, $companyId, $notes): DocumentWorkflowRequest {
-            $task = DocumentWorkflowTask::query()
-                ->whereKey($task->id)
-                ->where('company_id', $companyId)
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            $stage = DocumentWorkflowStage::query()
-                ->whereKey($task->document_workflow_stage_id)
-                ->where('company_id', $companyId)
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            $request = DocumentWorkflowRequest::query()
-                ->whereKey($stage->document_workflow_request_id)
-                ->where('company_id', $companyId)
-                ->lockForUpdate()
-                ->firstOrFail();
+            ['request' => $request, 'stage' => $stage, 'task' => $task] = DocumentWorkflowLockOrder::lockDecisionContext(
+                (int) $task->id,
+                $companyId,
+            );
 
             DocumentWorkflowAccess::assertRequestInCompany($request, $companyId);
 

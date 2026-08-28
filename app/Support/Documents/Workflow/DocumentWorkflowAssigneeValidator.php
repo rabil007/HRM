@@ -11,6 +11,7 @@ final class DocumentWorkflowAssigneeValidator
 {
     public function __construct(
         private readonly ResolveCompanyAccess $companyAccess = new ResolveCompanyAccess,
+        private readonly DocumentWorkflowCompanyPermissions $workflowPermissions = new DocumentWorkflowCompanyPermissions,
     ) {}
 
     /**
@@ -106,6 +107,30 @@ final class DocumentWorkflowAssigneeValidator
                             'stages' => ['The request creator cannot be assigned as a reviewer or approver.'],
                         ]);
                     }
+                }
+            }
+        }
+
+        foreach ($stages as $index => $stage) {
+            $action = $stage['action'] ?? null;
+
+            foreach ($stage['assignee_user_ids'] as $userId) {
+                $user = $users->get((int) $userId);
+
+                if ($user === null) {
+                    continue;
+                }
+
+                $allowed = match ($action) {
+                    'review' => $this->workflowPermissions->canReview($user, $companyId),
+                    'approve' => $this->workflowPermissions->canApprove($user, $companyId),
+                    default => false,
+                };
+
+                if (! $allowed) {
+                    throw ValidationException::withMessages([
+                        "stages.{$index}.assignee_user_ids" => ['One or more assignees cannot perform this stage action.'],
+                    ]);
                 }
             }
         }

@@ -54,6 +54,12 @@ export function RequestApprovalDialog({
 
     const assigneeItems = useMemo(() => assigneeOptions, [assigneeOptions]);
 
+    function assigneeOptionsForStage(action: 'review' | 'approve') {
+        return assigneeItems.filter((option) =>
+            action === 'review' ? option.can_review : option.can_approve,
+        );
+    }
+
     function updateStage(index: number, patch: Partial<StageForm>) {
         setStages((current) =>
             current.map((stage, stageIndex) =>
@@ -186,7 +192,7 @@ export function RequestApprovalDialog({
 
                             <WorkflowAssigneeMultiSelect
                                 label="Assignees"
-                                options={assigneeItems}
+                                options={assigneeOptionsForStage(stage.action)}
                                 value={stage.assignee_user_ids}
                                 onChange={(assignee_user_ids) =>
                                     updateStage(index, { assignee_user_ids })

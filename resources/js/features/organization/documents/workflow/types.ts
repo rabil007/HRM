@@ -1,4 +1,12 @@
 import type { BulkSignatureRequest } from '@/features/organization/documents/bulk/types';
+import type {
+    BulkDocumentCounts,
+    BulkDocumentTypeOption,
+    BulkGenerationRun,
+    LatestEmailBatch,
+    LatestSignatureRepairRun,
+} from '@/features/organization/documents/bulk/types';
+import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import type { PaginationMeta } from '@/types/pagination';
 
 export type DocumentWorkflowPermissions = {
@@ -103,12 +111,40 @@ export type WorkflowAssigneeOption = {
     id: number;
     name: string;
     email: string | null;
+    can_review: boolean;
+    can_approve: boolean;
 };
 
 export type WorkflowStageInput = {
     action: 'review' | 'approve';
     completion_rule: 'all' | 'any';
     assignee_user_ids: number[];
+};
+
+export type DocumentRequestsSignaturePayload = {
+    document_type_key: string;
+    document_type_options: BulkDocumentTypeOption[];
+    signature_requests: BulkSignatureRequest[];
+    signature_filter: string;
+    email_filter: string;
+    counts: BulkDocumentCounts;
+    departments: { id: number; name: string }[];
+    positions: { id: number; title: string }[];
+    company_visa_types: { id: number; name: string }[];
+    department_tree: DepartmentTreeNode[];
+    department_tree_selected_id: number | null;
+    department_tree_selected_position_id: number | null;
+    company_name: string;
+    latest_run: BulkGenerationRun | null;
+    latest_email_batch: LatestEmailBatch | null;
+    latest_signature_repair_run: LatestSignatureRepairRun | null;
+    can: {
+        generate: boolean;
+        download: boolean;
+        delete: boolean;
+        email: boolean;
+        review_signatures: boolean;
+    };
 };
 
 export type DocumentRequestsIndexProps = {
@@ -118,13 +154,5 @@ export type DocumentRequestsIndexProps = {
     search: string;
     workflow_requests: WorkflowRequestListItem[];
     pagination: PaginationMeta;
-    signature_payload: {
-        document_type_key: string;
-        document_type_options: Array<{ value: string; label: string }>;
-        signature_requests: BulkSignatureRequest[];
-        signature_filter: string;
-        email_filter: string;
-        counts: Record<string, number>;
-        can: { review_signatures: boolean; download: boolean };
-    } | null;
+    signature_payload: DocumentRequestsSignaturePayload | null;
 };

@@ -21,7 +21,7 @@ class StoreDocumentWorkflowRequestRequest extends FormRequest
             'stages.*.action' => ['required', 'in:review,approve'],
             'stages.*.completion_rule' => ['required', 'in:all,any'],
             'stages.*.assignee_user_ids' => ['required', 'array', 'min:1'],
-            'stages.*.assignee_user_ids.*' => ['integer', 'distinct'],
+            'stages.*.assignee_user_ids.*' => ['integer'],
         ];
     }
 }

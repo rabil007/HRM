@@ -99,7 +99,6 @@ final class AdvanceDocumentWorkflow
                 actor: $actor,
                 metadata: [
                     'stage_id' => $stage->id,
-                    'task_notes' => $notes,
                 ],
             );
         }
@@ -112,7 +111,6 @@ final class AdvanceDocumentWorkflow
                 actor: $actor,
                 metadata: [
                     'stage_id' => $stage->id,
-                    'task_notes' => $notes,
                 ],
             );
         }
@@ -201,7 +199,6 @@ final class AdvanceDocumentWorkflow
             actor: $actor,
             metadata: [
                 'stage_id' => $stage->id,
-                'task_notes' => $notes,
             ],
         );
 
