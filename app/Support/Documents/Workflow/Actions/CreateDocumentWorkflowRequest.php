@@ -29,12 +29,14 @@ final class CreateDocumentWorkflowRequest
 
     /**
      * @param  list<array{action: string, completion_rule: string, assignee_user_ids: list<int>}>  $stages
+     * @param  array{preset_id?: int|null, preset_name?: string|null, routing_snapshot?: array|null}  $presetProvenance
      */
     public function handle(
         User $requester,
         int $companyId,
         EmployeeDocument $document,
         array $stages,
+        array $presetProvenance = [],
     ): DocumentWorkflowRequest {
         DocumentAccess::assertDocumentInCompany($document, $companyId);
 
@@ -51,7 +53,7 @@ final class CreateDocumentWorkflowRequest
 
         $usersById = $this->assigneeValidator->validateStages($companyId, $stages, (int) $requester->id);
 
-        return DB::transaction(function () use ($requester, $companyId, $instance, $stages, $usersById): DocumentWorkflowRequest {
+        return DB::transaction(function () use ($requester, $companyId, $instance, $stages, $usersById, $presetProvenance): DocumentWorkflowRequest {
             $lockedInstance = DocumentInstance::query()
                 ->whereKey($instance->id)
                 ->where('company_id', $companyId)
@@ -89,6 +91,9 @@ final class CreateDocumentWorkflowRequest
                 'company_id' => $companyId,
                 'document_instance_id' => $lockedInstance->id,
                 'document_instance_version_id' => $version->id,
+                'document_workflow_preset_id' => $presetProvenance['preset_id'] ?? null,
+                'preset_name_snapshot' => $presetProvenance['preset_name'] ?? null,
+                'routing_definition_snapshot' => $presetProvenance['routing_snapshot'] ?? null,
                 'status' => DocumentWorkflowRequestStatus::Pending,
                 'requested_by' => $requester->id,
                 'requester_name_snapshot' => (string) $requester->name,
@@ -131,9 +136,11 @@ final class CreateDocumentWorkflowRequest
                 event: 'workflow_created',
                 request: $request,
                 actor: $requester,
-                metadata: [
+                metadata: array_filter([
                     'stage_count' => count($stages),
-                ],
+                    'workflow_preset_id' => $presetProvenance['preset_id'] ?? null,
+                    'preset_name_snapshot' => $presetProvenance['preset_name'] ?? null,
+                ], fn ($value): bool => $value !== null),
             );
 
             return $request;

@@ -13,6 +13,7 @@ use App\Support\BulkDocuments\BulkDocumentSignatureRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\Documents\Workflow\DocumentWorkflowPagePermissions;
 use App\Support\Documents\Workflow\DocumentWorkflowPresenter;
+use App\Support\Documents\Workflow\DocumentWorkflowPresetPagePermissions;
 use App\Support\Documents\Workflow\DocumentWorkflowRosterQuery;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
@@ -74,6 +75,7 @@ class DocumentRequestsIndexController extends Controller
             return Inertia::render('organization/documents/requests/index', [
                 'tab' => 'review',
                 'can' => $workflowPermissions,
+                'preset_can' => DocumentWorkflowPresetPagePermissions::for($request->user()),
                 'filters' => $filters,
                 'search' => $filters['search'],
                 'workflow_requests' => collect($paginator->items())
@@ -122,6 +124,7 @@ class DocumentRequestsIndexController extends Controller
         return Inertia::render('organization/documents/requests/index', [
             'tab' => 'signatures',
             'can' => $workflowPermissions,
+            'preset_can' => DocumentWorkflowPresetPagePermissions::for($request->user()),
             'filters' => $this->filtersPayload($filters),
             'search' => $filters->search,
             'workflow_requests' => [],

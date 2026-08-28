@@ -23,7 +23,10 @@ import type {
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { RequestApprovalDialog } from '@/features/organization/documents/workflow/request-approval-dialog';
-import type { WorkflowAssigneeOption } from '@/features/organization/documents/workflow/types';
+import type {
+    WorkflowAssigneeOption,
+    WorkflowPresetSummary,
+} from '@/features/organization/documents/workflow/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { formatBytes } from '@/lib/utils';
@@ -53,6 +56,7 @@ type Props = {
         } | null;
         can_create: boolean;
         assignee_options: WorkflowAssigneeOption[];
+        presets: WorkflowPresetSummary[];
     };
     back: {
         href: string;
@@ -390,6 +394,7 @@ export default function DocumentShow({
                     employeeId={employee.id}
                     documentId={doc.id}
                     assigneeOptions={workflow.assignee_options}
+                    presets={workflow.presets}
                 />
             ) : null}
         </>

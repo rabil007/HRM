@@ -9,6 +9,7 @@ use App\Models\EmployeeDocument;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\Documents\Workflow\DocumentWorkflowEligibility;
 use App\Support\Documents\Workflow\DocumentWorkflowPresenter;
+use App\Support\Documents\Workflow\DocumentWorkflowPresetQuery;
 use App\Support\EmployeeDocuments\DocumentAccess;
 use App\Support\EmployeeDocuments\DocumentPagePermissions;
 use App\Support\EmployeeDocuments\DocumentShowBackNavigation;
@@ -50,6 +51,10 @@ class EmployeeDocumentShowController extends Controller
         $canCreateWorkflow = ($user?->can('documents.requests.create') ?? false)
             && $workflowEligibility->canCreateForDocument($document, $companyId);
 
+        $workflowPresets = $canCreateWorkflow
+            ? app(DocumentWorkflowPresetQuery::class)->activeForCompany($companyId)
+            : [];
+
         return Inertia::render('organization/documents/show', [
             'document' => $document->toShowArray(),
             'employee' => [
@@ -68,6 +73,7 @@ class EmployeeDocumentShowController extends Controller
                 'assignee_options' => $canCreateWorkflow
                     ? $workflowEligibility->assigneeOptions($companyId)
                     : [],
+                'presets' => $workflowPresets,
             ],
             'back' => DocumentShowBackNavigation::resolve($request, $employee),
             'recent_activity' => RecentActivityQuery::for(

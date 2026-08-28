@@ -96,13 +96,19 @@ use App\Http\Controllers\Organization\DocumentFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentFolderShareLinksController;
 use App\Http\Controllers\Organization\DocumentGenerationTemplateController;
 use App\Http\Controllers\Organization\DocumentGenerationTemplatePreviewController;
+use App\Http\Controllers\Organization\Documents\ActivateDocumentWorkflowPresetController;
 use App\Http\Controllers\Organization\Documents\CancelDocumentWorkflowRequestController;
 use App\Http\Controllers\Organization\Documents\CompleteDocumentWorkflowTaskController;
 use App\Http\Controllers\Organization\Documents\CreateDocumentWorkflowRequestController;
+use App\Http\Controllers\Organization\Documents\DeactivateDocumentWorkflowPresetController;
+use App\Http\Controllers\Organization\Documents\DeleteDocumentWorkflowPresetController;
 use App\Http\Controllers\Organization\Documents\DocumentRequestsIndexController;
+use App\Http\Controllers\Organization\Documents\DocumentWorkflowPresetsIndexController;
 use App\Http\Controllers\Organization\Documents\DocumentWorkflowRequestShowController;
 use App\Http\Controllers\Organization\Documents\DocumentWorkflowVersionPreviewController;
 use App\Http\Controllers\Organization\Documents\RejectDocumentWorkflowTaskController;
+use App\Http\Controllers\Organization\Documents\StoreDocumentWorkflowPresetController;
+use App\Http\Controllers\Organization\Documents\UpdateDocumentWorkflowPresetController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
 use App\Http\Controllers\Organization\DocumentShareController;
 use App\Http\Controllers\Organization\DocumentsOverviewController;
@@ -669,6 +675,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('can:documents.requests.create')->group(function () {
         Route::post('organization/documents/employees/{employee}/files/{document}/workflow-requests', CreateDocumentWorkflowRequestController::class)
             ->name('organization.documents.employee.files.workflow-requests.store');
+    });
+    Route::middleware('can:documents.workflow-presets.view')->group(function () {
+        Route::get('organization/documents/workflow-presets', DocumentWorkflowPresetsIndexController::class)
+            ->name('organization.documents.workflow-presets');
+    });
+    Route::middleware('can:documents.workflow-presets.create')->group(function () {
+        Route::post('organization/documents/workflow-presets', StoreDocumentWorkflowPresetController::class)
+            ->name('organization.documents.workflow-presets.store');
+    });
+    Route::middleware('can:documents.workflow-presets.update')->group(function () {
+        Route::put('organization/documents/workflow-presets/{workflowPreset}', UpdateDocumentWorkflowPresetController::class)
+            ->name('organization.documents.workflow-presets.update');
+        Route::post('organization/documents/workflow-presets/{workflowPreset}/activate', ActivateDocumentWorkflowPresetController::class)
+            ->name('organization.documents.workflow-presets.activate');
+        Route::post('organization/documents/workflow-presets/{workflowPreset}/deactivate', DeactivateDocumentWorkflowPresetController::class)
+            ->name('organization.documents.workflow-presets.deactivate');
+    });
+    Route::middleware('can:documents.workflow-presets.delete')->group(function () {
+        Route::delete('organization/documents/workflow-presets/{workflowPreset}', DeleteDocumentWorkflowPresetController::class)
+            ->name('organization.documents.workflow-presets.destroy');
     });
     Route::post('organization/documents/workflow-tasks/{workflowTask}/complete', CompleteDocumentWorkflowTaskController::class)
         ->name('organization.documents.workflow-tasks.complete');
