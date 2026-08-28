@@ -7,6 +7,7 @@ use App\Models\EmployeeDocument;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
 use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Illuminate\Http\UploadedFile;
+use Throwable;
 
 final class SyncSignedDocumentInstanceToLibrary
 {
@@ -15,15 +16,22 @@ final class SyncSignedDocumentInstanceToLibrary
         string $tempSignedPdfPath,
         int $companyId,
     ): ?SignedDocumentLibraryReplacement {
-        $instance->loadMissing('employeeDocument');
+        $employeeDocumentId = (int) ($instance->employee_document_id ?? 0);
 
-        $employeeDocument = $instance->employeeDocument;
+        if ($employeeDocumentId <= 0) {
+            return null;
+        }
+
+        $employeeDocument = EmployeeDocument::query()
+            ->whereKey($employeeDocumentId)
+            ->where('company_id', $companyId)
+            ->where('employee_id', $instance->employee_id)
+            ->lockForUpdate()
+            ->first();
 
         if (! $employeeDocument instanceof EmployeeDocument) {
             return null;
         }
-
-        abort_unless((int) $employeeDocument->company_id === $companyId, 404);
 
         $oldPath = (string) $employeeDocument->file_path;
 
@@ -35,7 +43,12 @@ final class SyncSignedDocumentInstanceToLibrary
             true,
         );
 
-        $directory = dirname($oldPath);
+        $validatedOldPath = EmployeePrivateFile::validatedRelativePath(
+            $oldPath,
+            $companyId,
+            EmployeePrivateFileKind::Document,
+        );
+        $directory = $validatedOldPath !== null ? dirname($validatedOldPath) : '.';
 
         if ($directory === '.' || $directory === '') {
             $directory = "employee-documents/{$companyId}/{$employeeDocument->employee_id}";
@@ -51,18 +64,24 @@ final class SyncSignedDocumentInstanceToLibrary
             ],
         );
 
-        $sizeBytes = (int) filesize($tempSignedPdfPath);
-        $checksum = hash_file('sha256', $tempSignedPdfPath) ?: '';
+        try {
+            $sizeBytes = (int) filesize($tempSignedPdfPath);
+            $checksum = hash_file('sha256', $tempSignedPdfPath) ?: '';
 
-        $employeeDocument->update([
-            'file_path' => $newPath,
-            'size_bytes' => $sizeBytes,
-            'checksum' => $checksum,
-            'mime_type' => 'application/pdf',
-        ]);
+            $employeeDocument->update([
+                'file_path' => $newPath,
+                'size_bytes' => $sizeBytes,
+                'checksum' => $checksum,
+                'mime_type' => 'application/pdf',
+            ]);
+        } catch (Throwable $exception) {
+            EmployeePrivateFile::deleteStored(
+                $newPath,
+                $companyId,
+                EmployeePrivateFileKind::Document,
+            );
 
-        if ($oldPath === '' || $oldPath === $newPath) {
-            return null;
+            throw $exception;
         }
 
         return new SignedDocumentLibraryReplacement(
@@ -74,6 +93,10 @@ final class SyncSignedDocumentInstanceToLibrary
 
     public function finalizeReplacement(SignedDocumentLibraryReplacement $replacement): void
     {
+        if ($replacement->oldPath === '' || $replacement->oldPath === $replacement->newPath) {
+            return;
+        }
+
         EmployeePrivateFile::deleteStored(
             $replacement->oldPath,
             $replacement->companyId,
