@@ -100,6 +100,7 @@ use App\Http\Controllers\Organization\Documents\ActivateDocumentWorkflowPresetCo
 use App\Http\Controllers\Organization\Documents\CancelDocumentRecipientRequestController;
 use App\Http\Controllers\Organization\Documents\CancelDocumentWorkflowRequestController;
 use App\Http\Controllers\Organization\Documents\CompleteDocumentWorkflowTaskController;
+use App\Http\Controllers\Organization\Documents\CreateDocumentCompanyCountersignRequestController;
 use App\Http\Controllers\Organization\Documents\CreateDocumentRecipientRequestController;
 use App\Http\Controllers\Organization\Documents\CreateDocumentWorkflowRequestController;
 use App\Http\Controllers\Organization\Documents\DeactivateDocumentWorkflowPresetController;
@@ -109,9 +110,12 @@ use App\Http\Controllers\Organization\Documents\DocumentRequestsIndexController;
 use App\Http\Controllers\Organization\Documents\DocumentWorkflowPresetsIndexController;
 use App\Http\Controllers\Organization\Documents\DocumentWorkflowRequestShowController;
 use App\Http\Controllers\Organization\Documents\DocumentWorkflowVersionPreviewController;
+use App\Http\Controllers\Organization\Documents\DownloadDocumentRecipientRequestDocumentController;
 use App\Http\Controllers\Organization\Documents\RegenerateDocumentRecipientRequestTokenController;
 use App\Http\Controllers\Organization\Documents\RejectDocumentWorkflowTaskController;
+use App\Http\Controllers\Organization\Documents\RespondDocumentRecipientRequestController;
 use App\Http\Controllers\Organization\Documents\StoreDocumentWorkflowPresetController;
+use App\Http\Controllers\Organization\Documents\SubmitDocumentRecipientRequestSignController;
 use App\Http\Controllers\Organization\Documents\UpdateDocumentWorkflowPresetController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
 use App\Http\Controllers\Organization\DocumentShareController;
@@ -697,13 +701,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('organization/documents/employees/{employee}/files/{document}/workflow-requests', CreateDocumentWorkflowRequestController::class)
             ->name('organization.documents.employee.files.workflow-requests.store');
     });
-    Route::middleware('can:documents.recipient-requests.view')->group(function () {
-        Route::get('organization/documents/recipient-requests/{recipientRequest}', DocumentRecipientRequestShowController::class)
-            ->name('organization.documents.recipient-requests.show');
+    Route::get('organization/documents/recipient-requests/{recipientRequest}', DocumentRecipientRequestShowController::class)
+        ->name('organization.documents.recipient-requests.show');
+    Route::middleware('can:documents.recipient-requests.respond')->group(function () {
+        Route::get('organization/documents/recipient-requests/{recipientRequest}/respond', RespondDocumentRecipientRequestController::class)
+            ->name('organization.documents.recipient-requests.respond');
+        Route::get('organization/documents/recipient-requests/{recipientRequest}/document', DownloadDocumentRecipientRequestDocumentController::class)
+            ->name('organization.documents.recipient-requests.document');
+        Route::post('organization/documents/recipient-requests/{recipientRequest}/sign', SubmitDocumentRecipientRequestSignController::class)
+            ->name('organization.documents.recipient-requests.sign');
     });
     Route::middleware('can:documents.recipient-requests.create')->group(function () {
         Route::post('organization/documents/employees/{employee}/files/{document}/recipient-requests', CreateDocumentRecipientRequestController::class)
             ->name('organization.documents.employee.files.recipient-requests.store');
+        Route::post('organization/documents/employees/{employee}/files/{document}/company-countersign-requests', CreateDocumentCompanyCountersignRequestController::class)
+            ->name('organization.documents.employee.files.company-countersign-requests.store');
         Route::post('organization/documents/recipient-requests/{recipientRequest}/regenerate-link', RegenerateDocumentRecipientRequestTokenController::class)
             ->name('organization.documents.recipient-requests.regenerate-link');
     });

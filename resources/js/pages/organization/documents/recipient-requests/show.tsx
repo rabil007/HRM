@@ -24,6 +24,12 @@ type RecipientRequestDetail = {
     status: RecipientRequestStatus;
     status_label: string;
     recipient_name: string;
+    recipient_type: string;
+    recipient_type_label: string;
+    recipient_role: string;
+    recipient_role_label: string;
+    is_public_token_recipient: boolean;
+    respond_url: string | null;
     requested_at: string | null;
     expires_at: string | null;
     first_viewed_at: string | null;
@@ -41,6 +47,10 @@ type RecipientRequestDetail = {
         name: string | null;
         employee_no: string | null;
     };
+    company_signatory: {
+        id: number;
+        name: string;
+    } | null;
     source_version: {
         id: number;
         version: number | null;
@@ -105,21 +115,23 @@ export default function RecipientRequestShow({
                             {can.cancel &&
                             recipient_request.status === 'awaiting_action' ? (
                                 <>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() =>
-                                            router.post(
-                                                RegenerateDocumentRecipientRequestTokenController.url(
-                                                    {
-                                                        recipientRequest:
-                                                            recipient_request.id,
-                                                    },
-                                                ),
-                                            )
-                                        }
-                                    >
-                                        Regenerate link
-                                    </Button>
+                                    {recipient_request.is_public_token_recipient ? (
+                                        <Button
+                                            variant="outline"
+                                            onClick={() =>
+                                                router.post(
+                                                    RegenerateDocumentRecipientRequestTokenController.url(
+                                                        {
+                                                            recipientRequest:
+                                                                recipient_request.id,
+                                                        },
+                                                    ),
+                                                )
+                                            }
+                                        >
+                                            Regenerate link
+                                        </Button>
+                                    ) : null}
                                     <Button
                                         variant="destructive"
                                         onClick={() =>
@@ -155,6 +167,37 @@ export default function RecipientRequestShow({
                                     {recipient_request.status_label}
                                 </Badge>
                             </div>
+                            <div className="flex justify-between gap-4">
+                                <span className="text-muted-foreground">
+                                    Recipient role
+                                </span>
+                                <span>
+                                    {recipient_request.recipient_role_label}
+                                </span>
+                            </div>
+                            {recipient_request.company_signatory ? (
+                                <div className="flex justify-between gap-4">
+                                    <span className="text-muted-foreground">
+                                        Company signatory
+                                    </span>
+                                    <span>
+                                        {
+                                            recipient_request.company_signatory
+                                                .name
+                                        }
+                                    </span>
+                                </div>
+                            ) : null}
+                            {recipient_request.respond_url ? (
+                                <div className="flex justify-between gap-4">
+                                    <span className="text-muted-foreground">
+                                        Internal signing URL
+                                    </span>
+                                    <span className="max-w-[60%] truncate text-right">
+                                        {recipient_request.respond_url}
+                                    </span>
+                                </div>
+                            ) : null}
                             <div className="flex justify-between gap-4">
                                 <span className="text-muted-foreground">
                                     Action

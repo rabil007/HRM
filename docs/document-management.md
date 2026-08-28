@@ -772,4 +772,58 @@ Phase 5 workflow stages are not extended with sign/acknowledge actions in Phase 
 
 No manager/countersigning, external recipients, email/reminders/WhatsApp/push, automatic workflow sign stages, candidate signing, or automatic template→preset routing. Legacy bulk signature requests remain the protected production path for Salary Declaration and related bulk flows.
 
+## Phase 6B-1: Internal Company Countersigning
+
+Phase 6B-1 adds a single authenticated company signatory step after the subject employee has signed. It extends the unified `DocumentRecipientRequest` domain — no separate countersignature table.
+
+### Version chain
+
+1. **v1 Generated** — immutable generated PDF
+2. **v2 Employee signed** — subject employee completes Phase 6A sign request; becomes current
+3. **v3 Company countersigned** — assigned company user signs in-app; stamped onto exact v2 bytes; becomes current
+
+Earlier versions remain immutable. The Library representation syncs to the latest completed version (v3 when countersigned).
+
+### Recipient model
+
+| Field | Meaning |
+|-------|---------|
+| `employee_id` | Always the **subject employee** who owns the document |
+| `recipient_user_id` | Internal company user assigned to countersign |
+| `recipient_type` | `company_user` for countersign requests |
+| `recipient_role` | `company_signatory` (existing subject requests use `subject`) |
+| `recipient_name_snapshot` | Signatory display name at request creation |
+
+Phase 6A subject-employee rows remain `recipient_type = subject_employee`, `recipient_role = subject`.
+
+### Security
+
+- **Subject employee** continues using public `/document-action/{token}` (Phase 6A unchanged).
+- **Company signatory** must authenticate, belong to the active company, match `recipient_user_id`, and hold `documents.recipient-requests.respond`.
+- Internal routes: `GET .../respond`, `GET .../document`, `POST .../sign`.
+- A random `token_hash` may exist for schema compatibility but is **never exposed**; public document-action routes return 404 for `company_user` requests.
+
+### Signature placement
+
+`signature_placement_config` on published template versions supports up to one placement per role:
+
+- `role: subject` — employee signature (Phase 6A)
+- `role: company_signatory` — company countersignature (Phase 6B-1)
+
+Templates → **Signature placement** editor configures both on draft PDF overlay versions. Subject-only configs continue to work for employee signing.
+
+### Eligibility
+
+HR may request company countersignature when:
+
+- User has `documents.recipient-requests.create`
+- Current version is the result of a completed subject sign request
+- Company signatory placement exists on the bound template version
+- No active duplicate countersign request for that source version
+- Selected user has company access and `documents.recipient-requests.respond`
+
+### Explicitly not in Phase 6B-1
+
+Department manager resolution, automatic multi-stage chains, multiple company signatories, external recipients, email/WhatsApp/reminders, workflow sign stages, legacy bulk migration, and `/esign/*` changes remain Phase 6B-2 / Phase 7 / Phase 8.
+
 

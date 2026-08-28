@@ -20,16 +20,20 @@ class DocumentRecipientRequestShowController extends Controller
         DocumentRecipientRequestPresenter $presenter,
     ): Response {
         $companyId = (int) $request->attributes->get('current_company_id');
-        abort_unless($request->user()?->can('documents.recipient-requests.view'), 403);
-        DocumentRecipientRequestAccess::assertInCompany($recipientRequest, $companyId);
+        $user = $request->user();
 
-        $canViewAudit = $request->user()?->can('audit.view') ?? false;
+        abort_unless(
+            DocumentRecipientRequestAccess::canViewRequest($recipientRequest, $user, $companyId),
+            403,
+        );
+
+        $canViewAudit = $user?->can('audit.view') ?? false;
 
         return Inertia::render('organization/documents/recipient-requests/show', [
             'recipient_request' => $presenter->detail($recipientRequest),
-            'can' => DocumentRecipientRequestPagePermissions::for($request->user()),
+            'can' => DocumentRecipientRequestPagePermissions::for($user),
             'recent_activity' => $canViewAudit
-                ? RecentActivityQuery::for($request->user(), $companyId, DocumentRecipientRequest::class, $recipientRequest->id)
+                ? RecentActivityQuery::for($user, $companyId, DocumentRecipientRequest::class, $recipientRequest->id)
                 : [],
             'can_view_audit' => $canViewAudit,
         ]);

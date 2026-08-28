@@ -2,16 +2,16 @@
 
 namespace App\Enums;
 
-enum DocumentRecipientType: string
+enum DocumentRecipientRole: string
 {
-    case SubjectEmployee = 'subject_employee';
-    case CompanyUser = 'company_user';
+    case Subject = 'subject';
+    case CompanySignatory = 'company_signatory';
 
     public function label(): string
     {
         return match ($this) {
-            self::SubjectEmployee => 'Subject employee',
-            self::CompanyUser => 'Company signatory',
+            self::Subject => 'Subject employee',
+            self::CompanySignatory => 'Company signatory',
         };
     }
 

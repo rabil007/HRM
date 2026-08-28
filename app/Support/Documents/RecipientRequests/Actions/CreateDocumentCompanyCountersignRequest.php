@@ -13,28 +13,28 @@ use App\Models\DocumentRecipientRequest;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Support\Companies\ResolveCompanyAccess;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestToken;
-use App\Support\Documents\RecipientRequests\DocumentRecipientRequestWorkflowGate;
 use App\Support\Documents\RecipientRequests\ResolveDocumentSignaturePlacement;
 use App\Support\EmployeeDocuments\DocumentAccess;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-final class CreateDocumentRecipientRequest
+final class CreateDocumentCompanyCountersignRequest
 {
     public function __construct(
-        private DocumentRecipientRequestWorkflowGate $workflowGate,
         private ResolveDocumentSignaturePlacement $resolvePlacement,
         private DocumentRecipientRequestEventRecorder $eventRecorder,
+        private ResolveCompanyAccess $companyAccess,
     ) {}
 
     /**
-     * @return array{request: DocumentRecipientRequest, raw_token: string}
+     * @return array{request: DocumentRecipientRequest, respond_url: string}
      */
     public function handle(
         EmployeeDocument $document,
-        DocumentRecipientAction $action,
+        User $recipientUser,
         User $requester,
         int $companyId,
     ): array {
@@ -48,15 +48,24 @@ final class CreateDocumentRecipientRequest
             abort(404);
         }
 
-        $rawToken = DocumentRecipientRequestToken::generate();
+        if (! $this->companyAccess->hasAccessibleMembership($recipientUser, $companyId)) {
+            throw ValidationException::withMessages([
+                'recipient_user_id' => 'The selected signatory does not belong to the active company.',
+            ]);
+        }
+
+        if (! $recipientUser->can('documents.recipient-requests.respond')) {
+            throw ValidationException::withMessages([
+                'recipient_user_id' => 'The selected signatory is not authorized to respond to recipient requests.',
+            ]);
+        }
 
         return DB::transaction(function () use (
             $document,
             $employee,
-            $action,
+            $recipientUser,
             $requester,
             $companyId,
-            $rawToken,
         ): array {
             $instance = DocumentInstance::query()
                 ->where('employee_document_id', $document->id)
@@ -75,29 +84,54 @@ final class CreateDocumentRecipientRequest
                 abort(404);
             }
 
+            if ($instance->current_version_id === null) {
+                throw ValidationException::withMessages([
+                    'action' => 'This document has no current version.',
+                ]);
+            }
+
             $sourceVersion = DocumentInstanceVersion::query()
                 ->whereKey($instance->current_version_id)
                 ->where('company_id', $companyId)
+                ->where('document_instance_id', $instance->id)
+                ->lockForUpdate()
                 ->firstOrFail();
 
-            $this->workflowGate->assertCanCreateForVersion($instance, $companyId);
+            $completedSubjectSign = DocumentRecipientRequest::query()
+                ->forCompany($companyId)
+                ->where('document_instance_id', $instance->id)
+                ->where('recipient_type', DocumentRecipientType::SubjectEmployee)
+                ->where('recipient_role', DocumentRecipientRole::Subject)
+                ->where('action', DocumentRecipientAction::Sign)
+                ->where('status', DocumentRecipientRequestStatus::Completed)
+                ->where('result_document_instance_version_id', $sourceVersion->id)
+                ->latest('completed_at')
+                ->first();
 
-            if ($action === DocumentRecipientAction::Sign) {
-                $this->resolvePlacement->forInstanceVersion($instance, $sourceVersion);
+            if ($completedSubjectSign === null) {
+                throw ValidationException::withMessages([
+                    'action' => 'Company countersignature requires a completed subject employee signature on the current version.',
+                ]);
             }
 
-            $workflowRequestId = $this->workflowGate->latestApprovedWorkflowId(
-                $instance,
-                (int) $sourceVersion->id,
-                $companyId,
-            );
+            try {
+                $this->resolvePlacement->forInstanceVersion(
+                    $instance,
+                    $sourceVersion,
+                    DocumentRecipientRole::CompanySignatory,
+                );
+            } catch (\InvalidArgumentException $exception) {
+                throw ValidationException::withMessages([
+                    'action' => $exception->getMessage(),
+                ]);
+            }
 
             $duplicate = DocumentRecipientRequest::query()
                 ->forCompany($companyId)
                 ->where('document_instance_id', $instance->id)
                 ->where('source_document_instance_version_id', $sourceVersion->id)
-                ->where('employee_id', $employee->id)
-                ->where('action', $action)
+                ->where('recipient_type', DocumentRecipientType::CompanyUser)
+                ->where('recipient_role', DocumentRecipientRole::CompanySignatory)
                 ->where('status', DocumentRecipientRequestStatus::AwaitingAction)
                 ->where('expires_at', '>', now())
                 ->lockForUpdate()
@@ -105,23 +139,25 @@ final class CreateDocumentRecipientRequest
 
             if ($duplicate) {
                 throw ValidationException::withMessages([
-                    'action' => 'An active request of this type already exists for this document version.',
+                    'action' => 'An active company countersignature request already exists for this document version.',
                 ]);
             }
+
+            $internalToken = DocumentRecipientRequestToken::generate();
 
             $request = DocumentRecipientRequest::query()->create([
                 'company_id' => $companyId,
                 'document_instance_id' => $instance->id,
                 'source_document_instance_version_id' => $sourceVersion->id,
-                'document_workflow_request_id' => $workflowRequestId,
-                'action' => $action,
-                'recipient_type' => DocumentRecipientType::SubjectEmployee,
-                'recipient_role' => DocumentRecipientRole::Subject,
+                'document_workflow_request_id' => $completedSubjectSign->document_workflow_request_id,
+                'action' => DocumentRecipientAction::Sign,
+                'recipient_type' => DocumentRecipientType::CompanyUser,
+                'recipient_role' => DocumentRecipientRole::CompanySignatory,
                 'employee_id' => $employee->id,
-                'recipient_user_id' => $employee->user_id,
-                'recipient_name_snapshot' => (string) $employee->name,
+                'recipient_user_id' => $recipientUser->id,
+                'recipient_name_snapshot' => (string) $recipientUser->name,
                 'status' => DocumentRecipientRequestStatus::AwaitingAction,
-                'token_hash' => DocumentRecipientRequestToken::hash($rawToken),
+                'token_hash' => DocumentRecipientRequestToken::hash($internalToken),
                 'expires_at' => now()->addDays(DocumentRecipientRequest::EXPIRY_DAYS),
                 'requested_by' => $requester->id,
                 'requested_at' => now(),
@@ -133,9 +169,12 @@ final class CreateDocumentRecipientRequest
                 DocumentRecipientRequestEventType::RequestCreated,
                 $requester,
                 metadata: [
-                    'action' => $action->value,
+                    'action' => DocumentRecipientAction::Sign->value,
+                    'recipient_type' => DocumentRecipientType::CompanyUser->value,
+                    'recipient_role' => DocumentRecipientRole::CompanySignatory->value,
                     'document_instance_id' => $instance->id,
                     'source_document_instance_version_id' => $sourceVersion->id,
+                    'recipient_user_id' => $recipientUser->id,
                 ],
             );
 
@@ -144,17 +183,20 @@ final class CreateDocumentRecipientRequest
                 ->performedOn($request)
                 ->tap(fn ($activity) => $activity->company_id = $companyId)
                 ->withProperties([
-                    'action' => 'recipient_request_created',
+                    'action' => 'company_countersign_request_created',
                     'document_recipient_request_id' => $request->id,
                     'document_instance_id' => $instance->id,
-                    'recipient_action' => $action->value,
+                    'recipient_user_id' => $recipientUser->id,
+                    'recipient_role' => DocumentRecipientRole::CompanySignatory->value,
                     'status' => $request->status->value,
                 ])
-                ->log('Recipient request created');
+                ->log('Company countersignature request created');
 
             return [
                 'request' => $request->fresh(),
-                'raw_token' => $rawToken,
+                'respond_url' => route('organization.documents.recipient-requests.respond', [
+                    'recipientRequest' => $request->id,
+                ]),
             ];
         });
     }

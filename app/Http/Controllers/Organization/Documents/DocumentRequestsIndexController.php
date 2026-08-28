@@ -39,7 +39,8 @@ class DocumentRequestsIndexController extends Controller
         abort_unless(
             $workflowPermissions['view']
                 || $workflowPermissions['view_signatures']
-                || $workflowPermissions['view_recipient_requests'],
+                || $workflowPermissions['view_recipient_requests']
+                || $workflowPermissions['respond_recipient_requests'],
             403,
         );
 
@@ -50,7 +51,9 @@ class DocumentRequestsIndexController extends Controller
             'review' => 'review',
             default => $workflowPermissions['view']
                 ? 'review'
-                : ($workflowPermissions['view_recipient_requests'] ? 'recipient' : 'signatures'),
+                : ($workflowPermissions['view_recipient_requests'] || $workflowPermissions['respond_recipient_requests']
+                    ? 'recipient'
+                    : 'signatures'),
         };
 
         if ($tab === 'review') {
@@ -98,12 +101,17 @@ class DocumentRequestsIndexController extends Controller
         }
 
         if ($tab === 'recipient') {
-            abort_unless($workflowPermissions['view_recipient_requests'], 403);
+            abort_unless(
+                $workflowPermissions['view_recipient_requests']
+                    || $workflowPermissions['respond_recipient_requests'],
+                403,
+            );
 
             $filters = [
                 'search' => trim((string) $request->query('search', '')),
                 'status' => trim((string) $request->query('status', '')),
                 'action' => trim((string) $request->query('action', '')),
+                'assigned_to_me' => $request->boolean('assigned_to_me'),
             ];
 
             $recipientPresenter = app(DocumentRecipientRequestPresenter::class);
@@ -112,6 +120,7 @@ class DocumentRequestsIndexController extends Controller
                 $filters,
                 $perPage,
                 $page,
+                $request->user(),
             );
 
             return Inertia::render('organization/documents/requests/index', [

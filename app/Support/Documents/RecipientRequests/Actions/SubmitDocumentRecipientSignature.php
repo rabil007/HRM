@@ -4,10 +4,13 @@ namespace App\Support\Documents\RecipientRequests\Actions;
 
 use App\Enums\DocumentRecipientRequestEventType;
 use App\Enums\DocumentRecipientRequestStatus;
+use App\Enums\DocumentRecipientRole;
 use App\Models\DocumentInstance;
 use App\Models\DocumentInstanceVersion;
 use App\Models\DocumentRecipientRequest;
+use App\Models\User;
 use App\Support\Documents\DocumentInstanceStorage;
+use App\Support\Documents\RecipientRequests\DocumentRecipientRequestAccess;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestSourceGuard;
 use App\Support\Documents\RecipientRequests\DocumentRecipientSignatureStorage;
@@ -38,8 +41,25 @@ final class SubmitDocumentRecipientSignature
     /**
      * @param  array{signed_name: string, signature_data: string, consent: bool}  $data
      */
-    public function handle(DocumentRecipientRequest $request, array $data, Request $httpRequest): DocumentRecipientRequest
-    {
+    public function handle(
+        DocumentRecipientRequest $request,
+        array $data,
+        Request $httpRequest,
+        ?User $actor = null,
+    ): DocumentRecipientRequest {
+        if ($request->isInternalCompanySignatory()) {
+            if ($actor === null) {
+                throw ValidationException::withMessages([
+                    'request' => 'This signing request requires authentication.',
+                ]);
+            }
+
+            DocumentRecipientRequestAccess::assertAssignedCompanySignatory(
+                $request,
+                $actor,
+                (int) $request->company_id,
+            );
+        }
         if ($request->status === DocumentRecipientRequestStatus::Completed) {
             return $request;
         }
@@ -71,7 +91,7 @@ final class SubmitDocumentRecipientSignature
         $libraryReplacement = null;
 
         try {
-            $result = DB::transaction(function () use ($request, $data, $httpRequest, &$signaturePath, &$tempSignedPath, &$canonicalPath, &$libraryReplacement): DocumentRecipientRequest|string {
+            $result = DB::transaction(function () use ($request, $data, $httpRequest, $actor, &$signaturePath, &$tempSignedPath, &$canonicalPath, &$libraryReplacement): DocumentRecipientRequest|string {
                 /** @var DocumentRecipientRequest $locked */
                 $locked = DocumentRecipientRequest::query()
                     ->whereKey($request->id)
@@ -86,6 +106,20 @@ final class SubmitDocumentRecipientSignature
                     throw ValidationException::withMessages([
                         'token' => 'This signing request is no longer available.',
                     ]);
+                }
+
+                if ($locked->isInternalCompanySignatory()) {
+                    if ($actor === null) {
+                        throw ValidationException::withMessages([
+                            'request' => 'This signing request requires authentication.',
+                        ]);
+                    }
+
+                    DocumentRecipientRequestAccess::assertAssignedCompanySignatory(
+                        $locked,
+                        $actor,
+                        (int) $locked->company_id,
+                    );
                 }
 
                 $instance = DocumentInstance::query()
@@ -112,7 +146,8 @@ final class SubmitDocumentRecipientSignature
 
                 $this->sourceGuard->assertExactSource($locked, $sourceVersion);
 
-                $placement = $this->resolvePlacement->forInstanceVersion($instance, $sourceVersion);
+                $placementRole = $locked->recipient_role ?? DocumentRecipientRole::Subject;
+                $placement = $this->resolvePlacement->forInstanceVersion($instance, $sourceVersion, $placementRole);
 
                 $signaturePath = DocumentRecipientSignatureStorage::storeFromDataUri(
                     $data['signature_data'],
@@ -153,7 +188,7 @@ final class SubmitDocumentRecipientSignature
                     'mime_type' => 'application/pdf',
                     'size_bytes' => $artifact['size_bytes'],
                     'checksum' => $artifact['checksum'],
-                    'created_by' => null,
+                    'created_by' => $actor?->id,
                 ]);
 
                 $instance->update([
@@ -194,6 +229,7 @@ final class SubmitDocumentRecipientSignature
                 $this->eventRecorder->record(
                     $locked,
                     DocumentRecipientRequestEventType::SignatureSubmitted,
+                    $actor,
                     ipAddress: $httpRequest->ip(),
                     userAgent: Str::limit((string) $httpRequest->userAgent(), 1000, ''),
                 );
@@ -201,12 +237,14 @@ final class SubmitDocumentRecipientSignature
                 $this->eventRecorder->record(
                     $locked,
                     DocumentRecipientRequestEventType::SignedVersionCreated,
+                    $actor,
                     metadata: [
                         'result_document_instance_version_id' => $resultVersion->id,
                     ],
                 );
 
                 activity()
+                    ->causedBy($actor)
                     ->performedOn($locked)
                     ->tap(fn ($activity) => $activity->company_id = $locked->company_id)
                     ->withProperties([

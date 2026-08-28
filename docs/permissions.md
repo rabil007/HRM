@@ -42,7 +42,7 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 | Organization | `companies.*`, `branches.*`, `departments.*`, `positions.*`, `users.*`, `roles.*` |
 | Employees | `employees.view|create|update|delete|export|import`, and `employees.salary_certificate.print` / `employees.salary_declaration.print` |
 | Contracts / bank / training / sea service / profile tabs | `contracts.view|create|update|delete|import`, `contracts.salary_revisions.view|create|update|delete`, `bank_accounts.view|create|update|delete|import`, `training.view|create|update|delete|import`, `sea_services.view|create|update|delete|import`, `education.view|create|update|delete`, `work_experience.view|create|update|delete|import`, `vaccination.view|create|update|delete|import`, `languages.view|create|update|delete` |
-| Documents | `documents.view|download|share|upload|delete`, `documents.templates.view|create|update|delete`, `documents.requests.view|create|review|approve|cancel`, `documents.workflow-presets.view|create|update|delete`, `documents.recipient-requests.view|create|cancel` |
+| Documents | `documents.view|download|share|upload|delete`, `documents.templates.view|create|update|delete`, `documents.requests.view|create|review|approve|cancel`, `documents.workflow-presets.view|create|update|delete`, `documents.recipient-requests.view|create|cancel|respond` |
 | Bulk documents / signatures | `bulk_documents.view|generate|delete|email`, `bulk_documents.signatures.review` |
 | Crew operations | `crew_operations.overview.view`, `crew_operations.vessels.*`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*`, `crew_operations.assignments.*` (incl. `void`), `crew_operations.movements.perform`, `crew_operations.corrections.view|request|approve|override` |
 
@@ -119,7 +119,7 @@ Review/approval list and decision routes enforce `documents.requests.*` independ
 
 Workflow preset management uses `documents.workflow-presets.*`. Selecting an active preset during request creation requires only `documents.requests.create`; preset CRUD permissions are separate. Preset names are unique within the active company. `workflow_preset_id` on request creation is validated against `current_company_id`, not globally by id alone.
 
-Unified document signing and acknowledgement (Phase 6A) uses `documents.recipient-requests.view|create|cancel`. These permissions are separate from legacy `bulk_documents.signatures.review` and from Phase 5 workflow permissions. Token regeneration reuses `documents.recipient-requests.create`. Public `/document-action/{token}` completion requires no authenticated permission; company scope is derived from the persisted request bound to the token hash.
+Unified document signing and acknowledgement (Phase 6A) uses `documents.recipient-requests.view|create|cancel`. Phase 6B-1 adds `documents.recipient-requests.respond` for authenticated company users assigned to countersign a specific request (does not grant company-wide recipient request browsing). These permissions are separate from legacy `bulk_documents.signatures.review` and from Phase 5 workflow permissions. Token regeneration reuses `documents.recipient-requests.create` and applies only to public subject-employee requests. Public `/document-action/{token}` completion requires no authenticated permission; company scope is derived from the persisted request bound to the token hash. Company countersigning uses authenticated internal routes only.
 
 The request creator cannot review or approve their own workflow request (backend enforced in Phase 5A).
 

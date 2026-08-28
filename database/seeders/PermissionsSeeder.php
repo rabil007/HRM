@@ -234,6 +234,7 @@ class PermissionsSeeder extends Seeder
             'documents.recipient-requests.view',
             'documents.recipient-requests.create',
             'documents.recipient-requests.cancel',
+            'documents.recipient-requests.respond',
             'company_documents.view',
             'company_documents.upload',
             'company_documents.update',

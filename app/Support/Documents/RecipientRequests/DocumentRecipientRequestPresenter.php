@@ -15,6 +15,9 @@ final class DocumentRecipientRequestPresenter
             'documentInstance.employeeDocument',
             'requestedBy:id,name',
             'employee:id,name,employee_no',
+            'recipientUser:id,name',
+            'sourceVersion:id,version',
+            'resultVersion:id,version',
         ]);
 
         $document = $request->documentInstance?->employeeDocument;
@@ -25,6 +28,11 @@ final class DocumentRecipientRequestPresenter
             'action_label' => $request->action->label(),
             'status' => $request->status->value,
             'status_label' => $request->status->label(),
+            'recipient_type' => $request->recipient_type->value,
+            'recipient_type_label' => $request->recipient_type->label(),
+            'recipient_role' => $request->recipient_role->value,
+            'recipient_role_label' => $request->recipient_role->label(),
+            'recipient_name' => $request->recipient_name_snapshot,
             'requested_at' => $request->requested_at?->toIso8601String(),
             'expires_at' => $request->expires_at?->toIso8601String(),
             'completed_at' => $request->completed_at?->toIso8601String(),
@@ -38,9 +46,26 @@ final class DocumentRecipientRequestPresenter
             ],
             'employee' => [
                 'id' => $request->employee_id,
-                'name' => $request->recipient_name_snapshot,
+                'name' => $request->employee?->name ?? $request->recipient_name_snapshot,
                 'employee_no' => $request->employee?->employee_no,
             ],
+            'company_signatory' => $request->recipient_user_id ? [
+                'id' => $request->recipient_user_id,
+                'name' => $request->recipientUser?->name ?? $request->recipient_name_snapshot,
+            ] : null,
+            'source_version' => [
+                'id' => $request->source_document_instance_version_id,
+                'version' => $request->sourceVersion?->version,
+            ],
+            'result_version' => $request->resultVersion ? [
+                'id' => $request->resultVersion->id,
+                'version' => $request->resultVersion->version,
+            ] : null,
+            'respond_url' => $request->isInternalCompanySignatory() && $request->isAwaitingAction()
+                ? route('organization.documents.recipient-requests.respond', [
+                    'recipientRequest' => $request->id,
+                ])
+                : null,
         ];
     }
 
@@ -56,6 +81,7 @@ final class DocumentRecipientRequestPresenter
             'resultVersion',
             'requestedBy:id,name',
             'cancelledBy:id,name',
+            'recipientUser:id,name',
             'events.actor:id,name',
         ]);
 
@@ -67,7 +93,12 @@ final class DocumentRecipientRequestPresenter
             'action_label' => $request->action->label(),
             'status' => $request->status->value,
             'status_label' => $request->status->label(),
+            'recipient_type' => $request->recipient_type->value,
+            'recipient_type_label' => $request->recipient_type->label(),
+            'recipient_role' => $request->recipient_role->value,
+            'recipient_role_label' => $request->recipient_role->label(),
             'recipient_name' => $request->recipient_name_snapshot,
+            'is_public_token_recipient' => $request->isPublicTokenRecipient(),
             'requested_at' => $request->requested_at?->toIso8601String(),
             'expires_at' => $request->expires_at?->toIso8601String(),
             'first_viewed_at' => $request->first_viewed_at?->toIso8601String(),
@@ -88,9 +119,13 @@ final class DocumentRecipientRequestPresenter
             ],
             'employee' => [
                 'id' => $request->employee_id,
-                'name' => $request->recipient_name_snapshot,
+                'name' => $request->employee?->name,
                 'employee_no' => $request->employee?->employee_no,
             ],
+            'company_signatory' => $request->recipient_user_id ? [
+                'id' => $request->recipient_user_id,
+                'name' => $request->recipientUser?->name ?? $request->recipient_name_snapshot,
+            ] : null,
             'source_version' => [
                 'id' => $request->source_document_instance_version_id,
                 'version' => $request->sourceVersion?->version,
@@ -103,6 +138,11 @@ final class DocumentRecipientRequestPresenter
             ] : null,
             'signed_name' => $request->signed_name,
             'acknowledgement_text_snapshot' => $request->acknowledgement_text_snapshot,
+            'respond_url' => $request->isInternalCompanySignatory()
+                ? route('organization.documents.recipient-requests.respond', [
+                    'recipientRequest' => $request->id,
+                ])
+                : null,
             'timeline' => $request->events->map(fn ($event) => [
                 'event' => $event->event->value,
                 'occurred_at' => $event->occurred_at?->toIso8601String(),

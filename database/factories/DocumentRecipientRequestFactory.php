@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\DocumentRecipientAction;
 use App\Enums\DocumentRecipientRequestStatus;
+use App\Enums\DocumentRecipientRole;
 use App\Enums\DocumentRecipientType;
 use App\Models\Company;
 use App\Models\DocumentInstance;
@@ -34,6 +35,7 @@ class DocumentRecipientRequestFactory extends Factory
             'source_document_instance_version_id' => DocumentInstanceVersion::factory(),
             'action' => DocumentRecipientAction::Acknowledge,
             'recipient_type' => DocumentRecipientType::SubjectEmployee,
+            'recipient_role' => DocumentRecipientRole::Subject,
             'employee_id' => Employee::factory(),
             'recipient_name_snapshot' => fake()->name(),
             'status' => DocumentRecipientRequestStatus::AwaitingAction,

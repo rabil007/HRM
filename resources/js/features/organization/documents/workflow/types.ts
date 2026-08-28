@@ -20,6 +20,7 @@ export type DocumentWorkflowPermissions = {
     view_recipient_requests: boolean;
     create_recipient_requests: boolean;
     cancel_recipient_requests: boolean;
+    respond_recipient_requests: boolean;
 };
 
 export type WorkflowRequestListItem = {
@@ -235,6 +236,7 @@ export type RecipientRequestPermissions = {
     view: boolean;
     create: boolean;
     cancel: boolean;
+    respond: boolean;
 };
 
 export type RecipientRequestStatus =
@@ -250,6 +252,11 @@ export type RecipientRequestListItem = {
     action_label: string;
     status: RecipientRequestStatus;
     status_label: string;
+    recipient_type: string;
+    recipient_type_label: string;
+    recipient_role: string;
+    recipient_role_label: string;
+    recipient_name: string;
     requested_at: string | null;
     expires_at: string | null;
     completed_at: string | null;
@@ -260,4 +267,23 @@ export type RecipientRequestListItem = {
         name: string | null;
         employee_no: string | null;
     };
+    company_signatory: {
+        id: number;
+        name: string;
+    } | null;
+    source_version: {
+        id: number;
+        version: number | null;
+    };
+    result_version: {
+        id: number;
+        version: number | null;
+    } | null;
+    respond_url: string | null;
+};
+
+export type SignatoryOption = {
+    id: number;
+    name: string;
+    email: string | null;
 };

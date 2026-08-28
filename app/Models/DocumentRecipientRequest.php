@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\DocumentRecipientAction;
 use App\Enums\DocumentRecipientRequestStatus;
+use App\Enums\DocumentRecipientRole;
 use App\Enums\DocumentRecipientType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -25,6 +26,7 @@ class DocumentRecipientRequest extends Model
         'document_workflow_request_id',
         'action',
         'recipient_type',
+        'recipient_role',
         'employee_id',
         'recipient_user_id',
         'recipient_name_snapshot',
@@ -55,6 +57,7 @@ class DocumentRecipientRequest extends Model
         return [
             'action' => DocumentRecipientAction::class,
             'recipient_type' => DocumentRecipientType::class,
+            'recipient_role' => DocumentRecipientRole::class,
             'status' => DocumentRecipientRequestStatus::class,
             'expires_at' => 'datetime',
             'requested_at' => 'datetime',
@@ -129,5 +132,16 @@ class DocumentRecipientRequest extends Model
     public function isAwaitingAction(): bool
     {
         return $this->status === DocumentRecipientRequestStatus::AwaitingAction && ! $this->isExpired();
+    }
+
+    public function isPublicTokenRecipient(): bool
+    {
+        return $this->recipient_type === DocumentRecipientType::SubjectEmployee;
+    }
+
+    public function isInternalCompanySignatory(): bool
+    {
+        return $this->recipient_type === DocumentRecipientType::CompanyUser
+            && $this->recipient_role === DocumentRecipientRole::CompanySignatory;
     }
 }

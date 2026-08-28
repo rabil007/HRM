@@ -7,6 +7,7 @@ use App\Enums\DocumentRecipientRequestEventType;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Http\Controllers\Controller;
 use App\Support\Documents\RecipientRequests\Actions\SubmitDocumentRecipientAcknowledgement;
+use App\Support\Documents\RecipientRequests\DocumentRecipientRequestAccess;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestLinkService;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestToken;
@@ -27,6 +28,8 @@ class ShowDocumentActionController extends Controller
         if ($recipientRequest === null) {
             abort(404);
         }
+
+        DocumentRecipientRequestAccess::assertPublicTokenRecipient($recipientRequest);
 
         if ($recipientRequest->isExpired() && $recipientRequest->status === DocumentRecipientRequestStatus::AwaitingAction) {
             $recipientRequest->update(['status' => DocumentRecipientRequestStatus::Expired]);

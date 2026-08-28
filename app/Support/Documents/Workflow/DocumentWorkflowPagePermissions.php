@@ -18,6 +18,7 @@ final class DocumentWorkflowPagePermissions
      *     view_recipient_requests: bool,
      *     create_recipient_requests: bool,
      *     cancel_recipient_requests: bool,
+     *     respond_recipient_requests: bool,
      * }
      */
     public static function for(?User $user): array
@@ -33,6 +34,7 @@ final class DocumentWorkflowPagePermissions
             'view_recipient_requests' => $user?->can('documents.recipient-requests.view') ?? false,
             'create_recipient_requests' => $user?->can('documents.recipient-requests.create') ?? false,
             'cancel_recipient_requests' => $user?->can('documents.recipient-requests.cancel') ?? false,
+            'respond_recipient_requests' => $user?->can('documents.recipient-requests.respond') ?? false,
         ];
     }
 }

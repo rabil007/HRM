@@ -34,6 +34,12 @@ final class RegenerateDocumentRecipientRequestToken
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            if (! $locked->isPublicTokenRecipient()) {
+                throw ValidationException::withMessages([
+                    'request' => 'Only subject employee requests support secure link regeneration.',
+                ]);
+            }
+
             if ($locked->status !== DocumentRecipientRequestStatus::AwaitingAction) {
                 throw ValidationException::withMessages([
                     'request' => 'Only awaiting requests can regenerate their secure link.',

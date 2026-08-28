@@ -2,6 +2,7 @@
 
 namespace App\Support\Documents\RecipientRequests;
 
+use App\Enums\DocumentRecipientRole;
 use App\Models\DocumentInstance;
 use App\Models\DocumentInstanceVersion;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
@@ -16,8 +17,11 @@ final class ResolveDocumentSignaturePlacement
     /**
      * @return array{id: string, type: string, role: string, page: int, x: float, y: float, width: float, height: float, required: bool}
      */
-    public function forInstanceVersion(DocumentInstance $instance, DocumentInstanceVersion $version): array
-    {
+    public function forInstanceVersion(
+        DocumentInstance $instance,
+        DocumentInstanceVersion $version,
+        DocumentRecipientRole $role = DocumentRecipientRole::Subject,
+    ): array {
         $instance->loadMissing(['templateVersion.template']);
 
         $templateVersion = $instance->templateVersion;
@@ -25,10 +29,17 @@ final class ResolveDocumentSignaturePlacement
         if ($templateVersion !== null && is_array($templateVersion->signature_placement_config)) {
             $pageCount = $this->resolvePageCount($version);
 
-            return DocumentSignaturePlacementValidator::validateSubjectSignature(
+            return DocumentSignaturePlacementValidator::validateSignatureForRole(
                 $templateVersion->signature_placement_config,
                 $pageCount,
+                $role,
             );
+        }
+
+        if ($role === DocumentRecipientRole::CompanySignatory) {
+            throw ValidationException::withMessages([
+                'action' => 'This document does not have a trusted company signatory signature placement configured.',
+            ]);
         }
 
         $template = $instance->template;
