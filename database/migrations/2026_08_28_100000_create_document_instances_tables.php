@@ -69,7 +69,7 @@ return new class extends Migration
                 ->cascadeOnDelete();
             $table->foreignId('document_instance_id')
                 ->constrained('document_instances', indexName: 'doc_inst_ver_inst_fk')
-                ->cascadeOnDelete();
+                ->restrictOnDelete();
             $table->unsignedInteger('version')->default(1);
             $table->string('stage', 32)->default('generated');
 

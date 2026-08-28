@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization\BulkDocuments;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class GenerateCustomDocumentsRequest extends FormRequest
 {
@@ -16,10 +17,16 @@ class GenerateCustomDocumentsRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
         return [
             'document_generation_template_id' => ['required', 'integer'],
             'employee_ids' => ['nullable', 'array'],
-            'employee_ids.*' => ['integer', 'distinct'],
+            'employee_ids.*' => [
+                'integer',
+                'distinct',
+                Rule::exists('employees', 'id')->where('company_id', $companyId),
+            ],
             'search' => ['nullable', 'string', 'max:255'],
             'branch_id' => ['nullable', 'string'],
             'department_id' => ['nullable', 'string'],

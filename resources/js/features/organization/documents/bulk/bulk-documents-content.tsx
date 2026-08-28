@@ -19,6 +19,7 @@ import ApproveBulkDocumentSignaturesController from '@/actions/App/Http/Controll
 import DownloadApprovedBulkDocumentSignaturesPdfController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/DownloadApprovedBulkDocumentSignaturesPdfController';
 import DownloadApprovedBulkDocumentSignaturesZipController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/DownloadApprovedBulkDocumentSignaturesZipController';
 import ExportBulkDocumentSignatureEmployeesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/ExportBulkDocumentSignatureEmployeesController';
+import GenerateCustomDocumentsController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/GenerateCustomDocumentsController';
 import RegenerateAlignedBulkDocumentSignaturesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/RegenerateAlignedBulkDocumentSignaturesController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
@@ -1503,7 +1504,7 @@ export function BulkDocumentsContent({
 
         if (isCustomTemplate && customTemplateId) {
             router.post(
-                '/organization/documents/custom/generate',
+                GenerateCustomDocumentsController.url(),
                 {
                     document_generation_template_id: customTemplateId,
                     status: 'active',

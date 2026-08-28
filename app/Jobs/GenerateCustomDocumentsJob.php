@@ -12,8 +12,9 @@ use App\Support\Documents\Actions\SyncGeneratedEmployeeDocument;
 use App\Support\Documents\DocumentInstanceStorage;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
 use App\Support\EmployeeFiles\EmployeePrivateFileKind;
+use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -22,6 +23,7 @@ use Throwable;
 
 class GenerateCustomDocumentsJob implements ShouldQueue
 {
+    use Dispatchable;
     use Queueable;
 
     public const CHUNK_SIZE = 10;
@@ -34,7 +36,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
         public int $companyId,
         public int $userId,
         public int $runId,
-        public bool $replaceExisting = false,
+        public bool $allowRepeatGeneration = false,
         public ?int $afterRunItemId = null,
         public int $cumulativeGenerated = 0,
         public int $cumulativeSkipped = 0,
@@ -65,10 +67,12 @@ class GenerateCustomDocumentsJob implements ShouldQueue
         $template = $run->template;
         $version = $run->templateVersion;
 
+        // Allow execution if version was Published at run creation, or is now Archived (historical immutable).
+        // Never allow Draft version.
         if (
             $template === null
             || $version === null
-            || ! $version->isPublished()
+            || (! $version->isPublished() && ! $version->isArchived())
             || $template->company_id !== $this->companyId
             || $version->company_id !== $this->companyId
             || ! $template->isContent()
@@ -127,7 +131,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                 ->where('document_generation_template_version_id', $version->id)
                 ->exists();
 
-            if (! $this->replaceExisting && $hasExistingInstance) {
+            if (! $this->allowRepeatGeneration && $hasExistingInstance) {
                 $item->update(['status' => 'skipped']);
 
                 continue;
@@ -138,7 +142,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
             $libraryFilePath = null;
 
             try {
-                // 1. Render PDF
+                // 1. Render temp PDF
                 $pdfBytes = $contentRenderer->render($template, $version, $employee, $this->companyId);
 
                 $tempPdfPath = tempnam(sys_get_temp_dir(), 'custom_gen_');
@@ -153,17 +157,17 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                 $canonicalPath = $artifact['path'];
 
                 // 3. Store library representation in private/employee-documents/
-                $employeeDocument = $syncEmployeeDoc->handle(
+                // Note: File path is assigned to $libraryFilePath BEFORE entering DB transaction
+                $storedLibraryDoc = $syncEmployeeDoc->storeLibraryFile(
                     $employee,
                     $template,
                     $version,
                     $tempPdfPath,
                     $this->companyId,
-                    $this->userId,
                 );
-                $libraryFilePath = $employeeDocument->file_path;
+                $libraryFilePath = $storedLibraryDoc->filePath;
 
-                // 4. Transactional database creation & item completion
+                // 4. Transactional database creation: ALL database writes inside one atomic transaction!
                 DB::transaction(function () use (
                     $employee,
                     $template,
@@ -171,8 +175,17 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                     $run,
                     $item,
                     $artifact,
-                    $employeeDocument,
+                    $storedLibraryDoc,
+                    $syncEmployeeDoc,
                 ): void {
+                    // Create EmployeeDocument inside the transaction
+                    $employeeDocument = $syncEmployeeDoc->createEmployeeDocumentRecord(
+                        $storedLibraryDoc,
+                        $employee,
+                        $this->companyId,
+                        $this->userId,
+                    );
+
                     /** @var DocumentInstance $instance */
                     $instance = DocumentInstance::query()->create([
                         'company_id' => $this->companyId,
@@ -299,7 +312,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                 $this->companyId,
                 $this->userId,
                 $this->runId,
-                $this->replaceExisting,
+                $this->allowRepeatGeneration,
                 $lastProcessedItemId,
                 $totalGenerated,
                 $totalSkipped,

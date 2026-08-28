@@ -7,20 +7,25 @@ use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Support\Documents\StoredGeneratedLibraryDocument;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 
 final class SyncGeneratedEmployeeDocument
 {
-    public function handle(
+    /**
+     * Store the library PDF file to disk.
+     * The returned StoredGeneratedLibraryDocument provides the file path
+     * to the caller for compensation before any database row is created.
+     */
+    public function storeLibraryFile(
         Employee $employee,
         DocumentGenerationTemplate $template,
         DocumentGenerationTemplateVersion $version,
         string $tempPdfPath,
         int $companyId,
-        ?int $userId = null,
-    ): EmployeeDocument {
+    ): StoredGeneratedLibraryDocument {
         $template->loadMissing('documentType');
         $documentType = $template->documentType;
 
@@ -35,7 +40,7 @@ final class SyncGeneratedEmployeeDocument
             $filename,
             'application/pdf',
             null,
-            true, // test mode allows local CLI/temp file paths
+            true,
         );
 
         $path = EmployeePrivateFile::store(
@@ -52,23 +57,60 @@ final class SyncGeneratedEmployeeDocument
         $sizeBytes = (int) filesize($tempPdfPath);
         $checksum = hash_file('sha256', $tempPdfPath) ?: '';
 
+        return new StoredGeneratedLibraryDocument(
+            filePath: $path,
+            originalFilename: $filename,
+            mimeType: 'application/pdf',
+            sizeBytes: $sizeBytes,
+            checksum: $checksum,
+            documentTypeId: $documentType?->id,
+            title: $title,
+        );
+    }
+
+    /**
+     * Create the EmployeeDocument database record.
+     * MUST be called inside the main generation database transaction.
+     */
+    public function createEmployeeDocumentRecord(
+        StoredGeneratedLibraryDocument $stored,
+        Employee $employee,
+        int $companyId,
+        ?int $userId = null,
+    ): EmployeeDocument {
         return EmployeeDocument::query()->create([
             'company_id' => $companyId,
             'employee_id' => $employee->id,
-            'document_type_id' => $documentType?->id,
+            'document_type_id' => $stored->documentTypeId,
             'type' => 'other',
-            'document_type' => $documentType !== null ? (string) $documentType->id : 'other',
-            'title' => $title,
-            'file_path' => $path,
-            'original_filename' => $filename,
-            'mime_type' => 'application/pdf',
-            'size_bytes' => $sizeBytes,
-            'checksum' => $checksum,
+            'document_type' => $stored->documentTypeId !== null ? (string) $stored->documentTypeId : 'other',
+            'title' => $stored->title,
+            'file_path' => $stored->filePath,
+            'original_filename' => $stored->originalFilename,
+            'mime_type' => $stored->mimeType,
+            'size_bytes' => $stored->sizeBytes,
+            'checksum' => $stored->checksum,
             'current_version' => 1,
             'issue_date' => now()->toDateString(),
             'expiry_date' => null,
             'status' => 'valid',
             'uploaded_by' => $userId,
         ]);
+    }
+
+    /**
+     * Convenience method executing store and create in sequence.
+     */
+    public function handle(
+        Employee $employee,
+        DocumentGenerationTemplate $template,
+        DocumentGenerationTemplateVersion $version,
+        string $tempPdfPath,
+        int $companyId,
+        ?int $userId = null,
+    ): EmployeeDocument {
+        $stored = $this->storeLibraryFile($employee, $template, $version, $tempPdfPath, $companyId);
+
+        return $this->createEmployeeDocumentRecord($stored, $employee, $companyId, $userId);
     }
 }

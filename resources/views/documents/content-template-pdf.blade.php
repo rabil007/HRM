@@ -32,6 +32,7 @@
             white-space: pre-wrap;
             word-wrap: break-word;
             overflow-wrap: break-word;
+            unicode-bidi: plaintext;
         }
 
         .document-header {
@@ -54,15 +55,15 @@
     </style>
 </head>
 <body>
-    <div class="document-container">
+    <div class="document-container" dir="auto">
         @if (!empty($show_header))
-            <div class="document-header">
-                <h1 class="document-title">{{ $title }}</h1>
-                <div class="document-meta">{{ $company_name }} &bull; {{ $date }}</div>
+            <div class="document-header" dir="auto">
+                <h1 class="document-title" dir="auto">{{ $title }}</h1>
+                <div class="document-meta" dir="auto">{{ $company_name }} &bull; {{ $date }}</div>
             </div>
         @endif
 
-        <div class="document-body">{{ $content }}</div>
+        <div class="document-body" dir="auto">{{ $content }}</div>
     </div>
 </body>
 </html>

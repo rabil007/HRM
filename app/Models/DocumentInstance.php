@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\LogsActivityWithCompany;
+use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -43,6 +44,38 @@ class DocumentInstance extends Model
             'template_version_number' => 'integer',
             'generated_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::updating(function (DocumentInstance $instance): void {
+            $dirty = array_keys($instance->getDirty());
+            $protectedAttributes = [
+                'company_id',
+                'employee_id',
+                'employee_name_snapshot',
+                'employee_no_snapshot',
+                'document_generation_template_id',
+                'document_generation_template_version_id',
+                'document_type_id',
+                'document_generation_run_id',
+                'template_name_snapshot',
+                'template_version_number',
+                'title_snapshot',
+                'generated_by',
+                'generated_at',
+            ];
+
+            foreach ($protectedAttributes as $attr) {
+                if (in_array($attr, $dirty, true)) {
+                    throw new DomainException("Cannot modify immutable attribute '{$attr}' on document instance.");
+                }
+            }
+        });
+
+        static::deleting(function (DocumentInstance $instance): void {
+            throw new DomainException('Cannot delete an immutable document instance.');
+        });
     }
 
     public function getActivitylogOptions(): LogOptions

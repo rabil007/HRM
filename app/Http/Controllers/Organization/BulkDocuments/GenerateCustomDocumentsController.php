@@ -15,7 +15,10 @@ use App\Models\DocumentInstance;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 class GenerateCustomDocumentsController extends Controller
 {
@@ -89,40 +92,73 @@ class GenerateCustomDocumentsController extends Controller
 
         $correlationId = (string) Str::uuid();
 
+        // Create Run and all RunItems in one atomic transaction
         /** @var DocumentGenerationRun $run */
-        $run = DocumentGenerationRun::query()->create([
-            'company_id' => $companyId,
-            'document_generation_template_id' => $template->id,
-            'document_generation_template_version_id' => $version->id,
-            'filters' => $filters,
-            'status' => 'queued',
-            'total_targeted' => $targetCount,
-            'correlation_id' => $correlationId,
-            'triggered_by' => $userId,
-        ]);
-
-        $itemsData = array_map(fn (int $empId): array => [
-            'company_id' => $companyId,
-            'document_generation_run_id' => $run->id,
-            'employee_id' => $empId,
-            'status' => 'pending',
-            'document_instance_id' => null,
-            'error_code' => null,
-            'error_message' => null,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ], $targetEmployeeIds);
-
-        foreach (array_chunk($itemsData, 500) as $chunk) {
-            DocumentGenerationRunItem::query()->insert($chunk);
-        }
-
-        GenerateCustomDocumentsJob::dispatch(
+        $run = DB::transaction(function () use (
             $companyId,
+            $template,
+            $version,
+            $filters,
+            $targetCount,
+            $correlationId,
             $userId,
-            $run->id,
-            $isExplicitSelection, // if explicitly selected, generate even if duplicate
-        );
+            $targetEmployeeIds,
+        ): DocumentGenerationRun {
+            /** @var DocumentGenerationRun $run */
+            $run = DocumentGenerationRun::query()->create([
+                'company_id' => $companyId,
+                'document_generation_template_id' => $template->id,
+                'document_generation_template_version_id' => $version->id,
+                'filters' => $filters,
+                'status' => 'queued',
+                'total_targeted' => $targetCount,
+                'correlation_id' => $correlationId,
+                'triggered_by' => $userId,
+            ]);
+
+            $itemsData = array_map(fn (int $empId): array => [
+                'company_id' => $companyId,
+                'document_generation_run_id' => $run->id,
+                'employee_id' => $empId,
+                'status' => 'pending',
+                'document_instance_id' => null,
+                'error_code' => null,
+                'error_message' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ], $targetEmployeeIds);
+
+            foreach (array_chunk($itemsData, 500) as $chunk) {
+                DocumentGenerationRunItem::query()->insert($chunk);
+            }
+
+            return $run;
+        });
+
+        // Dispatch after transaction commits; handle dispatch failure safely
+        $allowRepeatGeneration = $isExplicitSelection;
+
+        try {
+            GenerateCustomDocumentsJob::dispatch(
+                $companyId,
+                $userId,
+                $run->id,
+                $allowRepeatGeneration,
+            );
+        } catch (Throwable $e) {
+            $run->update([
+                'status' => 'failed',
+                'finished_at' => now(),
+            ]);
+
+            Log::error('Failed to dispatch custom document generation job', [
+                'company_id' => $companyId,
+                'run_id' => $run->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors(['document_generation_template_id' => 'Failed to start document generation. Please try again.']);
+        }
 
         return back()->with(
             'success',

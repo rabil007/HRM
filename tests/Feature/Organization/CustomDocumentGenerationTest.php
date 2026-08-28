@@ -18,6 +18,7 @@ use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\Documents\ContentTemplatePdfRenderer;
 use App\Support\BulkDocuments\CustomDocumentRosterQuery;
+use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
 use App\Support\Documents\Actions\SyncGeneratedEmployeeDocument;
 use App\Support\EmployeeDocuments\DocumentDeletionService;
 use App\Support\Employees\EmployeeDirectoryFilters;
@@ -650,7 +651,7 @@ test('publishing v2 causes the roster missing filter to target employees even if
         ->and($counts['not_generated'])->toBe(1);
 });
 
-test('file compensation cleans up written private files if database transaction fails', function () {
+test('file compensation cleans up written private files and leaves no db records if database transaction fails', function () {
     $user = User::factory()->create();
     $company = createCustomGenTestCompany();
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active', 'name' => 'Crash Test']);
@@ -681,7 +682,7 @@ test('file compensation cleans up written private files if database transaction 
     $mockRenderer = Mockery::mock(ContentTemplatePdfRenderer::class);
     $mockRenderer->shouldReceive('render')->andReturn(minimalPdfBytes());
 
-    // Inject DB exception during instance creation
+    // Inject DB exception during instance creation (after files were stored)
     DocumentInstance::creating(function () {
         throw new RuntimeException('Simulated DB crash');
     });
@@ -693,9 +694,75 @@ test('file compensation cleans up written private files if database transaction 
     expect($item->status)->toBe('failed')
         ->and($item->error_code)->toBe('GENERATION_FAILED');
 
-    // Verify no orphaned files left in document-instances/
-    $files = Storage::disk('local')->allFiles("document-instances/{$company->id}");
-    expect($files)->toBeEmpty();
+    // Verify DB rows: no partial instance, version, or library records
+    expect(DocumentInstance::query()->count())->toBe(0)
+        ->and(DocumentInstanceVersion::query()->count())->toBe(0)
+        ->and(EmployeeDocument::query()->count())->toBe(0);
+
+    // Verify both canonical and library files are cleaned up from storage
+    $canonicalFiles = Storage::disk('local')->allFiles("document-instances/{$company->id}");
+    expect($canonicalFiles)->toBeEmpty();
+
+    $libraryFiles = Storage::disk('local')->allFiles("employee-documents/{$company->id}");
+    expect($libraryFiles)->toBeEmpty();
+
+    // Verify no successful generation audit log was recorded
+    $generationAuditCount = Activity::query()
+        ->where('log_name', 'document_generation')
+        ->where('properties->action', 'document_instance_generated')
+        ->count();
+    expect($generationAuditCount)->toBe(0);
+});
+
+test('failure when creating employee document record cleans up stored library and canonical files', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active', 'name' => 'Library Fail Test']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'queued',
+        'total_targeted' => 1,
+        'correlation_id' => 'lib-fail-corr-id',
+        'triggered_by' => $user->id,
+    ]);
+
+    $item = DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $employee->id,
+        'status' => 'pending',
+    ]);
+
+    $mockRenderer = Mockery::mock(ContentTemplatePdfRenderer::class);
+    $mockRenderer->shouldReceive('render')->andReturn(minimalPdfBytes());
+
+    // Inject DB exception during EmployeeDocument creation
+    EmployeeDocument::creating(function () {
+        throw new RuntimeException('Simulated EmployeeDocument DB crash');
+    });
+
+    $job = new GenerateCustomDocumentsJob($company->id, $user->id, $run->id, false);
+    $job->handle($mockRenderer, app(SyncGeneratedEmployeeDocument::class));
+
+    $item->refresh();
+    expect($item->status)->toBe('failed')
+        ->and($item->error_code)->toBe('GENERATION_FAILED');
+
+    expect(EmployeeDocument::query()->count())->toBe(0)
+        ->and(DocumentInstance::query()->count())->toBe(0);
+
+    // Both files cleaned up
+    expect(Storage::disk('local')->allFiles("document-instances/{$company->id}"))->toBeEmpty()
+        ->and(Storage::disk('local')->allFiles("employee-documents/{$company->id}"))->toBeEmpty();
 });
 
 test('bulk documents index presents custom active templates with published versions in dropdown', function () {
@@ -804,12 +871,22 @@ test('run snapshots template version and does not switch if template v2 is publi
         'status' => 'pending',
     ]);
 
-    // Now publish version 2 before job executes!
-    $version2 = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create([
+    // Create draft version 2 and publish it using the REAL Publish action!
+    $version2 = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->draft()->create([
         'version' => 2,
         'content' => 'Content Version 2 for {{employee_name}}',
     ]);
-    $template->update(['published_version_id' => $version2->id]);
+
+    app(PublishDocumentGenerationTemplateVersion::class)->handle($version2, $user->id);
+
+    $version1->refresh();
+    $version2->refresh();
+    $template->refresh();
+
+    // Verify real lifecycle state: v1 is Archived, v2 is Published
+    expect($version1->status->value)->toBe('archived')
+        ->and($version2->status->value)->toBe('published')
+        ->and($template->published_version_id)->toBe($version2->id);
 
     $mockRenderer = Mockery::mock(ContentTemplatePdfRenderer::class);
     $mockRenderer->shouldReceive('render')
@@ -1044,4 +1121,197 @@ test('subsequent employee or template renames do not modify existing instance sn
     expect($instance->employee_name_snapshot)->toBe('Original Employee Name')
         ->and($instance->employee_no_snapshot)->toBe('EMP-ORIG')
         ->and($instance->template_name_snapshot)->toBe('Original Template Name');
+});
+
+test('run pointing to a draft template version fails safely and produces no output', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active', 'name' => 'Draft Emp']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'name' => 'Draft Version Template',
+    ]);
+    $draftVersion = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->draft()->create(['version' => 1]);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $draftVersion->id,
+        'status' => 'queued',
+        'total_targeted' => 1,
+        'correlation_id' => 'draft-ver-run',
+        'triggered_by' => $user->id,
+    ]);
+
+    $item = DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $employee->id,
+        'status' => 'pending',
+    ]);
+
+    $mockRenderer = Mockery::mock(ContentTemplatePdfRenderer::class);
+    $mockRenderer->shouldNotReceive('render');
+
+    $job = new GenerateCustomDocumentsJob($company->id, $user->id, $run->id, false);
+    $job->handle($mockRenderer, app(SyncGeneratedEmployeeDocument::class));
+
+    $run->refresh();
+    $item->refresh();
+
+    expect($run->status)->toBe('failed')
+        ->and($item->status)->toBe('pending')
+        ->and(DocumentInstance::query()->count())->toBe(0)
+        ->and(DocumentInstanceVersion::query()->count())->toBe(0)
+        ->and(EmployeeDocument::query()->count())->toBe(0);
+});
+
+test('document instance immutable identity attributes cannot be mutated', function () {
+    $company = createCustomGenTestCompany();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create(['status' => DocumentGenerationTemplateStatus::Active]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+
+    $instance = DocumentInstance::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_name_snapshot' => 'Original Name',
+        'employee_no_snapshot' => 'EMP-001',
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'template_name_snapshot' => 'Original Template',
+        'template_version_number' => 1,
+        'title_snapshot' => 'Original Title',
+        'status' => 'generated',
+        'generated_at' => now(),
+    ]);
+
+    expect(fn () => $instance->update(['employee_name_snapshot' => 'Mutated Name']))
+        ->toThrow(DomainException::class, "Cannot modify immutable attribute 'employee_name_snapshot'");
+    $instance->refresh();
+
+    expect(fn () => $instance->update(['document_generation_template_version_id' => 999]))
+        ->toThrow(DomainException::class, "Cannot modify immutable attribute 'document_generation_template_version_id'");
+    $instance->refresh();
+
+    expect(fn () => $instance->update(['company_id' => 999]))
+        ->toThrow(DomainException::class, "Cannot modify immutable attribute 'company_id'");
+    $instance->refresh();
+
+    expect(fn () => $instance->update(['template_version_number' => 2]))
+        ->toThrow(DomainException::class, "Cannot modify immutable attribute 'template_version_number'");
+    $instance->refresh();
+
+    expect(fn () => $instance->update(['generated_at' => now()->addDay()]))
+        ->toThrow(DomainException::class, "Cannot modify immutable attribute 'generated_at'");
+    $instance->refresh();
+
+    // Mutable lifecycle fields are permitted
+    $instance->update(['status' => 'archived']);
+    expect($instance->fresh()->status)->toBe('archived');
+});
+
+test('document instance cannot be deleted via eloquent', function () {
+    $company = createCustomGenTestCompany();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create(['status' => DocumentGenerationTemplateStatus::Active]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+
+    $instance = DocumentInstance::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_name_snapshot' => 'Protected Name',
+        'employee_no_snapshot' => 'EMP-001',
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'template_name_snapshot' => 'Protected Template',
+        'template_version_number' => 1,
+        'title_snapshot' => 'Protected Title',
+        'status' => 'generated',
+        'generated_at' => now(),
+    ]);
+
+    expect(fn () => $instance->delete())
+        ->toThrow(DomainException::class, 'Cannot delete an immutable document instance.');
+});
+
+test('cross-company explicit employee id in generation request is rejected with validation error', function () {
+    $user = User::factory()->create();
+    $companyA = createCustomGenTestCompany('Company A');
+    $companyB = createCustomGenTestCompany('Company B');
+
+    grantCompanyPermissions($user, $companyA, ['bulk_documents.generate']);
+
+    $employeeA = Employee::factory()->forCompany($companyA)->create(['status' => 'active']);
+    $employeeB = Employee::factory()->forCompany($companyB)->create(['status' => 'active']);
+
+    $templateA = DocumentGenerationTemplate::factory()->forCompany($companyA)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+    ]);
+    $versionA = DocumentGenerationTemplateVersion::factory()->forTemplate($templateA)->published()->create();
+    $templateA->update(['published_version_id' => $versionA->id]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $companyA->id])
+        ->post(route('organization.documents.custom.generate'), [
+            'document_generation_template_id' => $templateA->id,
+            'employee_ids' => [$employeeA->id, $employeeB->id],
+        ])
+        ->assertSessionHasErrors(['employee_ids.1']);
+
+    expect(DocumentGenerationRun::query()->count())->toBe(0)
+        ->and(DocumentGenerationRunItem::query()->count())->toBe(0);
+});
+
+test('unknown explicit employee id in generation request is rejected with validation error', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+
+    grantCompanyPermissions($user, $company, ['bulk_documents.generate']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.custom.generate'), [
+            'document_generation_template_id' => $template->id,
+            'employee_ids' => [999999],
+        ])
+        ->assertSessionHasErrors(['employee_ids.0']);
+
+    expect(DocumentGenerationRun::query()->count())->toBe(0);
+});
+
+test('queue dispatch failure marks generation run as failed safely without crashing', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    grantCompanyPermissions($user, $company, ['bulk_documents.generate']);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    Queue::shouldReceive('connection')->andThrow(new RuntimeException('Queue connection down'));
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.custom.generate'), [
+            'document_generation_template_id' => $template->id,
+            'employee_ids' => [$employee->id],
+        ]);
+
+    $response->assertSessionHasErrors(['document_generation_template_id']);
+
+    $run = DocumentGenerationRun::query()->first();
+    expect($run)->not->toBeNull()
+        ->and($run->status)->toBe('failed')
+        ->and($run->finished_at)->not->toBeNull();
 });

@@ -425,23 +425,38 @@ EmployeeDocument (Documents Library representation)
    - Canonical artifacts are stored in `storage/app/private/document-instances/{companyId}/{uuid}.pdf`.
    - Library copies are created in `storage/app/private/employee-documents/{companyId}/{employeeId}/...`.
    - **Library Deletion Safety**: Deleting an `EmployeeDocument` via `DocumentDeletionService` purges the Library file copy, but leaves the canonical artifact in `document-instances/` untouched. The `document_instances.employee_document_id` pointer is set to `null`. Historical provenance is never destroyed.
-2. **Template Deletion Protection**:
+2. **Template & Version Provenance Protection**:
    - Once any `DocumentInstance` has been generated from a `DocumentGenerationTemplate`, deleting that template or its versions is strictly blocked with a user-friendly `ValidationException`, directing the user to deactivate the template instead.
-   - Backed at the database level by foreign key `ON DELETE RESTRICT` constraints.
-3. **Repeat Generation Semantics**:
-   - When generating from Generate & Send without explicit employee selection, the system generates only for employees who do not already have an instance for the current published template version.
-   - When employees are explicitly selected, a new `DocumentInstance` is issued. Existing historical instances remain preserved.
-4. **Content Template Rendering**:
+   - Backed at the database level by foreign key `ON DELETE RESTRICT` constraints on `document_generation_template_id` and `document_generation_template_version_id`.
+   - **Instance Version Deletion RESTRICT**: Foreign key from `DocumentInstanceVersion` to `DocumentInstance` is configured as `ON DELETE RESTRICT`, blocking direct database deletion of instances that possess versions.
+3. **DocumentInstance Identity & Provenance Immutability**:
+   - `DocumentInstance` immutable attributes (`company_id`, `employee_id`, `employee_name_snapshot`, `employee_no_snapshot`, `document_generation_template_id`, `document_generation_template_version_id`, `document_type_id`, `document_generation_run_id`, `template_name_snapshot`, `template_version_number`, `title_snapshot`, `generated_by`, `generated_at`) cannot be modified after creation.
+   - Only lifecycle pointers (`status`, `current_version_id`, `employee_document_id`) may be updated.
+   - Calling `$instance->delete()` throws a `DomainException` to guarantee official document records cannot be deleted via Eloquent.
+4. **Version Snapshotting & Archived Version Generation**:
+   - Generation runs are permanently bound to the template version snapshotted at Run creation.
+   - If a new version (v2) is published while a queued Run for v1 is in progress, v1 transitions to `Archived`. The queued worker executes successfully because `Archived` versions represent immutable historical snapshots safe to reproduce. Draft versions are never accepted by the worker.
+5. **Atomic Generation Unit & Full File/DB Compensation**:
+   - Storage of canonical and library PDF files occurs prior to database persistence, with paths recorded in memory.
+   - Creation of `EmployeeDocument`, `DocumentInstance`, `DocumentInstanceVersion`, `RunItem` completion, and activity audit execute in a single database transaction.
+   - If any database step fails, the transaction rolls back completely and both the canonical and library files are purged from storage, leaving no orphaned files, no partial database rows, and no false audit logs.
+6. **Tenant-Scoped Explicit Employee Validation**:
+   - Explicit `employee_ids` submitted to `GenerateCustomDocumentsRequest` are validated against `current_company_id` using `Rule::exists('employees', 'id')->where('company_id', $companyId)`. Cross-company employee submissions are rejected with validation errors before any Run or queue dispatch occurs.
+   - Filter-based bulk generation relies strictly on server-side `current_company_id`.
+7. **Repeat Generation Semantics**:
+   - Bulk generation without explicit selection skips employees who already have an instance for the current published template version.
+   - Explicit employee selection generates a new `DocumentInstance` (force new copy) while preserving all prior historical instances.
+8. **Content Template Rendering & Multilingual Bidi Safety**:
    - Server-side trusted merge fields are resolved via `DocumentTemplateMergeFields::valuesForEmployee()`.
    - HTML characters are safely escaped (`e()`).
-   - A4 layout with print styles and inlined DejaVu fonts (`BrowsershotEmbeddedFonts::dejaVuStyles()`) guarantees complete multilingual and Arabic Unicode text support.
-5. **Idempotent Queue Ledger**:
+   - Container has `dir="auto"` and `unicode-bidi: plaintext` with embedded DejaVu fonts (`BrowsershotEmbeddedFonts::dejaVuStyles()`), ensuring correct RTL alignment for Arabic paragraphs (`محمد رابيل`), LTR for English, clean inline mixed text, and multi-page flow.
+9. **Idempotent Queue Ledger**:
    - Runs are recorded in `document_generation_runs` and individual employee tasks in `document_generation_run_items` (unique on `[document_generation_run_id, employee_id]`).
-   - Executed in chunks of 10 with file compensation rollback if a database failure occurs.
-6. **Generate & Send UI Integration**:
-   - Template selector dropdown groups options into "System Templates" (Salary Declaration, Salary Certificate) and "Company Templates" (with version labels).
-   - Custom template generation routes to `POST /organization/documents/custom/generate`.
-   - Document Show page renders a "Document Provenance" card displaying template name, version, generation timestamp, and generator.
+   - Workers claim items atomically (`pending` -> `processing`).
+   - Run totals (`generated_count`, `skipped_count`, `failed_count`) are derived directly from database aggregate counts on `DocumentGenerationRunItem`.
+10. **Wayfinder-Driven Generate & Send UI**:
+    - Frontend dispatches generation via Wayfinder route action `GenerateCustomDocumentsController.url()`.
+    - Document Show page renders a "Document Provenance" card displaying template name, version, generation timestamp, and generator.
 
 ### Template Format Availability in Phase 4A
 
