@@ -8,49 +8,12 @@ use App\Models\DocumentInstance;
 use App\Models\DocumentInstanceVersion;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
-use App\Models\User;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\PermissionRegistrar;
 
-require_once __DIR__.'/../Support/document-fixtures.php';
-
-function addCompanyMembership(User $user, Company $company): void
-{
-    DB::table('company_user')->updateOrInsert(
-        ['company_id' => $company->id, 'user_id' => $user->id],
-        ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
-    );
-}
-
-function giveCompanyPermission(User $user, Company $company, string $permission): void
-{
-    addCompanyMembership($user, $company);
-
-    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
-    $user->givePermissionTo(Permission::query()->firstOrCreate([
-        'name' => $permission,
-        'guard_name' => 'web',
-    ]));
-
-    if (in_array($permission, ['documents.requests.review', 'documents.requests.approve'], true)) {
-        $user->givePermissionTo(Permission::query()->firstOrCreate([
-            'name' => 'documents.requests.view',
-            'guard_name' => 'web',
-        ]));
-    }
-}
+require_once __DIR__.'/document-fixtures.php';
 
 /**
- * @return array{
- *     company: Company,
- *     employee: Employee,
- *     document: EmployeeDocument,
- *     instance: DocumentInstance,
- *     version: DocumentInstanceVersion,
- *     template: DocumentGenerationTemplate,
- * }
+ * @return array{company: Company, employee: Employee, document: EmployeeDocument, instance: DocumentInstance, version: DocumentInstanceVersion, template: DocumentGenerationTemplate}
  */
 function makeGeneratedDocumentWorkflowFixtures(?Company $company = null): array
 {
@@ -65,8 +28,11 @@ function makeGeneratedDocumentWorkflowFixtures(?Company $company = null): array
 
     $libraryPath = "employee-documents/{$company->id}/{$employee->id}/letter.pdf";
     $canonicalPath = "document-instances/{$company->id}/canonical.pdf";
-    Storage::disk('local')->put($libraryPath, '%PDF-1.4 test');
-    Storage::disk('local')->put($canonicalPath, '%PDF-1.4 test');
+    $pdfBytes = '%PDF-1.4 test';
+    $sizeBytes = strlen($pdfBytes);
+    $checksum = hash('sha256', $pdfBytes);
+    Storage::disk('local')->put($libraryPath, $pdfBytes);
+    Storage::disk('local')->put($canonicalPath, $pdfBytes);
 
     $document = EmployeeDocument::query()->create([
         'company_id' => $company->id,
@@ -77,8 +43,8 @@ function makeGeneratedDocumentWorkflowFixtures(?Company $company = null): array
         'file_path' => $libraryPath,
         'original_filename' => 'letter.pdf',
         'mime_type' => 'application/pdf',
-        'size_bytes' => 100,
-        'checksum' => 'abc',
+        'size_bytes' => $sizeBytes,
+        'checksum' => $checksum,
         'current_version' => 1,
         'status' => 'valid',
     ]);
@@ -104,8 +70,8 @@ function makeGeneratedDocumentWorkflowFixtures(?Company $company = null): array
         'version' => 1,
         'file_path' => $canonicalPath,
         'original_filename' => 'canonical.pdf',
-        'size_bytes' => 100,
-        'checksum' => 'abc',
+        'size_bytes' => $sizeBytes,
+        'checksum' => $checksum,
     ]);
 
     $instance->update(['current_version_id' => $version->id]);
