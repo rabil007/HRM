@@ -57,6 +57,7 @@ final class DuplicateDocumentGenerationTemplate
                     'source_pdf_size_bytes' => $sourceVersion?->source_pdf_size_bytes,
                     'source_pdf_page_count' => $sourceVersion?->source_pdf_page_count,
                     'placement_config' => $sourceVersion?->placement_config,
+                    'signature_placement_config' => $sourceVersion?->signature_placement_config,
                     'published_at' => null,
                     'created_by' => $actor?->id,
                     'updated_by' => $actor?->id,

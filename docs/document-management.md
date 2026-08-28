@@ -56,6 +56,11 @@ Documents → Templates serves as the centralized company custom document templa
      - Normalized coordinates `[0.0, 1.0]` ensure resolution-independent placement across any viewer or print scale.
      - Placement schema version 1 enforces bounds (`0 <= x, y <= 1`, `0 < width, height <= 1`, `x + width <= 1`), valid page numbers, and allowed merge fields.
      - In-place sample preview toggle previews dynamic fields directly on the canvas without querying real employees.
+   - **Employee Signature Placement (Phase 6A)**:
+     - Separate from merge-field `placement_config`; stored as version-owned `signature_placement_config`.
+     - Visual editor on draft PDF Overlay versions only; one subject employee signature box.
+     - Published/Archived versions remain immutable; editing an active template branches a draft first.
+     - Required for Phase 6A **Request Signature** eligibility on generated custom PDF Overlay documents.
    - **PDF Storage & Compensation**:
      - Stored on the `local` private disk under `document-generation-templates/{companyId}/{uuid}.pdf`.
      - Duplication physically copies the source PDF to a new private UUID path so mutable paths are never shared.
@@ -98,6 +103,7 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents/templates/{template}/draft` (POST) | Get or branch editable draft version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/versions/{version}/source-pdf` (GET) | Stream private source PDF | `documents.templates.view` |
 | `/organization/documents/templates/{template}/versions/{version}/placements` (PUT) | Save visual placements to draft | `documents.templates.update` |
+| `/organization/documents/templates/{template}/versions/{version}/signature-placement` (PUT) | Save subject employee signature placement on draft PDF Overlay version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/versions/{version}/replace-pdf` (POST) | Replace PDF on draft version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/versions/{version}/publish` (POST) | Publish draft version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/activate` (POST) | Activate template | `documents.templates.update` |
@@ -730,7 +736,11 @@ Regenerating a link replaces `token_hash`, invalidates the prior URL immediately
 
 `DocumentGenerationTemplateVersion.signature_placement_config` (schema v1) stores normalized subject signature placement for PDF Overlay templates. Draft versions are editable; published/archived versions remain immutable.
 
-Signing is blocked when trusted placement cannot be resolved server-side.
+**Templates UI (Phase 6A usability):** Documents → Templates exposes **Signature placement** for company custom `pdf_overlay` templates. HR opens the editable Draft (branching a draft when needed), places a single **Employee Signature** box on the private source PDF via the visual editor (Fabric.js / PDF.js), and saves normalized coordinates to that draft version only. Publishing promotes the exact configured `signature_placement_config` with the version. Content templates do not offer this editor.
+
+Phase 6A supports exactly one subject-employee signature (`type: signature`, `role: subject`). Manager/countersigning and multiple signers remain Phase 6B.
+
+Signing is blocked when trusted placement cannot be resolved server-side. There is no bottom-of-page fallback, and the public signing browser never submits placement coordinates.
 
 ### Workflow gating
 

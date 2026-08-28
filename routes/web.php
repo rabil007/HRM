@@ -781,6 +781,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/documents/templates/{template}/versions/{version}/placements', [DocumentGenerationTemplateController::class, 'savePlacements'])
         ->middleware('can:documents.templates.update')
         ->name('organization.documents.templates.versions.placements.save');
+    Route::put('organization/documents/templates/{template}/versions/{version}/signature-placement', [DocumentGenerationTemplateController::class, 'saveSignaturePlacement'])
+        ->middleware('can:documents.templates.update')
+        ->name('organization.documents.templates.versions.signature-placement.save');
     Route::post('organization/documents/templates/{template}/versions/{version}/replace-pdf', [DocumentGenerationTemplateController::class, 'replacePdf'])
         ->middleware('can:documents.templates.update')
         ->name('organization.documents.templates.versions.replace-pdf');

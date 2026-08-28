@@ -67,6 +67,7 @@ final class ReplaceDocumentGenerationTemplatePdf
                 $lockedVersion->source_pdf_size_bytes = $inspected['size_bytes'];
                 $lockedVersion->source_pdf_page_count = $inspected['page_count'];
                 $lockedVersion->placement_config = PdfOverlayPlacementValidator::emptyConfig();
+                $lockedVersion->signature_placement_config = null;
                 $lockedVersion->updated_by = $userId;
                 $lockedVersion->save();
 

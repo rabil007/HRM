@@ -50,6 +50,7 @@ final class BranchDocumentGenerationTemplateDraft
                 $sizeBytes = null;
                 $pageCount = null;
                 $placementConfig = null;
+                $signaturePlacementConfig = null;
 
                 if ($locked->isContent()) {
                     $content = $sourceVersion?->content ?? (string) $locked->content;
@@ -64,6 +65,7 @@ final class BranchDocumentGenerationTemplateDraft
                     $sizeBytes = $sourceVersion->source_pdf_size_bytes;
                     $pageCount = $sourceVersion->source_pdf_page_count;
                     $placementConfig = $sourceVersion->placement_config;
+                    $signaturePlacementConfig = $sourceVersion->signature_placement_config;
                 }
 
                 $draft = DocumentGenerationTemplateVersion::query()->create([
@@ -77,6 +79,7 @@ final class BranchDocumentGenerationTemplateDraft
                     'source_pdf_size_bytes' => $sizeBytes,
                     'source_pdf_page_count' => $pageCount,
                     'placement_config' => $placementConfig,
+                    'signature_placement_config' => $signaturePlacementConfig,
                     'published_at' => null,
                     'created_by' => $userId,
                     'updated_by' => $userId,

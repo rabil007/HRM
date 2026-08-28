@@ -6,6 +6,7 @@ use App\Enums\DocumentGenerationTemplateStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\ReplaceDocumentGenerationTemplatePdfRequest;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\SaveDocumentGenerationTemplatePlacementsRequest;
+use App\Http\Requests\Organization\DocumentGenerationTemplate\SaveDocumentGenerationTemplateSignaturePlacementRequest;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\StoreDocumentGenerationTemplateRequest;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\UpdateDocumentGenerationTemplateRequest;
 use App\Models\DocumentGenerationTemplate;
@@ -16,6 +17,7 @@ use App\Support\Documents\Actions\DuplicateDocumentGenerationTemplate;
 use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
 use App\Support\Documents\Actions\ReplaceDocumentGenerationTemplatePdf;
 use App\Support\Documents\Actions\SaveDocumentGenerationTemplatePlacements;
+use App\Support\Documents\Actions\SaveDocumentGenerationTemplateSignaturePlacement;
 use App\Support\Documents\Actions\UpdateDocumentGenerationTemplate;
 use App\Support\Documents\DocumentTemplateStorage;
 use Illuminate\Http\JsonResponse;
@@ -88,6 +90,7 @@ class DocumentGenerationTemplateController extends Controller
             return response()->json([
                 'draft' => $draft->toArraySummary(),
                 'placement_config' => $draft->placement_config,
+                'signature_placement_config' => $draft->signature_placement_config,
                 'template' => $template->fresh(['publishedVersion', 'draftVersion'])->toBrowseArray(),
             ]);
         }
@@ -135,6 +138,36 @@ class DocumentGenerationTemplateController extends Controller
         }
 
         return back()->with('success', 'Placements saved.');
+    }
+
+    public function saveSignaturePlacement(
+        SaveDocumentGenerationTemplateSignaturePlacementRequest $request,
+        DocumentGenerationTemplate $template,
+        DocumentGenerationTemplateVersion $version,
+        SaveDocumentGenerationTemplateSignaturePlacement $action,
+    ): JsonResponse|RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_if($companyId <= 0, 403);
+        abort_unless((int) $template->company_id === $companyId, 404);
+        abort_unless((int) $version->document_generation_template_id === (int) $template->id, 404);
+        abort_unless((int) $version->company_id === $companyId, 404);
+
+        $updated = $action->handle(
+            $version,
+            $request->signaturePlacementConfig(),
+            $request->user()?->id,
+        );
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Signature placement saved.',
+                'signature_placement_config' => $updated->signature_placement_config,
+                'draft' => $updated->toArraySummary(),
+            ]);
+        }
+
+        return back()->with('success', 'Signature placement saved.');
     }
 
     public function replacePdf(

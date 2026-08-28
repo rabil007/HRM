@@ -10,6 +10,8 @@ export type TemplateVersionSummary = {
     placement_count: number;
     has_placements: boolean;
     placement_config?: PlacementConfig | null;
+    has_signature_placement?: boolean;
+    signature_placement_config?: SignaturePlacementConfig | null;
     published_at: string | null;
     created_at: string | null;
     updated_at: string | null;
@@ -53,6 +55,23 @@ export type PdfPlacementItem = {
 export type PlacementConfig = {
     schema_version: number;
     placements: PdfPlacementItem[];
+};
+
+export type SignaturePlacementItem = {
+    id: string;
+    type: 'signature';
+    role: 'subject';
+    page: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    required: boolean;
+};
+
+export type SignaturePlacementConfig = {
+    schema_version: number;
+    placements: SignaturePlacementItem[];
 };
 
 export type MergeField = {
