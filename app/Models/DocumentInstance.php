@@ -147,6 +147,11 @@ class DocumentInstance extends Model
         return $this->belongsTo(User::class, 'generated_by');
     }
 
+    public function workflowRequests(): HasMany
+    {
+        return $this->hasMany(DocumentWorkflowRequest::class, 'document_instance_id');
+    }
+
     public function scopeForCompany(Builder $query, int $companyId): Builder
     {
         return $query->where('company_id', $companyId);

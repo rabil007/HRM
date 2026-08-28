@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Documents\Workflow\DocumentWorkflowEligibility;
+use App\Support\Documents\Workflow\DocumentWorkflowPresenter;
 use App\Support\EmployeeDocuments\DocumentAccess;
 use App\Support\EmployeeDocuments\DocumentPagePermissions;
 use App\Support\EmployeeDocuments\DocumentShowBackNavigation;
@@ -34,7 +36,19 @@ class EmployeeDocumentShowController extends Controller
             'documentType:id,title',
             'uploader:id,name',
             'versions.replacer:id,name',
+            'documentInstance.currentVersion',
+            'documentInstance.generatedBy:id,name',
         ]);
+
+        $workflowPresenter = app(DocumentWorkflowPresenter::class);
+        $workflowEligibility = app(DocumentWorkflowEligibility::class);
+
+        $workflowSummary = $document->documentInstance !== null
+            ? $workflowPresenter->documentShowWorkflowSummary($document->documentInstance)
+            : null;
+
+        $canCreateWorkflow = ($user?->can('documents.requests.create') ?? false)
+            && $workflowEligibility->canCreateForDocument($document, $companyId);
 
         return Inertia::render('organization/documents/show', [
             'document' => $document->toShowArray(),
@@ -48,6 +62,13 @@ class EmployeeDocumentShowController extends Controller
             'countries' => EmployeeFormOptions::for($companyId)['countries'],
             'document_types' => EmployeeFormOptions::documentTypes(),
             'can' => DocumentPagePermissions::for($request->user()),
+            'workflow' => [
+                'summary' => $workflowSummary,
+                'can_create' => $canCreateWorkflow,
+                'assignee_options' => $canCreateWorkflow
+                    ? $workflowEligibility->assigneeOptions($companyId)
+                    : [],
+            ],
             'back' => DocumentShowBackNavigation::resolve($request, $employee),
             'recent_activity' => RecentActivityQuery::for(
                 $request->user(),

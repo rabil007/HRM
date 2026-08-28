@@ -64,16 +64,15 @@ final class DocumentInstanceStorage
 
     public static function deletePdf(?string $path, int $companyId): void
     {
-        if ($path === null || trim($path) === '') {
-            return;
-        }
+        $originalPath = $path;
+        $path = self::validatedRelativePath($path, $companyId);
 
-        $expectedPrefix = self::directory($companyId).'/';
-        if (! str_starts_with($path, $expectedPrefix)) {
-            Log::warning('Rejected delete of document instance PDF path outside company boundary', [
-                'path' => $path,
-                'company_id' => $companyId,
-            ]);
+        if ($path === null) {
+            if ($originalPath !== null && trim($originalPath) !== '') {
+                Log::warning('Rejected delete of document instance PDF path outside company boundary', [
+                    'company_id' => $companyId,
+                ]);
+            }
 
             return;
         }
@@ -85,7 +84,6 @@ final class DocumentInstanceStorage
         } catch (\Throwable $e) {
             Log::error('Failed to delete document instance PDF', [
                 'error' => $e->getMessage(),
-                'path' => $path,
                 'company_id' => $companyId,
             ]);
         }
@@ -93,15 +91,68 @@ final class DocumentInstanceStorage
 
     public static function exists(?string $path, int $companyId): bool
     {
-        if ($path === null || trim($path) === '') {
-            return false;
-        }
+        $path = self::validatedRelativePath($path, $companyId);
 
-        $expectedPrefix = self::directory($companyId).'/';
-        if (! str_starts_with($path, $expectedPrefix)) {
+        if ($path === null) {
             return false;
         }
 
         return Storage::disk(self::DISK)->exists($path);
+    }
+
+    public static function validatedRelativePath(?string $relativePath, int $companyId): ?string
+    {
+        $path = self::normalizedRelativePath($relativePath);
+
+        if ($path === null) {
+            return null;
+        }
+
+        $segments = explode('/', $path);
+
+        if (count($segments) < 3) {
+            return null;
+        }
+
+        if ($segments[0] !== 'document-instances') {
+            return null;
+        }
+
+        if ($segments[1] !== (string) $companyId) {
+            return null;
+        }
+
+        foreach ($segments as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                return null;
+            }
+        }
+
+        return $path;
+    }
+
+    public static function normalizedRelativePath(?string $relativePath): ?string
+    {
+        if ($relativePath === null) {
+            return null;
+        }
+
+        $relativePath = trim($relativePath);
+
+        if ($relativePath === '') {
+            return null;
+        }
+
+        if (str_starts_with($relativePath, '/') || str_contains($relativePath, '\\')) {
+            return null;
+        }
+
+        $path = str_replace('\\', '/', $relativePath);
+
+        if ($path === '' || str_contains($path, '..')) {
+            return null;
+        }
+
+        return $path;
     }
 }

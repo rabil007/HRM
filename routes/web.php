@@ -96,6 +96,13 @@ use App\Http\Controllers\Organization\DocumentFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentFolderShareLinksController;
 use App\Http\Controllers\Organization\DocumentGenerationTemplateController;
 use App\Http\Controllers\Organization\DocumentGenerationTemplatePreviewController;
+use App\Http\Controllers\Organization\Documents\CancelDocumentWorkflowRequestController;
+use App\Http\Controllers\Organization\Documents\CompleteDocumentWorkflowTaskController;
+use App\Http\Controllers\Organization\Documents\CreateDocumentWorkflowRequestController;
+use App\Http\Controllers\Organization\Documents\DocumentRequestsIndexController;
+use App\Http\Controllers\Organization\Documents\DocumentWorkflowRequestShowController;
+use App\Http\Controllers\Organization\Documents\DocumentWorkflowVersionPreviewController;
+use App\Http\Controllers\Organization\Documents\RejectDocumentWorkflowTaskController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
 use App\Http\Controllers\Organization\DocumentShareController;
 use App\Http\Controllers\Organization\DocumentsOverviewController;
@@ -651,15 +658,32 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('organization/documents/files/{document}/preview', DocumentFilePreviewController::class)->name('organization.documents.files.preview');
         Route::get('organization/documents/files/{document}/versions/{version}/preview', [EmployeeDocumentVersionFileController::class, 'preview'])->name('organization.documents.files.versions.preview');
     });
+    Route::get('organization/documents/requests', DocumentRequestsIndexController::class)
+        ->name('organization.documents.requests');
+    Route::middleware('can:documents.requests.view')->group(function () {
+        Route::get('organization/documents/requests/{workflowRequest}', DocumentWorkflowRequestShowController::class)
+            ->name('organization.documents.requests.show');
+        Route::get('organization/documents/requests/{workflowRequest}/version-preview', DocumentWorkflowVersionPreviewController::class)
+            ->name('organization.documents.requests.version-preview');
+    });
+    Route::middleware('can:documents.requests.create')->group(function () {
+        Route::post('organization/documents/employees/{employee}/files/{document}/workflow-requests', CreateDocumentWorkflowRequestController::class)
+            ->name('organization.documents.employee.files.workflow-requests.store');
+    });
+    Route::post('organization/documents/workflow-tasks/{workflowTask}/complete', CompleteDocumentWorkflowTaskController::class)
+        ->name('organization.documents.workflow-tasks.complete');
+    Route::post('organization/documents/workflow-tasks/{workflowTask}/reject', RejectDocumentWorkflowTaskController::class)
+        ->name('organization.documents.workflow-tasks.reject');
+    Route::middleware('can:documents.requests.cancel')->group(function () {
+        Route::post('organization/documents/requests/{workflowRequest}/cancel', CancelDocumentWorkflowRequestController::class)
+            ->name('organization.documents.requests.cancel');
+    });
     Route::middleware('can:bulk_documents.view')->group(function () {
         Route::get('organization/documents/bulk', BulkDocumentsController::class)
             ->name('organization.documents.bulk');
         Route::get('organization/documents/generate', BulkDocumentsController::class)
             ->defaults('module_view', 'roster')
             ->name('organization.documents.generate');
-        Route::get('organization/documents/requests', BulkDocumentsController::class)
-            ->defaults('module_view', 'signatures')
-            ->name('organization.documents.requests');
         Route::get('organization/documents/activity', BulkDocumentsController::class)
             ->defaults('module_view', 'history')
             ->name('organization.documents.activity');

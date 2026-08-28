@@ -70,6 +70,26 @@ test('bulk documents view users can open generate requests and activity', functi
     $this->get(route('organization.documents.requests'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/requests/index')
+            ->where('tab', 'signatures'));
+
+    $this->get(route('organization.documents.requests', [
+        'tab' => 'signatures',
+        'page' => 2,
+        'document_type_key' => 'salary_declaration',
+        'signature_filter' => 'submitted',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/requests/index')
+            ->where('tab', 'signatures')
+            ->where('signature_payload.document_type_key', 'salary_declaration')
+            ->where('signature_payload.signature_filter', 'submitted')
+            ->where('pagination.current_page', 2));
+
+    $this->get(route('organization.documents.bulk', ['view' => 'signatures']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
             ->component('organization/documents/bulk/index')
             ->where('view', 'signatures'));
 
@@ -107,7 +127,7 @@ test('legacy bulk urls still work and keep the matching module view', function (
             ->component('organization/documents/bulk/index')
             ->where('view', 'signatures'));
 
-    $this->get(route('organization.documents.bulk', ['view' => 'history']))
+    $this->get(route('organization.documents.activity'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/documents/bulk/index')

@@ -11,7 +11,7 @@ Documents is one sidebar group with these destinations:
 | `/organization/documents` | Overview | Compact summary of existing document counts | `documents.view` |
 | `/organization/documents/library` | Library | Canonical browse / search / compliance workspace | `documents.view` |
 | `/organization/documents/generate` | Generate & Send | Current Bulk Documents roster | `bulk_documents.view` |
-| `/organization/documents/requests` | Requests | Current bulk signature-request view | `bulk_documents.view` |
+| `/organization/documents/requests` | Requests | Unified Review & Approval + legacy Signature Requests | `documents.requests.view` or `bulk_documents.view` |
 | `/organization/documents/templates` | Templates | Company custom and system generation templates | Any of `documents.templates.view`, `bulk_documents.view`, `settings.master-data.document-types.view`, or platform view |
 | `/organization/documents/activity` | Activity | Current bulk generation history | `bulk_documents.view` |
 
@@ -23,7 +23,7 @@ Opening a document from Library uses `from=library` so **Back to Library** resto
 
 Old filtered Overview bookmarks such as `/organization/documents?search=`, `?expiry=`, `?requirement_status=`, `?department_id=`, and `?page=` redirect to the equivalent Library URL with those supported keys preserved. Unknown parameters are not redirected and are not copied. Plain `/organization/documents` stays Overview.
 
-Generate, Requests, and Activity share `BulkDocumentsController`. Explicit module routes set a `module_view` route default (`roster` / `signatures` / `history`). That value is resolved before the legacy `view` query string. Those flows remain unchanged in this phase. Templates bridge now supports company-owned content and visual PDF overlay templates with controlled merge fields and Fabric.js visual placement; system templates bridge remains available. Protected Salary Declaration / Salary Certificate PDF layout, Browsershot, Puppeteer, FPDI stamping, and the public e-sign workflow are unchanged.
+Generate & Send and Activity are served by `BulkDocumentsController` (`/organization/documents/generate`, `/organization/documents/activity`, and legacy `/organization/documents/bulk`). **Requests** is served by `DocumentRequestsIndexController` at `/organization/documents/requests` (Review & Approval and Signature Requests tabs). Legacy `/organization/documents/bulk?view=signatures` remains a valid bookmark into the signature roster via `BulkDocumentsController`. Explicit module routes for Generate and Activity set a `module_view` route default (`roster` / `history`) resolved before the legacy `view` query string. Templates bridge now supports company-owned content and visual PDF overlay templates with controlled merge fields and Fabric.js visual placement; system templates bridge remains available. Protected Salary Declaration / Salary Certificate PDF layout, Browsershot, Puppeteer, FPDI stamping, and the public e-sign workflow are unchanged.
 
 ### Legacy Bulk URLs
 
@@ -85,7 +85,9 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents` | Documents Overview (summary dashboard) | `documents.view` |
 | `/organization/documents/library` | Documents Library (browse / search / compliance) | `documents.view` |
 | `/organization/documents/generate` | Generate & Send (bulk roster) | `bulk_documents.view` |
-| `/organization/documents/requests` | Signature requests | `bulk_documents.view` |
+| `/organization/documents/requests` | Unified Review & Approval + Signature Requests workspace | `documents.requests.view` \| `bulk_documents.view` |
+| `/organization/documents/requests/{workflowRequest}` | Internal review/approval request detail | `documents.requests.view` |
+| `/organization/documents/requests/{workflowRequest}/version-preview` | Stream bound canonical `DocumentInstanceVersion` PDF inline | `documents.requests.view` |
 | `/organization/documents/templates` | Custom and System Document Templates | `documents.templates.view` \| `bulk_documents.view` \| `settings.master-data.document-types.view` \| platform view |
 | `/organization/documents/templates` (POST) | Store custom document template | `documents.templates.create` |
 | `/organization/documents/templates/preview-draft` (POST) | Render preview for unsaved draft | `documents.templates.create` \| `documents.templates.update` |
@@ -536,6 +538,82 @@ PDF Overlay output uses the same `DocumentInstance` / `DocumentInstanceVersion` 
 | `TEMPLATE_SOURCE_UNAVAILABLE` | Source PDF missing, unreadable, page-count mismatch, or outside the company boundary. |
 | `GENERATION_FAILED` | Any other renderer or storage failure. |
 
-File compensation from Phase 4A is unchanged. Custom overlay templates remain generation-only: no e-sign, email delivery, or workflow.
+File compensation from Phase 4A is unchanged. Custom overlay templates remain generation-only in Phase 4B. Phase 5A adds internal review/approval workflows for generated documents; signing, email delivery, and template workflow presets remain later phases.
+
+---
+
+## Phase 5A: Internal Review / Approval Workflow
+
+Phase 5A adds a runtime internal workflow engine for generated documents. Approval is separate from e-signing and does not mutate PDF bytes.
+
+### Provenance binding
+
+Every workflow request binds to an exact immutable chain:
+
+```
+DocumentInstance
+        ↓
+DocumentInstanceVersion (exact version at request time)
+        ↓
+DocumentWorkflowRequest
+        ↓
+DocumentWorkflowStage (sequential)
+        ↓
+DocumentWorkflowTask (internal assignees)
+```
+
+If `DocumentInstance.current_version_id` later changes, existing workflow history remains on the original version. Terminal requests (`approved`, `rejected`, `cancelled`) do not block a deliberate new request for a new version, but only one **pending** request may exist per `(document_instance_id, document_instance_version_id)`.
+
+### Sequential stages
+
+- Only one stage is **active** at a time; later stages start as **pending**.
+- The **final** stage must be `approve`. Earlier stages may be `review`.
+- Assignees are explicit internal company users validated against `current_company_id` membership (active pivot or legacy home-company rule).
+- Duplicate assignees within the same stage are rejected. The request creator cannot be assigned as a reviewer or approver.
+- The same user may appear in different stages when they hold the required permissions for each stage action.
+- Review/approval previews always stream the bound `DocumentInstanceVersion` artifact via a protected tenant-scoped route. Library file replacement or deletion does not change the PDF under review.
+- Stage assignees must hold the required company-scoped permission for their stage action (`documents.requests.review` or `documents.requests.approve`) and `documents.requests.view`.
+
+### Completion rules
+
+| Rule | Behavior |
+|------|----------|
+| **ALL** | Every task in the stage must complete positively. Any rejection rejects the stage and the request. |
+| **ANY** | First positive completion completes the stage and skips remaining pending tasks. One rejection does not reject the stage while other pending tasks remain; if every task rejects, the stage and request reject. |
+
+When the final approval stage completes, the request becomes **approved**. No PDF mutation occurs in Phase 5A.
+
+### Permissions
+
+| Permission | Capability |
+|------------|------------|
+| `documents.requests.view` | List and open review/approval requests |
+| `documents.requests.create` | Request approval from a generated document show page |
+| `documents.requests.review` | Complete/reject **review** tasks assigned to the actor |
+| `documents.requests.approve` | Approve/reject **approval** tasks assigned to the actor |
+| `documents.requests.cancel` | Cancel pending workflows |
+
+Review permission does not grant approval actions. Task assignment is enforced in addition to capability checks.
+
+### Requests workspace
+
+**Documents → Requests** is a unified workspace:
+
+- **Review & Approval** — Phase 5A internal workflow inbox (`tab=review`, default when permitted)
+- **Signature Requests** — existing `BulkDocumentSignatureRequest` UI (`tab=signatures`)
+
+Legacy `/organization/documents/bulk?view=signatures` continues to work unchanged and redirects signature browsing through `BulkDocumentsController`; the unified Requests tab embeds the same signature workspace via `DocumentRequestsIndexController`.
+
+### Review preview route
+
+Workflow request detail previews the exact bound `DocumentInstanceVersion` bytes at `/organization/documents/requests/{workflowRequest}/version-preview`. This route is tenant-scoped, requires `documents.requests.view`, validates company ownership and path boundaries, and never exposes private storage paths to Inertia.
+
+### Audit
+
+Workflow tables retain authoritative decision history (actor, time, notes). Company-scoped activity events are also written for `workflow_created`, `review_completed`, `approval_completed`, `task_rejected`, `stage_completed`, `workflow_approved`, `workflow_rejected`, and `workflow_cancelled` with safe metadata only (IDs, status, action, sequence — no PDF paths, merge values, or duplicated decision free-text such as notes or cancel reasons). `RecentActivityCard` on request detail remains gated by `audit.view`.
+
+### Explicitly not in Phase 5A
+
+No employee/manager signing, public signing links, acknowledgement, email/WhatsApp delivery, reminders, template workflow presets, or dynamic manager routing.
 
 
