@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\DocumentGenerationTemplateStatus;
 use App\Enums\DocumentRecipientAction;
 use App\Enums\DocumentRecipientRequestEventType;
 use App\Enums\DocumentRecipientRequestStatus;
@@ -8,8 +7,6 @@ use App\Enums\DocumentRecipientRole;
 use App\Enums\DocumentRecipientType;
 use App\Enums\DocumentWorkflowRequestStatus;
 use App\Models\Company;
-use App\Models\DocumentGenerationTemplate;
-use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentInstance;
 use App\Models\DocumentInstanceVersion;
 use App\Models\DocumentRecipientRequest;
@@ -26,9 +23,12 @@ use App\Support\Documents\RecipientRequests\DocumentSignaturePlacementValidator;
 use App\Support\Documents\RecipientRequests\ResolveDocumentSignaturePlacement;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Activity;
+use Spatie\Permission\PermissionRegistrar;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 require_once __DIR__.'/../../Support/document-recipient-request-fixtures.php';
 require_once __DIR__.'/../../Support/spatie.php';
@@ -324,7 +324,71 @@ test('wrong authenticated user cannot sign company countersign request', functio
         ],
         Request::create('/organization/documents/recipient-requests/sign', 'POST'),
         $otherUser,
-    ))->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+    ))->toThrow(HttpException::class);
+});
+
+test('internal company countersign rechecks respond permission after request lock', function () {
+    $fixtures = makeRecipientFixturesWithSignaturePlacement(dualSignaturePlacementConfig());
+    $signed = completeSubjectEmployeeSign($fixtures);
+
+    $hr = User::factory()->create();
+    $signatory = User::factory()->create();
+    grantCompanyPermissions($hr, $signed['company'], ['documents.recipient-requests.create']);
+    grantCompanyPermissions($signatory, $signed['company'], ['documents.recipient-requests.respond']);
+
+    $countersign = app(CreateDocumentCompanyCountersignRequest::class)->handle(
+        $signed['document'],
+        $signatory,
+        $hr,
+        $signed['company']->id,
+    );
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($signed['company']->id);
+    $signatory->syncRoles([]);
+
+    expect(fn () => app(SubmitDocumentRecipientSignature::class)->handle(
+        $countersign['request'],
+        [
+            'signed_name' => 'Director Name',
+            'signature_data' => validSignatureDataUri(),
+            'consent' => true,
+        ],
+        Request::create('/organization/documents/recipient-requests/sign', 'POST'),
+        $signatory,
+    ))->toThrow(HttpException::class);
+});
+
+test('internal company countersign rechecks company membership after request lock', function () {
+    $fixtures = makeRecipientFixturesWithSignaturePlacement(dualSignaturePlacementConfig());
+    $signed = completeSubjectEmployeeSign($fixtures);
+
+    $hr = User::factory()->create();
+    $signatory = User::factory()->create();
+    grantCompanyPermissions($hr, $signed['company'], ['documents.recipient-requests.create']);
+    grantCompanyPermissions($signatory, $signed['company'], ['documents.recipient-requests.respond']);
+
+    $countersign = app(CreateDocumentCompanyCountersignRequest::class)->handle(
+        $signed['document'],
+        $signatory,
+        $hr,
+        $signed['company']->id,
+    );
+
+    DB::table('company_user')
+        ->where('company_id', $signed['company']->id)
+        ->where('user_id', $signatory->id)
+        ->delete();
+
+    expect(fn () => app(SubmitDocumentRecipientSignature::class)->handle(
+        $countersign['request'],
+        [
+            'signed_name' => 'Director Name',
+            'signature_data' => validSignatureDataUri(),
+            'consent' => true,
+        ],
+        Request::create('/organization/documents/recipient-requests/sign', 'POST'),
+        $signatory,
+    ))->toThrow(HttpException::class);
 });
 
 test('company A cannot select company B user for countersign', function () {
@@ -455,8 +519,15 @@ test('company countersign completion stores authenticated actor on event', funct
         ->where('event', DocumentRecipientRequestEventType::SignatureSubmitted)
         ->first();
 
+    $versionCreatedEvent = DocumentRecipientRequestEvent::query()
+        ->where('document_recipient_request_id', $countersign['request']->id)
+        ->where('event', DocumentRecipientRequestEventType::SignedVersionCreated)
+        ->first();
+
     expect($completedEvent)->not->toBeNull()
-        ->and($completedEvent->actor_user_id)->toBe($signatory->id);
+        ->and($completedEvent->actor_user_id)->toBe($signatory->id)
+        ->and($versionCreatedEvent)->not->toBeNull()
+        ->and($versionCreatedEvent->actor_user_id)->toBe($signatory->id);
 
     expect(
         Activity::query()

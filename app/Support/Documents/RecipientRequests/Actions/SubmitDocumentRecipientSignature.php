@@ -109,11 +109,17 @@ final class SubmitDocumentRecipientSignature
                 }
 
                 if ($locked->isInternalCompanySignatory()) {
-                    if ($actor === null || (int) $locked->recipient_user_id !== (int) $actor->id) {
+                    if ($actor === null) {
                         throw ValidationException::withMessages([
-                            'request' => 'You are not authorized to sign this request.',
+                            'request' => 'This signing request requires authentication.',
                         ]);
                     }
+
+                    DocumentRecipientRequestAccess::assertAssignedCompanySignatory(
+                        $locked,
+                        $actor,
+                        (int) $locked->company_id,
+                    );
                 }
 
                 $instance = DocumentInstance::query()
@@ -231,6 +237,7 @@ final class SubmitDocumentRecipientSignature
                 $this->eventRecorder->record(
                     $locked,
                     DocumentRecipientRequestEventType::SignedVersionCreated,
+                    $actor,
                     metadata: [
                         'result_document_instance_version_id' => $resultVersion->id,
                     ],
