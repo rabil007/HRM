@@ -11,6 +11,7 @@ use App\Models\DocumentWorkflowPresetStage;
 use App\Models\DocumentWorkflowPresetTarget;
 use App\Models\User;
 use App\Support\Documents\Workflow\DocumentWorkflowPresetActivityLogger;
+use App\Support\Documents\Workflow\DocumentWorkflowPresetTargetAttributes;
 use App\Support\Documents\Workflow\DocumentWorkflowPresetValidator;
 use Illuminate\Support\Facades\DB;
 
@@ -70,12 +71,17 @@ final class StoreDocumentWorkflowPreset
             ]);
 
             foreach ($stageInput['targets'] as $targetInput) {
+                $attributes = DocumentWorkflowPresetTargetAttributes::forPersistence(
+                    (string) $targetInput['target_type'],
+                    $targetInput,
+                );
+
                 DocumentWorkflowPresetTarget::query()->create([
                     'company_id' => $companyId,
                     'document_workflow_preset_stage_id' => $stage->id,
                     'target_type' => DocumentWorkflowTargetType::from($targetInput['target_type']),
-                    'target_user_id' => $targetInput['target_user_id'] ?? null,
-                    'target_role_id' => $targetInput['target_role_id'] ?? null,
+                    'target_user_id' => $attributes['target_user_id'],
+                    'target_role_id' => $attributes['target_role_id'],
                 ]);
             }
         }

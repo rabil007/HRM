@@ -1,17 +1,23 @@
 <?php
 
 use App\Enums\DocumentWorkflowPresetStatus;
+use App\Enums\DocumentWorkflowRequestStatus;
 use App\Models\Company;
 use App\Models\Department;
+use App\Models\DocumentInstanceVersion;
 use App\Models\DocumentWorkflowPreset;
 use App\Models\DocumentWorkflowRequest;
 use App\Models\DocumentWorkflowTask;
 use App\Models\Employee;
 use App\Models\User;
+use App\Support\Documents\Workflow\Actions\DeactivateDocumentWorkflowPreset;
 use App\Support\Documents\Workflow\Actions\StoreDocumentWorkflowPreset;
+use App\Support\Documents\Workflow\Actions\UpdateDocumentWorkflowPreset;
 use Database\Seeders\PermissionsSeeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -47,6 +53,22 @@ function grantPresetPermissions(User $user, Company $company, array $permissions
 {
     foreach ($permissions as $permission) {
         giveCompanyPermission($user, $company, $permission);
+    }
+}
+
+function grantLegacyHomeCompanyPermission(User $user, Company $company, string $permission): void
+{
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $user->givePermissionTo(Permission::query()->firstOrCreate([
+        'name' => $permission,
+        'guard_name' => 'web',
+    ]));
+
+    if (in_array($permission, ['documents.requests.review', 'documents.requests.approve'], true)) {
+        $user->givePermissionTo(Permission::query()->firstOrCreate([
+            'name' => 'documents.requests.view',
+            'guard_name' => 'web',
+        ]));
     }
 }
 
@@ -755,7 +777,7 @@ test('preset and manual stages cannot be submitted together', function () {
         ->assertSessionHasErrors('workflow_preset_id');
 });
 
-test('cross-company preset cannot be used for workflow request', function () {
+test('cross-company preset id is rejected at validation', function () {
     ['company' => $company, 'employee' => $employee, 'document' => $document] = makeGeneratedDocumentWorkflowFixtures();
     $otherCompany = makeDocumentFixtures()['company'];
 
@@ -791,5 +813,741 @@ test('cross-company preset cannot be used for workflow request', function () {
         ]), [
             'workflow_preset_id' => $foreignPreset->id,
         ])
-        ->assertNotFound();
+        ->assertSessionHasErrors('workflow_preset_id');
+});
+
+test('rejects specific user target that includes a role id', function () {
+    $company = makeDocumentFixtures()['company'];
+    $admin = User::factory()->create();
+    $approver = User::factory()->create();
+
+    grantPresetPermissions($admin, $company, ['documents.workflow-presets.create']);
+    giveCompanyPermission($approver, $company, 'documents.requests.approve');
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Reviewer',
+        'guard_name' => 'web',
+    ]);
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.workflow-presets.store'), [
+            'name' => 'Invalid specific user target',
+            'stages' => [[
+                'action' => 'approve',
+                'completion_rule' => 'any',
+                'targets' => [[
+                    'target_type' => 'specific_user',
+                    'target_user_id' => $approver->id,
+                    'target_role_id' => $role->id,
+                ]],
+            ]],
+        ])
+        ->assertSessionHasErrors('stages.0.targets.0.target_role_id');
+});
+
+test('rejects company role target that includes a user id', function () {
+    $company = makeDocumentFixtures()['company'];
+    $admin = User::factory()->create();
+    $approver = User::factory()->create();
+
+    grantPresetPermissions($admin, $company, ['documents.workflow-presets.create']);
+    giveCompanyPermission($approver, $company, 'documents.requests.approve');
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Approver role',
+        'guard_name' => 'web',
+    ]);
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.workflow-presets.store'), [
+            'name' => 'Invalid company role target',
+            'stages' => [[
+                'action' => 'approve',
+                'completion_rule' => 'any',
+                'targets' => [[
+                    'target_type' => 'company_role',
+                    'target_role_id' => $role->id,
+                    'target_user_id' => $approver->id,
+                ]],
+            ]],
+        ])
+        ->assertSessionHasErrors('stages.0.targets.0.target_user_id');
+});
+
+test('rejects manager target that includes user or role selections', function () {
+    $company = makeDocumentFixtures()['company'];
+    $admin = User::factory()->create();
+    $user = User::factory()->create();
+
+    grantPresetPermissions($admin, $company, ['documents.workflow-presets.create']);
+    giveCompanyPermission($user, $company, 'documents.requests.approve');
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Ops',
+        'guard_name' => 'web',
+    ]);
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.workflow-presets.store'), [
+            'name' => 'Invalid manager target',
+            'stages' => [[
+                'action' => 'approve',
+                'completion_rule' => 'any',
+                'targets' => [[
+                    'target_type' => 'department_manager',
+                    'target_user_id' => $user->id,
+                    'target_role_id' => $role->id,
+                ]],
+            ]],
+        ])
+        ->assertSessionHasErrors('stages.0.targets.0.target_type');
+});
+
+test('persists only valid target fields for each target type', function () {
+    $company = makeDocumentFixtures()['company'];
+    $admin = User::factory()->create();
+    $approver = User::factory()->create();
+
+    grantPresetPermissions($admin, $company, ['documents.workflow-presets.create']);
+    giveCompanyPermission($approver, $company, 'documents.requests.approve');
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'GM',
+        'guard_name' => 'web',
+    ]);
+    $approver->assignRole($role);
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.workflow-presets.store'), [
+            'name' => 'Sanitized persistence',
+            'stages' => [[
+                'action' => 'approve',
+                'completion_rule' => 'any',
+                'targets' => [[
+                    'target_type' => 'company_role',
+                    'target_role_id' => $role->id,
+                    'target_user_id' => $approver->id,
+                ]],
+            ]],
+        ])
+        ->assertSessionHasErrors('stages.0.targets.0.target_user_id');
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.workflow-presets.store'), [
+            'name' => 'Clean company role preset',
+            'stages' => [[
+                'action' => 'approve',
+                'completion_rule' => 'any',
+                'targets' => [[
+                    'target_type' => 'company_role',
+                    'target_role_id' => $role->id,
+                ]],
+            ]],
+        ])
+        ->assertRedirect();
+
+    $target = DocumentWorkflowPreset::query()->where('name', 'Clean company role preset')->firstOrFail()
+        ->stages()->first()->targets()->first();
+
+    expect($target->target_role_id)->toBe($role->id)
+        ->and($target->target_user_id)->toBeNull();
+});
+
+test('routing snapshot contains only metadata valid for target type', function () {
+    ['company' => $company, 'employee' => $employee, 'document' => $document] = makeGeneratedDocumentWorkflowFixtures();
+
+    $approver = User::factory()->create(['status' => 'active', 'company_id' => $company->id]);
+    giveCompanyPermission($approver, $company, 'documents.requests.approve');
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Foreign role label',
+        'guard_name' => 'web',
+    ]);
+
+    $requester = User::factory()->create();
+    giveCompanyPermission($requester, $company, 'documents.requests.create');
+
+    $admin = User::factory()->create();
+    grantPresetPermissions($admin, $company, ['documents.workflow-presets.create']);
+
+    $preset = app(StoreDocumentWorkflowPreset::class)->handle(
+        actor: $admin,
+        companyId: $company->id,
+        name: 'Snapshot preset',
+        description: null,
+        stages: [[
+            'action' => 'approve',
+            'completion_rule' => 'any',
+            'targets' => [[
+                'target_type' => 'specific_user',
+                'target_user_id' => $approver->id,
+            ]],
+        ]],
+    );
+
+    $target = $preset->stages()->first()->targets()->first();
+    $target->forceFill([
+        'target_role_id' => $role->id,
+    ])->save();
+
+    $this->actingAs($requester)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.employee.files.workflow-requests.store', [
+            'employee' => $employee->id,
+            'document' => $document->id,
+        ]), [
+            'workflow_preset_id' => $preset->id,
+        ])
+        ->assertRedirect();
+
+    $snapshot = DocumentWorkflowRequest::query()->value('routing_definition_snapshot');
+    $targetSnapshot = $snapshot[0]['targets'][0];
+
+    expect($targetSnapshot)->toHaveKeys(['target_type', 'target_user_id', 'target_user_name', 'label'])
+        ->and($targetSnapshot)->not->toHaveKey('target_role_id')
+        ->and($targetSnapshot)->not->toHaveKey('target_role_name');
+});
+
+test('legacy home-company specific user resolves for workflow request', function () {
+    ['company' => $company, 'employee' => $employee, 'document' => $document] = makeGeneratedDocumentWorkflowFixtures();
+
+    $legacyApprover = User::factory()->create([
+        'status' => 'active',
+        'company_id' => $company->id,
+    ]);
+    grantLegacyHomeCompanyPermission($legacyApprover, $company, 'documents.requests.approve');
+
+    $requester = User::factory()->create();
+    giveCompanyPermission($requester, $company, 'documents.requests.create');
+
+    $admin = User::factory()->create();
+    grantPresetPermissions($admin, $company, ['documents.workflow-presets.create']);
+
+    $preset = app(StoreDocumentWorkflowPreset::class)->handle(
+        actor: $admin,
+        companyId: $company->id,
+        name: 'Legacy specific user',
+        description: null,
+        stages: [[
+            'action' => 'approve',
+            'completion_rule' => 'any',
+            'targets' => [[
+                'target_type' => 'specific_user',
+                'target_user_id' => $legacyApprover->id,
+            ]],
+        ]],
+    );
+
+    $this->actingAs($requester)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.employee.files.workflow-requests.store', [
+            'employee' => $employee->id,
+            'document' => $document->id,
+        ]), [
+            'workflow_preset_id' => $preset->id,
+        ])
+        ->assertRedirect();
+
+    expect(DocumentWorkflowTask::query()->value('assignee_user_id'))->toBe($legacyApprover->id);
+});
+
+test('legacy home-company role member resolves for company role target', function () {
+    ['company' => $company, 'employee' => $employee, 'document' => $document] = makeGeneratedDocumentWorkflowFixtures();
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Legacy GM',
+        'guard_name' => 'web',
+    ]);
+
+    $legacyMember = User::factory()->create([
+        'status' => 'active',
+        'company_id' => $company->id,
+    ]);
+    grantLegacyHomeCompanyPermission($legacyMember, $company, 'documents.requests.approve');
+    $legacyMember->assignRole($role);
+
+    $requester = User::factory()->create();
+    giveCompanyPermission($requester, $company, 'documents.requests.create');
+
+    $admin = User::factory()->create();
+    grantPresetPermissions($admin, $company, ['documents.workflow-presets.create']);
+
+    $preset = app(StoreDocumentWorkflowPreset::class)->handle(
+        actor: $admin,
+        companyId: $company->id,
+        name: 'Legacy role preset',
+        description: null,
+        stages: [[
+            'action' => 'approve',
+            'completion_rule' => 'all',
+            'targets' => [[
+                'target_type' => 'company_role',
+                'target_role_id' => $role->id,
+            ]],
+        ]],
+    );
+
+    $this->actingAs($requester)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.employee.files.workflow-requests.store', [
+            'employee' => $employee->id,
+            'document' => $document->id,
+        ]), [
+            'workflow_preset_id' => $preset->id,
+        ])
+        ->assertRedirect();
+
+    expect(DocumentWorkflowTask::query()->pluck('assignee_user_id')->all())->toBe([$legacyMember->id]);
+});
+
+test('legacy manager-linked user resolves for department manager target', function () {
+    ['company' => $company, 'employee' => $employee, 'document' => $document] = makeGeneratedDocumentWorkflowFixtures();
+
+    $legacyManager = User::factory()->create([
+        'status' => 'active',
+        'company_id' => $company->id,
+    ]);
+    grantLegacyHomeCompanyPermission($legacyManager, $company, 'documents.requests.approve');
+
+    $managerEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'user_id' => $legacyManager->id,
+    ]);
+
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Legacy Dept',
+        'code' => 'LD',
+        'manager_id' => $managerEmployee->id,
+        'status' => 'active',
+    ]);
+    $employee->update(['department_id' => $department->id]);
+
+    $requester = User::factory()->create();
+    giveCompanyPermission($requester, $company, 'documents.requests.create');
+
+    $admin = User::factory()->create();
+    grantPresetPermissions($admin, $company, ['documents.workflow-presets.create']);
+
+    $preset = app(StoreDocumentWorkflowPreset::class)->handle(
+        actor: $admin,
+        companyId: $company->id,
+        name: 'Legacy manager preset',
+        description: null,
+        stages: [[
+            'action' => 'approve',
+            'completion_rule' => 'any',
+            'targets' => [[
+                'target_type' => 'department_manager',
+            ]],
+        ]],
+    );
+
+    $this->actingAs($requester)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.employee.files.workflow-requests.store', [
+            'employee' => $employee->id,
+            'document' => $document->id,
+        ]), [
+            'workflow_preset_id' => $preset->id,
+        ])
+        ->assertRedirect();
+
+    expect(DocumentWorkflowTask::query()->value('assignee_user_id'))->toBe($legacyManager->id);
+});
+
+test('inactive pivot membership blocks company role resolution', function () {
+    ['company' => $company, 'employee' => $employee, 'document' => $document] = makeGeneratedDocumentWorkflowFixtures();
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Blocked role',
+        'guard_name' => 'web',
+    ]);
+
+    $inactiveMember = User::factory()->create(['status' => 'active']);
+    addCompanyMembership($inactiveMember, $company);
+    giveCompanyPermission($inactiveMember, $company, 'documents.requests.approve');
+    $inactiveMember->assignRole($role);
+
+    DB::table('company_user')
+        ->where('company_id', $company->id)
+        ->where('user_id', $inactiveMember->id)
+        ->update(['status' => 'inactive']);
+
+    $requester = User::factory()->create();
+    giveCompanyPermission($requester, $company, 'documents.requests.create');
+
+    $admin = User::factory()->create();
+    grantPresetPermissions($admin, $company, ['documents.workflow-presets.create']);
+
+    $preset = app(StoreDocumentWorkflowPreset::class)->handle(
+        actor: $admin,
+        companyId: $company->id,
+        name: 'Inactive member role',
+        description: null,
+        stages: [[
+            'action' => 'approve',
+            'completion_rule' => 'any',
+            'targets' => [[
+                'target_type' => 'company_role',
+                'target_role_id' => $role->id,
+            ]],
+        ]],
+    );
+
+    $this->actingAs($requester)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.employee.files.workflow-requests.store', [
+            'employee' => $employee->id,
+            'document' => $document->id,
+        ]), [
+            'workflow_preset_id' => $preset->id,
+        ])
+        ->assertSessionHasErrors('workflow_preset_id');
+});
+
+test('rejects duplicate preset name within the same company', function () {
+    $company = makeDocumentFixtures()['company'];
+    $admin = User::factory()->create();
+    $approver = User::factory()->create();
+
+    grantPresetPermissions($admin, $company, ['documents.workflow-presets.create']);
+    giveCompanyPermission($approver, $company, 'documents.requests.approve');
+
+    $payload = [
+        'name' => 'Standard Approval',
+        'stages' => [[
+            'action' => 'approve',
+            'completion_rule' => 'any',
+            'targets' => [[
+                'target_type' => 'specific_user',
+                'target_user_id' => $approver->id,
+            ]],
+        ]],
+    ];
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.workflow-presets.store'), $payload)
+        ->assertRedirect();
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.workflow-presets.store'), $payload)
+        ->assertSessionHasErrors('name');
+});
+
+test('allows same preset name in different companies', function () {
+    $companyA = makeDocumentFixtures()['company'];
+    $companyB = makeDocumentFixtures()['company'];
+
+    $adminA = User::factory()->create();
+    $adminB = User::factory()->create();
+    $approverA = User::factory()->create();
+    $approverB = User::factory()->create();
+
+    grantPresetPermissions($adminA, $companyA, ['documents.workflow-presets.create']);
+    grantPresetPermissions($adminB, $companyB, ['documents.workflow-presets.create']);
+    giveCompanyPermission($approverA, $companyA, 'documents.requests.approve');
+    giveCompanyPermission($approverB, $companyB, 'documents.requests.approve');
+
+    $payload = fn (User $approver) => [
+        'name' => 'Standard Approval',
+        'stages' => [[
+            'action' => 'approve',
+            'completion_rule' => 'any',
+            'targets' => [[
+                'target_type' => 'specific_user',
+                'target_user_id' => $approver->id,
+            ]],
+        ]],
+    ];
+
+    $this->actingAs($adminA)
+        ->withSession(['current_company_id' => $companyA->id])
+        ->post(route('organization.documents.workflow-presets.store'), $payload($approverA))
+        ->assertRedirect();
+
+    $this->actingAs($adminB)
+        ->withSession(['current_company_id' => $companyB->id])
+        ->post(route('organization.documents.workflow-presets.store'), $payload($approverB))
+        ->assertRedirect();
+
+    expect(DocumentWorkflowPreset::query()->where('name', 'Standard Approval')->count())->toBe(2);
+});
+
+test('allows updating preset without changing its name', function () {
+    $company = makeDocumentFixtures()['company'];
+    $admin = User::factory()->create();
+    $approver = User::factory()->create();
+
+    grantPresetPermissions($admin, $company, [
+        'documents.workflow-presets.create',
+        'documents.workflow-presets.update',
+    ]);
+    giveCompanyPermission($approver, $company, 'documents.requests.approve');
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.workflow-presets.store'), [
+            'name' => 'Standard Approval',
+            'stages' => [[
+                'action' => 'approve',
+                'completion_rule' => 'any',
+                'targets' => [[
+                    'target_type' => 'specific_user',
+                    'target_user_id' => $approver->id,
+                ]],
+            ]],
+        ])
+        ->assertRedirect();
+
+    $preset = DocumentWorkflowPreset::query()->firstOrFail();
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->put(route('organization.documents.workflow-presets.update', $preset), [
+            'name' => 'Standard Approval',
+            'description' => 'Updated description',
+            'stages' => [[
+                'action' => 'approve',
+                'completion_rule' => 'any',
+                'targets' => [[
+                    'target_type' => 'specific_user',
+                    'target_user_id' => $approver->id,
+                ]],
+            ]],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect($preset->fresh()->description)->toBe('Updated description');
+});
+
+test('inactive preset cannot be used for workflow request creation', function () {
+    ['company' => $company, 'employee' => $employee, 'document' => $document] = makeGeneratedDocumentWorkflowFixtures();
+
+    $approver = User::factory()->create();
+    giveCompanyPermission($approver, $company, 'documents.requests.approve');
+
+    $requester = User::factory()->create();
+    giveCompanyPermission($requester, $company, 'documents.requests.create');
+
+    $admin = User::factory()->create();
+    grantPresetPermissions($admin, $company, [
+        'documents.workflow-presets.create',
+        'documents.workflow-presets.update',
+    ]);
+
+    $preset = app(StoreDocumentWorkflowPreset::class)->handle(
+        actor: $admin,
+        companyId: $company->id,
+        name: 'Inactive preset',
+        description: null,
+        stages: [[
+            'action' => 'approve',
+            'completion_rule' => 'any',
+            'targets' => [[
+                'target_type' => 'specific_user',
+                'target_user_id' => $approver->id,
+            ]],
+        ]],
+    );
+
+    app(DeactivateDocumentWorkflowPreset::class)
+        ->handle($preset, $admin, $company->id);
+
+    $this->actingAs($requester)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.employee.files.workflow-requests.store', [
+            'employee' => $employee->id,
+            'document' => $document->id,
+        ]), [
+            'workflow_preset_id' => $preset->id,
+        ])
+        ->assertSessionHasErrors('workflow_preset_id');
+});
+
+test('preset update and deactivation do not alter existing request tasks', function () {
+    ['company' => $company, 'employee' => $employee, 'document' => $document] = makeGeneratedDocumentWorkflowFixtures();
+
+    $originalApprover = User::factory()->create(['status' => 'active']);
+    $replacementApprover = User::factory()->create(['status' => 'active']);
+    giveCompanyPermission($originalApprover, $company, 'documents.requests.approve');
+    giveCompanyPermission($replacementApprover, $company, 'documents.requests.approve');
+
+    $requester = User::factory()->create();
+    giveCompanyPermission($requester, $company, 'documents.requests.create');
+
+    $admin = User::factory()->create();
+    grantPresetPermissions($admin, $company, [
+        'documents.workflow-presets.create',
+        'documents.workflow-presets.update',
+    ]);
+
+    $preset = app(StoreDocumentWorkflowPreset::class)->handle(
+        actor: $admin,
+        companyId: $company->id,
+        name: 'Mutable preset',
+        description: null,
+        stages: [[
+            'action' => 'approve',
+            'completion_rule' => 'any',
+            'targets' => [[
+                'target_type' => 'specific_user',
+                'target_user_id' => $originalApprover->id,
+            ]],
+        ]],
+    );
+
+    $this->actingAs($requester)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.employee.files.workflow-requests.store', [
+            'employee' => $employee->id,
+            'document' => $document->id,
+        ]), [
+            'workflow_preset_id' => $preset->id,
+        ])
+        ->assertRedirect();
+
+    $originalTaskAssignee = DocumentWorkflowTask::query()->value('assignee_user_id');
+    $originalSnapshot = DocumentWorkflowRequest::query()->value('routing_definition_snapshot');
+
+    app(UpdateDocumentWorkflowPreset::class)->handle(
+        preset: $preset,
+        actor: $admin,
+        companyId: $company->id,
+        name: 'Mutable preset',
+        description: 'Changed',
+        stages: [[
+            'action' => 'approve',
+            'completion_rule' => 'any',
+            'targets' => [[
+                'target_type' => 'specific_user',
+                'target_user_id' => $replacementApprover->id,
+            ]],
+        ]],
+    );
+
+    app(DeactivateDocumentWorkflowPreset::class)
+        ->handle($preset->fresh(), $admin, $company->id);
+
+    expect(DocumentWorkflowTask::query()->value('assignee_user_id'))->toBe($originalTaskAssignee)
+        ->and(DocumentWorkflowRequest::query()->value('routing_definition_snapshot'))->toBe($originalSnapshot);
+});
+
+test('new requests use the current locked preset definition after update', function () {
+    ['company' => $company, 'employee' => $employee, 'document' => $document, 'instance' => $instance, 'version' => $version] = makeGeneratedDocumentWorkflowFixtures();
+
+    $originalApprover = User::factory()->create(['status' => 'active']);
+    $replacementApprover = User::factory()->create(['status' => 'active']);
+    giveCompanyPermission($originalApprover, $company, 'documents.requests.approve');
+    giveCompanyPermission($replacementApprover, $company, 'documents.requests.approve');
+
+    $requester = User::factory()->create();
+    giveCompanyPermission($requester, $company, 'documents.requests.create');
+
+    $admin = User::factory()->create();
+    grantPresetPermissions($admin, $company, [
+        'documents.workflow-presets.create',
+        'documents.workflow-presets.update',
+    ]);
+
+    $preset = app(StoreDocumentWorkflowPreset::class)->handle(
+        actor: $admin,
+        companyId: $company->id,
+        name: 'Evolving preset',
+        description: null,
+        stages: [[
+            'action' => 'approve',
+            'completion_rule' => 'any',
+            'targets' => [[
+                'target_type' => 'specific_user',
+                'target_user_id' => $originalApprover->id,
+            ]],
+        ]],
+    );
+
+    $this->actingAs($requester)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.employee.files.workflow-requests.store', [
+            'employee' => $employee->id,
+            'document' => $document->id,
+        ]), [
+            'workflow_preset_id' => $preset->id,
+        ])
+        ->assertRedirect();
+
+    DocumentWorkflowRequest::query()->first()->update([
+        'status' => DocumentWorkflowRequestStatus::Approved,
+    ]);
+
+    app(UpdateDocumentWorkflowPreset::class)->handle(
+        preset: $preset,
+        actor: $admin,
+        companyId: $company->id,
+        name: 'Evolving preset',
+        description: null,
+        stages: [[
+            'action' => 'approve',
+            'completion_rule' => 'any',
+            'targets' => [[
+                'target_type' => 'specific_user',
+                'target_user_id' => $replacementApprover->id,
+            ]],
+        ]],
+    );
+
+    $version2Path = "document-instances/{$company->id}/canonical-v2.pdf";
+    Storage::disk('local')->put($version2Path, '%PDF-1.4 test v2');
+
+    $version2 = DocumentInstanceVersion::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'version' => 2,
+        'file_path' => $version2Path,
+        'original_filename' => 'canonical-v2.pdf',
+        'size_bytes' => 100,
+        'checksum' => 'def',
+    ]);
+    $instance->update(['current_version_id' => $version2->id]);
+
+    $this->actingAs($requester)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.employee.files.workflow-requests.store', [
+            'employee' => $employee->id,
+            'document' => $document->id,
+        ]), [
+            'workflow_preset_id' => $preset->id,
+        ])
+        ->assertRedirect();
+
+    $latestTaskAssignee = DocumentWorkflowRequest::query()
+        ->orderByDesc('id')
+        ->first()
+        ->stages()
+        ->first()
+        ->tasks()
+        ->value('assignee_user_id');
+
+    expect($latestTaskAssignee)->toBe($replacementApprover->id);
 });

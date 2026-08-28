@@ -8,6 +8,7 @@ import {
     Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -70,6 +71,8 @@ export function DocumentWorkflowPresetsContent({
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingPreset, setEditingPreset] =
         useState<WorkflowPresetSummary | null>(null);
+    const [deletePreset, setDeletePreset] =
+        useState<WorkflowPresetSummary | null>(null);
 
     const deleteForm = useForm({});
 
@@ -83,17 +86,14 @@ export function DocumentWorkflowPresetsContent({
         setDialogOpen(true);
     }
 
-    function handleDelete(preset: WorkflowPresetSummary) {
-        if (
-            !window.confirm(
-                `Delete workflow preset "${preset.name}"? This cannot be undone.`,
-            )
-        ) {
+    function confirmDelete() {
+        if (!deletePreset) {
             return;
         }
 
-        deleteForm.delete(destroyPreset.url(preset.id), {
+        deleteForm.delete(destroyPreset.url(deletePreset.id), {
             preserveScroll: true,
+            onSuccess: () => setDeletePreset(null),
         });
     }
 
@@ -240,7 +240,7 @@ export function DocumentWorkflowPresetsContent({
                                                         <DropdownMenuItem
                                                             className="text-destructive focus:text-destructive"
                                                             onClick={() =>
-                                                                handleDelete(
+                                                                setDeletePreset(
                                                                     preset,
                                                                 )
                                                             }
@@ -266,6 +266,31 @@ export function DocumentWorkflowPresetsContent({
                     onOpenChange={setDialogOpen}
                     preset={editingPreset}
                     formOptions={form_options}
+                />
+            ) : null}
+
+            {can.delete ? (
+                <ConfirmDeleteDialog
+                    open={deletePreset !== null}
+                    onOpenChange={(open) => !open && setDeletePreset(null)}
+                    title="Delete workflow preset"
+                    description={
+                        deletePreset ? (
+                            <>
+                                Are you sure you want to delete{' '}
+                                <span className="font-semibold text-foreground">
+                                    {deletePreset.name}
+                                </span>
+                                ? This action cannot be undone.
+                            </>
+                        ) : (
+                            ''
+                        )
+                    }
+                    confirmText={
+                        deleteForm.processing ? 'Deleting…' : 'Delete preset'
+                    }
+                    onConfirm={confirmDelete}
                 />
             ) : null}
         </Main>

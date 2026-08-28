@@ -117,7 +117,7 @@ Document pages receive their UI flags from `DocumentPagePermissions::for($user)`
 
 Review/approval list and decision routes enforce `documents.requests.*` independently. Workflow creation validates that each stage assignee holds the required company-scoped permission for that stage (`documents.requests.review` or `documents.requests.approve`) plus `documents.requests.view`. A user with `documents.requests.approve` may only act on tasks assigned to them; review permission does not grant approval on approval-stage tasks.
 
-Workflow preset management uses `documents.workflow-presets.*`. Selecting an active preset during request creation requires only `documents.requests.create`; preset CRUD permissions are separate.
+Workflow preset management uses `documents.workflow-presets.*`. Selecting an active preset during request creation requires only `documents.requests.create`; preset CRUD permissions are separate. Preset names are unique within the active company. `workflow_preset_id` on request creation is validated against `current_company_id`, not globally by id alone.
 
 The request creator cannot review or approve their own workflow request (backend enforced in Phase 5A).
 

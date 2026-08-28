@@ -6,6 +6,7 @@ use App\Models\DocumentWorkflowPreset;
 use App\Models\DocumentWorkflowPresetStage;
 use App\Models\User;
 use App\Support\Documents\Workflow\DocumentWorkflowPresetActivityLogger;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class DeleteDocumentWorkflowPreset
@@ -18,24 +19,32 @@ final class DeleteDocumentWorkflowPreset
     {
         abort_unless((int) $preset->company_id === $companyId, 404);
 
-        if ($preset->workflowRequests()->exists()) {
-            throw ValidationException::withMessages([
-                'preset' => ['This preset has already been used and cannot be deleted. Deactivate it instead.'],
-            ]);
-        }
+        DB::transaction(function () use ($preset, $actor, $companyId): void {
+            $lockedPreset = DocumentWorkflowPreset::query()
+                ->forCompany($companyId)
+                ->whereKey($preset->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $preset->stages()->each(function (DocumentWorkflowPresetStage $stage): void {
-            $stage->targets()->delete();
+            if ($lockedPreset->workflowRequests()->exists()) {
+                throw ValidationException::withMessages([
+                    'preset' => ['This preset has already been used and cannot be deleted. Deactivate it instead.'],
+                ]);
+            }
+
+            $lockedPreset->stages()->each(function (DocumentWorkflowPresetStage $stage): void {
+                $stage->targets()->delete();
+            });
+            $lockedPreset->stages()->delete();
+
+            $this->activityLogger->log(
+                description: 'Document workflow preset deleted',
+                event: 'workflow_preset_deleted',
+                preset: $lockedPreset,
+                actor: $actor,
+            );
+
+            $lockedPreset->delete();
         });
-        $preset->stages()->delete();
-
-        $this->activityLogger->log(
-            description: 'Document workflow preset deleted',
-            event: 'workflow_preset_deleted',
-            preset: $preset,
-            actor: $actor,
-        );
-
-        $preset->delete();
     }
 }

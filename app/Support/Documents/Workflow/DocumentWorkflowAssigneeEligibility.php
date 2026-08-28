@@ -26,7 +26,9 @@ final class DocumentWorkflowAssigneeEligibility
             return false;
         }
 
-        if (! $this->companyAccess->hasAccessibleMembership($user, $companyId)) {
+        $membershipByUserId = $this->companyAccess->accessibleMembershipByUserId($companyId, [(int) $user->id]);
+
+        if (! ($membershipByUserId[(int) $user->id] ?? false)) {
             return false;
         }
 
@@ -45,6 +47,10 @@ final class DocumentWorkflowAssigneeEligibility
     {
         $users = collect($users)->keyBy('id');
         $capabilities = $this->workflowPermissions->capabilitiesByUserId($users, $companyId);
+        $membershipByUserId = $this->companyAccess->accessibleMembershipByUserId(
+            $companyId,
+            $users->keys()->map(fn ($id): int => (int) $id)->values()->all(),
+        );
         $result = [];
 
         foreach ($users as $user) {
@@ -62,7 +68,7 @@ final class DocumentWorkflowAssigneeEligibility
                 continue;
             }
 
-            if (! $this->companyAccess->hasAccessibleMembership($user, $companyId)) {
+            if (! ($membershipByUserId[$userId] ?? false)) {
                 $result[$userId] = false;
 
                 continue;

@@ -84,14 +84,10 @@ final class ResolveDocumentWorkflowPreset
                 'sequence' => $stage->sequence,
                 'action' => $stage->action->value,
                 'completion_rule' => $stage->completion_rule->value,
-                'targets' => $stage->targets->map(fn ($target): array => [
-                    'target_type' => $target->target_type->value,
-                    'target_user_id' => $target->target_user_id,
-                    'target_user_name' => $target->targetUser?->name,
-                    'target_role_id' => $target->target_role_id,
-                    'target_role_name' => $target->targetRole?->name,
-                    'label' => DocumentWorkflowPresetPresenter::targetLabel($target),
-                ])->values()->all(),
+                'targets' => $stage->targets
+                    ->map(fn ($target): array => DocumentWorkflowPresetTargetAttributes::routingSnapshotEntry($target))
+                    ->values()
+                    ->all(),
                 'resolved_assignee_user_ids' => $assigneeUserIds,
             ];
         }

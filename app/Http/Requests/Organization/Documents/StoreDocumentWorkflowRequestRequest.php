@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization\Documents;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreDocumentWorkflowRequestRequest extends FormRequest
@@ -17,8 +18,15 @@ class StoreDocumentWorkflowRequestRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
         return [
-            'workflow_preset_id' => ['nullable', 'integer', 'exists:document_workflow_presets,id'],
+            'workflow_preset_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('document_workflow_presets', 'id')
+                    ->where('company_id', $companyId),
+            ],
             'stages' => ['nullable', 'array', 'min:1'],
             'stages.*.action' => ['required_with:stages', 'in:review,approve'],
             'stages.*.completion_rule' => ['required_with:stages', 'in:all,any'],

@@ -6,6 +6,7 @@ use App\Enums\DocumentWorkflowTargetType;
 use App\Models\DocumentWorkflowPresetTarget;
 use App\Models\Employee;
 use App\Models\User;
+use App\Support\Companies\ResolveCompanyAccess;
 use App\Support\Departments\ResolveDepartmentManagementChain;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -15,6 +16,7 @@ final class DocumentWorkflowTargetResolver
 {
     public function __construct(
         private readonly DocumentWorkflowAssigneeEligibility $eligibility = new DocumentWorkflowAssigneeEligibility,
+        private readonly ResolveCompanyAccess $companyAccess = new ResolveCompanyAccess,
     ) {}
 
     /**
@@ -63,9 +65,18 @@ final class DocumentWorkflowTargetResolver
 
         $user = User::query()
             ->whereKey($target->target_user_id)
-            ->first(['id', 'name', 'status']);
+            ->first(['id', 'name', 'status', 'company_id']);
 
-        if ($user === null || ! $this->eligibility->isActionable($user, $companyId, $stageAction, $requesterUserId)) {
+        $membershipByUserId = $this->companyAccess->accessibleMembershipByUserId(
+            $companyId,
+            [(int) $target->target_user_id],
+        );
+
+        if (
+            $user === null
+            || ! ($membershipByUserId[(int) $target->target_user_id] ?? false)
+            || ! $this->eligibility->isActionable($user, $companyId, $stageAction, $requesterUserId)
+        ) {
             throw ValidationException::withMessages([
                 'workflow_preset_id' => ['One or more specific-user targets could not be resolved to an eligible assignee.'],
             ]);
@@ -194,7 +205,7 @@ final class DocumentWorkflowTargetResolver
         $users = User::query()
             ->whereIn('id', $userIds)
             ->where('status', 'active')
-            ->get(['id', 'name', 'status']);
+            ->get(['id', 'name', 'status', 'company_id']);
 
         $actionable = $this->eligibility->actionableByUserId($users, $companyId, $stageAction, $requesterUserId);
         $eligibleUserIds = [];

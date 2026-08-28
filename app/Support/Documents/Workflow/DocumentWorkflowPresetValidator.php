@@ -67,7 +67,15 @@ final class DocumentWorkflowPresetValidator
                     $seen[$key] = true;
 
                     try {
-                        $this->validateTargetFields($companyId, $type, $userId, $roleId, $stage['action'] ?? null, $stageIndex, $targetIndex);
+                        $this->validateTargetFields(
+                            companyId: $companyId,
+                            type: $type,
+                            userId: $userId,
+                            roleId: $roleId,
+                            stageAction: $stage['action'] ?? null,
+                            stageIndex: $stageIndex,
+                            targetIndex: $targetIndex,
+                        );
                     } catch (ValidationException $exception) {
                         foreach ($exception->errors() as $field => $messages) {
                             foreach ($messages as $message) {
@@ -97,8 +105,8 @@ final class DocumentWorkflowPresetValidator
         $fieldPrefix = "stages.{$stageIndex}.targets.{$targetIndex}";
 
         match ($type) {
-            DocumentWorkflowTargetType::SpecificUser->value => $this->validateSpecificUserTarget($companyId, $userId, $stageAction, $fieldPrefix),
-            DocumentWorkflowTargetType::CompanyRole->value => $this->validateCompanyRoleTarget($companyId, $roleId, $fieldPrefix),
+            DocumentWorkflowTargetType::SpecificUser->value => $this->validateSpecificUserTarget($companyId, $userId, $roleId, $stageAction, $fieldPrefix),
+            DocumentWorkflowTargetType::CompanyRole->value => $this->validateCompanyRoleTarget($companyId, $userId, $roleId, $fieldPrefix),
             DocumentWorkflowTargetType::DepartmentManager->value,
             DocumentWorkflowTargetType::ParentManager->value => $this->validateManagerTarget($userId, $roleId, $fieldPrefix),
             default => throw ValidationException::withMessages([
@@ -110,17 +118,31 @@ final class DocumentWorkflowPresetValidator
     /**
      * @throws ValidationException
      */
-    private function validateSpecificUserTarget(int $companyId, ?int $userId, ?string $stageAction, string $fieldPrefix): void
+    private function validateSpecificUserTarget(int $companyId, ?int $userId, ?int $roleId, ?string $stageAction, string $fieldPrefix): void
     {
+        if ($roleId !== null) {
+            throw ValidationException::withMessages([
+                "{$fieldPrefix}.target_role_id" => ['Specific user targets cannot include a role selection.'],
+            ]);
+        }
+
         if ($userId === null) {
             throw ValidationException::withMessages([
                 "{$fieldPrefix}.target_user_id" => ['A specific user must be selected.'],
             ]);
         }
 
-        $user = User::query()->whereKey($userId)->first(['id', 'status']);
+        $membershipByUserId = $this->companyAccess->accessibleMembershipByUserId($companyId, [$userId]);
 
-        if ($user === null || ! $this->companyAccess->hasAccessibleMembership($user, $companyId)) {
+        if (! ($membershipByUserId[$userId] ?? false)) {
+            throw ValidationException::withMessages([
+                "{$fieldPrefix}.target_user_id" => ['The selected user does not belong to this company.'],
+            ]);
+        }
+
+        $user = User::query()->whereKey($userId)->first(['id', 'status', 'company_id']);
+
+        if ($user === null) {
             throw ValidationException::withMessages([
                 "{$fieldPrefix}.target_user_id" => ['The selected user does not belong to this company.'],
             ]);
@@ -136,8 +158,14 @@ final class DocumentWorkflowPresetValidator
     /**
      * @throws ValidationException
      */
-    private function validateCompanyRoleTarget(int $companyId, ?int $roleId, string $fieldPrefix): void
+    private function validateCompanyRoleTarget(int $companyId, ?int $userId, ?int $roleId, string $fieldPrefix): void
     {
+        if ($userId !== null) {
+            throw ValidationException::withMessages([
+                "{$fieldPrefix}.target_user_id" => ['Company role targets cannot include a user selection.'],
+            ]);
+        }
+
         if ($roleId === null) {
             throw ValidationException::withMessages([
                 "{$fieldPrefix}.target_role_id" => ['A company role must be selected.'],

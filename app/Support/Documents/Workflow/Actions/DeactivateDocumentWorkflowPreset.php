@@ -6,6 +6,7 @@ use App\Enums\DocumentWorkflowPresetStatus;
 use App\Models\DocumentWorkflowPreset;
 use App\Models\User;
 use App\Support\Documents\Workflow\DocumentWorkflowPresetActivityLogger;
+use Illuminate\Support\Facades\DB;
 
 final class DeactivateDocumentWorkflowPreset
 {
@@ -17,15 +18,23 @@ final class DeactivateDocumentWorkflowPreset
     {
         abort_unless((int) $preset->company_id === $companyId, 404);
 
-        $preset->update(['status' => DocumentWorkflowPresetStatus::Inactive]);
+        return DB::transaction(function () use ($preset, $actor, $companyId): DocumentWorkflowPreset {
+            $lockedPreset = DocumentWorkflowPreset::query()
+                ->forCompany($companyId)
+                ->whereKey($preset->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $this->activityLogger->log(
-            description: 'Document workflow preset deactivated',
-            event: 'workflow_preset_deactivated',
-            preset: $preset,
-            actor: $actor,
-        );
+            $lockedPreset->update(['status' => DocumentWorkflowPresetStatus::Inactive]);
 
-        return $preset;
+            $this->activityLogger->log(
+                description: 'Document workflow preset deactivated',
+                event: 'workflow_preset_deactivated',
+                preset: $lockedPreset,
+                actor: $actor,
+            );
+
+            return $lockedPreset;
+        });
     }
 }

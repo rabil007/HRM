@@ -649,14 +649,17 @@ Dynamic manager routing uses document workflow permissions (`documents.requests.
 
 When HR creates a request with `workflow_preset_id`:
 
-1. Load active company-scoped preset
-2. Resolve each stage target server-side for the subject employee
-3. Deduplicate assignees within a stage
-4. Exclude the requester (self-approval block preserved)
-5. Block creation when any target resolves to zero actionable users
-6. Feed concrete stage assignee lists into existing `CreateDocumentWorkflowRequest`
+1. Validate the preset belongs to `current_company_id` (Form Request + controller scope)
+2. Lock the active company-scoped preset row (`lockForUpdate()`), verify it is **active**, and resolve stage/target definitions atomically inside one transaction
+3. Resolve each stage target server-side for the subject employee
+4. Deduplicate assignees within a stage
+5. Exclude the requester (self-approval block preserved)
+6. Block creation when any target resolves to zero actionable users
+7. Feed concrete stage assignee lists into existing `CreateDocumentWorkflowRequest`
 
-Preset edits, deactivation, department manager changes, and role membership changes after request creation do **not** alter existing tasks.
+`routing_definition_snapshot` stores sanitized target metadata only (for example, specific-user targets include user id/name but never role fields). Resolved assignees remain authoritative in `DocumentWorkflowTask` rows.
+
+Preset edits, deactivation, department manager changes, and role membership changes after request creation do **not** alter existing tasks. Used presets cannot be deleted; deactivate them instead. Legacy company access (`users.company_id` without a pivot row) follows the same `ResolveCompanyAccess` rules as Phase 5A assignee validation.
 
 ### Permissions
 
