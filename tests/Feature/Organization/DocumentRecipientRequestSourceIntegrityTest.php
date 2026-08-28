@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Support\Documents\RecipientRequests\Actions\CreateDocumentRecipientRequest;
 use App\Support\Documents\RecipientRequests\Actions\SubmitDocumentRecipientAcknowledgement;
 use Database\Seeders\PermissionsSeeder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -66,5 +67,5 @@ test('acknowledgement rejects a source version attached to another document inst
         $request->fresh(),
         ['name' => 'Employee Name', 'acknowledgement' => true],
         Request::create('/document-action/test', 'POST'),
-    ))->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    ))->toThrow(ModelNotFoundException::class);
 });

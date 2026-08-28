@@ -8,9 +8,39 @@ use App\Models\DocumentInstance;
 use App\Models\DocumentInstanceVersion;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 require_once __DIR__.'/document-fixtures.php';
+
+function addCompanyMembership(User $user, Company $company): void
+{
+    DB::table('company_user')->updateOrInsert(
+        ['company_id' => $company->id, 'user_id' => $user->id],
+        ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
+    );
+}
+
+function giveCompanyPermission(User $user, Company $company, string $permission): void
+{
+    addCompanyMembership($user, $company);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $user->givePermissionTo(Permission::query()->firstOrCreate([
+        'name' => $permission,
+        'guard_name' => 'web',
+    ]));
+
+    if (in_array($permission, ['documents.requests.review', 'documents.requests.approve'], true)) {
+        $user->givePermissionTo(Permission::query()->firstOrCreate([
+            'name' => 'documents.requests.view',
+            'guard_name' => 'web',
+        ]));
+    }
+}
 
 /**
  * @return array{company: Company, employee: Employee, document: EmployeeDocument, instance: DocumentInstance, version: DocumentInstanceVersion, template: DocumentGenerationTemplate}
