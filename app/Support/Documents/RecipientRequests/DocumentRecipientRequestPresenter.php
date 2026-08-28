@@ -53,6 +53,10 @@ final class DocumentRecipientRequestPresenter
                 'id' => $request->recipient_user_id,
                 'name' => $request->recipientUser?->name ?? $request->recipient_name_snapshot,
             ] : null,
+            'assigned_signer' => $request->recipient_user_id ? [
+                'id' => $request->recipient_user_id,
+                'name' => $request->recipientUser?->name ?? $request->recipient_name_snapshot,
+            ] : null,
             'source_version' => [
                 'id' => $request->source_document_instance_version_id,
                 'version' => $request->sourceVersion?->version,
@@ -61,7 +65,7 @@ final class DocumentRecipientRequestPresenter
                 'id' => $request->resultVersion->id,
                 'version' => $request->resultVersion->version,
             ] : null,
-            'respond_url' => $request->isInternalCompanySignatory() && $request->isAwaitingAction()
+            'respond_url' => $request->isInternalSigner() && $request->isAwaitingAction()
                 ? route('organization.documents.recipient-requests.respond', [
                     'recipientRequest' => $request->id,
                 ])
@@ -126,6 +130,10 @@ final class DocumentRecipientRequestPresenter
                 'id' => $request->recipient_user_id,
                 'name' => $request->recipientUser?->name ?? $request->recipient_name_snapshot,
             ] : null,
+            'assigned_signer' => $request->recipient_user_id ? [
+                'id' => $request->recipient_user_id,
+                'name' => $request->recipientUser?->name ?? $request->recipient_name_snapshot,
+            ] : null,
             'source_version' => [
                 'id' => $request->source_document_instance_version_id,
                 'version' => $request->sourceVersion?->version,
@@ -138,7 +146,7 @@ final class DocumentRecipientRequestPresenter
             ] : null,
             'signed_name' => $request->signed_name,
             'acknowledgement_text_snapshot' => $request->acknowledgement_text_snapshot,
-            'respond_url' => $request->isInternalCompanySignatory()
+            'respond_url' => $request->isInternalSigner()
                 ? route('organization.documents.recipient-requests.respond', [
                     'recipientRequest' => $request->id,
                 ])

@@ -139,9 +139,22 @@ class DocumentRecipientRequest extends Model
         return $this->recipient_type === DocumentRecipientType::SubjectEmployee;
     }
 
+    public function isInternalSigner(): bool
+    {
+        return $this->recipient_type === DocumentRecipientType::CompanyUser
+            && $this->recipient_role !== null
+            && $this->recipient_role->isInternalSigner();
+    }
+
     public function isInternalCompanySignatory(): bool
     {
         return $this->recipient_type === DocumentRecipientType::CompanyUser
             && $this->recipient_role === DocumentRecipientRole::CompanySignatory;
+    }
+
+    public function isInternalManager(): bool
+    {
+        return $this->recipient_type === DocumentRecipientType::CompanyUser
+            && $this->recipient_role === DocumentRecipientRole::Manager;
     }
 }

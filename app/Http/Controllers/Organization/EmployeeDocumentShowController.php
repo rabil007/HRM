@@ -86,10 +86,13 @@ class EmployeeDocumentShowController extends Controller
                 'can' => $recipientPermissions,
                 'can_request_sign' => $recipientPermissions['create'] && $recipientEligibility['can_request_sign'],
                 'can_request_acknowledge' => $recipientPermissions['create'] && $recipientEligibility['can_request_acknowledge'],
+                'can_request_manager_countersign' => $recipientPermissions['create'] && $recipientEligibility['can_request_manager_countersign'],
                 'can_request_company_countersign' => $recipientPermissions['create'] && $recipientEligibility['can_request_company_countersign'],
                 'sign_blocked_reason' => $recipientEligibility['sign_blocked_reason'],
                 'acknowledge_blocked_reason' => $recipientEligibility['acknowledge_blocked_reason'],
+                'manager_countersign_blocked_reason' => $recipientEligibility['manager_countersign_blocked_reason'],
                 'company_countersign_blocked_reason' => $recipientEligibility['company_countersign_blocked_reason'],
+                'resolved_manager' => $recipientEligibility['resolved_manager'],
                 'signatory_options' => $recipientEligibility['can_request_company_countersign']
                     ? app(DocumentRecipientSignatoryOptionsQuery::class)->forCompany($companyId)
                     : [],

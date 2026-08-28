@@ -178,15 +178,15 @@ test('out of bounds coordinates are rejected', function () {
 test('unsupported role and type are rejected', function () {
     ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makePdfOverlayDraftWithPages();
 
-    $managerPayload = validSubjectSignaturePlacement();
-    $managerPayload['placements'][0]['role'] = 'manager';
+    $directorPayload = validSubjectSignaturePlacement();
+    $directorPayload['placements'][0]['role'] = 'director';
 
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->putJson(route('organization.documents.templates.versions.signature-placement.save', [
             'template' => $template->id,
             'version' => $version->id,
-        ]), $managerPayload)
+        ]), $directorPayload)
         ->assertUnprocessable();
 
     $initialPayload = validSubjectSignaturePlacement();

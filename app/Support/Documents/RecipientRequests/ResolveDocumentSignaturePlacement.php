@@ -29,16 +29,25 @@ final class ResolveDocumentSignaturePlacement
         if ($templateVersion !== null && is_array($templateVersion->signature_placement_config)) {
             $pageCount = $this->resolvePageCount($version);
 
-            return DocumentSignaturePlacementValidator::validateSignatureForRole(
-                $templateVersion->signature_placement_config,
-                $pageCount,
-                $role,
-            );
+            try {
+                return DocumentSignaturePlacementValidator::validateSignatureForRole(
+                    $templateVersion->signature_placement_config,
+                    $pageCount,
+                    $role,
+                );
+            } catch (\InvalidArgumentException $exception) {
+                throw ValidationException::withMessages([
+                    'action' => $exception->getMessage(),
+                ]);
+            }
         }
 
-        if ($role === DocumentRecipientRole::CompanySignatory) {
+        if ($role->isInternalSigner()) {
             throw ValidationException::withMessages([
-                'action' => 'This document does not have a trusted company signatory signature placement configured.',
+                'action' => match ($role) {
+                    DocumentRecipientRole::Manager => 'This document does not have a trusted manager signature placement configured.',
+                    default => 'This document does not have a trusted company signatory signature placement configured.',
+                },
             ]);
         }
 

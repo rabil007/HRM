@@ -77,10 +77,7 @@ final class DocumentSignaturePlacementValidator
             $parsed = self::parsePlacement($placement, $sourcePageCount);
             $role = $parsed['role'];
 
-            if (! in_array($role, [
-                DocumentRecipientRole::Subject->value,
-                DocumentRecipientRole::CompanySignatory->value,
-            ], true)) {
+            if (! in_array($role, DocumentRecipientRole::signaturePlacementValues(), true)) {
                 throw new InvalidArgumentException('Unsupported signature placement role.');
             }
 
@@ -143,8 +140,7 @@ final class DocumentSignaturePlacementValidator
 
             if ($parsed['role'] === $role->value) {
                 $matches[] = $parsed;
-            } elseif ($parsed['role'] !== DocumentRecipientRole::Subject->value
-                && $parsed['role'] !== DocumentRecipientRole::CompanySignatory->value) {
+            } elseif (! in_array($parsed['role'], DocumentRecipientRole::signaturePlacementValues(), true)) {
                 throw new InvalidArgumentException('Unsupported signature placement role.');
             }
         }

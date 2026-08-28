@@ -16,21 +16,26 @@ final class DocumentRecipientRequestEligibility
     public function __construct(
         private DocumentRecipientRequestWorkflowGate $workflowGate,
         private ResolveDocumentSignaturePlacement $resolvePlacement,
+        private DocumentRecipientSignatureChainGuard $chainGuard,
+        private DocumentRecipientManagerResolver $managerResolver,
     ) {}
 
     /**
      * @return array{
      *     can_request_sign: bool,
      *     can_request_acknowledge: bool,
+     *     can_request_manager_countersign: bool,
      *     can_request_company_countersign: bool,
      *     sign_blocked_reason: string|null,
      *     acknowledge_blocked_reason: string|null,
+     *     manager_countersign_blocked_reason: string|null,
      *     company_countersign_blocked_reason: string|null,
+     *     resolved_manager: array{id: int, name: string, email: string|null}|null,
      * }
      */
     public function forDocument(EmployeeDocument $document, int $companyId): array
     {
-        $document->loadMissing('documentInstance.currentVersion');
+        $document->loadMissing(['documentInstance.currentVersion', 'employee']);
 
         $instance = $document->documentInstance;
 
@@ -55,10 +60,13 @@ final class DocumentRecipientRequestEligibility
             return [
                 'can_request_sign' => false,
                 'can_request_acknowledge' => false,
+                'can_request_manager_countersign' => false,
                 'can_request_company_countersign' => false,
                 'sign_blocked_reason' => $reason,
                 'acknowledge_blocked_reason' => $reason,
+                'manager_countersign_blocked_reason' => $reason,
                 'company_countersign_blocked_reason' => $reason,
+                'resolved_manager' => null,
             ];
         }
 
@@ -97,15 +105,19 @@ final class DocumentRecipientRequestEligibility
             }
         }
 
+        [$managerBlocked, $resolvedManager] = $this->managerCountersignBlockedReason($document, $instance, $version, $companyId);
         $countersignBlocked = $this->companyCountersignBlockedReason($instance, $version, $companyId);
 
         return [
             'can_request_sign' => $signBlocked === null,
             'can_request_acknowledge' => $ackBlocked === null,
+            'can_request_manager_countersign' => $managerBlocked === null,
             'can_request_company_countersign' => $countersignBlocked === null,
             'sign_blocked_reason' => $signBlocked,
             'acknowledge_blocked_reason' => $ackBlocked,
+            'manager_countersign_blocked_reason' => $managerBlocked,
             'company_countersign_blocked_reason' => $countersignBlocked,
+            'resolved_manager' => $resolvedManager,
         ];
     }
 
@@ -113,10 +125,13 @@ final class DocumentRecipientRequestEligibility
      * @return array{
      *     can_request_sign: bool,
      *     can_request_acknowledge: bool,
+     *     can_request_manager_countersign: bool,
      *     can_request_company_countersign: bool,
      *     sign_blocked_reason: string|null,
      *     acknowledge_blocked_reason: string|null,
+     *     manager_countersign_blocked_reason: string|null,
      *     company_countersign_blocked_reason: string|null,
+     *     resolved_manager: null,
      * }
      */
     private function blockedAll(string $reason): array
@@ -124,10 +139,79 @@ final class DocumentRecipientRequestEligibility
         return [
             'can_request_sign' => false,
             'can_request_acknowledge' => false,
+            'can_request_manager_countersign' => false,
             'can_request_company_countersign' => false,
             'sign_blocked_reason' => $reason,
             'acknowledge_blocked_reason' => $reason,
+            'manager_countersign_blocked_reason' => $reason,
             'company_countersign_blocked_reason' => $reason,
+            'resolved_manager' => null,
+        ];
+    }
+
+    /**
+     * @return array{0: string|null, 1: array{id: int, name: string, email: string|null}|null}
+     */
+    private function managerCountersignBlockedReason(
+        EmployeeDocument $document,
+        DocumentInstance $instance,
+        $version,
+        int $companyId,
+    ): array {
+        if (! $this->chainGuard->canRequestManagerCountersignOn($instance, $version, $companyId)) {
+            if ($this->chainGuard->isCompletedCompanySignatoryResult($instance, $version, $companyId)) {
+                return ['Manager countersignature cannot be requested after a company countersignature on the current version.', null];
+            }
+
+            return ['Manager countersignature requires a completed subject employee signature on the current version.', null];
+        }
+
+        $duplicate = $this->activeDuplicateReason(
+            $instance,
+            $version,
+            DocumentRecipientAction::Sign,
+            DocumentRecipientType::CompanyUser,
+            DocumentRecipientRole::Manager,
+            $companyId,
+        );
+
+        if ($duplicate !== null) {
+            return [$duplicate, null];
+        }
+
+        try {
+            $this->resolvePlacement->forInstanceVersion(
+                $instance,
+                $version,
+                DocumentRecipientRole::Manager,
+            );
+        } catch (ValidationException $exception) {
+            return [
+                collect($exception->errors())->flatten()->first()
+                    ?: 'Manager signature placement is not configured.',
+                null,
+            ];
+        }
+
+        $employee = $document->employee;
+
+        if ($employee === null) {
+            return ['No eligible department manager is available to sign this document.', null];
+        }
+
+        $resolved = $this->managerResolver->tryResolveForEmployee($employee, $companyId);
+
+        if ($resolved === null) {
+            return ['No eligible department manager is available to sign this document.', null];
+        }
+
+        return [
+            null,
+            [
+                'id' => (int) $resolved['user']->id,
+                'name' => (string) $resolved['user']->name,
+                'email' => $resolved['user']->email,
+            ],
         ];
     }
 
@@ -136,18 +220,8 @@ final class DocumentRecipientRequestEligibility
         $version,
         int $companyId,
     ): ?string {
-        $completedSubjectSign = DocumentRecipientRequest::query()
-            ->forCompany($companyId)
-            ->where('document_instance_id', $instance->id)
-            ->where('recipient_type', DocumentRecipientType::SubjectEmployee)
-            ->where('recipient_role', DocumentRecipientRole::Subject)
-            ->where('action', DocumentRecipientAction::Sign)
-            ->where('status', DocumentRecipientRequestStatus::Completed)
-            ->where('result_document_instance_version_id', $version->id)
-            ->exists();
-
-        if (! $completedSubjectSign) {
-            return 'Company countersignature requires a completed subject employee signature on the current version.';
+        if (! $this->chainGuard->canRequestCompanyCountersignOn($instance, $version, $companyId)) {
+            return 'Company countersignature requires a completed subject employee or department manager signature on the current version.';
         }
 
         $duplicate = $this->activeDuplicateReason(
@@ -205,10 +279,10 @@ final class DocumentRecipientRequestEligibility
             return null;
         }
 
-        if ($recipientRole === DocumentRecipientRole::CompanySignatory) {
-            return 'An active company countersignature request already exists for this version.';
-        }
-
-        return 'An active '.strtolower($action->label()).' request already exists for this version.';
+        return match ($recipientRole) {
+            DocumentRecipientRole::CompanySignatory => 'An active company countersignature request already exists for this version.',
+            DocumentRecipientRole::Manager => 'An active manager countersignature request already exists for this version.',
+            default => 'An active '.strtolower($action->label()).' request already exists for this version.',
+        };
     }
 }

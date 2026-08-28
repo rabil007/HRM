@@ -13,7 +13,7 @@ use App\Models\DocumentRecipientRequest;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
-use App\Support\Companies\ResolveCompanyAccess;
+use App\Support\Documents\RecipientRequests\DocumentRecipientManagerResolver;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestToken;
 use App\Support\Documents\RecipientRequests\DocumentRecipientSignatureChainGuard;
@@ -22,21 +22,20 @@ use App\Support\EmployeeDocuments\DocumentAccess;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-final class CreateDocumentCompanyCountersignRequest
+final class CreateDocumentManagerCountersignRequest
 {
     public function __construct(
         private ResolveDocumentSignaturePlacement $resolvePlacement,
         private DocumentRecipientRequestEventRecorder $eventRecorder,
-        private ResolveCompanyAccess $companyAccess,
+        private DocumentRecipientManagerResolver $managerResolver,
         private DocumentRecipientSignatureChainGuard $chainGuard,
     ) {}
 
     /**
-     * @return array{request: DocumentRecipientRequest, respond_url: string}
+     * @return array{request: DocumentRecipientRequest, respond_url: string, manager_name: string}
      */
     public function handle(
         EmployeeDocument $document,
-        User $recipientUser,
         User $requester,
         int $companyId,
     ): array {
@@ -50,17 +49,8 @@ final class CreateDocumentCompanyCountersignRequest
             abort(404);
         }
 
-        if (! $this->companyAccess->hasAccessibleMembership($recipientUser, $companyId)) {
-            throw ValidationException::withMessages([
-                'recipient_user_id' => 'The selected signatory does not belong to the active company.',
-            ]);
-        }
-
-        if (! $recipientUser->can('documents.recipient-requests.respond')) {
-            throw ValidationException::withMessages([
-                'recipient_user_id' => 'The selected signatory is not authorized to respond to recipient requests.',
-            ]);
-        }
+        $resolved = $this->managerResolver->resolveForEmployee($employee, $companyId);
+        $recipientUser = $resolved['user'];
 
         return DB::transaction(function () use (
             $document,
@@ -99,15 +89,23 @@ final class CreateDocumentCompanyCountersignRequest
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $predecessor = $this->chainGuard->completedPredecessorForCompanyCountersign(
+            $completedSubjectSign = $this->chainGuard->completedSignResultRequest(
                 $instance,
                 $sourceVersion,
                 $companyId,
+                DocumentRecipientType::SubjectEmployee,
+                DocumentRecipientRole::Subject,
             );
 
-            if ($predecessor === null) {
+            if ($completedSubjectSign === null) {
                 throw ValidationException::withMessages([
-                    'action' => 'Company countersignature requires a completed subject employee or department manager signature on the current version.',
+                    'action' => 'Manager countersignature requires a completed subject employee signature on the current version.',
+                ]);
+            }
+
+            if ($this->chainGuard->isCompletedCompanySignatoryResult($instance, $sourceVersion, $companyId)) {
+                throw ValidationException::withMessages([
+                    'action' => 'Manager countersignature cannot be requested after a company countersignature on the current version.',
                 ]);
             }
 
@@ -115,7 +113,7 @@ final class CreateDocumentCompanyCountersignRequest
                 $this->resolvePlacement->forInstanceVersion(
                     $instance,
                     $sourceVersion,
-                    DocumentRecipientRole::CompanySignatory,
+                    DocumentRecipientRole::Manager,
                 );
             } catch (ValidationException $exception) {
                 throw $exception;
@@ -126,7 +124,7 @@ final class CreateDocumentCompanyCountersignRequest
                 ->where('document_instance_id', $instance->id)
                 ->where('source_document_instance_version_id', $sourceVersion->id)
                 ->where('recipient_type', DocumentRecipientType::CompanyUser)
-                ->where('recipient_role', DocumentRecipientRole::CompanySignatory)
+                ->where('recipient_role', DocumentRecipientRole::Manager)
                 ->where('status', DocumentRecipientRequestStatus::AwaitingAction)
                 ->where('expires_at', '>', now())
                 ->lockForUpdate()
@@ -134,7 +132,7 @@ final class CreateDocumentCompanyCountersignRequest
 
             if ($duplicate) {
                 throw ValidationException::withMessages([
-                    'action' => 'An active company countersignature request already exists for this document version.',
+                    'action' => 'An active manager countersignature request already exists for this document version.',
                 ]);
             }
 
@@ -144,10 +142,10 @@ final class CreateDocumentCompanyCountersignRequest
                 'company_id' => $companyId,
                 'document_instance_id' => $instance->id,
                 'source_document_instance_version_id' => $sourceVersion->id,
-                'document_workflow_request_id' => $predecessor->document_workflow_request_id,
+                'document_workflow_request_id' => $completedSubjectSign->document_workflow_request_id,
                 'action' => DocumentRecipientAction::Sign,
                 'recipient_type' => DocumentRecipientType::CompanyUser,
-                'recipient_role' => DocumentRecipientRole::CompanySignatory,
+                'recipient_role' => DocumentRecipientRole::Manager,
                 'employee_id' => $employee->id,
                 'recipient_user_id' => $recipientUser->id,
                 'recipient_name_snapshot' => (string) $recipientUser->name,
@@ -166,11 +164,10 @@ final class CreateDocumentCompanyCountersignRequest
                 metadata: [
                     'action' => DocumentRecipientAction::Sign->value,
                     'recipient_type' => DocumentRecipientType::CompanyUser->value,
-                    'recipient_role' => DocumentRecipientRole::CompanySignatory->value,
+                    'recipient_role' => DocumentRecipientRole::Manager->value,
                     'document_instance_id' => $instance->id,
                     'source_document_instance_version_id' => $sourceVersion->id,
                     'recipient_user_id' => $recipientUser->id,
-                    'predecessor_recipient_role' => $predecessor->recipient_role?->value,
                 ],
             );
 
@@ -179,17 +176,18 @@ final class CreateDocumentCompanyCountersignRequest
                 ->performedOn($request)
                 ->tap(fn ($activity) => $activity->company_id = $companyId)
                 ->withProperties([
-                    'action' => 'company_countersign_request_created',
+                    'action' => 'manager_countersign_request_created',
                     'document_recipient_request_id' => $request->id,
                     'document_instance_id' => $instance->id,
                     'recipient_user_id' => $recipientUser->id,
-                    'recipient_role' => DocumentRecipientRole::CompanySignatory->value,
+                    'recipient_role' => DocumentRecipientRole::Manager->value,
                     'status' => $request->status->value,
                 ])
-                ->log('Company countersignature request created');
+                ->log('Manager countersignature request created');
 
             return [
                 'request' => $request->fresh(),
+                'manager_name' => (string) $recipientUser->name,
                 'respond_url' => route('organization.documents.recipient-requests.respond', [
                     'recipientRequest' => $request->id,
                 ]),
