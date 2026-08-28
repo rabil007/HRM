@@ -7,9 +7,11 @@ use App\Models\DocumentGenerationRunItem;
 use App\Models\DocumentInstance;
 use App\Models\DocumentInstanceVersion;
 use App\Models\Employee;
-use App\Services\Documents\ContentTemplatePdfRenderer;
+use App\Services\Documents\CustomTemplatePdfRenderer;
 use App\Support\Documents\Actions\SyncGeneratedEmployeeDocument;
 use App\Support\Documents\DocumentInstanceStorage;
+use App\Support\Documents\Exceptions\DocumentTemplateLayoutException;
+use App\Support\Documents\Exceptions\DocumentTemplateSourceUnavailableException;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
 use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Illuminate\Bus\Queueable;
@@ -44,7 +46,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
     ) {}
 
     public function handle(
-        ContentTemplatePdfRenderer $contentRenderer,
+        CustomTemplatePdfRenderer $renderer,
         SyncGeneratedEmployeeDocument $syncEmployeeDoc,
     ): void {
         /** @var DocumentGenerationRun|null $run */
@@ -76,7 +78,6 @@ class GenerateCustomDocumentsJob implements ShouldQueue
             || $template->company_id !== $this->companyId
             || $version->company_id !== $this->companyId
             || (int) $version->document_generation_template_id !== (int) $template->id
-            || ! $template->isContent()
         ) {
             $run->update([
                 'status' => 'failed',
@@ -144,7 +145,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
 
             try {
                 // 1. Render temp PDF
-                $pdfBytes = $contentRenderer->render($template, $version, $employee, $this->companyId);
+                $pdfBytes = $renderer->render($template, $version, $employee, $this->companyId);
 
                 $tempPdfPath = tempnam(sys_get_temp_dir(), 'custom_gen_');
                 if ($tempPdfPath === false) {
@@ -284,6 +285,48 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                         EmployeePrivateFile::deleteStored($libraryFilePath, $this->companyId, EmployeePrivateFileKind::Document);
                     }
                 }
+            } catch (DocumentTemplateLayoutException $e) {
+                // File compensation: clean up any partially created files
+                if ($canonicalPath !== null) {
+                    DocumentInstanceStorage::deletePdf($canonicalPath, $this->companyId);
+                }
+
+                if ($libraryFilePath !== null) {
+                    EmployeePrivateFile::deleteStored($libraryFilePath, $this->companyId, EmployeePrivateFileKind::Document);
+                }
+
+                $item->update([
+                    'status' => 'failed',
+                    'error_code' => 'TEMPLATE_LAYOUT_OVERFLOW',
+                    'error_message' => 'One or more values do not fit the configured PDF placement. Create a new template version and adjust the field size.',
+                ]);
+
+                Log::warning('PDF overlay layout overflow during generation', [
+                    'run_id' => $run->id,
+                    'item_id' => $item->id,
+                    'placement_id' => $e->placementId,
+                    'field_key' => $e->fieldKey,
+                    'page' => $e->pageNumber,
+                ]);
+            } catch (DocumentTemplateSourceUnavailableException) {
+                if ($canonicalPath !== null) {
+                    DocumentInstanceStorage::deletePdf($canonicalPath, $this->companyId);
+                }
+
+                if ($libraryFilePath !== null) {
+                    EmployeePrivateFile::deleteStored($libraryFilePath, $this->companyId, EmployeePrivateFileKind::Document);
+                }
+
+                $item->update([
+                    'status' => 'failed',
+                    'error_code' => 'TEMPLATE_SOURCE_UNAVAILABLE',
+                    'error_message' => 'The template source PDF could not be read. Create a new template version with a valid source PDF.',
+                ]);
+
+                Log::warning('PDF overlay source unavailable during generation', [
+                    'run_id' => $run->id,
+                    'item_id' => $item->id,
+                ]);
             } catch (Throwable $e) {
                 // File compensation: clean up newly created files if DB or storage failed
                 if ($canonicalPath !== null) {

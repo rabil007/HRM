@@ -38,10 +38,6 @@ class GenerateCustomDocumentsController extends Controller
             return back()->withErrors(['document_generation_template_id' => 'The selected custom template is not active or has no published version.']);
         }
 
-        if ($template->template_format !== DocumentGenerationTemplateFormat::Content) {
-            return back()->withErrors(['document_generation_template_id' => 'PDF Overlay production generation is not available yet.']);
-        }
-
         /** @var DocumentGenerationTemplateVersion|null $version */
         $version = DocumentGenerationTemplateVersion::query()
             ->where('company_id', $companyId)
@@ -52,6 +48,13 @@ class GenerateCustomDocumentsController extends Controller
 
         if ($version === null) {
             return back()->withErrors(['document_generation_template_id' => 'The published version for this template could not be found.']);
+        }
+
+        if (
+            $template->template_format === DocumentGenerationTemplateFormat::PdfOverlay
+            && ($version->source_pdf_path === null || (int) $version->source_pdf_page_count < 1)
+        ) {
+            return back()->withErrors(['document_generation_template_id' => 'This PDF Overlay template has no configured source PDF. Please publish a version with a valid source PDF first.']);
         }
 
         $employeeIds = $request->employeeIds();

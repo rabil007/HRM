@@ -98,6 +98,30 @@ final class DocumentTemplateStorage
         return Storage::disk(self::DISK)->exists($path);
     }
 
+    /**
+     * Resolve a safe absolute filesystem path for a stored template PDF.
+     *
+     * Verifies the path belongs to the given company's directory boundary and
+     * that the file physically exists on disk before returning the absolute path.
+     * For use by renderers that need to pass a real file path to FPDI.
+     *
+     * @throws \RuntimeException if the path is outside the company boundary or the file is missing.
+     */
+    public static function absolutePath(string $storagePath, int $companyId): string
+    {
+        $expectedPrefix = self::directory($companyId).'/';
+
+        if (! str_starts_with($storagePath, $expectedPrefix)) {
+            throw new \RuntimeException('Template source PDF is outside the company storage boundary.');
+        }
+
+        if (! Storage::disk(self::DISK)->exists($storagePath)) {
+            throw new \RuntimeException('Template source PDF file is not available.');
+        }
+
+        return Storage::disk(self::DISK)->path($storagePath);
+    }
+
     public static function response(DocumentGenerationTemplateVersion $version, int $companyId): Response
     {
         $path = (string) $version->source_pdf_path;

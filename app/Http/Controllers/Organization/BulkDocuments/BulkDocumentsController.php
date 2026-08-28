@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Organization\BulkDocuments;
 
-use App\Enums\DocumentGenerationTemplateFormat;
 use App\Enums\DocumentGenerationTemplateStatus;
 use App\Http\Controllers\Controller;
 use App\Models\BulkDocumentEmailBatch;
@@ -37,11 +36,30 @@ class BulkDocumentsController extends Controller
 
         $customTemplates = DocumentGenerationTemplate::query()
             ->forCompany($companyId)
-            ->where('template_format', DocumentGenerationTemplateFormat::Content)
             ->where('status', DocumentGenerationTemplateStatus::Active)
             ->whereNotNull('published_version_id')
             ->with('publishedVersion')
-            ->get();
+            ->get()
+            ->filter(function (DocumentGenerationTemplate $template): bool {
+                $version = $template->publishedVersion;
+
+                if ($version === null) {
+                    return false;
+                }
+
+                if ($template->isContent()) {
+                    return true;
+                }
+
+                if ($template->isPdfOverlay()) {
+                    return is_string($version->source_pdf_path)
+                        && $version->source_pdf_path !== ''
+                        && (int) $version->source_pdf_page_count >= 1;
+                }
+
+                return false;
+            })
+            ->values();
 
         $isCustom = str_starts_with($documentTypeKey, 'custom_');
         $customTemplate = null;
