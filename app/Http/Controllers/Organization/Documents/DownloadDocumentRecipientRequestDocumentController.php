@@ -1,32 +1,31 @@
 <?php
 
-namespace App\Http\Controllers\Public\DocumentAction;
+namespace App\Http\Controllers\Organization\Documents;
 
 use App\Enums\DocumentRecipientRequestEventType;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Http\Controllers\Controller;
+use App\Models\DocumentRecipientRequest;
 use App\Support\Documents\DocumentInstanceStorage;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestAccess;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
-use App\Support\Documents\RecipientRequests\DocumentRecipientRequestToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class DownloadDocumentActionDocumentController extends Controller
+class DownloadDocumentRecipientRequestDocumentController extends Controller
 {
     public function __invoke(
         Request $request,
-        string $token,
+        DocumentRecipientRequest $recipientRequest,
         DocumentRecipientRequestEventRecorder $eventRecorder,
     ): StreamedResponse {
-        $recipientRequest = DocumentRecipientRequestToken::findByRawToken($token);
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $user = $request->user();
 
-        if ($recipientRequest === null) {
-            abort(404);
-        }
+        abort_if($user === null, 403);
 
-        DocumentRecipientRequestAccess::assertPublicTokenRecipient($recipientRequest);
+        DocumentRecipientRequestAccess::assertAssignedCompanySignatory($recipientRequest, $user, $companyId);
 
         if (! in_array($recipientRequest->status, [
             DocumentRecipientRequestStatus::AwaitingAction,
@@ -46,13 +45,14 @@ class DownloadDocumentActionDocumentController extends Controller
             abort(404);
         }
 
-        $path = DocumentInstanceStorage::validatedRelativePath($version->file_path, (int) $recipientRequest->company_id);
+        $path = DocumentInstanceStorage::validatedRelativePath($version->file_path, $companyId);
         abort_if($path === null, 404);
         abort_unless(Storage::disk(DocumentInstanceStorage::DISK)->exists($path), 404);
 
         $eventRecorder->record(
             $recipientRequest,
             DocumentRecipientRequestEventType::DocumentDownloaded,
+            $user,
             ipAddress: $request->ip(),
             userAgent: (string) $request->userAgent(),
         );

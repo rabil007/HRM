@@ -9,6 +9,7 @@ use App\Models\EmployeeDocument;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEligibility;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestPagePermissions;
+use App\Support\Documents\RecipientRequests\DocumentRecipientSignatoryOptionsQuery;
 use App\Support\Documents\Workflow\DocumentWorkflowEligibility;
 use App\Support\Documents\Workflow\DocumentWorkflowPresenter;
 use App\Support\Documents\Workflow\DocumentWorkflowPresetQuery;
@@ -85,8 +86,14 @@ class EmployeeDocumentShowController extends Controller
                 'can' => $recipientPermissions,
                 'can_request_sign' => $recipientPermissions['create'] && $recipientEligibility['can_request_sign'],
                 'can_request_acknowledge' => $recipientPermissions['create'] && $recipientEligibility['can_request_acknowledge'],
+                'can_request_company_countersign' => $recipientPermissions['create'] && $recipientEligibility['can_request_company_countersign'],
                 'sign_blocked_reason' => $recipientEligibility['sign_blocked_reason'],
                 'acknowledge_blocked_reason' => $recipientEligibility['acknowledge_blocked_reason'],
+                'company_countersign_blocked_reason' => $recipientEligibility['company_countersign_blocked_reason'],
+                'signatory_options' => $recipientEligibility['can_request_company_countersign']
+                    ? app(DocumentRecipientSignatoryOptionsQuery::class)->forCompany($companyId)
+                    : [],
+                'current_source_version' => $document->documentInstance?->currentVersion?->version,
             ],
             'back' => DocumentShowBackNavigation::resolve($request, $employee),
             'recent_activity' => RecentActivityQuery::for(

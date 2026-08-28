@@ -62,7 +62,7 @@ final class SaveDocumentGenerationTemplateSignaturePlacement
             }
 
             try {
-                $subjectPlacement = DocumentSignaturePlacementValidator::validateSubjectSignature(
+                $validatedConfig = DocumentSignaturePlacementValidator::validateSignaturePlacementConfig(
                     $config,
                     $pageCount,
                 );
@@ -72,19 +72,24 @@ final class SaveDocumentGenerationTemplateSignaturePlacement
                 ]);
             }
 
+            $normalizedPlacements = array_map(
+                fn (array $placement): array => [
+                    'id' => $placement['id'],
+                    'type' => $placement['type'],
+                    'role' => $placement['role'],
+                    'page' => $placement['page'],
+                    'x' => round($placement['x'], 6),
+                    'y' => round($placement['y'], 6),
+                    'width' => round($placement['width'], 6),
+                    'height' => round($placement['height'], 6),
+                    'required' => $placement['required'],
+                ],
+                $validatedConfig['placements'],
+            );
+
             $lockedVersion->signature_placement_config = [
                 'schema_version' => 1,
-                'placements' => [[
-                    'id' => $subjectPlacement['id'],
-                    'type' => $subjectPlacement['type'],
-                    'role' => $subjectPlacement['role'],
-                    'page' => $subjectPlacement['page'],
-                    'x' => round($subjectPlacement['x'], 6),
-                    'y' => round($subjectPlacement['y'], 6),
-                    'width' => round($subjectPlacement['width'], 6),
-                    'height' => round($subjectPlacement['height'], 6),
-                    'required' => $subjectPlacement['required'],
-                ]],
+                'placements' => $normalizedPlacements,
             ];
             $lockedVersion->updated_by = $userId;
             $lockedVersion->save();
@@ -100,10 +105,10 @@ final class SaveDocumentGenerationTemplateSignaturePlacement
                     'action' => 'template_signature_placement_updated',
                     'template_id' => $lockedTemplate->id,
                     'version' => $lockedVersion->version,
-                    'page' => $subjectPlacement['page'],
+                    'placement_count' => count($normalizedPlacements),
                     'page_count' => $pageCount,
                 ])
-                ->log("Updated employee signature placement for template {$lockedTemplate->name} (v{$lockedVersion->version})");
+                ->log("Updated signature placements for template {$lockedTemplate->name} (v{$lockedVersion->version})");
 
             return $lockedVersion;
         });

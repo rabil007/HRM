@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Public\DocumentAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Public\DocumentAction\SubmitDocumentActionSignRequest;
 use App\Support\Documents\RecipientRequests\Actions\SubmitDocumentRecipientSignature;
+use App\Support\Documents\RecipientRequests\DocumentRecipientRequestAccess;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestToken;
 use Illuminate\Http\RedirectResponse;
 
@@ -20,6 +21,8 @@ class SubmitDocumentActionSignController extends Controller
         if ($recipientRequest === null) {
             abort(404);
         }
+
+        DocumentRecipientRequestAccess::assertPublicTokenRecipient($recipientRequest);
 
         $submitSignature->handle($recipientRequest, $request->validated(), $request);
 

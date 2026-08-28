@@ -36,23 +36,53 @@ type Props = {
 };
 
 const SUBJECT_SIGNATURE_ID = 'subject_signature';
+const COMPANY_SIGNATURE_ID = 'company_signatory_signature';
 const DEFAULT_WIDTH = 0.25;
 const DEFAULT_HEIGHT = 0.08;
 const DEFAULT_X = 0.1;
 const DEFAULT_Y = 0.75;
 
-function defaultPlacement(page: number): SignaturePlacementItem {
+type SignatureRole = SignaturePlacementItem['role'];
+
+function defaultPlacement(
+    role: SignatureRole,
+    page: number,
+): SignaturePlacementItem {
     return {
-        id: SUBJECT_SIGNATURE_ID,
+        id: role === 'subject' ? SUBJECT_SIGNATURE_ID : COMPANY_SIGNATURE_ID,
         type: 'signature',
-        role: 'subject',
+        role,
         page,
         x: DEFAULT_X,
-        y: DEFAULT_Y,
+        y: role === 'subject' ? DEFAULT_Y : 0.62,
         width: DEFAULT_WIDTH,
         height: DEFAULT_HEIGHT,
         required: true,
     };
+}
+
+function roleLabel(role: SignatureRole): string {
+    return role === 'subject'
+        ? 'Employee Signature'
+        : 'Company Signatory Signature';
+}
+
+function roleColors(role: SignatureRole): {
+    fill: string;
+    stroke: string;
+    text: string;
+} {
+    return role === 'subject'
+        ? {
+              fill: 'rgba(37, 99, 235, 0.28)',
+              stroke: '#2563eb',
+              text: '#1e3a8a',
+          }
+        : {
+              fill: 'rgba(180, 83, 9, 0.28)',
+              stroke: '#b45309',
+              text: '#78350f',
+          };
 }
 
 export function TemplateSignaturePlacementDialog({
@@ -64,9 +94,11 @@ export function TemplateSignaturePlacementDialog({
 }: Props) {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [activeRole, setActiveRole] = useState<SignatureRole>('subject');
     const [placement, setPlacement] = useState<SignaturePlacementItem>(
-        defaultPlacement(1),
+        defaultPlacement('subject', 1),
     );
+    const [companyEnabled, setCompanyEnabled] = useState(false);
     const [isLoadingPdf, setIsLoadingPdf] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -78,6 +110,10 @@ export function TemplateSignaturePlacementDialog({
     const fabricCanvasRef = useRef<Canvas | null>(null);
     const labelRef = useRef<FabricText | null>(null);
     const placementRef = useRef(placement);
+    const placementsByRoleRef = useRef<
+        Partial<Record<SignatureRole, SignaturePlacementItem>>
+    >({});
+    const activeRoleRef = useRef(activeRole);
     const canvasSizeRef = useRef(canvasSize);
     const pdfDocRef = useRef<any>(null);
 
@@ -90,28 +126,58 @@ export function TemplateSignaturePlacementDialog({
     }, [canvasSize]);
 
     useEffect(() => {
+        activeRoleRef.current = activeRole;
+    }, [activeRole]);
+
+    useEffect(() => {
         if (!open || !version) {
             return;
         }
 
-        const existing = initialConfig?.placements?.[0];
-        const next = existing
+        const subjectExisting = initialConfig?.placements?.find(
+            (item) => item.role === 'subject',
+        );
+        const companyExisting = initialConfig?.placements?.find(
+            (item) => item.role === 'company_signatory',
+        );
+
+        const subject = subjectExisting
             ? {
-                  id: existing.id || SUBJECT_SIGNATURE_ID,
+                  id: subjectExisting.id || SUBJECT_SIGNATURE_ID,
                   type: 'signature' as const,
                   role: 'subject' as const,
-                  page: existing.page || 1,
-                  x: existing.x,
-                  y: existing.y,
-                  width: existing.width,
-                  height: existing.height,
-                  required: existing.required ?? true,
+                  page: subjectExisting.page || 1,
+                  x: subjectExisting.x,
+                  y: subjectExisting.y,
+                  width: subjectExisting.width,
+                  height: subjectExisting.height,
+                  required: subjectExisting.required ?? true,
               }
-            : defaultPlacement(1);
+            : defaultPlacement('subject', 1);
 
-        setPlacement(next);
-        placementRef.current = next;
-        setCurrentPage(next.page);
+        placementsByRoleRef.current = { subject };
+
+        if (companyExisting) {
+            placementsByRoleRef.current.company_signatory = {
+                id: companyExisting.id || COMPANY_SIGNATURE_ID,
+                type: 'signature',
+                role: 'company_signatory',
+                page: companyExisting.page || 1,
+                x: companyExisting.x,
+                y: companyExisting.y,
+                width: companyExisting.width,
+                height: companyExisting.height,
+                required: companyExisting.required ?? true,
+            };
+            setCompanyEnabled(true);
+        } else {
+            setCompanyEnabled(false);
+        }
+
+        setActiveRole('subject');
+        setPlacement(subject);
+        placementRef.current = subject;
+        setCurrentPage(subject.page);
         setTotalPages(version.source_pdf_page_count || 1);
         setErrorMessage(null);
         setHasUnsavedChanges(false);
@@ -127,14 +193,16 @@ export function TemplateSignaturePlacementDialog({
         };
     }, []);
 
-    const syncLabel = useCallback((canvas: Canvas) => {
+    const syncLabel = useCallback((canvas: Canvas, role: SignatureRole) => {
         const label = labelRef.current;
+        const placementId =
+            role === 'subject' ? SUBJECT_SIGNATURE_ID : COMPANY_SIGNATURE_ID;
         const rect = canvas
             .getObjects()
             .find(
                 (obj) =>
                     (obj.get('data') as { id?: string } | undefined)?.id ===
-                    SUBJECT_SIGNATURE_ID,
+                    placementId,
             );
 
         if (!label || !rect) {
@@ -169,6 +237,7 @@ export function TemplateSignaturePlacementDialog({
                 return;
             }
 
+            const colors = roleColors(item.role);
             const pixel = normalizedToPixel(
                 {
                     x: item.x,
@@ -185,10 +254,10 @@ export function TemplateSignaturePlacementDialog({
                 top: pixel.top,
                 width: pixel.width,
                 height: pixel.height,
-                fill: 'rgba(37, 99, 235, 0.28)',
-                stroke: '#2563eb',
+                fill: colors.fill,
+                stroke: colors.stroke,
                 strokeWidth: 2,
-                cornerColor: '#2563eb',
+                cornerColor: colors.stroke,
                 cornerStyle: 'circle',
                 transparentCorners: false,
                 hasRotatingPoint: false,
@@ -196,18 +265,18 @@ export function TemplateSignaturePlacementDialog({
                 selectable: true,
                 evented: true,
             });
-            rect.set('data', { id: SUBJECT_SIGNATURE_ID });
+            rect.set('data', { id: item.id });
 
-            const label = new FabricText('Employee Signature', {
+            const label = new FabricText(roleLabel(item.role), {
                 left: pixel.left + 6,
                 top: pixel.top + 6,
                 fontSize: 12,
                 fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-                fill: '#1e3a8a',
+                fill: colors.text,
                 selectable: false,
                 evented: false,
             });
-            label.set('data', { parentId: SUBJECT_SIGNATURE_ID });
+            label.set('data', { parentId: item.id });
             labelRef.current = label;
 
             canvas.add(rect);
@@ -221,12 +290,17 @@ export function TemplateSignaturePlacementDialog({
     const attachCanvasEvents = useCallback(
         (canvas: Canvas) => {
             const persistFromCanvas = () => {
+                const role = activeRoleRef.current;
+                const placementId =
+                    role === 'subject'
+                        ? SUBJECT_SIGNATURE_ID
+                        : COMPANY_SIGNATURE_ID;
                 const rect = canvas
                     .getObjects()
                     .find(
                         (obj) =>
                             (obj.get('data') as { id?: string } | undefined)
-                                ?.id === SUBJECT_SIGNATURE_ID,
+                                ?.id === placementId,
                     );
 
                 if (!rect) {
@@ -260,17 +334,22 @@ export function TemplateSignaturePlacementDialog({
                     height: normalized.height,
                 };
                 placementRef.current = updated;
+                placementsByRoleRef.current[role] = updated;
                 setPlacement(updated);
                 setHasUnsavedChanges(true);
-                syncLabel(canvas);
+                syncLabel(canvas, role);
             };
 
             canvas.off('object:modified');
             canvas.off('object:moving');
             canvas.off('object:scaling');
             canvas.on('object:modified', persistFromCanvas);
-            canvas.on('object:moving', () => syncLabel(canvas));
-            canvas.on('object:scaling', () => syncLabel(canvas));
+            canvas.on('object:moving', () =>
+                syncLabel(canvas, activeRoleRef.current),
+            );
+            canvas.on('object:scaling', () =>
+                syncLabel(canvas, activeRoleRef.current),
+            );
         },
         [currentPage, syncLabel],
     );
@@ -417,9 +496,45 @@ export function TemplateSignaturePlacementDialog({
         template,
         version,
         currentPage,
+        activeRole,
+        placement,
         attachCanvasEvents,
         syncPlacementRect,
     ]);
+
+    const handleRoleChange = (role: SignatureRole) => {
+        placementsByRoleRef.current[activeRole] = placementRef.current;
+
+        const next =
+            placementsByRoleRef.current[role] ??
+            defaultPlacement(role, currentPage);
+
+        placementsByRoleRef.current[role] = next;
+        activeRoleRef.current = role;
+        setActiveRole(role);
+        setPlacement(next);
+        placementRef.current = next;
+        setHasUnsavedChanges(true);
+    };
+
+    const toggleCompanyPlacement = (enabled: boolean) => {
+        setCompanyEnabled(enabled);
+
+        if (enabled) {
+            const next =
+                placementsByRoleRef.current.company_signatory ??
+                defaultPlacement('company_signatory', currentPage);
+            placementsByRoleRef.current.company_signatory = next;
+        } else {
+            delete placementsByRoleRef.current.company_signatory;
+
+            if (activeRole === 'company_signatory') {
+                handleRoleChange('subject');
+            }
+        }
+
+        setHasUnsavedChanges(true);
+    };
 
     const handlePageChange = (nextPage: number) => {
         if (nextPage < 1 || nextPage > totalPages) {
@@ -445,17 +560,31 @@ export function TemplateSignaturePlacementDialog({
         setIsSaving(true);
         setErrorMessage(null);
 
+        const subject =
+            placementsByRoleRef.current.subject ?? placementRef.current;
+        const placements: SignaturePlacementItem[] = [
+            {
+                ...subject,
+                id: SUBJECT_SIGNATURE_ID,
+                type: 'signature',
+                role: 'subject',
+                required: true,
+            },
+        ];
+
+        if (companyEnabled && placementsByRoleRef.current.company_signatory) {
+            placements.push({
+                ...placementsByRoleRef.current.company_signatory,
+                id: COMPANY_SIGNATURE_ID,
+                type: 'signature',
+                role: 'company_signatory',
+                required: true,
+            });
+        }
+
         const payload: SignaturePlacementConfig = {
             schema_version: 1,
-            placements: [
-                {
-                    ...placementRef.current,
-                    id: SUBJECT_SIGNATURE_ID,
-                    type: 'signature',
-                    role: 'subject',
-                    required: true,
-                },
-            ],
+            placements,
         };
 
         return new Promise<boolean>((resolve) => {
@@ -498,13 +627,13 @@ export function TemplateSignaturePlacementDialog({
                         <div className="space-y-1">
                             <DialogTitle className="flex items-center gap-2 text-base">
                                 <PenLine className="h-4 w-4 text-primary" />
-                                Employee Signature Placement
+                                Signature Placement
                                 {template ? `: ${template.name}` : null}
                             </DialogTitle>
                             <p className="text-xs text-muted-foreground">
-                                Drag and resize the box where the subject
-                                employee signature will be stamped. Coordinates
-                                are saved on this draft version only.
+                                Configure employee and optional company
+                                signatory signature boxes on this draft version
+                                only.
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -532,6 +661,49 @@ export function TemplateSignaturePlacementDialog({
                     ) : null}
 
                     <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="inline-flex rounded-lg border p-0.5">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={
+                                        activeRole === 'subject'
+                                            ? 'default'
+                                            : 'ghost'
+                                    }
+                                    onClick={() => handleRoleChange('subject')}
+                                >
+                                    Employee
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={
+                                        activeRole === 'company_signatory'
+                                            ? 'default'
+                                            : 'ghost'
+                                    }
+                                    disabled={!companyEnabled}
+                                    onClick={() =>
+                                        handleRoleChange('company_signatory')
+                                    }
+                                >
+                                    Company signatory
+                                </Button>
+                            </div>
+                            <label className="flex items-center gap-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    checked={companyEnabled}
+                                    onChange={(event) =>
+                                        toggleCompanyPlacement(
+                                            event.target.checked,
+                                        )
+                                    }
+                                />
+                                Enable company signatory placement
+                            </label>
+                        </div>
                         <div className="flex items-center gap-2">
                             <Button
                                 type="button"

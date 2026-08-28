@@ -181,7 +181,10 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                     <RequestsTabSwitcher
                         tab={tab}
                         canViewReview={can.view}
-                        canViewRecipient={can.view_recipient_requests}
+                        canViewRecipient={
+                            can.view_recipient_requests ||
+                            can.respond_recipient_requests
+                        }
                         canViewSignatures={can.view_signatures}
                     />
                 }
@@ -320,15 +323,47 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                 </div>
             ) : null}
 
-            {tab === 'recipient' && can.view_recipient_requests ? (
+            {tab === 'recipient' &&
+            (can.view_recipient_requests || can.respond_recipient_requests) ? (
                 <div className="space-y-4">
-                    <SearchBar
-                        value={list.searchInput}
-                        onChange={list.onSearchChange}
-                        placeholder="Search employee or document"
-                        className="max-w-md"
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                        <SearchBar
+                            value={list.searchInput}
+                            onChange={list.onSearchChange}
+                            placeholder="Search employee, signatory, or document"
+                            className="max-w-md"
+                        />
+                        {can.respond_recipient_requests ? (
+                            <label className="flex items-center gap-2 text-sm">
+                                <Checkbox
+                                    checked={Boolean(filters.assigned_to_me)}
+                                    onCheckedChange={(checked) =>
+                                        router.get(
+                                            documentRoutes.requests.url(),
+                                            {
+                                                tab: 'recipient',
+                                                search: list.searchInput,
+                                                status: String(
+                                                    filters.status ?? '',
+                                                ),
+                                                action: String(
+                                                    filters.action ?? '',
+                                                ),
+                                                assigned_to_me: checked
+                                                    ? '1'
+                                                    : '',
+                                            },
+                                        )
+                                    }
+                                />
+                                Assigned to me
+                            </label>
+                        ) : null}
+                    </div>
+                    <RecipientRequestsTable
+                        requests={recipient_requests}
+                        canRespond={can.respond_recipient_requests}
                     />
-                    <RecipientRequestsTable requests={recipient_requests} />
                     <Pagination {...list.paginationProps} />
                 </div>
             ) : null}

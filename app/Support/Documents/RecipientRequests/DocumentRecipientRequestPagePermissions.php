@@ -11,6 +11,7 @@ final class DocumentRecipientRequestPagePermissions
      *     view: bool,
      *     create: bool,
      *     cancel: bool,
+     *     respond: bool,
      * }
      */
     public static function for(?User $user): array
@@ -19,6 +20,7 @@ final class DocumentRecipientRequestPagePermissions
             'view' => $user?->can('documents.recipient-requests.view') ?? false,
             'create' => $user?->can('documents.recipient-requests.create') ?? false,
             'cancel' => $user?->can('documents.recipient-requests.cancel') ?? false,
+            'respond' => $user?->can('documents.recipient-requests.respond') ?? false,
         ];
     }
 }

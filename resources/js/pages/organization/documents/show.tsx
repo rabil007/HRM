@@ -23,9 +23,11 @@ import type {
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { RequestApprovalDialog } from '@/features/organization/documents/workflow/request-approval-dialog';
+import { RequestCompanyCountersignDialog } from '@/features/organization/documents/workflow/request-company-countersign-dialog';
 import { RequestRecipientActionDialog } from '@/features/organization/documents/workflow/request-recipient-action-dialog';
 import type {
     RecipientRequestPermissions,
+    SignatoryOption,
     WorkflowAssigneeOption,
     WorkflowPresetSummary,
 } from '@/features/organization/documents/workflow/types';
@@ -64,8 +66,12 @@ type Props = {
         can: RecipientRequestPermissions;
         can_request_sign: boolean;
         can_request_acknowledge: boolean;
+        can_request_company_countersign: boolean;
         sign_blocked_reason: string | null;
         acknowledge_blocked_reason: string | null;
+        company_countersign_blocked_reason: string | null;
+        signatory_options: SignatoryOption[];
+        current_source_version: number | null | undefined;
     };
     back: {
         href: string;
@@ -113,6 +119,7 @@ export default function DocumentShow({
     const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
     const [signDialogOpen, setSignDialogOpen] = useState(false);
     const [acknowledgeDialogOpen, setAcknowledgeDialogOpen] = useState(false);
+    const [countersignDialogOpen, setCountersignDialogOpen] = useState(false);
 
     const pageTitle =
         doc.title || doc.document_name || doc.document_type_label || 'Document';
@@ -203,6 +210,18 @@ export default function DocumentShow({
                                 >
                                     <FileSignature className="mr-2 h-4 w-4" />
                                     Request acknowledgement
+                                </Button>
+                            ) : null}
+                            {recipient_request.can_request_company_countersign ? (
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() =>
+                                        setCountersignDialogOpen(true)
+                                    }
+                                >
+                                    <FileSignature className="mr-2 h-4 w-4" />
+                                    Request company countersignature
                                 </Button>
                             ) : null}
                             <DocumentShowHeaderActions
@@ -451,6 +470,20 @@ export default function DocumentShow({
                     employeeName={employee.name}
                     documentTitle={pageTitle}
                     action="acknowledge"
+                />
+            ) : null}
+            {recipient_request.can_request_company_countersign ? (
+                <RequestCompanyCountersignDialog
+                    open={countersignDialogOpen}
+                    onOpenChange={setCountersignDialogOpen}
+                    employeeId={employee.id}
+                    documentId={doc.id}
+                    employeeName={employee.name}
+                    documentTitle={pageTitle}
+                    currentSourceVersion={
+                        recipient_request.current_source_version
+                    }
+                    signatoryOptions={recipient_request.signatory_options}
                 />
             ) : null}
         </>
