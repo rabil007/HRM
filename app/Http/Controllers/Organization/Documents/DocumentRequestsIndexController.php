@@ -11,6 +11,8 @@ use App\Support\BulkDocuments\BulkDocumentPagePermissions;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentSignatureRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\Documents\RecipientRequests\DocumentRecipientRequestPresenter;
+use App\Support\Documents\RecipientRequests\DocumentRecipientRequestRosterQuery;
 use App\Support\Documents\Workflow\DocumentWorkflowPagePermissions;
 use App\Support\Documents\Workflow\DocumentWorkflowPresenter;
 use App\Support\Documents\Workflow\DocumentWorkflowPresetPagePermissions;
@@ -35,19 +37,26 @@ class DocumentRequestsIndexController extends Controller
         $workflowPermissions = DocumentWorkflowPagePermissions::for($request->user());
 
         abort_unless(
-            $workflowPermissions['view'] || $workflowPermissions['view_signatures'],
+            $workflowPermissions['view']
+                || $workflowPermissions['view_signatures']
+                || $workflowPermissions['view_recipient_requests'],
             403,
         );
 
         $requestedTab = $request->query('tab');
         $tab = match ($requestedTab) {
             'signatures' => 'signatures',
+            'recipient' => 'recipient',
             'review' => 'review',
-            default => $workflowPermissions['view'] ? 'review' : 'signatures',
+            default => $workflowPermissions['view']
+                ? 'review'
+                : ($workflowPermissions['view_recipient_requests'] ? 'recipient' : 'signatures'),
         };
 
         if ($tab === 'review') {
             abort_unless($workflowPermissions['view'], 403);
+        } elseif ($tab === 'recipient') {
+            abort_unless($workflowPermissions['view_recipient_requests'], 403);
         } else {
             abort_unless($workflowPermissions['view_signatures'], 403);
         }
@@ -82,7 +91,41 @@ class DocumentRequestsIndexController extends Controller
                     ->map(fn ($item) => $presenter->listItem($item))
                     ->values()
                     ->all(),
+                'recipient_requests' => [],
                 'pagination' => $this->paginationMeta($paginator),
+                'signature_payload' => null,
+            ]);
+        }
+
+        if ($tab === 'recipient') {
+            abort_unless($workflowPermissions['view_recipient_requests'], 403);
+
+            $filters = [
+                'search' => trim((string) $request->query('search', '')),
+                'status' => trim((string) $request->query('status', '')),
+                'action' => trim((string) $request->query('action', '')),
+            ];
+
+            $recipientPresenter = app(DocumentRecipientRequestPresenter::class);
+            $recipientPaginator = app(DocumentRecipientRequestRosterQuery::class)->paginate(
+                $companyId,
+                $filters,
+                $perPage,
+                $page,
+            );
+
+            return Inertia::render('organization/documents/requests/index', [
+                'tab' => 'recipient',
+                'can' => $workflowPermissions,
+                'preset_can' => DocumentWorkflowPresetPagePermissions::for($request->user()),
+                'filters' => $filters,
+                'search' => $filters['search'],
+                'workflow_requests' => [],
+                'recipient_requests' => collect($recipientPaginator->items())
+                    ->map(fn ($item) => $recipientPresenter->listItem($item))
+                    ->values()
+                    ->all(),
+                'pagination' => $this->paginationMeta($recipientPaginator),
                 'signature_payload' => null,
             ]);
         }
@@ -128,6 +171,7 @@ class DocumentRequestsIndexController extends Controller
             'filters' => $this->filtersPayload($filters),
             'search' => $filters->search,
             'workflow_requests' => [],
+            'recipient_requests' => [],
             'pagination' => $this->paginationMeta($signaturesPaginator),
             'signature_payload' => [
                 'document_type_key' => $documentTypeKey,

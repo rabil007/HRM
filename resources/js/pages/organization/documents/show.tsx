@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { ClipboardCheck, History } from 'lucide-react';
+import { ClipboardCheck, FileSignature, History } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { DetailsHeader } from '@/components/details-header';
@@ -23,7 +23,9 @@ import type {
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { RequestApprovalDialog } from '@/features/organization/documents/workflow/request-approval-dialog';
+import { RequestRecipientActionDialog } from '@/features/organization/documents/workflow/request-recipient-action-dialog';
 import type {
+    RecipientRequestPermissions,
     WorkflowAssigneeOption,
     WorkflowPresetSummary,
 } from '@/features/organization/documents/workflow/types';
@@ -57,6 +59,13 @@ type Props = {
         can_create: boolean;
         assignee_options: WorkflowAssigneeOption[];
         presets: WorkflowPresetSummary[];
+    };
+    recipient_request: {
+        can: RecipientRequestPermissions;
+        can_request_sign: boolean;
+        can_request_acknowledge: boolean;
+        sign_blocked_reason: string | null;
+        acknowledge_blocked_reason: string | null;
     };
     back: {
         href: string;
@@ -92,6 +101,7 @@ export default function DocumentShow({
     document_types,
     can,
     workflow,
+    recipient_request,
     back,
     recent_activity,
     can_view_audit,
@@ -101,6 +111,8 @@ export default function DocumentShow({
     const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
     const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
     const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+    const [signDialogOpen, setSignDialogOpen] = useState(false);
+    const [acknowledgeDialogOpen, setAcknowledgeDialogOpen] = useState(false);
 
     const pageTitle =
         doc.title || doc.document_name || doc.document_type_label || 'Document';
@@ -169,6 +181,26 @@ export default function DocumentShow({
                                 >
                                     <ClipboardCheck className="mr-2 h-4 w-4" />
                                     Request approval
+                                </Button>
+                            ) : null}
+                            {recipient_request.can_request_sign ? (
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => setSignDialogOpen(true)}
+                                >
+                                    <FileSignature className="mr-2 h-4 w-4" />
+                                    Request signature
+                                </Button>
+                            ) : null}
+                            {recipient_request.can_request_acknowledge ? (
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => setAcknowledgeDialogOpen(true)}
+                                >
+                                    <FileSignature className="mr-2 h-4 w-4" />
+                                    Request acknowledgement
                                 </Button>
                             ) : null}
                             <DocumentShowHeaderActions
@@ -395,6 +427,28 @@ export default function DocumentShow({
                     documentId={doc.id}
                     assigneeOptions={workflow.assignee_options}
                     presets={workflow.presets}
+                />
+            ) : null}
+            {recipient_request.can_request_sign ? (
+                <RequestRecipientActionDialog
+                    open={signDialogOpen}
+                    onOpenChange={setSignDialogOpen}
+                    employeeId={employee.id}
+                    documentId={doc.id}
+                    employeeName={employee.name}
+                    documentTitle={pageTitle}
+                    action="sign"
+                />
+            ) : null}
+            {recipient_request.can_request_acknowledge ? (
+                <RequestRecipientActionDialog
+                    open={acknowledgeDialogOpen}
+                    onOpenChange={setAcknowledgeDialogOpen}
+                    employeeId={employee.id}
+                    documentId={doc.id}
+                    employeeName={employee.name}
+                    documentTitle={pageTitle}
+                    action="acknowledge"
                 />
             ) : null}
         </>

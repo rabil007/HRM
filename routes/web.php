@@ -97,15 +97,19 @@ use App\Http\Controllers\Organization\DocumentFolderShareLinksController;
 use App\Http\Controllers\Organization\DocumentGenerationTemplateController;
 use App\Http\Controllers\Organization\DocumentGenerationTemplatePreviewController;
 use App\Http\Controllers\Organization\Documents\ActivateDocumentWorkflowPresetController;
+use App\Http\Controllers\Organization\Documents\CancelDocumentRecipientRequestController;
 use App\Http\Controllers\Organization\Documents\CancelDocumentWorkflowRequestController;
 use App\Http\Controllers\Organization\Documents\CompleteDocumentWorkflowTaskController;
+use App\Http\Controllers\Organization\Documents\CreateDocumentRecipientRequestController;
 use App\Http\Controllers\Organization\Documents\CreateDocumentWorkflowRequestController;
 use App\Http\Controllers\Organization\Documents\DeactivateDocumentWorkflowPresetController;
 use App\Http\Controllers\Organization\Documents\DeleteDocumentWorkflowPresetController;
+use App\Http\Controllers\Organization\Documents\DocumentRecipientRequestShowController;
 use App\Http\Controllers\Organization\Documents\DocumentRequestsIndexController;
 use App\Http\Controllers\Organization\Documents\DocumentWorkflowPresetsIndexController;
 use App\Http\Controllers\Organization\Documents\DocumentWorkflowRequestShowController;
 use App\Http\Controllers\Organization\Documents\DocumentWorkflowVersionPreviewController;
+use App\Http\Controllers\Organization\Documents\RegenerateDocumentRecipientRequestTokenController;
 use App\Http\Controllers\Organization\Documents\RejectDocumentWorkflowTaskController;
 use App\Http\Controllers\Organization\Documents\StoreDocumentWorkflowPresetController;
 use App\Http\Controllers\Organization\Documents\UpdateDocumentWorkflowPresetController;
@@ -178,6 +182,10 @@ use App\Http\Controllers\Payroll\UpdateCrewTimesheetFinancialsController;
 use App\Http\Controllers\Payroll\UpdateCrewTimesheetSegmentsController;
 use App\Http\Controllers\Payroll\UpdatePayrollPeriodCrewTimesheetModeController;
 use App\Http\Controllers\Payroll\WpsExportController;
+use App\Http\Controllers\Public\DocumentAction\DownloadDocumentActionDocumentController;
+use App\Http\Controllers\Public\DocumentAction\ShowDocumentActionController;
+use App\Http\Controllers\Public\DocumentAction\SubmitDocumentActionAcknowledgeController;
+use App\Http\Controllers\Public\DocumentAction\SubmitDocumentActionSignController;
 use App\Http\Controllers\Public\DocumentEsign\DownloadDocumentEsignController;
 use App\Http\Controllers\Public\DocumentEsign\ShowDocumentEsignController;
 use App\Http\Controllers\Public\DocumentEsign\SubmitDocumentEsignController;
@@ -219,6 +227,19 @@ Route::middleware(['signed', 'throttle:30,1'])->prefix('documents/shared')->grou
     Route::post('{token}/upload', UploadSharedDocumentController::class)
         ->middleware('throttle:10,1')
         ->name('public.documents.shared.upload');
+});
+
+Route::middleware(['throttle:30,1'])->prefix('document-action')->group(function () {
+    Route::get('{token}', ShowDocumentActionController::class)
+        ->name('public.document-action.show');
+    Route::get('{token}/document', DownloadDocumentActionDocumentController::class)
+        ->name('public.document-action.document');
+    Route::post('{token}/sign', SubmitDocumentActionSignController::class)
+        ->middleware('throttle:10,1')
+        ->name('public.document-action.sign');
+    Route::post('{token}/acknowledge', SubmitDocumentActionAcknowledgeController::class)
+        ->middleware('throttle:10,1')
+        ->name('public.document-action.acknowledge');
 });
 
 Route::middleware(['signed', 'throttle:30,1'])->prefix('esign')->group(function () {
@@ -675,6 +696,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('can:documents.requests.create')->group(function () {
         Route::post('organization/documents/employees/{employee}/files/{document}/workflow-requests', CreateDocumentWorkflowRequestController::class)
             ->name('organization.documents.employee.files.workflow-requests.store');
+    });
+    Route::middleware('can:documents.recipient-requests.view')->group(function () {
+        Route::get('organization/documents/recipient-requests/{recipientRequest}', DocumentRecipientRequestShowController::class)
+            ->name('organization.documents.recipient-requests.show');
+    });
+    Route::middleware('can:documents.recipient-requests.create')->group(function () {
+        Route::post('organization/documents/employees/{employee}/files/{document}/recipient-requests', CreateDocumentRecipientRequestController::class)
+            ->name('organization.documents.employee.files.recipient-requests.store');
+        Route::post('organization/documents/recipient-requests/{recipientRequest}/regenerate-link', RegenerateDocumentRecipientRequestTokenController::class)
+            ->name('organization.documents.recipient-requests.regenerate-link');
+    });
+    Route::middleware('can:documents.recipient-requests.cancel')->group(function () {
+        Route::post('organization/documents/recipient-requests/{recipientRequest}/cancel', CancelDocumentRecipientRequestController::class)
+            ->name('organization.documents.recipient-requests.cancel');
     });
     Route::middleware('can:documents.workflow-presets.view')->group(function () {
         Route::get('organization/documents/workflow-presets', DocumentWorkflowPresetsIndexController::class)

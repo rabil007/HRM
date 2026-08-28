@@ -15,6 +15,9 @@ final class DocumentWorkflowPagePermissions
      *     cancel: bool,
      *     view_signatures: bool,
      *     review_signatures: bool,
+     *     view_recipient_requests: bool,
+     *     create_recipient_requests: bool,
+     *     cancel_recipient_requests: bool,
      * }
      */
     public static function for(?User $user): array
@@ -27,6 +30,9 @@ final class DocumentWorkflowPagePermissions
             'cancel' => $user?->can('documents.requests.cancel') ?? false,
             'view_signatures' => $user?->can('bulk_documents.view') ?? false,
             'review_signatures' => $user?->can('bulk_documents.signatures.review') ?? false,
+            'view_recipient_requests' => $user?->can('documents.recipient-requests.view') ?? false,
+            'create_recipient_requests' => $user?->can('documents.recipient-requests.create') ?? false,
+            'cancel_recipient_requests' => $user?->can('documents.recipient-requests.cancel') ?? false,
         ];
     }
 }

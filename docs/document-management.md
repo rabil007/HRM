@@ -684,4 +684,82 @@ Activity events: `workflow_preset_created`, `workflow_preset_updated`, `workflow
 
 No signing, acknowledgement, email/reminders, automatic template→preset assignment, or candidate routing.
 
+---
+
+## Phase 6A: Unified Signing & Acknowledgement Foundation
+
+Phase 6A adds a new unified recipient-request path for generated documents. It is separate from legacy `BulkDocumentSignatureRequest` and public `/esign/*` routes, which remain unchanged.
+
+### Recipient requests
+
+| Table | Purpose |
+|-------|---------|
+| `document_recipient_requests` | Subject-employee sign/acknowledge requests bound to an exact `DocumentInstanceVersion` |
+| `document_recipient_request_events` | Domain evidence timeline (viewed, submitted, superseded, etc.) |
+
+Supported in Phase 6A:
+
+- **Recipient:** subject employee only (`recipient_type = subject_employee`)
+- **Actions:** `sign`, `acknowledge`
+
+### Sign vs acknowledge
+
+| Action | PDF mutation | New `DocumentInstanceVersion` |
+|--------|--------------|-------------------------------|
+| **Sign** | Exact-byte FPDI overlay on canonical source | Yes — immutable signed version becomes `current_version_id` |
+| **Acknowledge** | None | No — evidence stored on request + events |
+
+Acknowledgement stores `acknowledgement_text_snapshot`, consent timestamp, IP, and user agent. It does not display as “Signed”.
+
+### Exact version binding
+
+Every request binds to `source_document_instance_version_id` and `source_checksum_sha256`. Public preview/download streams canonical instance bytes, not mutable Library files.
+
+If `DocumentInstance.current_version_id` changes while a request is still `awaiting_action`, completion is rejected and the request becomes `superseded`.
+
+### Token security
+
+- Browser receives a raw URL-safe token once after internal creation/regeneration
+- Database stores only `SHA-256` hash in `token_hash` (unique)
+- Public routes: `/document-action/{token}`, `/document-action/{token}/document`, `/document-action/{token}/sign`, `/document-action/{token}/acknowledge`
+- Legacy `/esign/*` and plain-text bulk tokens are unchanged
+
+Regenerating a link replaces `token_hash`, invalidates the prior URL immediately, and records a `token_rotated` evidence event.
+
+### Signature placement
+
+`DocumentGenerationTemplateVersion.signature_placement_config` (schema v1) stores normalized subject signature placement for PDF Overlay templates. Draft versions are editable; published/archived versions remain immutable.
+
+Signing is blocked when trusted placement cannot be resolved server-side.
+
+### Workflow gating
+
+For a given exact version:
+
+- No workflow → allowed
+- Latest workflow **approved** → allowed
+- Pending / rejected / cancelled workflow → blocked
+
+Phase 5 workflow stages are not extended with sign/acknowledge actions in Phase 6A.
+
+### Requests workspace
+
+**Documents → Requests** tabs:
+
+1. Review & Approval (Phase 5A/5B)
+2. **Signing & Acknowledgement** (Phase 6A)
+3. Bulk Signatures (legacy)
+
+### Permissions
+
+| Permission | Capability |
+|------------|------------|
+| `documents.recipient-requests.view` | List/open recipient requests |
+| `documents.recipient-requests.create` | Create requests and regenerate links |
+| `documents.recipient-requests.cancel` | Cancel awaiting requests |
+
+### Explicitly not in Phase 6A
+
+No manager/countersigning, external recipients, email/reminders/WhatsApp/push, automatic workflow sign stages, candidate signing, or automatic template→preset routing. Legacy bulk signature requests remain the protected production path for Salary Declaration and related bulk flows.
+
 
