@@ -20,7 +20,7 @@ final class DocumentWorkflowAssigneeOptionsQuery
         $companyAccess = new ResolveCompanyAccess;
 
         $users = User::query()
-            ->select('users.id', 'users.name', 'users.email', 'users.status')
+            ->select('users.id', 'users.name', 'users.email', 'users.status', 'users.company_id')
             ->where('users.status', 'active')
             ->where(function ($query) use ($companyId): void {
                 $query->where('users.company_id', $companyId)

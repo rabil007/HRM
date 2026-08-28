@@ -22,6 +22,7 @@ use App\Support\Documents\Workflow\Actions\CancelDocumentWorkflowRequest;
 use App\Support\Documents\Workflow\Actions\CompleteDocumentWorkflowTask;
 use App\Support\Documents\Workflow\Actions\CreateDocumentWorkflowRequest;
 use App\Support\Documents\Workflow\Actions\RejectDocumentWorkflowTask;
+use App\Support\Documents\Workflow\DocumentWorkflowEligibility;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -606,6 +607,83 @@ test('workflow version preview rejects version not belonging to bound instance',
         ->withSession(['current_company_id' => $company->id])
         ->get(route('organization.documents.requests.version-preview', ['workflowRequest' => $workflow->fresh()->id]))
         ->assertNotFound();
+});
+
+test('workflow version preview rejects unsafe canonical paths', function (string $unsafePath) {
+    ['company' => $company, 'document' => $document, 'version' => $version] = makeGeneratedDocumentWorkflowFixtures();
+    $otherCompany = makeDocumentFixtures()['company'];
+
+    $requester = User::factory()->create();
+    $approver = User::factory()->create();
+    grantCompanyPermissions($requester, $company, ['documents.requests.create', 'documents.requests.view']);
+    giveCompanyPermission($approver, $company, 'documents.requests.approve');
+
+    $workflow = app(CreateDocumentWorkflowRequest::class)->handle(
+        requester: $requester,
+        companyId: $company->id,
+        document: $document->fresh(),
+        stages: [[
+            'action' => 'approve',
+            'completion_rule' => 'any',
+            'assignee_user_ids' => [$approver->id],
+        ]],
+    );
+
+    $resolvedPath = str_replace(
+        ['{companyId}', '{otherCompanyId}'],
+        [(string) $company->id, (string) $otherCompany->id],
+        $unsafePath,
+    );
+
+    DB::table('document_instance_versions')
+        ->where('id', $version->id)
+        ->update(['file_path' => $resolvedPath]);
+
+    if (! str_contains($resolvedPath, '..') && ! str_starts_with($resolvedPath, '/')) {
+        Storage::disk('local')->put($resolvedPath, '%PDF-unsafe');
+    }
+
+    $this->actingAs($requester)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents.requests.version-preview', ['workflowRequest' => $workflow->id]))
+        ->assertNotFound();
+})->with([
+    'parent traversal' => ['document-instances/{companyId}/../{otherCompanyId}/evil.pdf'],
+    'cross-company directory' => ['document-instances/{otherCompanyId}/evil.pdf'],
+    'company id prefix bypass' => ['document-instances/{companyId}2/evil.pdf'],
+    'absolute path' => ['/document-instances/{companyId}/evil.pdf'],
+    'current-directory segment' => ['document-instances/{companyId}/./evil.pdf'],
+]);
+
+test('legacy home-company users without pivot appear in workflow assignee options when permitted', function () {
+    ['company' => $company] = makeGeneratedDocumentWorkflowFixtures();
+
+    $legacyUser = User::factory()->create([
+        'status' => 'active',
+        'company_id' => $company->id,
+    ]);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $legacyUser->givePermissionTo(Permission::query()->firstOrCreate([
+        'name' => 'documents.requests.view',
+        'guard_name' => 'web',
+    ]));
+    $legacyUser->givePermissionTo(Permission::query()->firstOrCreate([
+        'name' => 'documents.requests.review',
+        'guard_name' => 'web',
+    ]));
+
+    $options = app(DocumentWorkflowEligibility::class)->assigneeOptions($company->id);
+
+    expect(collect($options)->pluck('id'))->toContain($legacyUser->id)
+        ->and(collect($options)->firstWhere('id', $legacyUser->id))
+        ->toMatchArray([
+            'id' => $legacyUser->id,
+            'name' => (string) $legacyUser->name,
+            'email' => $legacyUser->email,
+            'can_review' => true,
+            'can_approve' => false,
+        ]);
 });
 
 test('document show exposes a valid workflow summary show url', function () {

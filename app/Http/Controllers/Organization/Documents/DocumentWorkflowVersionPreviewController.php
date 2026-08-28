@@ -27,8 +27,9 @@ class DocumentWorkflowVersionPreviewController extends Controller
             ->where('document_instance_id', $workflowRequest->document_instance_id)
             ->firstOrFail();
 
-        $path = (string) $version->file_path;
-        abort_unless(DocumentInstanceStorage::exists($path, $companyId), 404);
+        $path = DocumentInstanceStorage::validatedRelativePath($version->file_path, $companyId);
+        abort_if($path === null, 404);
+        abort_unless(Storage::disk(DocumentInstanceStorage::DISK)->exists($path), 404);
 
         $filename = $version->original_filename ?: 'document.pdf';
 

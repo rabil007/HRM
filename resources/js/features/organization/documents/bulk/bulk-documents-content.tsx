@@ -73,6 +73,7 @@ import {
 } from '@/features/organization/documents/bulk/bulk-signatures-table';
 import { SignatureStatusBadge } from '@/features/organization/documents/bulk/signature-status-badge';
 import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
+import { bulkDocumentsPollOnlyProps } from '@/features/organization/documents/lib/bulk-documents-poll-props';
 import { downloadBinaryExport } from '@/features/organization/documents/shared/download-binary-export';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
 import { DepartmentEmployeeTree } from '@/features/organization/employees/components/department-employee-tree';
@@ -1002,17 +1003,7 @@ export function BulkDocumentsContent({
     const { start, stop } = usePoll(
         3000,
         {
-            only: [
-                'latest_run',
-                'latest_email_batch',
-                'latest_signature_repair_run',
-                'counts',
-                'employees',
-                'signature_requests',
-                'activity',
-                'pagination',
-                'flash',
-            ],
+            only: bulkDocumentsPollOnlyProps(embeddedInRequests),
         },
         { autoStart: false },
     );
