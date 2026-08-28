@@ -6,6 +6,7 @@ use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Support\Documents\DocumentTemplatePdfValidator;
 use App\Support\Documents\DocumentTemplateStorage;
+use App\Support\Documents\PdfOverlayPlacementValidator;
 use DomainException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -65,7 +66,7 @@ final class ReplaceDocumentGenerationTemplatePdf
                 $lockedVersion->source_pdf_original_name = $inspected['original_name'];
                 $lockedVersion->source_pdf_size_bytes = $inspected['size_bytes'];
                 $lockedVersion->source_pdf_page_count = $inspected['page_count'];
-                $lockedVersion->placement_config = null; // Clear placements on replacement
+                $lockedVersion->placement_config = PdfOverlayPlacementValidator::emptyConfig();
                 $lockedVersion->updated_by = $userId;
                 $lockedVersion->save();
 

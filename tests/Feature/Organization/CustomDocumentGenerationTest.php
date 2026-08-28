@@ -19,11 +19,13 @@ use App\Models\User;
 use App\Services\Documents\CustomTemplatePdfRenderer;
 use App\Support\BulkDocuments\CustomDocumentRosterQuery;
 use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
+use App\Support\Documents\Actions\ReplaceDocumentGenerationTemplatePdf;
 use App\Support\Documents\Actions\SyncGeneratedEmployeeDocument;
 use App\Support\Documents\Exceptions\DocumentTemplateLayoutException;
 use App\Support\EmployeeDocuments\DocumentDeletionService;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use Database\Seeders\PermissionsSeeder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
@@ -2315,4 +2317,287 @@ test('pdf overlay explicit selection generates a new copy without deleting the p
 
     expect(DocumentInstance::query()->where('employee_id', $employee->id)->count())->toBe(2)
         ->and(EmployeeDocument::query()->where('employee_id', $employee->id)->count())->toBe(2);
+});
+
+test('pdf overlay create publish and generate with zero placements succeeds through official pipeline', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    grantCompanyPermissions($user, $company, [
+        'documents.templates.create',
+        'documents.templates.update',
+        'bulk_documents.generate',
+    ]);
+
+    $pdfContent = overlaySourcePdfBytes();
+    $uploadedFile = UploadedFile::fake()->createWithContent('letterhead.pdf', $pdfContent);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.templates.store'), [
+            'template_format' => DocumentGenerationTemplateFormat::PdfOverlay->value,
+            'name' => 'Zero Placement Letterhead',
+            'file' => $uploadedFile,
+        ])
+        ->assertRedirect();
+
+    $template = DocumentGenerationTemplate::query()
+        ->where('company_id', $company->id)
+        ->where('name', 'Zero Placement Letterhead')
+        ->first();
+
+    expect($template)->not->toBeNull();
+
+    $draft = $template->draftVersion;
+    expect($draft)->not->toBeNull()
+        ->and($draft->placement_config)->toMatchArray([
+            'schema_version' => 1,
+            'placements' => [],
+        ]);
+
+    app(PublishDocumentGenerationTemplateVersion::class)->handle($draft, $user->id);
+
+    $published = $template->fresh()->publishedVersion;
+    expect($published)->not->toBeNull()
+        ->and($published->placement_config)->toMatchArray([
+            'schema_version' => 1,
+            'placements' => [],
+        ]);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active', 'name' => 'Zero Placement Emp']);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $published->id,
+        'status' => 'queued',
+        'total_targeted' => 1,
+        'correlation_id' => 'zero-placement-lifecycle',
+        'triggered_by' => $user->id,
+    ]);
+    $item = DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $employee->id,
+        'status' => 'pending',
+    ]);
+
+    $job = new GenerateCustomDocumentsJob($company->id, $user->id, $run->id, false);
+    $job->handle(app(CustomTemplatePdfRenderer::class), app(SyncGeneratedEmployeeDocument::class));
+
+    $item->refresh();
+    expect($item->status)->toBe('completed')
+        ->and($item->document_instance_id)->not->toBeNull();
+
+    $instance = DocumentInstance::query()->find($item->document_instance_id);
+    expect($instance)->not->toBeNull();
+
+    $employeeDocument = EmployeeDocument::query()->find($instance->employee_document_id);
+    expect($employeeDocument)->not->toBeNull()
+        ->and($employeeDocument->employee_id)->toBe($employee->id);
+
+    $instanceVersion = $instance->currentVersion;
+    expect($instanceVersion)->not->toBeNull();
+    Storage::disk('local')->assertExists($instanceVersion->file_path);
+
+    $generatedPdf = new Fpdi;
+    $pageCount = $generatedPdf->setSourceFile(Storage::disk('local')->path($instanceVersion->file_path));
+    expect($pageCount)->toBe(1);
+});
+
+test('pdf overlay replace pdf publish and generate with zero placements succeeds', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    grantCompanyPermissions($user, $company, [
+        'documents.templates.create',
+        'documents.templates.update',
+        'bulk_documents.generate',
+    ]);
+
+    $initialPdf = overlaySourcePdfBytes();
+    $uploadedFile = UploadedFile::fake()->createWithContent('initial.pdf', $initialPdf);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.templates.store'), [
+            'template_format' => DocumentGenerationTemplateFormat::PdfOverlay->value,
+            'name' => 'Replace Zero Placement',
+            'file' => $uploadedFile,
+        ])
+        ->assertRedirect();
+
+    $template = DocumentGenerationTemplate::query()
+        ->where('company_id', $company->id)
+        ->where('name', 'Replace Zero Placement')
+        ->firstOrFail();
+
+    $draft = $template->draftVersion;
+
+    $replacementPdf = new Fpdi;
+    $replacementPdf->AddPage('P', [210, 297]);
+    $replacementPdf->SetFont('Helvetica', '', 12);
+    $replacementPdf->Cell(0, 10, 'Replacement Page 1');
+    $replacementPdf->AddPage('P', [210, 297]);
+    $replacementPdf->Cell(0, 10, 'Replacement Page 2');
+    $replacementBytes = $replacementPdf->Output('S');
+
+    app(ReplaceDocumentGenerationTemplatePdf::class)->handle(
+        $draft,
+        UploadedFile::fake()->createWithContent('replacement.pdf', $replacementBytes),
+    );
+
+    $draft->refresh();
+    expect($draft->placement_config)->toMatchArray([
+        'schema_version' => 1,
+        'placements' => [],
+    ])
+        ->and($draft->source_pdf_page_count)->toBe(2);
+
+    app(PublishDocumentGenerationTemplateVersion::class)->handle($draft, $user->id);
+
+    $published = $template->fresh()->publishedVersion;
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $published->id,
+        'status' => 'queued',
+        'total_targeted' => 1,
+        'correlation_id' => 'replace-zero-placement',
+        'triggered_by' => $user->id,
+    ]);
+    DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $employee->id,
+        'status' => 'pending',
+    ]);
+
+    $job = new GenerateCustomDocumentsJob($company->id, $user->id, $run->id, false);
+    $job->handle(app(CustomTemplatePdfRenderer::class), app(SyncGeneratedEmployeeDocument::class));
+
+    $instance = DocumentInstance::query()->where('employee_id', $employee->id)->first();
+    expect($instance)->not->toBeNull();
+
+    $generatedPdf = new Fpdi;
+    $pageCount = $generatedPdf->setSourceFile(Storage::disk('local')->path($instance->currentVersion->file_path));
+    expect($pageCount)->toBe(2);
+});
+
+test('legacy published null placement config generates as zero placements', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $sourceBytes = overlaySourcePdfBytes();
+    $sourcePath = "document-generation-templates/{$company->id}/legacy-null.pdf";
+    Storage::disk('local')->put($sourcePath, $sourceBytes);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create([
+        'source_pdf_path' => $sourcePath,
+        'source_pdf_page_count' => 1,
+        'placement_config' => null,
+    ]);
+    $template->update(['published_version_id' => $version->id]);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'queued',
+        'total_targeted' => 1,
+        'correlation_id' => 'legacy-null-placement',
+        'triggered_by' => $user->id,
+    ]);
+    DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $employee->id,
+        'status' => 'pending',
+    ]);
+
+    $job = new GenerateCustomDocumentsJob($company->id, $user->id, $run->id, false);
+    $job->handle(app(CustomTemplatePdfRenderer::class), app(SyncGeneratedEmployeeDocument::class));
+
+    expect(DocumentGenerationRunItem::query()->first()->status)->toBe('completed')
+        ->and(DocumentInstance::query()->count())->toBe(1)
+        ->and(EmployeeDocument::query()->count())->toBe(1);
+});
+
+test('corrupt duplicate placement ids in published config cannot generate official documents', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $sourceBytes = overlaySourcePdfBytes();
+    $sourcePath = "document-generation-templates/{$company->id}/duplicate-id.pdf";
+    Storage::disk('local')->put($sourcePath, $sourceBytes);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create([
+        'source_pdf_path' => $sourcePath,
+        'source_pdf_page_count' => 1,
+        'placement_config' => [
+            'schema_version' => 1,
+            'placements' => [
+                [
+                    'id' => 'dup',
+                    'field' => '{{employee_name}}',
+                    'page' => 1,
+                    'x' => 0.1,
+                    'y' => 0.1,
+                    'width' => 0.3,
+                    'height' => 0.05,
+                    'font_size' => 12,
+                    'font_weight' => 'normal',
+                    'text_align' => 'left',
+                ],
+                [
+                    'id' => 'dup',
+                    'field' => '{{employee_no}}',
+                    'page' => 1,
+                    'x' => 0.5,
+                    'y' => 0.1,
+                    'width' => 0.3,
+                    'height' => 0.05,
+                    'font_size' => 12,
+                    'font_weight' => 'normal',
+                    'text_align' => 'left',
+                ],
+            ],
+        ],
+    ]);
+    $template->update(['published_version_id' => $version->id]);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'queued',
+        'total_targeted' => 1,
+        'correlation_id' => 'duplicate-placement-id',
+        'triggered_by' => $user->id,
+    ]);
+    DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $employee->id,
+        'status' => 'pending',
+    ]);
+
+    $job = new GenerateCustomDocumentsJob($company->id, $user->id, $run->id, false);
+    $job->handle(app(CustomTemplatePdfRenderer::class), app(SyncGeneratedEmployeeDocument::class));
+
+    $item = DocumentGenerationRunItem::query()->first();
+    expect($item->status)->toBe('failed')
+        ->and($item->error_code)->toBe('GENERATION_FAILED')
+        ->and(DocumentInstance::query()->count())->toBe(0)
+        ->and(EmployeeDocument::query()->count())->toBe(0);
 });

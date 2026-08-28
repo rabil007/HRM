@@ -17,6 +17,7 @@ test('docs-only paths skip application jobs', function () {
         'frontend_static' => false,
         'frontend_build' => false,
         'pest' => false,
+        'pdf_renderer' => false,
         'docs_only' => true,
         'scope' => 'docs-only',
     ]);
@@ -35,6 +36,7 @@ test('backend-only paths run pint pest and the vite build', function () {
         'frontend_static' => false,
         'frontend_build' => true,
         'pest' => true,
+        'pdf_renderer' => true,
         'docs_only' => false,
         'scope' => 'backend-only',
     ]);
@@ -53,6 +55,7 @@ test('frontend-only paths skip pint and pest', function () {
         'frontend_static' => true,
         'frontend_build' => true,
         'pest' => false,
+        'pdf_renderer' => false,
         'docs_only' => false,
         'scope' => 'frontend-only',
     ]);
@@ -64,6 +67,7 @@ test('shared or mixed application paths run full CI', function (array $paths) {
         'frontend_static' => true,
         'frontend_build' => true,
         'pest' => true,
+        'pdf_renderer' => true,
         'docs_only' => false,
         'scope' => 'full',
     ]);

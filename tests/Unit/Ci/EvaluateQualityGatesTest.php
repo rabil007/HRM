@@ -8,10 +8,12 @@ test('quality gates pass for docs-only expected skips', function () {
         'pint_result' => 'skipped',
         'frontend_static_result' => 'skipped',
         'frontend_build_result' => 'skipped',
+        'pdf_renderer_result' => 'skipped',
         'pest_result' => 'skipped',
         'run_pint' => false,
         'run_frontend_static' => false,
         'run_frontend_build' => false,
+        'run_pdf_renderer' => false,
         'run_pest' => false,
         'docs_only' => true,
         'scope' => 'docs-only',
@@ -27,10 +29,12 @@ test('quality gates pass when every required job succeeds', function () {
         'pint_result' => 'success',
         'frontend_static_result' => 'success',
         'frontend_build_result' => 'success',
+        'pdf_renderer_result' => 'success',
         'pest_result' => 'success',
         'run_pint' => true,
         'run_frontend_static' => true,
         'run_frontend_build' => true,
+        'run_pdf_renderer' => true,
         'run_pest' => true,
         'expected_pest_shards' => 6,
         'found_pest_shards' => [1, 2, 3, 4, 5, 6],
@@ -173,16 +177,40 @@ test('quality gates fail when change detection fails', function () {
         ->and($result['errors'][0])->toContain('Change detection failed');
 });
 
+test('quality gates fail when pdf renderer fails', function () {
+    $result = oms_ci_evaluate_quality_gates([
+        'changes_result' => 'success',
+        'pint_result' => 'success',
+        'frontend_static_result' => 'success',
+        'frontend_build_result' => 'success',
+        'pdf_renderer_result' => 'failure',
+        'pest_result' => 'success',
+        'run_pint' => true,
+        'run_frontend_static' => true,
+        'run_frontend_build' => true,
+        'run_pdf_renderer' => true,
+        'run_pest' => true,
+        'expected_pest_shards' => 6,
+        'found_pest_shards' => [1, 2, 3, 4, 5, 6],
+        'vite_build_present' => true,
+    ]);
+
+    expect($result['ok'])->toBeFalse()
+        ->and($result['errors'])->toContain('PDF Renderer did not succeed (result=failure).');
+});
+
 test('backend-only expected skips still pass the aggregator', function () {
     $result = oms_ci_evaluate_quality_gates([
         'changes_result' => 'success',
         'pint_result' => 'success',
         'frontend_static_result' => 'skipped',
         'frontend_build_result' => 'success',
+        'pdf_renderer_result' => 'success',
         'pest_result' => 'success',
         'run_pint' => true,
         'run_frontend_static' => false,
         'run_frontend_build' => true,
+        'run_pdf_renderer' => true,
         'run_pest' => true,
         'expected_pest_shards' => 6,
         'found_pest_shards' => [1, 2, 3, 4, 5, 6],

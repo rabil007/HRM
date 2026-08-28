@@ -46,6 +46,14 @@ function createOverlayTestCompany(string $name = 'Overlay Corp'): Company
 
 function overlayPuppeteerAvailable(): bool
 {
+    if (getenv('REQUIRE_PDF_RENDERER_TESTS') === 'true') {
+        if (! file_exists(base_path('node_modules/puppeteer'))) {
+            throw new RuntimeException('Puppeteer node module is required when REQUIRE_PDF_RENDERER_TESTS=true.');
+        }
+
+        return true;
+    }
+
     return file_exists(base_path('node_modules/puppeteer'));
 }
 
@@ -216,9 +224,52 @@ test('overlay blade keeps left and right as physical alignment values', function
     'right' => ['right', 'flex-end'],
 ]);
 
-test('placement validator rejects null config', function () {
-    expect(fn () => PdfOverlayPlacementValidator::validate(null, 1))
-        ->toThrow(InvalidArgumentException::class, 'placement configuration is missing');
+test('placement validator treats null config as zero placements', function () {
+    $result = PdfOverlayPlacementValidator::validate(null, 1);
+
+    expect($result)->toBe([]);
+});
+
+test('placement validator rejects empty array config', function () {
+    expect(fn () => PdfOverlayPlacementValidator::validate([], 1))
+        ->toThrow(InvalidArgumentException::class, 'missing or corrupt');
+});
+
+test('placement validator rejects config missing schema_version', function () {
+    expect(fn () => PdfOverlayPlacementValidator::validate(['placements' => []], 1))
+        ->toThrow(InvalidArgumentException::class, 'schema version');
+});
+
+test('placement validator rejects duplicate placement ids', function () {
+    $config = [
+        'schema_version' => 1,
+        'placements' => [
+            array_merge(overlayPlacementConfig()['placements'][0], ['id' => 'same-id']),
+            array_merge(overlayPlacementConfig()['placements'][0], ['id' => 'same-id', 'field' => '{{employee_no}}']),
+        ],
+    ];
+
+    expect(fn () => PdfOverlayPlacementValidator::validate($config, 1))
+        ->toThrow(InvalidArgumentException::class, 'duplicate ID');
+});
+
+test('placement validator accepts distinct placement ids', function () {
+    $config = [
+        'schema_version' => 1,
+        'placements' => [
+            overlayPlacementConfig()['placements'][0],
+            array_merge(overlayPlacementConfig()['placements'][0], [
+                'id' => 'placement-002',
+                'field' => '{{employee_no}}',
+            ]),
+        ],
+    ];
+
+    $result = PdfOverlayPlacementValidator::validate($config, 1);
+
+    expect($result)->toHaveCount(2)
+        ->and($result[0]['id'])->toBe('placement-001')
+        ->and($result[1]['id'])->toBe('placement-002');
 });
 
 test('placement validator rejects schema_version other than 1', function () {
@@ -276,11 +327,43 @@ test('absolutePath returns a file inside the company boundary', function () {
     expect(DocumentTemplateStorage::absolutePath($relativePath, $companyId))->toContain($relativePath);
 });
 
-test('absolutePath rejects a path outside the company boundary', function () {
+test('absolutePath rejects a normal path outside the company boundary', function () {
     Storage::fake('local');
 
     expect(fn () => DocumentTemplateStorage::absolutePath('document-generation-templates/777/source.pdf', 999))
         ->toThrow(RuntimeException::class, 'outside the company storage boundary');
+});
+
+test('absolutePath rejects path traversal with parent segments', function () {
+    Storage::fake('local');
+    $companyId = 100;
+    $otherCompanyId = 200;
+    $otherPath = DocumentTemplateStorage::directory($otherCompanyId).'/secret.pdf';
+    Storage::disk('local')->put($otherPath, 'secret-content');
+
+    expect(fn () => DocumentTemplateStorage::absolutePath(
+        DocumentTemplateStorage::directory($companyId).'/../'.$otherCompanyId.'/secret.pdf',
+        $companyId,
+    ))->toThrow(RuntimeException::class, 'invalid');
+
+    expect(fn () => DocumentTemplateStorage::absolutePath(
+        DocumentTemplateStorage::directory($companyId).'/sub/../../'.$otherCompanyId.'/secret.pdf',
+        $companyId,
+    ))->toThrow(RuntimeException::class, 'invalid');
+});
+
+test('absolutePath rejects absolute filesystem paths', function () {
+    Storage::fake('local');
+
+    expect(fn () => DocumentTemplateStorage::absolutePath('/etc/passwd', 999))
+        ->toThrow(RuntimeException::class, 'invalid');
+});
+
+test('absolutePath rejects windows-style absolute paths', function () {
+    Storage::fake('local');
+
+    expect(fn () => DocumentTemplateStorage::absolutePath('C:\\Windows\\System32\\secret.pdf', 999))
+        ->toThrow(RuntimeException::class, 'invalid');
 });
 
 test('absolutePath rejects a missing file', function () {

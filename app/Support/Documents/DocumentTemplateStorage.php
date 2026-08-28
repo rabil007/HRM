@@ -34,10 +34,7 @@ final class DocumentTemplateStorage
 
     public static function copyPdf(string $sourcePath, int $companyId): string
     {
-        $expectedPrefix = self::directory($companyId).'/';
-        if (! str_starts_with($sourcePath, $expectedPrefix)) {
-            throw new \InvalidArgumentException('Source template PDF path is outside company boundary.');
-        }
+        self::assertRelativeTemplatePath($sourcePath, $companyId);
 
         if (! Storage::disk(self::DISK)->exists($sourcePath)) {
             throw new \RuntimeException('Source template PDF does not exist for copying.');
@@ -61,10 +58,10 @@ final class DocumentTemplateStorage
             return;
         }
 
-        $expectedPrefix = self::directory($companyId).'/';
-        if (! str_starts_with($path, $expectedPrefix)) {
+        try {
+            self::assertRelativeTemplatePath($path, $companyId);
+        } catch (\RuntimeException) {
             Log::warning('Rejected delete of PDF path outside company boundary', [
-                'path' => $path,
                 'company_id' => $companyId,
             ]);
 
@@ -78,7 +75,6 @@ final class DocumentTemplateStorage
         } catch (\Throwable $e) {
             Log::error('Failed to delete private template PDF', [
                 'error' => $e->getMessage(),
-                'path' => $path,
                 'company_id' => $companyId,
             ]);
         }
@@ -90,8 +86,9 @@ final class DocumentTemplateStorage
             return false;
         }
 
-        $expectedPrefix = self::directory($companyId).'/';
-        if (! str_starts_with($path, $expectedPrefix)) {
+        try {
+            self::assertRelativeTemplatePath($path, $companyId);
+        } catch (\RuntimeException) {
             return false;
         }
 
@@ -103,23 +100,21 @@ final class DocumentTemplateStorage
      *
      * Verifies the path belongs to the given company's directory boundary and
      * that the file physically exists on disk before returning the absolute path.
-     * For use by renderers that need to pass a real file path to FPDI.
      *
      * @throws \RuntimeException if the path is outside the company boundary or the file is missing.
      */
     public static function absolutePath(string $storagePath, int $companyId): string
     {
-        $expectedPrefix = self::directory($companyId).'/';
-
-        if (! str_starts_with($storagePath, $expectedPrefix)) {
-            throw new \RuntimeException('Template source PDF is outside the company storage boundary.');
-        }
+        self::assertRelativeTemplatePath($storagePath, $companyId);
 
         if (! Storage::disk(self::DISK)->exists($storagePath)) {
             throw new \RuntimeException('Template source PDF file is not available.');
         }
 
-        return Storage::disk(self::DISK)->path($storagePath);
+        $absolutePath = Storage::disk(self::DISK)->path($storagePath);
+        self::assertResolvedPathWithinCompanyDirectory($absolutePath, $companyId);
+
+        return $absolutePath;
     }
 
     public static function response(DocumentGenerationTemplateVersion $version, int $companyId): Response
@@ -134,5 +129,60 @@ final class DocumentTemplateStorage
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.addslashes($filename).'"',
         ]);
+    }
+
+    /**
+     * @throws \RuntimeException
+     */
+    private static function assertRelativeTemplatePath(string $storagePath, int $companyId): void
+    {
+        $storagePath = trim($storagePath);
+
+        if ($storagePath === '' || str_contains($storagePath, "\0")) {
+            throw new \RuntimeException('Template source PDF path is invalid.');
+        }
+
+        if (str_starts_with($storagePath, '/') || preg_match('/^[A-Za-z]:[\\\\\\/]/', $storagePath) === 1) {
+            throw new \RuntimeException('Template source PDF path is invalid.');
+        }
+
+        $normalized = str_replace('\\', '/', $storagePath);
+
+        foreach (explode('/', $normalized) as $segment) {
+            if ($segment === '..' || $segment === '.') {
+                throw new \RuntimeException('Template source PDF path is invalid.');
+            }
+        }
+
+        $expectedPrefix = self::directory($companyId).'/';
+
+        if (! str_starts_with($normalized, $expectedPrefix)) {
+            throw new \RuntimeException('Template source PDF is outside the company storage boundary.');
+        }
+    }
+
+    /**
+     * @throws \RuntimeException
+     */
+    private static function assertResolvedPathWithinCompanyDirectory(string $absolutePath, int $companyId): void
+    {
+        $resolvedPath = realpath($absolutePath);
+
+        if ($resolvedPath === false) {
+            throw new \RuntimeException('Template source PDF file is not available.');
+        }
+
+        $companyDirectory = Storage::disk(self::DISK)->path(self::directory($companyId));
+        $resolvedCompanyDirectory = realpath($companyDirectory);
+
+        if ($resolvedCompanyDirectory === false) {
+            throw new \RuntimeException('Template source PDF file is not available.');
+        }
+
+        $companyPrefix = rtrim($resolvedCompanyDirectory, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+
+        if (! str_starts_with($resolvedPath, $companyPrefix)) {
+            throw new \RuntimeException('Template source PDF is outside the company storage boundary.');
+        }
     }
 }

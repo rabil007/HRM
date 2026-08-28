@@ -489,6 +489,12 @@ DocumentInstance → DocumentInstanceVersion → EmployeeDocument
 
 The uploaded source PDF is imported as PDF page content through FPDI. The whole source is never rasterized to PNG/JPG. Overlay text is a separate transparent PDF layered on top.
 
+### Zero-placement overlays
+
+A PDF Overlay template with no field placements is a supported production state. New drafts initialize `placement_config` as schema version 1 with an empty `placements` array. Replacing the draft source PDF resets placements to the same empty schema. Publishing validates that the configuration is structurally renderable.
+
+At generation time, zero placements reproduce the original source PDF through the official pipeline (FPDI import only; no overlay pages are rendered). Legacy published versions that still store `placement_config = null` are treated as zero placements for backward compatibility. Malformed non-null configs are rejected.
+
 ### Coordinate mapping
 
 Published `placement_config` remains schema version 1 with normalized coordinates (`0.0`–`1.0`). At render time:
@@ -516,7 +522,7 @@ Every source page is copied in order. Pages with placements receive a transparen
 
 ### Source tenancy
 
-`DocumentTemplateStorage::absolutePath()` resolves the private source file only when the path is under `document-generation-templates/{companyId}/` and the file exists. Cross-company paths are rejected. Private paths are not returned to Inertia. Missing or unreadable sources fail the RunItem with `TEMPLATE_SOURCE_UNAVAILABLE` and create no official instance or files.
+`DocumentTemplateStorage::absolutePath()` validates relative template paths, rejects traversal segments (`..`, `.`), absolute paths, and cross-company prefixes, then resolves the real filesystem path and ensures it is physically inside `storage/app/private/document-generation-templates/{companyId}/`. Cross-company paths are rejected. Private absolute paths are not returned to Inertia or user-facing errors. Missing or unreadable sources fail the RunItem with `TEMPLATE_SOURCE_UNAVAILABLE` and create no official instance or files.
 
 ### Provenance and current-version state
 

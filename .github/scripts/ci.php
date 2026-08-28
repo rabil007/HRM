@@ -15,6 +15,7 @@ const OMS_CI_PEST_SHARD_COUNT = 6;
  *     frontend_static: bool,
  *     frontend_build: bool,
  *     pest: bool,
+ *     pdf_renderer: bool,
  *     docs_only: bool,
  *     scope: string
  * }
@@ -26,6 +27,7 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
         'frontend_static' => true,
         'frontend_build' => true,
         'pest' => true,
+        'pdf_renderer' => true,
         'docs_only' => false,
         'scope' => 'full',
     ];
@@ -82,6 +84,7 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
             'frontend_static' => false,
             'frontend_build' => false,
             'pest' => false,
+            'pdf_renderer' => false,
             'docs_only' => true,
             'scope' => 'docs-only',
         ];
@@ -97,6 +100,7 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
             'frontend_static' => false,
             'frontend_build' => true,
             'pest' => true,
+            'pdf_renderer' => true,
             'docs_only' => false,
             'scope' => 'backend-only',
         ];
@@ -107,6 +111,7 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
         'frontend_static' => true,
         'frontend_build' => true,
         'pest' => false,
+        'pdf_renderer' => false,
         'docs_only' => false,
         'scope' => 'frontend-only',
     ];
@@ -315,12 +320,18 @@ function oms_ci_evaluate_quality_gates(array $state): array
         'pint' => 'PHP Style (Pint)',
         'frontend_static' => 'Frontend Static',
         'frontend_build' => 'Frontend Build',
+        'pdf_renderer' => 'PDF Renderer',
         'pest' => 'Pest',
     ];
 
     foreach ($jobs as $key => $label) {
         $shouldRun = ($state['run_'.$key] ?? false) === true || ($state['run_'.$key] ?? '') === 'true';
         $result = (string) ($state[$key.'_result'] ?? '');
+
+        if (! $shouldRun && $result === '') {
+            $result = 'skipped';
+        }
+
         $error = oms_ci_assert_job_result($label, $result, $shouldRun);
 
         if ($error !== null) {
@@ -436,17 +447,19 @@ function oms_ci_cli_classify(array $argv): int
         'frontend_static' => oms_ci_bool_string($result['frontend_static']),
         'frontend_build' => oms_ci_bool_string($result['frontend_build']),
         'pest' => oms_ci_bool_string($result['pest']),
+        'pdf_renderer' => oms_ci_bool_string($result['pdf_renderer']),
         'docs_only' => oms_ci_bool_string($result['docs_only']),
         'scope' => $result['scope'],
     ]);
 
     fwrite(STDOUT, sprintf(
-        "CI scope=%s pint=%s frontend_static=%s frontend_build=%s pest=%s docs_only=%s\n",
+        "CI scope=%s pint=%s frontend_static=%s frontend_build=%s pest=%s pdf_renderer=%s docs_only=%s\n",
         $result['scope'],
         oms_ci_bool_string($result['pint']),
         oms_ci_bool_string($result['frontend_static']),
         oms_ci_bool_string($result['frontend_build']),
         oms_ci_bool_string($result['pest']),
+        oms_ci_bool_string($result['pdf_renderer']),
         oms_ci_bool_string($result['docs_only']),
     ));
 
@@ -499,10 +512,12 @@ function oms_ci_cli_quality_gates(): int
         'pint_result' => getenv('PINT_RESULT') ?: '',
         'frontend_static_result' => getenv('FRONTEND_STATIC_RESULT') ?: '',
         'frontend_build_result' => getenv('FRONTEND_BUILD_RESULT') ?: '',
+        'pdf_renderer_result' => getenv('PDF_RENDERER_RESULT') ?: '',
         'pest_result' => getenv('PEST_RESULT') ?: '',
         'run_pint' => getenv('RUN_PINT') ?: 'false',
         'run_frontend_static' => getenv('RUN_FRONTEND_STATIC') ?: 'false',
         'run_frontend_build' => getenv('RUN_FRONTEND_BUILD') ?: 'false',
+        'run_pdf_renderer' => getenv('RUN_PDF_RENDERER') ?: 'false',
         'run_pest' => getenv('RUN_PEST') ?: 'false',
         'docs_only' => getenv('DOCS_ONLY') ?: 'false',
         'scope' => getenv('SCOPE') ?: '',
@@ -519,6 +534,7 @@ function oms_ci_cli_quality_gates(): int
     fwrite(STDOUT, 'run_pint='.(getenv('RUN_PINT') ?: '').' pint_result='.(getenv('PINT_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'run_frontend_static='.(getenv('RUN_FRONTEND_STATIC') ?: '').' frontend_static_result='.(getenv('FRONTEND_STATIC_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'run_frontend_build='.(getenv('RUN_FRONTEND_BUILD') ?: '').' frontend_build_result='.(getenv('FRONTEND_BUILD_RESULT') ?: '')."\n");
+    fwrite(STDOUT, 'run_pdf_renderer='.(getenv('RUN_PDF_RENDERER') ?: '').' pdf_renderer_result='.(getenv('PDF_RENDERER_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'run_pest='.(getenv('RUN_PEST') ?: '').' pest_result='.(getenv('PEST_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'changes_result='.(getenv('CHANGES_RESULT') ?: '')."\n");
 

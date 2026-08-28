@@ -38,6 +38,7 @@ jobs:
       frontend_static: ${{ steps.classify.outputs.frontend_static }}
       frontend_build: ${{ steps.classify.outputs.frontend_build }}
       pest: ${{ steps.classify.outputs.pest }}
+      pdf_renderer: ${{ steps.classify.outputs.pdf_renderer }}
       docs_only: ${{ steps.classify.outputs.docs_only }}
       scope: ${{ steps.classify.outputs.scope }}
     steps:
@@ -353,6 +354,67 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  pdf_renderer:
+    name: PDF Renderer
+    needs: changes
+    if: needs.changes.outputs.pdf_renderer == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      REQUIRE_PDF_RENDERER_TESTS: 'true'
+      PUPPETEER_SKIP_DOWNLOAD: 'false'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer:v2
+          coverage: none
+          ini-values: memory_limit=1G
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-${{ env.PHP_VERSION }}-
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install Node dependencies
+        run: npm ci --prefer-offline
+
+      - name: Prepare Laravel environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Verify Puppeteer is available
+        run: test -d node_modules/puppeteer
+
+      - name: Run production PDF renderer tests
+        run: |
+          php artisan test --compact --ansi \
+            tests/Feature/Documents/PdfOverlayTemplatePdfRendererTest.php \
+            tests/Feature/Organization/EmployeeSalaryCertificatePrintTest.php \
+            tests/Feature/Organization/EmployeeSalaryDeclarationPrintTest.php
+
   pest:
     name: Pest ${{ matrix.shard }}/6
     needs:
@@ -412,6 +474,7 @@ jobs:
       - pint
       - frontend_static
       - frontend_build
+      - pdf_renderer
       - pest
     if: always() && !cancelled()
     timeout-minutes: 5
@@ -424,9 +487,11 @@ jobs:
           FRONTEND_STATIC_RESULT: ${{ needs.frontend_static.result }}
           FRONTEND_BUILD_RESULT: ${{ needs.frontend_build.result }}
           PEST_RESULT: ${{ needs.pest.result }}
+          PDF_RENDERER_RESULT: ${{ needs.pdf_renderer.result }}
           RUN_PINT: ${{ needs.changes.outputs.pint }}
           RUN_FRONTEND_STATIC: ${{ needs.changes.outputs.frontend_static }}
           RUN_FRONTEND_BUILD: ${{ needs.changes.outputs.frontend_build }}
+          RUN_PDF_RENDERER: ${{ needs.changes.outputs.pdf_renderer }}
           RUN_PEST: ${{ needs.changes.outputs.pest }}
           DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
           SCOPE: ${{ needs.changes.outputs.scope }}
@@ -438,6 +503,7 @@ jobs:
           echo "run_pint=${RUN_PINT} pint_result=${PINT_RESULT}"
           echo "run_frontend_static=${RUN_FRONTEND_STATIC} frontend_static_result=${FRONTEND_STATIC_RESULT}"
           echo "run_frontend_build=${RUN_FRONTEND_BUILD} frontend_build_result=${FRONTEND_BUILD_RESULT}"
+          echo "run_pdf_renderer=${RUN_PDF_RENDERER} pdf_renderer_result=${PDF_RENDERER_RESULT}"
           echo "run_pest=${RUN_PEST} pest_result=${PEST_RESULT}"
           echo "changes_result=${CHANGES_RESULT}"
 
@@ -469,6 +535,7 @@ jobs:
           check_job "PHP Style (Pint)" "${RUN_PINT}" "${PINT_RESULT}"
           check_job "Frontend Static" "${RUN_FRONTEND_STATIC}" "${FRONTEND_STATIC_RESULT}"
           check_job "Frontend Build" "${RUN_FRONTEND_BUILD}" "${FRONTEND_BUILD_RESULT}"
+          check_job "PDF Renderer" "${RUN_PDF_RENDERER}" "${PDF_RENDERER_RESULT}"
           check_job "Pest" "${RUN_PEST}" "${PEST_RESULT}"
 
           if [[ "${failed}" == 'true' ]]; then

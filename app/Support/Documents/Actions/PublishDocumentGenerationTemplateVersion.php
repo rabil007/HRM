@@ -6,8 +6,10 @@ use App\Enums\DocumentGenerationTemplateStatus;
 use App\Enums\DocumentGenerationTemplateVersionStatus;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
+use App\Support\Documents\PdfOverlayPlacementValidator;
 use DomainException;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use Spatie\Activitylog\Models\Activity;
 
 final class PublishDocumentGenerationTemplateVersion
@@ -33,6 +35,21 @@ final class PublishDocumentGenerationTemplateVersion
 
             if (! $lockedVersion->isDraft()) {
                 throw new DomainException('Only draft template versions can be published.');
+            }
+
+            if ($template->isPdfOverlay()) {
+                if ($lockedVersion->placement_config === null) {
+                    $lockedVersion->placement_config = PdfOverlayPlacementValidator::emptyConfig();
+                }
+
+                try {
+                    PdfOverlayPlacementValidator::validate(
+                        $lockedVersion->placement_config,
+                        (int) ($lockedVersion->source_pdf_page_count ?? 0),
+                    );
+                } catch (InvalidArgumentException $exception) {
+                    throw new DomainException($exception->getMessage(), 0, $exception);
+                }
             }
 
             // 1. Archive any previously published versions for this template

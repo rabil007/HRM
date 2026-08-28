@@ -15,6 +15,8 @@ Detect changes
     |
     +-- Frontend Build (Wayfinder, npm run build, uploads public/build)
     |
+    +-- PDF Renderer (Node + Puppeteer; production Chromium PDF tests)
+    |
     +-- Pest 1/6 .. Pest 6/6 (decoupled from Vite build via withoutVite())
               |
         Quality gates (near-zero overhead aggregator)
@@ -30,12 +32,12 @@ Docs-only paths include `docs/*`, `.cursor/*`, `.agents/*`, `.gemini/*`, root-le
 
 Classification is fail-safe: empty or unreadable diffs run full CI. Shared or uncertain application files also run full CI.
 
-| Scope | Pint | Frontend static | Frontend build | Pest |
-|-------|------|-----------------|----------------|------|
-| `docs-only` | skip | skip | skip | skip |
-| `backend-only` | run | skip | run | run (6 shards) |
-| `frontend-only` | skip | run | run | skip |
-| `full` | run | run | run | run (6 shards) |
+| Scope | Pint | Frontend static | Frontend build | PDF Renderer | Pest |
+|-------|------|-----------------|----------------|--------------|------|
+| `docs-only` | skip | skip | skip | skip | skip |
+| `backend-only` | run | skip | run | run | run (6 shards) |
+| `frontend-only` | skip | run | run | skip | skip |
+| `full` | run | run | run | run | run (6 shards) |
 
 Examples that force **full** CI (both sides):
 
@@ -65,6 +67,8 @@ Examples that force **full** CI (both sides):
 Frontend Build uploads `public/build` as a workflow artifact named `vite-build-<sha>-<run_id>-<run_attempt>`. Deploy downloads this artifact directly.
 
 Pest sharding is deterministic file round-robin over `tests/Unit/**/*Test.php` and `tests/Feature/**/*Test.php` across 6 shards via `.github/scripts/ci.php`. Pest 4.4 in this repo has no native `--shard` flag; the helper splits the suite so the full set runs exactly once. Tests keep sqlite `:memory:` and `RefreshDatabase` isolation (one runner per shard, not Pest `--parallel`). Helpers used by more than one test file must live in `tests/Support/` (loaded from `tests/Pest.php`) so a shard that does not load the original defining file still has them.
+
+**PDF Renderer** is a dedicated job (not part of the six Pest shards) that installs Node dependencies with Puppeteer, sets `REQUIRE_PDF_RENDERER_TESTS=true`, and runs production Chromium/Browsershot tests that would otherwise skip in Composer-only Pest shards. It executes `tests/Feature/Documents/PdfOverlayTemplatePdfRendererTest.php` plus protected Salary Certificate/Declaration print tests. Skipped renderer tests are treated as failure in this job.
 
 Run the same local set:
 
