@@ -514,6 +514,8 @@ function SignatureRepairProgressBanner({
 export function BulkDocumentsContent({
     document_type_key,
     document_type_options,
+    is_custom_template,
+    custom_template,
     view,
     filters: initialFilters,
     search: initialSearch,
@@ -870,10 +872,24 @@ export function BulkDocumentsContent({
         return selectedEmployees[0] ?? null;
     }, [employees, matchingSelection, selectedEmployees]);
 
-    const selectedTypeLabel =
-        document_type_options.find(
-            (option) => option.value === document_type_key,
-        )?.label ?? document_type_key;
+    const selectedTypeOption = document_type_options.find(
+        (option) => option.value === document_type_key,
+    );
+
+    const selectedTypeLabel = selectedTypeOption?.label ?? document_type_key;
+
+    const isCustomTemplate = Boolean(
+        is_custom_template ||
+        selectedTypeOption?.is_custom ||
+        document_type_key.startsWith('custom_'),
+    );
+
+    const customTemplateId =
+        custom_template?.id ??
+        selectedTypeOption?.template_id ??
+        (document_type_key.startsWith('custom_')
+            ? Number(document_type_key.replace('custom_', ''))
+            : undefined);
 
     const missingCount = counts.not_generated;
     const generateLabel =
@@ -1485,6 +1501,27 @@ export function BulkDocumentsContent({
 
         setIsGenerating(true);
 
+        if (isCustomTemplate && customTemplateId) {
+            router.post(
+                '/organization/documents/custom/generate',
+                {
+                    document_generation_template_id: customTemplateId,
+                    status: 'active',
+                    ...filters,
+                    search: searchInput,
+                    ...(effectiveSelectedCount > 0
+                        ? { employee_ids: effectiveSelectedIds }
+                        : {}),
+                },
+                {
+                    preserveScroll: true,
+                    onFinish: () => setIsGenerating(false),
+                },
+            );
+
+            return;
+        }
+
         router.post(
             '/organization/documents/bulk/generate',
             {
@@ -1645,14 +1682,17 @@ export function BulkDocumentsContent({
                         <AppSelect
                             value={document_type_key}
                             onValueChange={(value) => navigate(value)}
-                            className="h-12 w-full rounded-xl sm:w-56"
+                            className="h-12 w-full rounded-xl sm:w-64"
                         >
                             {document_type_options.map((option) => (
                                 <AppSelectItem
                                     key={option.value}
                                     value={option.value}
+                                    keywords={option.category}
                                 >
-                                    {option.label}
+                                    {option.category === 'Company Templates'
+                                        ? `📄 ${option.label}`
+                                        : option.label}
                                 </AppSelectItem>
                             ))}
                         </AppSelect>
@@ -2188,7 +2228,7 @@ export function BulkDocumentsContent({
                                         Download
                                     </Button>
                                 ) : null}
-                                {can.email ? (
+                                {can.email && !isCustomTemplate ? (
                                     <Button
                                         type="button"
                                         size="sm"

@@ -397,3 +397,55 @@ Custom document templates allow companies to author custom HR documents in two f
 - Placements use normalized percentages (`0.0` to `1.0`) for `x`, `y`, `width`, and `height` relative to page dimensions, guaranteeing crisp rendering across arbitrary display DPIs and print paper sizes.
 - Supported text alignment options: `left`, `center`, `right`. Alignment is stored in the placement configuration and rendered visually in both Fabric.js canvas placement boxes and sample data preview.
 
+---
+
+## Phase 4A: Custom Template Generation, Document Instances & Library Provenance
+
+Phase 4A turns custom templates into real, generated employee PDF documents while establishing permanent provenance and synchronizing with the Documents Library.
+
+### Provenance Chain
+
+```
+DocumentGenerationTemplate (Company entity)
+       ↓
+DocumentGenerationTemplateVersion (Immutable published snapshot)
+       ↓
+Employee (Trusted DB records resolve merge fields)
+       ↓
+DocumentInstance (Identity, snapshots, audit, current_version pointer)
+       ↓
+DocumentInstanceVersion (v1, immutable canonical PDF bytes + SHA-256)
+       ↓
+EmployeeDocument (Documents Library representation)
+```
+
+### Key Architectural Invariants
+
+1. **Canonical Artifact vs. Library Separation**:
+   - Canonical artifacts are stored in `storage/app/private/document-instances/{companyId}/{uuid}.pdf`.
+   - Library copies are created in `storage/app/private/employee-documents/{companyId}/{employeeId}/...`.
+   - **Library Deletion Safety**: Deleting an `EmployeeDocument` via `DocumentDeletionService` purges the Library file copy, but leaves the canonical artifact in `document-instances/` untouched. The `document_instances.employee_document_id` pointer is set to `null`. Historical provenance is never destroyed.
+2. **Template Deletion Protection**:
+   - Once any `DocumentInstance` has been generated from a `DocumentGenerationTemplate`, deleting that template or its versions is strictly blocked with a user-friendly `ValidationException`, directing the user to deactivate the template instead.
+   - Backed at the database level by foreign key `ON DELETE RESTRICT` constraints.
+3. **Repeat Generation Semantics**:
+   - When generating from Generate & Send without explicit employee selection, the system generates only for employees who do not already have an instance for the current published template version.
+   - When employees are explicitly selected, a new `DocumentInstance` is issued. Existing historical instances remain preserved.
+4. **Content Template Rendering**:
+   - Server-side trusted merge fields are resolved via `DocumentTemplateMergeFields::valuesForEmployee()`.
+   - HTML characters are safely escaped (`e()`).
+   - A4 layout with print styles and inlined DejaVu fonts (`BrowsershotEmbeddedFonts::dejaVuStyles()`) guarantees complete multilingual and Arabic Unicode text support.
+5. **Idempotent Queue Ledger**:
+   - Runs are recorded in `document_generation_runs` and individual employee tasks in `document_generation_run_items` (unique on `[document_generation_run_id, employee_id]`).
+   - Executed in chunks of 10 with file compensation rollback if a database failure occurs.
+6. **Generate & Send UI Integration**:
+   - Template selector dropdown groups options into "System Templates" (Salary Declaration, Salary Certificate) and "Company Templates" (with version labels).
+   - Custom template generation routes to `POST /organization/documents/custom/generate`.
+   - Document Show page renders a "Document Provenance" card displaying template name, version, generation timestamp, and generator.
+
+### Template Format Availability in Phase 4A
+
+- **Content Templates**: Fully supported for real production PDF generation with full Unicode/Arabic font embedding, secure HTML escaping, and complete provenance tracking.
+- **PDF Overlay Templates**: Visual placement and template design are active (from Phase 3B). Full production generation combining uploaded background PDFs with overlaid text is deferred to **Phase 4B**. In Phase 4A, PDF Overlay templates are hidden from the Generate & Send template selector, and any direct generation requests are safely rejected with the validation error: `"PDF Overlay production generation is not available yet."`
+
+

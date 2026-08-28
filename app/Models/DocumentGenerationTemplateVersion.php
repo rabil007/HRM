@@ -7,6 +7,7 @@ use DomainException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DocumentGenerationTemplateVersion extends Model
 {
@@ -116,6 +117,11 @@ class DocumentGenerationTemplateVersion extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function instances(): HasMany
+    {
+        return $this->hasMany(DocumentInstance::class, 'document_generation_template_version_id');
     }
 
     public function isDraft(): bool

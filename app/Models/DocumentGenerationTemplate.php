@@ -95,6 +95,11 @@ class DocumentGenerationTemplate extends Model
             ->where('status', DocumentGenerationTemplateVersionStatus::Draft);
     }
 
+    public function instances(): HasMany
+    {
+        return $this->hasMany(DocumentInstance::class, 'document_generation_template_id');
+    }
+
     public function scopeForCompany(Builder $query, int $companyId): Builder
     {
         return $query->where('company_id', $companyId);

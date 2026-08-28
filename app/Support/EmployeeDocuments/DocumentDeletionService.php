@@ -2,6 +2,7 @@
 
 namespace App\Support\EmployeeDocuments;
 
+use App\Models\DocumentInstance;
 use App\Models\EmployeeDocument;
 use App\Support\BulkDocuments\CancelPendingBulkDocumentSignatureRequests;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
@@ -31,6 +32,10 @@ class DocumentDeletionService
             ->all();
 
         $companyId = (int) $document->company_id;
+
+        DocumentInstance::query()
+            ->where('employee_document_id', $document->id)
+            ->update(['employee_document_id' => null]);
 
         $document->delete();
 
