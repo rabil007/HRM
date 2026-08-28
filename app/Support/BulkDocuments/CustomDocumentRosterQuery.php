@@ -102,7 +102,6 @@ final class CustomDocumentRosterQuery
                 'status' => $employee->status,
                 'document' => $doc !== null ? [
                     'id' => $doc->id,
-                    'file_path' => $doc->file_path,
                     'created_at' => $instance?->generated_at?->toIso8601String(),
                 ] : null,
                 'email_sent_at' => null,

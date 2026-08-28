@@ -75,6 +75,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
             || (! $version->isPublished() && ! $version->isArchived())
             || $template->company_id !== $this->companyId
             || $version->company_id !== $this->companyId
+            || (int) $version->document_generation_template_id !== (int) $template->id
             || ! $template->isContent()
         ) {
             $run->update([
@@ -168,7 +169,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                 $libraryFilePath = $storedLibraryDoc->filePath;
 
                 // 4. Transactional database creation: ALL database writes inside one atomic transaction!
-                DB::transaction(function () use (
+                $creationResult = DB::transaction(function () use (
                     $employee,
                     $template,
                     $version,
@@ -177,7 +178,29 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                     $artifact,
                     $storedLibraryDoc,
                     $syncEmployeeDoc,
-                ): void {
+                ): string {
+                    // When non-repeat generation, lock the employee row and re-check existence
+                    // to prevent concurrent cross-run duplicate generation
+                    if (! $this->allowRepeatGeneration) {
+                        Employee::query()
+                            ->where('company_id', $this->companyId)
+                            ->where('id', $employee->id)
+                            ->lockForUpdate()
+                            ->first();
+
+                        $alreadyGenerated = DocumentInstance::query()
+                            ->forCompany($this->companyId)
+                            ->where('employee_id', $employee->id)
+                            ->where('document_generation_template_version_id', $version->id)
+                            ->exists();
+
+                        if ($alreadyGenerated) {
+                            $item->update(['status' => 'skipped']);
+
+                            return 'skipped';
+                        }
+                    }
+
                     // Create EmployeeDocument inside the transaction
                     $employeeDocument = $syncEmployeeDoc->createEmployeeDocumentRecord(
                         $storedLibraryDoc,
@@ -247,7 +270,20 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                             'checksum' => $artifact['checksum'],
                         ])
                         ->log("Generated document '{$instance->title_snapshot}' for {$instance->employee_name_snapshot}");
+
+                    return 'created';
                 });
+
+                if ($creationResult === 'skipped') {
+                    // Stale worker dedupe: clean up this worker's newly rendered files
+                    if ($canonicalPath !== null) {
+                        DocumentInstanceStorage::deletePdf($canonicalPath, $this->companyId);
+                    }
+
+                    if ($libraryFilePath !== null) {
+                        EmployeePrivateFile::deleteStored($libraryFilePath, $this->companyId, EmployeePrivateFileKind::Document);
+                    }
+                }
             } catch (Throwable $e) {
                 // File compensation: clean up newly created files if DB or storage failed
                 if ($canonicalPath !== null) {

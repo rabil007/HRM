@@ -34,6 +34,7 @@ class DocumentDeletionService
         $companyId = (int) $document->company_id;
 
         DocumentInstance::query()
+            ->where('company_id', $companyId)
             ->where('employee_document_id', $document->id)
             ->update(['employee_document_id' => null]);
 

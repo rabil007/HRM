@@ -33,7 +33,7 @@ export type BulkRosterEmployee = {
     status: string;
     document: {
         id: number;
-        file_path: string;
+        file_path?: string;
         created_at: string | null;
     } | null;
     email_sent_at: string | null;

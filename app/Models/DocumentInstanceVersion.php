@@ -49,6 +49,7 @@ class DocumentInstanceVersion extends Model
                 'document_instance_id',
                 'original_filename',
                 'mime_type',
+                'created_by',
             ];
 
             foreach ($protectedAttributes as $attr) {

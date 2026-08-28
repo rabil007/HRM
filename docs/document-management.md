@@ -426,13 +426,15 @@ EmployeeDocument (Documents Library representation)
    - Library copies are created in `storage/app/private/employee-documents/{companyId}/{employeeId}/...`.
    - **Library Deletion Safety**: Deleting an `EmployeeDocument` via `DocumentDeletionService` purges the Library file copy, but leaves the canonical artifact in `document-instances/` untouched. The `document_instances.employee_document_id` pointer is set to `null`. Historical provenance is never destroyed.
 2. **Template & Version Provenance Protection**:
-   - Once any `DocumentInstance` has been generated from a `DocumentGenerationTemplate`, deleting that template or its versions is strictly blocked with a user-friendly `ValidationException`, directing the user to deactivate the template instead.
-   - Backed at the database level by foreign key `ON DELETE RESTRICT` constraints on `document_generation_template_id` and `document_generation_template_version_id`.
+   - Once any `DocumentInstance` or `DocumentGenerationRun` exists for a `DocumentGenerationTemplate`, deleting that template or its versions is strictly blocked with a user-friendly `ValidationException`, directing the user to deactivate the template instead.
+   - Deletion is blocked even if a run failed or completed with zero instances, preventing database-level foreign key constraint violations.
+   - Backed at the database level by foreign key `ON DELETE RESTRICT` constraints on `document_generation_template_id` and `document_generation_template_version_id` from both `document_instances` and `document_generation_runs`.
    - **Instance Version Deletion RESTRICT**: Foreign key from `DocumentInstanceVersion` to `DocumentInstance` is configured as `ON DELETE RESTRICT`, blocking direct database deletion of instances that possess versions.
-3. **DocumentInstance Identity & Provenance Immutability**:
+3. **DocumentInstance & Version Identity Immutability**:
    - `DocumentInstance` immutable attributes (`company_id`, `employee_id`, `employee_name_snapshot`, `employee_no_snapshot`, `document_generation_template_id`, `document_generation_template_version_id`, `document_type_id`, `document_generation_run_id`, `template_name_snapshot`, `template_version_number`, `title_snapshot`, `generated_by`, `generated_at`) cannot be modified after creation.
-   - Only lifecycle pointers (`status`, `current_version_id`, `employee_document_id`) may be updated.
-   - Calling `$instance->delete()` throws a `DomainException` to guarantee official document records cannot be deleted via Eloquent.
+   - `DocumentInstanceVersion` attributes (`file_path`, `checksum`, `size_bytes`, `version`, `stage`, `company_id`, `document_instance_id`, `original_filename`, `mime_type`, `created_by`) are strictly immutable.
+   - Only lifecycle pointers (`status`, `current_version_id`, `employee_document_id`) on `DocumentInstance` may be updated.
+   - Calling `$instance->delete()` or `$version->delete()` throws a `DomainException` to guarantee official document records cannot be deleted via Eloquent.
 4. **Version Snapshotting & Archived Version Generation**:
    - Generation runs are permanently bound to the template version snapshotted at Run creation.
    - If a new version (v2) is published while a queued Run for v1 is in progress, v1 transitions to `Archived`. The queued worker executes successfully because `Archived` versions represent immutable historical snapshots safe to reproduce. Draft versions are never accepted by the worker.
@@ -443,9 +445,9 @@ EmployeeDocument (Documents Library representation)
 6. **Tenant-Scoped Explicit Employee Validation**:
    - Explicit `employee_ids` submitted to `GenerateCustomDocumentsRequest` are validated against `current_company_id` using `Rule::exists('employees', 'id')->where('company_id', $companyId)`. Cross-company employee submissions are rejected with validation errors before any Run or queue dispatch occurs.
    - Filter-based bulk generation relies strictly on server-side `current_company_id`.
-7. **Repeat Generation Semantics**:
-   - Bulk generation without explicit selection skips employees who already have an instance for the current published template version.
-   - Explicit employee selection generates a new `DocumentInstance` (force new copy) while preserving all prior historical instances.
+7. **Repeat Generation & Cross-Run Deduplication**:
+   - Non-repeat generation (`allowRepeatGeneration = false`) is strictly deduplicated across concurrent runs. Workers lock the targeted Employee row `FOR UPDATE` inside the final database transaction and perform an authoritative existence re-check against the exact template version. If an instance was already created by another run, the run item is marked `skipped` and any newly rendered canonical or library PDF files are immediately purged.
+   - Explicit employee selection (`allowRepeatGeneration = true`) bypasses this deduplication, intentionally generating a new `DocumentInstance` (force new copy) while preserving all prior historical instances.
 8. **Content Template Rendering & Multilingual Bidi Safety**:
    - Server-side trusted merge fields are resolved via `DocumentTemplateMergeFields::valuesForEmployee()`.
    - HTML characters are safely escaped (`e()`).

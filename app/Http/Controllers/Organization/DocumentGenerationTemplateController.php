@@ -227,9 +227,9 @@ class DocumentGenerationTemplateController extends Controller
         abort_if($companyId <= 0, 403);
         abort_unless((int) $template->company_id === $companyId, 404);
 
-        if ($template->instances()->exists()) {
+        if ($template->instances()->exists() || $template->generationRuns()->exists()) {
             throw ValidationException::withMessages([
-                'template' => 'This template cannot be deleted because official document instances have already been generated from it. Deactivate the template instead.',
+                'template' => 'This template cannot be deleted because document generation history exists. Deactivate the template instead.',
             ]);
         }
 

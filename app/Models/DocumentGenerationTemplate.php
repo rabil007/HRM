@@ -100,6 +100,11 @@ class DocumentGenerationTemplate extends Model
         return $this->hasMany(DocumentInstance::class, 'document_generation_template_id');
     }
 
+    public function generationRuns(): HasMany
+    {
+        return $this->hasMany(DocumentGenerationRun::class, 'document_generation_template_id');
+    }
+
     public function scopeForCompany(Builder $query, int $companyId): Builder
     {
         return $query->where('company_id', $companyId);

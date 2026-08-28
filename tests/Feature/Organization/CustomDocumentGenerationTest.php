@@ -1315,3 +1315,416 @@ test('queue dispatch failure marks generation run as failed safely without crash
         ->and($run->status)->toBe('failed')
         ->and($run->finished_at)->not->toBeNull();
 });
+
+test('concurrent non-repeat generation runs for same employee deduplicate inside transaction and clean up files', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'template_format' => DocumentGenerationTemplateFormat::Content,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    // Create Run A and Run B targeting the same employee and version
+    $runA = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'queued',
+        'total_targeted' => 1,
+        'correlation_id' => (string) Str::uuid(),
+        'triggered_by' => $user->id,
+    ]);
+    $itemA = DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $runA->id,
+        'employee_id' => $employee->id,
+        'status' => 'pending',
+    ]);
+
+    $runB = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'queued',
+        'total_targeted' => 1,
+        'correlation_id' => (string) Str::uuid(),
+        'triggered_by' => $user->id,
+    ]);
+    $itemB = DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $runB->id,
+        'employee_id' => $employee->id,
+        'status' => 'pending',
+    ]);
+
+    $mockRenderer = Mockery::mock(ContentTemplatePdfRenderer::class);
+    $mockRenderer->shouldReceive('render')->andReturn('%PDF-1.4 Fake PDF Content');
+    app()->instance(ContentTemplatePdfRenderer::class, $mockRenderer);
+
+    // 1. Process Run A fully
+    $jobA = new GenerateCustomDocumentsJob(
+        companyId: $company->id,
+        userId: $user->id,
+        runId: $runA->id,
+        allowRepeatGeneration: false,
+    );
+    $jobA->handle(app(ContentTemplatePdfRenderer::class), app(SyncGeneratedEmployeeDocument::class));
+
+    expect(DocumentInstance::query()->count())->toBe(1)
+        ->and(DocumentInstanceVersion::query()->count())->toBe(1)
+        ->and(EmployeeDocument::query()->count())->toBe(1);
+
+    $initialInstance = DocumentInstance::query()->first();
+    $initialCanonical = DocumentInstanceVersion::query()->first()->file_path;
+    $initialLibraryDoc = EmployeeDocument::query()->first()->file_path;
+    Storage::disk('local')->assertExists($initialCanonical);
+    Storage::disk('local')->assertExists($initialLibraryDoc);
+
+    // 2. Process Run B
+    $jobB = new GenerateCustomDocumentsJob(
+        companyId: $company->id,
+        userId: $user->id,
+        runId: $runB->id,
+        allowRepeatGeneration: false,
+    );
+    $jobB->handle(app(ContentTemplatePdfRenderer::class), app(SyncGeneratedEmployeeDocument::class));
+
+    // Assert: still exactly 1 instance, 1 version, 1 employee document
+    expect(DocumentInstance::query()->count())->toBe(1)
+        ->and(DocumentInstanceVersion::query()->count())->toBe(1)
+        ->and(EmployeeDocument::query()->count())->toBe(1)
+        ->and($itemA->fresh()->status)->toBe('completed')
+        ->and($itemB->fresh()->status)->toBe('skipped');
+
+    // Run A counters
+    expect($runA->fresh()->generated_count)->toBe(1)
+        ->and($runA->fresh()->skipped_count)->toBe(0)
+        ->and($runA->fresh()->status)->toBe('completed');
+
+    // Run B counters
+    expect($runB->fresh()->generated_count)->toBe(0)
+        ->and($runB->fresh()->skipped_count)->toBe(1)
+        ->and($runB->fresh()->status)->toBe('completed');
+
+    // Original files still exist
+    Storage::disk('local')->assertExists($initialCanonical);
+    Storage::disk('local')->assertExists($initialLibraryDoc);
+
+    // No extra files were left behind in storage
+    $allInstanceFiles = Storage::disk('local')->allFiles("document-instances/{$company->id}");
+    $allEmployeeFiles = Storage::disk('local')->allFiles("employee-documents/{$company->id}");
+    expect($allInstanceFiles)->toHaveCount(1)
+        ->and($allEmployeeFiles)->toHaveCount(1);
+});
+
+test('explicit repeat generation allows creating an intentional second instance across runs', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'template_format' => DocumentGenerationTemplateFormat::Content,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    $mockRenderer = Mockery::mock(ContentTemplatePdfRenderer::class);
+    $mockRenderer->shouldReceive('render')->andReturn('%PDF-1.4 Fake PDF Content');
+    app()->instance(ContentTemplatePdfRenderer::class, $mockRenderer);
+
+    // Run 1: initial run
+    $run1 = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'queued',
+        'total_targeted' => 1,
+        'correlation_id' => (string) Str::uuid(),
+        'triggered_by' => $user->id,
+    ]);
+    DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run1->id,
+        'employee_id' => $employee->id,
+        'status' => 'pending',
+    ]);
+    $job1 = new GenerateCustomDocumentsJob(
+        companyId: $company->id,
+        userId: $user->id,
+        runId: $run1->id,
+        allowRepeatGeneration: false,
+    );
+    $job1->handle(app(ContentTemplatePdfRenderer::class), app(SyncGeneratedEmployeeDocument::class));
+    expect(DocumentInstance::query()->count())->toBe(1);
+
+    // Run 2: explicit repeat generation
+    $run2 = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'queued',
+        'total_targeted' => 1,
+        'correlation_id' => (string) Str::uuid(),
+        'triggered_by' => $user->id,
+    ]);
+    $item2 = DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run2->id,
+        'employee_id' => $employee->id,
+        'status' => 'pending',
+    ]);
+    $job2 = new GenerateCustomDocumentsJob(
+        companyId: $company->id,
+        userId: $user->id,
+        runId: $run2->id,
+        allowRepeatGeneration: true,
+    );
+    $job2->handle(app(ContentTemplatePdfRenderer::class), app(SyncGeneratedEmployeeDocument::class));
+
+    expect(DocumentInstance::query()->count())->toBe(2)
+        ->and($item2->fresh()->status)->toBe('completed')
+        ->and($run2->fresh()->generated_count)->toBe(1);
+});
+
+test('template with generation run history but no instances cannot be deleted and returns validation error', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    grantCompanyPermissions($user, $company, ['documents.templates.delete']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    // Create a failed or queued Run with NO DocumentInstances
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'failed',
+        'total_targeted' => 1,
+        'failed_count' => 1,
+        'correlation_id' => (string) Str::uuid(),
+        'triggered_by' => $user->id,
+    ]);
+
+    expect($template->instances()->count())->toBe(0)
+        ->and($template->generationRuns()->count())->toBe(1);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->delete(route('organization.documents.templates.destroy', $template));
+
+    $response->assertSessionHasErrors([
+        'template' => 'This template cannot be deleted because document generation history exists. Deactivate the template instead.',
+    ]);
+    $this->assertDatabaseHas('document_generation_templates', ['id' => $template->id]);
+    $this->assertDatabaseHas('document_generation_runs', ['id' => $run->id]);
+});
+
+test('job fails safely when template and version do not match in same company', function () {
+    $company = createCustomGenTestCompany();
+    $user = User::factory()->create();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $templateA = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'template_format' => DocumentGenerationTemplateFormat::Content,
+    ]);
+    $templateB = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'template_format' => DocumentGenerationTemplateFormat::Content,
+    ]);
+    $versionB = DocumentGenerationTemplateVersion::factory()->forTemplate($templateB)->published()->create();
+
+    // Mismatched run: template A with version from template B
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $templateA->id,
+        'document_generation_template_version_id' => $versionB->id,
+        'status' => 'queued',
+        'total_targeted' => 1,
+        'correlation_id' => (string) Str::uuid(),
+        'triggered_by' => $user->id,
+    ]);
+    DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $employee->id,
+        'status' => 'pending',
+    ]);
+
+    $mockRenderer = Mockery::mock(ContentTemplatePdfRenderer::class);
+    $mockRenderer->shouldNotReceive('render');
+    app()->instance(ContentTemplatePdfRenderer::class, $mockRenderer);
+
+    $job = new GenerateCustomDocumentsJob(
+        companyId: $company->id,
+        userId: $user->id,
+        runId: $run->id,
+    );
+    $job->handle(app(ContentTemplatePdfRenderer::class), app(SyncGeneratedEmployeeDocument::class));
+
+    expect($run->fresh()->status)->toBe('failed')
+        ->and($run->fresh()->finished_at)->not->toBeNull()
+        ->and(DocumentInstance::query()->count())->toBe(0);
+});
+
+test('document instance version created_by attribute cannot be mutated', function () {
+    $company = createCustomGenTestCompany();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create(['status' => DocumentGenerationTemplateStatus::Active]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $user1 = User::factory()->create();
+    $user2 = User::factory()->create();
+
+    $instance = DocumentInstance::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_name_snapshot' => 'Test Employee',
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'template_name_snapshot' => 'Template',
+        'template_version_number' => 1,
+        'title_snapshot' => 'Title',
+        'status' => 'generated',
+        'generated_at' => now(),
+    ]);
+
+    $instanceVersion = DocumentInstanceVersion::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'version' => 1,
+        'stage' => 'generated',
+        'file_path' => 'document-instances/test.pdf',
+        'original_filename' => 'test.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 1024,
+        'checksum' => 'checksum',
+        'created_by' => $user1->id,
+    ]);
+
+    expect(fn () => $instanceVersion->update(['created_by' => $user2->id]))
+        ->toThrow(DomainException::class, "Cannot modify immutable attribute 'created_by' on document instance version.");
+});
+
+test('document deletion service unlinks document instance only within same company', function () {
+    Storage::fake('local');
+    $companyA = createCustomGenTestCompany();
+    $companyB = createCustomGenTestCompany();
+
+    $employeeA = Employee::factory()->forCompany($companyA)->create(['status' => 'active']);
+    $docA = EmployeeDocument::query()->create([
+        'company_id' => $companyA->id,
+        'employee_id' => $employeeA->id,
+        'type' => 'other',
+        'document_type' => 'other',
+        'title' => 'Doc A',
+        'file_path' => 'employee-documents/docA.pdf',
+        'original_filename' => 'docA.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 100,
+        'checksum' => 'checksumA',
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+    Storage::disk('local')->put('employee-documents/docA.pdf', 'content');
+
+    $templateA = DocumentGenerationTemplate::factory()->forCompany($companyA)->create(['status' => DocumentGenerationTemplateStatus::Active]);
+    $versionA = DocumentGenerationTemplateVersion::factory()->forTemplate($templateA)->published()->create();
+
+    $instanceA = DocumentInstance::query()->create([
+        'company_id' => $companyA->id,
+        'employee_id' => $employeeA->id,
+        'employee_name_snapshot' => 'Employee A',
+        'document_generation_template_id' => $templateA->id,
+        'document_generation_template_version_id' => $versionA->id,
+        'employee_document_id' => $docA->id,
+        'template_name_snapshot' => 'Template A',
+        'template_version_number' => 1,
+        'title_snapshot' => 'Title A',
+        'status' => 'generated',
+        'generated_at' => now(),
+    ]);
+
+    // Same document ID mock or instance in company B
+    $instanceB = DocumentInstance::query()->create([
+        'company_id' => $companyB->id,
+        'employee_name_snapshot' => 'Employee B',
+        'document_generation_template_id' => $templateA->id,
+        'document_generation_template_version_id' => $versionA->id,
+        'employee_document_id' => $docA->id, // points to docA id
+        'template_name_snapshot' => 'Template B',
+        'template_version_number' => 1,
+        'title_snapshot' => 'Title B',
+        'status' => 'generated',
+        'generated_at' => now(),
+    ]);
+
+    $service = app(DocumentDeletionService::class);
+    $service->delete($docA);
+
+    expect($instanceA->fresh()->employee_document_id)->toBeNull()
+        ->and($instanceB->fresh()->employee_document_id)->toBe($docA->id);
+});
+
+test('custom document roster pagination does not expose private file_path in document prop', function () {
+    $company = createCustomGenTestCompany();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'template_format' => DocumentGenerationTemplateFormat::Content,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    $doc = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'type' => 'other',
+        'document_type' => 'other',
+        'title' => 'Secret Doc',
+        'file_path' => 'private/secret-path/test.pdf',
+        'original_filename' => 'test.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 100,
+        'checksum' => 'checksum',
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    DocumentInstance::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_name_snapshot' => (string) $employee->name,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'employee_document_id' => $doc->id,
+        'template_name_snapshot' => $template->name,
+        'template_version_number' => 1,
+        'title_snapshot' => $template->name,
+        'status' => 'generated',
+        'generated_at' => now(),
+    ]);
+
+    $paginator = CustomDocumentRosterQuery::paginate(
+        companyId: $company->id,
+        template: $template,
+        version: $version,
+        filters: new EmployeeDirectoryFilters,
+        perPage: 15,
+    );
+
+    $items = $paginator->items();
+    expect($items)->toHaveCount(1);
+    $row = $items[0];
+    expect($row['document'])->not->toBeNull()
+        ->and($row['document']['id'])->toBe($doc->id)
+        ->and(array_key_exists('file_path', $row['document']))->toBeFalse();
+});
