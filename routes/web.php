@@ -51,6 +51,7 @@ use App\Http\Controllers\Organization\BulkDocuments\DownloadSignedBulkDocumentCo
 use App\Http\Controllers\Organization\BulkDocuments\EmailBulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\ExportBulkDocumentSignatureEmployeesController;
 use App\Http\Controllers\Organization\BulkDocuments\GenerateBulkDocumentsController;
+use App\Http\Controllers\Organization\BulkDocuments\GenerateCustomDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\RegenerateAlignedBulkDocumentSignaturesController;
 use App\Http\Controllers\Organization\BulkDocuments\RejectBulkDocumentSignatureController;
 use App\Http\Controllers\Organization\BulkDocuments\UploadBulkDocumentSignatureController;
@@ -710,6 +711,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/documents/bulk/generate', [GenerateBulkDocumentsController::class, 'store'])
         ->middleware('can:bulk_documents.generate')
         ->name('organization.documents.bulk.generate');
+    Route::post('organization/documents/custom/generate', GenerateCustomDocumentsController::class)
+        ->middleware('can:bulk_documents.generate')
+        ->name('organization.documents.custom.generate');
     Route::delete('organization/documents/bulk/documents', [DeleteBulkDocumentsController::class, 'destroy'])
         ->middleware('can:bulk_documents.delete')
         ->name('organization.documents.bulk.documents.destroy');

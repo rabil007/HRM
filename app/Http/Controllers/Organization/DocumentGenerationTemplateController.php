@@ -22,6 +22,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 class DocumentGenerationTemplateController extends Controller
@@ -225,6 +226,12 @@ class DocumentGenerationTemplateController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_if($companyId <= 0, 403);
         abort_unless((int) $template->company_id === $companyId, 404);
+
+        if ($template->instances()->exists() || $template->generationRuns()->exists()) {
+            throw ValidationException::withMessages([
+                'template' => 'This template cannot be deleted because document generation history exists. Deactivate the template instead.',
+            ]);
+        }
 
         // 1. Collect company-safe private PDF paths before DB deletion
         $pdfPaths = [];

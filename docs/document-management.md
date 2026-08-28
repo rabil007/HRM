@@ -397,3 +397,72 @@ Custom document templates allow companies to author custom HR documents in two f
 - Placements use normalized percentages (`0.0` to `1.0`) for `x`, `y`, `width`, and `height` relative to page dimensions, guaranteeing crisp rendering across arbitrary display DPIs and print paper sizes.
 - Supported text alignment options: `left`, `center`, `right`. Alignment is stored in the placement configuration and rendered visually in both Fabric.js canvas placement boxes and sample data preview.
 
+---
+
+## Phase 4A: Custom Template Generation, Document Instances & Library Provenance
+
+Phase 4A turns custom templates into real, generated employee PDF documents while establishing permanent provenance and synchronizing with the Documents Library.
+
+### Provenance Chain
+
+```
+DocumentGenerationTemplate (Company entity)
+       ↓
+DocumentGenerationTemplateVersion (Immutable published snapshot)
+       ↓
+Employee (Trusted DB records resolve merge fields)
+       ↓
+DocumentInstance (Identity, snapshots, audit, current_version pointer)
+       ↓
+DocumentInstanceVersion (v1, immutable canonical PDF bytes + SHA-256)
+       ↓
+EmployeeDocument (Documents Library representation)
+```
+
+### Key Architectural Invariants
+
+1. **Canonical Artifact vs. Library Separation**:
+   - Canonical artifacts are stored in `storage/app/private/document-instances/{companyId}/{uuid}.pdf`.
+   - Library copies are created in `storage/app/private/employee-documents/{companyId}/{employeeId}/...`.
+   - **Library Deletion Safety**: Deleting an `EmployeeDocument` via `DocumentDeletionService` purges the Library file copy, but leaves the canonical artifact in `document-instances/` untouched. The `document_instances.employee_document_id` pointer is set to `null`. Historical provenance is never destroyed.
+2. **Template & Version Provenance Protection**:
+   - Once any `DocumentInstance` or `DocumentGenerationRun` exists for a `DocumentGenerationTemplate`, deleting that template or its versions is strictly blocked with a user-friendly `ValidationException`, directing the user to deactivate the template instead.
+   - Deletion is blocked even if a run failed or completed with zero instances, preventing database-level foreign key constraint violations.
+   - Backed at the database level by foreign key `ON DELETE RESTRICT` constraints on `document_generation_template_id` and `document_generation_template_version_id` from both `document_instances` and `document_generation_runs`.
+   - **Instance Version Deletion RESTRICT**: Foreign key from `DocumentInstanceVersion` to `DocumentInstance` is configured as `ON DELETE RESTRICT`, blocking direct database deletion of instances that possess versions.
+3. **DocumentInstance & Version Identity Immutability**:
+   - `DocumentInstance` immutable attributes (`company_id`, `employee_id`, `employee_name_snapshot`, `employee_no_snapshot`, `document_generation_template_id`, `document_generation_template_version_id`, `document_type_id`, `document_generation_run_id`, `template_name_snapshot`, `template_version_number`, `title_snapshot`, `generated_by`, `generated_at`) cannot be modified after creation.
+   - `DocumentInstanceVersion` attributes (`file_path`, `checksum`, `size_bytes`, `version`, `stage`, `company_id`, `document_instance_id`, `original_filename`, `mime_type`, `created_by`) are strictly immutable.
+   - Only lifecycle pointers (`status`, `current_version_id`, `employee_document_id`) on `DocumentInstance` may be updated.
+   - Calling `$instance->delete()` or `$version->delete()` throws a `DomainException` to guarantee official document records cannot be deleted via Eloquent.
+4. **Version Snapshotting & Archived Version Generation**:
+   - Generation runs are permanently bound to the template version snapshotted at Run creation.
+   - If a new version (v2) is published while a queued Run for v1 is in progress, v1 transitions to `Archived`. The queued worker executes successfully because `Archived` versions represent immutable historical snapshots safe to reproduce. Draft versions are never accepted by the worker.
+5. **Atomic Generation Unit & Full File/DB Compensation**:
+   - Storage of canonical and library PDF files occurs prior to database persistence, with paths recorded in memory.
+   - Creation of `EmployeeDocument`, `DocumentInstance`, `DocumentInstanceVersion`, `RunItem` completion, and activity audit execute in a single database transaction.
+   - If any database step fails, the transaction rolls back completely and both the canonical and library files are purged from storage, leaving no orphaned files, no partial database rows, and no false audit logs.
+6. **Tenant-Scoped Explicit Employee Validation**:
+   - Explicit `employee_ids` submitted to `GenerateCustomDocumentsRequest` are validated against `current_company_id` using `Rule::exists('employees', 'id')->where('company_id', $companyId)`. Cross-company employee submissions are rejected with validation errors before any Run or queue dispatch occurs.
+   - Filter-based bulk generation relies strictly on server-side `current_company_id`.
+7. **Repeat Generation & Cross-Run Deduplication**:
+   - Non-repeat generation (`allowRepeatGeneration = false`) is strictly deduplicated across concurrent runs. Workers lock the targeted Employee row `FOR UPDATE` inside the final database transaction and perform an authoritative existence re-check against the exact template version. If an instance was already created by another run, the run item is marked `skipped` and any newly rendered canonical or library PDF files are immediately purged.
+   - Explicit employee selection (`allowRepeatGeneration = true`) bypasses this deduplication, intentionally generating a new `DocumentInstance` (force new copy) while preserving all prior historical instances.
+8. **Content Template Rendering & Multilingual Bidi Safety**:
+   - Server-side trusted merge fields are resolved via `DocumentTemplateMergeFields::valuesForEmployee()`.
+   - HTML characters are safely escaped (`e()`).
+   - Container has `dir="auto"` and `unicode-bidi: plaintext` with embedded DejaVu fonts (`BrowsershotEmbeddedFonts::dejaVuStyles()`), ensuring correct RTL alignment for Arabic paragraphs (`محمد رابيل`), LTR for English, clean inline mixed text, and multi-page flow.
+9. **Idempotent Queue Ledger**:
+   - Runs are recorded in `document_generation_runs` and individual employee tasks in `document_generation_run_items` (unique on `[document_generation_run_id, employee_id]`).
+   - Workers claim items atomically (`pending` -> `processing`).
+   - Run totals (`generated_count`, `skipped_count`, `failed_count`) are derived directly from database aggregate counts on `DocumentGenerationRunItem`.
+10. **Wayfinder-Driven Generate & Send UI**:
+    - Frontend dispatches generation via Wayfinder route action `GenerateCustomDocumentsController.url()`.
+    - Document Show page renders a "Document Provenance" card displaying template name, version, generation timestamp, and generator.
+
+### Template Format Availability in Phase 4A
+
+- **Content Templates**: Fully supported for real production PDF generation with full Unicode/Arabic font embedding, secure HTML escaping, and complete provenance tracking.
+- **PDF Overlay Templates**: Visual placement and template design are active (from Phase 3B). Full production generation combining uploaded background PDFs with overlaid text is deferred to **Phase 4B**. In Phase 4A, PDF Overlay templates are hidden from the Generate & Send template selector, and any direct generation requests are safely rejected with the validation error: `"PDF Overlay production generation is not available yet."`
+
+

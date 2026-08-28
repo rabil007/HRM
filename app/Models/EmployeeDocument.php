@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -73,6 +74,11 @@ class EmployeeDocument extends Model
     public function versions(): HasMany
     {
         return $this->hasMany(EmployeeDocumentVersion::class)->latest('version');
+    }
+
+    public function documentInstance(): HasOne
+    {
+        return $this->hasOne(DocumentInstance::class, 'employee_document_id');
     }
 
     public function expiryAlerts(): HasMany
@@ -149,6 +155,8 @@ class EmployeeDocument extends Model
      */
     public function toShowArray(): array
     {
+        $instance = $this->relationLoaded('documentInstance') ? $this->documentInstance : null;
+
         return [
             ...$this->toProfileArray(),
             'versions' => $this->versions->map(fn (EmployeeDocumentVersion $version) => [
@@ -161,6 +169,15 @@ class EmployeeDocument extends Model
                 'replaced_by' => $version->relationLoaded('replacer') ? $version->replacer?->name : null,
                 'created_at' => $version->created_at?->toDateTimeString(),
             ])->values()->all(),
+            'provenance' => $instance !== null ? [
+                'source' => 'Generated from company template',
+                'template_name' => $instance->template_name_snapshot,
+                'template_version' => 'v'.$instance->template_version_number,
+                'generated_at' => $instance->generated_at?->format('d M Y H:i'),
+                'generated_by' => $instance->relationLoaded('generatedBy')
+                    ? $instance->generatedBy?->name
+                    : ($instance->generated_by ? User::query()->whereKey($instance->generated_by)->value('name') : null),
+            ] : null,
         ];
     }
 

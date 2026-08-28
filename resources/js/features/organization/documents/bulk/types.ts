@@ -4,6 +4,10 @@ import type { PaginationMeta } from '@/types/pagination';
 export type BulkDocumentTypeOption = {
     value: string;
     label: string;
+    category?: string;
+    is_custom?: boolean;
+    template_id?: number;
+    template_format?: string;
 };
 
 export type BulkDocumentFilters = {
@@ -29,7 +33,7 @@ export type BulkRosterEmployee = {
     status: string;
     document: {
         id: number;
-        file_path: string;
+        file_path?: string;
         created_at: string | null;
     } | null;
     email_sent_at: string | null;
@@ -192,6 +196,13 @@ export type LatestSignatureRepairRun = {
 export type BulkDocumentsPageProps = {
     document_type_key: string;
     document_type_options: BulkDocumentTypeOption[];
+    is_custom_template?: boolean;
+    custom_template?: {
+        id: number;
+        name: string;
+        version: number;
+        template_format: string;
+    } | null;
     view: 'roster' | 'signatures' | 'history';
     filters: {
         department_id: string;

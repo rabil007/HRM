@@ -173,6 +173,13 @@ export type DocumentVersionItem = {
 
 export type DocumentShowItem = DocumentProfileItem & {
     versions: DocumentVersionItem[];
+    provenance?: {
+        source: string;
+        template_name: string;
+        template_version: string;
+        generated_at: string | null;
+        generated_by: string | null;
+    } | null;
 };
 
 export type DocumentShowListBackContext = {

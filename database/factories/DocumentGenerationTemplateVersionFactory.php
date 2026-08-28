@@ -46,6 +46,14 @@ class DocumentGenerationTemplateVersionFactory extends Factory
         ]);
     }
 
+    public function draft(): static
+    {
+        return $this->state(fn () => [
+            'status' => DocumentGenerationTemplateVersionStatus::Draft,
+            'published_at' => null,
+        ]);
+    }
+
     public function forTemplate(DocumentGenerationTemplate $template): static
     {
         return $this->state(fn () => [
