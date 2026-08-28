@@ -834,8 +834,9 @@ test('renderer treats html in employee values as text', function () {
         ->and($pdfBytes)->not->toContain('<script>alert');
 });
 
-test('renderer registers overlay temp path before browsershot save', function () {
+test('renderer registers overlay temp path before browsershot save and cleans up in finally', function () {
     $source = file_get_contents(app_path('Services/Documents/PdfOverlayTemplatePdfRenderer.php'));
 
-    expect($source)->toMatch('/\$overlayTempPaths\[\$pageNum\] = \$pdfOverlayPath;\s+\$shot = ConfiguresBrowsershotPdf::apply/s');
+    expect($source)->toMatch('/\$overlayTempPaths\[\$pageNum\] = \$pdfOverlayPath;\s+\$shot = ConfiguresBrowsershotPdf::apply/s')
+        ->and($source)->toContain('foreach ($overlayTempPaths as $tempPath)');
 });
