@@ -833,3 +833,9 @@ test('renderer treats html in employee values as text', function () {
     expect($pdfBytes)->toStartWith('%PDF-')
         ->and($pdfBytes)->not->toContain('<script>alert');
 });
+
+test('renderer registers overlay temp path before browsershot save', function () {
+    $source = file_get_contents(app_path('Services/Documents/PdfOverlayTemplatePdfRenderer.php'));
+
+    expect($source)->toMatch('/\$overlayTempPaths\[\$pageNum\] = \$pdfOverlayPath;\s+\$shot = ConfiguresBrowsershotPdf::apply/s');
+});

@@ -97,7 +97,6 @@ final class ReplaceDocumentGenerationTemplatePdf
                 DocumentTemplateStorage::deletePdf($oldPath, $companyId);
             } catch (Throwable $cleanupError) {
                 Log::error('Failed to clean up old template PDF after replacement', [
-                    'old_path' => $oldPath,
                     'company_id' => $companyId,
                     'error' => $cleanupError->getMessage(),
                 ]);

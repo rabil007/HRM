@@ -128,7 +128,7 @@ CI caches:
 - Prettier content cache (`.cache/.prettiercache`)
 - TypeScript incremental build cache (`.cache/tsbuildinfo`)
 
-It does not cache `vendor/` or `node_modules/` as restore artifacts. `PUPPETEER_SKIP_DOWNLOAD=true` is set across CI jobs to skip downloading unnecessary browser binaries during `npm ci`.
+It does not cache `vendor/` or `node_modules/` as restore artifacts. The workflow sets `PUPPETEER_SKIP_DOWNLOAD=true` on the default CI jobs so routine `npm ci` runs do not download browser binaries. The dedicated **PDF Renderer** job overrides that and runs `php artisan browsershot:install` so Chromium overlay tests execute against a real headless shell.
 
 ## Permissions
 

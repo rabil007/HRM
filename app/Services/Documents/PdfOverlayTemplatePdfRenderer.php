@@ -139,6 +139,8 @@ class PdfOverlayTemplatePdfRenderer
                 $pdfOverlayPath = $overlayPath.'.pdf';
                 @unlink($overlayPath);
 
+                $overlayTempPaths[$pageNum] = $pdfOverlayPath;
+
                 $shot = ConfiguresBrowsershotPdf::apply(
                     Browsershot::html($html)
                         ->paperSize($pageSizes[$pageNum]['width'], $pageSizes[$pageNum]['height'], 'mm')
@@ -148,7 +150,6 @@ class PdfOverlayTemplatePdfRenderer
                 );
 
                 $shot->save($pdfOverlayPath);
-                $overlayTempPaths[$pageNum] = $pdfOverlayPath;
             }
 
             return $this->composeFinalPdf(
