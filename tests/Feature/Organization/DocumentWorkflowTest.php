@@ -686,6 +686,81 @@ test('legacy home-company users without pivot appear in workflow assignee option
         ]);
 });
 
+test('assignee options exclude users without review or approve capability', function () {
+    ['company' => $company] = makeGeneratedDocumentWorkflowFixtures();
+
+    $capable = User::factory()->create();
+    $incapable = User::factory()->create();
+    giveCompanyPermission($capable, $company, 'documents.requests.review');
+    addCompanyMembership($incapable, $company);
+
+    $options = app(DocumentWorkflowEligibility::class)->assigneeOptions($company->id);
+
+    expect(collect($options)->pluck('id'))->toContain($capable->id)
+        ->not->toContain($incapable->id);
+});
+
+test('document show omits assignee options when workflow cannot be created', function () {
+    ['company' => $company, 'employee' => $employee, 'document' => $document, 'instance' => $instance, 'version' => $version] = makeGeneratedDocumentWorkflowFixtures();
+
+    $user = User::factory()->create();
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.requests.create']);
+
+    DocumentWorkflowRequest::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'document_instance_version_id' => $version->id,
+        'status' => DocumentWorkflowRequestStatus::Pending,
+        'requested_by' => $user->id,
+        'requester_name_snapshot' => $user->name,
+        'requested_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents.employee.files.show', [
+            'employee' => $employee->id,
+            'document' => $document->id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('workflow.can_create', false)
+            ->where('workflow.assignee_options', []));
+});
+
+test('document show loads assignee options only for eligible generated documents', function () {
+    ['company' => $company, 'employee' => $employee, 'document' => $document] = makeGeneratedDocumentWorkflowFixtures();
+
+    $viewer = User::factory()->create();
+    $reviewer = User::factory()->create();
+    $approver = User::factory()->create();
+    $incapable = User::factory()->create();
+
+    grantCompanyPermissions($viewer, $company, ['documents.view', 'documents.requests.create']);
+    giveCompanyPermission($reviewer, $company, 'documents.requests.review');
+    giveCompanyPermission($approver, $company, 'documents.requests.approve');
+    addCompanyMembership($incapable, $company);
+
+    $response = $this->actingAs($viewer)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents.employee.files.show', [
+            'employee' => $employee->id,
+            'document' => $document->id,
+        ]));
+
+    $response->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('workflow.can_create', true)
+            ->has('workflow.assignee_options', 2));
+
+    $assigneeIds = collect($response->original->getData()['page']['props']['workflow']['assignee_options'])
+        ->pluck('id')
+        ->all();
+
+    expect($assigneeIds)->toContain($reviewer->id, $approver->id)
+        ->not->toContain($incapable->id);
+});
+
 test('document show exposes a valid workflow summary show url', function () {
     ['company' => $company, 'employee' => $employee, 'document' => $document] = makeGeneratedDocumentWorkflowFixtures();
 

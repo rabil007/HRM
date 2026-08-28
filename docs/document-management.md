@@ -23,7 +23,7 @@ Opening a document from Library uses `from=library` so **Back to Library** resto
 
 Old filtered Overview bookmarks such as `/organization/documents?search=`, `?expiry=`, `?requirement_status=`, `?department_id=`, and `?page=` redirect to the equivalent Library URL with those supported keys preserved. Unknown parameters are not redirected and are not copied. Plain `/organization/documents` stays Overview.
 
-Generate, Requests, and Activity share `BulkDocumentsController`. Explicit module routes set a `module_view` route default (`roster` / `signatures` / `history`). That value is resolved before the legacy `view` query string. Those flows remain unchanged in this phase. Templates bridge now supports company-owned content and visual PDF overlay templates with controlled merge fields and Fabric.js visual placement; system templates bridge remains available. Protected Salary Declaration / Salary Certificate PDF layout, Browsershot, Puppeteer, FPDI stamping, and the public e-sign workflow are unchanged.
+Generate & Send and Activity are served by `BulkDocumentsController` (`/organization/documents/generate`, `/organization/documents/activity`, and legacy `/organization/documents/bulk`). **Requests** is served by `DocumentRequestsIndexController` at `/organization/documents/requests` (Review & Approval and Signature Requests tabs). Legacy `/organization/documents/bulk?view=signatures` remains a valid bookmark into the signature roster via `BulkDocumentsController`. Explicit module routes for Generate and Activity set a `module_view` route default (`roster` / `history`) resolved before the legacy `view` query string. Templates bridge now supports company-owned content and visual PDF overlay templates with controlled merge fields and Fabric.js visual placement; system templates bridge remains available. Protected Salary Declaration / Salary Certificate PDF layout, Browsershot, Puppeteer, FPDI stamping, and the public e-sign workflow are unchanged.
 
 ### Legacy Bulk URLs
 
@@ -85,8 +85,9 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents` | Documents Overview (summary dashboard) | `documents.view` |
 | `/organization/documents/library` | Documents Library (browse / search / compliance) | `documents.view` |
 | `/organization/documents/generate` | Generate & Send (bulk roster) | `bulk_documents.view` |
-| `/organization/documents/requests` | Signature requests | `bulk_documents.view` |
-| `/organization/documents/requests/{request}` | Review & approval request detail | `documents.requests.view` |
+| `/organization/documents/requests` | Unified Review & Approval + Signature Requests workspace | `documents.requests.view` \| `bulk_documents.view` |
+| `/organization/documents/requests/{workflowRequest}` | Internal review/approval request detail | `documents.requests.view` |
+| `/organization/documents/requests/{workflowRequest}/version-preview` | Stream bound canonical `DocumentInstanceVersion` PDF inline | `documents.requests.view` |
 | `/organization/documents/templates` | Custom and System Document Templates | `documents.templates.view` \| `bulk_documents.view` \| `settings.master-data.document-types.view` \| platform view |
 | `/organization/documents/templates` (POST) | Store custom document template | `documents.templates.create` |
 | `/organization/documents/templates/preview-draft` (POST) | Render preview for unsaved draft | `documents.templates.create` \| `documents.templates.update` |
@@ -601,7 +602,11 @@ Review permission does not grant approval actions. Task assignment is enforced i
 - **Review & Approval** — Phase 5A internal workflow inbox (`tab=review`, default when permitted)
 - **Signature Requests** — existing `BulkDocumentSignatureRequest` UI (`tab=signatures`)
 
-Legacy `/organization/documents/bulk?view=signatures` continues to work unchanged.
+Legacy `/organization/documents/bulk?view=signatures` continues to work unchanged and redirects signature browsing through `BulkDocumentsController`; the unified Requests tab embeds the same signature workspace via `DocumentRequestsIndexController`.
+
+### Review preview route
+
+Workflow request detail previews the exact bound `DocumentInstanceVersion` bytes at `/organization/documents/requests/{workflowRequest}/version-preview`. This route is tenant-scoped, requires `documents.requests.view`, validates company ownership and path boundaries, and never exposes private storage paths to Inertia.
 
 ### Audit
 

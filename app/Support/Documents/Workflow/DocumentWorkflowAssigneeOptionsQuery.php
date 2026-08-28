@@ -35,15 +35,32 @@ final class DocumentWorkflowAssigneeOptionsQuery
             ->orderBy('users.name')
             ->get();
 
-        return $users
+        $eligibleUsers = $users
             ->filter(fn (User $user): bool => $companyAccess->hasAccessibleMembership($user, $companyId))
-            ->map(fn (User $user): array => [
-                'id' => $user->id,
-                'name' => (string) $user->name,
-                'email' => $user->email,
-                'can_review' => $this->workflowPermissions->canReview($user, $companyId),
-                'can_approve' => $this->workflowPermissions->canApprove($user, $companyId),
-            ])
+            ->values();
+
+        $capabilitiesByUserId = $this->workflowPermissions->capabilitiesByUserId($eligibleUsers, $companyId);
+
+        return $eligibleUsers
+            ->map(function (User $user) use ($capabilitiesByUserId): ?array {
+                $capabilities = $capabilitiesByUserId[(int) $user->id] ?? [
+                    'can_review' => false,
+                    'can_approve' => false,
+                ];
+
+                if (! $capabilities['can_review'] && ! $capabilities['can_approve']) {
+                    return null;
+                }
+
+                return [
+                    'id' => $user->id,
+                    'name' => (string) $user->name,
+                    'email' => $user->email,
+                    'can_review' => $capabilities['can_review'],
+                    'can_approve' => $capabilities['can_approve'],
+                ];
+            })
+            ->filter()
             ->values()
             ->all();
     }

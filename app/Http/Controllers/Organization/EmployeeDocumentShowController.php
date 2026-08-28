@@ -47,6 +47,9 @@ class EmployeeDocumentShowController extends Controller
             ? $workflowPresenter->documentShowWorkflowSummary($document->documentInstance)
             : null;
 
+        $canCreateWorkflow = ($user?->can('documents.requests.create') ?? false)
+            && $workflowEligibility->canCreateForDocument($document, $companyId);
+
         return Inertia::render('organization/documents/show', [
             'document' => $document->toShowArray(),
             'employee' => [
@@ -61,9 +64,8 @@ class EmployeeDocumentShowController extends Controller
             'can' => DocumentPagePermissions::for($request->user()),
             'workflow' => [
                 'summary' => $workflowSummary,
-                'can_create' => ($request->user()?->can('documents.requests.create') ?? false)
-                    && $workflowEligibility->canCreateForDocument($document, $companyId),
-                'assignee_options' => ($request->user()?->can('documents.requests.create') ?? false)
+                'can_create' => $canCreateWorkflow,
+                'assignee_options' => $canCreateWorkflow
                     ? $workflowEligibility->assigneeOptions($companyId)
                     : [],
             ],
