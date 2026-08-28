@@ -166,6 +166,9 @@ class DocumentGenerationTemplateVersion extends Model
      *     source_pdf_page_count: ?int,
      *     placement_count: int,
      *     has_placements: bool,
+     *     placement_config: ?array,
+     *     has_signature_placement: bool,
+     *     signature_placement_config: ?array,
      *     published_at: ?string,
      *     created_at: ?string,
      *     updated_at: ?string
@@ -176,6 +179,10 @@ class DocumentGenerationTemplateVersion extends Model
         $placements = is_array($this->placement_config['placements'] ?? null)
             ? $this->placement_config['placements']
             : (is_array($this->placement_config) && ! isset($this->placement_config['schema_version']) ? $this->placement_config : []);
+
+        $signaturePlacements = is_array($this->signature_placement_config['placements'] ?? null)
+            ? $this->signature_placement_config['placements']
+            : [];
 
         return [
             'id' => $this->id,
@@ -189,6 +196,8 @@ class DocumentGenerationTemplateVersion extends Model
             'placement_count' => count($placements),
             'has_placements' => count($placements) > 0,
             'placement_config' => $this->placement_config,
+            'has_signature_placement' => count($signaturePlacements) > 0,
+            'signature_placement_config' => $this->signature_placement_config,
             'published_at' => $this->published_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

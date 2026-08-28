@@ -67,11 +67,13 @@ import { TemplatePdfUploadDialog } from './components/template-pdf-upload-dialog
 import { TemplatePreviewDialog } from './components/template-preview-dialog';
 import { TemplateReplacePdfDialog } from './components/template-replace-pdf-dialog';
 import { TemplatePdfDesignerDialog } from './designer/template-pdf-designer-dialog';
+import { TemplateSignaturePlacementDialog } from './designer/template-signature-placement-dialog';
 import type {
     CustomTemplate,
     DocumentTypeOption,
     MergeField,
     PlacementConfig,
+    SignaturePlacementConfig,
     SystemTemplate,
     TemplatesPermissions,
     TemplateVersionSummary,
@@ -153,11 +155,24 @@ export function DocumentsTemplatesContent({
     const [replacingVersion, setReplacingVersion] =
         useState<TemplateVersionSummary | null>(null);
 
+    const [isSignaturePlacementOpen, setIsSignaturePlacementOpen] =
+        useState(false);
+    const [signatureTemplate, setSignatureTemplate] =
+        useState<CustomTemplate | null>(null);
+    const [signatureVersion, setSignatureVersion] =
+        useState<TemplateVersionSummary | null>(null);
+    const [signatureConfig, setSignatureConfig] =
+        useState<SignaturePlacementConfig | null>(null);
+
     const [pendingDesignerTemplateId, setPendingDesignerTemplateId] = useState<
         number | null
     >(null);
     const [pendingReplacePdfTemplateId, setPendingReplacePdfTemplateId] =
         useState<number | null>(null);
+    const [
+        pendingSignaturePlacementTemplateId,
+        setPendingSignaturePlacementTemplateId,
+    ] = useState<number | null>(null);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
 
@@ -195,10 +210,28 @@ export function DocumentsTemplatesContent({
                 setIsActionLoading(false);
             }
         }
+
+        if (pendingSignaturePlacementTemplateId !== null) {
+            const matched = customTemplates.find(
+                (t) => t.id === pendingSignaturePlacementTemplateId,
+            );
+
+            if (matched?.draft_version) {
+                setSignatureTemplate(matched);
+                setSignatureVersion(matched.draft_version);
+                setSignatureConfig(
+                    matched.draft_version.signature_placement_config ?? null,
+                );
+                setIsSignaturePlacementOpen(true);
+                setPendingSignaturePlacementTemplateId(null);
+                setIsActionLoading(false);
+            }
+        }
     }, [
         customTemplates,
         pendingDesignerTemplateId,
         pendingReplacePdfTemplateId,
+        pendingSignaturePlacementTemplateId,
     ]);
 
     const form = useForm<TemplateFormData>({
@@ -317,6 +350,39 @@ export function DocumentsTemplatesContent({
                     const msg =
                         (Object.values(err)[0] as string) ||
                         'Failed to prepare template draft for replacement.';
+                    setActionError(msg);
+                },
+            },
+        );
+    };
+
+    const handleOpenSignaturePlacement = (template: CustomTemplate) => {
+        setActionError(null);
+
+        if (template.draft_version) {
+            setSignatureTemplate(template);
+            setSignatureVersion(template.draft_version);
+            setSignatureConfig(
+                template.draft_version.signature_placement_config ?? null,
+            );
+            setIsSignaturePlacementOpen(true);
+
+            return;
+        }
+
+        setIsActionLoading(true);
+        setPendingSignaturePlacementTemplateId(template.id);
+        router.post(
+            draftTemplate.url({ template: template.id }),
+            {},
+            {
+                preserveScroll: true,
+                onError: (err) => {
+                    setIsActionLoading(false);
+                    setPendingSignaturePlacementTemplateId(null);
+                    const msg =
+                        (Object.values(err)[0] as string) ||
+                        'Failed to prepare template draft for signature placement.';
                     setActionError(msg);
                 },
             },
@@ -787,6 +853,36 @@ export function DocumentsTemplatesContent({
                                                                                                 isActionLoading
                                                                                             }
                                                                                             onClick={() =>
+                                                                                                handleOpenSignaturePlacement(
+                                                                                                    template,
+                                                                                                )
+                                                                                            }
+                                                                                            className="gap-2"
+                                                                                        >
+                                                                                            <PenLine className="h-3.5 w-3.5" />
+                                                                                            <span>
+                                                                                                Signature
+                                                                                                placement
+                                                                                            </span>
+                                                                                            {(template
+                                                                                                .draft_version
+                                                                                                ?.has_signature_placement ||
+                                                                                                template
+                                                                                                    .published_version
+                                                                                                    ?.has_signature_placement) && (
+                                                                                                <Badge
+                                                                                                    variant="secondary"
+                                                                                                    className="ml-auto text-[10px]"
+                                                                                                >
+                                                                                                    Set
+                                                                                                </Badge>
+                                                                                            )}
+                                                                                        </DropdownMenuItem>
+                                                                                        <DropdownMenuItem
+                                                                                            disabled={
+                                                                                                isActionLoading
+                                                                                            }
+                                                                                            onClick={() =>
                                                                                                 handleOpenReplacePdf(
                                                                                                     template,
                                                                                                 )
@@ -1138,6 +1234,15 @@ export function DocumentsTemplatesContent({
                 onSaved={() => {
                     // Refresh data
                 }}
+            />
+
+            {/* Employee Signature Placement Editor Dialog */}
+            <TemplateSignaturePlacementDialog
+                open={isSignaturePlacementOpen}
+                onOpenChange={setIsSignaturePlacementOpen}
+                template={signatureTemplate}
+                version={signatureVersion}
+                initialConfig={signatureConfig}
             />
 
             {/* Content Template Editor Sheet */}
