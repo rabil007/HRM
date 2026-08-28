@@ -96,6 +96,10 @@ test('store creates PDF template and v1 draft version with inspected metadata', 
     expect($draft->source_pdf_original_name)->toBe('contract.pdf');
     expect($draft->source_pdf_page_count)->toBe(3);
     expect($draft->source_pdf_size_bytes)->toBeGreaterThan(0);
+    expect($draft->placement_config)->toMatchArray([
+        'schema_version' => 1,
+        'placements' => [],
+    ]);
     expect(Storage::disk(DocumentTemplateStorage::DISK)->exists($draft->source_pdf_path))->toBeTrue();
 });
 
@@ -279,7 +283,10 @@ test('replacing pdf updates file, clears placements, and removes old file', func
 
     $version->refresh();
     expect($version->source_pdf_page_count)->toBe(4);
-    expect($version->placement_config)->toBeNull();
+    expect($version->placement_config)->toMatchArray([
+        'schema_version' => 1,
+        'placements' => [],
+    ]);
     expect(Storage::disk(DocumentTemplateStorage::DISK)->exists($oldPath))->toBeFalse();
     expect(Storage::disk(DocumentTemplateStorage::DISK)->exists($version->source_pdf_path))->toBeTrue();
 });
@@ -440,11 +447,11 @@ test('copyPdf rejects source path outside company directory boundary', function 
 
     // Attempting to copy Company A's PDF into Company B must fail
     expect(fn () => DocumentTemplateStorage::copyPdf($pathA, $companyB->id))
-        ->toThrow(InvalidArgumentException::class, 'Source template PDF path is outside company boundary.');
+        ->toThrow(RuntimeException::class, 'outside the company storage boundary');
 
     // Attempting to copy an arbitrary relative or malicious path must fail
     expect(fn () => DocumentTemplateStorage::copyPdf('../secret.pdf', $companyA->id))
-        ->toThrow(InvalidArgumentException::class, 'Source template PDF path is outside company boundary.');
+        ->toThrow(RuntimeException::class, 'invalid');
 });
 
 test('manual activity events record company_id and avoid logging sensitive contents', function () {

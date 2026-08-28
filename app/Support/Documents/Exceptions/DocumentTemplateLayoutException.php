@@ -10,6 +10,7 @@ class DocumentTemplateLayoutException extends RuntimeException
         public readonly string $fieldKey,
         public readonly int $pageNumber = 1,
         string $message = '',
+        public readonly ?string $placementId = null,
     ) {
         $msg = $message !== ''
             ? $message

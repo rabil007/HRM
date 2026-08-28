@@ -10,6 +10,7 @@ use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\User;
 use App\Support\Documents\DocumentTemplatePdfValidator;
 use App\Support\Documents\DocumentTemplateStorage;
+use App\Support\Documents\PdfOverlayPlacementValidator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -75,7 +76,9 @@ final class CreateDocumentGenerationTemplate
                     'source_pdf_original_name' => $pdfInspected['original_name'] ?? null,
                     'source_pdf_size_bytes' => $pdfInspected['size_bytes'] ?? null,
                     'source_pdf_page_count' => $pdfInspected['page_count'] ?? null,
-                    'placement_config' => null,
+                    'placement_config' => $format->isPdfOverlay()
+                        ? PdfOverlayPlacementValidator::emptyConfig()
+                        : null,
                     'published_at' => null,
                     'created_by' => $actor?->id,
                     'updated_by' => $actor?->id,

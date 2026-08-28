@@ -460,9 +460,82 @@ EmployeeDocument (Documents Library representation)
     - Frontend dispatches generation via Wayfinder route action `GenerateCustomDocumentsController.url()`.
     - Document Show page renders a "Document Provenance" card displaying template name, version, generation timestamp, and generator.
 
-### Template Format Availability in Phase 4A
+### Template Format Availability
 
 - **Content Templates**: Fully supported for real production PDF generation with full Unicode/Arabic font embedding, secure HTML escaping, and complete provenance tracking.
-- **PDF Overlay Templates**: Visual placement and template design are active (from Phase 3B). Full production generation combining uploaded background PDFs with overlaid text is deferred to **Phase 4B**. In Phase 4A, PDF Overlay templates are hidden from the Generate & Send template selector, and any direct generation requests are safely rejected with the validation error: `"PDF Overlay production generation is not available yet."`
+- **PDF Overlay Templates**: Fully supported for production generation. Generate & Send lists active company templates that have a current published version. Overlay templates additionally require a configured source PDF. Draft and inactive templates are not offered.
+
+---
+
+## Phase 4B: Production PDF Overlay Generation
+
+Phase 4B turns published PDF Overlay template versions into generated employee PDFs using the same Phase 4A provenance chain.
+
+### Architecture
+
+```
+Published PDF Overlay Version
+        ↓
+Employee trusted merge values
+        ↓
+layout preflight (Chromium + DejaVu)
+        ↓
+transparent Unicode text overlay (Browsershot)
+        ↓
+FPDI composition over the ORIGINAL source PDF
+        ↓
+DocumentInstance → DocumentInstanceVersion → EmployeeDocument
+```
+
+The uploaded source PDF is imported as PDF page content through FPDI. The whole source is never rasterized to PNG/JPG. Overlay text is a separate transparent PDF layered on top.
+
+### Zero-placement overlays
+
+A PDF Overlay template with no field placements is a supported production state. New drafts initialize `placement_config` as schema version 1 with an empty `placements` array. Replacing the draft source PDF resets placements to the same empty schema. Publishing validates that the configuration is structurally renderable.
+
+At generation time, zero placements reproduce the original source PDF through the official pipeline (FPDI import only; no overlay pages are rendered). Legacy published versions that still store `placement_config = null` are treated as zero placements for backward compatibility. Malformed non-null configs are rejected.
+
+### Coordinate mapping
+
+Published `placement_config` remains schema version 1 with normalized coordinates (`0.0`–`1.0`). At render time:
+
+- `x_mm = placement.x * page_width_mm`
+- `y_mm = placement.y * page_height_mm`
+- `width_mm = placement.width * page_width_mm`
+- `height_mm = placement.height * page_height_mm`
+
+Published placement configuration is not rewritten during generation.
+
+### Unicode, Arabic, and single-line schema v1
+
+Overlay HTML uses embedded DejaVu fonts, `dir="auto"`, and `unicode-bidi: plaintext` on the text node. Physical `text_align` (`left` / `center` / `right`) is the HR-saved layout choice and is not flipped for Arabic. Schema v1 placements are single-line (`white-space: nowrap`). Merge values are Blade-escaped; employee HTML is never executed.
+
+### Font fit and overflow
+
+Every non-empty placement is measured in Chromium after `document.fonts.ready`. If the requested size does not fit, the renderer shrinks by `0.25pt` down to `8pt`. If the value still overflows at `8pt`, generation is blocked with `DocumentTemplateLayoutException`. Values are not clipped, truncated, or ellipsized. Empty merge values render nothing.
+
+Preflight runs for all placements before any overlay PDF or canonical/Library file is written. Layout failure logs only `run_id`, `item_id`, `placement_id`, `field_key`, and `page`.
+
+### Multi-page and mixed orientation
+
+Every source page is copied in order. Pages with placements receive a transparent overlay; pages without placements are copied only. Portrait, landscape, and mixed-orientation sources keep their page count, dimensions, and ordering. The stored `source_pdf_page_count` must match the actual FPDI page count.
+
+### Source tenancy
+
+`DocumentTemplateStorage::absolutePath()` validates relative template paths, rejects traversal segments (`..`, `.`), absolute paths, and cross-company prefixes, then resolves the real filesystem path and ensures it is physically inside `storage/app/private/document-generation-templates/{companyId}/`. Cross-company paths are rejected. Private absolute paths are not returned to Inertia or user-facing errors. Missing or unreadable sources fail the RunItem with `TEMPLATE_SOURCE_UNAVAILABLE` and create no official instance or files.
+
+### Provenance and current-version state
+
+PDF Overlay output uses the same `DocumentInstance` / `DocumentInstanceVersion` / `EmployeeDocument` chain as Content templates. Runs remain bound to the snapshotted template version, including Archived versions that were published when the run was created. Generation state is per employee + exact published template version: publishing overlay v2 makes a v1 employee Missing for v2. Repeat generation still requires explicit employee selection.
+
+### Error codes
+
+| Code | Meaning |
+|------|---------|
+| `TEMPLATE_LAYOUT_OVERFLOW` | A merge value does not fit the configured placement even at 8pt. |
+| `TEMPLATE_SOURCE_UNAVAILABLE` | Source PDF missing, unreadable, page-count mismatch, or outside the company boundary. |
+| `GENERATION_FAILED` | Any other renderer or storage failure. |
+
+File compensation from Phase 4A is unchanged. Custom overlay templates remain generation-only: no e-sign, email delivery, or workflow.
 
 
