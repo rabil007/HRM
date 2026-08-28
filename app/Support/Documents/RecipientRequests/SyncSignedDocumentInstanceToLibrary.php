@@ -10,22 +10,22 @@ use Illuminate\Http\UploadedFile;
 
 final class SyncSignedDocumentInstanceToLibrary
 {
-    public function replaceLibraryFile(
+    public function prepareReplacement(
         DocumentInstance $instance,
         string $tempSignedPdfPath,
         int $companyId,
-    ): void {
+    ): ?SignedDocumentLibraryReplacement {
         $instance->loadMissing('employeeDocument');
 
         $employeeDocument = $instance->employeeDocument;
 
         if (! $employeeDocument instanceof EmployeeDocument) {
-            return;
+            return null;
         }
 
         abort_unless((int) $employeeDocument->company_id === $companyId, 404);
 
-        $oldPath = $employeeDocument->file_path;
+        $oldPath = (string) $employeeDocument->file_path;
 
         $uploadedFile = new UploadedFile(
             $tempSignedPdfPath,
@@ -35,7 +35,7 @@ final class SyncSignedDocumentInstanceToLibrary
             true,
         );
 
-        $directory = dirname((string) $oldPath);
+        $directory = dirname($oldPath);
 
         if ($directory === '.' || $directory === '') {
             $directory = "employee-documents/{$companyId}/{$employeeDocument->employee_id}";
@@ -61,8 +61,32 @@ final class SyncSignedDocumentInstanceToLibrary
             'mime_type' => 'application/pdf',
         ]);
 
-        if ($oldPath !== null && $oldPath !== $newPath) {
-            EmployeePrivateFile::deleteStored((string) $oldPath, $companyId, EmployeePrivateFileKind::Document);
+        if ($oldPath === '' || $oldPath === $newPath) {
+            return null;
         }
+
+        return new SignedDocumentLibraryReplacement(
+            newPath: $newPath,
+            oldPath: $oldPath,
+            companyId: $companyId,
+        );
+    }
+
+    public function finalizeReplacement(SignedDocumentLibraryReplacement $replacement): void
+    {
+        EmployeePrivateFile::deleteStored(
+            $replacement->oldPath,
+            $replacement->companyId,
+            EmployeePrivateFileKind::Document,
+        );
+    }
+
+    public function rollbackReplacement(SignedDocumentLibraryReplacement $replacement): void
+    {
+        EmployeePrivateFile::deleteStored(
+            $replacement->newPath,
+            $replacement->companyId,
+            EmployeePrivateFileKind::Document,
+        );
     }
 }

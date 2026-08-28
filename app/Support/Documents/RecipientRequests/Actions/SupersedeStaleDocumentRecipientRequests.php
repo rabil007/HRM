@@ -15,45 +15,34 @@ final class SupersedeStaleDocumentRecipientRequests
         private DocumentRecipientRequestEventRecorder $eventRecorder,
     ) {}
 
-    public function forInstanceVersionChange(DocumentInstance $instance, int $companyId): void
-    {
-        DB::transaction(function () use ($instance, $companyId): void {
+    public function forInstanceVersionChange(
+        DocumentInstance $instance,
+        int $companyId,
+        ?int $excludeRequestId = null,
+    ): void {
+        DB::transaction(function () use ($instance, $companyId, $excludeRequestId): void {
             $pending = DocumentRecipientRequest::query()
                 ->forCompany($companyId)
                 ->where('document_instance_id', $instance->id)
                 ->where('status', DocumentRecipientRequestStatus::AwaitingAction)
                 ->where('source_document_instance_version_id', '!=', $instance->current_version_id)
+                ->when($excludeRequestId !== null, fn ($query) => $query->whereKeyNot($excludeRequestId))
                 ->lockForUpdate()
                 ->get();
 
             foreach ($pending as $request) {
-                $request->update([
-                    'status' => DocumentRecipientRequestStatus::Superseded,
+                $this->markSuperseded($request, [
+                    'document_instance_id' => $instance->id,
+                    'current_version_id' => $instance->current_version_id,
                 ]);
-
-                $this->eventRecorder->record(
-                    $request,
-                    DocumentRecipientRequestEventType::RequestSuperseded,
-                    metadata: [
-                        'document_instance_id' => $instance->id,
-                        'current_version_id' => $instance->current_version_id,
-                    ],
-                );
-
-                activity()
-                    ->performedOn($request)
-                    ->tap(fn ($activity) => $activity->company_id = $companyId)
-                    ->withProperties([
-                        'action' => 'recipient_request_superseded',
-                        'document_recipient_request_id' => $request->id,
-                        'status' => DocumentRecipientRequestStatus::Superseded->value,
-                    ])
-                    ->log('Recipient request superseded');
             }
         });
     }
 
-    public function markSuperseded(DocumentRecipientRequest $request): void
+    /**
+     * @param  array<string, mixed>|null  $metadata
+     */
+    public function markSuperseded(DocumentRecipientRequest $request, ?array $metadata = null): void
     {
         if ($request->status !== DocumentRecipientRequestStatus::AwaitingAction) {
             return;
@@ -66,6 +55,7 @@ final class SupersedeStaleDocumentRecipientRequests
         $this->eventRecorder->record(
             $request,
             DocumentRecipientRequestEventType::RequestSuperseded,
+            metadata: $metadata,
         );
     }
 }

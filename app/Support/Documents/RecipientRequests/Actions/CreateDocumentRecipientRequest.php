@@ -7,6 +7,7 @@ use App\Enums\DocumentRecipientRequestEventType;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Enums\DocumentRecipientType;
 use App\Models\DocumentInstance;
+use App\Models\DocumentInstanceVersion;
 use App\Models\DocumentRecipientRequest;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
@@ -38,19 +39,7 @@ final class CreateDocumentRecipientRequest
     ): array {
         DocumentAccess::assertDocumentInCompany($document, $companyId);
 
-        $document->loadMissing(['documentInstance.currentVersion', 'employee']);
-
-        $instance = $document->documentInstance;
-
-        if (! $instance instanceof DocumentInstance) {
-            throw ValidationException::withMessages([
-                'action' => 'Recipient requests require a generated document instance.',
-            ]);
-        }
-
-        if ((int) $instance->employee_id !== (int) $document->employee_id) {
-            abort(404);
-        }
+        $document->loadMissing(['employee']);
 
         $employee = $document->employee;
 
@@ -58,42 +47,49 @@ final class CreateDocumentRecipientRequest
             abort(404);
         }
 
-        $this->workflowGate->assertCanCreateForVersion($instance, $companyId);
-
-        $sourceVersion = $instance->currentVersion;
-
-        if ($sourceVersion === null) {
-            throw ValidationException::withMessages([
-                'action' => 'This document has no current version.',
-            ]);
-        }
-
-        if ($action === DocumentRecipientAction::Sign) {
-            $this->resolvePlacement->forInstanceVersion($instance, $sourceVersion);
-        }
-
         $rawToken = DocumentRecipientRequestToken::generate();
-        $workflowRequestId = $this->workflowGate->latestApprovedWorkflowId(
-            $instance,
-            (int) $sourceVersion->id,
-            $companyId,
-        );
 
         return DB::transaction(function () use (
-            $instance,
-            $sourceVersion,
+            $document,
             $employee,
             $action,
             $requester,
             $companyId,
             $rawToken,
-            $workflowRequestId,
         ): array {
-            DocumentInstance::query()
-                ->whereKey($instance->id)
+            $instance = DocumentInstance::query()
+                ->where('employee_document_id', $document->id)
                 ->where('company_id', $companyId)
+                ->where('employee_id', $document->employee_id)
                 ->lockForUpdate()
+                ->first();
+
+            if (! $instance instanceof DocumentInstance) {
+                throw ValidationException::withMessages([
+                    'action' => 'Recipient requests require a generated document instance.',
+                ]);
+            }
+
+            if ((int) $instance->employee_id !== (int) $document->employee_id) {
+                abort(404);
+            }
+
+            $sourceVersion = DocumentInstanceVersion::query()
+                ->whereKey($instance->current_version_id)
+                ->where('company_id', $companyId)
                 ->firstOrFail();
+
+            $this->workflowGate->assertCanCreateForVersion($instance, $companyId);
+
+            if ($action === DocumentRecipientAction::Sign) {
+                $this->resolvePlacement->forInstanceVersion($instance, $sourceVersion);
+            }
+
+            $workflowRequestId = $this->workflowGate->latestApprovedWorkflowId(
+                $instance,
+                (int) $sourceVersion->id,
+                $companyId,
+            );
 
             $duplicate = DocumentRecipientRequest::query()
                 ->forCompany($companyId)

@@ -17,6 +17,8 @@ final class SubmitDocumentRecipientAcknowledgement
 {
     public const ACKNOWLEDGEMENT_STATEMENT = 'I confirm that I have read and acknowledge this document.';
 
+    private const STALE_VERSION = '__stale_version__';
+
     public function __construct(
         private DocumentRecipientRequestEventRecorder $eventRecorder,
         private SupersedeStaleDocumentRecipientRequests $supersedeStale,
@@ -52,7 +54,7 @@ final class SubmitDocumentRecipientAcknowledgement
             ]);
         }
 
-        return DB::transaction(function () use ($request, $data, $httpRequest): DocumentRecipientRequest {
+        $result = DB::transaction(function () use ($request, $data, $httpRequest): DocumentRecipientRequest|string {
             /** @var DocumentRecipientRequest $locked */
             $locked = DocumentRecipientRequest::query()
                 ->whereKey($request->id)
@@ -82,11 +84,12 @@ final class SubmitDocumentRecipientAcknowledgement
                 ->firstOrFail();
 
             if ((int) $instance->current_version_id !== (int) $sourceVersion->id) {
-                $this->supersedeStale->markSuperseded($locked);
-
-                throw ValidationException::withMessages([
-                    'token' => 'This document has been updated. Please request a new acknowledgement link.',
+                $this->supersedeStale->markSuperseded($locked, [
+                    'document_instance_id' => $instance->id,
+                    'current_version_id' => $instance->current_version_id,
                 ]);
+
+                return self::STALE_VERSION;
             }
 
             $locked->update([
@@ -118,5 +121,14 @@ final class SubmitDocumentRecipientAcknowledgement
 
             return $locked->fresh();
         });
+
+        if ($result === self::STALE_VERSION) {
+            throw ValidationException::withMessages([
+                'token' => 'This document has been updated. Please request a new acknowledgement link.',
+            ]);
+        }
+
+        /** @var DocumentRecipientRequest $result */
+        return $result;
     }
 }
