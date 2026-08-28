@@ -66,7 +66,7 @@ export function RequestApprovalDialog({
     const selectedPreset = useMemo(
         () =>
             typeof mode === 'number'
-                ? presets.find((preset) => preset.id === mode) ?? null
+                ? (presets.find((preset) => preset.id === mode) ?? null)
                 : null,
         [mode, presets],
     );
@@ -152,10 +152,9 @@ export function RequestApprovalDialog({
         );
     }
 
-    const formErrors = (mode === 'manual' ? manualForm.errors : presetForm.errors) as Record<
-        string,
-        string
-    >;
+    const formErrors = (
+        mode === 'manual' ? manualForm.errors : presetForm.errors
+    ) as Record<string, string>;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -176,7 +175,9 @@ export function RequestApprovalDialog({
                             <Button
                                 type="button"
                                 size="sm"
-                                variant={mode === 'manual' ? 'default' : 'outline'}
+                                variant={
+                                    mode === 'manual' ? 'default' : 'outline'
+                                }
                                 onClick={() => setMode('manual')}
                             >
                                 Manual
@@ -320,8 +321,9 @@ export function RequestApprovalDialog({
                                         className="rounded-lg bg-muted/40 p-3"
                                     >
                                         <p className="text-sm font-medium">
-                                            {stage.sequence}. {stage.action_label}{' '}
-                                            — {stage.completion_rule_label}
+                                            {stage.sequence}.{' '}
+                                            {stage.action_label} —{' '}
+                                            {stage.completion_rule_label}
                                         </p>
                                         <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
                                             {stage.targets.map((target) => (
@@ -371,7 +373,9 @@ export function RequestApprovalDialog({
                                 ? manualForm.processing
                                 : presetForm.processing
                         }
-                        className={cn(mode !== 'manual' && !selectedPreset && 'hidden')}
+                        className={cn(
+                            mode !== 'manual' && !selectedPreset && 'hidden',
+                        )}
                     >
                         Create request
                     </Button>

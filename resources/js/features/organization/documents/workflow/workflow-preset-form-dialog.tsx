@@ -207,17 +207,19 @@ function WorkflowPresetFormDialogBody({
     }
 
     function submit() {
-        const payloadStages = stages.map(({ action, completion_rule, targets }) => ({
-            action,
-            completion_rule,
-            targets: targets.map(
-                ({ target_type, target_user_id, target_role_id }) => ({
-                    target_type,
-                    target_user_id,
-                    target_role_id,
-                }),
-            ),
-        }));
+        const payloadStages = stages.map(
+            ({ action, completion_rule, targets }) => ({
+                action,
+                completion_rule,
+                targets: targets.map(
+                    ({ target_type, target_user_id, target_role_id }) => ({
+                        target_type,
+                        target_user_id,
+                        target_role_id,
+                    }),
+                ),
+            }),
+        );
 
         form.transform((data) => ({
             ...data,
@@ -244,7 +246,9 @@ function WorkflowPresetFormDialogBody({
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>
-                        {preset ? 'Edit workflow preset' : 'New workflow preset'}
+                        {preset
+                            ? 'Edit workflow preset'
+                            : 'New workflow preset'}
                     </DialogTitle>
                     <DialogDescription>
                         Configure sequential stages and routing targets. Dynamic

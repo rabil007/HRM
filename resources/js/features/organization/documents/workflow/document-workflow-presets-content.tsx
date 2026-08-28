@@ -153,7 +153,9 @@ export function DocumentWorkflowPresetsContent({
                                 key={preset.id}
                                 className={dataTableBodyRowClass(false)}
                             >
-                                <TableCell className={dataTableCellPrimaryClass()}>
+                                <TableCell
+                                    className={dataTableCellPrimaryClass()}
+                                >
                                     <div>
                                         <p className="font-medium">
                                             {preset.name}
