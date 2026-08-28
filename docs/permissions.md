@@ -42,7 +42,7 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 | Organization | `companies.*`, `branches.*`, `departments.*`, `positions.*`, `users.*`, `roles.*` |
 | Employees | `employees.view|create|update|delete|export|import`, and `employees.salary_certificate.print` / `employees.salary_declaration.print` |
 | Contracts / bank / training / sea service / profile tabs | `contracts.view|create|update|delete|import`, `contracts.salary_revisions.view|create|update|delete`, `bank_accounts.view|create|update|delete|import`, `training.view|create|update|delete|import`, `sea_services.view|create|update|delete|import`, `education.view|create|update|delete`, `work_experience.view|create|update|delete|import`, `vaccination.view|create|update|delete|import`, `languages.view|create|update|delete` |
-| Documents | `documents.view|download|share|upload|delete`, `documents.templates.view|create|update|delete`, `documents.requests.view|create|review|approve|cancel` |
+| Documents | `documents.view|download|share|upload|delete`, `documents.templates.view|create|update|delete`, `documents.requests.view|create|review|approve|cancel`, `documents.workflow-presets.view|create|update|delete` |
 | Bulk documents / signatures | `bulk_documents.view|generate|delete|email`, `bulk_documents.signatures.review` |
 | Crew operations | `crew_operations.overview.view`, `crew_operations.vessels.*`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*`, `crew_operations.assignments.*` (incl. `void`), `crew_operations.movements.perform`, `crew_operations.corrections.view|request|approve|override` |
 
@@ -116,6 +116,8 @@ Document pages receive their UI flags from `DocumentPagePermissions::for($user)`
 ```
 
 Review/approval list and decision routes enforce `documents.requests.*` independently. Workflow creation validates that each stage assignee holds the required company-scoped permission for that stage (`documents.requests.review` or `documents.requests.approve`) plus `documents.requests.view`. A user with `documents.requests.approve` may only act on tasks assigned to them; review permission does not grant approval on approval-stage tasks.
+
+Workflow preset management uses `documents.workflow-presets.*`. Selecting an active preset during request creation requires only `documents.requests.create`; preset CRUD permissions are separate.
 
 The request creator cannot review or approve their own workflow request (backend enforced in Phase 5A).
 

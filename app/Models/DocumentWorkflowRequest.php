@@ -19,6 +19,9 @@ class DocumentWorkflowRequest extends Model
         'company_id',
         'document_instance_id',
         'document_instance_version_id',
+        'document_workflow_preset_id',
+        'preset_name_snapshot',
+        'routing_definition_snapshot',
         'status',
         'requested_by',
         'requester_name_snapshot',
@@ -36,6 +39,7 @@ class DocumentWorkflowRequest extends Model
     {
         return [
             'status' => DocumentWorkflowRequestStatus::class,
+            'routing_definition_snapshot' => 'array',
             'requested_at' => 'datetime',
             'completed_at' => 'datetime',
             'cancelled_at' => 'datetime',
@@ -55,6 +59,11 @@ class DocumentWorkflowRequest extends Model
     public function documentInstanceVersion(): BelongsTo
     {
         return $this->belongsTo(DocumentInstanceVersion::class);
+    }
+
+    public function preset(): BelongsTo
+    {
+        return $this->belongsTo(DocumentWorkflowPreset::class, 'document_workflow_preset_id');
     }
 
     public function requester(): BelongsTo

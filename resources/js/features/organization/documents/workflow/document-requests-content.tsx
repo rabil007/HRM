@@ -1,10 +1,11 @@
-import { router } from '@inertiajs/react';
-import { ClipboardCheck, FilePenLine } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { ClipboardCheck, FilePenLine, Settings2 } from 'lucide-react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { BulkDocumentsContent } from '@/features/organization/documents/bulk/bulk-documents-content';
@@ -122,6 +123,7 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
     const {
         tab,
         can,
+        preset_can,
         filters,
         search: initialSearch,
         workflow_requests,
@@ -158,6 +160,18 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
 
             {tab === 'review' && can.view ? (
                 <div className="space-y-4">
+                    {preset_can.view ? (
+                        <div className="flex justify-end">
+                            <Button asChild variant="outline" size="sm">
+                                <Link
+                                    href={documentRoutes.workflowPresets.url()}
+                                >
+                                    <Settings2 className="mr-2 h-4 w-4" />
+                                    Workflow presets
+                                </Link>
+                            </Button>
+                        </div>
+                    ) : null}
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                         <SearchBar
                             value={list.searchInput}

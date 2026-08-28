@@ -136,6 +136,11 @@ final class DocumentWorkflowPresenter
                     : $request->documentInstance?->versions
                         ->firstWhere('id', $request->document_instance_version_id)?->version,
             ] : null,
+            'preset' => $request->preset_name_snapshot !== null ? [
+                'id' => $request->document_workflow_preset_id,
+                'name' => $request->preset_name_snapshot,
+                'routing_definition' => $request->routing_definition_snapshot,
+            ] : null,
             'stages' => $request->stages->map(fn (DocumentWorkflowStage $stage): array => [
                 'id' => $stage->id,
                 'sequence' => $stage->sequence,

@@ -538,7 +538,7 @@ PDF Overlay output uses the same `DocumentInstance` / `DocumentInstanceVersion` 
 | `TEMPLATE_SOURCE_UNAVAILABLE` | Source PDF missing, unreadable, page-count mismatch, or outside the company boundary. |
 | `GENERATION_FAILED` | Any other renderer or storage failure. |
 
-File compensation from Phase 4A is unchanged. Custom overlay templates remain generation-only in Phase 4B. Phase 5A adds internal review/approval workflows for generated documents; signing, email delivery, and template workflow presets remain later phases.
+File compensation from Phase 4A is unchanged. Custom overlay templates remain generation-only in Phase 4B. Phase 5A adds internal review/approval workflows for generated documents; Phase 5B adds reusable workflow presets with server-side dynamic routing. Signing, email delivery, and automatic template preset assignment remain later phases.
 
 ---
 
@@ -614,6 +614,71 @@ Workflow tables retain authoritative decision history (actor, time, notes). Comp
 
 ### Explicitly not in Phase 5A
 
-No employee/manager signing, public signing links, acknowledgement, email/WhatsApp delivery, reminders, template workflow presets, or dynamic manager routing.
+No employee/manager signing, public signing links, acknowledgement, email/WhatsApp delivery, or reminders.
+
+---
+
+## Phase 5B: Workflow Presets + Dynamic Routing
+
+Phase 5B adds reusable company workflow presets that resolve to concrete Phase 5A task snapshots at request creation. Manual workflow configuration from Phase 5A remains available.
+
+### Preset model
+
+| Table | Purpose |
+|-------|---------|
+| `document_workflow_presets` | Company-owned preset name, description, active/inactive status |
+| `document_workflow_preset_stages` | Ordered stages with review/approve action and ALL/ANY completion rule |
+| `document_workflow_preset_targets` | Routing targets per stage |
+
+`DocumentWorkflowRequest` also stores optional provenance: `document_workflow_preset_id`, `preset_name_snapshot`, and `routing_definition_snapshot` JSON. Resolved assignees remain authoritative in `DocumentWorkflowTask` rows.
+
+### Supported target types
+
+| Target | Resolution |
+|--------|------------|
+| `specific_user` | Fixed company user validated for stage permissions |
+| `department_manager` | First actionable manager from `ResolveDepartmentManagementChain` for the **document subject employee** |
+| `parent_manager` | Next distinct actionable manager in the department hierarchy |
+| `company_role` | Active company members assigned the selected Spatie role in the current company team |
+
+`Employee.manager_id` is **not** used. Department hierarchy via `Department.manager_id` remains authoritative.
+
+Dynamic manager routing uses document workflow permissions (`documents.requests.view` plus review/approve as appropriate), not leave permissions or `CompanyLeaveApprovalSetting`.
+
+### Runtime resolution
+
+When HR creates a request with `workflow_preset_id`:
+
+1. Load active company-scoped preset
+2. Resolve each stage target server-side for the subject employee
+3. Deduplicate assignees within a stage
+4. Exclude the requester (self-approval block preserved)
+5. Block creation when any target resolves to zero actionable users
+6. Feed concrete stage assignee lists into existing `CreateDocumentWorkflowRequest`
+
+Preset edits, deactivation, department manager changes, and role membership changes after request creation do **not** alter existing tasks.
+
+### Permissions
+
+| Permission | Purpose |
+|------------|---------|
+| `documents.workflow-presets.view` | List presets |
+| `documents.workflow-presets.create` | Create presets |
+| `documents.workflow-presets.update` | Edit / activate / deactivate presets |
+| `documents.workflow-presets.delete` | Delete unused presets |
+| `documents.requests.create` | Select an active preset while requesting approval |
+
+Preset management permissions are not required merely to use an active preset.
+
+### UI
+
+- `/organization/documents/workflow-presets` — preset CRUD (linked from Documents → Requests)
+- Request Approval dialog — Manual vs active preset selection with read-only preset summary
+
+Activity events: `workflow_preset_created`, `workflow_preset_updated`, `workflow_preset_activated`, `workflow_preset_deactivated`, `workflow_preset_deleted`. `workflow_created` may include safe preset metadata.
+
+### Explicitly not in Phase 5B
+
+No signing, acknowledgement, email/reminders, automatic template→preset assignment, or candidate routing.
 
 

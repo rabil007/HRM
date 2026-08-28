@@ -121,6 +121,75 @@ export type WorkflowStageInput = {
     assignee_user_ids: number[];
 };
 
+export type WorkflowPresetTargetInput = {
+    target_type:
+        | 'specific_user'
+        | 'department_manager'
+        | 'parent_manager'
+        | 'company_role';
+    target_user_id?: number | null;
+    target_role_id?: number | null;
+};
+
+export type WorkflowPresetStageInput = {
+    action: 'review' | 'approve';
+    completion_rule: 'all' | 'any';
+    targets: WorkflowPresetTargetInput[];
+};
+
+export type WorkflowPresetTargetSummary = {
+    target_type: string;
+    target_type_label: string;
+    target_user_id: number | null;
+    target_role_id: number | null;
+    label: string;
+};
+
+export type WorkflowPresetStageSummary = {
+    sequence: number;
+    action: string;
+    action_label: string;
+    completion_rule: string;
+    completion_rule_label: string;
+    targets: WorkflowPresetTargetSummary[];
+};
+
+export type WorkflowPresetSummary = {
+    id: number;
+    name: string;
+    description: string | null;
+    status: string;
+    status_label: string;
+    stage_count: number;
+    routing_summary: string;
+    updated_at: string | null;
+    stages?: WorkflowPresetStageSummary[];
+};
+
+export type WorkflowPresetPermissions = {
+    view: boolean;
+    create: boolean;
+    update: boolean;
+    delete: boolean;
+};
+
+export type WorkflowPresetFormOptions = {
+    users: WorkflowAssigneeOption[];
+    roles: { id: number; name: string }[];
+    target_types: {
+        value: string;
+        label: string;
+        requires_user: boolean;
+        requires_role: boolean;
+    }[];
+};
+
+export type DocumentWorkflowPresetsIndexProps = {
+    presets: WorkflowPresetSummary[];
+    can: WorkflowPresetPermissions;
+    form_options: WorkflowPresetFormOptions;
+};
+
 export type DocumentRequestsSignaturePayload = {
     document_type_key: string;
     document_type_options: BulkDocumentTypeOption[];
@@ -150,6 +219,7 @@ export type DocumentRequestsSignaturePayload = {
 export type DocumentRequestsIndexProps = {
     tab: 'review' | 'signatures';
     can: DocumentWorkflowPermissions;
+    preset_can: WorkflowPresetPermissions;
     filters: Record<string, string | boolean>;
     search: string;
     workflow_requests: WorkflowRequestListItem[];
