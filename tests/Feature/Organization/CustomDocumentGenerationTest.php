@@ -1328,23 +1328,7 @@ test('concurrent non-repeat generation runs for same employee deduplicate inside
     $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
     $template->update(['published_version_id' => $version->id]);
 
-    // Create Run A and Run B targeting the same employee and version
-    $runA = DocumentGenerationRun::query()->create([
-        'company_id' => $company->id,
-        'document_generation_template_id' => $template->id,
-        'document_generation_template_version_id' => $version->id,
-        'status' => 'queued',
-        'total_targeted' => 1,
-        'correlation_id' => (string) Str::uuid(),
-        'triggered_by' => $user->id,
-    ]);
-    $itemA = DocumentGenerationRunItem::query()->create([
-        'company_id' => $company->id,
-        'document_generation_run_id' => $runA->id,
-        'employee_id' => $employee->id,
-        'status' => 'pending',
-    ]);
-
+    // Create Run B targeting the employee
     $runB = DocumentGenerationRun::query()->create([
         'company_id' => $company->id,
         'document_generation_template_id' => $template->id,
@@ -1361,30 +1345,96 @@ test('concurrent non-repeat generation runs for same employee deduplicate inside
         'status' => 'pending',
     ]);
 
+    // Assert that before Worker B runs, NO DocumentInstance exists.
+    // This proves Worker B will pass the initial early exists() check.
+    expect(DocumentInstance::query()->count())->toBe(0);
+
+    $winningCanonicalPath = null;
+    $winningLibraryDoc = null;
+
     $mockRenderer = Mockery::mock(ContentTemplatePdfRenderer::class);
-    $mockRenderer->shouldReceive('render')->andReturn('%PDF-1.4 Fake PDF Content');
+    $mockRenderer->shouldReceive('render')
+        ->once()
+        ->andReturnUsing(function ($tmpl, $vers, $emp, $comp) use (
+            $company,
+            $user,
+            $employee,
+            $template,
+            $version,
+            &$winningCanonicalPath,
+            &$winningLibraryDoc,
+        ) {
+            // At this exact point in execution:
+            // Worker B has already passed the early DocumentInstance::exists() check!
+            // Simulate competing Worker A completing generation right before Worker B reaches the locked DB transaction:
+
+            // 1. Worker A stores winning canonical file
+            $winningCanonicalPath = "document-instances/{$company->id}/winning_".Str::uuid().'.pdf';
+            Storage::disk('local')->put($winningCanonicalPath, '%PDF-1.4 Worker A Canonical File');
+
+            // 2. Worker A stores winning library file
+            $winningLibraryPath = "employee-documents/{$company->id}/{$employee->id}/winning_".Str::uuid().'.pdf';
+            Storage::disk('local')->put($winningLibraryPath, '%PDF-1.4 Worker A Library File');
+
+            // 3. Worker A creates winning EmployeeDocument
+            $winningLibraryDoc = EmployeeDocument::query()->create([
+                'company_id' => $company->id,
+                'employee_id' => $employee->id,
+                'type' => 'other',
+                'document_type' => 'other',
+                'title' => $template->name,
+                'file_path' => $winningLibraryPath,
+                'original_filename' => Str::slug($template->name).'.pdf',
+                'mime_type' => 'application/pdf',
+                'size_bytes' => strlen('%PDF-1.4 Worker A Library File'),
+                'checksum' => hash('sha256', '%PDF-1.4 Worker A Library File'),
+                'current_version' => 1,
+                'status' => 'valid',
+                'uploaded_by' => $user->id,
+            ]);
+
+            // 4. Worker A creates winning DocumentInstance
+            $winningInstance = DocumentInstance::query()->create([
+                'company_id' => $company->id,
+                'employee_id' => $employee->id,
+                'employee_name_snapshot' => (string) $employee->name,
+                'employee_no_snapshot' => $employee->employee_no,
+                'document_generation_template_id' => $template->id,
+                'document_generation_template_version_id' => $version->id,
+                'document_type_id' => $template->document_type_id,
+                'employee_document_id' => $winningLibraryDoc->id,
+                'template_name_snapshot' => $template->name,
+                'template_version_number' => $version->version,
+                'title_snapshot' => $template->name,
+                'status' => 'generated',
+                'generated_by' => $user->id,
+                'generated_at' => now(),
+            ]);
+
+            // 5. Worker A creates winning DocumentInstanceVersion
+            $winningVersion = DocumentInstanceVersion::query()->create([
+                'company_id' => $company->id,
+                'document_instance_id' => $winningInstance->id,
+                'version' => 1,
+                'stage' => 'generated',
+                'file_path' => $winningCanonicalPath,
+                'original_filename' => Str::slug($template->name).'.pdf',
+                'mime_type' => 'application/pdf',
+                'size_bytes' => strlen('%PDF-1.4 Worker A Canonical File'),
+                'checksum' => hash('sha256', '%PDF-1.4 Worker A Canonical File'),
+                'created_by' => $user->id,
+            ]);
+
+            $winningInstance->current_version_id = $winningVersion->id;
+            $winningInstance->save();
+
+            // Return Worker B's rendered PDF content so Worker B continues
+            // to store its canonical/library files and reaches the locked DB transaction
+            return '%PDF-1.4 Worker B Rendered Content';
+        });
     app()->instance(ContentTemplatePdfRenderer::class, $mockRenderer);
 
-    // 1. Process Run A fully
-    $jobA = new GenerateCustomDocumentsJob(
-        companyId: $company->id,
-        userId: $user->id,
-        runId: $runA->id,
-        allowRepeatGeneration: false,
-    );
-    $jobA->handle(app(ContentTemplatePdfRenderer::class), app(SyncGeneratedEmployeeDocument::class));
-
-    expect(DocumentInstance::query()->count())->toBe(1)
-        ->and(DocumentInstanceVersion::query()->count())->toBe(1)
-        ->and(EmployeeDocument::query()->count())->toBe(1);
-
-    $initialInstance = DocumentInstance::query()->first();
-    $initialCanonical = DocumentInstanceVersion::query()->first()->file_path;
-    $initialLibraryDoc = EmployeeDocument::query()->first()->file_path;
-    Storage::disk('local')->assertExists($initialCanonical);
-    Storage::disk('local')->assertExists($initialLibraryDoc);
-
-    // 2. Process Run B
+    // Execute Worker B
     $jobB = new GenerateCustomDocumentsJob(
         companyId: $company->id,
         userId: $user->id,
@@ -1393,32 +1443,28 @@ test('concurrent non-repeat generation runs for same employee deduplicate inside
     );
     $jobB->handle(app(ContentTemplatePdfRenderer::class), app(SyncGeneratedEmployeeDocument::class));
 
-    // Assert: still exactly 1 instance, 1 version, 1 employee document
+    // Assert: Database has only the winning instance, winning version, and winning EmployeeDocument
     expect(DocumentInstance::query()->count())->toBe(1)
         ->and(DocumentInstanceVersion::query()->count())->toBe(1)
         ->and(EmployeeDocument::query()->count())->toBe(1)
-        ->and($itemA->fresh()->status)->toBe('completed')
         ->and($itemB->fresh()->status)->toBe('skipped');
 
-    // Run A counters
-    expect($runA->fresh()->generated_count)->toBe(1)
-        ->and($runA->fresh()->skipped_count)->toBe(0)
-        ->and($runA->fresh()->status)->toBe('completed');
-
-    // Run B counters
+    // Worker B Run counters
     expect($runB->fresh()->generated_count)->toBe(0)
         ->and($runB->fresh()->skipped_count)->toBe(1)
         ->and($runB->fresh()->status)->toBe('completed');
 
-    // Original files still exist
-    Storage::disk('local')->assertExists($initialCanonical);
-    Storage::disk('local')->assertExists($initialLibraryDoc);
+    // Winning files are untouched in storage
+    Storage::disk('local')->assertExists($winningCanonicalPath);
+    Storage::disk('local')->assertExists($winningLibraryDoc->file_path);
 
-    // No extra files were left behind in storage
+    // Worker B's rendered canonical and library files were purged upon discovering the race in DB::transaction
     $allInstanceFiles = Storage::disk('local')->allFiles("document-instances/{$company->id}");
     $allEmployeeFiles = Storage::disk('local')->allFiles("employee-documents/{$company->id}");
     expect($allInstanceFiles)->toHaveCount(1)
-        ->and($allEmployeeFiles)->toHaveCount(1);
+        ->and($allInstanceFiles[0])->toBe($winningCanonicalPath)
+        ->and($allEmployeeFiles)->toHaveCount(1)
+        ->and($allEmployeeFiles[0])->toBe($winningLibraryDoc->file_path);
 });
 
 test('explicit repeat generation allows creating an intentional second instance across runs', function () {
@@ -1727,4 +1773,74 @@ test('custom document roster pagination does not expose private file_path in doc
     expect($row['document'])->not->toBeNull()
         ->and($row['document']['id'])->toBe($doc->id)
         ->and(array_key_exists('file_path', $row['document']))->toBeFalse();
+});
+
+test('employee document deletion rollback preserves instance pointer when delete fails', function () {
+    Storage::fake('local');
+    $company = createCustomGenTestCompany();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'template_format' => DocumentGenerationTemplateFormat::Content,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    $libraryPath = "employee-documents/{$company->id}/{$employee->id}/test_doc.pdf";
+    Storage::disk('local')->put($libraryPath, '%PDF-1.4 Library File');
+
+    $doc = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'type' => 'other',
+        'document_type' => 'other',
+        'title' => 'Test Deletion Doc',
+        'file_path' => $libraryPath,
+        'original_filename' => 'test_doc.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 100,
+        'checksum' => 'checksum123',
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    $instance = DocumentInstance::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_name_snapshot' => (string) $employee->name,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'employee_document_id' => $doc->id,
+        'template_name_snapshot' => $template->name,
+        'template_version_number' => 1,
+        'title_snapshot' => $template->name,
+        'status' => 'generated',
+        'generated_at' => now(),
+    ]);
+
+    // Force EmployeeDocument soft-delete DB operation to fail inside the transaction
+    $shouldFail = true;
+    EmployeeDocument::deleting(function () use (&$shouldFail) {
+        if ($shouldFail) {
+            throw new RuntimeException('Simulated database failure during soft delete.');
+        }
+    });
+
+    $service = app(DocumentDeletionService::class);
+
+    try {
+        expect(fn () => $service->delete($doc))
+            ->toThrow(RuntimeException::class, 'Simulated database failure during soft delete.');
+
+        // Assert: EmployeeDocument was NOT deleted / still active
+        expect($doc->fresh())->not->toBeNull()
+            ->and($doc->fresh()->deleted_at)->toBeNull()
+            // Assert: DocumentInstance pointer was rolled back and still points to $doc->id
+            ->and($instance->fresh()->employee_document_id)->toBe($doc->id);
+
+        // Assert: Library file was NOT deleted
+        Storage::disk('local')->assertExists($libraryPath);
+    } finally {
+        $shouldFail = false;
+    }
 });
