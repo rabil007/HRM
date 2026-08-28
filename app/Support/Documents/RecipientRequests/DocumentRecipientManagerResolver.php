@@ -83,7 +83,16 @@ final class DocumentRecipientManagerResolver
             return false;
         }
 
-        if (! $this->companyAccess->hasAccessibleMembership($user, $companyId)) {
+        // Use batch membership lookup (not hasAccessibleMembership on the partial
+        // user:id,name,email,status model from ResolveDepartmentManagementChain).
+        // That path misses legacy users.company_id no-pivot access when company_id
+        // is not selected on the eager-loaded User.
+        $membershipByUserId = $this->companyAccess->accessibleMembershipByUserId(
+            $companyId,
+            [(int) $user->id],
+        );
+
+        if (! ($membershipByUserId[(int) $user->id] ?? false)) {
             return false;
         }
 

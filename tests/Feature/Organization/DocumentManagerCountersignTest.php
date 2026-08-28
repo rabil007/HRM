@@ -23,8 +23,10 @@ use App\Support\Documents\RecipientRequests\DocumentSignaturePlacementValidator;
 use App\Support\Documents\RecipientRequests\ResolveDocumentSignaturePlacement;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -45,6 +47,15 @@ function grantManagerRespond(User $user, Company $company): void
 function grantManagerCreate(User $user, Company $company): void
 {
     giveCompanyPermission($user, $company, 'documents.recipient-requests.create');
+}
+
+function grantLegacyManagerRespond(User $user, Company $company): void
+{
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $user->givePermissionTo(Permission::query()->firstOrCreate([
+        'name' => 'documents.recipient-requests.respond',
+        'guard_name' => 'web',
+    ]));
 }
 
 function tripleSignaturePlacementConfig(): array
@@ -240,6 +251,102 @@ test('manager without respond permission is rejected by resolver', function () {
         $fixtures['employee']->fresh(),
         $fixtures['company']->id,
     ))->toThrow(ValidationException::class);
+});
+
+test('legacy home-company manager without pivot resolves when respond permission is granted', function () {
+    $fixtures = makeRecipientFixturesWithSignaturePlacement(tripleSignaturePlacementConfig());
+    $company = $fixtures['company'];
+
+    $managerUser = User::factory()->create([
+        'status' => 'active',
+        'company_id' => $company->id,
+        'name' => 'Legacy Manager',
+    ]);
+    grantLegacyManagerRespond($managerUser, $company);
+    attachEligibleDepartmentManager($fixtures['employee'], $managerUser);
+
+    expect(DB::table('company_user')
+        ->where('company_id', $company->id)
+        ->where('user_id', $managerUser->id)
+        ->exists())->toBeFalse();
+
+    $resolved = app(DocumentRecipientManagerResolver::class)->resolveForEmployee(
+        $fixtures['employee']->fresh(),
+        $company->id,
+    );
+
+    expect($resolved['user']->id)->toBe($managerUser->id);
+});
+
+test('company A cannot resolve a manager whose user only has company B access', function () {
+    $fixturesA = makeRecipientFixturesWithSignaturePlacement(tripleSignaturePlacementConfig());
+    $fixturesB = makeRecipientFixturesWithSignaturePlacement(tripleSignaturePlacementConfig());
+
+    $managerUser = User::factory()->create(['status' => 'active', 'name' => 'Company B Manager']);
+    grantManagerRespond($managerUser, $fixturesB['company']);
+    attachEligibleDepartmentManager($fixturesA['employee'], $managerUser);
+
+    expect(fn () => app(DocumentRecipientManagerResolver::class)->resolveForEmployee(
+        $fixturesA['employee']->fresh(),
+        $fixturesA['company']->id,
+    ))->toThrow(ValidationException::class);
+});
+
+test('inactive linked manager user is not eligible', function () {
+    $fixtures = makeRecipientFixturesWithSignaturePlacement(tripleSignaturePlacementConfig());
+    $managerUser = User::factory()->create(['status' => 'inactive', 'name' => 'Inactive User']);
+    grantManagerRespond($managerUser, $fixtures['company']);
+    attachEligibleDepartmentManager($fixtures['employee'], $managerUser);
+
+    expect(fn () => app(DocumentRecipientManagerResolver::class)->resolveForEmployee(
+        $fixtures['employee']->fresh(),
+        $fixtures['company']->id,
+    ))->toThrow(ValidationException::class);
+});
+
+test('no eligible department manager returns a useful validation error', function () {
+    $fixtures = makeRecipientFixturesWithSignaturePlacement(tripleSignaturePlacementConfig());
+
+    try {
+        app(DocumentRecipientManagerResolver::class)->resolveForEmployee(
+            $fixtures['employee']->fresh(),
+            $fixtures['company']->id,
+        );
+        expect(false)->toBeTrue();
+    } catch (ValidationException $exception) {
+        expect($exception->errors()['action'][0] ?? null)
+            ->toBe('No eligible department manager is available to sign this document.');
+    }
+});
+
+test('duplicate active manager countersign request for the same source version is rejected', function () {
+    $fixtures = makeRecipientFixturesWithSignaturePlacement(tripleSignaturePlacementConfig());
+    $managerUser = User::factory()->create(['status' => 'active', 'name' => 'Dept Manager']);
+    grantManagerRespond($managerUser, $fixtures['company']);
+    attachEligibleDepartmentManager($fixtures['employee'], $managerUser);
+
+    $signed = completeSubjectEmployeeSignForManager($fixtures);
+
+    $hr = User::factory()->create();
+    grantManagerCreate($hr, $signed['company']);
+
+    app(CreateDocumentManagerCountersignRequest::class)->handle(
+        $signed['document'],
+        $hr,
+        $signed['company']->id,
+    );
+
+    try {
+        app(CreateDocumentManagerCountersignRequest::class)->handle(
+            $signed['document'],
+            $hr,
+            $signed['company']->id,
+        );
+        expect(false)->toBeTrue();
+    } catch (ValidationException $exception) {
+        expect($exception->errors()['action'][0] ?? null)
+            ->toBe('An active manager countersignature request already exists for this document version.');
+    }
 });
 
 test('HR can create manager countersign request after subject signature', function () {

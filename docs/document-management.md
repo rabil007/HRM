@@ -103,7 +103,7 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents/templates/{template}/draft` (POST) | Get or branch editable draft version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/versions/{version}/source-pdf` (GET) | Stream private source PDF | `documents.templates.view` |
 | `/organization/documents/templates/{template}/versions/{version}/placements` (PUT) | Save visual placements to draft | `documents.templates.update` |
-| `/organization/documents/templates/{template}/versions/{version}/signature-placement` (PUT) | Save subject employee signature placement on draft PDF Overlay version | `documents.templates.update` |
+| `/organization/documents/templates/{template}/versions/{version}/signature-placement` (PUT) | Save version-owned Subject Employee, Department Manager, and Company Signatory signature placements on draft PDF Overlay version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/versions/{version}/replace-pdf` (POST) | Replace PDF on draft version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/versions/{version}/publish` (POST) | Publish draft version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/activate` (POST) | Activate template | `documents.templates.update` |
@@ -111,6 +111,7 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents/activity` | Bulk generation history | `bulk_documents.view` |
 | `/organization/documents/bulk` | Legacy Bulk Documents index | `bulk_documents.view` |
 | `/organization/documents/employees/{employee}` | Employee document browse | `documents.view` |
+| `/organization/documents/employees/{employee}/files/{document}/manager-countersign-requests` (POST) | Create department-manager countersign request (manager resolved server-side) | `documents.recipient-requests.create` |
 | `/organization/employees/{employee}` (Documents tab) | Upload, edit, versions on profile | `documents.view` / `documents.upload` / `documents.delete` |
 
 Upload and CRUD on the profile use `organization.employees.documents.*` routes.
