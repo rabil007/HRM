@@ -2,11 +2,18 @@
 
 namespace App\Support\Documents\RecipientRequests;
 
+use App\Enums\DocumentRecipientRequestDeliveryPurpose;
+use App\Enums\DocumentRecipientRequestDeliveryStatus;
 use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentRecipientRequestDelivery;
+use App\Support\Documents\RecipientRequests\Automation\DocumentRecipientAutomationPolicy;
 
 final class DocumentRecipientRequestPresenter
 {
+    public function __construct(
+        private DocumentRecipientAutomationPolicy $automationPolicy = new DocumentRecipientAutomationPolicy,
+    ) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -42,6 +49,7 @@ final class DocumentRecipientRequestPresenter
             'signature_slot_key' => $request->signature_slot_key,
             'signing_preset_name' => $request->signingFlow?->preset_name_snapshot,
             'email_delivery' => $this->emailDeliverySummary($request),
+            'reminder_summary' => $this->reminderSummary($request),
             'requested_at' => $request->requested_at?->toIso8601String(),
             'expires_at' => $request->expires_at?->toIso8601String(),
             'completed_at' => $request->completed_at?->toIso8601String(),
@@ -116,6 +124,7 @@ final class DocumentRecipientRequestPresenter
             'signature_slot_key' => $request->signature_slot_key,
             'signing_step_sequence' => $request->signing_step_sequence,
             'email_delivery' => $this->emailDeliverySummary($request),
+            'reminder_summary' => $this->reminderSummary($request),
             'is_public_token_recipient' => $request->isPublicTokenRecipient(),
             'requested_at' => $request->requested_at?->toIso8601String(),
             'expires_at' => $request->expires_at?->toIso8601String(),
@@ -183,7 +192,54 @@ final class DocumentRecipientRequestPresenter
     }
 
     /**
-     * @return array{status: string, status_label: string, last_sent_at: string|null, can_resend: bool}|null
+     * @return array{
+     *     enabled: bool,
+     *     days_before_expiry: list<int>,
+     *     next_reminder_at: string|null
+     * }|null
+     */
+    public function reminderSummary(DocumentRecipientRequest $request): ?array
+    {
+        $snapshot = $request->reminder_policy_snapshot;
+
+        if (! is_array($snapshot)) {
+            return null;
+        }
+
+        $enabled = ($snapshot['enabled'] ?? false) === true;
+        $days = $this->automationPolicy->normalizeDays($snapshot['days_before_expiry'] ?? []);
+
+        $consumedKeys = [];
+
+        if ($request->relationLoaded('deliveries')) {
+            $consumedKeys = $request->deliveries
+                ->where('purpose', DocumentRecipientRequestDeliveryPurpose::Reminder)
+                ->pluck('automation_key')
+                ->filter()
+                ->values()
+                ->all();
+        }
+
+        $nextReminder = $enabled && $request->isAwaitingAction()
+            ? $this->automationPolicy->nextReminderAt($request, $consumedKeys)
+            : null;
+
+        return [
+            'enabled' => $enabled,
+            'days_before_expiry' => $days,
+            'next_reminder_at' => $nextReminder?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     status: string,
+     *     status_label: string,
+     *     purpose: string,
+     *     purpose_label: string,
+     *     last_sent_at: string|null,
+     *     can_resend: bool
+     * }|null
      */
     public function emailDeliverySummary(DocumentRecipientRequest $request): ?array
     {
@@ -198,9 +254,24 @@ final class DocumentRecipientRequestPresenter
             return null;
         }
 
+        $purpose = $latest->purpose;
+        $statusLabel = match (true) {
+            $purpose === DocumentRecipientRequestDeliveryPurpose::Reminder
+                && $latest->status === DocumentRecipientRequestDeliveryStatus::Sent => 'Email reminder sent',
+            $purpose === DocumentRecipientRequestDeliveryPurpose::Reminder
+                && $latest->status === DocumentRecipientRequestDeliveryStatus::Failed => 'Email reminder failed',
+            $purpose === DocumentRecipientRequestDeliveryPurpose::Reminder
+                && $latest->status === DocumentRecipientRequestDeliveryStatus::Suppressed => 'Email reminder unavailable',
+            $purpose === DocumentRecipientRequestDeliveryPurpose::Reminder
+                && $latest->status === DocumentRecipientRequestDeliveryStatus::Queued => 'Email reminder queued',
+            default => $latest->status->label(),
+        };
+
         return [
             'status' => $latest->status->value,
-            'status_label' => $latest->status->label(),
+            'status_label' => $statusLabel,
+            'purpose' => $purpose->value,
+            'purpose_label' => $purpose->label(),
             'last_sent_at' => $latest->sent_at?->toIso8601String(),
             'can_resend' => $request->isAwaitingAction(),
         ];

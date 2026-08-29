@@ -5,6 +5,7 @@ import {
     FileSignature,
     Settings2,
 } from 'lucide-react';
+import { useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
@@ -21,6 +22,7 @@ import type {
     BulkSignatureFilter,
 } from '@/features/organization/documents/bulk/types';
 import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
+import { RecipientReminderSettingsSheet } from '@/features/organization/documents/workflow/recipient-reminder-settings-sheet';
 import { RecipientRequestsTable } from '@/features/organization/documents/workflow/recipient-requests-table';
 import type { DocumentRequestsIndexProps } from '@/features/organization/documents/workflow/types';
 import { WorkflowRequestsTable } from '@/features/organization/documents/workflow/workflow-requests-table';
@@ -156,9 +158,12 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
         search: initialSearch,
         workflow_requests,
         recipient_requests,
+        recipient_automation = null,
         pagination,
         signature_payload,
     } = props;
+
+    const [reminderSettingsOpen, setReminderSettingsOpen] = useState(false);
 
     const list = useServerPaginationFilters({
         url: documentRoutes.requests.url(),
@@ -327,8 +332,19 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
             {tab === 'recipient' &&
             (can.view_recipient_requests || can.respond_recipient_requests) ? (
                 <div className="space-y-4">
-                    {signing_preset_can.view ? (
-                        <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                        {recipient_automation?.can_view ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setReminderSettingsOpen(true)}
+                            >
+                                <Settings2 className="mr-2 h-4 w-4" />
+                                Reminder settings
+                            </Button>
+                        ) : null}
+                        {signing_preset_can.view ? (
                             <Button asChild variant="outline" size="sm">
                                 <Link
                                     href={documentRoutes.signingPresets.url()}
@@ -337,8 +353,8 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                                     Signing presets
                                 </Link>
                             </Button>
-                        </div>
-                    ) : null}
+                        ) : null}
+                    </div>
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                         <SearchBar
                             value={list.searchInput}
@@ -379,6 +395,13 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                         canCreate={can.create_recipient_requests}
                     />
                     <Pagination {...list.paginationProps} />
+                    {recipient_automation?.can_view ? (
+                        <RecipientReminderSettingsSheet
+                            open={reminderSettingsOpen}
+                            onOpenChange={setReminderSettingsOpen}
+                            settings={recipient_automation}
+                        />
+                    ) : null}
                 </div>
             ) : null}
 

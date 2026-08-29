@@ -110,6 +110,7 @@ use App\Http\Controllers\Organization\Documents\DeactivateDocumentSigningPresetC
 use App\Http\Controllers\Organization\Documents\DeactivateDocumentWorkflowPresetController;
 use App\Http\Controllers\Organization\Documents\DeleteDocumentSigningPresetController;
 use App\Http\Controllers\Organization\Documents\DeleteDocumentWorkflowPresetController;
+use App\Http\Controllers\Organization\Documents\DocumentRecipientAutomationSettingController;
 use App\Http\Controllers\Organization\Documents\DocumentRecipientRequestShowController;
 use App\Http\Controllers\Organization\Documents\DocumentRequestsIndexController;
 use App\Http\Controllers\Organization\Documents\DocumentSigningPresetsIndexController;
@@ -702,6 +703,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
     Route::get('organization/documents/requests', DocumentRequestsIndexController::class)
         ->name('organization.documents.requests');
+    Route::middleware('can:documents.recipient-automation.update')->group(function () {
+        Route::put('organization/documents/recipient-automation-settings', [DocumentRecipientAutomationSettingController::class, 'update'])
+            ->name('organization.documents.recipient-automation-settings.update');
+    });
     Route::middleware('can:documents.requests.view')->group(function () {
         Route::get('organization/documents/requests/{workflowRequest}', DocumentWorkflowRequestShowController::class)
             ->name('organization.documents.requests.show');

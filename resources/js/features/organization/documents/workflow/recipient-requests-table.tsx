@@ -27,18 +27,7 @@ function emailIndicatorLabel(
         return null;
     }
 
-    switch (delivery.status) {
-        case 'sent':
-            return 'Email sent';
-        case 'failed':
-            return 'Email failed';
-        case 'queued':
-            return 'Email queued';
-        case 'suppressed':
-            return 'Email unavailable';
-        default:
-            return delivery.status_label;
-    }
+    return delivery.status_label;
 }
 
 export function RecipientRequestsTable({

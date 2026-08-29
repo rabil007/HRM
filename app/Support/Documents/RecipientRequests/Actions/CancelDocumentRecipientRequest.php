@@ -64,6 +64,7 @@ final class CancelDocumentRecipientRequest
                 'status' => DocumentRecipientRequestStatus::Cancelled,
                 'cancelled_at' => now(),
                 'cancelled_by' => $actor->id,
+                'next_reminder_at' => null,
             ]);
 
             $this->eventRecorder->record(

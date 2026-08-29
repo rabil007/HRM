@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import type {
+    RecipientReminderSummary,
     RecipientRequestEmailDelivery,
     RecipientRequestPermissions,
     RecipientRequestStatus,
@@ -33,6 +34,7 @@ type RecipientRequestDetail = {
     is_public_token_recipient: boolean;
     respond_url: string | null;
     email_delivery: RecipientRequestEmailDelivery | null;
+    reminder_summary: RecipientReminderSummary | null;
     requested_at: string | null;
     expires_at: string | null;
     first_viewed_at: string | null;
@@ -226,6 +228,50 @@ export default function RecipientRequestShow({
                                     </span>
                                 </div>
                             ) : null}
+                            <div className="flex justify-between gap-4">
+                                <span className="text-muted-foreground">
+                                    Expires
+                                </span>
+                                <span>
+                                    {recipient_request.status === 'expired'
+                                        ? `Expired ${formatDisplayDate(recipient_request.expires_at)}`
+                                        : formatDisplayDate(
+                                              recipient_request.expires_at,
+                                          )}
+                                </span>
+                            </div>
+                            {recipient_request.reminder_summary ? (
+                                <>
+                                    <div className="flex justify-between gap-4">
+                                        <span className="text-muted-foreground">
+                                            Automatic reminders
+                                        </span>
+                                        <span>
+                                            {recipient_request.reminder_summary
+                                                .enabled &&
+                                            recipient_request.reminder_summary
+                                                .days_before_expiry.length > 0
+                                                ? `${recipient_request.reminder_summary.days_before_expiry.join(', ')} days before expiry`
+                                                : 'None'}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between gap-4">
+                                        <span className="text-muted-foreground">
+                                            Next reminder
+                                        </span>
+                                        <span>
+                                            {recipient_request.reminder_summary
+                                                .next_reminder_at
+                                                ? formatDisplayDate(
+                                                      recipient_request
+                                                          .reminder_summary
+                                                          .next_reminder_at,
+                                                  )
+                                                : 'None'}
+                                        </span>
+                                    </div>
+                                </>
+                            ) : null}
                             {recipient_request.email_delivery ? (
                                 <>
                                     <div className="flex justify-between gap-4">
@@ -303,16 +349,6 @@ export default function RecipientRequestShow({
                                 <span>
                                     {formatDisplayDate(
                                         recipient_request.requested_at,
-                                    )}
-                                </span>
-                            </div>
-                            <div className="flex justify-between gap-4">
-                                <span className="text-muted-foreground">
-                                    Expires
-                                </span>
-                                <span>
-                                    {formatDisplayDate(
-                                        recipient_request.expires_at,
                                     )}
                                 </span>
                             </div>

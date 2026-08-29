@@ -37,6 +37,8 @@ class DocumentRecipientRequest extends Model
         'status',
         'token_hash',
         'expires_at',
+        'reminder_policy_snapshot',
+        'next_reminder_at',
         'requested_by',
         'requested_at',
         'first_viewed_at',
@@ -64,6 +66,8 @@ class DocumentRecipientRequest extends Model
             'recipient_role' => DocumentRecipientRole::class,
             'status' => DocumentRecipientRequestStatus::class,
             'expires_at' => 'datetime',
+            'reminder_policy_snapshot' => 'array',
+            'next_reminder_at' => 'datetime',
             'requested_at' => 'datetime',
             'first_viewed_at' => 'datetime',
             'completed_at' => 'datetime',
@@ -141,7 +145,7 @@ class DocumentRecipientRequest extends Model
 
     public function isExpired(): bool
     {
-        return $this->expires_at !== null && $this->expires_at->isPast();
+        return $this->expires_at !== null && $this->expires_at->lessThanOrEqualTo(now());
     }
 
     public function isAwaitingAction(): bool

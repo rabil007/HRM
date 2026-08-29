@@ -137,6 +137,10 @@ class DocumentRequestsIndexController extends Controller
                     ->map(fn ($item) => $recipientPresenter->listItem($item))
                     ->values()
                     ->all(),
+                'recipient_automation' => DocumentRecipientAutomationSettingController::propsFor(
+                    $request->user(),
+                    $companyId,
+                ),
                 'pagination' => $this->paginationMeta($recipientPaginator),
                 'signature_payload' => null,
             ]);
