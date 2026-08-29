@@ -92,6 +92,7 @@ function stepsFromPreset(preset: SigningPresetSummary | null): FormStep[] {
         return [defaultSubjectStep()];
     }
 
+    // Use raw custom step_label only — never seed generated display_label into the input.
     const mapped = preset.steps.map((step) => ({
         key: newStepKey(),
         recipient_role: step.recipient_role,

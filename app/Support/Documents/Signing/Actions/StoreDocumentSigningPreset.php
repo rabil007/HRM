@@ -8,7 +8,6 @@ use App\Enums\DocumentSigningTargetType;
 use App\Models\DocumentSigningPreset;
 use App\Models\DocumentSigningPresetStep;
 use App\Models\User;
-use App\Support\Documents\Signing\DocumentSignatureSlot;
 use App\Support\Documents\Signing\DocumentSigningPresetActivityLogger;
 use App\Support\Documents\Signing\DocumentSigningPresetValidator;
 use Illuminate\Support\Facades\DB;
@@ -64,9 +63,6 @@ final class StoreDocumentSigningPreset
             ->where('document_signing_preset_id', $preset->id)
             ->delete();
 
-        $managerOccurrence = 0;
-        $companyOccurrence = 0;
-
         foreach (array_values($steps) as $index => $stepInput) {
             $role = DocumentRecipientRole::from((string) $stepInput['recipient_role']);
             $targetType = match ($role) {
@@ -74,13 +70,6 @@ final class StoreDocumentSigningPreset
                 DocumentRecipientRole::Manager => DocumentSigningTargetType::DepartmentManager,
                 DocumentRecipientRole::CompanySignatory => DocumentSigningTargetType::SpecificUser,
                 default => DocumentSigningTargetType::SubjectEmployee,
-            };
-
-            $occurrence = match ($role) {
-                DocumentRecipientRole::Subject => 1,
-                DocumentRecipientRole::Manager => ++$managerOccurrence,
-                DocumentRecipientRole::CompanySignatory => ++$companyOccurrence,
-                default => 1,
             };
 
             $label = isset($stepInput['step_label']) ? trim((string) $stepInput['step_label']) : '';
@@ -94,9 +83,7 @@ final class StoreDocumentSigningPreset
                 'target_user_id' => $role === DocumentRecipientRole::CompanySignatory
                     ? (int) $stepInput['target_user_id']
                     : null,
-                'step_label' => $label !== ''
-                    ? $label
-                    : DocumentSignatureSlot::defaultLabel($role, $occurrence),
+                'step_label' => $label !== '' ? $label : null,
             ]);
         }
     }

@@ -11,7 +11,6 @@ use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentInstanceVersion;
 use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentSigningFlow;
-use App\Models\DocumentSigningPresetStep;
 use App\Models\Employee;
 use App\Models\User;
 use App\Support\Documents\Actions\SaveDocumentGenerationTemplateSignaturePlacement;
@@ -22,6 +21,7 @@ use App\Support\Documents\RecipientRequests\DocumentSignaturePlacementValidator;
 use App\Support\Documents\Signing\Actions\RetryDocumentSigningFlow;
 use App\Support\Documents\Signing\Actions\StartDocumentSigningFlow;
 use App\Support\Documents\Signing\Actions\StoreDocumentSigningPreset;
+use App\Support\Documents\Signing\Actions\UpdateDocumentSigningPreset;
 use App\Support\Documents\Signing\DocumentSigningFlowPresenter;
 use App\Support\Documents\Signing\DocumentSigningManagementChainResolver;
 use App\Support\Documents\Signing\DocumentSigningPresetPresenter;
@@ -854,14 +854,127 @@ test('existing null step labels on old preset rows remain presentable', function
         [['recipient_role' => 'subject']],
     );
 
-    DocumentSigningPresetStep::query()
-        ->where('document_signing_preset_id', $preset->id)
-        ->update(['step_label' => null]);
+    expect($preset->steps->first()->step_label)->toBeNull();
 
     $presented = app(DocumentSigningPresetPresenter::class)
         ->detail($preset->fresh());
 
-    expect($presented['steps'][0]['step_label'])->toBe('Employee');
+    expect($presented['steps'][0]['step_label'])->toBeNull()
+        ->and($presented['steps'][0]['display_label'])->toBe('Employee')
+        ->and($presented['routing_summary'])->toBe('Employee');
+});
+
+test('blank step labels stay null and regenerate after manager removal', function () {
+    $fixtures = makeRecipientFixturesWithSignaturePlacement(advancedFiveSignerPlacementConfig());
+    $company = $fixtures['company'];
+    $hr = User::factory()->create();
+    $m1 = User::factory()->create(['status' => 'active']);
+    $m2 = User::factory()->create(['status' => 'active']);
+
+    giveCompanyPermission($hr, $company, 'documents.recipient-requests.create');
+    giveCompanyPermission($hr, $company, 'documents.signing-presets.create');
+    giveCompanyPermission($hr, $company, 'documents.signing-presets.update');
+    giveCompanyPermission($m1, $company, 'documents.recipient-requests.respond');
+    giveCompanyPermission($m2, $company, 'documents.recipient-requests.respond');
+    attachTwoLevelManagementChain($fixtures['employee'], $m1, $m2);
+
+    $preset = app(StoreDocumentSigningPreset::class)->handle(
+        $hr,
+        $company->id,
+        'Blank manager labels',
+        null,
+        [
+            ['recipient_role' => 'subject'],
+            ['recipient_role' => 'manager'],
+            ['recipient_role' => 'manager'],
+        ],
+    );
+
+    expect($preset->steps->pluck('step_label')->all())->toBe([null, null, null]);
+
+    $presented = app(DocumentSigningPresetPresenter::class)->detail($preset);
+    expect($presented['steps'][1]['display_label'])->toBe('Department Manager')
+        ->and($presented['steps'][2]['display_label'])->toBe('Management level 2')
+        ->and($presented['steps'][1]['step_label'])->toBeNull()
+        ->and($presented['steps'][2]['step_label'])->toBeNull();
+
+    app(UpdateDocumentSigningPreset::class)->handle(
+        $preset,
+        $hr,
+        $company->id,
+        'Blank manager labels',
+        null,
+        [
+            ['recipient_role' => 'subject'],
+            ['recipient_role' => 'manager'],
+        ],
+    );
+
+    $started = app(StartDocumentSigningFlow::class)->handle(
+        $fixtures['document'],
+        $hr,
+        $company->id,
+        $preset->id,
+    );
+
+    $managerStep = collect($started['flow']->routing_definition_snapshot['steps'])
+        ->firstWhere('recipient_role', 'manager');
+
+    expect($managerStep['signature_slot_key'])->toBe('manager_1')
+        ->and($managerStep['step_label'])->toBe('Department Manager');
+});
+
+test('explicit custom step labels round-trip and snapshot unchanged', function () {
+    $fixtures = makeRecipientFixturesWithSignaturePlacement(advancedFiveSignerPlacementConfig());
+    $company = $fixtures['company'];
+    $hr = User::factory()->create();
+    $m1 = User::factory()->create(['status' => 'active']);
+    $m2 = User::factory()->create(['status' => 'active']);
+
+    giveCompanyPermission($hr, $company, 'documents.recipient-requests.create');
+    giveCompanyPermission($hr, $company, 'documents.signing-presets.create');
+    giveCompanyPermission($m1, $company, 'documents.recipient-requests.respond');
+    giveCompanyPermission($m2, $company, 'documents.recipient-requests.respond');
+    attachTwoLevelManagementChain($fixtures['employee'], $m1, $m2);
+
+    $preset = app(StoreDocumentSigningPreset::class)->handle(
+        $hr,
+        $company->id,
+        'Custom labels',
+        null,
+        [
+            ['recipient_role' => 'subject', 'step_label' => 'Crew Member'],
+            ['recipient_role' => 'manager', 'step_label' => 'Department Manager'],
+            ['recipient_role' => 'manager', 'step_label' => 'Parent Manager'],
+        ],
+    );
+
+    expect($preset->steps->pluck('step_label')->all())->toBe([
+        'Crew Member',
+        'Department Manager',
+        'Parent Manager',
+    ]);
+
+    $presented = app(DocumentSigningPresetPresenter::class)->detail($preset);
+    expect($presented['steps'][2]['step_label'])->toBe('Parent Manager')
+        ->and($presented['steps'][2]['display_label'])->toBe('Parent Manager');
+
+    $started = app(StartDocumentSigningFlow::class)->handle(
+        $fixtures['document'],
+        $hr,
+        $company->id,
+        $preset->id,
+    );
+
+    $labels = collect($started['flow']->routing_definition_snapshot['steps'])
+        ->pluck('step_label')
+        ->all();
+
+    expect($labels)->toBe([
+        'Crew Member',
+        'Department Manager',
+        'Parent Manager',
+    ]);
 });
 
 test('advanced internal stages are unavailable on public document-action routes', function () {

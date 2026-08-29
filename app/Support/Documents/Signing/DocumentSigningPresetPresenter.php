@@ -31,15 +31,16 @@ final class DocumentSigningPresetPresenter
                 default => $step->recipient_role->value,
             };
 
-            $stepLabel = filled($step->step_label)
-                ? (string) $step->step_label
-                : DocumentSignatureSlot::defaultLabel($step->recipient_role, $occurrence);
+            $customLabel = filled($step->step_label) ? (string) $step->step_label : null;
+            $displayLabel = $customLabel
+                ?? DocumentSignatureSlot::defaultLabel($step->recipient_role, $occurrence);
 
             return [
                 'sequence' => (int) $step->sequence,
                 'recipient_role' => $step->recipient_role->value,
                 'recipient_role_label' => $roleLabel,
-                'step_label' => $stepLabel,
+                'step_label' => $customLabel,
+                'display_label' => $displayLabel,
                 'target_type' => $step->target_type->value,
                 'target_user_id' => $step->target_user_id,
                 'target_user' => $step->targetUser !== null ? [
@@ -65,12 +66,16 @@ final class DocumentSigningPresetPresenter
     }
 
     /**
-     * @param  list<array{step_label?: string, recipient_role_label: string}>  $steps
+     * @param  list<array{display_label?: string, step_label?: string|null, recipient_role_label: string}>  $steps
      */
     public function routingSummary(array $steps): string
     {
         return collect($steps)
-            ->map(fn (array $step): string => (string) ($step['step_label'] ?? $step['recipient_role_label']))
+            ->map(fn (array $step): string => (string) (
+                $step['display_label']
+                ?? $step['step_label']
+                ?? $step['recipient_role_label']
+            ))
             ->implode(' → ');
     }
 }
