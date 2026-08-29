@@ -946,4 +946,49 @@ One-off Request Signature / Manager / Company Countersignature remain supported 
 
 Automatic template→preset assignment, auto-start after generation/approval, email/WhatsApp/push/reminders, scheduled expiry jobs, arbitrary multi-stage/repeated signer chains (Phase 6B-2B2), and legacy bulk `/esign` migration.
 
+## Phase 6B-2B2: Advanced Sequential Multi-Stage Signing
+
+Phase 6B-2B2 extends sequential signing flows with repeated manager and company-signatory stages, while keeping the same broad recipient roles (`subject`, `manager`, `company_signatory`). Organization-specific titles such as Director or CEO are **step labels**, not new enum roles.
+
+### Signature slots
+
+Recipient role answers “what kind of signer?”. Signature slot answers “which exact signature box?”.
+
+Examples: `subject`, `manager_1`, `manager_2`, `company_signatory_1`, `company_signatory_2`.
+
+Slots are derived server-side from step order. Clients never submit `signature_slot_key` on presets.
+
+### Placement schema
+
+- Schema **v1** remains readable forever: one placement per role, interpreted as default slots (`subject`, `manager_1`, `company_signatory_1`).
+- Schema **v2** stores explicit `slot_key` values, unique ids/slots, contiguous occurrences, and supports repeated roles.
+- Saving a draft through the placement editor normalizes to schema v2. Published/archived v1 configs stay immutable.
+
+### Supported preset shape
+
+- Max **8** sequential steps
+- Subject required once, always sequence 1
+- Then `0..N` manager stages, then `0..N` specific company-signatory stages
+- No subject after managers, no manager after company signatory, no duplicate specific users
+
+Example: Employee → Department Manager → Parent Manager → Director → CEO
+
+### Management chain
+
+`DocumentSigningManagementChainResolver` returns actionable unique managers in hierarchy order (deduped by User id). Manual one-manager resolution still returns the first actionable manager only.
+
+Flow start fails before creating a flow/request when required managers or slots are missing.
+
+### Routing snapshot v2
+
+New flows store `schema_version: 2` with step labels, slot keys, management positions, and snapshotted recipients. Existing schema v1 snapshots continue to advance using default slots/labels.
+
+### Advancement
+
+`CreateDocumentSigningFlowStepRequest` creates internal next steps from the snapshot only (no hierarchy re-resolution). Manual manager/company countersign actions remain simple Subject→Manager→Company and are not relaxed for Manager 2+.
+
+### Explicitly not in Phase 6B-2B2
+
+Parallel / quorum / “any 2 of 3” signing, external recipients, delivery channels, reminders, scheduled expiry, auto-start after generation/approval, workflow sign stages, and legacy bulk `/esign` / Salary Declaration migration. Next roadmap phase is **Phase 7**.
+
 

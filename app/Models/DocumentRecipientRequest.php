@@ -26,6 +26,8 @@ class DocumentRecipientRequest extends Model
         'document_workflow_request_id',
         'document_signing_flow_id',
         'signing_step_sequence',
+        'signature_slot_key',
+        'signing_step_label_snapshot',
         'action',
         'recipient_type',
         'recipient_role',

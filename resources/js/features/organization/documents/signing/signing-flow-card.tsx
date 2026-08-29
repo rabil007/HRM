@@ -1,7 +1,10 @@
 import { router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { SigningFlowSummary } from '@/features/organization/documents/signing/types';
+import type {
+    SigningFlowStepSummary,
+    SigningFlowSummary,
+} from '@/features/organization/documents/signing/types';
 import { cancel, retry } from '@/routes/organization/documents/signing-flows';
 
 type Props = {
@@ -9,6 +12,15 @@ type Props = {
     canCancel: boolean;
     canRetry: boolean;
 };
+
+function stepTitle(step: SigningFlowStepSummary): string {
+    return (
+        step.step_label ??
+        step.recipient_role_label ??
+        step.recipient_role ??
+        'Step'
+    );
+}
 
 export function SigningFlowCard({ flow, canCancel, canRetry }: Props) {
     return (
@@ -48,15 +60,18 @@ export function SigningFlowCard({ flow, canCancel, canRetry }: Props) {
                         >
                             <div className="flex items-center justify-between gap-3">
                                 <span className="font-medium">
-                                    {step.sequence}.{' '}
-                                    {step.recipient_name ??
-                                        step.recipient_role ??
-                                        'Step'}
-                                </span>
-                                <span className="text-muted-foreground capitalize">
-                                    {step.status}
+                                    {step.sequence}. {stepTitle(step)} —{' '}
+                                    <span className="font-normal text-muted-foreground capitalize">
+                                        {step.status}
+                                    </span>
                                 </span>
                             </div>
+                            {step.recipient_name &&
+                            step.recipient_name !== stepTitle(step) ? (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    {step.recipient_name}
+                                </p>
+                            ) : null}
                             {step.respond_url ? (
                                 <a
                                     href={step.respond_url}

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Support\Documents\Signing\Actions\DeleteDocumentSigningPreset;
 use App\Support\Documents\Signing\Actions\StartDocumentSigningFlow;
 use App\Support\Documents\Signing\Actions\StoreDocumentSigningPreset;
+use App\Support\Documents\Signing\DocumentSigningPresetPresenter;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Validation\ValidationException;
 
@@ -202,4 +203,30 @@ test('used signing preset cannot be deleted', function () {
         $admin,
         $company->id,
     ))->toThrow(ValidationException::class);
+});
+
+test('blank step labels are stored as null not generated text', function () {
+    $company = makeDocumentFixtures()['company'];
+    $admin = User::factory()->create();
+    grantSigningPresetPermissions($admin, $company, ['documents.signing-presets.create']);
+
+    $preset = app(StoreDocumentSigningPreset::class)->handle(
+        $admin,
+        $company->id,
+        'Blank labels',
+        null,
+        [
+            ['recipient_role' => 'subject'],
+            ['recipient_role' => 'manager'],
+        ],
+    );
+
+    expect($preset->steps->pluck('step_label')->all())->toBe([null, null]);
+
+    $presented = app(DocumentSigningPresetPresenter::class)
+        ->detail($preset);
+
+    expect($presented['steps'][0]['step_label'])->toBeNull()
+        ->and($presented['steps'][0]['display_label'])->toBe('Employee')
+        ->and($presented['steps'][1]['display_label'])->toBe('Department Manager');
 });

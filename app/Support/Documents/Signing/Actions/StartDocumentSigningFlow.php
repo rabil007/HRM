@@ -17,13 +17,14 @@ use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Support\Documents\RecipientRequests\Actions\CreateDocumentRecipientRequest;
-use App\Support\Documents\RecipientRequests\DocumentRecipientManagerResolver;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestWorkflowGate;
 use App\Support\Documents\RecipientRequests\DocumentRecipientSignatureChainGuard;
 use App\Support\Documents\RecipientRequests\ResolveDocumentSignaturePlacement;
+use App\Support\Documents\Signing\DocumentSignatureSlot;
 use App\Support\Documents\Signing\DocumentSigningFlowActivityLogger;
 use App\Support\Documents\Signing\DocumentSigningFlowOpenGuard;
 use App\Support\Documents\Signing\DocumentSigningInternalSignerEligibility;
+use App\Support\Documents\Signing\DocumentSigningManagementChainResolver;
 use App\Support\EmployeeDocuments\DocumentAccess;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -35,7 +36,7 @@ final class StartDocumentSigningFlow
         private DocumentRecipientRequestWorkflowGate $workflowGate,
         private DocumentRecipientSignatureChainGuard $chainGuard,
         private ResolveDocumentSignaturePlacement $resolvePlacement,
-        private DocumentRecipientManagerResolver $managerResolver,
+        private DocumentSigningManagementChainResolver $managementChainResolver,
         private DocumentSigningInternalSignerEligibility $signerEligibility,
         private CreateDocumentRecipientRequest $createSubjectRequest,
         private DocumentSigningFlowActivityLogger $activityLogger,
@@ -141,7 +142,8 @@ final class StartDocumentSigningFlow
 
             foreach ($routingSnapshot['steps'] as $step) {
                 $role = DocumentRecipientRole::from($step['recipient_role']);
-                $this->resolvePlacement->forInstanceVersion($instance, $sourceVersion, $role);
+                $slotKey = (string) $step['signature_slot_key'];
+                $this->resolvePlacement->forInstanceVersionSlot($instance, $sourceVersion, $role, $slotKey);
             }
 
             $flow = DocumentSigningFlow::query()->create([
@@ -157,6 +159,8 @@ final class StartDocumentSigningFlow
                 'started_at' => now(),
             ]);
 
+            $subjectStep = $routingSnapshot['steps'][0];
+
             $subjectResult = $this->createSubjectRequest->handle(
                 $document,
                 DocumentRecipientAction::Sign,
@@ -165,6 +169,8 @@ final class StartDocumentSigningFlow
                 signingFlowId: (int) $flow->id,
                 signingStepSequence: 1,
                 skipOpenFlowGuard: true,
+                signatureSlotKey: (string) $subjectStep['signature_slot_key'],
+                signingStepLabelSnapshot: (string) ($subjectStep['step_label'] ?? DocumentSignatureSlot::defaultLabel(DocumentRecipientRole::Subject)),
             );
 
             $this->activityLogger->log(
@@ -177,6 +183,8 @@ final class StartDocumentSigningFlow
                     'document_recipient_request_id' => $subjectResult['request']->id,
                     'step_sequence' => 1,
                     'recipient_role' => DocumentRecipientRole::Subject->value,
+                    'signature_slot_key' => $subjectStep['signature_slot_key'],
+                    'signing_step_label' => $subjectStep['step_label'] ?? null,
                 ],
             );
 
@@ -196,14 +204,43 @@ final class StartDocumentSigningFlow
         Employee $employee,
         int $companyId,
     ): array {
+        $managerCount = $preset->steps
+            ->filter(fn ($step): bool => $step->recipient_role === DocumentRecipientRole::Manager)
+            ->count();
+
+        $managers = $managerCount > 0
+            ? $this->managementChainResolver->resolveActionableUniqueManagers($employee, $companyId)
+            : [];
+
+        if ($managerCount > count($managers)) {
+            throw ValidationException::withMessages([
+                'document_signing_preset_id' => sprintf(
+                    'This signing preset requires %d eligible management signer%s, but only %d %s available in the employee\'s management hierarchy.',
+                    $managerCount,
+                    $managerCount === 1 ? '' : 's',
+                    count($managers),
+                    count($managers) === 1 ? 'is' : 'are',
+                ),
+            ]);
+        }
+
         $steps = [];
+        $seenRecipientUserIds = [];
+        $managerOccurrence = 0;
+        $companyOccurrence = 0;
 
         foreach ($preset->steps as $step) {
             if ($step->recipient_role === DocumentRecipientRole::Subject) {
+                $label = filled($step->step_label)
+                    ? (string) $step->step_label
+                    : DocumentSignatureSlot::defaultLabel(DocumentRecipientRole::Subject);
+
                 $steps[] = [
                     'sequence' => (int) $step->sequence,
                     'recipient_role' => DocumentRecipientRole::Subject->value,
                     'target_type' => DocumentSigningTargetType::SubjectEmployee->value,
+                    'step_label' => $label,
+                    'signature_slot_key' => DocumentSignatureSlot::SUBJECT,
                     'employee_id' => $employee->id,
                     'recipient_user_id' => null,
                     'recipient_name' => (string) $employee->name,
@@ -213,14 +250,33 @@ final class StartDocumentSigningFlow
             }
 
             if ($step->recipient_role === DocumentRecipientRole::Manager) {
-                $resolved = $this->managerResolver->resolveForEmployee($employee, $companyId);
+                $managerOccurrence++;
+                $resolved = $managers[$managerOccurrence - 1];
+                $userId = (int) $resolved['user']->id;
+
+                if (isset($seenRecipientUserIds[$userId])) {
+                    throw ValidationException::withMessages([
+                        'document_signing_preset_id' => 'This signing preset would assign the same internal signer to multiple stages.',
+                    ]);
+                }
+
+                $seenRecipientUserIds[$userId] = true;
+                $label = filled($step->step_label)
+                    ? (string) $step->step_label
+                    : DocumentSignatureSlot::defaultLabel(DocumentRecipientRole::Manager, $managerOccurrence);
 
                 $steps[] = [
                     'sequence' => (int) $step->sequence,
                     'recipient_role' => DocumentRecipientRole::Manager->value,
                     'target_type' => DocumentSigningTargetType::DepartmentManager->value,
+                    'step_label' => $label,
+                    'signature_slot_key' => DocumentSignatureSlot::forRoleOccurrence(
+                        DocumentRecipientRole::Manager,
+                        $managerOccurrence,
+                    ),
+                    'management_chain_position' => $managerOccurrence,
                     'manager_employee_id' => $resolved['manager']->id,
-                    'recipient_user_id' => $resolved['user']->id,
+                    'recipient_user_id' => $userId,
                     'recipient_name' => (string) $resolved['user']->name,
                 ];
 
@@ -228,6 +284,7 @@ final class StartDocumentSigningFlow
             }
 
             if ($step->recipient_role === DocumentRecipientRole::CompanySignatory) {
+                $companyOccurrence++;
                 $user = $step->targetUser;
 
                 if (! $user instanceof User || ! $this->signerEligibility->isActionable($user, $companyId)) {
@@ -236,18 +293,36 @@ final class StartDocumentSigningFlow
                     ]);
                 }
 
+                $userId = (int) $user->id;
+
+                if (isset($seenRecipientUserIds[$userId])) {
+                    throw ValidationException::withMessages([
+                        'document_signing_preset_id' => 'This signing preset would assign the same internal signer to multiple stages.',
+                    ]);
+                }
+
+                $seenRecipientUserIds[$userId] = true;
+                $label = filled($step->step_label)
+                    ? (string) $step->step_label
+                    : DocumentSignatureSlot::defaultLabel(DocumentRecipientRole::CompanySignatory, $companyOccurrence);
+
                 $steps[] = [
                     'sequence' => (int) $step->sequence,
                     'recipient_role' => DocumentRecipientRole::CompanySignatory->value,
                     'target_type' => DocumentSigningTargetType::SpecificUser->value,
-                    'recipient_user_id' => $user->id,
+                    'step_label' => $label,
+                    'signature_slot_key' => DocumentSignatureSlot::forRoleOccurrence(
+                        DocumentRecipientRole::CompanySignatory,
+                        $companyOccurrence,
+                    ),
+                    'recipient_user_id' => $userId,
                     'recipient_name' => (string) $user->name,
                 ];
             }
         }
 
         return [
-            'schema_version' => 1,
+            'schema_version' => 2,
             'steps' => $steps,
         ];
     }

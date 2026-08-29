@@ -2,6 +2,8 @@ export type SigningPresetStep = {
     sequence: number;
     recipient_role: 'subject' | 'manager' | 'company_signatory';
     recipient_role_label: string;
+    step_label: string | null;
+    display_label: string;
     target_type: string;
     target_user_id: number | null;
     target_user: { id: number; name: string; email: string | null } | null;
@@ -39,7 +41,11 @@ export type DocumentSigningPresetsIndexProps = {
 
 export type SigningFlowStepSummary = {
     sequence: number;
+    total_steps?: number;
     recipient_role: string | null;
+    recipient_role_label?: string | null;
+    step_label?: string | null;
+    signature_slot_key?: string | null;
     recipient_name: string | null;
     status: string;
     is_current: boolean;

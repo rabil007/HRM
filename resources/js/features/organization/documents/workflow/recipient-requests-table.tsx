@@ -56,7 +56,23 @@ export function RecipientRequestsTable({
                             <TableCell>{request.employee.name}</TableCell>
                             <TableCell>{request.recipient_name}</TableCell>
                             <TableCell>
-                                {request.recipient_role_label}
+                                {request.signing_step_sequence &&
+                                request.signing_step_label ? (
+                                    <div className="space-y-0.5">
+                                        <div className="font-medium">
+                                            Step {request.signing_step_sequence}
+                                            {request.signing_preset_name
+                                                ? ` / ${request.signing_preset_name}`
+                                                : ''}
+                                        </div>
+                                        <div>{request.signing_step_label}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {request.recipient_role_label}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    request.recipient_role_label
+                                )}
                             </TableCell>
                             <TableCell>{request.action_label}</TableCell>
                             <TableCell>

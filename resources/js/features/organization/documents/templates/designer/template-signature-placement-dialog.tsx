@@ -5,7 +5,9 @@ import {
     ChevronRight,
     Loader2,
     PenLine,
+    Plus,
     Save,
+    Trash2,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -35,47 +37,120 @@ type Props = {
     initialConfig: SignaturePlacementConfig | null;
 };
 
-const SUBJECT_SIGNATURE_ID = 'subject_signature';
-const MANAGER_SIGNATURE_ID = 'manager_signature';
-const COMPANY_SIGNATURE_ID = 'company_signatory_signature';
+type SignatureRole = SignaturePlacementItem['role'];
+
+const SUBJECT_SLOT = 'subject';
+const MAX_ROLE_OCCURRENCE = 7;
 const DEFAULT_WIDTH = 0.25;
 const DEFAULT_HEIGHT = 0.08;
 const DEFAULT_X = 0.1;
-const DEFAULT_Y = 0.75;
 
-type SignatureRole = SignaturePlacementItem['role'];
+function placementIdForSlot(slotKey: string): string {
+    if (slotKey === SUBJECT_SLOT) {
+        return 'subject_signature';
+    }
 
-function placementIdForRole(role: SignatureRole): string {
-    return role === 'subject'
-        ? SUBJECT_SIGNATURE_ID
-        : role === 'manager'
-          ? MANAGER_SIGNATURE_ID
-          : COMPANY_SIGNATURE_ID;
+    const managerMatch = /^manager_(\d+)$/.exec(slotKey);
+
+    if (managerMatch) {
+        const occurrence = Number(managerMatch[1]);
+
+        return occurrence === 1
+            ? 'manager_signature'
+            : `manager_signature_${occurrence}`;
+    }
+
+    const companyMatch = /^company_signatory_(\d+)$/.exec(slotKey);
+
+    if (companyMatch) {
+        const occurrence = Number(companyMatch[1]);
+
+        return occurrence === 1
+            ? 'company_signatory_signature'
+            : `company_signatory_signature_${occurrence}`;
+    }
+
+    return `${slotKey}_signature`;
 }
 
-function defaultPlacement(
-    role: SignatureRole,
-    page: number,
-): SignaturePlacementItem {
-    return {
-        id: placementIdForRole(role),
-        type: 'signature',
-        role,
-        page,
-        x: DEFAULT_X,
-        y: role === 'subject' ? DEFAULT_Y : role === 'manager' ? 0.62 : 0.5,
-        width: DEFAULT_WIDTH,
-        height: DEFAULT_HEIGHT,
-        required: true,
-    };
+function roleForSlot(slotKey: string): SignatureRole {
+    if (slotKey === SUBJECT_SLOT) {
+        return 'subject';
+    }
+
+    if (slotKey.startsWith('manager_')) {
+        return 'manager';
+    }
+
+    return 'company_signatory';
 }
 
-function roleLabel(role: SignatureRole): string {
-    return role === 'subject'
-        ? 'Employee Signature'
-        : role === 'manager'
-          ? 'Manager Signature'
-          : 'Company Signatory Signature';
+function occurrenceForSlot(slotKey: string): number {
+    if (slotKey === SUBJECT_SLOT) {
+        return 1;
+    }
+
+    const match = /_(\d+)$/.exec(slotKey);
+
+    return match ? Number(match[1]) : 1;
+}
+
+function slotKeyForRole(role: SignatureRole, occurrence: number): string {
+    if (role === 'subject') {
+        return SUBJECT_SLOT;
+    }
+
+    return role === 'manager'
+        ? `manager_${occurrence}`
+        : `company_signatory_${occurrence}`;
+}
+
+function defaultYForRole(role: SignatureRole, occurrence: number): number {
+    if (role === 'subject') {
+        return 0.75;
+    }
+
+    if (role === 'manager') {
+        return Math.max(0.2, 0.62 - (occurrence - 1) * 0.1);
+    }
+
+    return Math.max(0.15, 0.5 - (occurrence - 1) * 0.1);
+}
+
+function slotLabel(slotKey: string): string {
+    const role = roleForSlot(slotKey);
+    const occurrence = occurrenceForSlot(slotKey);
+
+    if (role === 'subject') {
+        return 'Employee Signature';
+    }
+
+    if (role === 'manager') {
+        return occurrence === 1
+            ? 'Manager Signature'
+            : `Manager Signature ${occurrence}`;
+    }
+
+    return occurrence === 1
+        ? 'Company Signatory Signature'
+        : `Company Signatory Signature ${occurrence}`;
+}
+
+function shortSlotLabel(slotKey: string): string {
+    const role = roleForSlot(slotKey);
+    const occurrence = occurrenceForSlot(slotKey);
+
+    if (role === 'subject') {
+        return 'Employee';
+    }
+
+    if (role === 'manager') {
+        return occurrence === 1 ? 'Manager' : `Manager ${occurrence}`;
+    }
+
+    return occurrence === 1
+        ? 'Company signatory'
+        : `Company signatory ${occurrence}`;
 }
 
 function roleColors(role: SignatureRole): {
@@ -106,6 +181,156 @@ function roleColors(role: SignatureRole): {
     };
 }
 
+function defaultPlacement(
+    slotKey: string,
+    page: number,
+): SignaturePlacementItem {
+    const role = roleForSlot(slotKey);
+    const occurrence = occurrenceForSlot(slotKey);
+
+    return {
+        id: placementIdForSlot(slotKey),
+        type: 'signature',
+        role,
+        slot_key: slotKey,
+        page,
+        x: DEFAULT_X,
+        y: defaultYForRole(role, occurrence),
+        width: DEFAULT_WIDTH,
+        height: DEFAULT_HEIGHT,
+        required: true,
+    };
+}
+
+function normalizeLoadedPlacement(
+    item: SignaturePlacementItem,
+    slotKey: string,
+): SignaturePlacementItem {
+    return {
+        id: item.id || placementIdForSlot(slotKey),
+        type: 'signature',
+        role: roleForSlot(slotKey),
+        slot_key: slotKey,
+        page: item.page || 1,
+        x: item.x,
+        y: item.y,
+        width: item.width,
+        height: item.height,
+        required: item.required ?? true,
+    };
+}
+
+function loadPlacementsFromConfig(
+    initialConfig: SignaturePlacementConfig | null,
+): Record<string, SignaturePlacementItem> {
+    const placements: Record<string, SignaturePlacementItem> = {};
+    const source = initialConfig?.placements ?? [];
+
+    if (source.length === 0) {
+        placements[SUBJECT_SLOT] = defaultPlacement(SUBJECT_SLOT, 1);
+
+        return placements;
+    }
+
+    const isV2 =
+        initialConfig?.schema_version === 2 ||
+        source.some((item) => typeof item.slot_key === 'string');
+
+    if (isV2) {
+        for (const item of source) {
+            const slotKey = item.slot_key ?? slotKeyForRole(item.role, 1);
+
+            placements[slotKey] = normalizeLoadedPlacement(item, slotKey);
+        }
+    } else {
+        for (const item of source) {
+            const slotKey = slotKeyForRole(item.role, 1);
+            placements[slotKey] = normalizeLoadedPlacement(item, slotKey);
+        }
+    }
+
+    if (!placements[SUBJECT_SLOT]) {
+        placements[SUBJECT_SLOT] = defaultPlacement(SUBJECT_SLOT, 1);
+    }
+
+    return placements;
+}
+
+function sortedSlotKeys(
+    placements: Record<string, SignaturePlacementItem>,
+): string[] {
+    const keys = Object.keys(placements);
+
+    return keys.sort((a, b) => {
+        const roleOrder = (slot: string): number => {
+            const role = roleForSlot(slot);
+
+            return role === 'subject' ? 0 : role === 'manager' ? 1 : 2;
+        };
+
+        const roleDiff = roleOrder(a) - roleOrder(b);
+
+        if (roleDiff !== 0) {
+            return roleDiff;
+        }
+
+        return occurrenceForSlot(a) - occurrenceForSlot(b);
+    });
+}
+
+function nextOccurrence(
+    placements: Record<string, SignaturePlacementItem>,
+    role: Exclude<SignatureRole, 'subject'>,
+): number | null {
+    const existing = Object.keys(placements)
+        .filter((slot) => roleForSlot(slot) === role)
+        .map(occurrenceForSlot)
+        .sort((a, b) => a - b);
+
+    const next = existing.length + 1;
+
+    if (next > MAX_ROLE_OCCURRENCE) {
+        return null;
+    }
+
+    return next;
+}
+
+function renumberRoleSlots(
+    placements: Record<string, SignaturePlacementItem>,
+    role: Exclude<SignatureRole, 'subject'>,
+): Record<string, SignaturePlacementItem> {
+    const roleSlots = sortedSlotKeys(placements).filter(
+        (slot) => roleForSlot(slot) === role,
+    );
+    const next: Record<string, SignaturePlacementItem> = {};
+
+    for (const [slotKey, item] of Object.entries(placements)) {
+        if (roleForSlot(slotKey) !== role) {
+            next[slotKey] = item;
+        }
+    }
+
+    roleSlots.forEach((oldSlot, index) => {
+        const occurrence = index + 1;
+        const newSlot = slotKeyForRole(role, occurrence);
+        const item = placements[oldSlot];
+
+        if (!item) {
+            return;
+        }
+
+        next[newSlot] = {
+            ...item,
+            id: placementIdForSlot(newSlot),
+            role,
+            slot_key: newSlot,
+        };
+    });
+
+    return next;
+}
+
 export function TemplateSignaturePlacementDialog({
     open,
     onOpenChange,
@@ -115,12 +340,11 @@ export function TemplateSignaturePlacementDialog({
 }: Props) {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
-    const [activeRole, setActiveRole] = useState<SignatureRole>('subject');
+    const [activeSlotKey, setActiveSlotKey] = useState(SUBJECT_SLOT);
     const [placement, setPlacement] = useState<SignaturePlacementItem>(
-        defaultPlacement('subject', 1),
+        defaultPlacement(SUBJECT_SLOT, 1),
     );
-    const [companyEnabled, setCompanyEnabled] = useState(false);
-    const [managerEnabled, setManagerEnabled] = useState(false);
+    const [slotKeys, setSlotKeys] = useState<string[]>([SUBJECT_SLOT]);
     const [isLoadingPdf, setIsLoadingPdf] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -132,12 +356,24 @@ export function TemplateSignaturePlacementDialog({
     const fabricCanvasRef = useRef<Canvas | null>(null);
     const labelRef = useRef<FabricText | null>(null);
     const placementRef = useRef(placement);
-    const placementsByRoleRef = useRef<
-        Partial<Record<SignatureRole, SignaturePlacementItem>>
-    >({});
-    const activeRoleRef = useRef(activeRole);
+    const placementsBySlotRef = useRef<Record<string, SignaturePlacementItem>>(
+        {},
+    );
+    const activeSlotKeyRef = useRef(activeSlotKey);
     const canvasSizeRef = useRef(canvasSize);
-    const pdfDocRef = useRef<any>(null);
+    // pdf.js document proxy — typed loosely to avoid coupling to pdfjs internals
+    const pdfDocRef = useRef<{
+        numPages: number;
+        getPage: (pageNumber: number) => Promise<{
+            getViewport: (params: { scale: number }) => {
+                width: number;
+                height: number;
+            };
+            render: (params: Record<string, unknown>) => {
+                promise: Promise<unknown>;
+            };
+        }>;
+    } | null>(null);
 
     useEffect(() => {
         placementRef.current = placement;
@@ -148,75 +384,23 @@ export function TemplateSignaturePlacementDialog({
     }, [canvasSize]);
 
     useEffect(() => {
-        activeRoleRef.current = activeRole;
-    }, [activeRole]);
+        activeSlotKeyRef.current = activeSlotKey;
+    }, [activeSlotKey]);
 
     useEffect(() => {
         if (!open || !version) {
             return;
         }
 
-        const subjectExisting = initialConfig?.placements?.find(
-            (item) => item.role === 'subject',
-        );
-        const managerExisting = initialConfig?.placements?.find(
-            (item) => item.role === 'manager',
-        );
-        const companyExisting = initialConfig?.placements?.find(
-            (item) => item.role === 'company_signatory',
-        );
+        const loaded = loadPlacementsFromConfig(initialConfig);
+        const keys = sortedSlotKeys(loaded);
+        const subject =
+            loaded[SUBJECT_SLOT] ?? defaultPlacement(SUBJECT_SLOT, 1);
 
-        const subject = subjectExisting
-            ? {
-                  id: subjectExisting.id || SUBJECT_SIGNATURE_ID,
-                  type: 'signature' as const,
-                  role: 'subject' as const,
-                  page: subjectExisting.page || 1,
-                  x: subjectExisting.x,
-                  y: subjectExisting.y,
-                  width: subjectExisting.width,
-                  height: subjectExisting.height,
-                  required: subjectExisting.required ?? true,
-              }
-            : defaultPlacement('subject', 1);
-
-        placementsByRoleRef.current = { subject };
-
-        if (managerExisting) {
-            placementsByRoleRef.current.manager = {
-                id: managerExisting.id || MANAGER_SIGNATURE_ID,
-                type: 'signature',
-                role: 'manager',
-                page: managerExisting.page || 1,
-                x: managerExisting.x,
-                y: managerExisting.y,
-                width: managerExisting.width,
-                height: managerExisting.height,
-                required: managerExisting.required ?? true,
-            };
-            setManagerEnabled(true);
-        } else {
-            setManagerEnabled(false);
-        }
-
-        if (companyExisting) {
-            placementsByRoleRef.current.company_signatory = {
-                id: companyExisting.id || COMPANY_SIGNATURE_ID,
-                type: 'signature',
-                role: 'company_signatory',
-                page: companyExisting.page || 1,
-                x: companyExisting.x,
-                y: companyExisting.y,
-                width: companyExisting.width,
-                height: companyExisting.height,
-                required: companyExisting.required ?? true,
-            };
-            setCompanyEnabled(true);
-        } else {
-            setCompanyEnabled(false);
-        }
-
-        setActiveRole('subject');
+        placementsBySlotRef.current = loaded;
+        setSlotKeys(keys);
+        setActiveSlotKey(SUBJECT_SLOT);
+        activeSlotKeyRef.current = SUBJECT_SLOT;
         setPlacement(subject);
         placementRef.current = subject;
         setCurrentPage(subject.page);
@@ -235,9 +419,9 @@ export function TemplateSignaturePlacementDialog({
         };
     }, []);
 
-    const syncLabel = useCallback((canvas: Canvas, role: SignatureRole) => {
+    const syncLabel = useCallback((canvas: Canvas, slotKey: string) => {
         const label = labelRef.current;
-        const placementId = placementIdForRole(role);
+        const placementId = placementIdForSlot(slotKey);
         const rect = canvas
             .getObjects()
             .find(
@@ -308,15 +492,18 @@ export function TemplateSignaturePlacementDialog({
             });
             rect.set('data', { id: item.id });
 
-            const label = new FabricText(roleLabel(item.role), {
-                left: pixel.left + 6,
-                top: pixel.top + 6,
-                fontSize: 12,
-                fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-                fill: colors.text,
-                selectable: false,
-                evented: false,
-            });
+            const label = new FabricText(
+                slotLabel(item.slot_key ?? SUBJECT_SLOT),
+                {
+                    left: pixel.left + 6,
+                    top: pixel.top + 6,
+                    fontSize: 12,
+                    fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+                    fill: colors.text,
+                    selectable: false,
+                    evented: false,
+                },
+            );
             label.set('data', { parentId: item.id });
             labelRef.current = label;
 
@@ -331,8 +518,8 @@ export function TemplateSignaturePlacementDialog({
     const attachCanvasEvents = useCallback(
         (canvas: Canvas) => {
             const persistFromCanvas = () => {
-                const role = activeRoleRef.current;
-                const placementId = placementIdForRole(role);
+                const slotKey = activeSlotKeyRef.current;
+                const placementId = placementIdForSlot(slotKey);
                 const rect = canvas
                     .getObjects()
                     .find(
@@ -372,10 +559,10 @@ export function TemplateSignaturePlacementDialog({
                     height: normalized.height,
                 };
                 placementRef.current = updated;
-                placementsByRoleRef.current[role] = updated;
+                placementsBySlotRef.current[slotKey] = updated;
                 setPlacement(updated);
                 setHasUnsavedChanges(true);
-                syncLabel(canvas, role);
+                syncLabel(canvas, slotKey);
             };
 
             canvas.off('object:modified');
@@ -383,10 +570,10 @@ export function TemplateSignaturePlacementDialog({
             canvas.off('object:scaling');
             canvas.on('object:modified', persistFromCanvas);
             canvas.on('object:moving', () =>
-                syncLabel(canvas, activeRoleRef.current),
+                syncLabel(canvas, activeSlotKeyRef.current),
             );
             canvas.on('object:scaling', () =>
-                syncLabel(canvas, activeRoleRef.current),
+                syncLabel(canvas, activeSlotKeyRef.current),
             );
         },
         [currentPage, syncLabel],
@@ -423,7 +610,10 @@ export function TemplateSignaturePlacementDialog({
 
                     const data = await response.arrayBuffer();
                     const pdfjs = await getPdfJs();
-                    pdf = await pdfjs.getDocument({ data }).promise;
+                    pdf = (await pdfjs.getDocument({ data })
+                        .promise) as unknown as NonNullable<
+                        typeof pdfDocRef.current
+                    >;
 
                     if (cancelled) {
                         return;
@@ -534,62 +724,100 @@ export function TemplateSignaturePlacementDialog({
         template,
         version,
         currentPage,
-        activeRole,
+        activeSlotKey,
         placement,
         attachCanvasEvents,
         syncPlacementRect,
     ]);
 
-    const handleRoleChange = (role: SignatureRole) => {
-        placementsByRoleRef.current[activeRole] = placementRef.current;
+    const handleSlotChange = (slotKey: string) => {
+        placementsBySlotRef.current[activeSlotKey] = placementRef.current;
 
         const next =
-            placementsByRoleRef.current[role] ??
-            defaultPlacement(role, currentPage);
+            placementsBySlotRef.current[slotKey] ??
+            defaultPlacement(slotKey, currentPage);
 
-        placementsByRoleRef.current[role] = next;
-        activeRoleRef.current = role;
-        setActiveRole(role);
+        placementsBySlotRef.current[slotKey] = next;
+        activeSlotKeyRef.current = slotKey;
+        setActiveSlotKey(slotKey);
         setPlacement(next);
         placementRef.current = next;
         setHasUnsavedChanges(true);
     };
 
-    const toggleCompanyPlacement = (enabled: boolean) => {
-        setCompanyEnabled(enabled);
+    const addRoleSlot = (role: Exclude<SignatureRole, 'subject'>) => {
+        placementsBySlotRef.current[activeSlotKey] = placementRef.current;
 
-        if (enabled) {
-            const next =
-                placementsByRoleRef.current.company_signatory ??
-                defaultPlacement('company_signatory', currentPage);
-            placementsByRoleRef.current.company_signatory = next;
-        } else {
-            delete placementsByRoleRef.current.company_signatory;
+        const occurrence = nextOccurrence(placementsBySlotRef.current, role);
 
-            if (activeRole === 'company_signatory') {
-                handleRoleChange('subject');
-            }
+        if (occurrence === null) {
+            setErrorMessage(
+                `At most ${MAX_ROLE_OCCURRENCE} ${role === 'manager' ? 'manager' : 'company signatory'} signature boxes are allowed.`,
+            );
+
+            return;
         }
 
+        const slotKey = slotKeyForRole(role, occurrence);
+        const next = defaultPlacement(slotKey, currentPage);
+        placementsBySlotRef.current[slotKey] = next;
+
+        const keys = sortedSlotKeys(placementsBySlotRef.current);
+        setSlotKeys(keys);
+        activeSlotKeyRef.current = slotKey;
+        setActiveSlotKey(slotKey);
+        setPlacement(next);
+        placementRef.current = next;
+        setErrorMessage(null);
         setHasUnsavedChanges(true);
     };
 
-    const toggleManagerPlacement = (enabled: boolean) => {
-        setManagerEnabled(enabled);
+    const removeSlot = (slotKey: string) => {
+        if (slotKey === SUBJECT_SLOT) {
+            return;
+        }
 
-        if (enabled) {
-            const next =
-                placementsByRoleRef.current.manager ??
-                defaultPlacement('manager', currentPage);
-            placementsByRoleRef.current.manager = next;
-        } else {
-            delete placementsByRoleRef.current.manager;
+        const role = roleForSlot(slotKey) as Exclude<SignatureRole, 'subject'>;
+        const removedOccurrence = occurrenceForSlot(slotKey);
+        const activeBefore = activeSlotKeyRef.current;
+        const activeRole = roleForSlot(activeBefore);
+        const activeOccurrence = occurrenceForSlot(activeBefore);
 
-            if (activeRole === 'manager') {
-                handleRoleChange('subject');
+        placementsBySlotRef.current[activeBefore] = placementRef.current;
+        delete placementsBySlotRef.current[slotKey];
+        placementsBySlotRef.current = renumberRoleSlots(
+            placementsBySlotRef.current,
+            role,
+        );
+
+        const keys = sortedSlotKeys(placementsBySlotRef.current);
+        let nextActive = SUBJECT_SLOT;
+
+        if (activeBefore !== slotKey) {
+            if (activeRole === role) {
+                const shiftedOccurrence =
+                    activeOccurrence > removedOccurrence
+                        ? activeOccurrence - 1
+                        : activeOccurrence;
+                const candidate = slotKeyForRole(role, shiftedOccurrence);
+
+                if (keys.includes(candidate)) {
+                    nextActive = candidate;
+                }
+            } else if (keys.includes(activeBefore)) {
+                nextActive = activeBefore;
             }
         }
 
+        const nextPlacement =
+            placementsBySlotRef.current[nextActive] ??
+            defaultPlacement(SUBJECT_SLOT, currentPage);
+
+        setSlotKeys(keys);
+        activeSlotKeyRef.current = nextActive;
+        setActiveSlotKey(nextActive);
+        setPlacement(nextPlacement);
+        placementRef.current = nextPlacement;
         setHasUnsavedChanges(true);
     };
 
@@ -598,12 +826,12 @@ export function TemplateSignaturePlacementDialog({
             return;
         }
 
-        // Keep box on the selected page when navigating.
         const updated = {
             ...placementRef.current,
             page: nextPage,
         };
         placementRef.current = updated;
+        placementsBySlotRef.current[activeSlotKeyRef.current] = updated;
         setPlacement(updated);
         setHasUnsavedChanges(true);
         setCurrentPage(nextPage);
@@ -617,40 +845,28 @@ export function TemplateSignaturePlacementDialog({
         setIsSaving(true);
         setErrorMessage(null);
 
-        const subject =
-            placementsByRoleRef.current.subject ?? placementRef.current;
-        const placements: SignaturePlacementItem[] = [
-            {
-                ...subject,
-                id: SUBJECT_SIGNATURE_ID,
-                type: 'signature',
-                role: 'subject',
-                required: true,
-            },
-        ];
+        placementsBySlotRef.current[activeSlotKeyRef.current] =
+            placementRef.current;
 
-        if (managerEnabled && placementsByRoleRef.current.manager) {
-            placements.push({
-                ...placementsByRoleRef.current.manager,
-                id: MANAGER_SIGNATURE_ID,
-                type: 'signature',
-                role: 'manager',
-                required: true,
-            });
-        }
+        const placements: SignaturePlacementItem[] = sortedSlotKeys(
+            placementsBySlotRef.current,
+        ).map((slotKey) => {
+            const item =
+                placementsBySlotRef.current[slotKey] ??
+                defaultPlacement(slotKey, 1);
 
-        if (companyEnabled && placementsByRoleRef.current.company_signatory) {
-            placements.push({
-                ...placementsByRoleRef.current.company_signatory,
-                id: COMPANY_SIGNATURE_ID,
+            return {
+                ...item,
+                id: placementIdForSlot(slotKey),
                 type: 'signature',
-                role: 'company_signatory',
+                role: roleForSlot(slotKey),
+                slot_key: slotKey,
                 required: true,
-            });
-        }
+            };
+        });
 
         const payload: SignaturePlacementConfig = {
-            schema_version: 1,
+            schema_version: 2,
             placements,
         };
 
@@ -685,6 +901,14 @@ export function TemplateSignaturePlacementDialog({
     const configured = Boolean(
         initialConfig?.placements && initialConfig.placements.length > 0,
     );
+    const managerSlots = slotKeys.filter(
+        (slot) => roleForSlot(slot) === 'manager',
+    );
+    const companySlots = slotKeys.filter(
+        (slot) => roleForSlot(slot) === 'company_signatory',
+    );
+    const canAddManager = managerSlots.length < MAX_ROLE_OCCURRENCE;
+    const canAddCompany = companySlots.length < MAX_ROLE_OCCURRENCE;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -698,9 +922,9 @@ export function TemplateSignaturePlacementDialog({
                                 {template ? `: ${template.name}` : null}
                             </DialogTitle>
                             <p className="text-xs text-muted-foreground">
-                                Configure employee, manager, and company
-                                signatory signature boxes on this draft version
-                                only.
+                                Place employee, manager, and company signatory
+                                signature boxes for multi-stage signing on this
+                                draft version only.
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -729,72 +953,63 @@ export function TemplateSignaturePlacementDialog({
 
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                            <div className="inline-flex rounded-lg border p-0.5">
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={
-                                        activeRole === 'subject'
-                                            ? 'default'
-                                            : 'ghost'
-                                    }
-                                    onClick={() => handleRoleChange('subject')}
-                                >
-                                    Employee
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={
-                                        activeRole === 'manager'
-                                            ? 'default'
-                                            : 'ghost'
-                                    }
-                                    disabled={!managerEnabled}
-                                    onClick={() => handleRoleChange('manager')}
-                                >
-                                    Manager
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={
-                                        activeRole === 'company_signatory'
-                                            ? 'default'
-                                            : 'ghost'
-                                    }
-                                    disabled={!companyEnabled}
-                                    onClick={() =>
-                                        handleRoleChange('company_signatory')
-                                    }
-                                >
-                                    Company signatory
-                                </Button>
+                            <div className="inline-flex max-w-full flex-wrap rounded-lg border p-0.5">
+                                {slotKeys.map((slotKey) => (
+                                    <div
+                                        key={slotKey}
+                                        className="flex items-center"
+                                    >
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant={
+                                                activeSlotKey === slotKey
+                                                    ? 'default'
+                                                    : 'ghost'
+                                            }
+                                            onClick={() =>
+                                                handleSlotChange(slotKey)
+                                            }
+                                        >
+                                            {shortSlotLabel(slotKey)}
+                                        </Button>
+                                        {slotKey !== SUBJECT_SLOT ? (
+                                            <Button
+                                                type="button"
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                onClick={() =>
+                                                    removeSlot(slotKey)
+                                                }
+                                                aria-label={`Remove ${shortSlotLabel(slotKey)}`}
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                        ) : null}
+                                    </div>
+                                ))}
                             </div>
-                            <label className="flex items-center gap-2 text-sm">
-                                <input
-                                    type="checkbox"
-                                    checked={managerEnabled}
-                                    onChange={(event) =>
-                                        toggleManagerPlacement(
-                                            event.target.checked,
-                                        )
-                                    }
-                                />
-                                Enable manager placement
-                            </label>
-                            <label className="flex items-center gap-2 text-sm">
-                                <input
-                                    type="checkbox"
-                                    checked={companyEnabled}
-                                    onChange={(event) =>
-                                        toggleCompanyPlacement(
-                                            event.target.checked,
-                                        )
-                                    }
-                                />
-                                Enable company signatory placement
-                            </label>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={!canAddManager}
+                                onClick={() => addRoleSlot('manager')}
+                            >
+                                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                Add Manager Signature
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={!canAddCompany}
+                                onClick={() => addRoleSlot('company_signatory')}
+                            >
+                                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                Add Company Signatory Signature
+                            </Button>
                         </div>
                         <div className="flex items-center gap-2">
                             <Button

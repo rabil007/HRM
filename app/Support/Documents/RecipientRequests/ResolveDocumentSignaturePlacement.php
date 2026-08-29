@@ -8,6 +8,7 @@ use App\Models\DocumentInstanceVersion;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\BulkDocuments\SalaryDeclarationSignaturePlacements;
 use App\Support\Documents\DocumentInstanceStorage;
+use App\Support\Documents\Signing\DocumentSignatureSlot;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use setasign\Fpdi\Fpdi;
@@ -15,13 +16,36 @@ use setasign\Fpdi\Fpdi;
 final class ResolveDocumentSignaturePlacement
 {
     /**
-     * @return array{id: string, type: string, role: string, page: int, x: float, y: float, width: float, height: float, required: bool}
+     * @return array{id: string, type: string, role: string, slot_key?: string, page: int, x: float, y: float, width: float, height: float, required: bool}
      */
     public function forInstanceVersion(
         DocumentInstance $instance,
         DocumentInstanceVersion $version,
         DocumentRecipientRole $role = DocumentRecipientRole::Subject,
     ): array {
+        return $this->forInstanceVersionSlot(
+            $instance,
+            $version,
+            $role,
+            DocumentSignatureSlot::defaultForRole($role),
+        );
+    }
+
+    /**
+     * @return array{id: string, type: string, role: string, slot_key?: string, page: int, x: float, y: float, width: float, height: float, required: bool}
+     */
+    public function forInstanceVersionSlot(
+        DocumentInstance $instance,
+        DocumentInstanceVersion $version,
+        DocumentRecipientRole $role,
+        string $slotKey,
+    ): array {
+        if (DocumentSignatureSlot::roleFor($slotKey) !== $role) {
+            throw ValidationException::withMessages([
+                'action' => 'Signature slot does not match the recipient role.',
+            ]);
+        }
+
         $instance->loadMissing(['templateVersion.template']);
 
         $templateVersion = $instance->templateVersion;
@@ -30,10 +54,10 @@ final class ResolveDocumentSignaturePlacement
             $pageCount = $this->resolvePageCount($version);
 
             try {
-                return DocumentSignaturePlacementValidator::validateSignatureForRole(
+                return DocumentSignaturePlacementValidator::validateSignatureForSlot(
                     $templateVersion->signature_placement_config,
                     $pageCount,
-                    $role,
+                    $slotKey,
                 );
             } catch (\InvalidArgumentException $exception) {
                 throw ValidationException::withMessages([
@@ -59,6 +83,12 @@ final class ResolveDocumentSignaturePlacement
             ]);
         }
 
+        if ($slotKey !== DocumentSignatureSlot::SUBJECT) {
+            throw ValidationException::withMessages([
+                'action' => "Signature placement `{$slotKey}` is not configured for this document template version.",
+            ]);
+        }
+
         $systemPlacement = $this->resolveSystemRendererPlacement($instance);
 
         if ($systemPlacement !== null) {
@@ -71,7 +101,7 @@ final class ResolveDocumentSignaturePlacement
     }
 
     /**
-     * @return array{id: string, type: string, role: string, page: int, x: float, y: float, width: float, height: float, required: bool}|null
+     * @return array{id: string, type: string, role: string, slot_key?: string, page: int, x: float, y: float, width: float, height: float, required: bool}|null
      */
     private function resolveSystemRendererPlacement(DocumentInstance $instance): ?array
     {
@@ -108,6 +138,7 @@ final class ResolveDocumentSignaturePlacement
             'id' => 'subject_signature',
             'type' => 'signature',
             'role' => 'subject',
+            'slot_key' => DocumentSignatureSlot::SUBJECT,
             'page' => (int) ($legacy['page'] ?? 1),
             'x' => $this->percentToNormalized((string) ($overlay['left'] ?? '10%')),
             'y' => $this->percentToNormalized((string) ($overlay['top'] ?? '75%')),

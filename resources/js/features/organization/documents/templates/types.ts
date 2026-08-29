@@ -61,6 +61,7 @@ export type SignaturePlacementItem = {
     id: string;
     type: 'signature';
     role: 'subject' | 'manager' | 'company_signatory';
+    slot_key?: string;
     page: number;
     x: number;
     y: number;

@@ -4,15 +4,13 @@ namespace App\Support\Documents\RecipientRequests;
 
 use App\Models\Employee;
 use App\Models\User;
-use App\Support\Companies\ResolveCompanyAccess;
-use App\Support\Departments\ResolveDepartmentManagementChain;
+use App\Support\Documents\Signing\DocumentSigningManagementChainResolver;
 use Illuminate\Validation\ValidationException;
-use Spatie\Permission\PermissionRegistrar;
 
 final class DocumentRecipientManagerResolver
 {
     public function __construct(
-        private ResolveCompanyAccess $companyAccess = new ResolveCompanyAccess,
+        private DocumentSigningManagementChainResolver $chainResolver = new DocumentSigningManagementChainResolver,
     ) {}
 
     /**
@@ -24,42 +22,12 @@ final class DocumentRecipientManagerResolver
      */
     public function resolveForEmployee(Employee $subjectEmployee, int $companyId): array
     {
-        if ((int) $subjectEmployee->company_id !== $companyId) {
-            throw ValidationException::withMessages([
-                'action' => 'No eligible department manager is available to sign this document.',
-            ]);
-        }
+        $resolved = $this->chainResolver->resolveAtPosition($subjectEmployee, $companyId, 1);
 
-        $chain = ResolveDepartmentManagementChain::forEmployee($subjectEmployee);
-
-        foreach ($chain as $entry) {
-            /** @var Employee $manager */
-            $manager = $entry['manager'];
-
-            if (! $this->isManagerEmployeeEligible($manager, $companyId)) {
-                continue;
-            }
-
-            $manager->loadMissing('user:id,name,email,status');
-            $user = $manager->user;
-
-            if (! $user instanceof User) {
-                continue;
-            }
-
-            if (! $this->isManagerUserEligible($user, $companyId)) {
-                continue;
-            }
-
-            return [
-                'manager' => $manager,
-                'user' => $user,
-            ];
-        }
-
-        throw ValidationException::withMessages([
-            'action' => 'No eligible department manager is available to sign this document.',
-        ]);
+        return [
+            'manager' => $resolved['manager'],
+            'user' => $resolved['user'],
+        ];
     }
 
     public function tryResolveForEmployee(Employee $subjectEmployee, int $companyId): ?array
@@ -69,35 +37,5 @@ final class DocumentRecipientManagerResolver
         } catch (ValidationException) {
             return null;
         }
-    }
-
-    private function isManagerEmployeeEligible(Employee $manager, int $companyId): bool
-    {
-        return (int) $manager->company_id === $companyId
-            && $manager->status === 'active';
-    }
-
-    private function isManagerUserEligible(User $user, int $companyId): bool
-    {
-        if ($user->status !== 'active') {
-            return false;
-        }
-
-        // Use batch membership lookup (not hasAccessibleMembership on the partial
-        // user:id,name,email,status model from ResolveDepartmentManagementChain).
-        // That path misses legacy users.company_id no-pivot access when company_id
-        // is not selected on the eager-loaded User.
-        $membershipByUserId = $this->companyAccess->accessibleMembershipByUserId(
-            $companyId,
-            [(int) $user->id],
-        );
-
-        if (! ($membershipByUserId[(int) $user->id] ?? false)) {
-            return false;
-        }
-
-        app(PermissionRegistrar::class)->setPermissionsTeamId($companyId);
-
-        return $user->can('documents.recipient-requests.respond');
     }
 }

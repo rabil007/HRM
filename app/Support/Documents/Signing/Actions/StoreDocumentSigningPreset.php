@@ -20,7 +20,7 @@ final class StoreDocumentSigningPreset
     ) {}
 
     /**
-     * @param  list<array{recipient_role: string, target_type?: string|null, target_user_id?: int|null}>  $steps
+     * @param  list<array{recipient_role: string, target_type?: string|null, target_user_id?: int|null, step_label?: string|null}>  $steps
      */
     public function handle(
         User $actor,
@@ -55,7 +55,7 @@ final class StoreDocumentSigningPreset
     }
 
     /**
-     * @param  list<array{recipient_role: string, target_type?: string|null, target_user_id?: int|null}>  $steps
+     * @param  list<array{recipient_role: string, target_type?: string|null, target_user_id?: int|null, step_label?: string|null}>  $steps
      */
     public function syncSteps(DocumentSigningPreset $preset, int $companyId, array $steps): void
     {
@@ -72,6 +72,8 @@ final class StoreDocumentSigningPreset
                 default => DocumentSigningTargetType::SubjectEmployee,
             };
 
+            $label = isset($stepInput['step_label']) ? trim((string) $stepInput['step_label']) : '';
+
             DocumentSigningPresetStep::query()->create([
                 'company_id' => $companyId,
                 'document_signing_preset_id' => $preset->id,
@@ -81,6 +83,7 @@ final class StoreDocumentSigningPreset
                 'target_user_id' => $role === DocumentRecipientRole::CompanySignatory
                     ? (int) $stepInput['target_user_id']
                     : null,
+                'step_label' => $label !== '' ? $label : null,
             ]);
         }
     }

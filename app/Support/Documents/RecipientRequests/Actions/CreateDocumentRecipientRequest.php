@@ -41,6 +41,8 @@ final class CreateDocumentRecipientRequest
         ?int $signingFlowId = null,
         ?int $signingStepSequence = null,
         bool $skipOpenFlowGuard = false,
+        ?string $signatureSlotKey = null,
+        ?string $signingStepLabelSnapshot = null,
     ): array {
         DocumentAccess::assertDocumentInCompany($document, $companyId);
 
@@ -64,6 +66,8 @@ final class CreateDocumentRecipientRequest
             $signingFlowId,
             $signingStepSequence,
             $skipOpenFlowGuard,
+            $signatureSlotKey,
+            $signingStepLabelSnapshot,
         ): array {
             $instance = DocumentInstance::query()
                 ->where('employee_document_id', $document->id)
@@ -127,6 +131,8 @@ final class CreateDocumentRecipientRequest
                 'document_workflow_request_id' => $workflowRequestId,
                 'document_signing_flow_id' => $signingFlowId,
                 'signing_step_sequence' => $signingStepSequence,
+                'signature_slot_key' => $signatureSlotKey,
+                'signing_step_label_snapshot' => $signingStepLabelSnapshot,
                 'action' => $action,
                 'recipient_type' => DocumentRecipientType::SubjectEmployee,
                 'recipient_role' => DocumentRecipientRole::Subject,
@@ -149,6 +155,10 @@ final class CreateDocumentRecipientRequest
                     'action' => $action->value,
                     'document_instance_id' => $instance->id,
                     'source_document_instance_version_id' => $sourceVersion->id,
+                    'document_signing_flow_id' => $signingFlowId,
+                    'signing_step_sequence' => $signingStepSequence,
+                    'signature_slot_key' => $signatureSlotKey,
+                    'signing_step_label' => $signingStepLabelSnapshot,
                 ],
             );
 
@@ -161,6 +171,10 @@ final class CreateDocumentRecipientRequest
                     'document_recipient_request_id' => $request->id,
                     'document_instance_id' => $instance->id,
                     'recipient_action' => $action->value,
+                    'document_signing_flow_id' => $signingFlowId,
+                    'signing_step_sequence' => $signingStepSequence,
+                    'signature_slot_key' => $signatureSlotKey,
+                    'signing_step_label' => $signingStepLabelSnapshot,
                     'status' => $request->status->value,
                 ])
                 ->log('Recipient request created');
