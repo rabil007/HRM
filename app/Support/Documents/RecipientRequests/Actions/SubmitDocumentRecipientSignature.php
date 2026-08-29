@@ -110,7 +110,7 @@ final class SubmitDocumentRecipientSignature
                     ]);
                 }
 
-                if ($locked->expires_at !== null && $locked->expires_at->isPast()) {
+                if ($locked->expires_at !== null && $locked->expires_at->lessThanOrEqualTo(now())) {
                     $expiry = app(ExpireDocumentRecipientRequest::class)->transitionLocked($locked);
 
                     return [
@@ -226,6 +226,7 @@ final class SubmitDocumentRecipientSignature
                     'user_agent' => Str::limit((string) $httpRequest->userAgent(), 1000, ''),
                     'result_document_instance_version_id' => $resultVersion->id,
                     'result_checksum_sha256' => $artifact['checksum'],
+                    'next_reminder_at' => null,
                 ]);
 
                 $this->supersedeStale->forInstanceVersionChange(

@@ -1073,35 +1073,46 @@ Table: `document_recipient_automation_settings` (unique `company_id`).
 - UI: Documents → Requests → **Reminder settings** sheet
 - Policy changes apply to **new requests only**
 
-### Per-request immutable snapshot
+### Per-request immutable snapshot + scheduling pointer
 
-At create time every recipient-request path stores `reminder_policy_snapshot`:
+At create time, when reminders are **enabled**, every recipient-request path stores:
 
 ```json
 { "schema_version": 1, "enabled": true, "days_before_expiry": [7, 3, 1] }
 ```
 
-Pre-7B rows keep `NULL` snapshot → automatic expiry still runs; automatic reminders do not.
+When reminders are **disabled**, `reminder_policy_snapshot` is `NULL`.
+
+| Field | Role |
+|-------|------|
+| `reminder_policy_snapshot` | Immutable policy evidence for that request |
+| `next_reminder_at` | Mutable operational scheduling cursor (next due reminder, or `NULL`) |
+
+Pre-7B / disabled rows keep `NULL` snapshot and `NULL` next_reminder_at → automatic expiry still runs; automatic reminders do not. Changing company settings later never rewrites existing snapshots.
 
 ### Automatic reminders
 
 - Purpose: `reminder` (new delivery ledger row; never mutates Initial)
 - Template slug: `document_recipient_action_reminder` (non-clobbering seeder)
 - Idempotency: `automation_key` (e.g. `reminder:7d`) + unique `(request_id, channel, automation_key)`
+- Scheduler selects only **due** rows: `AwaitingAction` + `next_reminder_at <= now()` + `expires_at > now()` (indexed), ordered by `next_reminder_at`, batch 100
+- After each pass, `next_reminder_at` advances to the next future unconsumed slot or `NULL`
 - Subject: delivery-specific bearer token (SHA-256 only); Internal: authenticated respond URL
 - Missed-window rule after scheduler downtime: suppress older due slots as `reminder_window_missed`; queue only the closest-to-expiry due slot (at most one reminder email per reconcile pass)
-- Reminder SMTP failure never expires the request, blocks the flow, or auto-retries the same slot
+- Reminder SMTP failure / template/email suppression still consumes that slot and advances the pointer
+- Reminder SMTP failure never expires the request or blocks the flow
 
 ### Automatic expiry
 
 Command: `documents:reconcile-recipient-requests` every five minutes (`withoutOverlapping`), optional `--company=`.
 
-Order: expire overdue first, then reminders.
+Order: (1) expire overdue, (2) repair expired active signing flows, (3) process due reminders.
 
-- `AwaitingAction` + `expires_at <= now()` → `Expired` + `RequestExpired` event + activity `recipient_request_expired`
+- `AwaitingAction` + `expires_at <= now()` → `Expired` + clear `next_reminder_at` + `RequestExpired` event + activity `recipient_request_expired`
 - Delivery cleanup: revoke subject access tokens; suppress queued deliveries with `request_expired`
 - Flow-linked: after request transaction commits, `BlockDocumentSigningFlow` (no Request→Flow lock inversion); `can_retry = false`
-- Submit signature/acknowledgement recheck `expires_at` **inside** the locked transaction (stale in-memory models cannot complete after DB expiry)
+- Durable safety net: if the immediate post-commit block fails, the same command later repairs `Expired` current-step requests whose flow is still `Active`
+- Submit signature/acknowledgement recheck `expires_at <= now()` **inside** the locked transaction (stale in-memory models cannot complete after DB expiry)
 
 `documents:dispatch-recipient-emails` remains delivery handoff / SMTP-ledger repair only.
 

@@ -19,8 +19,9 @@ class ReconcileDocumentRecipientRequestsCommand extends Command
         $result = $reconciler->handle($onlyCompanyId);
 
         $this->info(sprintf(
-            'Document recipient reconciliation: expired %d, reminders queued %d, reminders suppressed %d, skipped %d.',
+            'Document recipient reconciliation: expired %d, flows repaired %d, reminders queued %d, reminders suppressed %d, skipped %d.',
             $result['expired'],
+            $result['flows_repaired'],
             $result['reminders_queued'],
             $result['reminders_suppressed'],
             $result['skipped'],

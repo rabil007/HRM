@@ -47,11 +47,7 @@ final class DocumentRecipientAutomationPolicy
         $resolved = $this->resolveForCompany($companyId);
 
         if (! $resolved['reminders_enabled']) {
-            return [
-                'schema_version' => self::SCHEMA_VERSION,
-                'enabled' => false,
-                'days_before_expiry' => [],
-            ];
+            return null;
         }
 
         return [
@@ -59,6 +55,48 @@ final class DocumentRecipientAutomationPolicy
             'enabled' => true,
             'days_before_expiry' => $resolved['reminder_days_before_expiry'],
         ];
+    }
+
+    /**
+     * @param  array{schema_version?: int, enabled?: bool, days_before_expiry?: mixed}|null  $snapshot
+     * @return array{reminder_policy_snapshot: array{schema_version: int, enabled: bool, days_before_expiry: list<int>}|null, next_reminder_at: CarbonInterface|null}
+     */
+    public function createSchedulingAttributes(int $companyId, CarbonInterface $expiresAt): array
+    {
+        $snapshot = $this->snapshotForCompany($companyId);
+
+        return [
+            'reminder_policy_snapshot' => $snapshot,
+            'next_reminder_at' => $this->firstReminderAt($snapshot, $expiresAt),
+        ];
+    }
+
+    /**
+     * @param  array{schema_version?: int, enabled?: bool, days_before_expiry?: mixed}|null  $snapshot
+     */
+    public function snapshotEnablesReminders(?array $snapshot): bool
+    {
+        return is_array($snapshot) && ($snapshot['enabled'] ?? false) === true;
+    }
+
+    /**
+     * First configured reminder timestamp for a new request (earliest chronologically).
+     *
+     * @param  array{schema_version?: int, enabled?: bool, days_before_expiry?: mixed}|null  $snapshot
+     */
+    public function firstReminderAt(?array $snapshot, CarbonInterface $expiresAt): ?CarbonInterface
+    {
+        if (! $this->snapshotEnablesReminders($snapshot)) {
+            return null;
+        }
+
+        $days = $this->normalizeDays($snapshot['days_before_expiry'] ?? []);
+
+        if ($days === []) {
+            return null;
+        }
+
+        return $expiresAt->copy()->subDays($days[0]);
     }
 
     /**
@@ -157,14 +195,13 @@ final class DocumentRecipientAutomationPolicy
     }
 
     /**
-     * @param  array{schema_version?: int, enabled?: bool, days_before_expiry?: mixed}|null  $snapshot
      * @return list<array{days: int, automation_key: string, scheduled_for: CarbonInterface}>
      */
     public function reminderSlotsForRequest(DocumentRecipientRequest $request, ?CarbonInterface $now = null): array
     {
         $snapshot = $request->reminder_policy_snapshot;
 
-        if (! is_array($snapshot) || ($snapshot['enabled'] ?? false) !== true) {
+        if (! $this->snapshotEnablesReminders(is_array($snapshot) ? $snapshot : null)) {
             return [];
         }
 
@@ -240,7 +277,9 @@ final class DocumentRecipientAutomationPolicy
     }
 
     /**
-     * @param  array{schema_version?: int, enabled?: bool, days_before_expiry?: mixed}|null  $snapshot
+     * Next FUTURE unconsumed reminder timestamp after consumed slots.
+     *
+     * @param  list<string>  $consumedAutomationKeys
      */
     public function nextReminderAt(DocumentRecipientRequest $request, array $consumedAutomationKeys = [], ?CarbonInterface $now = null): ?CarbonInterface
     {

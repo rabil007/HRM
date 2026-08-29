@@ -176,9 +176,8 @@ final class CreateDocumentSigningFlowStepRequest
                 'recipient_name_snapshot' => $recipientName,
                 'status' => DocumentRecipientRequestStatus::AwaitingAction,
                 'token_hash' => DocumentRecipientRequestToken::hash($internalToken),
-                'expires_at' => now()->addDays(DocumentRecipientRequest::EXPIRY_DAYS),
-                'reminder_policy_snapshot' => app(DocumentRecipientAutomationPolicy::class)
-                    ->snapshotForCompany($companyId),
+                'expires_at' => ($expiresAt = now()->addDays(DocumentRecipientRequest::EXPIRY_DAYS)),
+                ...app(DocumentRecipientAutomationPolicy::class)->createSchedulingAttributes($companyId, $expiresAt),
                 'requested_by' => $requester->id,
                 'requested_at' => now(),
                 'source_checksum_sha256' => (string) $sourceVersion->checksum,

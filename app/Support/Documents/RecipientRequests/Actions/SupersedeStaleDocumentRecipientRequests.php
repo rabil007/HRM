@@ -51,6 +51,7 @@ final class SupersedeStaleDocumentRecipientRequests
 
         $request->update([
             'status' => DocumentRecipientRequestStatus::Superseded,
+            'next_reminder_at' => null,
         ]);
 
         $this->eventRecorder->record(

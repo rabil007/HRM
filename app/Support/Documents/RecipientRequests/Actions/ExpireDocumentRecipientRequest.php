@@ -48,12 +48,13 @@ final class ExpireDocumentRecipientRequest
                 return null;
             }
 
-            if ($locked->expires_at === null || $locked->expires_at->isFuture()) {
+            if ($locked->expires_at === null || $locked->expires_at->greaterThan(now())) {
                 return null;
             }
 
             $locked->update([
                 'status' => DocumentRecipientRequestStatus::Expired,
+                'next_reminder_at' => null,
             ]);
 
             $this->eventRecorder->record(
@@ -133,12 +134,13 @@ final class ExpireDocumentRecipientRequest
             return null;
         }
 
-        if ($locked->expires_at === null || $locked->expires_at->isFuture()) {
+        if ($locked->expires_at === null || $locked->expires_at->greaterThan(now())) {
             return null;
         }
 
         $locked->update([
             'status' => DocumentRecipientRequestStatus::Expired,
+            'next_reminder_at' => null,
         ]);
 
         $this->eventRecorder->record(

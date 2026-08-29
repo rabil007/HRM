@@ -6,6 +6,8 @@ use App\Enums\DocumentRecipientRequestDeliveryPurpose;
 use App\Enums\DocumentRecipientRequestDeliveryStatus;
 use App\Enums\DocumentRecipientRequestEventType;
 use App\Enums\DocumentRecipientRequestStatus;
+use App\Enums\DocumentRecipientRole;
+use App\Enums\DocumentRecipientType;
 use App\Enums\DocumentSigningFlowStatus;
 use App\Jobs\DeliverDocumentRecipientRequestEmailJob;
 use App\Models\Company;
@@ -14,6 +16,7 @@ use App\Models\DocumentRecipientAutomationSetting;
 use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentRecipientRequestDelivery;
 use App\Models\DocumentRecipientRequestEvent;
+use App\Models\DocumentSigningFlow;
 use App\Models\EmailTemplate;
 use App\Models\User;
 use App\Support\Documents\RecipientRequests\Actions\CreateDocumentRecipientRequest;
@@ -22,6 +25,7 @@ use App\Support\Documents\RecipientRequests\Actions\SubmitDocumentRecipientAckno
 use App\Support\Documents\RecipientRequests\Actions\SubmitDocumentRecipientSignature;
 use App\Support\Documents\RecipientRequests\Automation\DocumentRecipientAutomationPolicy;
 use App\Support\Documents\RecipientRequests\Automation\ReconcileDocumentRecipientRequests;
+use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestToken;
 use App\Support\Documents\Signing\Actions\StartDocumentSigningFlow;
 use App\Support\Documents\Signing\Actions\StoreDocumentSigningPreset;
@@ -183,7 +187,11 @@ test('new requests snapshot reminder policy and later settings changes do not re
         'schema_version' => 1,
         'enabled' => true,
         'days_before_expiry' => [7, 3, 1],
-    ]);
+    ])
+        ->and($requestA->next_reminder_at)->not->toBeNull()
+        ->and($requestA->next_reminder_at?->equalTo(
+            $requestA->expires_at->copy()->subDays(7),
+        ))->toBeTrue();
 
     enableRecipientReminders($company, [5, 1]);
     $requestA->refresh();
@@ -207,6 +215,7 @@ test('null reminder snapshot never queues automatic reminders', function () {
 
     $request->forceFill([
         'reminder_policy_snapshot' => null,
+        'next_reminder_at' => null,
         'expires_at' => now()->addHours(12),
     ])->save();
 
@@ -242,6 +251,7 @@ test('seven day reminder is created once when due and not before', function () {
             'enabled' => true,
             'days_before_expiry' => [7, 3, 1],
         ],
+        'next_reminder_at' => Carbon::parse('2026-09-05 10:30:00'),
     ])->save();
 
     DocumentRecipientRequestDelivery::query()
@@ -257,7 +267,8 @@ test('seven day reminder is created once when due and not before', function () {
             ->where('document_recipient_request_id', $request->id)
             ->where('purpose', DocumentRecipientRequestDeliveryPurpose::Reminder)
             ->count(),
-    )->toBe(0);
+    )->toBe(0)
+        ->and($request->fresh()->next_reminder_at?->equalTo(Carbon::parse('2026-09-05 10:30:00')))->toBeTrue();
 
     Carbon::setTestNow('2026-09-05 10:30:00');
     app(ReconcileDocumentRecipientRequests::class)->handle($company->id);
@@ -273,7 +284,8 @@ test('seven day reminder is created once when due and not before', function () {
         ->and($reminders->first()->scheduled_for?->equalTo(Carbon::parse('2026-09-05 10:30:00')))->toBeTrue()
         ->and($reminders->first()->status)->toBe(DocumentRecipientRequestDeliveryStatus::Queued)
         ->and($reminders->first()->access_token_hash)->not->toBeNull()
-        ->and($reminders->first()->access_token_hash)->not->toBe($request->token_hash);
+        ->and($reminders->first()->access_token_hash)->not->toBe($request->token_hash)
+        ->and($request->fresh()->next_reminder_at?->equalTo(Carbon::parse('2026-09-09 10:30:00')))->toBeTrue();
 
     Carbon::setTestNow();
 });
@@ -296,6 +308,7 @@ test('missed reminder windows suppress older slots and queue only the nearest', 
             'enabled' => true,
             'days_before_expiry' => [7, 3, 1],
         ],
+        'next_reminder_at' => Carbon::parse('2026-09-05 12:00:00'),
     ])->save();
 
     DocumentRecipientRequestDelivery::query()
@@ -318,7 +331,8 @@ test('missed reminder windows suppress older slots and queue only the nearest', 
         ->and($byKey['reminder:3d']->status)->toBe(DocumentRecipientRequestDeliveryStatus::Suppressed)
         ->and($byKey['reminder:3d']->failure_category)->toBe('reminder_window_missed')
         ->and($byKey['reminder:1d']->status)->toBe(DocumentRecipientRequestDeliveryStatus::Queued)
-        ->and($byKey['reminder:1d']->failure_category)->toBeNull();
+        ->and($byKey['reminder:1d']->failure_category)->toBeNull()
+        ->and($request->fresh()->next_reminder_at)->toBeNull();
 
     Carbon::setTestNow();
 });
@@ -540,6 +554,7 @@ test('reminder is suppressed when reminder template is disabled and request stay
             'enabled' => true,
             'days_before_expiry' => [7],
         ],
+        'next_reminder_at' => Carbon::parse('2026-09-05 10:30:00'),
     ])->save();
 
     DocumentRecipientRequestDelivery::query()
@@ -557,7 +572,8 @@ test('reminder is suppressed when reminder template is disabled and request stay
     expect($reminder)->not->toBeNull()
         ->and($reminder->status)->toBe(DocumentRecipientRequestDeliveryStatus::Suppressed)
         ->and($reminder->failure_category)->toBe('email_template_disabled')
-        ->and($request->fresh()->status)->toBe(DocumentRecipientRequestStatus::AwaitingAction);
+        ->and($request->fresh()->status)->toBe(DocumentRecipientRequestStatus::AwaitingAction)
+        ->and($request->fresh()->next_reminder_at)->toBeNull();
 
     Carbon::setTestNow();
 });
@@ -587,6 +603,7 @@ test('subject reminder token resolves the same request without mutating the requ
             'enabled' => true,
             'days_before_expiry' => [7],
         ],
+        'next_reminder_at' => Carbon::parse('2026-09-05 10:30:00'),
     ])->save();
 
     app(ReconcileDocumentRecipientRequests::class)->handle($company->id);
@@ -615,15 +632,489 @@ test('subject reminder token resolves the same request without mutating the requ
     Carbon::setTestNow();
 });
 
-test('disabled reminders snapshot enabled false for new requests', function () {
+test('disabled reminders store null snapshot and null next reminder pointer', function () {
+    Carbon::setTestNow('2026-09-12 10:00:00');
+
     ['company' => $company, 'document' => $document] = makeRecipientFixturesWithSignaturePlacement(
         defaultSignaturePlacementConfig(),
     );
     $requester = User::factory()->create();
     $request = createSubjectSignRequest($company, $document, $requester)['request'];
 
-    expect($request->reminder_policy_snapshot)->toMatchArray([
-        'enabled' => false,
-        'days_before_expiry' => [],
+    expect($request->reminder_policy_snapshot)->toBeNull()
+        ->and($request->next_reminder_at)->toBeNull();
+
+    $request->forceFill(['expires_at' => Carbon::parse('2026-09-12 09:00:00')])->save();
+
+    app(ReconcileDocumentRecipientRequests::class)->handle($company->id);
+
+    expect($request->fresh()->status)->toBe(DocumentRecipientRequestStatus::Expired)
+        ->and(
+            DocumentRecipientRequestDelivery::query()
+                ->where('document_recipient_request_id', $request->id)
+                ->where('purpose', DocumentRecipientRequestDeliveryPurpose::Reminder)
+                ->count(),
+        )->toBe(0);
+
+    Carbon::setTestNow();
+});
+
+test('next reminder pointer progresses through configured slots without duplicates', function () {
+    Carbon::setTestNow('2026-09-01 10:30:00');
+
+    ['company' => $company, 'document' => $document] = makeRecipientFixturesWithSignaturePlacement(
+        defaultSignaturePlacementConfig(),
+    );
+    enableRecipientReminders($company, [7, 3, 1]);
+    $requester = User::factory()->create();
+    $request = createSubjectSignRequest($company, $document, $requester)['request'];
+
+    $expiresAt = Carbon::parse('2026-09-12 10:30:00');
+    $request->forceFill(['expires_at' => $expiresAt])->save();
+    $request->forceFill([
+        ...app(DocumentRecipientAutomationPolicy::class)->createSchedulingAttributes($company->id, $expiresAt),
+    ])->save();
+
+    expect($request->fresh()->next_reminder_at?->equalTo(Carbon::parse('2026-09-05 10:30:00')))->toBeTrue();
+
+    DocumentRecipientRequestDelivery::query()
+        ->where('document_recipient_request_id', $request->id)
+        ->where('purpose', DocumentRecipientRequestDeliveryPurpose::Reminder)
+        ->delete();
+
+    Carbon::setTestNow('2026-09-05 10:30:00');
+    app(ReconcileDocumentRecipientRequests::class)->handle($company->id);
+
+    expect(
+        DocumentRecipientRequestDelivery::query()
+            ->where('document_recipient_request_id', $request->id)
+            ->where('automation_key', 'reminder:7d')
+            ->count(),
+    )->toBe(1)
+        ->and($request->fresh()->next_reminder_at?->equalTo(Carbon::parse('2026-09-09 10:30:00')))->toBeTrue();
+
+    Carbon::setTestNow('2026-09-09 10:30:00');
+    app(ReconcileDocumentRecipientRequests::class)->handle($company->id);
+
+    expect(
+        DocumentRecipientRequestDelivery::query()
+            ->where('document_recipient_request_id', $request->id)
+            ->where('automation_key', 'reminder:3d')
+            ->count(),
+    )->toBe(1)
+        ->and($request->fresh()->next_reminder_at?->equalTo(Carbon::parse('2026-09-11 10:30:00')))->toBeTrue();
+
+    Carbon::setTestNow('2026-09-11 10:30:00');
+    app(ReconcileDocumentRecipientRequests::class)->handle($company->id);
+    app(ReconcileDocumentRecipientRequests::class)->handle($company->id);
+
+    expect(
+        DocumentRecipientRequestDelivery::query()
+            ->where('document_recipient_request_id', $request->id)
+            ->where('purpose', DocumentRecipientRequestDeliveryPurpose::Reminder)
+            ->count(),
+    )->toBe(3)
+        ->and($request->fresh()->next_reminder_at)->toBeNull();
+
+    Carbon::setTestNow();
+});
+
+test('due reminder is not starved by earlier not-due rows beyond the batch limit', function () {
+    Carbon::setTestNow('2026-09-05 10:30:00');
+
+    $fixtures = makeRecipientFixturesWithSignaturePlacement(defaultSignaturePlacementConfig());
+    $company = $fixtures['company'];
+    $instance = $fixtures['instance'];
+    $version = $fixtures['version'];
+    enableRecipientReminders($company, [7]);
+    $requester = User::factory()->create();
+
+    for ($i = 0; $i < ReconcileDocumentRecipientRequests::BATCH_LIMIT; $i++) {
+        DocumentRecipientRequest::query()->create([
+            'company_id' => $company->id,
+            'document_instance_id' => $instance->id,
+            'source_document_instance_version_id' => $version->id,
+            'employee_id' => $fixtures['employee']->id,
+            'requested_by' => $requester->id,
+            'action' => DocumentRecipientAction::Acknowledge,
+            'recipient_type' => DocumentRecipientType::SubjectEmployee,
+            'recipient_role' => DocumentRecipientRole::Subject,
+            'recipient_name_snapshot' => $fixtures['employee']->name,
+            'status' => DocumentRecipientRequestStatus::AwaitingAction,
+            'token_hash' => DocumentRecipientRequestToken::hash(DocumentRecipientRequestToken::generate()),
+            'expires_at' => Carbon::parse('2026-09-12 10:30:00'),
+            'reminder_policy_snapshot' => [
+                'schema_version' => 1,
+                'enabled' => true,
+                'days_before_expiry' => [7],
+            ],
+            'next_reminder_at' => Carbon::parse('2026-09-10 10:30:00'),
+            'requested_at' => now(),
+            'source_checksum_sha256' => $version->checksum,
+        ]);
+    }
+
+    $due = createSubjectSignRequest($company, $fixtures['document'], $requester)['request'];
+    $due->forceFill([
+        'expires_at' => Carbon::parse('2026-09-12 10:30:00'),
+        'reminder_policy_snapshot' => [
+            'schema_version' => 1,
+            'enabled' => true,
+            'days_before_expiry' => [7],
+        ],
+        'next_reminder_at' => Carbon::parse('2026-09-05 10:30:00'),
+    ])->save();
+
+    DocumentRecipientRequestDelivery::query()
+        ->where('document_recipient_request_id', $due->id)
+        ->where('purpose', DocumentRecipientRequestDeliveryPurpose::Reminder)
+        ->delete();
+
+    expect($due->id)->toBeGreaterThan(
+        (int) DocumentRecipientRequest::query()
+            ->where('company_id', $company->id)
+            ->whereKeyNot($due->id)
+            ->max('id'),
+    );
+
+    app(ReconcileDocumentRecipientRequests::class)->handle($company->id);
+
+    $reminders = DocumentRecipientRequestDelivery::query()
+        ->where('document_recipient_request_id', $due->id)
+        ->where('purpose', DocumentRecipientRequestDeliveryPurpose::Reminder)
+        ->get();
+
+    expect($reminders)->toHaveCount(1)
+        ->and($reminders->first()->automation_key)->toBe('reminder:7d')
+        ->and($reminders->first()->status)->toBe(DocumentRecipientRequestDeliveryStatus::Queued);
+
+    Carbon::setTestNow();
+});
+
+test('expired signing flow repair recovers after post-commit block failure', function () {
+    $fixtures = makeRecipientFixturesWithSignaturePlacement(defaultSignaturePlacementConfig());
+    $company = $fixtures['company'];
+
+    $hr = User::factory()->create();
+    grantCompanyPermissions($hr, $company, [
+        'documents.recipient-requests.create',
+        'documents.signing-presets.create',
     ]);
+
+    $preset = app(StoreDocumentSigningPreset::class)->handle(
+        $hr,
+        $company->id,
+        'Subject only repair',
+        null,
+        [
+            ['recipient_role' => 'subject'],
+        ],
+    );
+
+    $started = app(StartDocumentSigningFlow::class)->handle(
+        $fixtures['document'],
+        $hr,
+        $company->id,
+        $preset->id,
+    );
+
+    $flow = $started['flow'];
+    $request = $started['request'];
+
+    // Simulate expiry succeeding while the immediate after-commit BlockDocumentSigningFlow failed.
+    $request->forceFill([
+        'status' => DocumentRecipientRequestStatus::Expired,
+        'expires_at' => now()->subMinute(),
+        'next_reminder_at' => null,
+    ])->save();
+
+    app(DocumentRecipientRequestEventRecorder::class)->record(
+        $request->fresh(),
+        DocumentRecipientRequestEventType::RequestExpired,
+        metadata: [
+            'document_signing_flow_id' => $flow->id,
+            'signing_step_sequence' => $request->signing_step_sequence,
+        ],
+    );
+
+    expect($request->fresh()->status)->toBe(DocumentRecipientRequestStatus::Expired)
+        ->and($flow->fresh()->status)->toBe(DocumentSigningFlowStatus::Active);
+
+    $expiredEventsBefore = DocumentRecipientRequestEvent::query()
+        ->where('document_recipient_request_id', $request->id)
+        ->where('event', DocumentRecipientRequestEventType::RequestExpired)
+        ->count();
+    $requestsBefore = DocumentRecipientRequest::query()
+        ->where('document_signing_flow_id', $flow->id)
+        ->count();
+
+    app(ReconcileDocumentRecipientRequests::class)->handle($company->id);
+
+    $flow->refresh();
+    $request->refresh();
+    $presented = app(DocumentSigningFlowPresenter::class)->forDocumentShow($flow);
+
+    expect($request->status)->toBe(DocumentRecipientRequestStatus::Expired)
+        ->and($flow->status)->toBe(DocumentSigningFlowStatus::Blocked)
+        ->and($presented['can_retry'])->toBeFalse()
+        ->and(
+            DocumentRecipientRequestEvent::query()
+                ->where('document_recipient_request_id', $request->id)
+                ->where('event', DocumentRecipientRequestEventType::RequestExpired)
+                ->count(),
+        )->toBe($expiredEventsBefore)
+        ->and(
+            DocumentRecipientRequest::query()
+                ->where('document_signing_flow_id', $flow->id)
+                ->count(),
+        )->toBe($requestsBefore);
+});
+
+test('expired signing flow repair ignores completed and cancelled flows', function () {
+    $fixtures = makeRecipientFixturesWithSignaturePlacement(defaultSignaturePlacementConfig());
+    $company = $fixtures['company'];
+    $hr = User::factory()->create();
+
+    $completedFlow = DocumentSigningFlow::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $fixtures['instance']->id,
+        'document_signing_preset_id' => null,
+        'starting_document_instance_version_id' => $fixtures['version']->id,
+        'preset_name_snapshot' => 'Completed flow',
+        'routing_definition_snapshot' => [
+            'schema_version' => 1,
+            'steps' => [
+                [
+                    'sequence' => 1,
+                    'recipient_role' => 'subject',
+                    'target_type' => 'subject_employee',
+                    'recipient_user_id' => null,
+                    'recipient_name' => $fixtures['employee']->name,
+                ],
+            ],
+        ],
+        'status' => DocumentSigningFlowStatus::Completed,
+        'current_step_sequence' => 1,
+        'started_by' => $hr->id,
+        'started_at' => now(),
+        'completed_at' => now(),
+    ]);
+    DocumentRecipientRequest::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $fixtures['instance']->id,
+        'source_document_instance_version_id' => $fixtures['version']->id,
+        'employee_id' => $fixtures['employee']->id,
+        'requested_by' => $hr->id,
+        'document_signing_flow_id' => $completedFlow->id,
+        'signing_step_sequence' => 1,
+        'action' => DocumentRecipientAction::Sign,
+        'recipient_type' => DocumentRecipientType::SubjectEmployee,
+        'recipient_role' => DocumentRecipientRole::Subject,
+        'recipient_name_snapshot' => $fixtures['employee']->name,
+        'status' => DocumentRecipientRequestStatus::Expired,
+        'token_hash' => DocumentRecipientRequestToken::hash(DocumentRecipientRequestToken::generate()),
+        'expires_at' => now()->subMinute(),
+        'next_reminder_at' => null,
+        'requested_at' => now(),
+        'source_checksum_sha256' => $fixtures['version']->checksum,
+    ]);
+
+    $cancelledFlow = DocumentSigningFlow::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $fixtures['instance']->id,
+        'document_signing_preset_id' => null,
+        'starting_document_instance_version_id' => $fixtures['version']->id,
+        'preset_name_snapshot' => 'Cancelled flow',
+        'routing_definition_snapshot' => [
+            'schema_version' => 1,
+            'steps' => [
+                [
+                    'sequence' => 1,
+                    'recipient_role' => 'subject',
+                    'target_type' => 'subject_employee',
+                    'recipient_user_id' => null,
+                    'recipient_name' => $fixtures['employee']->name,
+                ],
+            ],
+        ],
+        'status' => DocumentSigningFlowStatus::Cancelled,
+        'current_step_sequence' => 1,
+        'started_by' => $hr->id,
+        'started_at' => now(),
+        'cancelled_at' => now(),
+        'cancelled_by' => $hr->id,
+    ]);
+    DocumentRecipientRequest::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $fixtures['instance']->id,
+        'source_document_instance_version_id' => $fixtures['version']->id,
+        'employee_id' => $fixtures['employee']->id,
+        'requested_by' => $hr->id,
+        'document_signing_flow_id' => $cancelledFlow->id,
+        'signing_step_sequence' => 1,
+        'action' => DocumentRecipientAction::Sign,
+        'recipient_type' => DocumentRecipientType::SubjectEmployee,
+        'recipient_role' => DocumentRecipientRole::Subject,
+        'recipient_name_snapshot' => $fixtures['employee']->name,
+        'status' => DocumentRecipientRequestStatus::Expired,
+        'token_hash' => DocumentRecipientRequestToken::hash(DocumentRecipientRequestToken::generate()),
+        'expires_at' => now()->subMinute(),
+        'next_reminder_at' => null,
+        'requested_at' => now(),
+        'source_checksum_sha256' => $fixtures['version']->checksum,
+    ]);
+
+    app(ReconcileDocumentRecipientRequests::class)->handle($company->id);
+
+    expect($completedFlow->fresh()->status)->toBe(DocumentSigningFlowStatus::Completed)
+        ->and($cancelledFlow->fresh()->status)->toBe(DocumentSigningFlowStatus::Cancelled);
+});
+
+test('company scoped reconciliation only processes that company', function () {
+    Carbon::setTestNow('2026-09-05 10:30:00');
+
+    $fixturesA = makeRecipientFixturesWithSignaturePlacement(defaultSignaturePlacementConfig());
+    $fixturesB = makeRecipientFixturesWithSignaturePlacement(defaultSignaturePlacementConfig());
+    $companyA = $fixturesA['company'];
+    $companyB = $fixturesB['company'];
+    enableRecipientReminders($companyA, [7]);
+    enableRecipientReminders($companyB, [7]);
+
+    $actorA = User::factory()->create();
+    $actorB = User::factory()->create();
+
+    $requestA = createSubjectSignRequest($companyA, $fixturesA['document'], $actorA)['request'];
+    $requestA->forceFill([
+        'expires_at' => Carbon::parse('2026-09-12 10:30:00'),
+        'reminder_policy_snapshot' => [
+            'schema_version' => 1,
+            'enabled' => true,
+            'days_before_expiry' => [7],
+        ],
+        'next_reminder_at' => Carbon::parse('2026-09-05 10:30:00'),
+    ])->save();
+    DocumentRecipientRequestDelivery::query()
+        ->where('document_recipient_request_id', $requestA->id)
+        ->where('purpose', DocumentRecipientRequestDeliveryPurpose::Reminder)
+        ->delete();
+
+    $requestB = createSubjectSignRequest($companyB, $fixturesB['document'], $actorB)['request'];
+    $requestB->forceFill([
+        'expires_at' => Carbon::parse('2026-09-12 10:30:00'),
+        'reminder_policy_snapshot' => [
+            'schema_version' => 1,
+            'enabled' => true,
+            'days_before_expiry' => [7],
+        ],
+        'next_reminder_at' => Carbon::parse('2026-09-05 10:30:00'),
+    ])->save();
+    DocumentRecipientRequestDelivery::query()
+        ->where('document_recipient_request_id', $requestB->id)
+        ->where('purpose', DocumentRecipientRequestDeliveryPurpose::Reminder)
+        ->delete();
+
+    $flowA = DocumentSigningFlow::query()->create([
+        'company_id' => $companyA->id,
+        'document_instance_id' => $fixturesA['instance']->id,
+        'document_signing_preset_id' => null,
+        'starting_document_instance_version_id' => $fixturesA['version']->id,
+        'preset_name_snapshot' => 'A flow',
+        'routing_definition_snapshot' => [
+            'schema_version' => 1,
+            'steps' => [
+                [
+                    'sequence' => 1,
+                    'recipient_role' => 'subject',
+                    'target_type' => 'subject_employee',
+                    'recipient_user_id' => null,
+                    'recipient_name' => $fixturesA['employee']->name,
+                ],
+            ],
+        ],
+        'status' => DocumentSigningFlowStatus::Active,
+        'current_step_sequence' => 1,
+        'started_by' => $actorA->id,
+        'started_at' => now(),
+    ]);
+    DocumentRecipientRequest::query()->create([
+        'company_id' => $companyA->id,
+        'document_instance_id' => $fixturesA['instance']->id,
+        'source_document_instance_version_id' => $fixturesA['version']->id,
+        'employee_id' => $fixturesA['employee']->id,
+        'requested_by' => $actorA->id,
+        'document_signing_flow_id' => $flowA->id,
+        'signing_step_sequence' => 1,
+        'action' => DocumentRecipientAction::Sign,
+        'recipient_type' => DocumentRecipientType::SubjectEmployee,
+        'recipient_role' => DocumentRecipientRole::Subject,
+        'recipient_name_snapshot' => $fixturesA['employee']->name,
+        'status' => DocumentRecipientRequestStatus::Expired,
+        'token_hash' => DocumentRecipientRequestToken::hash(DocumentRecipientRequestToken::generate()),
+        'expires_at' => now()->subMinute(),
+        'next_reminder_at' => null,
+        'requested_at' => now(),
+        'source_checksum_sha256' => $fixturesA['version']->checksum,
+    ]);
+
+    $flowB = DocumentSigningFlow::query()->create([
+        'company_id' => $companyB->id,
+        'document_instance_id' => $fixturesB['instance']->id,
+        'document_signing_preset_id' => null,
+        'starting_document_instance_version_id' => $fixturesB['version']->id,
+        'preset_name_snapshot' => 'B flow',
+        'routing_definition_snapshot' => [
+            'schema_version' => 1,
+            'steps' => [
+                [
+                    'sequence' => 1,
+                    'recipient_role' => 'subject',
+                    'target_type' => 'subject_employee',
+                    'recipient_user_id' => null,
+                    'recipient_name' => $fixturesB['employee']->name,
+                ],
+            ],
+        ],
+        'status' => DocumentSigningFlowStatus::Active,
+        'current_step_sequence' => 1,
+        'started_by' => $actorB->id,
+        'started_at' => now(),
+    ]);
+    DocumentRecipientRequest::query()->create([
+        'company_id' => $companyB->id,
+        'document_instance_id' => $fixturesB['instance']->id,
+        'source_document_instance_version_id' => $fixturesB['version']->id,
+        'employee_id' => $fixturesB['employee']->id,
+        'requested_by' => $actorB->id,
+        'document_signing_flow_id' => $flowB->id,
+        'signing_step_sequence' => 1,
+        'action' => DocumentRecipientAction::Sign,
+        'recipient_type' => DocumentRecipientType::SubjectEmployee,
+        'recipient_role' => DocumentRecipientRole::Subject,
+        'recipient_name_snapshot' => $fixturesB['employee']->name,
+        'status' => DocumentRecipientRequestStatus::Expired,
+        'token_hash' => DocumentRecipientRequestToken::hash(DocumentRecipientRequestToken::generate()),
+        'expires_at' => now()->subMinute(),
+        'next_reminder_at' => null,
+        'requested_at' => now(),
+        'source_checksum_sha256' => $fixturesB['version']->checksum,
+    ]);
+
+    app(ReconcileDocumentRecipientRequests::class)->handle($companyA->id);
+
+    expect(
+        DocumentRecipientRequestDelivery::query()
+            ->where('document_recipient_request_id', $requestA->id)
+            ->where('purpose', DocumentRecipientRequestDeliveryPurpose::Reminder)
+            ->count(),
+    )->toBe(1)
+        ->and(
+            DocumentRecipientRequestDelivery::query()
+                ->where('document_recipient_request_id', $requestB->id)
+                ->where('purpose', DocumentRecipientRequestDeliveryPurpose::Reminder)
+                ->count(),
+        )->toBe(0)
+        ->and($flowA->fresh()->status)->toBe(DocumentSigningFlowStatus::Blocked)
+        ->and($flowB->fresh()->status)->toBe(DocumentSigningFlowStatus::Active);
+
+    Carbon::setTestNow();
 });

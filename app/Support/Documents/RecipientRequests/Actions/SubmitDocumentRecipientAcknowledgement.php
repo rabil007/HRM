@@ -72,7 +72,7 @@ final class SubmitDocumentRecipientAcknowledgement
                 ]);
             }
 
-            if ($locked->expires_at !== null && $locked->expires_at->isPast()) {
+            if ($locked->expires_at !== null && $locked->expires_at->lessThanOrEqualTo(now())) {
                 app(ExpireDocumentRecipientRequest::class)->transitionLocked($locked);
 
                 return ['__expired' => true];
@@ -110,6 +110,7 @@ final class SubmitDocumentRecipientAcknowledgement
                 'submitted_ip' => $httpRequest->ip(),
                 'user_agent' => Str::limit((string) $httpRequest->userAgent(), 1000, ''),
                 'acknowledgement_text_snapshot' => self::ACKNOWLEDGEMENT_STATEMENT,
+                'next_reminder_at' => null,
             ]);
 
             $this->eventRecorder->record(

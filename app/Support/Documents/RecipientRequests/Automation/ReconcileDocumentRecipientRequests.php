@@ -6,10 +6,13 @@ use App\Enums\DocumentRecipientRequestDeliveryChannel;
 use App\Enums\DocumentRecipientRequestDeliveryPurpose;
 use App\Enums\DocumentRecipientRequestDeliveryStatus;
 use App\Enums\DocumentRecipientRequestStatus;
+use App\Enums\DocumentSigningFlowStatus;
 use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentRecipientRequestDelivery;
+use App\Models\DocumentSigningFlow;
 use App\Support\Documents\RecipientRequests\Actions\ExpireDocumentRecipientRequest;
 use App\Support\Documents\RecipientRequests\Delivery\QueueDocumentRecipientRequestEmail;
+use App\Support\Documents\Signing\Actions\BlockDocumentSigningFlow;
 use Carbon\CarbonInterface;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -27,15 +30,17 @@ final class ReconcileDocumentRecipientRequests
     ) {}
 
     /**
-     * @return array{expired: int, reminders_queued: int, reminders_suppressed: int, skipped: int}
+     * @return array{expired: int, flows_repaired: int, reminders_queued: int, reminders_suppressed: int, skipped: int}
      */
     public function handle(?int $onlyCompanyId = null): array
     {
         $expired = $this->expireOverdue($onlyCompanyId);
+        $flowsRepaired = $this->reconcileExpiredSigningFlows($onlyCompanyId);
         $reminders = $this->processReminders($onlyCompanyId);
 
         return [
             'expired' => $expired,
+            'flows_repaired' => $flowsRepaired,
             'reminders_queued' => $reminders['queued'],
             'reminders_suppressed' => $reminders['suppressed'],
             'skipped' => $reminders['skipped'],
@@ -77,6 +82,52 @@ final class ReconcileDocumentRecipientRequests
         return $expiredCount;
     }
 
+    public function reconcileExpiredSigningFlows(?int $onlyCompanyId = null): int
+    {
+        $repaired = 0;
+        $requestTable = (new DocumentRecipientRequest)->getTable();
+        $flowTable = (new DocumentSigningFlow)->getTable();
+
+        DocumentRecipientRequest::query()
+            ->select("{$requestTable}.*")
+            ->join($flowTable, "{$flowTable}.id", '=', "{$requestTable}.document_signing_flow_id")
+            ->where("{$requestTable}.status", DocumentRecipientRequestStatus::Expired)
+            ->whereNotNull("{$requestTable}.document_signing_flow_id")
+            ->where("{$flowTable}.status", DocumentSigningFlowStatus::Active)
+            ->whereColumn("{$flowTable}.company_id", "{$requestTable}.company_id")
+            ->whereColumn("{$flowTable}.current_step_sequence", "{$requestTable}.signing_step_sequence")
+            ->when(
+                $onlyCompanyId !== null,
+                fn ($query) => $query->where("{$requestTable}.company_id", $onlyCompanyId),
+            )
+            ->orderBy("{$requestTable}.id")
+            ->limit(self::BATCH_LIMIT)
+            ->get()
+            ->each(function (DocumentRecipientRequest $request) use (&$repaired): void {
+                try {
+                    if ($request->document_signing_flow_id === null) {
+                        return;
+                    }
+
+                    app(BlockDocumentSigningFlow::class)->handle(
+                        (int) $request->document_signing_flow_id,
+                        (int) $request->company_id,
+                        ExpireDocumentRecipientRequest::FLOW_BLOCK_REASON,
+                    );
+                    $repaired++;
+                } catch (Throwable $exception) {
+                    report($exception);
+                    Log::warning('Document recipient expired signing-flow repair failed', [
+                        'document_recipient_request_id' => $request->id,
+                        'document_signing_flow_id' => $request->document_signing_flow_id,
+                        'exception_class' => $exception::class,
+                    ]);
+                }
+            });
+
+        return $repaired;
+    }
+
     /**
      * @return array{queued: int, suppressed: int, skipped: int}
      */
@@ -88,12 +139,14 @@ final class ReconcileDocumentRecipientRequests
 
         DocumentRecipientRequest::query()
             ->where('status', DocumentRecipientRequestStatus::AwaitingAction)
+            ->whereNotNull('next_reminder_at')
+            ->where('next_reminder_at', '<=', now())
             ->where('expires_at', '>', now())
-            ->whereNotNull('reminder_policy_snapshot')
             ->when(
                 $onlyCompanyId !== null,
                 fn ($query) => $query->where('company_id', $onlyCompanyId),
             )
+            ->orderBy('next_reminder_at')
             ->orderBy('id')
             ->limit(self::BATCH_LIMIT)
             ->pluck('id')
@@ -137,16 +190,26 @@ final class ReconcileDocumentRecipientRequests
             }
 
             if ($locked->status !== DocumentRecipientRequestStatus::AwaitingAction) {
+                $this->clearNextReminderAt($locked);
+
                 return ['queued' => 0, 'suppressed' => 0, 'skipped' => 1];
             }
 
-            if ($locked->expires_at === null || $locked->expires_at->isPast()) {
+            if ($locked->expires_at === null || $locked->expires_at->lessThanOrEqualTo(now())) {
+                $this->clearNextReminderAt($locked);
+
+                return ['queued' => 0, 'suppressed' => 0, 'skipped' => 1];
+            }
+
+            if ($locked->next_reminder_at === null || $locked->next_reminder_at->greaterThan(now())) {
                 return ['queued' => 0, 'suppressed' => 0, 'skipped' => 1];
             }
 
             $slots = $this->policy->reminderSlotsForRequest($locked);
 
             if ($slots === []) {
+                $this->clearNextReminderAt($locked);
+
                 return ['queued' => 0, 'suppressed' => 0, 'skipped' => 1];
             }
 
@@ -161,10 +224,12 @@ final class ReconcileDocumentRecipientRequests
             $selection = $this->policy->selectDueReminderSlots($slots, $consumedKeys);
 
             $suppressedCount = 0;
+            $newlyConsumed = [];
 
             foreach ($selection['missed'] as $missed) {
                 if ($this->createMissedWindowSuppression($locked, $missed)) {
                     $suppressedCount++;
+                    $newlyConsumed[] = $missed['automation_key'];
                 }
             }
 
@@ -177,14 +242,26 @@ final class ReconcileDocumentRecipientRequests
                     $selection['active']['scheduled_for'],
                 );
 
+                // Slot is consumed whether queued, suppressed (email/template), or already present.
+                $newlyConsumed[] = $selection['active']['automation_key'];
+
                 if ($delivery instanceof DocumentRecipientRequestDelivery) {
                     if ($delivery->status === DocumentRecipientRequestDeliveryStatus::Suppressed) {
                         $suppressedCount++;
-                    } else {
+                    } elseif ($delivery->status === DocumentRecipientRequestDeliveryStatus::Queued) {
                         $queuedCount++;
                     }
                 }
             }
+
+            $allConsumed = array_values(array_unique([
+                ...$consumedKeys,
+                ...$newlyConsumed,
+            ]));
+
+            $locked->update([
+                'next_reminder_at' => $this->policy->nextReminderAt($locked, $allConsumed),
+            ]);
 
             return [
                 'queued' => $queuedCount,
@@ -192,6 +269,13 @@ final class ReconcileDocumentRecipientRequests
                 'skipped' => 0,
             ];
         });
+    }
+
+    private function clearNextReminderAt(DocumentRecipientRequest $request): void
+    {
+        if ($request->next_reminder_at !== null) {
+            $request->update(['next_reminder_at' => null]);
+        }
     }
 
     /**
