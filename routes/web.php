@@ -101,6 +101,7 @@ use App\Http\Controllers\Organization\Documents\CancelDocumentRecipientRequestCo
 use App\Http\Controllers\Organization\Documents\CancelDocumentWorkflowRequestController;
 use App\Http\Controllers\Organization\Documents\CompleteDocumentWorkflowTaskController;
 use App\Http\Controllers\Organization\Documents\CreateDocumentCompanyCountersignRequestController;
+use App\Http\Controllers\Organization\Documents\CreateDocumentManagerCountersignRequestController;
 use App\Http\Controllers\Organization\Documents\CreateDocumentRecipientRequestController;
 use App\Http\Controllers\Organization\Documents\CreateDocumentWorkflowRequestController;
 use App\Http\Controllers\Organization\Documents\DeactivateDocumentWorkflowPresetController;
@@ -716,6 +717,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('organization.documents.employee.files.recipient-requests.store');
         Route::post('organization/documents/employees/{employee}/files/{document}/company-countersign-requests', CreateDocumentCompanyCountersignRequestController::class)
             ->name('organization.documents.employee.files.company-countersign-requests.store');
+        Route::post('organization/documents/employees/{employee}/files/{document}/manager-countersign-requests', CreateDocumentManagerCountersignRequestController::class)
+            ->name('organization.documents.employee.files.manager-countersign-requests.store');
         Route::post('organization/documents/recipient-requests/{recipientRequest}/regenerate-link', RegenerateDocumentRecipientRequestTokenController::class)
             ->name('organization.documents.recipient-requests.regenerate-link');
     });

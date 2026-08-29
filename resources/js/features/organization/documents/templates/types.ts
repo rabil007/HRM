@@ -60,7 +60,7 @@ export type PlacementConfig = {
 export type SignaturePlacementItem = {
     id: string;
     type: 'signature';
-    role: 'subject' | 'company_signatory';
+    role: 'subject' | 'manager' | 'company_signatory';
     page: number;
     x: number;
     y: number;

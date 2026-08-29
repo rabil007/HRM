@@ -103,7 +103,7 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents/templates/{template}/draft` (POST) | Get or branch editable draft version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/versions/{version}/source-pdf` (GET) | Stream private source PDF | `documents.templates.view` |
 | `/organization/documents/templates/{template}/versions/{version}/placements` (PUT) | Save visual placements to draft | `documents.templates.update` |
-| `/organization/documents/templates/{template}/versions/{version}/signature-placement` (PUT) | Save subject employee signature placement on draft PDF Overlay version | `documents.templates.update` |
+| `/organization/documents/templates/{template}/versions/{version}/signature-placement` (PUT) | Save version-owned Subject Employee, Department Manager, and Company Signatory signature placements on draft PDF Overlay version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/versions/{version}/replace-pdf` (POST) | Replace PDF on draft version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/versions/{version}/publish` (POST) | Publish draft version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/activate` (POST) | Activate template | `documents.templates.update` |
@@ -111,6 +111,7 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents/activity` | Bulk generation history | `bulk_documents.view` |
 | `/organization/documents/bulk` | Legacy Bulk Documents index | `bulk_documents.view` |
 | `/organization/documents/employees/{employee}` | Employee document browse | `documents.view` |
+| `/organization/documents/employees/{employee}/files/{document}/manager-countersign-requests` (POST) | Create department-manager countersign request (manager resolved server-side) | `documents.recipient-requests.create` |
 | `/organization/employees/{employee}` (Documents tab) | Upload, edit, versions on profile | `documents.view` / `documents.upload` / `documents.delete` |
 
 Upload and CRUD on the profile use `organization.employees.documents.*` routes.
@@ -825,5 +826,69 @@ HR may request company countersignature when:
 ### Explicitly not in Phase 6B-1
 
 Department manager resolution, automatic multi-stage chains, multiple company signatories, external recipients, email/WhatsApp/reminders, workflow sign stages, legacy bulk migration, and `/esign/*` changes remain Phase 6B-2 / Phase 7 / Phase 8.
+
+## Phase 6B-2A: Department Manager Countersigning
+
+Phase 6B-2A adds an optional **department manager** countersignature step between subject employee signing and company signatory signing. It continues to use the unified `DocumentRecipientRequest` domain.
+
+### Supported signing orders
+
+1. **Subject Employee → Company Signatory** (Phase 6B-1 unchanged)
+2. **Subject Employee → Department Manager → Company Signatory** (new)
+
+### Version chains
+
+**Two-party:**
+
+1. v1 Generated
+2. v2 Employee signed
+3. v3 Company countersigned
+
+**Three-party:**
+
+1. v1 Generated
+2. v2 Employee signed
+3. v3 Manager signed (stamped onto exact v2 bytes)
+4. v4 Company countersigned (stamped onto exact v3 bytes)
+
+Every version remains immutable. The Library representation syncs to each newly completed current version.
+
+### Manager resolution
+
+Manager recipients are resolved **server-side** via `ResolveDepartmentManagementChain::forEmployee(...)` — the same authoritative department hierarchy used by document workflow routing.
+
+- `Employee.manager_id` is **not** used.
+- The first actionable manager in hierarchy order is selected.
+- Actionable means: active employee in the company, linked active User, active company membership, and `documents.recipient-requests.respond`.
+- Workflow review/approve permissions and leave approval settings are **not** used for signing eligibility.
+- If no eligible manager exists, creation is blocked with a clear validation message.
+- Routing is snapshotted at request creation. Later hierarchy changes do not rewrite historical requests. HR may cancel and recreate if the org chart changed.
+
+### Recipient model
+
+| Field | Meaning |
+|-------|---------|
+| `employee_id` | Always the **subject employee** who owns the document |
+| `recipient_user_id` | Resolved manager user (or selected company signatory) |
+| `recipient_type` | `company_user` for manager and company signatory |
+| `recipient_role` | `manager` or `company_signatory` |
+
+### Signature placement
+
+`signature_placement_config` supports up to one placement per role:
+
+- `role: subject`
+- `role: manager`
+- `role: company_signatory`
+
+Templates → **Signature placement** editor configures all three on draft PDF overlay versions. Subject signing continues to work when manager/company placements also exist. Each signing role resolves only its own placement — no fallback.
+
+### Authorization
+
+Manager signing uses the same authenticated internal routes and `documents.recipient-requests.respond` permission as company signatories. Public `/document-action/{token}` remains subject-employee only.
+
+### Explicitly not in Phase 6B-2A
+
+Automatic sequential request creation, signing flow/preset configuration, multiple internal stages, manager → director → CEO chains, parent-manager signing stage, parallel signing, email/WhatsApp/reminders, workflow `sign` stages, and legacy bulk migration remain Phase **6B-2B** / Phase 7 / Phase 8.
 
 

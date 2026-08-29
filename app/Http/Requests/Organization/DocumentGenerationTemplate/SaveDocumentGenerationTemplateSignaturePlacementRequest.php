@@ -19,10 +19,10 @@ class SaveDocumentGenerationTemplateSignaturePlacementRequest extends FormReques
     {
         return [
             'schema_version' => ['required', 'integer', 'in:1'],
-            'placements' => ['required', 'array', 'min:1', 'max:2'],
+            'placements' => ['required', 'array', 'min:1', 'max:3'],
             'placements.*.id' => ['required', 'string', 'max:100'],
             'placements.*.type' => ['required', 'string', 'in:signature'],
-            'placements.*.role' => ['required', 'string', Rule::in(['subject', 'company_signatory'])],
+            'placements.*.role' => ['required', 'string', Rule::in(['subject', 'manager', 'company_signatory'])],
             'placements.*.page' => ['required', 'integer', 'min:1'],
             'placements.*.x' => ['required', 'numeric', 'min:0', 'max:1'],
             'placements.*.y' => ['required', 'numeric', 'min:0', 'max:1'],

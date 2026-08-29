@@ -47,14 +47,14 @@ final class SubmitDocumentRecipientSignature
         Request $httpRequest,
         ?User $actor = null,
     ): DocumentRecipientRequest {
-        if ($request->isInternalCompanySignatory()) {
+        if ($request->isInternalSigner()) {
             if ($actor === null) {
                 throw ValidationException::withMessages([
                     'request' => 'This signing request requires authentication.',
                 ]);
             }
 
-            DocumentRecipientRequestAccess::assertAssignedCompanySignatory(
+            DocumentRecipientRequestAccess::assertAssignedInternalSigner(
                 $request,
                 $actor,
                 (int) $request->company_id,
@@ -108,14 +108,14 @@ final class SubmitDocumentRecipientSignature
                     ]);
                 }
 
-                if ($locked->isInternalCompanySignatory()) {
+                if ($locked->isInternalSigner()) {
                     if ($actor === null) {
                         throw ValidationException::withMessages([
                             'request' => 'This signing request requires authentication.',
                         ]);
                     }
 
-                    DocumentRecipientRequestAccess::assertAssignedCompanySignatory(
+                    DocumentRecipientRequestAccess::assertAssignedInternalSigner(
                         $locked,
                         $actor,
                         (int) $locked->company_id,

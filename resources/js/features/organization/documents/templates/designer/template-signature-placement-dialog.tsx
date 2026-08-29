@@ -36,6 +36,7 @@ type Props = {
 };
 
 const SUBJECT_SIGNATURE_ID = 'subject_signature';
+const MANAGER_SIGNATURE_ID = 'manager_signature';
 const COMPANY_SIGNATURE_ID = 'company_signatory_signature';
 const DEFAULT_WIDTH = 0.25;
 const DEFAULT_HEIGHT = 0.08;
@@ -44,17 +45,25 @@ const DEFAULT_Y = 0.75;
 
 type SignatureRole = SignaturePlacementItem['role'];
 
+function placementIdForRole(role: SignatureRole): string {
+    return role === 'subject'
+        ? SUBJECT_SIGNATURE_ID
+        : role === 'manager'
+          ? MANAGER_SIGNATURE_ID
+          : COMPANY_SIGNATURE_ID;
+}
+
 function defaultPlacement(
     role: SignatureRole,
     page: number,
 ): SignaturePlacementItem {
     return {
-        id: role === 'subject' ? SUBJECT_SIGNATURE_ID : COMPANY_SIGNATURE_ID,
+        id: placementIdForRole(role),
         type: 'signature',
         role,
         page,
         x: DEFAULT_X,
-        y: role === 'subject' ? DEFAULT_Y : 0.62,
+        y: role === 'subject' ? DEFAULT_Y : role === 'manager' ? 0.62 : 0.5,
         width: DEFAULT_WIDTH,
         height: DEFAULT_HEIGHT,
         required: true,
@@ -64,7 +73,9 @@ function defaultPlacement(
 function roleLabel(role: SignatureRole): string {
     return role === 'subject'
         ? 'Employee Signature'
-        : 'Company Signatory Signature';
+        : role === 'manager'
+          ? 'Manager Signature'
+          : 'Company Signatory Signature';
 }
 
 function roleColors(role: SignatureRole): {
@@ -72,17 +83,27 @@ function roleColors(role: SignatureRole): {
     stroke: string;
     text: string;
 } {
-    return role === 'subject'
-        ? {
-              fill: 'rgba(37, 99, 235, 0.28)',
-              stroke: '#2563eb',
-              text: '#1e3a8a',
-          }
-        : {
-              fill: 'rgba(180, 83, 9, 0.28)',
-              stroke: '#b45309',
-              text: '#78350f',
-          };
+    if (role === 'subject') {
+        return {
+            fill: 'rgba(37, 99, 235, 0.28)',
+            stroke: '#2563eb',
+            text: '#1e3a8a',
+        };
+    }
+
+    if (role === 'manager') {
+        return {
+            fill: 'rgba(5, 150, 105, 0.28)',
+            stroke: '#059669',
+            text: '#065f46',
+        };
+    }
+
+    return {
+        fill: 'rgba(180, 83, 9, 0.28)',
+        stroke: '#b45309',
+        text: '#78350f',
+    };
 }
 
 export function TemplateSignaturePlacementDialog({
@@ -99,6 +120,7 @@ export function TemplateSignaturePlacementDialog({
         defaultPlacement('subject', 1),
     );
     const [companyEnabled, setCompanyEnabled] = useState(false);
+    const [managerEnabled, setManagerEnabled] = useState(false);
     const [isLoadingPdf, setIsLoadingPdf] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -137,6 +159,9 @@ export function TemplateSignaturePlacementDialog({
         const subjectExisting = initialConfig?.placements?.find(
             (item) => item.role === 'subject',
         );
+        const managerExisting = initialConfig?.placements?.find(
+            (item) => item.role === 'manager',
+        );
         const companyExisting = initialConfig?.placements?.find(
             (item) => item.role === 'company_signatory',
         );
@@ -156,6 +181,23 @@ export function TemplateSignaturePlacementDialog({
             : defaultPlacement('subject', 1);
 
         placementsByRoleRef.current = { subject };
+
+        if (managerExisting) {
+            placementsByRoleRef.current.manager = {
+                id: managerExisting.id || MANAGER_SIGNATURE_ID,
+                type: 'signature',
+                role: 'manager',
+                page: managerExisting.page || 1,
+                x: managerExisting.x,
+                y: managerExisting.y,
+                width: managerExisting.width,
+                height: managerExisting.height,
+                required: managerExisting.required ?? true,
+            };
+            setManagerEnabled(true);
+        } else {
+            setManagerEnabled(false);
+        }
 
         if (companyExisting) {
             placementsByRoleRef.current.company_signatory = {
@@ -195,8 +237,7 @@ export function TemplateSignaturePlacementDialog({
 
     const syncLabel = useCallback((canvas: Canvas, role: SignatureRole) => {
         const label = labelRef.current;
-        const placementId =
-            role === 'subject' ? SUBJECT_SIGNATURE_ID : COMPANY_SIGNATURE_ID;
+        const placementId = placementIdForRole(role);
         const rect = canvas
             .getObjects()
             .find(
@@ -291,10 +332,7 @@ export function TemplateSignaturePlacementDialog({
         (canvas: Canvas) => {
             const persistFromCanvas = () => {
                 const role = activeRoleRef.current;
-                const placementId =
-                    role === 'subject'
-                        ? SUBJECT_SIGNATURE_ID
-                        : COMPANY_SIGNATURE_ID;
+                const placementId = placementIdForRole(role);
                 const rect = canvas
                     .getObjects()
                     .find(
@@ -536,6 +574,25 @@ export function TemplateSignaturePlacementDialog({
         setHasUnsavedChanges(true);
     };
 
+    const toggleManagerPlacement = (enabled: boolean) => {
+        setManagerEnabled(enabled);
+
+        if (enabled) {
+            const next =
+                placementsByRoleRef.current.manager ??
+                defaultPlacement('manager', currentPage);
+            placementsByRoleRef.current.manager = next;
+        } else {
+            delete placementsByRoleRef.current.manager;
+
+            if (activeRole === 'manager') {
+                handleRoleChange('subject');
+            }
+        }
+
+        setHasUnsavedChanges(true);
+    };
+
     const handlePageChange = (nextPage: number) => {
         if (nextPage < 1 || nextPage > totalPages) {
             return;
@@ -571,6 +628,16 @@ export function TemplateSignaturePlacementDialog({
                 required: true,
             },
         ];
+
+        if (managerEnabled && placementsByRoleRef.current.manager) {
+            placements.push({
+                ...placementsByRoleRef.current.manager,
+                id: MANAGER_SIGNATURE_ID,
+                type: 'signature',
+                role: 'manager',
+                required: true,
+            });
+        }
 
         if (companyEnabled && placementsByRoleRef.current.company_signatory) {
             placements.push({
@@ -631,7 +698,7 @@ export function TemplateSignaturePlacementDialog({
                                 {template ? `: ${template.name}` : null}
                             </DialogTitle>
                             <p className="text-xs text-muted-foreground">
-                                Configure employee and optional company
+                                Configure employee, manager, and company
                                 signatory signature boxes on this draft version
                                 only.
                             </p>
@@ -679,6 +746,19 @@ export function TemplateSignaturePlacementDialog({
                                     type="button"
                                     size="sm"
                                     variant={
+                                        activeRole === 'manager'
+                                            ? 'default'
+                                            : 'ghost'
+                                    }
+                                    disabled={!managerEnabled}
+                                    onClick={() => handleRoleChange('manager')}
+                                >
+                                    Manager
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={
                                         activeRole === 'company_signatory'
                                             ? 'default'
                                             : 'ghost'
@@ -691,6 +771,18 @@ export function TemplateSignaturePlacementDialog({
                                     Company signatory
                                 </Button>
                             </div>
+                            <label className="flex items-center gap-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    checked={managerEnabled}
+                                    onChange={(event) =>
+                                        toggleManagerPlacement(
+                                            event.target.checked,
+                                        )
+                                    }
+                                />
+                                Enable manager placement
+                            </label>
                             <label className="flex items-center gap-2 text-sm">
                                 <input
                                     type="checkbox"

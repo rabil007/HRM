@@ -21,20 +21,31 @@ final class DocumentRecipientRequestAccess
         }
     }
 
-    public static function assertAssignedCompanySignatory(
+    public static function assertAssignedInternalSigner(
         DocumentRecipientRequest $request,
         User $user,
         int $companyId,
     ): void {
         self::assertInCompany($request, $companyId);
 
-        abort_unless($request->isInternalCompanySignatory(), 404);
+        abort_unless($request->isInternalSigner(), 404);
         abort_unless((int) $request->recipient_user_id === (int) $user->id, 403);
         abort_unless($user->can('documents.recipient-requests.respond'), 403);
 
         $companyAccess = new ResolveCompanyAccess;
 
         abort_unless($companyAccess->hasAccessibleMembership($user, $companyId), 403);
+    }
+
+    /**
+     * @deprecated Prefer assertAssignedInternalSigner(); retained for call-site clarity.
+     */
+    public static function assertAssignedCompanySignatory(
+        DocumentRecipientRequest $request,
+        User $user,
+        int $companyId,
+    ): void {
+        self::assertAssignedInternalSigner($request, $user, $companyId);
     }
 
     public static function canViewRequest(
