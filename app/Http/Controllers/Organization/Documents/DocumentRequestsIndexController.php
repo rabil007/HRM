@@ -13,6 +13,7 @@ use App\Support\BulkDocuments\BulkDocumentSignatureRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestPresenter;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestRosterQuery;
+use App\Support\Documents\Signing\DocumentSigningPresetPagePermissions;
 use App\Support\Documents\Workflow\DocumentWorkflowPagePermissions;
 use App\Support\Documents\Workflow\DocumentWorkflowPresenter;
 use App\Support\Documents\Workflow\DocumentWorkflowPresetPagePermissions;
@@ -88,6 +89,7 @@ class DocumentRequestsIndexController extends Controller
                 'tab' => 'review',
                 'can' => $workflowPermissions,
                 'preset_can' => DocumentWorkflowPresetPagePermissions::for($request->user()),
+                'signing_preset_can' => DocumentSigningPresetPagePermissions::for($request->user()),
                 'filters' => $filters,
                 'search' => $filters['search'],
                 'workflow_requests' => collect($paginator->items())
@@ -127,6 +129,7 @@ class DocumentRequestsIndexController extends Controller
                 'tab' => 'recipient',
                 'can' => $workflowPermissions,
                 'preset_can' => DocumentWorkflowPresetPagePermissions::for($request->user()),
+                'signing_preset_can' => DocumentSigningPresetPagePermissions::for($request->user()),
                 'filters' => $filters,
                 'search' => $filters['search'],
                 'workflow_requests' => [],
@@ -177,6 +180,7 @@ class DocumentRequestsIndexController extends Controller
             'tab' => 'signatures',
             'can' => $workflowPermissions,
             'preset_can' => DocumentWorkflowPresetPagePermissions::for($request->user()),
+            'signing_preset_can' => DocumentSigningPresetPagePermissions::for($request->user()),
             'filters' => $this->filtersPayload($filters),
             'search' => $filters->search,
             'workflow_requests' => [],

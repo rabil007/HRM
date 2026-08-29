@@ -10,6 +10,7 @@ use App\Support\Activity\RecentActivityQuery;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEligibility;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestPagePermissions;
 use App\Support\Documents\RecipientRequests\DocumentRecipientSignatoryOptionsQuery;
+use App\Support\Documents\Signing\DocumentSigningFlowEligibility;
 use App\Support\Documents\Workflow\DocumentWorkflowEligibility;
 use App\Support\Documents\Workflow\DocumentWorkflowPresenter;
 use App\Support\Documents\Workflow\DocumentWorkflowPresetQuery;
@@ -62,6 +63,12 @@ class EmployeeDocumentShowController extends Controller
         $recipientEligibility = app(DocumentRecipientRequestEligibility::class)
             ->forDocument($document, $companyId);
 
+        $signingFlow = app(DocumentSigningFlowEligibility::class)->forDocument(
+            $document,
+            $companyId,
+            $recipientPermissions['create'],
+        );
+
         return Inertia::render('organization/documents/show', [
             'document' => $document->toShowArray(),
             'employee' => [
@@ -98,6 +105,7 @@ class EmployeeDocumentShowController extends Controller
                     : [],
                 'current_source_version' => $document->documentInstance?->currentVersion?->version,
             ],
+            'signing_flow' => $signingFlow,
             'back' => DocumentShowBackNavigation::resolve($request, $employee),
             'recent_activity' => RecentActivityQuery::for(
                 $request->user(),

@@ -20,6 +20,9 @@ import type {
     DocumentTypeOption,
     EmployeeSummary,
 } from '@/features/organization/documents/shared/types';
+import { SigningFlowCard } from '@/features/organization/documents/signing/signing-flow-card';
+import { StartSigningFlowDialog } from '@/features/organization/documents/signing/start-signing-flow-dialog';
+import type { DocumentShowSigningFlowProps } from '@/features/organization/documents/signing/types';
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { RequestApprovalDialog } from '@/features/organization/documents/workflow/request-approval-dialog';
@@ -81,6 +84,7 @@ type Props = {
         signatory_options: SignatoryOption[];
         current_source_version: number | null | undefined;
     };
+    signing_flow: DocumentShowSigningFlowProps;
     back: {
         href: string;
         label: string;
@@ -116,6 +120,7 @@ export default function DocumentShow({
     can,
     workflow,
     recipient_request,
+    signing_flow,
     back,
     recent_activity,
     can_view_audit,
@@ -130,6 +135,7 @@ export default function DocumentShow({
     const [countersignDialogOpen, setCountersignDialogOpen] = useState(false);
     const [managerCountersignDialogOpen, setManagerCountersignDialogOpen] =
         useState(false);
+    const [startSigningFlowOpen, setStartSigningFlowOpen] = useState(false);
 
     const pageTitle =
         doc.title || doc.document_name || doc.document_type_label || 'Document';
@@ -198,6 +204,18 @@ export default function DocumentShow({
                                 >
                                     <ClipboardCheck className="mr-2 h-4 w-4" />
                                     Request approval
+                                </Button>
+                            ) : null}
+                            {signing_flow.can_start ? (
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() =>
+                                        setStartSigningFlowOpen(true)
+                                    }
+                                >
+                                    <FileSignature className="mr-2 h-4 w-4" />
+                                    Start signing flow
                                 </Button>
                             ) : null}
                             {recipient_request.can_request_sign ? (
@@ -408,6 +426,14 @@ export default function DocumentShow({
                             </CardContent>
                         </Card>
 
+                        {signing_flow.active_flow ? (
+                            <SigningFlowCard
+                                flow={signing_flow.active_flow}
+                                canCancel={recipient_request.can.cancel}
+                                canRetry={recipient_request.can.create}
+                            />
+                        ) : null}
+
                         <Card className="border-border/80 dark:border-white/10">
                             <CardHeader className="pb-3">
                                 <div className="flex items-center gap-2">
@@ -520,6 +546,15 @@ export default function DocumentShow({
                         recipient_request.current_source_version
                     }
                     signatoryOptions={recipient_request.signatory_options}
+                />
+            ) : null}
+            {signing_flow.can_start ? (
+                <StartSigningFlowDialog
+                    open={startSigningFlowOpen}
+                    onOpenChange={setStartSigningFlowOpen}
+                    employeeId={employee.id}
+                    documentId={doc.id}
+                    presets={signing_flow.presets}
                 />
             ) : null}
         </>

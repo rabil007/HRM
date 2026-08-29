@@ -6,7 +6,9 @@ use App\Enums\DocumentRecipientRequestEventType;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Models\DocumentInstance;
 use App\Models\DocumentRecipientRequest;
+use App\Models\DocumentSigningFlow;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
+use App\Support\Documents\Signing\Actions\AdvanceDocumentSigningFlow;
 use Illuminate\Support\Facades\DB;
 
 final class SupersedeStaleDocumentRecipientRequests
@@ -67,5 +69,16 @@ final class SupersedeStaleDocumentRecipientRequests
                 'status' => DocumentRecipientRequestStatus::Superseded->value,
             ])
             ->log('Recipient request superseded');
+
+        if ($request->document_signing_flow_id !== null) {
+            $flow = DocumentSigningFlow::query()->find($request->document_signing_flow_id);
+
+            if ($flow !== null && $flow->status->isOpen()) {
+                app(AdvanceDocumentSigningFlow::class)->markBlocked(
+                    $flow,
+                    'The document changed while this signing step was pending.',
+                );
+            }
+        }
     }
 }

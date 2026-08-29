@@ -18,6 +18,7 @@ use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorde
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestToken;
 use App\Support\Documents\RecipientRequests\DocumentRecipientSignatureChainGuard;
 use App\Support\Documents\RecipientRequests\ResolveDocumentSignaturePlacement;
+use App\Support\Documents\Signing\DocumentSigningFlowOpenGuard;
 use App\Support\EmployeeDocuments\DocumentAccess;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -39,6 +40,9 @@ final class CreateDocumentCompanyCountersignRequest
         User $recipientUser,
         User $requester,
         int $companyId,
+        ?int $signingFlowId = null,
+        ?int $signingStepSequence = null,
+        bool $skipOpenFlowGuard = false,
     ): array {
         DocumentAccess::assertDocumentInCompany($document, $companyId);
 
@@ -68,6 +72,9 @@ final class CreateDocumentCompanyCountersignRequest
             $recipientUser,
             $requester,
             $companyId,
+            $signingFlowId,
+            $signingStepSequence,
+            $skipOpenFlowGuard,
         ): array {
             $instance = DocumentInstance::query()
                 ->where('employee_document_id', $document->id)
@@ -84,6 +91,10 @@ final class CreateDocumentCompanyCountersignRequest
 
             if ((int) $instance->employee_id !== (int) $document->employee_id) {
                 abort(404);
+            }
+
+            if (! $skipOpenFlowGuard) {
+                app(DocumentSigningFlowOpenGuard::class)->assertNoOpenFlow($instance, $companyId);
             }
 
             if ($instance->current_version_id === null) {
@@ -145,6 +156,8 @@ final class CreateDocumentCompanyCountersignRequest
                 'document_instance_id' => $instance->id,
                 'source_document_instance_version_id' => $sourceVersion->id,
                 'document_workflow_request_id' => $predecessor->document_workflow_request_id,
+                'document_signing_flow_id' => $signingFlowId,
+                'signing_step_sequence' => $signingStepSequence,
                 'action' => DocumentRecipientAction::Sign,
                 'recipient_type' => DocumentRecipientType::CompanyUser,
                 'recipient_role' => DocumentRecipientRole::CompanySignatory,

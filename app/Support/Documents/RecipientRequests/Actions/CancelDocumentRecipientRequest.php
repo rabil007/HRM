@@ -5,9 +5,11 @@ namespace App\Support\Documents\RecipientRequests\Actions;
 use App\Enums\DocumentRecipientRequestEventType;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Models\DocumentRecipientRequest;
+use App\Models\DocumentSigningFlow;
 use App\Models\User;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestAccess;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
+use App\Support\Documents\Signing\Actions\CancelDocumentSigningFlow;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -34,6 +36,20 @@ final class CancelDocumentRecipientRequest
                 throw ValidationException::withMessages([
                     'request' => 'Only awaiting requests can be cancelled.',
                 ]);
+            }
+
+            if ($locked->document_signing_flow_id !== null) {
+                $flow = DocumentSigningFlow::query()
+                    ->whereKey($locked->document_signing_flow_id)
+                    ->where('company_id', $companyId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($flow !== null && $flow->status->isOpen()) {
+                    app(CancelDocumentSigningFlow::class)->handle($flow, $actor, $companyId);
+
+                    return $locked->fresh();
+                }
             }
 
             $locked->update([

@@ -151,6 +151,7 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
         tab,
         can,
         preset_can,
+        signing_preset_can,
         filters,
         search: initialSearch,
         workflow_requests,
@@ -326,6 +327,18 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
             {tab === 'recipient' &&
             (can.view_recipient_requests || can.respond_recipient_requests) ? (
                 <div className="space-y-4">
+                    {signing_preset_can.view ? (
+                        <div className="flex justify-end">
+                            <Button asChild variant="outline" size="sm">
+                                <Link
+                                    href={documentRoutes.signingPresets.url()}
+                                >
+                                    <Settings2 className="mr-2 h-4 w-4" />
+                                    Signing presets
+                                </Link>
+                            </Button>
+                        </div>
+                    ) : null}
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                         <SearchBar
                             value={list.searchInput}
