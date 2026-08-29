@@ -8,6 +8,7 @@ use App\Enums\DocumentRecipientRole;
 use App\Models\DocumentInstance;
 use App\Models\DocumentInstanceVersion;
 use App\Models\DocumentRecipientRequest;
+use App\Models\DocumentSigningFlow;
 use App\Models\User;
 use App\Support\Documents\DocumentInstanceStorage;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestAccess;
@@ -19,6 +20,8 @@ use App\Support\Documents\RecipientRequests\ResolveDocumentSignaturePlacement;
 use App\Support\Documents\RecipientRequests\SignedDocumentLibraryReplacement;
 use App\Support\Documents\RecipientRequests\StampSignedDocumentInstancePdf;
 use App\Support\Documents\RecipientRequests\SyncSignedDocumentInstanceToLibrary;
+use App\Support\Documents\Signing\Actions\AdvanceDocumentSigningFlow;
+use App\Support\Documents\Signing\Actions\BlockDocumentSigningFlow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -73,6 +76,14 @@ final class SubmitDocumentRecipientSignature
         if ($request->isExpired()) {
             $request->update(['status' => DocumentRecipientRequestStatus::Expired]);
             $this->eventRecorder->record($request, DocumentRecipientRequestEventType::RequestExpired);
+
+            if ($request->document_signing_flow_id !== null) {
+                app(BlockDocumentSigningFlow::class)->handle(
+                    (int) $request->document_signing_flow_id,
+                    (int) $request->company_id,
+                    'The current signing step expired before it was completed.',
+                );
+            }
 
             throw ValidationException::withMessages([
                 'token' => 'This signing link has expired.',
@@ -265,6 +276,26 @@ final class SubmitDocumentRecipientSignature
             }
 
             /** @var DocumentRecipientRequest $result */
+            if ($result->document_signing_flow_id !== null) {
+                $flowId = (int) $result->document_signing_flow_id;
+                $requestId = (int) $result->id;
+
+                DB::afterCommit(function () use ($flowId, $requestId): void {
+                    try {
+                        $flow = DocumentSigningFlow::query()->find($flowId);
+                        $completed = DocumentRecipientRequest::query()->find($requestId);
+
+                        if ($flow === null || $completed === null) {
+                            return;
+                        }
+
+                        app(AdvanceDocumentSigningFlow::class)->handle($flow, $completed);
+                    } catch (\Throwable $exception) {
+                        report($exception);
+                    }
+                });
+            }
+
             return $result;
         } catch (\Throwable $exception) {
             if ($libraryReplacement instanceof SignedDocumentLibraryReplacement) {

@@ -96,18 +96,23 @@ use App\Http\Controllers\Organization\DocumentFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentFolderShareLinksController;
 use App\Http\Controllers\Organization\DocumentGenerationTemplateController;
 use App\Http\Controllers\Organization\DocumentGenerationTemplatePreviewController;
+use App\Http\Controllers\Organization\Documents\ActivateDocumentSigningPresetController;
 use App\Http\Controllers\Organization\Documents\ActivateDocumentWorkflowPresetController;
 use App\Http\Controllers\Organization\Documents\CancelDocumentRecipientRequestController;
+use App\Http\Controllers\Organization\Documents\CancelDocumentSigningFlowController;
 use App\Http\Controllers\Organization\Documents\CancelDocumentWorkflowRequestController;
 use App\Http\Controllers\Organization\Documents\CompleteDocumentWorkflowTaskController;
 use App\Http\Controllers\Organization\Documents\CreateDocumentCompanyCountersignRequestController;
 use App\Http\Controllers\Organization\Documents\CreateDocumentManagerCountersignRequestController;
 use App\Http\Controllers\Organization\Documents\CreateDocumentRecipientRequestController;
 use App\Http\Controllers\Organization\Documents\CreateDocumentWorkflowRequestController;
+use App\Http\Controllers\Organization\Documents\DeactivateDocumentSigningPresetController;
 use App\Http\Controllers\Organization\Documents\DeactivateDocumentWorkflowPresetController;
+use App\Http\Controllers\Organization\Documents\DeleteDocumentSigningPresetController;
 use App\Http\Controllers\Organization\Documents\DeleteDocumentWorkflowPresetController;
 use App\Http\Controllers\Organization\Documents\DocumentRecipientRequestShowController;
 use App\Http\Controllers\Organization\Documents\DocumentRequestsIndexController;
+use App\Http\Controllers\Organization\Documents\DocumentSigningPresetsIndexController;
 use App\Http\Controllers\Organization\Documents\DocumentWorkflowPresetsIndexController;
 use App\Http\Controllers\Organization\Documents\DocumentWorkflowRequestShowController;
 use App\Http\Controllers\Organization\Documents\DocumentWorkflowVersionPreviewController;
@@ -115,8 +120,12 @@ use App\Http\Controllers\Organization\Documents\DownloadDocumentRecipientRequest
 use App\Http\Controllers\Organization\Documents\RegenerateDocumentRecipientRequestTokenController;
 use App\Http\Controllers\Organization\Documents\RejectDocumentWorkflowTaskController;
 use App\Http\Controllers\Organization\Documents\RespondDocumentRecipientRequestController;
+use App\Http\Controllers\Organization\Documents\RetryDocumentSigningFlowController;
+use App\Http\Controllers\Organization\Documents\StartDocumentSigningFlowController;
+use App\Http\Controllers\Organization\Documents\StoreDocumentSigningPresetController;
 use App\Http\Controllers\Organization\Documents\StoreDocumentWorkflowPresetController;
 use App\Http\Controllers\Organization\Documents\SubmitDocumentRecipientRequestSignController;
+use App\Http\Controllers\Organization\Documents\UpdateDocumentSigningPresetController;
 use App\Http\Controllers\Organization\Documents\UpdateDocumentWorkflowPresetController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
 use App\Http\Controllers\Organization\DocumentShareController;
@@ -719,12 +728,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('organization.documents.employee.files.company-countersign-requests.store');
         Route::post('organization/documents/employees/{employee}/files/{document}/manager-countersign-requests', CreateDocumentManagerCountersignRequestController::class)
             ->name('organization.documents.employee.files.manager-countersign-requests.store');
+        Route::post('organization/documents/employees/{employee}/files/{document}/signing-flows', StartDocumentSigningFlowController::class)
+            ->name('organization.documents.employee.files.signing-flows.store');
+        Route::post('organization/documents/signing-flows/{signingFlow}/retry', RetryDocumentSigningFlowController::class)
+            ->name('organization.documents.signing-flows.retry');
         Route::post('organization/documents/recipient-requests/{recipientRequest}/regenerate-link', RegenerateDocumentRecipientRequestTokenController::class)
             ->name('organization.documents.recipient-requests.regenerate-link');
     });
     Route::middleware('can:documents.recipient-requests.cancel')->group(function () {
         Route::post('organization/documents/recipient-requests/{recipientRequest}/cancel', CancelDocumentRecipientRequestController::class)
             ->name('organization.documents.recipient-requests.cancel');
+        Route::post('organization/documents/signing-flows/{signingFlow}/cancel', CancelDocumentSigningFlowController::class)
+            ->name('organization.documents.signing-flows.cancel');
     });
     Route::middleware('can:documents.workflow-presets.view')->group(function () {
         Route::get('organization/documents/workflow-presets', DocumentWorkflowPresetsIndexController::class)
@@ -745,6 +760,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('can:documents.workflow-presets.delete')->group(function () {
         Route::delete('organization/documents/workflow-presets/{workflowPreset}', DeleteDocumentWorkflowPresetController::class)
             ->name('organization.documents.workflow-presets.destroy');
+    });
+    Route::middleware('can:documents.signing-presets.view')->group(function () {
+        Route::get('organization/documents/signing-presets', DocumentSigningPresetsIndexController::class)
+            ->name('organization.documents.signing-presets');
+    });
+    Route::middleware('can:documents.signing-presets.create')->group(function () {
+        Route::post('organization/documents/signing-presets', StoreDocumentSigningPresetController::class)
+            ->name('organization.documents.signing-presets.store');
+    });
+    Route::middleware('can:documents.signing-presets.update')->group(function () {
+        Route::put('organization/documents/signing-presets/{signingPreset}', UpdateDocumentSigningPresetController::class)
+            ->name('organization.documents.signing-presets.update');
+        Route::post('organization/documents/signing-presets/{signingPreset}/activate', ActivateDocumentSigningPresetController::class)
+            ->name('organization.documents.signing-presets.activate');
+        Route::post('organization/documents/signing-presets/{signingPreset}/deactivate', DeactivateDocumentSigningPresetController::class)
+            ->name('organization.documents.signing-presets.deactivate');
+    });
+    Route::middleware('can:documents.signing-presets.delete')->group(function () {
+        Route::delete('organization/documents/signing-presets/{signingPreset}', DeleteDocumentSigningPresetController::class)
+            ->name('organization.documents.signing-presets.destroy');
     });
     Route::post('organization/documents/workflow-tasks/{workflowTask}/complete', CompleteDocumentWorkflowTaskController::class)
         ->name('organization.documents.workflow-tasks.complete');

@@ -18,6 +18,7 @@ final class DocumentRecipientRequestPresenter
             'recipientUser:id,name',
             'sourceVersion:id,version',
             'resultVersion:id,version',
+            'signingFlow:id,preset_name_snapshot',
         ]);
 
         $document = $request->documentInstance?->employeeDocument;
@@ -33,6 +34,9 @@ final class DocumentRecipientRequestPresenter
             'recipient_role' => $request->recipient_role->value,
             'recipient_role_label' => $request->recipient_role->label(),
             'recipient_name' => $request->recipient_name_snapshot,
+            'signing_flow_id' => $request->document_signing_flow_id,
+            'signing_step_sequence' => $request->signing_step_sequence,
+            'signing_preset_name' => $request->signingFlow?->preset_name_snapshot,
             'requested_at' => $request->requested_at?->toIso8601String(),
             'expires_at' => $request->expires_at?->toIso8601String(),
             'completed_at' => $request->completed_at?->toIso8601String(),

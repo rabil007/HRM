@@ -9,6 +9,7 @@ use App\Enums\DocumentRecipientType;
 use App\Models\DocumentInstance;
 use App\Models\DocumentRecipientRequest;
 use App\Models\EmployeeDocument;
+use App\Support\Documents\Signing\DocumentSigningFlowOpenGuard;
 use Illuminate\Validation\ValidationException;
 
 final class DocumentRecipientRequestEligibility
@@ -18,6 +19,7 @@ final class DocumentRecipientRequestEligibility
         private ResolveDocumentSignaturePlacement $resolvePlacement,
         private DocumentRecipientSignatureChainGuard $chainGuard,
         private DocumentRecipientManagerResolver $managerResolver,
+        private DocumentSigningFlowOpenGuard $openFlowGuard = new DocumentSigningFlowOpenGuard,
     ) {}
 
     /**
@@ -49,6 +51,10 @@ final class DocumentRecipientRequestEligibility
 
         if ((int) $instance->employee_id !== (int) $document->employee_id) {
             return $this->blockedAll('Document employee mismatch.');
+        }
+
+        if ($this->openFlowGuard->hasOpenFlow($instance, $companyId)) {
+            return $this->blockedAll(DocumentSigningFlowOpenGuard::OPEN_FLOW_MESSAGE);
         }
 
         try {

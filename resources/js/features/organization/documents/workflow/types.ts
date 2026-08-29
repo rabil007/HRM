@@ -6,6 +6,7 @@ import type {
     LatestEmailBatch,
     LatestSignatureRepairRun,
 } from '@/features/organization/documents/bulk/types';
+import type { SigningPresetPermissions } from '@/features/organization/documents/signing/types';
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -224,6 +225,7 @@ export type DocumentRequestsIndexProps = {
     tab: 'review' | 'signatures' | 'recipient';
     can: DocumentWorkflowPermissions;
     preset_can: WorkflowPresetPermissions;
+    signing_preset_can: SigningPresetPermissions;
     filters: Record<string, string | boolean>;
     search: string;
     workflow_requests: WorkflowRequestListItem[];
@@ -257,6 +259,9 @@ export type RecipientRequestListItem = {
     recipient_role: string;
     recipient_role_label: string;
     recipient_name: string;
+    signing_flow_id?: number | null;
+    signing_step_sequence?: number | null;
+    signing_preset_name?: string | null;
     requested_at: string | null;
     expires_at: string | null;
     completed_at: string | null;

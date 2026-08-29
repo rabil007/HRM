@@ -7,6 +7,7 @@ use App\Enums\DocumentRecipientRequestStatus;
 use App\Models\DocumentInstance;
 use App\Models\DocumentRecipientRequest;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
+use App\Support\Documents\Signing\Actions\BlockDocumentSigningFlow;
 use Illuminate\Support\Facades\DB;
 
 final class SupersedeStaleDocumentRecipientRequests
@@ -67,5 +68,16 @@ final class SupersedeStaleDocumentRecipientRequests
                 'status' => DocumentRecipientRequestStatus::Superseded->value,
             ])
             ->log('Recipient request superseded');
+
+        if ($request->document_signing_flow_id !== null) {
+            $flowId = (int) $request->document_signing_flow_id;
+            $companyId = (int) $request->company_id;
+            $reason = 'The document changed while this signing step was pending.';
+
+            // Defer so FLOW is locked in its own transaction after any request locks release.
+            DB::afterCommit(function () use ($flowId, $companyId, $reason): void {
+                app(BlockDocumentSigningFlow::class)->handle($flowId, $companyId, $reason);
+            });
+        }
     }
 }

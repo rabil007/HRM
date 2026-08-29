@@ -1,0 +1,118 @@
+import { router } from '@inertiajs/react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { SigningFlowSummary } from '@/features/organization/documents/signing/types';
+import { cancel, retry } from '@/routes/organization/documents/signing-flows';
+
+type Props = {
+    flow: SigningFlowSummary;
+    canCancel: boolean;
+    canRetry: boolean;
+};
+
+export function SigningFlowCard({ flow, canCancel, canRetry }: Props) {
+    return (
+        <Card className="border-border/80 dark:border-white/10">
+            <CardHeader className="pb-3">
+                <CardTitle className="text-base">Signing flow</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-0 text-sm">
+                <div className="grid gap-2 sm:grid-cols-2">
+                    <div>
+                        <p className="text-muted-foreground">Preset</p>
+                        <p className="font-medium">{flow.preset_name}</p>
+                    </div>
+                    <div>
+                        <p className="text-muted-foreground">Status</p>
+                        <p className="font-medium">{flow.status_label}</p>
+                    </div>
+                    <div>
+                        <p className="text-muted-foreground">Started by</p>
+                        <p className="font-medium">
+                            {flow.started_by?.name ?? '—'}
+                        </p>
+                    </div>
+                    <div>
+                        <p className="text-muted-foreground">Current step</p>
+                        <p className="font-medium">
+                            {flow.current_step_sequence ?? '—'}
+                        </p>
+                    </div>
+                </div>
+
+                <ol className="space-y-2">
+                    {flow.steps.map((step) => (
+                        <li
+                            key={step.sequence}
+                            className="rounded-md border border-border/60 px-3 py-2"
+                        >
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="font-medium">
+                                    {step.sequence}.{' '}
+                                    {step.recipient_name ??
+                                        step.recipient_role ??
+                                        'Step'}
+                                </span>
+                                <span className="text-muted-foreground capitalize">
+                                    {step.status}
+                                </span>
+                            </div>
+                            {step.respond_url ? (
+                                <a
+                                    href={step.respond_url}
+                                    className="mt-1 inline-block text-xs text-primary underline"
+                                >
+                                    Open respond page
+                                </a>
+                            ) : null}
+                        </li>
+                    ))}
+                </ol>
+
+                {flow.blocked_reason ? (
+                    <p className="rounded-md bg-destructive/10 px-3 py-2 text-destructive">
+                        {flow.blocked_reason}
+                    </p>
+                ) : null}
+
+                <div className="flex flex-wrap gap-2">
+                    {canRetry && flow.can_retry ? (
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={() =>
+                                router.post(
+                                    retry.url(flow.id),
+                                    {},
+                                    {
+                                        preserveScroll: true,
+                                    },
+                                )
+                            }
+                        >
+                            Retry
+                        </Button>
+                    ) : null}
+                    {canCancel && flow.can_cancel ? (
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                                router.post(
+                                    cancel.url(flow.id),
+                                    {},
+                                    {
+                                        preserveScroll: true,
+                                    },
+                                )
+                            }
+                        >
+                            Cancel flow
+                        </Button>
+                    ) : null}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}

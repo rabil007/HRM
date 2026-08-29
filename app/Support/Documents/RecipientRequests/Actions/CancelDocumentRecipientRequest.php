@@ -5,9 +5,11 @@ namespace App\Support\Documents\RecipientRequests\Actions;
 use App\Enums\DocumentRecipientRequestEventType;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Models\DocumentRecipientRequest;
+use App\Models\DocumentSigningFlow;
 use App\Models\User;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestAccess;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
+use App\Support\Documents\Signing\Actions\CancelDocumentSigningFlow;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,6 +23,27 @@ final class CancelDocumentRecipientRequest
     {
         DocumentRecipientRequestAccess::assertInCompany($request, $companyId);
         abort_unless($actor->can('documents.recipient-requests.cancel'), 403);
+
+        // Flow-linked requests: acquire FLOW first via CancelDocumentSigningFlow.
+        // Do not open a request → flow lock path.
+        if ($request->document_signing_flow_id !== null) {
+            if ($request->status !== DocumentRecipientRequestStatus::AwaitingAction) {
+                throw ValidationException::withMessages([
+                    'request' => 'Only awaiting requests can be cancelled.',
+                ]);
+            }
+
+            $flow = DocumentSigningFlow::query()
+                ->whereKey($request->document_signing_flow_id)
+                ->where('company_id', $companyId)
+                ->first();
+
+            if ($flow !== null && $flow->status->isOpen()) {
+                app(CancelDocumentSigningFlow::class)->handle($flow, $actor, $companyId);
+
+                return $request->fresh();
+            }
+        }
 
         return DB::transaction(function () use ($request, $actor, $companyId): DocumentRecipientRequest {
             /** @var DocumentRecipientRequest $locked */
@@ -36,6 +59,7 @@ final class CancelDocumentRecipientRequest
                 ]);
             }
 
+            // Linked to a flow that is no longer open — cancel the request alone.
             $locked->update([
                 'status' => DocumentRecipientRequestStatus::Cancelled,
                 'cancelled_at' => now(),

@@ -24,6 +24,8 @@ class DocumentRecipientRequest extends Model
         'source_document_instance_version_id',
         'result_document_instance_version_id',
         'document_workflow_request_id',
+        'document_signing_flow_id',
+        'signing_step_sequence',
         'action',
         'recipient_type',
         'recipient_role',
@@ -93,6 +95,11 @@ class DocumentRecipientRequest extends Model
         return $this->belongsTo(DocumentWorkflowRequest::class, 'document_workflow_request_id');
     }
 
+    public function signingFlow(): BelongsTo
+    {
+        return $this->belongsTo(DocumentSigningFlow::class, 'document_signing_flow_id');
+    }
+
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
@@ -156,5 +163,10 @@ class DocumentRecipientRequest extends Model
     {
         return $this->recipient_type === DocumentRecipientType::CompanyUser
             && $this->recipient_role === DocumentRecipientRole::Manager;
+    }
+
+    public function isLinkedToSigningFlow(): bool
+    {
+        return $this->document_signing_flow_id !== null;
     }
 }

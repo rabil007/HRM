@@ -112,6 +112,10 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents/bulk` | Legacy Bulk Documents index | `bulk_documents.view` |
 | `/organization/documents/employees/{employee}` | Employee document browse | `documents.view` |
 | `/organization/documents/employees/{employee}/files/{document}/manager-countersign-requests` (POST) | Create department-manager countersign request (manager resolved server-side) | `documents.recipient-requests.create` |
+| `/organization/documents/employees/{employee}/files/{document}/signing-flows` (POST) | Start signing flow from an active signing preset | `documents.recipient-requests.create` |
+| `/organization/documents/signing-flows/{signingFlow}/retry` (POST) | Retry blocked signing flow advancement | `documents.recipient-requests.create` |
+| `/organization/documents/signing-flows/{signingFlow}/cancel` (POST) | Cancel active/blocked signing flow | `documents.recipient-requests.cancel` |
+| `/organization/documents/signing-presets` | Signing presets CRUD index | `documents.signing-presets.view` |
 | `/organization/employees/{employee}` (Documents tab) | Upload, edit, versions on profile | `documents.view` / `documents.upload` / `documents.delete` |
 
 Upload and CRUD on the profile use `organization.employees.documents.*` routes.
@@ -890,5 +894,56 @@ Manager signing uses the same authenticated internal routes and `documents.recip
 ### Explicitly not in Phase 6B-2A
 
 Automatic sequential request creation, signing flow/preset configuration, multiple internal stages, manager → director → CEO chains, parent-manager signing stage, parallel signing, email/WhatsApp/reminders, workflow `sign` stages, and legacy bulk migration remain Phase **6B-2B** / Phase 7 / Phase 8.
+
+## Phase 6B-2B1: Signing Flow Presets + Automatic Advancement
+
+Phase 6B-2B1 turns the manual recipient-signing chain into a configurable, single-start signing flow.
+
+### Architecture
+
+Review/approval and signing remain separate domains:
+
+- Review/approval: `DocumentWorkflowPreset` → `DocumentWorkflowRequest` → `DocumentWorkflowTask`
+- Signing: `DocumentSigningPreset` → `DocumentSigningFlow` → `DocumentRecipientRequest`
+
+### Supported preset chains
+
+1. Subject Employee
+2. Subject Employee → Company Signatory
+3. Subject Employee → Department Manager
+4. Subject Employee → Department Manager → Company Signatory
+
+Parent Manager / Director / CEO stages, repeated roles, parallel signing, and acknowledgement inside signing flows remain Phase **6B-2B2**.
+
+### Routing snapshot
+
+When HR starts a flow, recipients are resolved and snapshotted:
+
+- Subject: employee id/name
+- Manager: first actionable department manager via `DocumentRecipientManagerResolver` / `ResolveDepartmentManagementChain` (`Employee.manager_id` is not used)
+- Company Signatory: preset-selected user
+
+Later hierarchy or preset edits do **not** rewrite an active flow’s snapshot.
+
+### Automatic advancement
+
+After a flow-linked signature completes and commits (immutable PDF/version/library update), `AdvanceDocumentSigningFlow` runs in a **separate** transaction (`DB::afterCommit`). Signature completion is never rolled back if the next request cannot be created.
+
+If the next signer is no longer eligible, the flow becomes `blocked` with a safe reason. HR may **Retry** (same snapshotted recipient) or **Cancel**.
+
+### Manual requests
+
+One-off Request Signature / Manager / Company Countersignature remain supported when no open (`active`/`blocked`) flow exists for the document instance.
+
+### Permissions
+
+- Manage presets: `documents.signing-presets.view|create|update|delete`
+- Start / retry flows: `documents.recipient-requests.create`
+- Cancel flows: `documents.recipient-requests.cancel`
+- Sign as manager/company: `documents.recipient-requests.respond`
+
+### Explicitly not in Phase 6B-2B1
+
+Automatic template→preset assignment, auto-start after generation/approval, email/WhatsApp/push/reminders, scheduled expiry jobs, arbitrary multi-stage/repeated signer chains (Phase 6B-2B2), and legacy bulk `/esign` migration.
 
 
