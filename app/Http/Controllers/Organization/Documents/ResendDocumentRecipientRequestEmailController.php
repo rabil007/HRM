@@ -24,6 +24,7 @@ class ResendDocumentRecipientRequestEmailController extends Controller
             DocumentRecipientRequestDeliveryStatus::Queued => 'Email queued for delivery.',
             DocumentRecipientRequestDeliveryStatus::Suppressed => match ($delivery->failure_category) {
                 'email_template_disabled' => 'Request is ready, but document action email is disabled in Email Templates.',
+                'email_template_missing' => 'Request is ready, but the document action email template is unavailable.',
                 'recipient_email_missing' => 'Request is ready, but no usable recipient email address is available.',
                 default => 'Email delivery is not available for this request.',
             },

@@ -19,9 +19,10 @@ class DispatchDocumentRecipientRequestEmailsCommand extends Command
         $result = $dispatcher->dispatchPending($onlyCompanyId);
 
         $this->info(sprintf(
-            'Document recipient emails: dispatched %d, skipped %d.',
+            'Document recipient emails: dispatched %d, skipped %d, repaired %d.',
             $result['dispatched'],
             $result['skipped'],
+            $result['repaired'] ?? 0,
         ));
 
         return self::SUCCESS;

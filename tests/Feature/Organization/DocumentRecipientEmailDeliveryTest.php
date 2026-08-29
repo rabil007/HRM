@@ -290,7 +290,14 @@ test('regenerate link rotates request token and revokes email delivery access to
         ->and(DocumentRecipientRequestToken::findByRawToken($regenerated['raw_token'])?->id)->toBe($created['request']->id)
         ->and(DocumentRecipientRequestToken::findByRawToken($oldDeliveryToken))->toBeNull()
         ->and($delivery->fresh()->revoked_at)->not->toBeNull()
+        ->and($delivery->fresh()->status)->toBe(DocumentRecipientRequestDeliveryStatus::Suppressed)
+        ->and($delivery->fresh()->failure_category)->toBe('access_token_revoked')
         ->and($delivery->fresh()->access_token_hash)->not->toBeNull();
+
+    Queue::fake();
+    $result = app(DispatchDocumentRecipientRequestEmails::class)->dispatchPending($created['company']->id);
+    expect($result['dispatched'])->toBe(0);
+    Queue::assertNothingPushed();
 });
 
 test('manual resend creates next delivery sequence without rotating request token', function () {
@@ -613,4 +620,264 @@ test('email failure does not change recipient request awaiting status', function
     expect($created['request']->fresh()->status)->toBe(DocumentRecipientRequestStatus::AwaitingAction)
         ->and(DocumentRecipientRequestDelivery::query()->findOrFail($job->deliveryId)->failure_category)
         ->toBe('smtp_not_configured');
+});
+
+test('afterCommit queue handoff failure does not break recipient request creation', function () {
+    Log::spy();
+
+    $this->app->instance(DispatchDocumentRecipientRequestEmails::class, new class
+    {
+        public function dispatchDelivery(int $deliveryId, ?string $rawAccessToken = null): bool
+        {
+            throw new RuntimeException('queue transport unavailable');
+        }
+    });
+
+    $created = createQueuedSubjectSignRequest();
+
+    expect($created['request']->status)->toBe(DocumentRecipientRequestStatus::AwaitingAction)
+        ->and(DocumentRecipientRequest::query()->whereKey($created['request']->id)->count())->toBe(1);
+
+    $delivery = DocumentRecipientRequestDelivery::query()
+        ->where('document_recipient_request_id', $created['request']->id)
+        ->firstOrFail();
+
+    expect($delivery->status)->toBe(DocumentRecipientRequestDeliveryStatus::Queued)
+        ->and($delivery->dispatched_at)->toBeNull();
+
+    Log::shouldHaveReceived('warning')->withArgs(function (string $message, array $context) use ($created): bool {
+        $encoded = json_encode($context);
+
+        return str_contains($message, 'queue handoff failed after commit')
+            && isset($context['delivery_id'], $context['exception_class'])
+            && ! str_contains((string) $encoded, (string) $created['raw_token']);
+    });
+});
+
+test('smtp success with failed sent persistence retries without resending mail', function () {
+    Mail::fake();
+    configureDocumentRecipientEmailSmtp();
+
+    $created = createQueuedSubjectSignRequest();
+
+    /** @var DeliverDocumentRecipientRequestEmailJob $job */
+    $job = null;
+    Queue::assertPushed(DeliverDocumentRecipientRequestEmailJob::class, function (DeliverDocumentRecipientRequestEmailJob $pushed) use (&$job): bool {
+        $job = $pushed;
+
+        return true;
+    });
+
+    $failPersists = 3;
+    DocumentRecipientRequestDelivery::updating(function (DocumentRecipientRequestDelivery $model) use (&$failPersists): void {
+        if (
+            $model->isDirty('status')
+            && $model->status === DocumentRecipientRequestDeliveryStatus::Sent
+            && $failPersists > 0
+        ) {
+            $failPersists--;
+            throw new RuntimeException('ledger unavailable');
+        }
+    });
+
+    expect(fn () => $job->handle(
+        app(MailSettingsService::class),
+        app(DocumentRecipientRequestLinkService::class),
+        app(DocumentSigningInternalSignerEligibility::class),
+    ))->toThrow(RuntimeException::class);
+
+    Mail::assertSent(DocumentRecipientRequestActionMail::class, 1);
+    expect(DocumentRecipientRequestDelivery::query()->findOrFail($job->deliveryId)->status)
+        ->toBe(DocumentRecipientRequestDeliveryStatus::Queued)
+        ->and(DocumentRecipientRequestDeliveryHandoff::wasHandedOff(
+            DocumentRecipientRequestDeliveryHandoff::emailKey($job->deliveryId),
+        ))->toBeTrue();
+
+    $job->handle(
+        app(MailSettingsService::class),
+        app(DocumentRecipientRequestLinkService::class),
+        app(DocumentSigningInternalSignerEligibility::class),
+    );
+
+    Mail::assertSent(DocumentRecipientRequestActionMail::class, 1);
+    expect(DocumentRecipientRequestDelivery::query()->findOrFail($job->deliveryId)->status)
+        ->toBe(DocumentRecipientRequestDeliveryStatus::Sent);
+});
+
+test('remembered smtp handoff with persistent ledger failure never sends a second email', function () {
+    Mail::fake();
+    configureDocumentRecipientEmailSmtp();
+
+    $created = createQueuedSubjectSignRequest();
+
+    /** @var DeliverDocumentRecipientRequestEmailJob $job */
+    $job = null;
+    Queue::assertPushed(DeliverDocumentRecipientRequestEmailJob::class, function (DeliverDocumentRecipientRequestEmailJob $pushed) use (&$job): bool {
+        $job = $pushed;
+
+        return true;
+    });
+
+    DocumentRecipientRequestDelivery::updating(function (DocumentRecipientRequestDelivery $model): void {
+        if ($model->isDirty('status') && $model->status === DocumentRecipientRequestDeliveryStatus::Sent) {
+            throw new RuntimeException('ledger unavailable');
+        }
+    });
+
+    expect(fn () => $job->handle(
+        app(MailSettingsService::class),
+        app(DocumentRecipientRequestLinkService::class),
+        app(DocumentSigningInternalSignerEligibility::class),
+    ))->toThrow(RuntimeException::class);
+
+    expect(fn () => $job->handle(
+        app(MailSettingsService::class),
+        app(DocumentRecipientRequestLinkService::class),
+        app(DocumentSigningInternalSignerEligibility::class),
+    ))->toThrow(RuntimeException::class);
+
+    Mail::assertSent(DocumentRecipientRequestActionMail::class, 1);
+    expect(DocumentRecipientRequestDelivery::query()->findOrFail($job->deliveryId)->status)
+        ->toBe(DocumentRecipientRequestDeliveryStatus::Queued);
+
+    $job->failed(new RuntimeException('ledger unavailable'));
+    expect(DocumentRecipientRequestDelivery::query()->findOrFail($job->deliveryId)->status)
+        ->toBe(DocumentRecipientRequestDeliveryStatus::Queued);
+});
+
+test('scheduled reconciliation repairs remembered smtp handoff without resending', function () {
+    Mail::fake();
+    configureDocumentRecipientEmailSmtp();
+
+    $created = createQueuedSubjectSignRequest();
+    $delivery = DocumentRecipientRequestDelivery::query()
+        ->where('document_recipient_request_id', $created['request']->id)
+        ->firstOrFail();
+
+    $delivery->update([
+        'status' => DocumentRecipientRequestDeliveryStatus::Queued,
+        'dispatched_at' => now(),
+        'claimed_at' => null,
+    ]);
+
+    DocumentRecipientRequestDeliveryHandoff::remember(
+        DocumentRecipientRequestDeliveryHandoff::emailKey((int) $delivery->id),
+    );
+
+    $result = app(DispatchDocumentRecipientRequestEmails::class)->dispatchPending($created['company']->id);
+
+    expect($result['repaired'])->toBe(1)
+        ->and($delivery->fresh()->status)->toBe(DocumentRecipientRequestDeliveryStatus::Sent)
+        ->and($delivery->fresh()->sent_at)->not->toBeNull();
+
+    Mail::assertNothingSent();
+});
+
+test('regenerate leaves sent deliveries as sent while revoking their bearer tokens', function () {
+    Mail::fake();
+    configureDocumentRecipientEmailSmtp();
+
+    $created = createQueuedSubjectSignRequest();
+
+    /** @var DeliverDocumentRecipientRequestEmailJob $job */
+    $job = null;
+    Queue::assertPushed(DeliverDocumentRecipientRequestEmailJob::class, function (DeliverDocumentRecipientRequestEmailJob $pushed) use (&$job): bool {
+        $job = $pushed;
+
+        return true;
+    });
+
+    $job->handle(
+        app(MailSettingsService::class),
+        app(DocumentRecipientRequestLinkService::class),
+        app(DocumentSigningInternalSignerEligibility::class),
+    );
+
+    $oldDeliveryToken = (string) $job->rawAccessToken;
+    $delivery = DocumentRecipientRequestDelivery::query()->findOrFail($job->deliveryId);
+    expect($delivery->status)->toBe(DocumentRecipientRequestDeliveryStatus::Sent);
+
+    app(RegenerateDocumentRecipientRequestToken::class)->handle(
+        $created['request']->fresh(),
+        $created['requester'],
+        $created['company']->id,
+    );
+
+    expect($delivery->fresh()->status)->toBe(DocumentRecipientRequestDeliveryStatus::Sent)
+        ->and($delivery->fresh()->revoked_at)->not->toBeNull()
+        ->and(DocumentRecipientRequestToken::findByRawToken($oldDeliveryToken))->toBeNull();
+});
+
+test('soft-deleted template is not restored by live recipient request creation', function () {
+    EmailTemplate::query()
+        ->where('slug', QueueDocumentRecipientRequestEmail::TEMPLATE_SLUG)
+        ->delete();
+
+    expect(EmailTemplate::query()->where('slug', QueueDocumentRecipientRequestEmail::TEMPLATE_SLUG)->exists())->toBeFalse()
+        ->and(EmailTemplate::withTrashed()->where('slug', QueueDocumentRecipientRequestEmail::TEMPLATE_SLUG)->exists())->toBeTrue();
+
+    $created = createQueuedSubjectSignRequest();
+
+    expect($created['request']->status)->toBe(DocumentRecipientRequestStatus::AwaitingAction)
+        ->and(EmailTemplate::query()->where('slug', QueueDocumentRecipientRequestEmail::TEMPLATE_SLUG)->exists())->toBeFalse();
+
+    $delivery = DocumentRecipientRequestDelivery::query()
+        ->where('document_recipient_request_id', $created['request']->id)
+        ->firstOrFail();
+
+    expect($delivery->status)->toBe(DocumentRecipientRequestDeliveryStatus::Suppressed)
+        ->and($delivery->failure_category)->toBe('email_template_missing');
+
+    EmailTemplatesSeeder::seedDocumentRecipientActionRequestTemplate();
+    expect(EmailTemplate::query()->where('slug', QueueDocumentRecipientRequestEmail::TEMPLATE_SLUG)->exists())->toBeTrue();
+});
+
+test('dynamic html in placeholder values is escaped in recipient email body', function () {
+    Mail::fake();
+    configureDocumentRecipientEmailSmtp();
+
+    ['company' => $company, 'employee' => $employee, 'document' => $document] = makeRecipientFixturesWithSignaturePlacement(
+        defaultSignaturePlacementConfig(),
+    );
+
+    $employee->update([
+        'name' => 'Eve <script>alert(1)</script>',
+        'work_email' => 'subject@example.com',
+        'personal_email' => null,
+    ]);
+    $document->update(['title' => 'Offer <img src=x onerror=alert(1)>']);
+
+    $requester = User::factory()->create();
+    grantCompanyPermissions($requester, $company, ['documents.recipient-requests.create']);
+
+    $result = app(CreateDocumentRecipientRequest::class)->handle(
+        $document->fresh(),
+        DocumentRecipientAction::Sign,
+        $requester,
+        $company->id,
+    );
+
+    /** @var DeliverDocumentRecipientRequestEmailJob $job */
+    $job = null;
+    Queue::assertPushed(DeliverDocumentRecipientRequestEmailJob::class, function (DeliverDocumentRecipientRequestEmailJob $pushed) use (&$job): bool {
+        $job = $pushed;
+
+        return true;
+    });
+
+    $job->handle(
+        app(MailSettingsService::class),
+        app(DocumentRecipientRequestLinkService::class),
+        app(DocumentSigningInternalSignerEligibility::class),
+    );
+
+    Mail::assertSent(DocumentRecipientRequestActionMail::class, function (DocumentRecipientRequestActionMail $mail) use ($job): bool {
+        expect($mail->bodyHtml)->toContain(e('Eve <script>alert(1)</script>'))
+            ->and($mail->bodyHtml)->toContain(e('Offer <img src=x onerror=alert(1)>'))
+            ->and($mail->bodyHtml)->not->toContain('<script>alert(1)</script>')
+            ->and($mail->bodyHtml)->toContain('/document-action/'.$job->rawAccessToken)
+            ->and($mail->bodyHtml)->toContain('href="'.e((string) app(DocumentRecipientRequestLinkService::class)->publicUrl((string) $job->rawAccessToken)).'"');
+
+        return true;
+    });
 });

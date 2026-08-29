@@ -22,6 +22,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use RuntimeException;
 use Throwable;
 
 class DeliverDocumentRecipientRequestEmailJob implements ShouldBeEncrypted, ShouldBeUnique, ShouldQueue
@@ -62,25 +63,22 @@ class DeliverDocumentRecipientRequestEmailJob implements ShouldBeEncrypted, Shou
             return;
         }
 
-        if ($delivery->status !== DocumentRecipientRequestDeliveryStatus::Queued) {
+        if ($delivery->isRevoked()) {
+            if ($delivery->status === DocumentRecipientRequestDeliveryStatus::Queued) {
+                $this->suppress($delivery, 'access_token_revoked');
+            }
+
             return;
         }
 
-        if ($delivery->isRevoked()) {
+        if ($delivery->status !== DocumentRecipientRequestDeliveryStatus::Queued) {
             return;
         }
 
         $handoffKey = DocumentRecipientRequestDeliveryHandoff::emailKey($this->deliveryId);
 
         if (DocumentRecipientRequestDeliveryHandoff::wasHandedOff($handoffKey)) {
-            DocumentRecipientRequestDeliveryHandoff::persistLedger(
-                fn () => $this->persistSent($delivery),
-                [
-                    'company_id' => $this->companyId,
-                    'delivery_id' => $this->deliveryId,
-                    'failure_category' => 'email_ledger_persist',
-                ],
-            );
+            $this->persistSentOrRetry($delivery);
 
             return;
         }
@@ -124,7 +122,7 @@ class DeliverDocumentRecipientRequestEmailJob implements ShouldBeEncrypted, Shou
             ->first();
 
         if ($template === null || ! $template->enabled) {
-            $this->suppress($delivery, 'email_template_disabled');
+            $this->suppress($delivery, $template === null ? 'email_template_missing' : 'email_template_disabled');
 
             return;
         }
@@ -137,9 +135,9 @@ class DeliverDocumentRecipientRequestEmailJob implements ShouldBeEncrypted, Shou
             return;
         }
 
-        $placeholders = $this->placeholders($request, $actionUrl);
-        $subject = strtr($template->subject, $placeholders);
-        $bodyHtml = EmailTemplateBodyRenderer::toHtml(strtr($template->body_html, $placeholders));
+        $plainPlaceholders = $this->placeholders($request, $actionUrl);
+        $subject = strtr($template->subject, $plainPlaceholders);
+        $bodyHtml = $this->renderBodyHtml($template->body_html, $plainPlaceholders);
         $company = $request->company ?? Company::query()->find($this->companyId);
 
         $mailSettings->applyToRuntimeConfig();
@@ -171,30 +169,7 @@ class DeliverDocumentRecipientRequestEmailJob implements ShouldBeEncrypted, Shou
         }
 
         DocumentRecipientRequestDeliveryHandoff::remember($handoffKey);
-        DocumentRecipientRequestDeliveryHandoff::persistLedger(
-            function () use ($delivery, $subject): void {
-                $delivery->refresh();
-                $this->persistSent($delivery, $subject);
-            },
-            [
-                'company_id' => $this->companyId,
-                'delivery_id' => $this->deliveryId,
-                'failure_category' => 'email_ledger_persist',
-            ],
-        );
-
-        activity()
-            ->performedOn($request)
-            ->tap(fn ($activity) => $activity->company_id = $this->companyId)
-            ->withProperties([
-                'action' => 'recipient_email_sent',
-                'document_recipient_request_id' => $request->id,
-                'delivery_id' => $delivery->id,
-                'channel' => $delivery->channel->value,
-                'purpose' => $delivery->purpose->value,
-                'status' => DocumentRecipientRequestDeliveryStatus::Sent->value,
-            ])
-            ->log('Recipient request email sent');
+        $this->persistSentOrRetry($delivery, $subject, $request);
     }
 
     public function failed(?Throwable $exception): void
@@ -226,6 +201,50 @@ class DeliverDocumentRecipientRequestEmailJob implements ShouldBeEncrypted, Shou
             'document_recipient_request_id' => $delivery->document_recipient_request_id,
             'exception_class' => $exception instanceof Throwable ? $exception::class : null,
         ]);
+    }
+
+    private function persistSentOrRetry(
+        DocumentRecipientRequestDelivery $delivery,
+        ?string $subject = null,
+        ?DocumentRecipientRequest $request = null,
+    ): void {
+        $persisted = DocumentRecipientRequestDeliveryHandoff::persistLedger(
+            function () use ($delivery, $subject): void {
+                $delivery->refresh();
+                $this->persistSent($delivery, $subject);
+            },
+            [
+                'company_id' => $this->companyId,
+                'delivery_id' => $this->deliveryId,
+                'failure_category' => 'email_ledger_persist',
+            ],
+        );
+
+        if (! $persisted) {
+            throw new RuntimeException('Document recipient email ledger persist failed after SMTP handoff.');
+        }
+
+        $request ??= DocumentRecipientRequest::query()
+            ->whereKey($delivery->document_recipient_request_id)
+            ->where('company_id', $this->companyId)
+            ->first();
+
+        if (! $request instanceof DocumentRecipientRequest) {
+            return;
+        }
+
+        activity()
+            ->performedOn($request)
+            ->tap(fn ($activity) => $activity->company_id = $this->companyId)
+            ->withProperties([
+                'action' => 'recipient_email_sent',
+                'document_recipient_request_id' => $request->id,
+                'delivery_id' => $delivery->id,
+                'channel' => $delivery->channel->value,
+                'purpose' => $delivery->purpose->value,
+                'status' => DocumentRecipientRequestDeliveryStatus::Sent->value,
+            ])
+            ->log('Recipient request email sent');
     }
 
     private function resolveActionUrl(
@@ -273,6 +292,26 @@ class DeliverDocumentRecipientRequestEmailJob implements ShouldBeEncrypted, Shou
             '{{expires_at}}' => $request->expires_at?->timezone(config('app.timezone'))->format('d M Y, H:i') ?? '',
             '{{step_label}}' => $stepLabel,
         ];
+    }
+
+    /**
+     * @param  array<string, string>  $plainPlaceholders
+     */
+    private function renderBodyHtml(string $bodyTemplate, array $plainPlaceholders): string
+    {
+        $trimmed = trim($bodyTemplate);
+        $isHtml = $trimmed !== '' && preg_match('/<[a-z][\s\S]*>/i', $trimmed) === 1;
+
+        if ($isHtml) {
+            $escaped = [];
+            foreach ($plainPlaceholders as $key => $value) {
+                $escaped[$key] = e($value);
+            }
+
+            return EmailTemplateBodyRenderer::toHtml(strtr($bodyTemplate, $escaped));
+        }
+
+        return EmailTemplateBodyRenderer::toHtml(strtr($bodyTemplate, $plainPlaceholders));
     }
 
     private function persistSent(DocumentRecipientRequestDelivery $delivery, ?string $subject = null): void

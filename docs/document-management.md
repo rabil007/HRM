@@ -1029,8 +1029,11 @@ Every newly created awaiting recipient request queues an initial email delivery 
 
 - Raw bearer tokens are never stored in domain tables or returned by resend.
 - Subject email jobs implement Laravel `ShouldBeEncrypted` so the raw delivery token is encrypted in the queue payload.
-- **Regenerate secure link** rotates `DocumentRecipientRequest.token_hash` and sets `revoked_at` on all active subject email delivery access tokens for that request (history retained).
+- **Regenerate secure link** rotates `DocumentRecipientRequest.token_hash` and sets `revoked_at` on all active subject email delivery access tokens for that request (history retained). Queued (unsent) deliveries are also marked `suppressed` with `access_token_revoked` so they cannot be dispatched; historical `sent` rows stay `sent` with `revoked_at` recorded.
 - **Manual resend** creates a **new** delivery sequence with a new delivery token; it does **not** rotate the request token and does **not** revoke earlier email links by default.
+- Template resolution at request time uses the live (non-trashed) Email Template only — soft-deleted/missing/disabled templates suppress delivery without restoring or reseeding Settings content. `EmailTemplatesSeeder` remains the intentional restore path.
+- Queue handoff failures after DB commit are swallowed and left for `documents:dispatch-recipient-emails`. After successful SMTP, Sent ledger persistence failures retry without a second Mail send; reconciliation can repair remembered SMTP handoffs.
+- Dynamic placeholder values are HTML-escaped when substituted into HTML template bodies; subject lines use plain values.
 
 ### Template
 

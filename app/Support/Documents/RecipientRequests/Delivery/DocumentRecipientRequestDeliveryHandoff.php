@@ -37,10 +37,12 @@ final class DocumentRecipientRequestDeliveryHandoff
     }
 
     /**
+     * Retry ledger persistence without throwing.
+     *
      * @param  callable(): void  $persist
      * @param  array<string, mixed>  $context
      */
-    public static function persistLedger(callable $persist, array $context): void
+    public static function persistLedger(callable $persist, array $context): bool
     {
         $lastException = null;
 
@@ -48,7 +50,7 @@ final class DocumentRecipientRequestDeliveryHandoff
             try {
                 $persist();
 
-                return;
+                return true;
             } catch (Throwable $exception) {
                 $lastException = $exception;
                 report($exception);
@@ -60,5 +62,7 @@ final class DocumentRecipientRequestDeliveryHandoff
             'exception_class' => $lastException instanceof Throwable ? $lastException::class : null,
             'failure_category' => $context['failure_category'] ?? 'delivery_ledger_persist',
         ]);
+
+        return false;
     }
 }

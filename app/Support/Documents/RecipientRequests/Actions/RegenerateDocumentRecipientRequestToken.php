@@ -3,6 +3,7 @@
 namespace App\Support\Documents\RecipientRequests\Actions;
 
 use App\Enums\DocumentRecipientRequestDeliveryChannel;
+use App\Enums\DocumentRecipientRequestDeliveryStatus;
 use App\Enums\DocumentRecipientRequestEventType;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Models\DocumentRecipientRequest;
@@ -60,15 +61,31 @@ final class RegenerateDocumentRecipientRequestToken
                 'token_hash' => DocumentRecipientRequestToken::hash($rawToken),
             ]);
 
-            $revokedCount = DocumentRecipientRequestDelivery::query()
+            $activeDeliveries = DocumentRecipientRequestDelivery::query()
                 ->where('company_id', $companyId)
                 ->where('document_recipient_request_id', $locked->id)
                 ->where('channel', DocumentRecipientRequestDeliveryChannel::Email)
                 ->whereNotNull('access_token_hash')
                 ->whereNull('revoked_at')
-                ->update([
+                ->lockForUpdate()
+                ->get();
+
+            $revokedCount = 0;
+
+            foreach ($activeDeliveries as $delivery) {
+                $attributes = [
                     'revoked_at' => now(),
-                ]);
+                ];
+
+                if ($delivery->status === DocumentRecipientRequestDeliveryStatus::Queued) {
+                    $attributes['status'] = DocumentRecipientRequestDeliveryStatus::Suppressed;
+                    $attributes['failed_at'] = now();
+                    $attributes['failure_category'] = 'access_token_revoked';
+                }
+
+                $delivery->update($attributes);
+                $revokedCount++;
+            }
 
             $this->eventRecorder->record(
                 $locked,

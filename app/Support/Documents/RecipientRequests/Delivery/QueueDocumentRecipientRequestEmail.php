@@ -12,9 +12,9 @@ use App\Models\DocumentRecipientRequestDelivery;
 use App\Models\EmailTemplate;
 use App\Models\User;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestToken;
-use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 final class QueueDocumentRecipientRequestEmail
 {
@@ -43,13 +43,24 @@ final class QueueDocumentRecipientRequestEmail
         $destination = $this->resolveDestination->forRequest($request);
         $template = $this->resolveTemplate();
 
-        if ($template === null || ! $template->enabled) {
+        if ($template === null) {
+            return $this->createSuppressed(
+                $request,
+                $purpose,
+                $actor,
+                destination: $destination['email'],
+                failureCategory: 'email_template_missing',
+            );
+        }
+
+        if (! $template->enabled) {
             return $this->createSuppressed(
                 $request,
                 $purpose,
                 $actor,
                 destination: $destination['email'],
                 failureCategory: 'email_template_disabled',
+                templateSlug: $template->slug,
             );
         }
 
@@ -112,10 +123,18 @@ final class QueueDocumentRecipientRequestEmail
         $deliveryId = (int) $delivery->id;
 
         DB::afterCommit(function () use ($deliveryId, $rawAccessToken): void {
-            app(DispatchDocumentRecipientRequestEmails::class)->dispatchDelivery(
-                $deliveryId,
-                $rawAccessToken,
-            );
+            try {
+                app(DispatchDocumentRecipientRequestEmails::class)->dispatchDelivery(
+                    $deliveryId,
+                    $rawAccessToken,
+                );
+            } catch (Throwable $exception) {
+                report($exception);
+                Log::warning('Document recipient email queue handoff failed after commit', [
+                    'delivery_id' => $deliveryId,
+                    'exception_class' => $exception::class,
+                ]);
+            }
         });
 
         return $delivery;
@@ -134,28 +153,9 @@ final class QueueDocumentRecipientRequestEmail
 
     private function resolveTemplate(): ?EmailTemplate
     {
-        $template = EmailTemplate::withTrashed()
+        return EmailTemplate::query()
             ->where('slug', self::TEMPLATE_SLUG)
             ->first();
-
-        if ($template === null) {
-            try {
-                return EmailTemplatesSeeder::seedDocumentRecipientActionRequestTemplate();
-            } catch (\Throwable $exception) {
-                Log::warning('Document recipient email template unavailable', [
-                    'exception_class' => $exception::class,
-                ]);
-
-                return null;
-            }
-        }
-
-        if ($template->trashed()) {
-            $template->restore();
-            $template = $template->fresh() ?? $template;
-        }
-
-        return $template;
     }
 
     private function createSuppressed(

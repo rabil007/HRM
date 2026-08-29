@@ -14,12 +14,15 @@ use Throwable;
 final class DispatchDocumentRecipientRequestEmails
 {
     /**
-     * Reconcile queued deliveries that never completed queue handoff.
+     * Reconcile queued deliveries that never completed queue handoff, and repair
+     * Sent ledger rows after a remembered successful SMTP handoff.
      *
-     * @return array{dispatched: int, skipped: int}
+     * @return array{dispatched: int, skipped: int, repaired: int}
      */
     public function dispatchPending(?int $onlyCompanyId = null): array
     {
+        $repaired = $this->repairRememberedSmtpHandoffs($onlyCompanyId);
+
         $query = DocumentRecipientRequestDelivery::query()
             ->where('channel', DocumentRecipientRequestDeliveryChannel::Email)
             ->where('status', DocumentRecipientRequestDeliveryStatus::Queued)
@@ -55,7 +58,59 @@ final class DispatchDocumentRecipientRequestEmails
         return [
             'dispatched' => $dispatched,
             'skipped' => $skipped,
+            'repaired' => $repaired,
         ];
+    }
+
+    /**
+     * Persist Sent for deliveries where SMTP already succeeded but the ledger did not.
+     */
+    public function repairRememberedSmtpHandoffs(?int $onlyCompanyId = null): int
+    {
+        $query = DocumentRecipientRequestDelivery::query()
+            ->where('channel', DocumentRecipientRequestDeliveryChannel::Email)
+            ->where('status', DocumentRecipientRequestDeliveryStatus::Queued)
+            ->whereNotNull('dispatched_at')
+            ->whereNull('revoked_at')
+            ->orderBy('id')
+            ->limit(100);
+
+        if ($onlyCompanyId !== null) {
+            $query->where('company_id', $onlyCompanyId);
+        }
+
+        $repaired = 0;
+
+        foreach ($query->get() as $delivery) {
+            $handoffKey = DocumentRecipientRequestDeliveryHandoff::emailKey((int) $delivery->id);
+
+            if (! DocumentRecipientRequestDeliveryHandoff::wasHandedOff($handoffKey)) {
+                continue;
+            }
+
+            $persisted = DocumentRecipientRequestDeliveryHandoff::persistLedger(
+                function () use ($delivery): void {
+                    $delivery->refresh();
+                    $delivery->update([
+                        'status' => DocumentRecipientRequestDeliveryStatus::Sent,
+                        'sent_at' => now(),
+                        'failed_at' => null,
+                        'failure_category' => null,
+                    ]);
+                },
+                [
+                    'company_id' => (int) $delivery->company_id,
+                    'delivery_id' => (int) $delivery->id,
+                    'failure_category' => 'email_ledger_persist',
+                ],
+            );
+
+            if ($persisted) {
+                $repaired++;
+            }
+        }
+
+        return $repaired;
     }
 
     public function dispatchDelivery(int $deliveryId, ?string $rawAccessToken = null): bool
