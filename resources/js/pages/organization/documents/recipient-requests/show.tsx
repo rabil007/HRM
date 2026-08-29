@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import CancelDocumentRecipientRequestController from '@/actions/App/Http/Controllers/Organization/Documents/CancelDocumentRecipientRequestController';
 import RegenerateDocumentRecipientRequestTokenController from '@/actions/App/Http/Controllers/Organization/Documents/RegenerateDocumentRecipientRequestTokenController';
+import ResendDocumentRecipientRequestEmailController from '@/actions/App/Http/Controllers/Organization/Documents/ResendDocumentRecipientRequestEmailController';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
@@ -11,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import type {
+    RecipientRequestEmailDelivery,
     RecipientRequestPermissions,
     RecipientRequestStatus,
 } from '@/features/organization/documents/workflow/types';
@@ -30,6 +32,7 @@ type RecipientRequestDetail = {
     recipient_role_label: string;
     is_public_token_recipient: boolean;
     respond_url: string | null;
+    email_delivery: RecipientRequestEmailDelivery | null;
     requested_at: string | null;
     expires_at: string | null;
     first_viewed_at: string | null;
@@ -112,6 +115,31 @@ export default function RecipientRequestShow({
                     backLabel="Back to requests"
                     actions={
                         <div className="flex flex-wrap gap-2">
+                            {can.create &&
+                            recipient_request.status === 'awaiting_action' &&
+                            recipient_request.email_delivery?.can_resend ? (
+                                <Button
+                                    variant="outline"
+                                    onClick={() =>
+                                        router.post(
+                                            ResendDocumentRecipientRequestEmailController.url(
+                                                {
+                                                    recipientRequest:
+                                                        recipient_request.id,
+                                                },
+                                            ),
+                                        )
+                                    }
+                                >
+                                    {recipient_request.email_delivery.status ===
+                                    'failed'
+                                        ? 'Retry email'
+                                        : recipient_request.email_delivery
+                                                .status === 'sent'
+                                          ? 'Resend email'
+                                          : 'Send email'}
+                                </Button>
+                            ) : null}
                             {can.cancel &&
                             recipient_request.status === 'awaiting_action' ? (
                                 <>
@@ -197,6 +225,36 @@ export default function RecipientRequestShow({
                                         {recipient_request.respond_url}
                                     </span>
                                 </div>
+                            ) : null}
+                            {recipient_request.email_delivery ? (
+                                <>
+                                    <div className="flex justify-between gap-4">
+                                        <span className="text-muted-foreground">
+                                            Email
+                                        </span>
+                                        <Badge variant="secondary">
+                                            {
+                                                recipient_request.email_delivery
+                                                    .status_label
+                                            }
+                                        </Badge>
+                                    </div>
+                                    {recipient_request.email_delivery
+                                        .last_sent_at ? (
+                                        <div className="flex justify-between gap-4">
+                                            <span className="text-muted-foreground">
+                                                Last sent
+                                            </span>
+                                            <span>
+                                                {formatDisplayDate(
+                                                    recipient_request
+                                                        .email_delivery
+                                                        .last_sent_at,
+                                                )}
+                                            </span>
+                                        </div>
+                                    ) : null}
+                                </>
                             ) : null}
                             <div className="flex justify-between gap-4">
                                 <span className="text-muted-foreground">

@@ -119,6 +119,7 @@ use App\Http\Controllers\Organization\Documents\DocumentWorkflowVersionPreviewCo
 use App\Http\Controllers\Organization\Documents\DownloadDocumentRecipientRequestDocumentController;
 use App\Http\Controllers\Organization\Documents\RegenerateDocumentRecipientRequestTokenController;
 use App\Http\Controllers\Organization\Documents\RejectDocumentWorkflowTaskController;
+use App\Http\Controllers\Organization\Documents\ResendDocumentRecipientRequestEmailController;
 use App\Http\Controllers\Organization\Documents\RespondDocumentRecipientRequestController;
 use App\Http\Controllers\Organization\Documents\RetryDocumentSigningFlowController;
 use App\Http\Controllers\Organization\Documents\StartDocumentSigningFlowController;
@@ -734,6 +735,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('organization.documents.signing-flows.retry');
         Route::post('organization/documents/recipient-requests/{recipientRequest}/regenerate-link', RegenerateDocumentRecipientRequestTokenController::class)
             ->name('organization.documents.recipient-requests.regenerate-link');
+        Route::post('organization/documents/recipient-requests/{recipientRequest}/email', ResendDocumentRecipientRequestEmailController::class)
+            ->name('organization.documents.recipient-requests.email');
     });
     Route::middleware('can:documents.recipient-requests.cancel')->group(function () {
         Route::post('organization/documents/recipient-requests/{recipientRequest}/cancel', CancelDocumentRecipientRequestController::class)

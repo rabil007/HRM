@@ -50,6 +50,11 @@ Schedule::command('crew:dispatch-operational-alert-email-digests')
     ->timezone(config('app.timezone', 'UTC'))
     ->withoutOverlapping();
 
+Schedule::command('documents:dispatch-recipient-emails')
+    ->everyMinute()
+    ->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping();
+
 Schedule::command('contracts:expire')
     ->dailyAt('01:00')
     ->timezone(config('app.timezone', 'UTC'))

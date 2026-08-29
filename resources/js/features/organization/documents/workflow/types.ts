@@ -248,6 +248,13 @@ export type RecipientRequestStatus =
     | 'cancelled'
     | 'superseded';
 
+export type RecipientRequestEmailDelivery = {
+    status: 'queued' | 'sent' | 'failed' | 'suppressed';
+    status_label: string;
+    last_sent_at: string | null;
+    can_resend: boolean;
+};
+
 export type RecipientRequestListItem = {
     id: number;
     action: string;
@@ -264,6 +271,7 @@ export type RecipientRequestListItem = {
     signing_step_label?: string | null;
     signature_slot_key?: string | null;
     signing_preset_name?: string | null;
+    email_delivery?: RecipientRequestEmailDelivery | null;
     requested_at: string | null;
     expires_at: string | null;
     completed_at: string | null;

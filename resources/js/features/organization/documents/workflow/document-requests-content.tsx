@@ -376,6 +376,7 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                     <RecipientRequestsTable
                         requests={recipient_requests}
                         canRespond={can.respond_recipient_requests}
+                        canCreate={can.create_recipient_requests}
                     />
                     <Pagination {...list.paginationProps} />
                 </div>

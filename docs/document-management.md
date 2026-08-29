@@ -991,4 +991,71 @@ New flows store `schema_version: 2` with step labels, slot keys, management posi
 
 Parallel / quorum / “any 2 of 3” signing, external recipients, delivery channels, reminders, scheduled expiry, auto-start after generation/approval, workflow sign stages, and legacy bulk `/esign` / Salary Declaration migration. Next roadmap phase is **Phase 7**.
 
+## Phase 7A — Recipient Email Delivery
+
+Phase 7A delivers recipient requests by **email** without changing the signing/acknowledgement state machine.
+
+### Concepts
+
+| Record | Role |
+|--------|------|
+| `DocumentRecipientRequest` | Authoritative requested action |
+| `DocumentSigningFlow` | Orchestration |
+| `DocumentRecipientRequestDelivery` | Delivery evidence / channel attempt ledger |
+
+Email failure never rolls back request creation or flow advancement. Awaiting requests remain actionable from the Requests workspace even when SMTP fails.
+
+### Delivery ledger
+
+Table: `document_recipient_request_deliveries`
+
+- Channel (7A): `email`
+- Purpose (7A): `initial`, `manual_resend`
+- Status: `queued`, `sent`, `failed`, `suppressed`
+- Unique `(document_recipient_request_id, channel, delivery_sequence)`
+- Unique nullable `access_token_hash`
+- Snapshots destination, template slug, and optional subject at send time
+
+### Automatic initial email
+
+Every newly created awaiting recipient request queues an initial email delivery (subject sign/acknowledge, manager/company countersign, and advanced-flow step requests) through `QueueDocumentRecipientRequestEmail`, after the surrounding DB transaction commits.
+
+### Subject vs internal links
+
+- **Subject employee:** delivery-specific public access token (SHA-256 only in ledger). Action URL: `/document-action/{delivery_token}` via named routes. Raw request token remains for Copy/Regenerate link UX and is independent of email deliveries.
+- **Internal company users (manager / company signatory):** authenticated respond URL only. No delivery access token. Public `/document-action/*` cannot resolve company-user requests.
+
+### Tokens and regenerate
+
+- Raw bearer tokens are never stored in domain tables or returned by resend.
+- Subject email jobs implement Laravel `ShouldBeEncrypted` so the raw delivery token is encrypted in the queue payload.
+- **Regenerate secure link** rotates `DocumentRecipientRequest.token_hash` and sets `revoked_at` on all active subject email delivery access tokens for that request (history retained). Queued (unsent) deliveries are also marked `suppressed` with `access_token_revoked` so they cannot be dispatched; historical `sent` rows stay `sent` with `revoked_at` recorded.
+- **Manual resend** creates a **new** delivery sequence with a new delivery token; it does **not** rotate the request token and does **not** revoke earlier email links by default.
+- Template resolution at request time uses the live (non-trashed) Email Template only — soft-deleted/missing/disabled templates suppress delivery without restoring or reseeding Settings content. `EmailTemplatesSeeder` remains the intentional restore path.
+- Queue handoff failures after DB commit are swallowed and left for `documents:dispatch-recipient-emails`. After successful SMTP, Sent ledger persistence failures retry without a second Mail send; reconciliation can repair remembered SMTP handoffs.
+- Dynamic placeholder values are HTML-escaped when substituted into HTML template bodies; subject lines use plain values.
+
+### Template
+
+Slug: `document_recipient_action_request` (Document category). Managed under Settings → Email Templates. Non-clobbering seeder. If disabled, delivery is `suppressed` (`email_template_disabled`); request creation still succeeds.
+
+No PDF attachments — secure action link only.
+
+### Queue / retry
+
+- Job: `DeliverDocumentRecipientRequestEmailJob` (unique by delivery id, backoff `[30, 60, 120]`)
+- Claim/dispatch + SMTP handoff memory mirror Crew operational-alert reliability patterns
+- Scheduler: `documents:dispatch-recipient-emails` every minute (`withoutOverlapping`) reconciles queued rows that never completed queue handoff
+- SMTP via `MailSettingsService`; never log credentials or raw transport exception text
+
+### Permissions / tenancy
+
+- Automatic queue: no extra permission
+- Explicit Send / Resend: `documents.recipient-requests.create` (`POST …/recipient-requests/{id}/email`)
+- All ledger rows and jobs are company-scoped; delivery `company_id` must match the recipient request
+
+### Explicitly not in Phase 7A
+
+Reminders / “remind after X days”, expiry schedulers, auto-start after generation/approval, template→preset auto-assignment, WhatsApp/Web Push/SMS, parallel signing, external recipients, legacy `/esign` / BulkDocumentSignatureRequest / Salary Declaration migration (Phases 7B / 7C+).
+
 

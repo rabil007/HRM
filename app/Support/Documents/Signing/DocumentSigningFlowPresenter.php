@@ -7,6 +7,7 @@ use App\Enums\DocumentRecipientRole;
 use App\Enums\DocumentSigningFlowStatus;
 use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentSigningFlow;
+use App\Support\Documents\RecipientRequests\DocumentRecipientRequestPresenter;
 
 final class DocumentSigningFlowPresenter
 {
@@ -19,7 +20,10 @@ final class DocumentSigningFlowPresenter
             'startedByUser:id,name',
             'recipientRequests.sourceVersion:id,version',
             'recipientRequests.resultVersion:id,version',
+            'recipientRequests.deliveries',
         ]);
+
+        $requestPresenter = app(DocumentRecipientRequestPresenter::class);
 
         $requestsBySequence = $flow->recipientRequests->keyBy(
             fn (DocumentRecipientRequest $request): int => (int) $request->signing_step_sequence,
@@ -31,7 +35,7 @@ final class DocumentSigningFlowPresenter
         $totalSteps = $snapshotSteps->count();
 
         $steps = $snapshotSteps
-            ->map(function (array $step) use ($flow, $requestsBySequence, $totalSteps): array {
+            ->map(function (array $step) use ($flow, $requestsBySequence, $totalSteps, $requestPresenter): array {
                 $sequence = (int) $step['sequence'];
                 /** @var DocumentRecipientRequest|null $request */
                 $request = $requestsBySequence->get($sequence);
@@ -78,6 +82,9 @@ final class DocumentSigningFlowPresenter
                     'request_id' => $request?->id,
                     'source_version' => $request?->sourceVersion?->version,
                     'result_version' => $request?->resultVersion?->version,
+                    'email_delivery' => $request !== null
+                        ? $requestPresenter->emailDeliverySummary($request)
+                        : null,
                     'respond_url' => $request !== null
                         && $request->status === DocumentRecipientRequestStatus::AwaitingAction
                         && $request->isInternalSigner()

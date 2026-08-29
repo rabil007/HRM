@@ -23,6 +23,7 @@ class EmailTemplatesSeeder extends Seeder
         self::seedBulkSalaryDeclarationSignReminderTemplate();
         self::seedBulkSalaryCertificateTemplate();
         self::seedCrewOperationalAlertDigestTemplate();
+        self::seedDocumentRecipientActionRequestTemplate();
     }
 
     /**
@@ -469,6 +470,55 @@ TEXT;
     </tr>
 </table>
 <p style="margin:0;color:#6b7280;font-size:12px;">You are receiving this message because you are configured as a Crew Operations notification recipient.</p>
+HTML;
+    }
+
+    public static function seedDocumentRecipientActionRequestTemplate(): EmailTemplate
+    {
+        $existing = EmailTemplate::withTrashed()->where('slug', 'document_recipient_action_request')->first();
+
+        if ($existing !== null) {
+            if ($existing->trashed()) {
+                $existing->restore();
+            }
+
+            return $existing->fresh() ?? $existing;
+        }
+
+        return EmailTemplate::query()->create([
+            'slug' => 'document_recipient_action_request',
+            'label' => 'Document action request',
+            'category' => EmailTemplateCategory::Document,
+            'to_preset' => null,
+            'cc_preset' => null,
+            'dispatch_at' => null,
+            'subject' => '{{action_label}} required — {{document_title}}',
+            'body_html' => self::documentRecipientActionRequestBody(),
+            'enabled' => true,
+            'include_company_footer' => true,
+            'is_default' => false,
+            'sort_order' => 20,
+        ])->fresh();
+    }
+
+    private static function documentRecipientActionRequestBody(): string
+    {
+        return <<<'HTML'
+<p style="margin:0 0 16px;">Dear {{recipient_name}},</p>
+<p style="margin:0 0 16px;">A document action is required for <strong>{{document_title}}</strong> ({{employee_name}} / {{employee_no}}).</p>
+<p style="margin:0 0 8px;"><strong>Action:</strong> {{action_label}}</p>
+<p style="margin:0 0 8px;"><strong>Step:</strong> {{step_label}}</p>
+<p style="margin:0 0 16px;"><strong>Expires:</strong> {{expires_at}}</p>
+<table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto 24px;">
+    <tr>
+        <td class="email-btn-cell" align="center" style="border-radius:12px;background-color:#2563eb;">
+            <a href="{{action_url}}" class="email-btn-link" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;border-radius:12px;background-color:#2563eb;border:1px solid #2563eb;">
+                Open document action
+            </a>
+        </td>
+    </tr>
+</table>
+<p style="margin:0;color:#6b7280;font-size:12px;">If you were not expecting this message, contact {{company_name}} HR.</p>
 HTML;
     }
 }

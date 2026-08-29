@@ -128,6 +128,12 @@ class DocumentRecipientRequest extends Model
             ->orderBy('occurred_at');
     }
 
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(DocumentRecipientRequestDelivery::class)
+            ->orderByDesc('delivery_sequence');
+    }
+
     public function scopeForCompany(Builder $query, int $companyId): Builder
     {
         return $query->where('company_id', $companyId);

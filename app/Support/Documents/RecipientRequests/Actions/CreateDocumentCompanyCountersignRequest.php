@@ -3,6 +3,7 @@
 namespace App\Support\Documents\RecipientRequests\Actions;
 
 use App\Enums\DocumentRecipientAction;
+use App\Enums\DocumentRecipientRequestDeliveryPurpose;
 use App\Enums\DocumentRecipientRequestEventType;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Enums\DocumentRecipientRole;
@@ -14,6 +15,7 @@ use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Support\Companies\ResolveCompanyAccess;
+use App\Support\Documents\RecipientRequests\Delivery\QueueDocumentRecipientRequestEmail;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestToken;
 use App\Support\Documents\RecipientRequests\DocumentRecipientSignatureChainGuard;
@@ -200,6 +202,17 @@ final class CreateDocumentCompanyCountersignRequest
                     'status' => $request->status->value,
                 ])
                 ->log('Company countersignature request created');
+
+            try {
+                app(QueueDocumentRecipientRequestEmail::class)
+                    ->forRequest(
+                        $request->fresh(),
+                        DocumentRecipientRequestDeliveryPurpose::Initial,
+                        $requester,
+                    );
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
 
             return [
                 'request' => $request->fresh(),
