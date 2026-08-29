@@ -3,6 +3,7 @@
 namespace App\Support\Documents\Signing;
 
 use App\Enums\DocumentRecipientRequestStatus;
+use App\Enums\DocumentSigningFlowStatus;
 use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentSigningFlow;
 
@@ -65,6 +66,17 @@ final class DocumentSigningFlowPresenter
             })
             ->all();
 
+        $canRetry = false;
+
+        if ($flow->status === DocumentSigningFlowStatus::Blocked) {
+            $currentStepRequest = $requestsBySequence->get((int) $flow->current_step_sequence);
+
+            // Retryable only when the current step completed and next-step activation failed.
+            // Superseded/Expired current steps require cancel (no same-step reissue in 6B-2B1).
+            $canRetry = $currentStepRequest instanceof DocumentRecipientRequest
+                && $currentStepRequest->status === DocumentRecipientRequestStatus::Completed;
+        }
+
         return [
             'id' => $flow->id,
             'preset_name' => $flow->preset_name_snapshot,
@@ -81,7 +93,7 @@ final class DocumentSigningFlowPresenter
             'completed_at' => $flow->completed_at?->toIso8601String(),
             'cancelled_at' => $flow->cancelled_at?->toIso8601String(),
             'steps' => $steps,
-            'can_retry' => $flow->status->value === 'blocked',
+            'can_retry' => $canRetry,
             'can_cancel' => $flow->status->isOpen(),
         ];
     }

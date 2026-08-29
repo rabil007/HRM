@@ -76,8 +76,9 @@ final class AdvanceDocumentSigningFlow
             }
 
             if ((int) $completed->result_document_instance_version_id !== (int) $instance->current_version_id) {
-                return $this->markBlocked(
+                return app(BlockDocumentSigningFlow::class)->handle(
                     $lockedFlow,
+                    (int) $lockedFlow->company_id,
                     'The document changed while this signing step was pending.',
                     $actor,
                 );
@@ -141,8 +142,9 @@ final class AdvanceDocumentSigningFlow
             $requester = User::query()->find($lockedFlow->started_by) ?? $actor;
 
             if (! $requester instanceof User) {
-                return $this->markBlocked(
+                return app(BlockDocumentSigningFlow::class)->handle(
                     $lockedFlow,
+                    (int) $lockedFlow->company_id,
                     'Unable to continue this signing flow because the original requester is unavailable.',
                     $actor,
                 );
@@ -154,8 +156,9 @@ final class AdvanceDocumentSigningFlow
             try {
                 if ($role === DocumentRecipientRole::Manager) {
                     if ($recipientUserId === null) {
-                        return $this->markBlocked(
+                        return app(BlockDocumentSigningFlow::class)->handle(
                             $lockedFlow,
+                            (int) $lockedFlow->company_id,
                             'Assigned department manager is no longer eligible to sign.',
                             $actor,
                         );
@@ -164,8 +167,9 @@ final class AdvanceDocumentSigningFlow
                     $recipientUser = User::query()->find($recipientUserId);
 
                     if (! $recipientUser instanceof User || ! $this->signerEligibility->isActionable($recipientUser, (int) $lockedFlow->company_id)) {
-                        return $this->markBlocked(
+                        return app(BlockDocumentSigningFlow::class)->handle(
                             $lockedFlow,
+                            (int) $lockedFlow->company_id,
                             'Assigned department manager is no longer eligible to sign.',
                             $actor,
                         );
@@ -182,8 +186,9 @@ final class AdvanceDocumentSigningFlow
                     );
                 } elseif ($role === DocumentRecipientRole::CompanySignatory) {
                     if ($recipientUserId === null) {
-                        return $this->markBlocked(
+                        return app(BlockDocumentSigningFlow::class)->handle(
                             $lockedFlow,
+                            (int) $lockedFlow->company_id,
                             'Assigned company signatory is no longer eligible to sign.',
                             $actor,
                         );
@@ -192,8 +197,9 @@ final class AdvanceDocumentSigningFlow
                     $recipientUser = User::query()->find($recipientUserId);
 
                     if (! $recipientUser instanceof User || ! $this->signerEligibility->isActionable($recipientUser, (int) $lockedFlow->company_id)) {
-                        return $this->markBlocked(
+                        return app(BlockDocumentSigningFlow::class)->handle(
                             $lockedFlow,
+                            (int) $lockedFlow->company_id,
                             'Assigned company signatory is no longer eligible to sign.',
                             $actor,
                         );
@@ -209,8 +215,9 @@ final class AdvanceDocumentSigningFlow
                         skipOpenFlowGuard: true,
                     );
                 } else {
-                    return $this->markBlocked(
+                    return app(BlockDocumentSigningFlow::class)->handle(
                         $lockedFlow,
+                        (int) $lockedFlow->company_id,
                         'This signing flow contains an unsupported next step.',
                         $actor,
                     );
@@ -218,8 +225,9 @@ final class AdvanceDocumentSigningFlow
             } catch (ValidationException $exception) {
                 $message = collect($exception->errors())->flatten()->first();
 
-                return $this->markBlocked(
+                return app(BlockDocumentSigningFlow::class)->handle(
                     $lockedFlow,
+                    (int) $lockedFlow->company_id,
                     is_string($message) && $message !== ''
                         ? $message
                         : 'The next signing step could not be created.',
@@ -250,32 +258,19 @@ final class AdvanceDocumentSigningFlow
         });
     }
 
+    /**
+     * @deprecated Prefer BlockDocumentSigningFlow; kept as a thin wrapper for call sites.
+     */
     public function markBlocked(
         DocumentSigningFlow $flow,
         string $reason,
         ?User $actor = null,
     ): DocumentSigningFlow {
-        if ($flow->status === DocumentSigningFlowStatus::Blocked
-            && $flow->blocked_reason === $reason) {
-            return $flow;
-        }
-
-        $flow->update([
-            'status' => DocumentSigningFlowStatus::Blocked,
-            'blocked_at' => now(),
-            'blocked_reason' => $reason,
-        ]);
-
-        $this->activityLogger->log(
-            description: 'Document signing flow blocked',
-            event: 'signing_flow_blocked',
-            flow: $flow->fresh(),
-            actor: $actor,
-            metadata: [
-                'blocked_reason' => $reason,
-            ],
+        return app(BlockDocumentSigningFlow::class)->handle(
+            $flow,
+            (int) $flow->company_id,
+            $reason,
+            $actor,
         );
-
-        return $flow->fresh();
     }
 }

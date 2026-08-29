@@ -21,6 +21,7 @@ use App\Support\Documents\RecipientRequests\SignedDocumentLibraryReplacement;
 use App\Support\Documents\RecipientRequests\StampSignedDocumentInstancePdf;
 use App\Support\Documents\RecipientRequests\SyncSignedDocumentInstanceToLibrary;
 use App\Support\Documents\Signing\Actions\AdvanceDocumentSigningFlow;
+use App\Support\Documents\Signing\Actions\BlockDocumentSigningFlow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -77,14 +78,11 @@ final class SubmitDocumentRecipientSignature
             $this->eventRecorder->record($request, DocumentRecipientRequestEventType::RequestExpired);
 
             if ($request->document_signing_flow_id !== null) {
-                $flow = DocumentSigningFlow::query()->find($request->document_signing_flow_id);
-
-                if ($flow !== null && $flow->status->isOpen()) {
-                    app(AdvanceDocumentSigningFlow::class)->markBlocked(
-                        $flow,
-                        'The current signing step expired before it was completed.',
-                    );
-                }
+                app(BlockDocumentSigningFlow::class)->handle(
+                    (int) $request->document_signing_flow_id,
+                    (int) $request->company_id,
+                    'The current signing step expired before it was completed.',
+                );
             }
 
             throw ValidationException::withMessages([

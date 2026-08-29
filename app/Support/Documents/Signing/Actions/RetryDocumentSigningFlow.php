@@ -8,6 +8,7 @@ use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentSigningFlow;
 use App\Models\User;
 use App\Support\Documents\Signing\DocumentSigningFlowActivityLogger;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class RetryDocumentSigningFlow
@@ -21,43 +22,48 @@ final class RetryDocumentSigningFlow
     {
         abort_unless((int) $flow->company_id === $companyId, 404);
 
-        if ($flow->status !== DocumentSigningFlowStatus::Blocked) {
-            throw ValidationException::withMessages([
-                'flow' => 'Only blocked signing flows can be retried.',
-            ]);
-        }
+        return DB::transaction(function () use ($flow, $actor, $companyId): DocumentSigningFlow {
+            /** @var DocumentSigningFlow $locked */
+            $locked = DocumentSigningFlow::query()
+                ->whereKey($flow->id)
+                ->where('company_id', $companyId)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $completed = DocumentRecipientRequest::query()
-            ->forCompany($companyId)
-            ->where('document_signing_flow_id', $flow->id)
-            ->where('signing_step_sequence', $flow->current_step_sequence)
-            ->where('status', DocumentRecipientRequestStatus::Completed)
-            ->orderByDesc('id')
-            ->first();
+            if ($locked->status !== DocumentSigningFlowStatus::Blocked) {
+                throw ValidationException::withMessages([
+                    'flow' => 'Only blocked signing flows can be retried.',
+                ]);
+            }
 
-        if ($completed === null) {
-            throw ValidationException::withMessages([
-                'flow' => 'No completed signing step is available to retry from.',
-            ]);
-        }
+            $completed = DocumentRecipientRequest::query()
+                ->forCompany($companyId)
+                ->where('document_signing_flow_id', $locked->id)
+                ->where('signing_step_sequence', $locked->current_step_sequence)
+                ->where('status', DocumentRecipientRequestStatus::Completed)
+                ->orderByDesc('id')
+                ->first();
 
-        // Temporarily mark active so advance proceeds from blocked state.
-        $flow->update([
-            'status' => DocumentSigningFlowStatus::Active,
-        ]);
+            if ($completed === null) {
+                throw ValidationException::withMessages([
+                    'flow' => 'No completed signing step is available to retry from.',
+                ]);
+            }
 
-        $advanced = $this->advance->handle($flow->fresh(), $completed, $actor);
+            // Advance from Blocked; do not temporarily force Active.
+            $advanced = $this->advance->handle($locked, $completed, $actor);
 
-        if ($advanced->status === DocumentSigningFlowStatus::Active
-            || $advanced->status === DocumentSigningFlowStatus::Completed) {
-            $this->activityLogger->log(
-                description: 'Document signing flow retry succeeded',
-                event: 'signing_flow_retry_succeeded',
-                flow: $advanced,
-                actor: $actor,
-            );
-        }
+            if ($advanced->status === DocumentSigningFlowStatus::Active
+                || $advanced->status === DocumentSigningFlowStatus::Completed) {
+                $this->activityLogger->log(
+                    description: 'Document signing flow retry succeeded',
+                    event: 'signing_flow_retry_succeeded',
+                    flow: $advanced,
+                    actor: $actor,
+                );
+            }
 
-        return $advanced;
+            return $advanced;
+        });
     }
 }
