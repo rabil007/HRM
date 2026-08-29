@@ -10,8 +10,7 @@ use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentSigningFlow;
 use App\Models\EmployeeDocument;
 use App\Models\User;
-use App\Support\Documents\RecipientRequests\Actions\CreateDocumentCompanyCountersignRequest;
-use App\Support\Documents\RecipientRequests\Actions\CreateDocumentManagerCountersignRequest;
+use App\Support\Documents\Signing\DocumentSignatureSlot;
 use App\Support\Documents\Signing\DocumentSigningFlowActivityLogger;
 use App\Support\Documents\Signing\DocumentSigningInternalSignerEligibility;
 use Illuminate\Support\Facades\DB;
@@ -20,8 +19,7 @@ use Illuminate\Validation\ValidationException;
 final class AdvanceDocumentSigningFlow
 {
     public function __construct(
-        private CreateDocumentManagerCountersignRequest $createManagerRequest,
-        private CreateDocumentCompanyCountersignRequest $createCompanyRequest,
+        private CreateDocumentSigningFlowStepRequest $createFlowStepRequest,
         private DocumentSigningInternalSignerEligibility $signerEligibility,
         private DocumentSigningFlowActivityLogger $activityLogger,
     ) {}
@@ -43,13 +41,6 @@ final class AdvanceDocumentSigningFlow
                 return $lockedFlow;
             }
 
-            // Retry path may start from Blocked; treat as Active for advancement attempt.
-            if ($lockedFlow->status === DocumentSigningFlowStatus::Blocked) {
-                // Keep blocked until next request succeeds.
-            } elseif ($lockedFlow->status !== DocumentSigningFlowStatus::Active) {
-                return $lockedFlow;
-            }
-
             $instance = DocumentInstance::query()
                 ->whereKey($lockedFlow->document_instance_id)
                 ->where('company_id', $lockedFlow->company_id)
@@ -67,7 +58,6 @@ final class AdvanceDocumentSigningFlow
             }
 
             if ((int) $completed->signing_step_sequence !== (int) $lockedFlow->current_step_sequence) {
-                // Already advanced past this step.
                 return $lockedFlow;
             }
 
@@ -112,6 +102,21 @@ final class AdvanceDocumentSigningFlow
 
             $nextSequence = (int) $nextStep['sequence'];
 
+            try {
+                $normalizedNext = $this->normalizeSnapshotStep($nextStep, $nextSequence);
+            } catch (ValidationException $exception) {
+                $message = collect($exception->errors())->flatten()->first();
+
+                return app(BlockDocumentSigningFlow::class)->handle(
+                    $lockedFlow,
+                    (int) $lockedFlow->company_id,
+                    is_string($message) && $message !== ''
+                        ? $message
+                        : 'This signing flow contains an unsupported next step.',
+                    $actor,
+                );
+            }
+
             $existingNext = DocumentRecipientRequest::query()
                 ->forCompany((int) $lockedFlow->company_id)
                 ->where('document_signing_flow_id', $lockedFlow->id)
@@ -150,78 +155,32 @@ final class AdvanceDocumentSigningFlow
                 );
             }
 
-            $role = DocumentRecipientRole::tryFrom((string) ($nextStep['recipient_role'] ?? ''));
-            $recipientUserId = isset($nextStep['recipient_user_id']) ? (int) $nextStep['recipient_user_id'] : null;
+            $recipientUserId = (int) ($normalizedNext['recipient_user_id'] ?? 0);
+            $recipientUser = User::query()->find($recipientUserId);
+
+            if (! $recipientUser instanceof User || ! $this->signerEligibility->isActionable($recipientUser, (int) $lockedFlow->company_id)) {
+                $role = DocumentRecipientRole::tryFrom((string) $normalizedNext['recipient_role']);
+                $reason = $role === DocumentRecipientRole::Manager
+                    ? 'Assigned department manager is no longer eligible to sign.'
+                    : 'Assigned company signatory is no longer eligible to sign.';
+
+                return app(BlockDocumentSigningFlow::class)->handle(
+                    $lockedFlow,
+                    (int) $lockedFlow->company_id,
+                    $reason,
+                    $actor,
+                );
+            }
 
             try {
-                if ($role === DocumentRecipientRole::Manager) {
-                    if ($recipientUserId === null) {
-                        return app(BlockDocumentSigningFlow::class)->handle(
-                            $lockedFlow,
-                            (int) $lockedFlow->company_id,
-                            'Assigned department manager is no longer eligible to sign.',
-                            $actor,
-                        );
-                    }
-
-                    $recipientUser = User::query()->find($recipientUserId);
-
-                    if (! $recipientUser instanceof User || ! $this->signerEligibility->isActionable($recipientUser, (int) $lockedFlow->company_id)) {
-                        return app(BlockDocumentSigningFlow::class)->handle(
-                            $lockedFlow,
-                            (int) $lockedFlow->company_id,
-                            'Assigned department manager is no longer eligible to sign.',
-                            $actor,
-                        );
-                    }
-
-                    $this->createManagerRequest->handle(
-                        $document,
-                        $requester,
-                        (int) $lockedFlow->company_id,
-                        assignedRecipient: $recipientUser,
-                        signingFlowId: (int) $lockedFlow->id,
-                        signingStepSequence: $nextSequence,
-                        skipOpenFlowGuard: true,
-                    );
-                } elseif ($role === DocumentRecipientRole::CompanySignatory) {
-                    if ($recipientUserId === null) {
-                        return app(BlockDocumentSigningFlow::class)->handle(
-                            $lockedFlow,
-                            (int) $lockedFlow->company_id,
-                            'Assigned company signatory is no longer eligible to sign.',
-                            $actor,
-                        );
-                    }
-
-                    $recipientUser = User::query()->find($recipientUserId);
-
-                    if (! $recipientUser instanceof User || ! $this->signerEligibility->isActionable($recipientUser, (int) $lockedFlow->company_id)) {
-                        return app(BlockDocumentSigningFlow::class)->handle(
-                            $lockedFlow,
-                            (int) $lockedFlow->company_id,
-                            'Assigned company signatory is no longer eligible to sign.',
-                            $actor,
-                        );
-                    }
-
-                    $this->createCompanyRequest->handle(
-                        $document,
-                        $recipientUser,
-                        $requester,
-                        (int) $lockedFlow->company_id,
-                        signingFlowId: (int) $lockedFlow->id,
-                        signingStepSequence: $nextSequence,
-                        skipOpenFlowGuard: true,
-                    );
-                } else {
-                    return app(BlockDocumentSigningFlow::class)->handle(
-                        $lockedFlow,
-                        (int) $lockedFlow->company_id,
-                        'This signing flow contains an unsupported next step.',
-                        $actor,
-                    );
-                }
+                $this->createFlowStepRequest->handle(
+                    $document,
+                    $requester,
+                    (int) $lockedFlow->company_id,
+                    (int) $lockedFlow->id,
+                    $normalizedNext,
+                    $completed,
+                );
             } catch (ValidationException $exception) {
                 $message = collect($exception->errors())->flatten()->first();
 
@@ -249,13 +208,68 @@ final class AdvanceDocumentSigningFlow
                 actor: $actor,
                 metadata: [
                     'step_sequence' => $nextSequence,
-                    'recipient_role' => $role?->value,
+                    'recipient_role' => $normalizedNext['recipient_role'],
                     'recipient_user_id' => $recipientUserId,
+                    'signature_slot_key' => $normalizedNext['signature_slot_key'],
+                    'signing_step_label' => $normalizedNext['step_label'] ?? null,
                 ],
             );
 
             return $lockedFlow->fresh();
         });
+    }
+
+    /**
+     * Normalize schema v1 and v2 snapshot steps for activation.
+     *
+     * @param  array<string, mixed>  $step
+     * @return array{
+     *     sequence: int,
+     *     recipient_role: string,
+     *     step_label: string,
+     *     signature_slot_key: string,
+     *     recipient_user_id: int,
+     *     recipient_name: string
+     * }
+     */
+    private function normalizeSnapshotStep(array $step, int $sequence): array
+    {
+        $role = DocumentRecipientRole::tryFrom((string) ($step['recipient_role'] ?? ''));
+
+        if ($role === null || ! $role->isInternalSigner()) {
+            throw ValidationException::withMessages([
+                'flow' => 'This signing flow contains an unsupported next step.',
+            ]);
+        }
+
+        $occurrence = match ($role) {
+            DocumentRecipientRole::Manager => (int) ($step['management_chain_position']
+                ?? DocumentSignatureSlot::occurrenceFor(
+                    (string) ($step['signature_slot_key'] ?? DocumentSignatureSlot::defaultForRole($role)),
+                )),
+            DocumentRecipientRole::CompanySignatory => isset($step['signature_slot_key'])
+                ? DocumentSignatureSlot::occurrenceFor((string) $step['signature_slot_key'])
+                : 1,
+            default => 1,
+        };
+
+        $slotKey = (string) ($step['signature_slot_key']
+            ?? DocumentSignatureSlot::forRoleOccurrence($role, max(1, $occurrence)));
+
+        $label = trim((string) ($step['step_label'] ?? ''));
+
+        if ($label === '') {
+            $label = DocumentSignatureSlot::defaultLabel($role, DocumentSignatureSlot::occurrenceFor($slotKey));
+        }
+
+        return [
+            'sequence' => $sequence,
+            'recipient_role' => $role->value,
+            'step_label' => $label,
+            'signature_slot_key' => $slotKey,
+            'recipient_user_id' => (int) ($step['recipient_user_id'] ?? 0),
+            'recipient_name' => (string) ($step['recipient_name'] ?? ''),
+        ];
     }
 
     /**

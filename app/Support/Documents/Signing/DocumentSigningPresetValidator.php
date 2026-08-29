@@ -11,12 +11,14 @@ use Spatie\Permission\PermissionRegistrar;
 
 final class DocumentSigningPresetValidator
 {
+    public const MAX_STEPS = 8;
+
     public function __construct(
         private ResolveCompanyAccess $companyAccess = new ResolveCompanyAccess,
     ) {}
 
     /**
-     * @param  list<array{recipient_role: string, target_type?: string|null, target_user_id?: int|null}>  $steps
+     * @param  list<array{recipient_role: string, target_type?: string|null, target_user_id?: int|null, step_label?: string|null}>  $steps
      */
     public function validateSteps(int $companyId, array $steps): void
     {
@@ -26,17 +28,18 @@ final class DocumentSigningPresetValidator
             ]);
         }
 
-        if (count($steps) > 3) {
+        if (count($steps) > self::MAX_STEPS) {
             throw ValidationException::withMessages([
-                'steps' => 'A signing preset may include at most three steps.',
+                'steps' => 'A signing preset may include at most '.self::MAX_STEPS.' steps.',
             ]);
         }
 
         $normalized = [];
-        $seenRoles = [];
+        $seenSpecificUserIds = [];
+        $seenSubject = false;
+        $seenCompany = false;
 
         foreach (array_values($steps) as $index => $step) {
-            $sequence = $index + 1;
             $roleValue = (string) ($step['recipient_role'] ?? '');
             $role = DocumentRecipientRole::tryFrom($roleValue);
 
@@ -50,13 +53,31 @@ final class DocumentSigningPresetValidator
                 ]);
             }
 
-            if (isset($seenRoles[$role->value])) {
+            if ($role === DocumentRecipientRole::Subject) {
+                if ($seenSubject) {
+                    throw ValidationException::withMessages([
+                        "steps.{$index}.recipient_role" => 'The subject employee may appear only once.',
+                    ]);
+                }
+
+                if ($index !== 0) {
+                    throw ValidationException::withMessages([
+                        "steps.{$index}.recipient_role" => 'The first signing step must be the subject employee.',
+                    ]);
+                }
+
+                $seenSubject = true;
+            }
+
+            if ($role === DocumentRecipientRole::Manager && $seenCompany) {
                 throw ValidationException::withMessages([
-                    "steps.{$index}.recipient_role" => 'Each signing role may appear only once.',
+                    "steps.{$index}.recipient_role" => 'Management signers must appear before company signatories.',
                 ]);
             }
 
-            $seenRoles[$role->value] = true;
+            if ($role === DocumentRecipientRole::CompanySignatory) {
+                $seenCompany = true;
+            }
 
             $expectedTarget = match ($role) {
                 DocumentRecipientRole::Subject => DocumentSigningTargetType::SubjectEmployee,
@@ -75,6 +96,13 @@ final class DocumentSigningPresetValidator
             }
 
             $targetUserId = isset($step['target_user_id']) ? (int) $step['target_user_id'] : null;
+            $stepLabel = isset($step['step_label']) ? trim((string) $step['step_label']) : '';
+
+            if (mb_strlen($stepLabel) > 120) {
+                throw ValidationException::withMessages([
+                    "steps.{$index}.step_label" => 'Step label may not be greater than 120 characters.',
+                ]);
+            }
 
             if ($role === DocumentRecipientRole::CompanySignatory) {
                 if ($targetUserId === null || $targetUserId < 1) {
@@ -83,7 +111,14 @@ final class DocumentSigningPresetValidator
                     ]);
                 }
 
+                if (isset($seenSpecificUserIds[$targetUserId])) {
+                    throw ValidationException::withMessages([
+                        "steps.{$index}.target_user_id" => 'The same company signatory cannot appear twice in one preset.',
+                    ]);
+                }
+
                 $this->assertEligibleCompanySignatory($companyId, $targetUserId, $index);
+                $seenSpecificUserIds[$targetUserId] = true;
             } elseif ($targetUserId !== null) {
                 throw ValidationException::withMessages([
                     "steps.{$index}.target_user_id" => 'This signing role does not accept a specific user.',
@@ -91,7 +126,6 @@ final class DocumentSigningPresetValidator
             }
 
             $normalized[] = [
-                'sequence' => $sequence,
                 'role' => $role,
             ];
         }
@@ -99,20 +133,6 @@ final class DocumentSigningPresetValidator
         if (($normalized[0]['role'] ?? null) !== DocumentRecipientRole::Subject) {
             throw ValidationException::withMessages([
                 'steps.0.recipient_role' => 'The first signing step must be the subject employee.',
-            ]);
-        }
-
-        $roleOrder = array_map(fn (array $step): string => $step['role']->value, $normalized);
-        $validOrders = [
-            ['subject'],
-            ['subject', 'company_signatory'],
-            ['subject', 'manager'],
-            ['subject', 'manager', 'company_signatory'],
-        ];
-
-        if (! in_array($roleOrder, $validOrders, true)) {
-            throw ValidationException::withMessages([
-                'steps' => 'Invalid signing step order. Supported chains are Subject, Subject→Company, Subject→Manager, or Subject→Manager→Company.',
             ]);
         }
     }

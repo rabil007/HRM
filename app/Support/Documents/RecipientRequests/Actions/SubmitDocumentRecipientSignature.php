@@ -22,6 +22,7 @@ use App\Support\Documents\RecipientRequests\StampSignedDocumentInstancePdf;
 use App\Support\Documents\RecipientRequests\SyncSignedDocumentInstanceToLibrary;
 use App\Support\Documents\Signing\Actions\AdvanceDocumentSigningFlow;
 use App\Support\Documents\Signing\Actions\BlockDocumentSigningFlow;
+use App\Support\Documents\Signing\DocumentSignatureSlot;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -158,7 +159,15 @@ final class SubmitDocumentRecipientSignature
                 $this->sourceGuard->assertExactSource($locked, $sourceVersion);
 
                 $placementRole = $locked->recipient_role ?? DocumentRecipientRole::Subject;
-                $placement = $this->resolvePlacement->forInstanceVersion($instance, $sourceVersion, $placementRole);
+                $slotKey = filled($locked->signature_slot_key)
+                    ? (string) $locked->signature_slot_key
+                    : DocumentSignatureSlot::defaultForRole($placementRole);
+                $placement = $this->resolvePlacement->forInstanceVersionSlot(
+                    $instance,
+                    $sourceVersion,
+                    $placementRole,
+                    $slotKey,
+                );
 
                 $signaturePath = DocumentRecipientSignatureStorage::storeFromDataUri(
                     $data['signature_data'],

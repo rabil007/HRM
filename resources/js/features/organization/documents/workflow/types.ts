@@ -261,6 +261,8 @@ export type RecipientRequestListItem = {
     recipient_name: string;
     signing_flow_id?: number | null;
     signing_step_sequence?: number | null;
+    signing_step_label?: string | null;
+    signature_slot_key?: string | null;
     signing_preset_name?: string | null;
     requested_at: string | null;
     expires_at: string | null;

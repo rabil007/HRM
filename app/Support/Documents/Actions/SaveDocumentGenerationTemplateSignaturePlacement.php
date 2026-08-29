@@ -73,22 +73,30 @@ final class SaveDocumentGenerationTemplateSignaturePlacement
             }
 
             $normalizedPlacements = array_map(
-                fn (array $placement): array => [
-                    'id' => $placement['id'],
-                    'type' => $placement['type'],
-                    'role' => $placement['role'],
-                    'page' => $placement['page'],
-                    'x' => round($placement['x'], 6),
-                    'y' => round($placement['y'], 6),
-                    'width' => round($placement['width'], 6),
-                    'height' => round($placement['height'], 6),
-                    'required' => $placement['required'],
-                ],
+                function (array $placement): array {
+                    $normalized = [
+                        'id' => $placement['id'],
+                        'type' => $placement['type'],
+                        'role' => $placement['role'],
+                        'page' => $placement['page'],
+                        'x' => round($placement['x'], 6),
+                        'y' => round($placement['y'], 6),
+                        'width' => round($placement['width'], 6),
+                        'height' => round($placement['height'], 6),
+                        'required' => $placement['required'],
+                    ];
+
+                    if (isset($placement['slot_key'])) {
+                        $normalized['slot_key'] = $placement['slot_key'];
+                    }
+
+                    return $normalized;
+                },
                 $validatedConfig['placements'],
             );
 
             $lockedVersion->signature_placement_config = [
-                'schema_version' => 1,
+                'schema_version' => $validatedConfig['schema_version'],
                 'placements' => $normalizedPlacements,
             ];
             $lockedVersion->updated_by = $userId;

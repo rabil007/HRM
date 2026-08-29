@@ -8,6 +8,7 @@ use App\Enums\DocumentSigningTargetType;
 use App\Models\DocumentSigningPreset;
 use App\Models\DocumentSigningPresetStep;
 use App\Models\User;
+use App\Support\Documents\Signing\DocumentSignatureSlot;
 use App\Support\Documents\Signing\DocumentSigningPresetActivityLogger;
 use App\Support\Documents\Signing\DocumentSigningPresetValidator;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,7 @@ final class StoreDocumentSigningPreset
     ) {}
 
     /**
-     * @param  list<array{recipient_role: string, target_type?: string|null, target_user_id?: int|null}>  $steps
+     * @param  list<array{recipient_role: string, target_type?: string|null, target_user_id?: int|null, step_label?: string|null}>  $steps
      */
     public function handle(
         User $actor,
@@ -55,13 +56,16 @@ final class StoreDocumentSigningPreset
     }
 
     /**
-     * @param  list<array{recipient_role: string, target_type?: string|null, target_user_id?: int|null}>  $steps
+     * @param  list<array{recipient_role: string, target_type?: string|null, target_user_id?: int|null, step_label?: string|null}>  $steps
      */
     public function syncSteps(DocumentSigningPreset $preset, int $companyId, array $steps): void
     {
         DocumentSigningPresetStep::query()
             ->where('document_signing_preset_id', $preset->id)
             ->delete();
+
+        $managerOccurrence = 0;
+        $companyOccurrence = 0;
 
         foreach (array_values($steps) as $index => $stepInput) {
             $role = DocumentRecipientRole::from((string) $stepInput['recipient_role']);
@@ -72,6 +76,15 @@ final class StoreDocumentSigningPreset
                 default => DocumentSigningTargetType::SubjectEmployee,
             };
 
+            $occurrence = match ($role) {
+                DocumentRecipientRole::Subject => 1,
+                DocumentRecipientRole::Manager => ++$managerOccurrence,
+                DocumentRecipientRole::CompanySignatory => ++$companyOccurrence,
+                default => 1,
+            };
+
+            $label = isset($stepInput['step_label']) ? trim((string) $stepInput['step_label']) : '';
+
             DocumentSigningPresetStep::query()->create([
                 'company_id' => $companyId,
                 'document_signing_preset_id' => $preset->id,
@@ -81,6 +94,9 @@ final class StoreDocumentSigningPreset
                 'target_user_id' => $role === DocumentRecipientRole::CompanySignatory
                     ? (int) $stepInput['target_user_id']
                     : null,
+                'step_label' => $label !== ''
+                    ? $label
+                    : DocumentSignatureSlot::defaultLabel($role, $occurrence),
             ]);
         }
     }

@@ -16,6 +16,7 @@ class DocumentSigningPresetStep extends Model
         'recipient_role',
         'target_type',
         'target_user_id',
+        'step_label',
     ];
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Support\Documents\Signing;
 
 use App\Enums\DocumentRecipientRequestStatus;
+use App\Enums\DocumentRecipientRole;
 use App\Enums\DocumentSigningFlowStatus;
 use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentSigningFlow;
@@ -24,13 +25,25 @@ final class DocumentSigningFlowPresenter
             fn (DocumentRecipientRequest $request): int => (int) $request->signing_step_sequence,
         );
 
-        $steps = collect($flow->routing_definition_snapshot['steps'] ?? [])
+        $snapshotSteps = collect($flow->routing_definition_snapshot['steps'] ?? [])
             ->sortBy('sequence')
-            ->values()
-            ->map(function (array $step) use ($flow, $requestsBySequence): array {
+            ->values();
+        $totalSteps = $snapshotSteps->count();
+
+        $steps = $snapshotSteps
+            ->map(function (array $step) use ($flow, $requestsBySequence, $totalSteps): array {
                 $sequence = (int) $step['sequence'];
                 /** @var DocumentRecipientRequest|null $request */
                 $request = $requestsBySequence->get($sequence);
+                $role = DocumentRecipientRole::tryFrom((string) ($step['recipient_role'] ?? ''));
+                $occurrence = $this->occurrenceFromStep($step, $role);
+                $slotKey = (string) ($step['signature_slot_key']
+                    ?? ($role !== null ? DocumentSignatureSlot::forRoleOccurrence($role, $occurrence) : ''));
+                $stepLabel = trim((string) ($step['step_label'] ?? ''));
+
+                if ($stepLabel === '' && $role !== null) {
+                    $stepLabel = DocumentSignatureSlot::defaultLabel($role, $occurrence);
+                }
 
                 $status = 'pending';
                 if ($request !== null) {
@@ -48,8 +61,18 @@ final class DocumentSigningFlowPresenter
 
                 return [
                     'sequence' => $sequence,
+                    'total_steps' => $totalSteps,
                     'recipient_role' => $step['recipient_role'] ?? null,
-                    'recipient_name' => $step['recipient_name'] ?? null,
+                    'recipient_role_label' => match ($step['recipient_role'] ?? null) {
+                        'subject' => 'Subject employee',
+                        'manager' => 'Department manager',
+                        'company_signatory' => 'Company signatory',
+                        default => $step['recipient_role'] ?? null,
+                    },
+                    'step_label' => $stepLabel,
+                    'signature_slot_key' => $slotKey !== '' ? $slotKey : null,
+                    'recipient_name' => $request?->recipient_name_snapshot
+                        ?? ($step['recipient_name'] ?? null),
                     'status' => $status,
                     'is_current' => (int) $flow->current_step_sequence === $sequence,
                     'request_id' => $request?->id,
@@ -71,8 +94,6 @@ final class DocumentSigningFlowPresenter
         if ($flow->status === DocumentSigningFlowStatus::Blocked) {
             $currentStepRequest = $requestsBySequence->get((int) $flow->current_step_sequence);
 
-            // Retryable only when the current step completed and next-step activation failed.
-            // Superseded/Expired current steps require cancel (no same-step reissue in 6B-2B1).
             $canRetry = $currentStepRequest instanceof DocumentRecipientRequest
                 && $currentStepRequest->status === DocumentRecipientRequestStatus::Completed;
         }
@@ -96,5 +117,25 @@ final class DocumentSigningFlowPresenter
             'can_retry' => $canRetry,
             'can_cancel' => $flow->status->isOpen(),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $step
+     */
+    private function occurrenceFromStep(array $step, ?DocumentRecipientRole $role): int
+    {
+        if ($role === null) {
+            return 1;
+        }
+
+        if (isset($step['signature_slot_key']) && DocumentSignatureSlot::isValid((string) $step['signature_slot_key'])) {
+            return DocumentSignatureSlot::occurrenceFor((string) $step['signature_slot_key']);
+        }
+
+        if ($role === DocumentRecipientRole::Manager && isset($step['management_chain_position'])) {
+            return max(1, (int) $step['management_chain_position']);
+        }
+
+        return 1;
     }
 }

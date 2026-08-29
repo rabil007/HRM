@@ -28,10 +28,11 @@ class StoreDocumentSigningPresetRequest extends FormRequest
                     ->where('company_id', $companyId),
             ],
             'description' => ['nullable', 'string', 'max:2000'],
-            'steps' => ['required', 'array', 'min:1', 'max:3'],
+            'steps' => ['required', 'array', 'min:1', 'max:8'],
             'steps.*.recipient_role' => ['required', 'in:subject,manager,company_signatory'],
             'steps.*.target_type' => ['nullable', 'in:subject_employee,department_manager,specific_user'],
             'steps.*.target_user_id' => ['nullable', 'integer'],
+            'steps.*.step_label' => ['nullable', 'string', 'max:120'],
         ];
     }
 }

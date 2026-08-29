@@ -1,4 +1,5 @@
-import { router, useForm } from '@inertiajs/react';
+import { useForm } from '@inertiajs/react';
+import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,6 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import type {
     SigningPresetFormOptions,
@@ -27,35 +27,112 @@ type Props = {
     formOptions: SigningPresetFormOptions;
 };
 
+type RecipientRole = 'subject' | 'manager' | 'company_signatory';
+
+type FormStep = {
+    key: string;
+    recipient_role: RecipientRole;
+    step_label: string;
+    target_user_id: string;
+};
+
 type FormData = {
     name: string;
     description: string;
-    require_manager: boolean;
-    require_company_signatory: boolean;
-    company_signatory_user_id: string;
+    steps: FormStep[];
 };
 
-function buildSteps(data: FormData): Array<{
-    recipient_role: string;
+type SubmitStep = {
+    recipient_role: RecipientRole;
+    step_label?: string;
     target_user_id?: number;
-}> {
-    const steps: Array<{
-        recipient_role: string;
-        target_user_id?: number;
-    }> = [{ recipient_role: 'subject' }];
+};
 
-    if (data.require_manager) {
-        steps.push({ recipient_role: 'manager' });
+const MAX_STEPS = 8;
+
+function newStepKey(): string {
+    return `step-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function defaultSubjectStep(): FormStep {
+    return {
+        key: newStepKey(),
+        recipient_role: 'subject',
+        step_label: '',
+        target_user_id: '',
+    };
+}
+
+function roleFallbackLabel(role: RecipientRole, occurrence: number): string {
+    if (role === 'subject') {
+        return 'Employee';
     }
 
-    if (data.require_company_signatory) {
-        steps.push({
-            recipient_role: 'company_signatory',
-            target_user_id: Number(data.company_signatory_user_id),
-        });
+    if (role === 'manager') {
+        return occurrence === 1
+            ? 'Department Manager'
+            : `Management level ${occurrence}`;
     }
 
-    return steps;
+    return occurrence === 1
+        ? 'Company Signatory'
+        : `Company Signatory ${occurrence}`;
+}
+
+function stepPreviewLabel(step: FormStep, occurrence: number): string {
+    const trimmed = step.step_label.trim();
+
+    return trimmed !== ''
+        ? trimmed
+        : roleFallbackLabel(step.recipient_role, occurrence);
+}
+
+function stepsFromPreset(preset: SigningPresetSummary | null): FormStep[] {
+    if (!preset || preset.steps.length === 0) {
+        return [defaultSubjectStep()];
+    }
+
+    const mapped = preset.steps.map((step) => ({
+        key: newStepKey(),
+        recipient_role: step.recipient_role,
+        step_label: step.step_label ?? '',
+        target_user_id: step.target_user_id ? String(step.target_user_id) : '',
+    }));
+
+    if (mapped[0]?.recipient_role !== 'subject') {
+        return [defaultSubjectStep(), ...mapped];
+    }
+
+    return mapped;
+}
+
+function toSubmitSteps(steps: FormStep[]): SubmitStep[] {
+    return steps.map((step) => {
+        const payload: SubmitStep = {
+            recipient_role: step.recipient_role,
+        };
+        const label = step.step_label.trim();
+
+        if (label !== '') {
+            payload.step_label = label;
+        }
+
+        if (
+            step.recipient_role === 'company_signatory' &&
+            step.target_user_id !== ''
+        ) {
+            payload.target_user_id = Number(step.target_user_id);
+        }
+
+        return payload;
+    });
+}
+
+function fieldError(
+    errors: Record<string, string>,
+    key: string,
+): string | undefined {
+    return errors[key];
 }
 
 export function SigningPresetFormDialog({
@@ -67,9 +144,7 @@ export function SigningPresetFormDialog({
     const form = useForm<FormData>({
         name: '',
         description: '',
-        require_manager: false,
-        require_company_signatory: false,
-        company_signatory_user_id: '',
+        steps: [defaultSubjectStep()],
     });
 
     useEffect(() => {
@@ -77,73 +152,151 @@ export function SigningPresetFormDialog({
             return;
         }
 
-        const roles = new Set(preset?.steps.map((step) => step.recipient_role));
-        const companyStep = preset?.steps.find(
-            (step) => step.recipient_role === 'company_signatory',
-        );
-
         form.setData({
             name: preset?.name ?? '',
             description: preset?.description ?? '',
-            require_manager: roles.has('manager'),
-            require_company_signatory: roles.has('company_signatory'),
-            company_signatory_user_id: companyStep?.target_user_id
-                ? String(companyStep.target_user_id)
-                : '',
+            steps: stepsFromPreset(preset),
         });
         form.clearErrors();
         // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when dialog opens/preset changes
     }, [open, preset?.id]);
 
+    const companyCount = form.data.steps.filter(
+        (step) => step.recipient_role === 'company_signatory',
+    ).length;
+    const atMaxSteps = form.data.steps.length >= MAX_STEPS;
+    const canAddManager = !atMaxSteps && companyCount === 0;
+    const canAddCompany = !atMaxSteps;
+
     const sequencePreview = useMemo(() => {
-        const parts = ['Employee'];
+        let managerOccurrence = 0;
+        let companyOccurrence = 0;
 
-        if (form.data.require_manager) {
-            parts.push('Department Manager');
+        return form.data.steps
+            .map((step) => {
+                const occurrence =
+                    step.recipient_role === 'manager'
+                        ? ++managerOccurrence
+                        : step.recipient_role === 'company_signatory'
+                          ? ++companyOccurrence
+                          : 1;
+
+                return stepPreviewLabel(step, occurrence);
+            })
+            .join(' → ');
+    }, [form.data.steps]);
+
+    function updateStep(
+        index: number,
+        patch: Partial<Pick<FormStep, 'step_label' | 'target_user_id'>>,
+    ): void {
+        form.setData(
+            'steps',
+            form.data.steps.map((step, stepIndex) =>
+                stepIndex === index ? { ...step, ...patch } : step,
+            ),
+        );
+    }
+
+    function addManagerStep(): void {
+        if (!canAddManager) {
+            return;
         }
 
-        if (form.data.require_company_signatory) {
-            parts.push('Company Signatory');
+        const subject = form.data.steps[0] ?? defaultSubjectStep();
+        const managers = form.data.steps.filter(
+            (step) => step.recipient_role === 'manager',
+        );
+        const companies = form.data.steps.filter(
+            (step) => step.recipient_role === 'company_signatory',
+        );
+
+        form.setData('steps', [
+            subject,
+            ...managers,
+            {
+                key: newStepKey(),
+                recipient_role: 'manager',
+                step_label: '',
+                target_user_id: '',
+            },
+            ...companies,
+        ]);
+    }
+
+    function addCompanyStep(): void {
+        if (!canAddCompany) {
+            return;
         }
 
-        return parts.join(' → ');
-    }, [form.data.require_manager, form.data.require_company_signatory]);
+        form.setData('steps', [
+            ...form.data.steps,
+            {
+                key: newStepKey(),
+                recipient_role: 'company_signatory',
+                step_label: '',
+                target_user_id: '',
+            },
+        ]);
+    }
 
-    function submit() {
+    function removeStep(index: number): void {
+        const step = form.data.steps[index];
+
+        if (!step || step.recipient_role === 'subject') {
+            return;
+        }
+
+        form.setData(
+            'steps',
+            form.data.steps.filter((_, stepIndex) => stepIndex !== index),
+        );
+    }
+
+    function submit(): void {
         const payload = {
             name: form.data.name,
             description: form.data.description || null,
-            steps: buildSteps(form.data),
+            steps: toSubmitSteps(form.data.steps),
         };
 
+        form.transform(() => payload);
+
         if (preset) {
-            router.put(update.url(preset.id), payload, {
+            form.put(update.url(preset.id), {
                 preserveScroll: true,
                 onSuccess: () => onOpenChange(false),
+                onFinish: () => form.transform((data) => data),
             });
 
             return;
         }
 
-        router.post(store.url(), payload, {
+        form.post(store.url(), {
             preserveScroll: true,
             onSuccess: () => onOpenChange(false),
+            onFinish: () => form.transform((data) => data),
         });
     }
 
+    const errors = form.errors as Record<string, string>;
+    let managerOccurrence = 0;
+    let companyOccurrence = 0;
+
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent className="sm:max-w-lg">
+            <SheetContent className="flex w-full flex-col sm:max-w-lg">
                 <SheetHeader>
                     <SheetTitle>
                         {preset ? 'Edit signing preset' : 'New signing preset'}
                     </SheetTitle>
                     <SheetDescription>
-                        Configure the sequential signing roles for this company.
+                        Build a sequential signing chain. Employee always signs
+                        first, then management, then company signatories.
                     </SheetDescription>
                 </SheetHeader>
 
-                <div className="mt-6 space-y-5">
+                <div className="mt-6 flex-1 space-y-5 overflow-y-auto pb-4">
                     <div className="space-y-2">
                         <Label htmlFor="signing-preset-name">Name</Label>
                         <Input
@@ -173,74 +326,251 @@ export function SigningPresetFormDialog({
                         />
                     </div>
 
-                    <div className="rounded-lg border border-border/70 p-4 text-sm">
-                        Employee Signature is always required as step 1.
-                    </div>
-
-                    <div className="flex items-center justify-between gap-4">
-                        <div>
-                            <p className="font-medium">
-                                Require Department Manager
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                                Resolved from the employee management hierarchy
-                                at flow start.
-                            </p>
-                        </div>
-                        <Switch
-                            checked={form.data.require_manager}
-                            onCheckedChange={(checked) =>
-                                form.setData('require_manager', checked)
-                            }
-                        />
-                    </div>
-
                     <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-4">
-                            <div>
-                                <p className="font-medium">
-                                    Require Company Signatory
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                    Select an eligible company user.
-                                </p>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <Label>Signing steps</Label>
+                            <div className="flex flex-wrap gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!canAddManager}
+                                    onClick={addManagerStep}
+                                >
+                                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                    Add management signer
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!canAddCompany}
+                                    onClick={addCompanyStep}
+                                >
+                                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                    Add company signatory
+                                </Button>
                             </div>
-                            <Switch
-                                checked={form.data.require_company_signatory}
-                                onCheckedChange={(checked) =>
-                                    form.setData(
-                                        'require_company_signatory',
-                                        checked,
-                                    )
-                                }
-                            />
                         </div>
-                        {form.data.require_company_signatory ? (
-                            <AppSelect
-                                value={
-                                    form.data.company_signatory_user_id ||
-                                    '__none__'
+
+                        <p className="text-xs text-muted-foreground">
+                            Up to {MAX_STEPS} steps. Management signers must
+                            come before company signatories (
+                            {form.data.steps.length}/{MAX_STEPS}).
+                        </p>
+
+                        <div className="space-y-3">
+                            {form.data.steps.map((step, index) => {
+                                const occurrence =
+                                    step.recipient_role === 'manager'
+                                        ? ++managerOccurrence
+                                        : step.recipient_role ===
+                                            'company_signatory'
+                                          ? ++companyOccurrence
+                                          : 1;
+                                const stepError = fieldError(
+                                    errors,
+                                    `steps.${index}`,
+                                );
+                                const roleError = fieldError(
+                                    errors,
+                                    `steps.${index}.recipient_role`,
+                                );
+                                const labelError = fieldError(
+                                    errors,
+                                    `steps.${index}.step_label`,
+                                );
+                                const userError = fieldError(
+                                    errors,
+                                    `steps.${index}.target_user_id`,
+                                );
+
+                                if (step.recipient_role === 'subject') {
+                                    return (
+                                        <div
+                                            key={step.key}
+                                            className="rounded-lg border border-border/70 bg-muted/20 p-4"
+                                        >
+                                            <p className="font-medium">
+                                                Step 1 — Employee (subject)
+                                            </p>
+                                            <p className="mt-1 text-sm text-muted-foreground">
+                                                Always required as the first
+                                                signer.
+                                            </p>
+                                        </div>
+                                    );
                                 }
-                                onValueChange={(value) =>
-                                    form.setData(
-                                        'company_signatory_user_id',
-                                        value === '__none__' ? '' : value,
-                                    )
+
+                                if (step.recipient_role === 'manager') {
+                                    return (
+                                        <div
+                                            key={step.key}
+                                            className="space-y-3 rounded-lg border border-border/70 p-4"
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <p className="font-medium">
+                                                        Step {index + 1} —
+                                                        Management level{' '}
+                                                        {occurrence}
+                                                    </p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Resolved from the
+                                                        employee management
+                                                        hierarchy at flow start.
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() =>
+                                                        removeStep(index)
+                                                    }
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label
+                                                    htmlFor={`signing-step-label-${step.key}`}
+                                                >
+                                                    Step label (optional)
+                                                </Label>
+                                                <Input
+                                                    id={`signing-step-label-${step.key}`}
+                                                    value={step.step_label}
+                                                    placeholder={roleFallbackLabel(
+                                                        'manager',
+                                                        occurrence,
+                                                    )}
+                                                    onChange={(event) =>
+                                                        updateStep(index, {
+                                                            step_label:
+                                                                event.target
+                                                                    .value,
+                                                        })
+                                                    }
+                                                />
+                                                {labelError ? (
+                                                    <p className="text-sm text-destructive">
+                                                        {labelError}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                            {stepError || roleError ? (
+                                                <p className="text-sm text-destructive">
+                                                    {stepError ?? roleError}
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                    );
                                 }
-                            >
-                                <AppSelectItem value="__none__">
-                                    Select signatory
-                                </AppSelectItem>
-                                {formOptions.users.map((user) => (
-                                    <AppSelectItem
-                                        key={user.id}
-                                        value={String(user.id)}
+
+                                return (
+                                    <div
+                                        key={step.key}
+                                        className="space-y-3 rounded-lg border border-border/70 p-4"
                                     >
-                                        {user.name}
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
-                        ) : null}
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                                <p className="font-medium">
+                                                    Step {index + 1} — Company
+                                                    signatory
+                                                    {occurrence > 1
+                                                        ? ` ${occurrence}`
+                                                        : ''}
+                                                </p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Select an eligible company
+                                                    user.
+                                                </p>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() =>
+                                                    removeStep(index)
+                                                }
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label
+                                                htmlFor={`signing-step-label-${step.key}`}
+                                            >
+                                                Step label (optional)
+                                            </Label>
+                                            <Input
+                                                id={`signing-step-label-${step.key}`}
+                                                value={step.step_label}
+                                                placeholder={roleFallbackLabel(
+                                                    'company_signatory',
+                                                    occurrence,
+                                                )}
+                                                onChange={(event) =>
+                                                    updateStep(index, {
+                                                        step_label:
+                                                            event.target.value,
+                                                    })
+                                                }
+                                            />
+                                            {labelError ? (
+                                                <p className="text-sm text-destructive">
+                                                    {labelError}
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Signatory user</Label>
+                                            <AppSelect
+                                                value={
+                                                    step.target_user_id ||
+                                                    '__none__'
+                                                }
+                                                onValueChange={(value) =>
+                                                    updateStep(index, {
+                                                        target_user_id:
+                                                            value === '__none__'
+                                                                ? ''
+                                                                : value,
+                                                    })
+                                                }
+                                            >
+                                                <AppSelectItem value="__none__">
+                                                    Select signatory
+                                                </AppSelectItem>
+                                                {formOptions.users.map(
+                                                    (user) => (
+                                                        <AppSelectItem
+                                                            key={user.id}
+                                                            value={String(
+                                                                user.id,
+                                                            )}
+                                                        >
+                                                            {user.name}
+                                                        </AppSelectItem>
+                                                    ),
+                                                )}
+                                            </AppSelect>
+                                            {userError ? (
+                                                <p className="text-sm text-destructive">
+                                                    {userError}
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                        {stepError || roleError ? (
+                                            <p className="text-sm text-destructive">
+                                                {stepError ?? roleError}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
 
                     <div className="rounded-lg bg-muted/40 p-3 text-sm">
@@ -250,15 +580,14 @@ export function SigningPresetFormDialog({
                         </p>
                     </div>
 
-                    {typeof (form.errors as Record<string, string>).steps ===
-                    'string' ? (
+                    {errors.steps ? (
                         <p className="text-sm text-destructive">
-                            {(form.errors as Record<string, string>).steps}
+                            {errors.steps}
                         </p>
                     ) : null}
                 </div>
 
-                <SheetFooter className="mt-8">
+                <SheetFooter className="mt-4">
                     <Button
                         type="button"
                         variant="outline"
@@ -266,7 +595,11 @@ export function SigningPresetFormDialog({
                     >
                         Cancel
                     </Button>
-                    <Button type="button" onClick={submit}>
+                    <Button
+                        type="button"
+                        disabled={form.processing}
+                        onClick={submit}
+                    >
                         {preset ? 'Save changes' : 'Create preset'}
                     </Button>
                 </SheetFooter>
