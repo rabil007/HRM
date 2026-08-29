@@ -2,9 +2,11 @@
 
 namespace App\Support\Documents\RecipientRequests\Actions;
 
+use App\Enums\DocumentRecipientRequestDeliveryChannel;
 use App\Enums\DocumentRecipientRequestEventType;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Models\DocumentRecipientRequest;
+use App\Models\DocumentRecipientRequestDelivery;
 use App\Models\User;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestAccess;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
@@ -58,10 +60,23 @@ final class RegenerateDocumentRecipientRequestToken
                 'token_hash' => DocumentRecipientRequestToken::hash($rawToken),
             ]);
 
+            $revokedCount = DocumentRecipientRequestDelivery::query()
+                ->where('company_id', $companyId)
+                ->where('document_recipient_request_id', $locked->id)
+                ->where('channel', DocumentRecipientRequestDeliveryChannel::Email)
+                ->whereNotNull('access_token_hash')
+                ->whereNull('revoked_at')
+                ->update([
+                    'revoked_at' => now(),
+                ]);
+
             $this->eventRecorder->record(
                 $locked,
                 DocumentRecipientRequestEventType::TokenRotated,
                 $actor,
+                metadata: [
+                    'email_deliveries_revoked' => $revokedCount,
+                ],
             );
 
             activity()
@@ -71,6 +86,7 @@ final class RegenerateDocumentRecipientRequestToken
                 ->withProperties([
                     'action' => 'recipient_token_rotated',
                     'document_recipient_request_id' => $locked->id,
+                    'email_deliveries_revoked' => $revokedCount,
                 ])
                 ->log('Recipient request link regenerated');
 

@@ -431,6 +431,7 @@ export default function DocumentShow({
                                 flow={signing_flow.active_flow}
                                 canCancel={recipient_request.can.cancel}
                                 canRetry={recipient_request.can.create}
+                                canResendEmail={recipient_request.can.create}
                             />
                         ) : null}
 

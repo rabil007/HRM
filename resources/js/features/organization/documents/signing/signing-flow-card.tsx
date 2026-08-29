@@ -1,16 +1,19 @@
 import { router } from '@inertiajs/react';
+import ResendDocumentRecipientRequestEmailController from '@/actions/App/Http/Controllers/Organization/Documents/ResendDocumentRecipientRequestEmailController';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type {
     SigningFlowStepSummary,
     SigningFlowSummary,
 } from '@/features/organization/documents/signing/types';
+import { formatDisplayDate } from '@/lib/format-date';
 import { cancel, retry } from '@/routes/organization/documents/signing-flows';
 
 type Props = {
     flow: SigningFlowSummary;
     canCancel: boolean;
     canRetry: boolean;
+    canResendEmail?: boolean;
 };
 
 function stepTitle(step: SigningFlowStepSummary): string {
@@ -22,7 +25,12 @@ function stepTitle(step: SigningFlowStepSummary): string {
     );
 }
 
-export function SigningFlowCard({ flow, canCancel, canRetry }: Props) {
+export function SigningFlowCard({
+    flow,
+    canCancel,
+    canRetry,
+    canResendEmail = false,
+}: Props) {
     return (
         <Card className="border-border/80 dark:border-white/10">
             <CardHeader className="pb-3">
@@ -72,14 +80,51 @@ export function SigningFlowCard({ flow, canCancel, canRetry }: Props) {
                                     {step.recipient_name}
                                 </p>
                             ) : null}
-                            {step.respond_url ? (
-                                <a
-                                    href={step.respond_url}
-                                    className="mt-1 inline-block text-xs text-primary underline"
-                                >
-                                    Open respond page
-                                </a>
+                            {step.email_delivery ? (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Email: {step.email_delivery.status_label}
+                                    {step.email_delivery.last_sent_at
+                                        ? ` · Last sent ${formatDisplayDate(step.email_delivery.last_sent_at)}`
+                                        : ''}
+                                </p>
                             ) : null}
+                            <div className="mt-1 flex flex-wrap items-center gap-3">
+                                {step.respond_url ? (
+                                    <a
+                                        href={step.respond_url}
+                                        className="inline-block text-xs text-primary underline"
+                                    >
+                                        Open respond page
+                                    </a>
+                                ) : null}
+                                {canResendEmail &&
+                                step.request_id &&
+                                step.email_delivery?.can_resend ? (
+                                    <button
+                                        type="button"
+                                        className="text-xs text-primary underline"
+                                        onClick={() =>
+                                            router.post(
+                                                ResendDocumentRecipientRequestEmailController.url(
+                                                    {
+                                                        recipientRequest:
+                                                            step.request_id!,
+                                                    },
+                                                ),
+                                                {},
+                                                { preserveScroll: true },
+                                            )
+                                        }
+                                    >
+                                        {step.email_delivery.status === 'failed'
+                                            ? 'Retry email'
+                                            : step.email_delivery.status ===
+                                                'sent'
+                                              ? 'Resend email'
+                                              : 'Send email'}
+                                    </button>
+                                ) : null}
+                            </div>
                         </li>
                     ))}
                 </ol>

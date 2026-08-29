@@ -52,6 +52,12 @@ export type SigningFlowStepSummary = {
     request_id: number | null;
     source_version: number | null | undefined;
     result_version: number | null | undefined;
+    email_delivery?: {
+        status: string;
+        status_label: string;
+        last_sent_at: string | null;
+        can_resend: boolean;
+    } | null;
     respond_url: string | null;
 };
 

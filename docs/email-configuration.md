@@ -41,3 +41,16 @@ Check `routes/settings.php` middleware for the exact `settings.*` permission on 
 - Production: configure real SMTP (Office 365, SendGrid, Amazon SES, etc.) in settings—not `.env` alone once UI settings take precedence
 
 Document bulk email from employee browse uses `DocumentBulkEmailController` and company mail configuration.
+
+## Document recipient action requests (Phase 7A)
+
+Recipient signing/acknowledgement requests use the same application SMTP (`MailSettingsService`), the queue worker, and Email Templates.
+
+| Item | Value |
+|------|--------|
+| Template slug | `document_recipient_action_request` |
+| Category | Document |
+| Job | `DeliverDocumentRecipientRequestEmailJob` |
+| Reconciliation | `documents:dispatch-recipient-emails` (every minute) |
+
+No PDF is attached — the email contains a secure action link only. Delivery evidence lives on `document_recipient_request_deliveries`. See `docs/document-management.md` Phase 7A.

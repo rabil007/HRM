@@ -73,6 +73,12 @@ final class EmailTemplatePreview
                 bodyHtml: $renderedBody,
                 includeCompanyFooter: $includeCompanyFooter,
             ),
+            'document_recipient_action_request' => $this->renderDocumentRecipientActionRequest(
+                subject: $renderedSubject,
+                organizationName: $organizationName,
+                bodyHtml: $renderedBody,
+                includeCompanyFooter: $includeCompanyFooter,
+            ),
             'user_invitation' => $this->renderUserInvitation(
                 subject: $renderedSubject,
                 organizationName: $organizationName,
@@ -230,7 +236,27 @@ final class EmailTemplatePreview
             '{{accept_url}}' => url('/invitations/accept?token=preview-token'),
             '{{expires_at}}' => now()->addDays(7)->format('M j, Y'),
             '{{role_name}}' => 'Manager',
+            '{{recipient_name}}' => 'Jane Smith',
+            '{{document_title}}' => 'Employment Contract',
+            '{{document_type}}' => 'Contract',
+            '{{action_label}}' => 'Sign',
+            '{{action_url}}' => url('/document-action/preview-token'),
+            '{{step_label}}' => 'Subject employee',
         ];
+    }
+
+    private function renderDocumentRecipientActionRequest(
+        string $subject,
+        string $organizationName,
+        string $bodyHtml,
+        bool $includeCompanyFooter,
+    ): string {
+        return View::make('mail.document-recipient-action-request', [
+            'subjectLine' => $subject,
+            'organizationName' => $organizationName,
+            'bodyHtml' => $bodyHtml,
+            'includeCompanyFooter' => $includeCompanyFooter,
+        ])->render();
     }
 
     private function renderCrewOperationalAlertDigest(

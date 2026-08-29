@@ -3,6 +3,7 @@
 namespace App\Support\Documents\RecipientRequests;
 
 use App\Models\DocumentRecipientRequest;
+use App\Models\DocumentRecipientRequestDelivery;
 
 final class DocumentRecipientRequestPresenter
 {
@@ -19,6 +20,7 @@ final class DocumentRecipientRequestPresenter
             'sourceVersion:id,version',
             'resultVersion:id,version',
             'signingFlow:id,preset_name_snapshot',
+            'deliveries',
         ]);
 
         $document = $request->documentInstance?->employeeDocument;
@@ -39,6 +41,7 @@ final class DocumentRecipientRequestPresenter
             'signing_step_label' => $request->signing_step_label_snapshot,
             'signature_slot_key' => $request->signature_slot_key,
             'signing_preset_name' => $request->signingFlow?->preset_name_snapshot,
+            'email_delivery' => $this->emailDeliverySummary($request),
             'requested_at' => $request->requested_at?->toIso8601String(),
             'expires_at' => $request->expires_at?->toIso8601String(),
             'completed_at' => $request->completed_at?->toIso8601String(),
@@ -93,6 +96,7 @@ final class DocumentRecipientRequestPresenter
             'cancelledBy:id,name',
             'recipientUser:id,name',
             'events.actor:id,name',
+            'deliveries',
         ]);
 
         $document = $request->documentInstance?->employeeDocument;
@@ -111,6 +115,7 @@ final class DocumentRecipientRequestPresenter
             'signing_step_label' => $request->signing_step_label_snapshot,
             'signature_slot_key' => $request->signature_slot_key,
             'signing_step_sequence' => $request->signing_step_sequence,
+            'email_delivery' => $this->emailDeliverySummary($request),
             'is_public_token_recipient' => $request->isPublicTokenRecipient(),
             'requested_at' => $request->requested_at?->toIso8601String(),
             'expires_at' => $request->expires_at?->toIso8601String(),
@@ -175,5 +180,29 @@ final class DocumentRecipientRequestPresenter
         }
 
         return substr($checksum, 0, 8).'…'.substr($checksum, -4);
+    }
+
+    /**
+     * @return array{status: string, status_label: string, last_sent_at: string|null, can_resend: bool}|null
+     */
+    public function emailDeliverySummary(DocumentRecipientRequest $request): ?array
+    {
+        if (! $request->relationLoaded('deliveries')) {
+            $request->load('deliveries');
+        }
+
+        /** @var DocumentRecipientRequestDelivery|null $latest */
+        $latest = $request->deliveries->sortByDesc('delivery_sequence')->first();
+
+        if (! $latest instanceof DocumentRecipientRequestDelivery) {
+            return null;
+        }
+
+        return [
+            'status' => $latest->status->value,
+            'status_label' => $latest->status->label(),
+            'last_sent_at' => $latest->sent_at?->toIso8601String(),
+            'can_resend' => $request->isAwaitingAction(),
+        ];
     }
 }
