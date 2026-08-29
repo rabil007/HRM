@@ -79,6 +79,12 @@ final class EmailTemplatePreview
                 bodyHtml: $renderedBody,
                 includeCompanyFooter: $includeCompanyFooter,
             ),
+            'document_recipient_action_reminder' => $this->renderDocumentRecipientActionRequest(
+                subject: $renderedSubject,
+                organizationName: $organizationName,
+                bodyHtml: $renderedBody,
+                includeCompanyFooter: $includeCompanyFooter,
+            ),
             'user_invitation' => $this->renderUserInvitation(
                 subject: $renderedSubject,
                 organizationName: $organizationName,
@@ -242,6 +248,7 @@ final class EmailTemplatePreview
             '{{action_label}}' => 'Sign',
             '{{action_url}}' => url('/document-action/preview-token'),
             '{{step_label}}' => 'Subject employee',
+            '{{days_remaining}}' => '3',
         ];
     }
 

@@ -54,3 +54,14 @@ Recipient signing/acknowledgement requests use the same application SMTP (`MailS
 | Reconciliation | `documents:dispatch-recipient-emails` (every minute) |
 
 No PDF is attached — the email contains a secure action link only. Delivery evidence lives on `document_recipient_request_deliveries`. See `docs/document-management.md` Phase 7A.
+
+## Document recipient reminders + expiry (Phase 7B)
+
+| Item | Value |
+|------|--------|
+| Reminder template slug | `document_recipient_action_reminder` |
+| Category | Document |
+| Job | same `DeliverDocumentRecipientRequestEmailJob` |
+| Lifecycle reconciliation | `documents:reconcile-recipient-requests` (every five minutes) |
+
+Both scheduled commands must run in production (Herd scheduler / cron `schedule:run`). Reminder failures never change request or signing-flow state. See `docs/document-management.md` Phase 7B.

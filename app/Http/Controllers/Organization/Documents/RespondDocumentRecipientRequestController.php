@@ -6,6 +6,7 @@ use App\Enums\DocumentRecipientRequestEventType;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Http\Controllers\Controller;
 use App\Models\DocumentRecipientRequest;
+use App\Support\Documents\RecipientRequests\Actions\ExpireDocumentRecipientRequest;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestAccess;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class RespondDocumentRecipientRequestController extends Controller
         Request $request,
         DocumentRecipientRequest $recipientRequest,
         DocumentRecipientRequestEventRecorder $eventRecorder,
+        ExpireDocumentRecipientRequest $expireRequest,
     ): Response {
         $companyId = (int) $request->attributes->get('current_company_id');
         $user = $request->user();
@@ -27,8 +29,7 @@ class RespondDocumentRecipientRequestController extends Controller
         DocumentRecipientRequestAccess::assertAssignedCompanySignatory($recipientRequest, $user, $companyId);
 
         if ($recipientRequest->isExpired() && $recipientRequest->status === DocumentRecipientRequestStatus::AwaitingAction) {
-            $recipientRequest->update(['status' => DocumentRecipientRequestStatus::Expired]);
-            $eventRecorder->record($recipientRequest, DocumentRecipientRequestEventType::RequestExpired);
+            $expireRequest->handle($recipientRequest, $companyId);
             $recipientRequest->refresh();
         }
 

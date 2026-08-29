@@ -42,8 +42,7 @@ final class SubmitDocumentRecipientAcknowledgement
         }
 
         if ($request->isExpired()) {
-            $request->update(['status' => DocumentRecipientRequestStatus::Expired]);
-            $this->eventRecorder->record($request, DocumentRecipientRequestEventType::RequestExpired);
+            app(ExpireDocumentRecipientRequest::class)->handle($request);
 
             throw ValidationException::withMessages([
                 'token' => 'This acknowledgement link has expired.',
@@ -56,7 +55,7 @@ final class SubmitDocumentRecipientAcknowledgement
             ]);
         }
 
-        $result = DB::transaction(function () use ($request, $data, $httpRequest): DocumentRecipientRequest|string {
+        $result = DB::transaction(function () use ($request, $data, $httpRequest): DocumentRecipientRequest|string|array {
             /** @var DocumentRecipientRequest $locked */
             $locked = DocumentRecipientRequest::query()
                 ->whereKey($request->id)
@@ -71,6 +70,12 @@ final class SubmitDocumentRecipientAcknowledgement
                 throw ValidationException::withMessages([
                     'token' => 'This acknowledgement request is no longer available.',
                 ]);
+            }
+
+            if ($locked->expires_at !== null && $locked->expires_at->isPast()) {
+                app(ExpireDocumentRecipientRequest::class)->transitionLocked($locked);
+
+                return ['__expired' => true];
             }
 
             $instance = DocumentInstance::query()
@@ -130,6 +135,12 @@ final class SubmitDocumentRecipientAcknowledgement
         if ($result === self::STALE_VERSION) {
             throw ValidationException::withMessages([
                 'token' => 'This document has been updated. Please request a new acknowledgement link.',
+            ]);
+        }
+
+        if (is_array($result) && ($result['__expired'] ?? false) === true) {
+            throw ValidationException::withMessages([
+                'token' => 'This acknowledgement link has expired.',
             ]);
         }
 

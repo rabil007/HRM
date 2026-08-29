@@ -1058,4 +1058,55 @@ No PDF attachments — secure action link only.
 
 Reminders / “remind after X days”, expiry schedulers, auto-start after generation/approval, template→preset auto-assignment, WhatsApp/Web Push/SMS, parallel signing, external recipients, legacy `/esign` / BulkDocumentSignatureRequest / Salary Declaration migration (Phases 7B / 7C+).
 
+## Phase 7B — Automatic Reminders + Expiry Reconciliation
+
+Phase 7B makes outstanding recipient requests operationally self-managing without changing the 14-day expiry duration.
+
+### Company reminder policy
+
+Table: `document_recipient_automation_settings` (unique `company_id`).
+
+- Default when no row exists: `reminders_enabled = false`
+- Suggested offsets when enabling: `[7, 3, 1]` (days before expiry)
+- Validation: max 5 unique integer days in `1..13`, stored descending
+- Permissions: `documents.recipient-automation.view|update` (settings only — not signing/resend/create)
+- UI: Documents → Requests → **Reminder settings** sheet
+- Policy changes apply to **new requests only**
+
+### Per-request immutable snapshot
+
+At create time every recipient-request path stores `reminder_policy_snapshot`:
+
+```json
+{ "schema_version": 1, "enabled": true, "days_before_expiry": [7, 3, 1] }
+```
+
+Pre-7B rows keep `NULL` snapshot → automatic expiry still runs; automatic reminders do not.
+
+### Automatic reminders
+
+- Purpose: `reminder` (new delivery ledger row; never mutates Initial)
+- Template slug: `document_recipient_action_reminder` (non-clobbering seeder)
+- Idempotency: `automation_key` (e.g. `reminder:7d`) + unique `(request_id, channel, automation_key)`
+- Subject: delivery-specific bearer token (SHA-256 only); Internal: authenticated respond URL
+- Missed-window rule after scheduler downtime: suppress older due slots as `reminder_window_missed`; queue only the closest-to-expiry due slot (at most one reminder email per reconcile pass)
+- Reminder SMTP failure never expires the request, blocks the flow, or auto-retries the same slot
+
+### Automatic expiry
+
+Command: `documents:reconcile-recipient-requests` every five minutes (`withoutOverlapping`), optional `--company=`.
+
+Order: expire overdue first, then reminders.
+
+- `AwaitingAction` + `expires_at <= now()` → `Expired` + `RequestExpired` event + activity `recipient_request_expired`
+- Delivery cleanup: revoke subject access tokens; suppress queued deliveries with `request_expired`
+- Flow-linked: after request transaction commits, `BlockDocumentSigningFlow` (no Request→Flow lock inversion); `can_retry = false`
+- Submit signature/acknowledgement recheck `expires_at` **inside** the locked transaction (stale in-memory models cannot complete after DB expiry)
+
+`documents:dispatch-recipient-emails` remains delivery handoff / SMTP-ledger repair only.
+
+### Explicitly not in Phase 7B
+
+Generation/approval → signing auto-start, template→preset auto-assignment, WhatsApp/Web Push/SMS, parallel signing, external recipients, expired-step reissue, extending expiry, legacy `/esign` / BulkDocumentSignatureRequest / Salary Declaration migration (Phases 7C / 8).
+
 

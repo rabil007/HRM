@@ -24,6 +24,20 @@ export type DocumentWorkflowPermissions = {
     respond_recipient_requests: boolean;
 };
 
+export type RecipientAutomationSettings = {
+    reminders_enabled: boolean;
+    reminder_days_before_expiry: number[];
+    request_expiry_days: number;
+    can_view: boolean;
+    can_update: boolean;
+};
+
+export type RecipientReminderSummary = {
+    enabled: boolean;
+    days_before_expiry: number[];
+    next_reminder_at: string | null;
+};
+
 export type WorkflowRequestListItem = {
     id: number;
     status: string;
@@ -230,6 +244,7 @@ export type DocumentRequestsIndexProps = {
     search: string;
     workflow_requests: WorkflowRequestListItem[];
     recipient_requests: RecipientRequestListItem[];
+    recipient_automation?: RecipientAutomationSettings | null;
     pagination: PaginationMeta;
     signature_payload: DocumentRequestsSignaturePayload | null;
 };
@@ -251,6 +266,8 @@ export type RecipientRequestStatus =
 export type RecipientRequestEmailDelivery = {
     status: 'queued' | 'sent' | 'failed' | 'suppressed';
     status_label: string;
+    purpose?: string;
+    purpose_label?: string;
     last_sent_at: string | null;
     can_resend: boolean;
 };
@@ -272,6 +289,7 @@ export type RecipientRequestListItem = {
     signature_slot_key?: string | null;
     signing_preset_name?: string | null;
     email_delivery?: RecipientRequestEmailDelivery | null;
+    reminder_summary?: RecipientReminderSummary | null;
     requested_at: string | null;
     expires_at: string | null;
     completed_at: string | null;

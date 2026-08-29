@@ -291,6 +291,9 @@ class DeliverDocumentRecipientRequestEmailJob implements ShouldBeEncrypted, Shou
             '{{action_url}}' => $actionUrl,
             '{{expires_at}}' => $request->expires_at?->timezone(config('app.timezone'))->format('d M Y, H:i') ?? '',
             '{{step_label}}' => $stepLabel,
+            '{{days_remaining}}' => $request->expires_at !== null
+                ? (string) max(0, (int) floor((float) now()->diffInDays($request->expires_at, false)))
+                : '',
         ];
     }
 

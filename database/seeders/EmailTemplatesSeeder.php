@@ -24,6 +24,7 @@ class EmailTemplatesSeeder extends Seeder
         self::seedBulkSalaryCertificateTemplate();
         self::seedCrewOperationalAlertDigestTemplate();
         self::seedDocumentRecipientActionRequestTemplate();
+        self::seedDocumentRecipientActionReminderTemplate();
     }
 
     /**
@@ -501,6 +502,34 @@ HTML;
         ])->fresh();
     }
 
+    public static function seedDocumentRecipientActionReminderTemplate(): EmailTemplate
+    {
+        $existing = EmailTemplate::withTrashed()->where('slug', 'document_recipient_action_reminder')->first();
+
+        if ($existing !== null) {
+            if ($existing->trashed()) {
+                $existing->restore();
+            }
+
+            return $existing->fresh() ?? $existing;
+        }
+
+        return EmailTemplate::query()->create([
+            'slug' => 'document_recipient_action_reminder',
+            'label' => 'Document action reminder',
+            'category' => EmailTemplateCategory::Document,
+            'to_preset' => null,
+            'cc_preset' => null,
+            'dispatch_at' => null,
+            'subject' => 'Reminder: {{action_label}} — {{document_title}}',
+            'body_html' => self::documentRecipientActionReminderBody(),
+            'enabled' => true,
+            'include_company_footer' => true,
+            'is_default' => false,
+            'sort_order' => 21,
+        ])->fresh();
+    }
+
     private static function documentRecipientActionRequestBody(): string
     {
         return <<<'HTML'
@@ -514,6 +543,28 @@ HTML;
         <td class="email-btn-cell" align="center" style="border-radius:12px;background-color:#2563eb;">
             <a href="{{action_url}}" class="email-btn-link" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;border-radius:12px;background-color:#2563eb;border:1px solid #2563eb;">
                 Open document action
+            </a>
+        </td>
+    </tr>
+</table>
+<p style="margin:0;color:#6b7280;font-size:12px;">If you were not expecting this message, contact {{company_name}} HR.</p>
+HTML;
+    }
+
+    private static function documentRecipientActionReminderBody(): string
+    {
+        return <<<'HTML'
+<p style="margin:0 0 16px;">Hello {{recipient_name}},</p>
+<p style="margin:0 0 16px;">This is a reminder that action is still required for <strong>{{document_title}}</strong> ({{employee_name}} / {{employee_no}}).</p>
+<p style="margin:0 0 8px;"><strong>Action:</strong> {{action_label}}</p>
+<p style="margin:0 0 8px;"><strong>Step:</strong> {{step_label}}</p>
+<p style="margin:0 0 8px;"><strong>Days remaining:</strong> {{days_remaining}}</p>
+<p style="margin:0 0 16px;">Please complete it before <strong>{{expires_at}}</strong>.</p>
+<table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto 24px;">
+    <tr>
+        <td class="email-btn-cell" align="center" style="border-radius:12px;background-color:#2563eb;">
+            <a href="{{action_url}}" class="email-btn-link" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;border-radius:12px;background-color:#2563eb;border:1px solid #2563eb;">
+                {{action_label}}
             </a>
         </td>
     </tr>

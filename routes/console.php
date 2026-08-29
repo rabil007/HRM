@@ -55,6 +55,11 @@ Schedule::command('documents:dispatch-recipient-emails')
     ->timezone(config('app.timezone', 'UTC'))
     ->withoutOverlapping();
 
+Schedule::command('documents:reconcile-recipient-requests')
+    ->everyFiveMinutes()
+    ->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping();
+
 Schedule::command('contracts:expire')
     ->dailyAt('01:00')
     ->timezone(config('app.timezone', 'UTC'))

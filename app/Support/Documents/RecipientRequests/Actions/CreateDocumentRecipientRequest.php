@@ -14,6 +14,7 @@ use App\Models\DocumentRecipientRequest;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Support\Documents\RecipientRequests\Automation\DocumentRecipientAutomationPolicy;
 use App\Support\Documents\RecipientRequests\Delivery\QueueDocumentRecipientRequestEmail;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestToken;
@@ -144,6 +145,8 @@ final class CreateDocumentRecipientRequest
                 'status' => DocumentRecipientRequestStatus::AwaitingAction,
                 'token_hash' => DocumentRecipientRequestToken::hash($rawToken),
                 'expires_at' => now()->addDays(DocumentRecipientRequest::EXPIRY_DAYS),
+                'reminder_policy_snapshot' => app(DocumentRecipientAutomationPolicy::class)
+                    ->snapshotForCompany($companyId),
                 'requested_by' => $requester->id,
                 'requested_at' => now(),
                 'source_checksum_sha256' => (string) $sourceVersion->checksum,

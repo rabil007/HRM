@@ -21,7 +21,6 @@ use App\Support\Documents\RecipientRequests\SignedDocumentLibraryReplacement;
 use App\Support\Documents\RecipientRequests\StampSignedDocumentInstancePdf;
 use App\Support\Documents\RecipientRequests\SyncSignedDocumentInstanceToLibrary;
 use App\Support\Documents\Signing\Actions\AdvanceDocumentSigningFlow;
-use App\Support\Documents\Signing\Actions\BlockDocumentSigningFlow;
 use App\Support\Documents\Signing\DocumentSignatureSlot;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -75,16 +74,7 @@ final class SubmitDocumentRecipientSignature
         }
 
         if ($request->isExpired()) {
-            $request->update(['status' => DocumentRecipientRequestStatus::Expired]);
-            $this->eventRecorder->record($request, DocumentRecipientRequestEventType::RequestExpired);
-
-            if ($request->document_signing_flow_id !== null) {
-                app(BlockDocumentSigningFlow::class)->handle(
-                    (int) $request->document_signing_flow_id,
-                    (int) $request->company_id,
-                    'The current signing step expired before it was completed.',
-                );
-            }
+            app(ExpireDocumentRecipientRequest::class)->handle($request);
 
             throw ValidationException::withMessages([
                 'token' => 'This signing link has expired.',
@@ -103,7 +93,7 @@ final class SubmitDocumentRecipientSignature
         $libraryReplacement = null;
 
         try {
-            $result = DB::transaction(function () use ($request, $data, $httpRequest, $actor, &$signaturePath, &$tempSignedPath, &$canonicalPath, &$libraryReplacement): DocumentRecipientRequest|string {
+            $result = DB::transaction(function () use ($request, $data, $httpRequest, $actor, &$signaturePath, &$tempSignedPath, &$canonicalPath, &$libraryReplacement): DocumentRecipientRequest|string|array {
                 /** @var DocumentRecipientRequest $locked */
                 $locked = DocumentRecipientRequest::query()
                     ->whereKey($request->id)
@@ -118,6 +108,16 @@ final class SubmitDocumentRecipientSignature
                     throw ValidationException::withMessages([
                         'token' => 'This signing request is no longer available.',
                     ]);
+                }
+
+                if ($locked->expires_at !== null && $locked->expires_at->isPast()) {
+                    $expiry = app(ExpireDocumentRecipientRequest::class)->transitionLocked($locked);
+
+                    return [
+                        '__expired' => true,
+                        'flow_id' => $expiry['flow_id'] ?? null,
+                        'company_id' => $expiry['company_id'] ?? (int) $locked->company_id,
+                    ];
                 }
 
                 if ($locked->isInternalSigner()) {
@@ -281,6 +281,17 @@ final class SubmitDocumentRecipientSignature
             if ($result === self::STALE_VERSION) {
                 throw ValidationException::withMessages([
                     'token' => 'This document has been updated. Please request a new signing link.',
+                ]);
+            }
+
+            if (is_array($result) && ($result['__expired'] ?? false) === true) {
+                app(ExpireDocumentRecipientRequest::class)->blockFlowAfterCommit(
+                    $result['flow_id'] ?? null,
+                    (int) $result['company_id'],
+                );
+
+                throw ValidationException::withMessages([
+                    'token' => 'This signing link has expired.',
                 ]);
             }
 
