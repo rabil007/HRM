@@ -35,42 +35,56 @@ final class RetryDocumentLifecycleAutomation
     ): DocumentLifecycleAutomation {
         abort_unless((int) $lifecycle->company_id === $companyId, 404);
 
-        $locked = DB::transaction(function () use ($lifecycle, $actor, $companyId): DocumentLifecycleAutomation {
-            /** @var DocumentLifecycleAutomation $locked */
-            $locked = DocumentLifecycleAutomation::query()
+        /** @var array{lifecycle: DocumentLifecycleAutomation, previous_blocked_code: string|null} $locked */
+        $locked = DB::transaction(function () use ($lifecycle, $companyId): array {
+            /** @var DocumentLifecycleAutomation $row */
+            $row = DocumentLifecycleAutomation::query()
                 ->forCompany($companyId)
                 ->whereKey($lifecycle->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($locked->status !== DocumentLifecycleAutomationStatus::Blocked) {
+            if ($row->status !== DocumentLifecycleAutomationStatus::Blocked) {
                 throw ValidationException::withMessages([
                     'lifecycle' => 'Only blocked lifecycle automations can be retried.',
                 ]);
             }
 
-            $this->activityLogger->log(
-                description: 'Document lifecycle automation retried',
-                event: 'document_lifecycle_retried',
-                lifecycle: $locked,
-                actor: $actor,
-                metadata: [
-                    'previous_blocked_code' => $locked->blocked_code,
-                ],
-            );
-
-            return $locked;
+            return [
+                'lifecycle' => $row,
+                'previous_blocked_code' => $row->blocked_code,
+            ];
         });
 
-        if ($locked->document_signing_flow_id !== null) {
-            return $this->recoverExistingSigningFlow($locked, $actor, $companyId);
+        $result = $this->recover($locked['lifecycle'], $actor, $companyId);
+
+        $this->activityLogger->log(
+            description: 'Document lifecycle automation retried',
+            event: 'document_lifecycle_retried',
+            lifecycle: $result,
+            actor: $actor,
+            metadata: [
+                'previous_blocked_code' => $locked['previous_blocked_code'],
+            ],
+        );
+
+        return $result;
+    }
+
+    private function recover(
+        DocumentLifecycleAutomation $lifecycle,
+        User $actor,
+        int $companyId,
+    ): DocumentLifecycleAutomation {
+        if ($lifecycle->document_signing_flow_id !== null) {
+            return $this->recoverExistingSigningFlow($lifecycle, $actor, $companyId);
         }
 
-        if ($locked->document_workflow_request_id !== null) {
-            return $this->recoverExistingWorkflow($locked, $companyId);
+        if ($lifecycle->document_workflow_request_id !== null) {
+            return $this->recoverExistingWorkflow($lifecycle, $companyId);
         }
 
-        return $this->start->handle((int) $locked->id, $companyId);
+        return $this->start->handle((int) $lifecycle->id, $companyId);
     }
 
     private function recoverExistingSigningFlow(

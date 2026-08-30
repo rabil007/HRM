@@ -13,8 +13,22 @@ class ReconcileDocumentLifecycleAutomationsCommand extends Command
 
     public function handle(ReconcileDocumentLifecycleAutomations $reconciler): int
     {
-        $companyId = $this->option('company');
-        $onlyCompanyId = is_numeric($companyId) ? (int) $companyId : null;
+        $onlyCompanyId = null;
+
+        if ($this->input->hasParameterOption('--company')) {
+            $raw = $this->option('company');
+            $normalized = is_int($raw)
+                ? (string) $raw
+                : (is_string($raw) ? $raw : '');
+
+            if ($normalized === '' || ! ctype_digit($normalized) || (int) $normalized <= 0) {
+                $this->error('The --company option must be a positive integer.');
+
+                return self::FAILURE;
+            }
+
+            $onlyCompanyId = (int) $normalized;
+        }
 
         $result = $reconciler->handle($onlyCompanyId);
 

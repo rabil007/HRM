@@ -4,8 +4,10 @@ namespace App\Support\Documents\Lifecycle;
 
 use App\Enums\DocumentLifecycleAutomationStage;
 use App\Enums\DocumentLifecycleAutomationStatus;
+use App\Enums\DocumentSigningFlowStatus;
 use App\Enums\DocumentWorkflowRequestStatus;
 use App\Models\DocumentLifecycleAutomation;
+use App\Models\DocumentSigningFlow;
 use App\Models\DocumentWorkflowRequest;
 use App\Support\Documents\Lifecycle\Actions\AdvanceDocumentLifecycleAutomation;
 use App\Support\Documents\Lifecycle\Actions\StartDocumentLifecycleAutomation;
@@ -16,6 +18,9 @@ use Throwable;
 
 /**
  * Crash-recovery only. Immediate after-commit / post-generation start remains primary.
+ *
+ * Scheduler batches select actionable mismatches only so healthy / Pending rows
+ * cannot starve terminal recovery work.
  */
 final class ReconcileDocumentLifecycleAutomations
 {
@@ -75,18 +80,33 @@ final class ReconcileDocumentLifecycleAutomations
     public function reconcileActiveReviews(?int $onlyCompanyId = null): int
     {
         $synced = 0;
+        $lifecycleTable = (new DocumentLifecycleAutomation)->getTable();
+        $workflowTable = (new DocumentWorkflowRequest)->getTable();
 
         $rows = DocumentLifecycleAutomation::query()
+            ->select("{$lifecycleTable}.id", "{$lifecycleTable}.company_id", "{$lifecycleTable}.document_workflow_request_id")
+            ->join(
+                $workflowTable,
+                "{$workflowTable}.id",
+                '=',
+                "{$lifecycleTable}.document_workflow_request_id",
+            )
+            ->where("{$lifecycleTable}.status", DocumentLifecycleAutomationStatus::Active)
+            ->where("{$lifecycleTable}.stage", DocumentLifecycleAutomationStage::Review)
+            ->whereNotNull("{$lifecycleTable}.document_workflow_request_id")
+            ->whereColumn("{$workflowTable}.company_id", "{$lifecycleTable}.company_id")
+            ->whereIn("{$workflowTable}.status", [
+                DocumentWorkflowRequestStatus::Approved,
+                DocumentWorkflowRequestStatus::Rejected,
+                DocumentWorkflowRequestStatus::Cancelled,
+            ])
             ->when(
                 $onlyCompanyId !== null,
-                fn ($query) => $query->where('company_id', $onlyCompanyId),
+                fn ($query) => $query->where("{$lifecycleTable}.company_id", $onlyCompanyId),
             )
-            ->where('status', DocumentLifecycleAutomationStatus::Active)
-            ->where('stage', DocumentLifecycleAutomationStage::Review)
-            ->whereNotNull('document_workflow_request_id')
-            ->orderBy('id')
+            ->orderBy("{$lifecycleTable}.id")
             ->limit(self::BATCH_LIMIT)
-            ->get(['id', 'company_id', 'document_workflow_request_id']);
+            ->get();
 
         foreach ($rows as $row) {
             try {
@@ -117,7 +137,11 @@ final class ReconcileDocumentLifecycleAutomations
                     DocumentWorkflowRequestStatus::Pending => null,
                 };
 
-                if ($workflow->status !== DocumentWorkflowRequestStatus::Pending) {
+                if (in_array($workflow->status, [
+                    DocumentWorkflowRequestStatus::Approved,
+                    DocumentWorkflowRequestStatus::Rejected,
+                    DocumentWorkflowRequestStatus::Cancelled,
+                ], true)) {
                     $synced++;
                 }
             } catch (Throwable $exception) {
@@ -136,21 +160,51 @@ final class ReconcileDocumentLifecycleAutomations
     public function reconcileSigning(?int $onlyCompanyId = null): int
     {
         $synced = 0;
+        $lifecycleTable = (new DocumentLifecycleAutomation)->getTable();
+        $flowTable = (new DocumentSigningFlow)->getTable();
 
         $rows = DocumentLifecycleAutomation::query()
-            ->when(
-                $onlyCompanyId !== null,
-                fn ($query) => $query->where('company_id', $onlyCompanyId),
+            ->select("{$lifecycleTable}.id", "{$lifecycleTable}.company_id", "{$lifecycleTable}.document_signing_flow_id")
+            ->join(
+                $flowTable,
+                "{$flowTable}.id",
+                '=',
+                "{$lifecycleTable}.document_signing_flow_id",
             )
-            ->whereIn('status', [
+            ->whereIn("{$lifecycleTable}.status", [
                 DocumentLifecycleAutomationStatus::Active,
                 DocumentLifecycleAutomationStatus::Blocked,
             ])
-            ->where('stage', DocumentLifecycleAutomationStage::Signing)
-            ->whereNotNull('document_signing_flow_id')
-            ->orderBy('id')
+            ->where("{$lifecycleTable}.stage", DocumentLifecycleAutomationStage::Signing)
+            ->whereNotNull("{$lifecycleTable}.document_signing_flow_id")
+            ->whereColumn("{$flowTable}.company_id", "{$lifecycleTable}.company_id")
+            ->where(function ($query) use ($lifecycleTable, $flowTable): void {
+                $query
+                    // Terminal flow states always need lifecycle repair while still Active/Blocked.
+                    ->whereIn("{$flowTable}.status", [
+                        DocumentSigningFlowStatus::Completed,
+                        DocumentSigningFlowStatus::Cancelled,
+                    ])
+                    // Flow Active while lifecycle still Blocked.
+                    ->orWhere(function ($mismatch) use ($lifecycleTable, $flowTable): void {
+                        $mismatch
+                            ->where("{$flowTable}.status", DocumentSigningFlowStatus::Active)
+                            ->where("{$lifecycleTable}.status", DocumentLifecycleAutomationStatus::Blocked);
+                    })
+                    // Flow Blocked while lifecycle still Active.
+                    ->orWhere(function ($mismatch) use ($lifecycleTable, $flowTable): void {
+                        $mismatch
+                            ->where("{$flowTable}.status", DocumentSigningFlowStatus::Blocked)
+                            ->where("{$lifecycleTable}.status", DocumentLifecycleAutomationStatus::Active);
+                    });
+            })
+            ->when(
+                $onlyCompanyId !== null,
+                fn ($query) => $query->where("{$lifecycleTable}.company_id", $onlyCompanyId),
+            )
+            ->orderBy("{$lifecycleTable}.id")
             ->limit(self::BATCH_LIMIT)
-            ->get(['id', 'company_id', 'document_signing_flow_id']);
+            ->get();
 
         foreach ($rows as $row) {
             try {

@@ -41,6 +41,7 @@ use App\Support\Documents\Lifecycle\Actions\SyncDocumentLifecycleFromSigningFlow
 use App\Support\Documents\Lifecycle\DocumentLifecycleAutomationGuard;
 use App\Support\Documents\Lifecycle\DocumentLifecycleAutomationPolicy;
 use App\Support\Documents\Lifecycle\DocumentLifecycleAutomationPresenter;
+use App\Support\Documents\Lifecycle\ReconcileDocumentLifecycleAutomations;
 use App\Support\Documents\Signing\Actions\StoreDocumentSigningPreset;
 use App\Support\Documents\Workflow\Actions\DeleteDocumentWorkflowPreset;
 use App\Support\Documents\Workflow\Actions\StoreDocumentWorkflowPreset;
@@ -1484,7 +1485,8 @@ test('retry rejects non-retryable blocked signing flow and presenter hides retry
 
     expect($lifecycle->fresh()->status)->toBe(DocumentLifecycleAutomationStatus::Blocked)
         ->and($flow->fresh()->status)->toBe(DocumentSigningFlowStatus::Blocked)
-        ->and(DocumentSigningFlow::query()->count())->toBe(1);
+        ->and(DocumentSigningFlow::query()->count())->toBe(1)
+        ->and(Activity::query()->where('event', 'document_lifecycle_retried')->exists())->toBeFalse();
 });
 
 test('reconciliation starts pending lifecycle and is idempotent', function () {
@@ -1742,4 +1744,333 @@ test('reconciliation is company scoped', function () {
         ->toBe(DocumentLifecycleAutomationStatus::Completed)
         ->and(DocumentLifecycleAutomation::query()->where('company_id', $companyB->id)->first()->status)
         ->toBe(DocumentLifecycleAutomationStatus::Pending);
+});
+
+function seedActiveReviewLifecycleForReconcile(
+    Company $company,
+    User $initiator,
+    DocumentGenerationTemplate $template,
+    DocumentGenerationTemplateVersion $templateVersion,
+    DocumentWorkflowPreset $preset,
+    DocumentWorkflowRequestStatus $workflowStatus,
+): DocumentLifecycleAutomation {
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $pdfBytes = '%PDF-1.4 test';
+    $libraryPath = "employee-documents/{$company->id}/{$employee->id}/".uniqid('lib-', true).'.pdf';
+    $canonicalPath = "document-instances/{$company->id}/".uniqid('can-', true).'.pdf';
+    Storage::disk('local')->put($libraryPath, $pdfBytes);
+    Storage::disk('local')->put($canonicalPath, $pdfBytes);
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'type' => 'other',
+        'document_type' => 'other',
+        'title' => 'Reconcile Doc',
+        'file_path' => $libraryPath,
+        'original_filename' => 'doc.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => strlen($pdfBytes),
+        'checksum' => hash('sha256', $pdfBytes.uniqid('', true)),
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    $instance = DocumentInstance::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_name_snapshot' => $employee->name,
+        'employee_no_snapshot' => $employee->employee_no,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $templateVersion->id,
+        'template_name_snapshot' => $template->name,
+        'template_version_number' => $templateVersion->version,
+        'title_snapshot' => 'Reconcile Doc',
+        'status' => 'generated',
+        'employee_document_id' => $document->id,
+        'generated_at' => now(),
+    ]);
+
+    $version = DocumentInstanceVersion::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'version' => 1,
+        'stage' => 'generated',
+        'file_path' => $canonicalPath,
+        'original_filename' => 'canonical.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => strlen($pdfBytes),
+        'checksum' => hash('sha256', $pdfBytes.uniqid('v', true)),
+        'created_by' => $initiator->id,
+    ]);
+    $instance->update(['current_version_id' => $version->id]);
+
+    $workflowRequest = DocumentWorkflowRequest::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'document_instance_version_id' => $version->id,
+        'status' => $workflowStatus,
+        'requested_by' => $initiator->id,
+        'requester_name_snapshot' => $initiator->name,
+        'requested_at' => now(),
+        'completed_at' => $workflowStatus === DocumentWorkflowRequestStatus::Pending ? null : now(),
+        'document_workflow_preset_id' => $preset->id,
+        'preset_name_snapshot' => $preset->name,
+    ]);
+
+    return DocumentLifecycleAutomation::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'source_document_instance_version_id' => $version->id,
+        'document_generation_template_version_id' => $templateVersion->id,
+        'document_workflow_preset_id' => $preset->id,
+        'document_workflow_request_id' => $workflowRequest->id,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => $preset->id,
+            'workflow_preset_name' => $preset->name,
+            'signing_preset_id' => null,
+            'signing_preset_name' => null,
+        ],
+        'status' => DocumentLifecycleAutomationStatus::Active,
+        'stage' => DocumentLifecycleAutomationStage::Review,
+        'initiated_by' => $initiator->id,
+        'started_at' => now(),
+    ]);
+}
+
+/**
+ * @return array{lifecycle: DocumentLifecycleAutomation, flow: DocumentSigningFlow}
+ */
+function seedActiveSigningLifecycleForReconcile(
+    Company $company,
+    User $initiator,
+    DocumentGenerationTemplate $template,
+    DocumentGenerationTemplateVersion $templateVersion,
+    DocumentSigningFlowStatus $flowStatus,
+    DocumentLifecycleAutomationStatus $lifecycleStatus = DocumentLifecycleAutomationStatus::Active,
+): array {
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $pdfBytes = '%PDF-1.4 test';
+    $libraryPath = "employee-documents/{$company->id}/{$employee->id}/".uniqid('slib-', true).'.pdf';
+    $canonicalPath = "document-instances/{$company->id}/".uniqid('scan-', true).'.pdf';
+    Storage::disk('local')->put($libraryPath, $pdfBytes);
+    Storage::disk('local')->put($canonicalPath, $pdfBytes);
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'type' => 'other',
+        'document_type' => 'other',
+        'title' => 'Signing Reconcile Doc',
+        'file_path' => $libraryPath,
+        'original_filename' => 'doc.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => strlen($pdfBytes),
+        'checksum' => hash('sha256', $pdfBytes.uniqid('', true)),
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    $instance = DocumentInstance::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_name_snapshot' => $employee->name,
+        'employee_no_snapshot' => $employee->employee_no,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $templateVersion->id,
+        'template_name_snapshot' => $template->name,
+        'template_version_number' => $templateVersion->version,
+        'title_snapshot' => 'Signing Reconcile Doc',
+        'status' => 'generated',
+        'employee_document_id' => $document->id,
+        'generated_at' => now(),
+    ]);
+
+    $version = DocumentInstanceVersion::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'version' => 1,
+        'stage' => 'generated',
+        'file_path' => $canonicalPath,
+        'original_filename' => 'canonical.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => strlen($pdfBytes),
+        'checksum' => hash('sha256', $pdfBytes.uniqid('sv', true)),
+        'created_by' => $initiator->id,
+    ]);
+    $instance->update(['current_version_id' => $version->id]);
+
+    $flow = DocumentSigningFlow::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'document_signing_preset_id' => null,
+        'starting_document_instance_version_id' => $version->id,
+        'preset_name_snapshot' => 'Reconcile Sign',
+        'routing_definition_snapshot' => [
+            'schema_version' => 1,
+            'steps' => [[
+                'sequence' => 1,
+                'recipient_role' => 'subject',
+                'target_type' => 'subject_employee',
+                'recipient_user_id' => null,
+                'recipient_name' => 'Employee',
+            ]],
+        ],
+        'status' => $flowStatus,
+        'current_step_sequence' => 1,
+        'started_by' => $initiator->id,
+        'started_at' => now(),
+        'completed_at' => $flowStatus === DocumentSigningFlowStatus::Completed ? now() : null,
+        'cancelled_at' => $flowStatus === DocumentSigningFlowStatus::Cancelled ? now() : null,
+        'blocked_at' => $flowStatus === DocumentSigningFlowStatus::Blocked ? now() : null,
+        'blocked_reason' => $flowStatus === DocumentSigningFlowStatus::Blocked ? 'Step expired' : null,
+    ]);
+
+    $lifecycle = DocumentLifecycleAutomation::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'source_document_instance_version_id' => $version->id,
+        'document_generation_template_version_id' => $templateVersion->id,
+        'document_signing_flow_id' => $flow->id,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => null,
+            'workflow_preset_name' => null,
+            'signing_preset_id' => 1,
+            'signing_preset_name' => 'Reconcile Sign',
+        ],
+        'status' => $lifecycleStatus,
+        'stage' => DocumentLifecycleAutomationStage::Signing,
+        'blocked_code' => $lifecycleStatus === DocumentLifecycleAutomationStatus::Blocked
+            ? DocumentLifecycleAutomationPolicy::BLOCK_SIGNING_START_FAILED
+            : null,
+        'blocked_message' => $lifecycleStatus === DocumentLifecycleAutomationStatus::Blocked
+            ? 'Step expired'
+            : null,
+        'blocked_at' => $lifecycleStatus === DocumentLifecycleAutomationStatus::Blocked ? now() : null,
+        'initiated_by' => $initiator->id,
+        'started_at' => now(),
+    ]);
+
+    return ['lifecycle' => $lifecycle, 'flow' => $flow];
+}
+
+test('review reconciliation is not starved by pending workflows ahead of terminals', function () {
+    [
+        'company' => $company,
+        'template' => $template,
+        'templateVersion' => $templateVersion,
+        'initiator' => $initiator,
+    ] = makeLifecycleFixtures();
+
+    $preset = DocumentWorkflowPreset::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Starvation Review Preset',
+        'status' => DocumentWorkflowPresetStatus::Active,
+        'created_by' => $initiator->id,
+    ]);
+
+    $pendingCount = ReconcileDocumentLifecycleAutomations::BATCH_LIMIT + 1;
+
+    for ($i = 0; $i < $pendingCount; $i++) {
+        seedActiveReviewLifecycleForReconcile(
+            $company,
+            $initiator,
+            $template,
+            $templateVersion,
+            $preset,
+            DocumentWorkflowRequestStatus::Pending,
+        );
+    }
+
+    $approved = seedActiveReviewLifecycleForReconcile(
+        $company,
+        $initiator,
+        $template,
+        $templateVersion,
+        $preset,
+        DocumentWorkflowRequestStatus::Approved,
+    );
+
+    $rejected = seedActiveReviewLifecycleForReconcile(
+        $company,
+        $initiator,
+        $template,
+        $templateVersion,
+        $preset,
+        DocumentWorkflowRequestStatus::Rejected,
+    );
+
+    $reconciler = app(ReconcileDocumentLifecycleAutomations::class);
+    $synced = $reconciler->reconcileActiveReviews((int) $company->id);
+
+    expect($synced)->toBe(2)
+        ->and($approved->fresh()->status)->toBe(DocumentLifecycleAutomationStatus::Completed)
+        ->and($approved->fresh()->stage)->toBe(DocumentLifecycleAutomationStage::Done)
+        ->and($rejected->fresh()->status)->toBe(DocumentLifecycleAutomationStatus::Stopped)
+        ->and(DocumentLifecycleAutomation::query()
+            ->where('company_id', $company->id)
+            ->where('status', DocumentLifecycleAutomationStatus::Active)
+            ->where('stage', DocumentLifecycleAutomationStage::Review)
+            ->count())->toBe($pendingCount);
+
+    expect($reconciler->reconcileActiveReviews((int) $company->id))->toBe(0);
+});
+
+test('signing reconciliation is not starved by healthy active flows', function () {
+    [
+        'company' => $company,
+        'template' => $template,
+        'templateVersion' => $templateVersion,
+        'initiator' => $initiator,
+    ] = makeLifecycleFixtures();
+
+    $healthyCount = ReconcileDocumentLifecycleAutomations::BATCH_LIMIT + 1;
+    $healthyLifecycleIds = [];
+
+    for ($i = 0; $i < $healthyCount; $i++) {
+        $seeded = seedActiveSigningLifecycleForReconcile(
+            $company,
+            $initiator,
+            $template,
+            $templateVersion,
+            DocumentSigningFlowStatus::Active,
+        );
+        $healthyLifecycleIds[] = $seeded['lifecycle']->id;
+    }
+
+    $stale = seedActiveSigningLifecycleForReconcile(
+        $company,
+        $initiator,
+        $template,
+        $templateVersion,
+        DocumentSigningFlowStatus::Completed,
+        DocumentLifecycleAutomationStatus::Active,
+    );
+
+    $reconciler = app(ReconcileDocumentLifecycleAutomations::class);
+    $synced = $reconciler->reconcileSigning((int) $company->id);
+
+    expect($synced)->toBe(1)
+        ->and($stale['lifecycle']->fresh()->status)->toBe(DocumentLifecycleAutomationStatus::Completed)
+        ->and($stale['lifecycle']->fresh()->stage)->toBe(DocumentLifecycleAutomationStage::Done);
+
+    foreach ($healthyLifecycleIds as $lifecycleId) {
+        expect(DocumentLifecycleAutomation::query()->findOrFail($lifecycleId)->status)
+            ->toBe(DocumentLifecycleAutomationStatus::Active);
+    }
+
+    expect($reconciler->reconcileSigning((int) $company->id))->toBe(0);
+});
+
+test('reconcile command rejects invalid company option', function () {
+    $this->artisan('documents:reconcile-lifecycle-automations', ['--company' => 'abc'])
+        ->assertFailed();
+
+    $this->artisan('documents:reconcile-lifecycle-automations', ['--company' => '0'])
+        ->assertFailed();
+
+    $this->artisan('documents:reconcile-lifecycle-automations', ['--company' => '-3'])
+        ->assertFailed();
 });
