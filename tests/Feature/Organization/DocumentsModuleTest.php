@@ -162,6 +162,31 @@ test('unauthorized users cannot visit the unified documents routes', function ()
     $this->get(route('organization.documents.templates'))->assertForbidden();
 });
 
+test('respond-only users can open the recipient requests tab', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.recipient-requests.respond']);
+
+    $this->get(route('organization.documents.requests'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/requests/index')
+            ->where('tab', 'recipient')
+            ->where('can.respond_recipient_requests', true)
+            ->where('can.view_recipient_requests', false));
+
+    $this->get(route('organization.documents.requests', ['tab' => 'recipient']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/requests/index')
+            ->where('tab', 'recipient'));
+
+    $this->get(route('organization.documents.requests', ['tab' => 'review']))->assertForbidden();
+    $this->get(route('organization.documents.requests', ['tab' => 'signatures']))->assertForbidden();
+});
+
 test('template bridge only exposes links the user can access', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
