@@ -1144,16 +1144,19 @@ Table: `document_lifecycle_automations` (unique `document_instance_id`).
 | `stage` | `review`, `signing`, or `done` |
 | Linked request/flow ids | Provenance for the automated children |
 
-Created from `GenerateCustomDocumentsJob` after a successful create (failures are reported; generation still succeeds).
+**Atomic registration:** when a template version has lifecycle automation configured, `GenerateCustomDocumentsJob` creates the Pending `DocumentLifecycleAutomation` row **inside the same DB transaction** that creates `EmployeeDocument`, `DocumentInstance`, and version 1. A generated instance is never committed without its lifecycle registration. Registration write failure rolls back generation (existing file compensation still deletes canonical/library PDFs).
+
+**Execution after commit:** starting workflow/signing runs only after that transaction commits. Downstream start/routing failure leaves generation completed, keeps the lifecycle row, and marks the lifecycle Blocked when possible — it does **not** delete generated PDFs.
 
 ### Runtime behavior
 
-1. **Start** — after commit, create workflow from snapshotted preset when present; otherwise start signing; otherwise mark completed
-2. **Advance** — on workflow **Approved**, after commit start snapshotted signing (or complete if signing was not configured)
+1. **Start** — after commit, create workflow from snapshotted preset when present; otherwise start signing; otherwise mark completed. Before creating a workflow or signing flow, the instance `current_version_id` must equal `source_document_instance_version_id` (`lifecycle_source_version_changed` otherwise).
+2. **Advance** — on workflow **Approved**, after commit start snapshotted signing (or complete if signing was not configured). Exact source-version gate applies again before signing. An existing linked signing flow is synchronized from its real status (never blindly marked Active while the flow is Blocked).
 3. **Stop** — workflow reject/cancel after commit stops lifecycle (`workflow_rejected` / `workflow_cancelled`); signing cancel syncs to stopped
 4. **Sync** — signing flow Completed / Cancelled / Blocked (and retry → Active) mirrors into lifecycle via `SyncDocumentLifecycleFromSigningFlow`
-5. **Manual guard** — while lifecycle is pending/active/blocked, manual workflow create and signing start are rejected (`DocumentLifecycleAutomationGuard`); lifecycle-started actions pass `skipLifecycleGuard: true`
-6. **Retry** — blocked lifecycles: `POST organization/documents/{document}/lifecycle-automation/retry` (`documents.recipient-requests.create`); document show card + Retry button
+5. **Manual guard** — while lifecycle is pending/active/blocked, manual workflow create and signing start are rejected (`DocumentLifecycleAutomationGuard`); lifecycle-started actions pass `skipLifecycleGuard: true`. Atomic registration closes the generation → manual-start race.
+6. **Retry** — blocked lifecycles: `POST organization/documents/{document}/lifecycle-automation/retry` (`documents.recipient-requests.create`); document show card + Retry button. Retry follows existing linked workflow/signing state (no duplicate children). Non-retryable expired signing steps are **not** resurrected; lifecycle `can_retry` reflects signing-flow eligibility.
+7. **Reconciliation (crash recovery only)** — `documents:reconcile-lifecycle-automations` every 5 minutes recovers lost after-commit starts and stale Active/Blocked rows. It does not replace immediate post-commit execution and does not resurrect Completed/Stopped lifecycles.
 
 ### Explicitly not in Phase 7C
 

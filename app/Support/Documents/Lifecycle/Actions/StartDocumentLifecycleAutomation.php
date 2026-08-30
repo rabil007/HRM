@@ -7,6 +7,7 @@ use App\Enums\DocumentLifecycleAutomationStatus;
 use App\Enums\DocumentSigningPresetStatus;
 use App\Enums\DocumentWorkflowPresetStatus;
 use App\Models\DocumentLifecycleAutomation;
+use App\Models\DocumentSigningFlow;
 use App\Models\DocumentSigningPreset;
 use App\Models\DocumentWorkflowPreset;
 use App\Models\Employee;
@@ -166,6 +167,19 @@ final class StartDocumentLifecycleAutomation
             return $lifecycle->fresh() ?? $lifecycle;
         }
 
+        $instance = $document->documentInstance;
+
+        if (
+            $instance === null
+            || (int) $instance->current_version_id !== (int) $lifecycle->source_document_instance_version_id
+        ) {
+            return $this->markBlocked(
+                $lifecycle,
+                DocumentLifecycleAutomationPolicy::BLOCK_SOURCE_VERSION_CHANGED,
+                'The document current version no longer matches the lifecycle source version.',
+            );
+        }
+
         $preset = DocumentWorkflowPreset::query()
             ->forCompany($companyId)
             ->whereKey($workflowPresetId)
@@ -249,6 +263,17 @@ final class StartDocumentLifecycleAutomation
         int $signingPresetId,
     ): DocumentLifecycleAutomation {
         if ($lifecycle->document_signing_flow_id !== null) {
+            $flow = DocumentSigningFlow::query()
+                ->forCompany($companyId)
+                ->whereKey($lifecycle->document_signing_flow_id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($flow instanceof DocumentSigningFlow) {
+                return app(SyncDocumentLifecycleFromSigningFlow::class)
+                    ->applyToLockedLifecycle($lifecycle, $flow);
+            }
+
             $lifecycle->update([
                 'status' => DocumentLifecycleAutomationStatus::Active,
                 'stage' => DocumentLifecycleAutomationStage::Signing,

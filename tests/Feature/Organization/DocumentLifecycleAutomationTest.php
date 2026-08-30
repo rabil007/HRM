@@ -1,26 +1,36 @@
 <?php
 
+use App\Enums\DocumentGenerationTemplateStatus;
 use App\Enums\DocumentGenerationTemplateVersionStatus;
 use App\Enums\DocumentLifecycleAutomationStage;
 use App\Enums\DocumentLifecycleAutomationStatus;
+use App\Enums\DocumentRecipientAction;
+use App\Enums\DocumentRecipientRequestStatus;
+use App\Enums\DocumentRecipientRole;
 use App\Enums\DocumentSigningFlowStatus;
 use App\Enums\DocumentWorkflowPresetStatus;
 use App\Enums\DocumentWorkflowRequestStatus;
+use App\Jobs\GenerateCustomDocumentsJob;
 use App\Models\Company;
+use App\Models\DocumentGenerationRun;
+use App\Models\DocumentGenerationRunItem;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentInstance;
 use App\Models\DocumentInstanceVersion;
 use App\Models\DocumentLifecycleAutomation;
+use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentSigningFlow;
 use App\Models\DocumentWorkflowPreset;
 use App\Models\DocumentWorkflowRequest;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Services\Documents\CustomTemplatePdfRenderer;
 use App\Support\Documents\Actions\BranchDocumentGenerationTemplateDraft;
 use App\Support\Documents\Actions\DuplicateDocumentGenerationTemplate;
 use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
+use App\Support\Documents\Actions\SyncGeneratedEmployeeDocument;
 use App\Support\Documents\Actions\UpdateDocumentGenerationTemplateAutomation;
 use App\Support\Documents\Lifecycle\Actions\AdvanceDocumentLifecycleAutomation;
 use App\Support\Documents\Lifecycle\Actions\CreateDocumentLifecycleAutomation;
@@ -40,6 +50,7 @@ use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Activity;
 
 require_once __DIR__.'/../../Support/document-workflow-fixtures.php';
+require_once __DIR__.'/../../Support/document-recipient-request-fixtures.php';
 
 beforeEach(function () {
     $this->seed(PermissionsSeeder::class);
@@ -829,4 +840,906 @@ test('approval does not start signing when document current version diverged', f
         ->and($lifecycle->blocked_code)->toBe(DocumentLifecycleAutomationPolicy::BLOCK_SOURCE_VERSION_CHANGED)
         ->and($lifecycle->document_signing_flow_id)->toBeNull()
         ->and(DocumentSigningFlow::query()->where('document_instance_id', $instance->id)->count())->toBe(0);
+});
+
+test('generation registers lifecycle atomically with the document instance', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+    addCompanyMembership($user, $company);
+    giveCompanyPermission($user, $company, 'documents.requests.create');
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $reviewer = User::factory()->create();
+    addCompanyMembership($reviewer, $company);
+    giveCompanyPermission($reviewer, $company, 'documents.requests.review');
+
+    $approver = User::factory()->create();
+    addCompanyMembership($approver, $company);
+    giveCompanyPermission($approver, $company, 'documents.requests.approve');
+
+    $preset = app(StoreDocumentWorkflowPreset::class)->handle(
+        actor: $user,
+        companyId: $company->id,
+        name: 'Atomic Lifecycle Review',
+        description: null,
+        stages: [
+            [
+                'action' => 'review',
+                'completion_rule' => 'all',
+                'targets' => [[
+                    'target_type' => 'specific_user',
+                    'target_user_id' => $reviewer->id,
+                ]],
+            ],
+            [
+                'action' => 'approve',
+                'completion_rule' => 'any',
+                'targets' => [[
+                    'target_type' => 'specific_user',
+                    'target_user_id' => $approver->id,
+                ]],
+            ],
+        ],
+    );
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'name' => 'Atomic Lifecycle Letter',
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create([
+        'version' => 1,
+        'content' => 'Hello {{employee_name}}',
+        'document_workflow_preset_id' => $preset->id,
+    ]);
+    $template->update(['published_version_id' => $version->id]);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'queued',
+        'total_targeted' => 1,
+        'correlation_id' => 'lifecycle-atomic',
+        'triggered_by' => $user->id,
+    ]);
+
+    $item = DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $employee->id,
+        'status' => 'pending',
+    ]);
+
+    $mockRenderer = Mockery::mock(CustomTemplatePdfRenderer::class);
+    $mockRenderer->shouldReceive('render')->once()->andReturn(minimalPdfBytes());
+
+    $job = new GenerateCustomDocumentsJob($company->id, $user->id, $run->id, false);
+    $job->handle($mockRenderer, app(SyncGeneratedEmployeeDocument::class));
+
+    $item->refresh();
+    $instance = DocumentInstance::query()->findOrFail($item->document_instance_id);
+    $lifecycle = DocumentLifecycleAutomation::query()
+        ->forCompany($company->id)
+        ->where('document_instance_id', $instance->id)
+        ->first();
+
+    expect($item->status)->toBe('completed')
+        ->and($instance->currentVersion)->not->toBeNull()
+        ->and($lifecycle)->not->toBeNull();
+
+    expect(fn () => app(DocumentLifecycleAutomationGuard::class)->assertManualWorkflowAllowed($instance, (int) $company->id))
+        ->toThrow(ValidationException::class);
+});
+
+test('lifecycle registration failure rolls back generation and compensates files', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+    addCompanyMembership($user, $company);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $preset = DocumentWorkflowPreset::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Fail Registration',
+        'status' => DocumentWorkflowPresetStatus::Active,
+        'created_by' => $user->id,
+    ]);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create([
+        'version' => 1,
+        'content' => 'Hello {{employee_name}}',
+        'document_workflow_preset_id' => $preset->id,
+    ]);
+    $template->update(['published_version_id' => $version->id]);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'queued',
+        'total_targeted' => 1,
+        'correlation_id' => 'lifecycle-fail-reg',
+        'triggered_by' => $user->id,
+    ]);
+
+    $item = DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $employee->id,
+        'status' => 'pending',
+    ]);
+
+    DocumentLifecycleAutomation::creating(function (): void {
+        throw new RuntimeException('lifecycle write failed');
+    });
+
+    try {
+        $mockRenderer = Mockery::mock(CustomTemplatePdfRenderer::class);
+        $mockRenderer->shouldReceive('render')->once()->andReturn(minimalPdfBytes());
+
+        $job = new GenerateCustomDocumentsJob($company->id, $user->id, $run->id, false);
+        $job->handle($mockRenderer, app(SyncGeneratedEmployeeDocument::class));
+    } finally {
+        DocumentLifecycleAutomation::getEventDispatcher()?->forget(
+            'eloquent.creating: '.DocumentLifecycleAutomation::class,
+        );
+    }
+
+    $item->refresh();
+
+    expect($item->status)->toBe('failed')
+        ->and(DocumentInstance::query()->where('company_id', $company->id)->count())->toBe(0)
+        ->and(DocumentLifecycleAutomation::query()->where('company_id', $company->id)->count())->toBe(0)
+        ->and(EmployeeDocument::query()->where('company_id', $company->id)->where('employee_id', $employee->id)->count())->toBe(0)
+        ->and(Storage::disk('local')->allFiles("document-instances/{$company->id}"))->toBeEmpty()
+        ->and(Storage::disk('local')->allFiles("employee-documents/{$company->id}/{$employee->id}"))->toBeEmpty();
+});
+
+test('start blocks review when current version diverged from lifecycle source', function () {
+    [
+        'company' => $company,
+        'instance' => $instance,
+        'version' => $version,
+        'templateVersion' => $templateVersion,
+        'initiator' => $initiator,
+    ] = makeLifecycleFixtures();
+
+    giveCompanyPermission($initiator, $company, 'documents.requests.create');
+
+    $preset = DocumentWorkflowPreset::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Review Version Gate',
+        'status' => DocumentWorkflowPresetStatus::Active,
+        'created_by' => $initiator->id,
+    ]);
+
+    $lifecycle = DocumentLifecycleAutomation::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'source_document_instance_version_id' => $version->id,
+        'document_generation_template_version_id' => $templateVersion->id,
+        'document_workflow_preset_id' => $preset->id,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => $preset->id,
+            'workflow_preset_name' => $preset->name,
+            'signing_preset_id' => null,
+            'signing_preset_name' => null,
+        ],
+        'status' => DocumentLifecycleAutomationStatus::Pending,
+        'initiated_by' => $initiator->id,
+    ]);
+
+    $newerVersion = DocumentInstanceVersion::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'version' => 2,
+        'stage' => 'generated',
+        'file_path' => $version->file_path,
+        'original_filename' => 'v2.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 10,
+        'checksum' => hash('sha256', 'review-gate-v2'),
+        'created_by' => $initiator->id,
+    ]);
+    $instance->update(['current_version_id' => $newerVersion->id]);
+
+    $result = app(StartDocumentLifecycleAutomation::class)->handle((int) $lifecycle->id, (int) $company->id);
+
+    expect($result->status)->toBe(DocumentLifecycleAutomationStatus::Blocked)
+        ->and($result->blocked_code)->toBe(DocumentLifecycleAutomationPolicy::BLOCK_SOURCE_VERSION_CHANGED)
+        ->and($result->document_workflow_request_id)->toBeNull()
+        ->and(DocumentWorkflowRequest::query()->where('document_instance_id', $instance->id)->count())->toBe(0);
+});
+
+test('retry before workflow creation respects exact source version gate', function () {
+    [
+        'company' => $company,
+        'instance' => $instance,
+        'version' => $version,
+        'templateVersion' => $templateVersion,
+        'initiator' => $initiator,
+    ] = makeLifecycleFixtures();
+
+    giveCompanyPermission($initiator, $company, 'documents.requests.create');
+
+    $preset = DocumentWorkflowPreset::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Retry Version Gate',
+        'status' => DocumentWorkflowPresetStatus::Active,
+        'created_by' => $initiator->id,
+    ]);
+
+    $lifecycle = DocumentLifecycleAutomation::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'source_document_instance_version_id' => $version->id,
+        'document_generation_template_version_id' => $templateVersion->id,
+        'document_workflow_preset_id' => $preset->id,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => $preset->id,
+            'workflow_preset_name' => $preset->name,
+            'signing_preset_id' => null,
+            'signing_preset_name' => null,
+        ],
+        'status' => DocumentLifecycleAutomationStatus::Blocked,
+        'blocked_code' => DocumentLifecycleAutomationPolicy::BLOCK_ROUTING_FAILED,
+        'blocked_message' => 'Temporary',
+        'blocked_at' => now(),
+        'initiated_by' => $initiator->id,
+    ]);
+
+    $newerVersion = DocumentInstanceVersion::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'version' => 2,
+        'stage' => 'generated',
+        'file_path' => $version->file_path,
+        'original_filename' => 'v2.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 10,
+        'checksum' => hash('sha256', 'retry-gate-v2'),
+        'created_by' => $initiator->id,
+    ]);
+    $instance->update(['current_version_id' => $newerVersion->id]);
+
+    $result = app(RetryDocumentLifecycleAutomation::class)->handle($lifecycle, $initiator, (int) $company->id);
+
+    expect($result->status)->toBe(DocumentLifecycleAutomationStatus::Blocked)
+        ->and($result->blocked_code)->toBe(DocumentLifecycleAutomationPolicy::BLOCK_SOURCE_VERSION_CHANGED)
+        ->and(DocumentWorkflowRequest::query()->where('document_instance_id', $instance->id)->count())->toBe(0);
+});
+
+test('retry completes when approved workflow has no signing configured', function () {
+    [
+        'company' => $company,
+        'instance' => $instance,
+        'version' => $version,
+        'templateVersion' => $templateVersion,
+        'initiator' => $initiator,
+    ] = makeLifecycleFixtures();
+
+    $workflowPreset = DocumentWorkflowPreset::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Approved No Signing',
+        'status' => DocumentWorkflowPresetStatus::Active,
+        'created_by' => $initiator->id,
+    ]);
+
+    $workflowRequest = DocumentWorkflowRequest::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'document_instance_version_id' => $version->id,
+        'status' => DocumentWorkflowRequestStatus::Approved,
+        'requested_by' => $initiator->id,
+        'requester_name_snapshot' => $initiator->name,
+        'requested_at' => now(),
+        'completed_at' => now(),
+        'document_workflow_preset_id' => $workflowPreset->id,
+        'preset_name_snapshot' => $workflowPreset->name,
+    ]);
+
+    $lifecycle = DocumentLifecycleAutomation::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'source_document_instance_version_id' => $version->id,
+        'document_generation_template_version_id' => $templateVersion->id,
+        'document_workflow_preset_id' => $workflowPreset->id,
+        'document_workflow_request_id' => $workflowRequest->id,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => $workflowPreset->id,
+            'workflow_preset_name' => $workflowPreset->name,
+            'signing_preset_id' => null,
+            'signing_preset_name' => null,
+        ],
+        'status' => DocumentLifecycleAutomationStatus::Blocked,
+        'stage' => DocumentLifecycleAutomationStage::Review,
+        'blocked_code' => DocumentLifecycleAutomationPolicy::BLOCK_ROUTING_FAILED,
+        'blocked_message' => 'Post-approval glitch',
+        'blocked_at' => now(),
+        'initiated_by' => $initiator->id,
+        'started_at' => now(),
+    ]);
+
+    $result = app(RetryDocumentLifecycleAutomation::class)->handle($lifecycle, $initiator, (int) $company->id);
+
+    expect($result->status)->toBe(DocumentLifecycleAutomationStatus::Completed)
+        ->and($result->stage)->toBe(DocumentLifecycleAutomationStage::Done)
+        ->and($result->document_signing_flow_id)->toBeNull()
+        ->and(DocumentSigningFlow::query()->count())->toBe(0);
+});
+
+test('retry starts signing once for approved workflow with signing configured', function () {
+    [
+        'company' => $company,
+        'instance' => $instance,
+        'version' => $version,
+        'templateVersion' => $templateVersion,
+        'initiator' => $initiator,
+    ] = makeLifecycleFixtures();
+
+    Storage::disk('local')->put($version->file_path, minimalPdfBytes());
+
+    giveCompanyPermission($initiator, $company, 'documents.recipient-requests.create');
+    giveCompanyPermission($initiator, $company, 'documents.signing-presets.create');
+
+    $workflowPreset = DocumentWorkflowPreset::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Approved With Signing',
+        'status' => DocumentWorkflowPresetStatus::Active,
+        'created_by' => $initiator->id,
+    ]);
+
+    $signingPreset = app(StoreDocumentSigningPreset::class)->handle(
+        $initiator,
+        $company->id,
+        'Subject sign',
+        null,
+        [['recipient_role' => 'subject']],
+    );
+
+    DocumentGenerationTemplateVersion::query()
+        ->whereKey($templateVersion->id)
+        ->update(['signature_placement_config' => defaultSignaturePlacementConfig()]);
+    $templateVersion->refresh();
+
+    $workflowRequest = DocumentWorkflowRequest::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'document_instance_version_id' => $version->id,
+        'status' => DocumentWorkflowRequestStatus::Approved,
+        'requested_by' => $initiator->id,
+        'requester_name_snapshot' => $initiator->name,
+        'requested_at' => now(),
+        'completed_at' => now(),
+        'document_workflow_preset_id' => $workflowPreset->id,
+        'preset_name_snapshot' => $workflowPreset->name,
+    ]);
+
+    $lifecycle = DocumentLifecycleAutomation::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'source_document_instance_version_id' => $version->id,
+        'document_generation_template_version_id' => $templateVersion->id,
+        'document_workflow_preset_id' => $workflowPreset->id,
+        'document_signing_preset_id' => $signingPreset->id,
+        'document_workflow_request_id' => $workflowRequest->id,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => $workflowPreset->id,
+            'workflow_preset_name' => $workflowPreset->name,
+            'signing_preset_id' => $signingPreset->id,
+            'signing_preset_name' => $signingPreset->name,
+        ],
+        'status' => DocumentLifecycleAutomationStatus::Blocked,
+        'stage' => DocumentLifecycleAutomationStage::Review,
+        'blocked_code' => DocumentLifecycleAutomationPolicy::BLOCK_SIGNING_START_FAILED,
+        'blocked_message' => 'Signing start failed',
+        'blocked_at' => now(),
+        'initiated_by' => $initiator->id,
+        'started_at' => now(),
+    ]);
+
+    $first = app(RetryDocumentLifecycleAutomation::class)->handle($lifecycle, $initiator, (int) $company->id);
+
+    expect($first->status)->toBe(DocumentLifecycleAutomationStatus::Active)
+        ->and($first->stage)->toBe(DocumentLifecycleAutomationStage::Signing)
+        ->and($first->document_signing_flow_id)->not->toBeNull()
+        ->and(DocumentSigningFlow::query()->where('document_instance_id', $instance->id)->count())->toBe(1);
+
+    $again = app(AdvanceDocumentLifecycleAutomation::class)->startSnapshottedSigning($first->fresh(), (int) $company->id);
+
+    expect($again->document_signing_flow_id)->toBe($first->document_signing_flow_id)
+        ->and(DocumentSigningFlow::query()->where('document_instance_id', $instance->id)->count())->toBe(1);
+});
+
+test('retry recovers active and completed signing flows without creating duplicates', function () {
+    [
+        'company' => $company,
+        'instance' => $instance,
+        'version' => $version,
+        'templateVersion' => $templateVersion,
+        'initiator' => $initiator,
+    ] = makeLifecycleFixtures();
+
+    $flow = DocumentSigningFlow::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'document_signing_preset_id' => null,
+        'starting_document_instance_version_id' => $version->id,
+        'preset_name_snapshot' => 'Active Flow',
+        'routing_definition_snapshot' => [
+            'schema_version' => 1,
+            'steps' => [[
+                'sequence' => 1,
+                'recipient_role' => 'subject',
+                'target_type' => 'subject_employee',
+                'recipient_user_id' => null,
+                'recipient_name' => 'Employee',
+            ]],
+        ],
+        'status' => DocumentSigningFlowStatus::Active,
+        'current_step_sequence' => 1,
+        'started_by' => $initiator->id,
+        'started_at' => now(),
+    ]);
+
+    $lifecycle = DocumentLifecycleAutomation::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'source_document_instance_version_id' => $version->id,
+        'document_generation_template_version_id' => $templateVersion->id,
+        'document_signing_flow_id' => $flow->id,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => null,
+            'workflow_preset_name' => null,
+            'signing_preset_id' => 1,
+            'signing_preset_name' => 'Active Flow',
+        ],
+        'status' => DocumentLifecycleAutomationStatus::Blocked,
+        'stage' => DocumentLifecycleAutomationStage::Signing,
+        'blocked_code' => DocumentLifecycleAutomationPolicy::BLOCK_SIGNING_START_FAILED,
+        'blocked_message' => 'Stale blocked',
+        'blocked_at' => now(),
+        'initiated_by' => $initiator->id,
+        'started_at' => now(),
+    ]);
+
+    $synced = app(RetryDocumentLifecycleAutomation::class)->handle($lifecycle, $initiator, (int) $company->id);
+
+    expect($synced->status)->toBe(DocumentLifecycleAutomationStatus::Active)
+        ->and($synced->stage)->toBe(DocumentLifecycleAutomationStage::Signing)
+        ->and(DocumentSigningFlow::query()->count())->toBe(1);
+
+    $flow->update([
+        'status' => DocumentSigningFlowStatus::Completed,
+        'completed_at' => now(),
+    ]);
+
+    DocumentLifecycleAutomation::query()->whereKey($synced->id)->update([
+        'status' => DocumentLifecycleAutomationStatus::Blocked,
+        'stage' => DocumentLifecycleAutomationStage::Signing,
+        'blocked_code' => DocumentLifecycleAutomationPolicy::BLOCK_SIGNING_START_FAILED,
+        'blocked_message' => 'Stale after completion',
+        'blocked_at' => now(),
+    ]);
+
+    $completed = app(RetryDocumentLifecycleAutomation::class)->handle(
+        DocumentLifecycleAutomation::query()->findOrFail($synced->id),
+        $initiator,
+        (int) $company->id,
+    );
+
+    expect($completed->status)->toBe(DocumentLifecycleAutomationStatus::Completed)
+        ->and($completed->stage)->toBe(DocumentLifecycleAutomationStage::Done)
+        ->and(DocumentSigningFlow::query()->count())->toBe(1);
+});
+
+test('retry cannot reactivate cancelled signing flow', function () {
+    [
+        'company' => $company,
+        'instance' => $instance,
+        'version' => $version,
+        'templateVersion' => $templateVersion,
+        'initiator' => $initiator,
+    ] = makeLifecycleFixtures();
+
+    $flow = DocumentSigningFlow::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'document_signing_preset_id' => null,
+        'starting_document_instance_version_id' => $version->id,
+        'preset_name_snapshot' => 'Cancelled Flow',
+        'routing_definition_snapshot' => [
+            'schema_version' => 1,
+            'steps' => [[
+                'sequence' => 1,
+                'recipient_role' => 'subject',
+                'target_type' => 'subject_employee',
+                'recipient_user_id' => null,
+                'recipient_name' => 'Employee',
+            ]],
+        ],
+        'status' => DocumentSigningFlowStatus::Cancelled,
+        'current_step_sequence' => 1,
+        'started_by' => $initiator->id,
+        'started_at' => now(),
+        'cancelled_at' => now(),
+    ]);
+
+    $lifecycle = DocumentLifecycleAutomation::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'source_document_instance_version_id' => $version->id,
+        'document_generation_template_version_id' => $templateVersion->id,
+        'document_signing_flow_id' => $flow->id,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => null,
+            'workflow_preset_name' => null,
+            'signing_preset_id' => 1,
+            'signing_preset_name' => 'Cancelled Flow',
+        ],
+        'status' => DocumentLifecycleAutomationStatus::Blocked,
+        'stage' => DocumentLifecycleAutomationStage::Signing,
+        'blocked_code' => DocumentLifecycleAutomationPolicy::BLOCK_SIGNING_START_FAILED,
+        'blocked_message' => 'Was blocked',
+        'blocked_at' => now(),
+        'initiated_by' => $initiator->id,
+        'started_at' => now(),
+    ]);
+
+    $result = app(RetryDocumentLifecycleAutomation::class)->handle($lifecycle, $initiator, (int) $company->id);
+
+    expect($result->status)->toBe(DocumentLifecycleAutomationStatus::Stopped)
+        ->and(app(DocumentLifecycleAutomationPresenter::class)->forDocumentShow($result)['can_retry'])->toBeFalse();
+});
+
+test('retry rejects non-retryable blocked signing flow and presenter hides retry', function () {
+    [
+        'company' => $company,
+        'instance' => $instance,
+        'version' => $version,
+        'templateVersion' => $templateVersion,
+        'initiator' => $initiator,
+        'employee' => $employee,
+    ] = makeLifecycleFixtures();
+
+    $flow = DocumentSigningFlow::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'document_signing_preset_id' => null,
+        'starting_document_instance_version_id' => $version->id,
+        'preset_name_snapshot' => 'Expired Flow',
+        'routing_definition_snapshot' => [
+            'schema_version' => 1,
+            'steps' => [[
+                'sequence' => 1,
+                'recipient_role' => 'subject',
+                'target_type' => 'subject_employee',
+                'recipient_user_id' => null,
+                'recipient_name' => 'Employee',
+            ]],
+        ],
+        'status' => DocumentSigningFlowStatus::Blocked,
+        'current_step_sequence' => 1,
+        'started_by' => $initiator->id,
+        'started_at' => now(),
+        'blocked_at' => now(),
+        'blocked_reason' => 'Step expired',
+    ]);
+
+    DocumentRecipientRequest::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'source_document_instance_version_id' => $version->id,
+        'document_signing_flow_id' => $flow->id,
+        'signing_step_sequence' => 1,
+        'action' => DocumentRecipientAction::Sign,
+        'recipient_type' => 'subject_employee',
+        'recipient_role' => DocumentRecipientRole::Subject,
+        'employee_id' => $employee->id,
+        'recipient_name_snapshot' => $employee->name,
+        'status' => DocumentRecipientRequestStatus::Expired,
+        'token_hash' => hash('sha256', 'lifecycle-expired-token'),
+        'expires_at' => now()->subMinute(),
+        'requested_by' => $initiator->id,
+        'requested_at' => now(),
+        'source_checksum_sha256' => hash('sha256', 'source'),
+    ]);
+
+    $lifecycle = DocumentLifecycleAutomation::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'source_document_instance_version_id' => $version->id,
+        'document_generation_template_version_id' => $templateVersion->id,
+        'document_signing_flow_id' => $flow->id,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => null,
+            'workflow_preset_name' => null,
+            'signing_preset_id' => 1,
+            'signing_preset_name' => 'Expired Flow',
+        ],
+        'status' => DocumentLifecycleAutomationStatus::Blocked,
+        'stage' => DocumentLifecycleAutomationStage::Signing,
+        'blocked_code' => DocumentLifecycleAutomationPolicy::BLOCK_SIGNING_START_FAILED,
+        'blocked_message' => 'Step expired',
+        'blocked_at' => now(),
+        'initiated_by' => $initiator->id,
+        'started_at' => now(),
+    ]);
+
+    expect(app(DocumentLifecycleAutomationPresenter::class)->forDocumentShow($lifecycle)['can_retry'])->toBeFalse();
+
+    expect(fn () => app(RetryDocumentLifecycleAutomation::class)->handle($lifecycle, $initiator, (int) $company->id))
+        ->toThrow(ValidationException::class);
+
+    expect($lifecycle->fresh()->status)->toBe(DocumentLifecycleAutomationStatus::Blocked)
+        ->and($flow->fresh()->status)->toBe(DocumentSigningFlowStatus::Blocked)
+        ->and(DocumentSigningFlow::query()->count())->toBe(1);
+});
+
+test('reconciliation starts pending lifecycle and is idempotent', function () {
+    [
+        'company' => $company,
+        'instance' => $instance,
+        'version' => $version,
+        'templateVersion' => $templateVersion,
+        'initiator' => $initiator,
+        'document' => $document,
+    ] = makeLifecycleFixtures();
+
+    $reviewer = User::factory()->create();
+    addCompanyMembership($reviewer, $company);
+    giveCompanyPermission($reviewer, $company, 'documents.requests.review');
+    giveCompanyPermission($initiator, $company, 'documents.requests.create');
+
+    $approver = User::factory()->create();
+    addCompanyMembership($approver, $company);
+    giveCompanyPermission($approver, $company, 'documents.requests.approve');
+
+    $preset = app(StoreDocumentWorkflowPreset::class)->handle(
+        actor: $initiator,
+        companyId: $company->id,
+        name: 'Reconcile Review',
+        description: null,
+        stages: [
+            [
+                'action' => 'review',
+                'completion_rule' => 'all',
+                'targets' => [[
+                    'target_type' => 'specific_user',
+                    'target_user_id' => $reviewer->id,
+                ]],
+            ],
+            [
+                'action' => 'approve',
+                'completion_rule' => 'any',
+                'targets' => [[
+                    'target_type' => 'specific_user',
+                    'target_user_id' => $approver->id,
+                ]],
+            ],
+        ],
+    );
+
+    DocumentLifecycleAutomation::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'source_document_instance_version_id' => $version->id,
+        'document_generation_template_version_id' => $templateVersion->id,
+        'document_workflow_preset_id' => $preset->id,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => $preset->id,
+            'workflow_preset_name' => $preset->name,
+            'signing_preset_id' => null,
+            'signing_preset_name' => null,
+        ],
+        'status' => DocumentLifecycleAutomationStatus::Pending,
+        'initiated_by' => $initiator->id,
+    ]);
+
+    $this->artisan('documents:reconcile-lifecycle-automations', ['--company' => $company->id])
+        ->assertSuccessful();
+
+    $lifecycle = DocumentLifecycleAutomation::query()
+        ->where('document_instance_id', $instance->id)
+        ->firstOrFail();
+
+    expect($lifecycle->status)->toBe(DocumentLifecycleAutomationStatus::Active)
+        ->and($lifecycle->stage)->toBe(DocumentLifecycleAutomationStage::Review)
+        ->and($lifecycle->document_workflow_request_id)->not->toBeNull()
+        ->and(DocumentWorkflowRequest::query()->where('document_instance_id', $instance->id)->count())->toBe(1);
+
+    $this->artisan('documents:reconcile-lifecycle-automations', ['--company' => $company->id])
+        ->assertSuccessful();
+
+    expect(DocumentWorkflowRequest::query()->where('document_instance_id', $instance->id)->count())->toBe(1)
+        ->and($lifecycle->fresh()->document_workflow_request_id)->toBe($lifecycle->document_workflow_request_id);
+});
+
+test('reconciliation synchronizes approved rejected and cancelled workflow terminals', function () {
+    [
+        'company' => $company,
+        'instance' => $instance,
+        'version' => $version,
+        'templateVersion' => $templateVersion,
+        'initiator' => $initiator,
+    ] = makeLifecycleFixtures();
+
+    $workflowPreset = DocumentWorkflowPreset::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Terminal Sync',
+        'status' => DocumentWorkflowPresetStatus::Active,
+        'created_by' => $initiator->id,
+    ]);
+
+    foreach ([
+        [DocumentWorkflowRequestStatus::Approved, DocumentLifecycleAutomationStatus::Completed],
+        [DocumentWorkflowRequestStatus::Rejected, DocumentLifecycleAutomationStatus::Stopped],
+        [DocumentWorkflowRequestStatus::Cancelled, DocumentLifecycleAutomationStatus::Stopped],
+    ] as [$workflowStatus, $expectedLifecycleStatus]) {
+        $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+        $document = EmployeeDocument::query()->create([
+            'company_id' => $company->id,
+            'employee_id' => $employee->id,
+            'type' => 'other',
+            'document_type' => 'other',
+            'title' => 'Doc',
+            'file_path' => "employee-documents/{$company->id}/{$employee->id}/x.pdf",
+            'original_filename' => 'x.pdf',
+            'mime_type' => 'application/pdf',
+            'size_bytes' => 10,
+            'checksum' => hash('sha256', $workflowStatus->value),
+            'current_version' => 1,
+            'status' => 'valid',
+        ]);
+        Storage::disk('local')->put($document->file_path, '%PDF');
+
+        $docInstance = DocumentInstance::query()->create([
+            'company_id' => $company->id,
+            'employee_id' => $employee->id,
+            'employee_name_snapshot' => $employee->name,
+            'employee_no_snapshot' => $employee->employee_no,
+            'document_generation_template_id' => $instance->document_generation_template_id,
+            'document_generation_template_version_id' => $templateVersion->id,
+            'template_name_snapshot' => 'Doc',
+            'template_version_number' => 1,
+            'title_snapshot' => 'Doc',
+            'status' => 'generated',
+            'employee_document_id' => $document->id,
+            'generated_at' => now(),
+        ]);
+
+        $docVersion = DocumentInstanceVersion::query()->create([
+            'company_id' => $company->id,
+            'document_instance_id' => $docInstance->id,
+            'version' => 1,
+            'stage' => 'generated',
+            'file_path' => "document-instances/{$company->id}/".uniqid('v', true).'.pdf',
+            'original_filename' => 'v1.pdf',
+            'mime_type' => 'application/pdf',
+            'size_bytes' => 10,
+            'checksum' => hash('sha256', uniqid('c', true)),
+            'created_by' => $initiator->id,
+        ]);
+        Storage::disk('local')->put($docVersion->file_path, '%PDF');
+        $docInstance->update(['current_version_id' => $docVersion->id]);
+
+        $workflowRequest = DocumentWorkflowRequest::query()->create([
+            'company_id' => $company->id,
+            'document_instance_id' => $docInstance->id,
+            'document_instance_version_id' => $docVersion->id,
+            'status' => $workflowStatus,
+            'requested_by' => $initiator->id,
+            'requester_name_snapshot' => $initiator->name,
+            'requested_at' => now(),
+            'completed_at' => now(),
+            'document_workflow_preset_id' => $workflowPreset->id,
+            'preset_name_snapshot' => $workflowPreset->name,
+        ]);
+
+        DocumentLifecycleAutomation::query()->create([
+            'company_id' => $company->id,
+            'document_instance_id' => $docInstance->id,
+            'source_document_instance_version_id' => $docVersion->id,
+            'document_generation_template_version_id' => $templateVersion->id,
+            'document_workflow_preset_id' => $workflowPreset->id,
+            'document_workflow_request_id' => $workflowRequest->id,
+            'policy_snapshot' => [
+                'schema_version' => 1,
+                'workflow_preset_id' => $workflowPreset->id,
+                'workflow_preset_name' => $workflowPreset->name,
+                'signing_preset_id' => null,
+                'signing_preset_name' => null,
+            ],
+            'status' => DocumentLifecycleAutomationStatus::Active,
+            'stage' => DocumentLifecycleAutomationStage::Review,
+            'initiated_by' => $initiator->id,
+            'started_at' => now(),
+        ]);
+
+        expect($expectedLifecycleStatus)->not->toBeNull();
+    }
+
+    $this->artisan('documents:reconcile-lifecycle-automations', ['--company' => $company->id])
+        ->assertSuccessful();
+
+    $statuses = DocumentLifecycleAutomation::query()
+        ->where('company_id', $company->id)
+        ->where('document_instance_id', '!=', $instance->id)
+        ->pluck('status')
+        ->map(fn ($status) => $status->value)
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($statuses)->toBe(['completed', 'stopped', 'stopped']);
+});
+
+test('reconciliation is company scoped', function () {
+    [
+        'company' => $companyA,
+        'instance' => $instanceA,
+        'version' => $versionA,
+        'templateVersion' => $templateVersionA,
+        'initiator' => $initiatorA,
+    ] = makeLifecycleFixtures();
+
+    [
+        'company' => $companyB,
+        'instance' => $instanceB,
+        'version' => $versionB,
+        'templateVersion' => $templateVersionB,
+        'initiator' => $initiatorB,
+    ] = makeLifecycleFixtures();
+
+    DocumentLifecycleAutomation::query()->create([
+        'company_id' => $companyA->id,
+        'document_instance_id' => $instanceA->id,
+        'source_document_instance_version_id' => $versionA->id,
+        'document_generation_template_version_id' => $templateVersionA->id,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => null,
+            'workflow_preset_name' => null,
+            'signing_preset_id' => null,
+            'signing_preset_name' => null,
+        ],
+        'status' => DocumentLifecycleAutomationStatus::Pending,
+        'initiated_by' => $initiatorA->id,
+    ]);
+
+    DocumentLifecycleAutomation::query()->create([
+        'company_id' => $companyB->id,
+        'document_instance_id' => $instanceB->id,
+        'source_document_instance_version_id' => $versionB->id,
+        'document_generation_template_version_id' => $templateVersionB->id,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => null,
+            'workflow_preset_name' => null,
+            'signing_preset_id' => null,
+            'signing_preset_name' => null,
+        ],
+        'status' => DocumentLifecycleAutomationStatus::Pending,
+        'initiated_by' => $initiatorB->id,
+    ]);
+
+    $this->artisan('documents:reconcile-lifecycle-automations', ['--company' => $companyA->id])
+        ->assertSuccessful();
+
+    expect(DocumentLifecycleAutomation::query()->where('company_id', $companyA->id)->first()->status)
+        ->toBe(DocumentLifecycleAutomationStatus::Completed)
+        ->and(DocumentLifecycleAutomation::query()->where('company_id', $companyB->id)->first()->status)
+        ->toBe(DocumentLifecycleAutomationStatus::Pending);
 });

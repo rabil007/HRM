@@ -4,7 +4,12 @@ namespace App\Support\Documents\Lifecycle;
 
 use App\Enums\DocumentLifecycleAutomationStage;
 use App\Enums\DocumentLifecycleAutomationStatus;
+use App\Enums\DocumentSigningFlowStatus;
+use App\Enums\DocumentWorkflowRequestStatus;
 use App\Models\DocumentLifecycleAutomation;
+use App\Models\DocumentSigningFlow;
+use App\Models\DocumentWorkflowRequest;
+use App\Support\Documents\Signing\DocumentSigningFlowRetryEligibility;
 
 final class DocumentLifecycleAutomationPresenter
 {
@@ -76,7 +81,7 @@ final class DocumentLifecycleAutomationPresenter
             'signing_flow_id' => $lifecycle->document_signing_flow_id !== null
                 ? (int) $lifecycle->document_signing_flow_id
                 : null,
-            'can_retry' => $status === DocumentLifecycleAutomationStatus::Blocked,
+            'can_retry' => $this->canRetry($lifecycle, $status),
             'policy_snapshot' => [
                 'schema_version' => isset($snapshot['schema_version']) && is_numeric($snapshot['schema_version'])
                     ? (int) $snapshot['schema_version']
@@ -91,5 +96,58 @@ final class DocumentLifecycleAutomationPresenter
                     : null,
             ],
         ];
+    }
+
+    public function canRetry(
+        DocumentLifecycleAutomation $lifecycle,
+        ?DocumentLifecycleAutomationStatus $status = null,
+    ): bool {
+        $status ??= $lifecycle->status instanceof DocumentLifecycleAutomationStatus
+            ? $lifecycle->status
+            : DocumentLifecycleAutomationStatus::from((string) $lifecycle->status);
+
+        if ($status !== DocumentLifecycleAutomationStatus::Blocked) {
+            return false;
+        }
+
+        $companyId = (int) $lifecycle->company_id;
+
+        if ($lifecycle->document_signing_flow_id !== null) {
+            $flow = DocumentSigningFlow::query()
+                ->forCompany($companyId)
+                ->whereKey($lifecycle->document_signing_flow_id)
+                ->first();
+
+            if (! $flow instanceof DocumentSigningFlow) {
+                return false;
+            }
+
+            return match ($flow->status) {
+                DocumentSigningFlowStatus::Active,
+                DocumentSigningFlowStatus::Completed => true,
+                DocumentSigningFlowStatus::Cancelled => false,
+                DocumentSigningFlowStatus::Blocked => DocumentSigningFlowRetryEligibility::canRetry($flow),
+            };
+        }
+
+        if ($lifecycle->document_workflow_request_id !== null) {
+            $workflow = DocumentWorkflowRequest::query()
+                ->forCompany($companyId)
+                ->whereKey($lifecycle->document_workflow_request_id)
+                ->first();
+
+            if (! $workflow instanceof DocumentWorkflowRequest) {
+                return false;
+            }
+
+            return match ($workflow->status) {
+                DocumentWorkflowRequestStatus::Pending,
+                DocumentWorkflowRequestStatus::Approved => true,
+                DocumentWorkflowRequestStatus::Rejected,
+                DocumentWorkflowRequestStatus::Cancelled => false,
+            };
+        }
+
+        return true;
     }
 }

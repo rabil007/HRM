@@ -10,8 +10,12 @@ use App\Models\DocumentLifecycleAutomation;
 use App\Support\Documents\Lifecycle\DocumentLifecycleAutomationActivityLogger;
 use App\Support\Documents\Lifecycle\DocumentLifecycleAutomationPolicy;
 use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Support\Facades\DB;
 
+/**
+ * Registers a Pending lifecycle row only. Does not start workflow/signing.
+ * Call StartDocumentLifecycleAutomation after the surrounding generation
+ * transaction commits.
+ */
 final class CreateDocumentLifecycleAutomation
 {
     public function __construct(
@@ -62,18 +66,8 @@ final class CreateDocumentLifecycleAutomation
                 ->first();
         }
 
-        $lifecycleId = (int) $lifecycle->id;
-
-        DB::afterCommit(function () use ($lifecycleId, $companyId): void {
-            try {
-                app(StartDocumentLifecycleAutomation::class)->handle($lifecycleId, $companyId);
-            } catch (\Throwable $exception) {
-                report($exception);
-            }
-        });
-
         $this->activityLogger->log(
-            description: 'Document lifecycle automation started',
+            description: 'Document lifecycle automation registered',
             event: 'document_lifecycle_started',
             lifecycle: $lifecycle,
             metadata: [

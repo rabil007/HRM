@@ -8,6 +8,7 @@ use App\Enums\DocumentSigningPresetStatus;
 use App\Enums\DocumentWorkflowRequestStatus;
 use App\Models\DocumentInstance;
 use App\Models\DocumentLifecycleAutomation;
+use App\Models\DocumentSigningFlow;
 use App\Models\DocumentSigningPreset;
 use App\Models\DocumentWorkflowRequest;
 use App\Models\EmployeeDocument;
@@ -92,15 +93,18 @@ final class AdvanceDocumentLifecycleAutomation
         }
 
         if ($lifecycle->document_signing_flow_id !== null) {
-            $lifecycle->update([
-                'status' => DocumentLifecycleAutomationStatus::Active,
-                'stage' => DocumentLifecycleAutomationStage::Signing,
-                'blocked_code' => null,
-                'blocked_message' => null,
-                'blocked_at' => null,
-            ]);
+            $flow = DocumentSigningFlow::query()
+                ->forCompany($companyId)
+                ->whereKey($lifecycle->document_signing_flow_id)
+                ->lockForUpdate()
+                ->first();
 
-            return $lifecycle->fresh() ?? $lifecycle;
+            if ($flow instanceof DocumentSigningFlow) {
+                return app(SyncDocumentLifecycleFromSigningFlow::class)
+                    ->applyToLockedLifecycle($lifecycle, $flow);
+            }
+
+            return $lifecycle;
         }
 
         $workflowRequest = DocumentWorkflowRequest::query()

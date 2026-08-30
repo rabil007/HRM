@@ -41,21 +41,32 @@ final class SyncDocumentLifecycleFromSigningFlow
                 return;
             }
 
-            match ($flow->status) {
-                DocumentSigningFlowStatus::Completed => $this->markCompleted($lifecycle),
-                DocumentSigningFlowStatus::Cancelled => $this->markStopped($lifecycle),
-                DocumentSigningFlowStatus::Blocked => $this->markBlockedFromFlow($lifecycle, $flow),
-                DocumentSigningFlowStatus::Active => $this->markActiveSigning($lifecycle),
-            };
+            $this->applyToLockedLifecycle($lifecycle, $flow);
         });
     }
 
-    private function markCompleted(DocumentLifecycleAutomation $lifecycle): void
+    /**
+     * Apply signing-flow status to a lifecycle row that is already locked
+     * (and preferably with the flow locked) inside an outer transaction.
+     */
+    public function applyToLockedLifecycle(
+        DocumentLifecycleAutomation $lifecycle,
+        DocumentSigningFlow $flow,
+    ): DocumentLifecycleAutomation {
+        return match ($flow->status) {
+            DocumentSigningFlowStatus::Completed => $this->markCompleted($lifecycle),
+            DocumentSigningFlowStatus::Cancelled => $this->markStopped($lifecycle),
+            DocumentSigningFlowStatus::Blocked => $this->markBlockedFromFlow($lifecycle, $flow),
+            DocumentSigningFlowStatus::Active => $this->markActiveSigning($lifecycle),
+        };
+    }
+
+    private function markCompleted(DocumentLifecycleAutomation $lifecycle): DocumentLifecycleAutomation
     {
         if ($lifecycle->status === DocumentLifecycleAutomationStatus::Completed
             && $lifecycle->stage === DocumentLifecycleAutomationStage::Done
         ) {
-            return;
+            return $lifecycle;
         }
 
         $lifecycle->update([
@@ -74,12 +85,14 @@ final class SyncDocumentLifecycleFromSigningFlow
             event: 'document_lifecycle_completed',
             lifecycle: $lifecycle,
         );
+
+        return $lifecycle;
     }
 
-    private function markStopped(DocumentLifecycleAutomation $lifecycle): void
+    private function markStopped(DocumentLifecycleAutomation $lifecycle): DocumentLifecycleAutomation
     {
         if ($lifecycle->status === DocumentLifecycleAutomationStatus::Stopped) {
-            return;
+            return $lifecycle;
         }
 
         $lifecycle->update([
@@ -100,12 +113,14 @@ final class SyncDocumentLifecycleFromSigningFlow
                 'stop_code' => DocumentLifecycleAutomationPolicy::STOP_SIGNING_CANCELLED,
             ],
         );
+
+        return $lifecycle;
     }
 
     private function markBlockedFromFlow(
         DocumentLifecycleAutomation $lifecycle,
         DocumentSigningFlow $flow,
-    ): void {
+    ): DocumentLifecycleAutomation {
         $reason = is_string($flow->blocked_reason) && $flow->blocked_reason !== ''
             ? $flow->blocked_reason
             : 'The linked signing flow is blocked.';
@@ -115,7 +130,7 @@ final class SyncDocumentLifecycleFromSigningFlow
             && $lifecycle->stage === DocumentLifecycleAutomationStage::Signing
             && $lifecycle->blocked_message === $reason
         ) {
-            return;
+            return $lifecycle;
         }
 
         $lifecycle->update([
@@ -138,20 +153,22 @@ final class SyncDocumentLifecycleFromSigningFlow
                 'document_signing_flow_id' => $flow->id,
             ],
         );
+
+        return $lifecycle;
     }
 
-    private function markActiveSigning(DocumentLifecycleAutomation $lifecycle): void
+    private function markActiveSigning(DocumentLifecycleAutomation $lifecycle): DocumentLifecycleAutomation
     {
         if (
             $lifecycle->status === DocumentLifecycleAutomationStatus::Active
             && $lifecycle->stage === DocumentLifecycleAutomationStage::Signing
             && $lifecycle->blocked_code === null
         ) {
-            return;
+            return $lifecycle;
         }
 
         if ($lifecycle->status->isTerminal()) {
-            return;
+            return $lifecycle;
         }
 
         $lifecycle->update([
@@ -169,5 +186,7 @@ final class SyncDocumentLifecycleFromSigningFlow
             event: 'document_lifecycle_signing_started',
             lifecycle: $lifecycle,
         );
+
+        return $lifecycle;
     }
 }
