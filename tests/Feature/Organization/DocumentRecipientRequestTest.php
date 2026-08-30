@@ -488,3 +488,96 @@ test('users without documents.recipient-requests.create cannot create recipient 
         ])
         ->assertForbidden();
 });
+
+test('public document-action rejects expired tokens with a generic message', function () {
+    ['company' => $company, 'document' => $document] = makeRecipientFixturesWithSignaturePlacement(
+        defaultSignaturePlacementConfig(),
+    );
+
+    $requester = User::factory()->create();
+    grantCompanyPermissions($requester, $company, ['documents.recipient-requests.create']);
+
+    $created = app(CreateDocumentRecipientRequest::class)->handle(
+        $document,
+        DocumentRecipientAction::Sign,
+        $requester,
+        $company->id,
+    );
+
+    $created['request']->update(['expires_at' => now()->subMinute()]);
+
+    $this->post(route('public.document-action.sign', ['token' => $created['raw_token']]), [
+        'signed_name' => 'Employee',
+        'signature_data' => validSignatureDataUri(),
+        'consent' => true,
+    ])->assertRedirect()
+        ->assertSessionHasErrors('token');
+
+    expect(session('errors')->first('token'))->toContain('expired')
+        ->and($created['request']->fresh()->status)->toBe(DocumentRecipientRequestStatus::Expired);
+});
+
+test('public document-action rejects cancelled and superseded requests without leaking ids', function (string $status) {
+    ['company' => $company, 'document' => $document] = makeRecipientFixturesWithSignaturePlacement(
+        defaultSignaturePlacementConfig(),
+    );
+
+    $requester = User::factory()->create();
+    grantCompanyPermissions($requester, $company, ['documents.recipient-requests.create']);
+
+    $created = app(CreateDocumentRecipientRequest::class)->handle(
+        $document,
+        DocumentRecipientAction::Sign,
+        $requester,
+        $company->id,
+    );
+
+    $created['request']->update([
+        'status' => DocumentRecipientRequestStatus::from($status),
+        'next_reminder_at' => null,
+    ]);
+
+    $this->get(route('public.document-action.document', ['token' => $created['raw_token']]))
+        ->assertNotFound();
+
+    $this->post(route('public.document-action.sign', ['token' => $created['raw_token']]), [
+        'signed_name' => 'Employee',
+        'signature_data' => validSignatureDataUri(),
+        'consent' => true,
+    ])->assertRedirect()
+        ->assertSessionHasErrors('token');
+
+    expect(session('errors')->first('token'))->toContain('no longer available')
+        ->and(session('errors')->first('token'))->not->toContain((string) $created['request']->id)
+        ->and(session('errors')->first('token'))->not->toContain((string) $company->id);
+})->with([
+    'cancelled' => ['cancelled'],
+    'superseded' => ['superseded'],
+]);
+
+test('public document-action cannot be accessed by guessing request ids and does not take a tenant id', function () {
+    ['company' => $company, 'document' => $document] = makeRecipientFixturesWithSignaturePlacement(
+        defaultSignaturePlacementConfig(),
+    );
+
+    $requester = User::factory()->create();
+    grantCompanyPermissions($requester, $company, ['documents.recipient-requests.create']);
+
+    $created = app(CreateDocumentRecipientRequest::class)->handle(
+        $document,
+        DocumentRecipientAction::Acknowledge,
+        $requester,
+        $company->id,
+    );
+
+    $publicUrl = route('public.document-action.show', ['token' => $created['raw_token']]);
+
+    expect($publicUrl)->not->toContain('company_id')
+        ->and($publicUrl)->not->toContain('?company=');
+
+    $this->get('/document-action/'.$created['request']->id)
+        ->assertNotFound();
+
+    $this->get(route('public.document-action.show', ['token' => $created['raw_token']]))
+        ->assertOk();
+});

@@ -26,6 +26,14 @@ enum DocumentRecipientRequestStatus: string
         return $this === self::AwaitingAction;
     }
 
+    public function isTerminal(): bool
+    {
+        return match ($this) {
+            self::AwaitingAction => false,
+            self::Completed, self::Expired, self::Cancelled, self::Superseded => true,
+        };
+    }
+
     /**
      * @return list<string>
      */
