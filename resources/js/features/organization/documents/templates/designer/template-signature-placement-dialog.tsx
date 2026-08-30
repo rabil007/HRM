@@ -912,7 +912,7 @@ export function TemplateSignaturePlacementDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="flex max-h-[92vh] w-[min(1100px,96vw)] max-w-none flex-col gap-0 overflow-hidden p-0">
+            <DialogContent className="flex max-h-[92vh] w-[min(1100px,96vw)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
                 <DialogHeader className="border-b border-border/60 px-5 py-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="space-y-1">
