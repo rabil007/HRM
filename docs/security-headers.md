@@ -209,7 +209,7 @@ Additionally, named routes `log`, `log.*`, `jobs.*`, and `mysql.*` receive `no-s
 
 - Manifest: `manifest-src 'self'` (`/manifest.json`)
 - Service worker: Laravel `/sw.js` (`injectRegister: false`). Worker does not fetch third-party origins
-- pdf.js worker: `/pdf.worker.min.js` (`worker-src 'self' blob:`)
+- pdf.js worker: Vite-fingerprinted asset from `pdfjs-dist/legacy/build/pdf.worker.min.mjs` (`worker-src 'self' blob:`)
 - Production Vite chunks: same origin (`script-src 'self'`)
 - Dev HMR: local CSP only
 
