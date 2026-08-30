@@ -1,4 +1,5 @@
 import type * as PdfJs from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 
 let pdfjsModule: typeof PdfJs | null = null;
 
@@ -8,9 +9,10 @@ export async function getPdfJs(): Promise<typeof PdfJs> {
     }
 
     if (!pdfjsModule) {
-        const pdfjs = await import('pdfjs-dist');
+        const pdfjs =
+            (await import('pdfjs-dist/legacy/build/pdf.mjs')) as typeof PdfJs;
 
-        pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+        pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
         pdfjsModule = pdfjs;
     }
 
