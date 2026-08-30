@@ -546,8 +546,8 @@ final class DocumentIntegrityInspector
                                 && $task->status === DocumentWorkflowTaskStatus::Pending;
 
                             if ($taskIsActionable
-                                && $assigneeId !== null
-                                && ($assigneeAccess[$assigneeId] ?? false) !== true) {
+                                && ($assigneeId === null
+                                    || ($assigneeAccess[$assigneeId] ?? false) !== true)) {
                                 $result->add($this->issue(
                                     'workflow_task_assignee_unavailable',
                                     DocumentIntegrityIssueSeverity::High,
@@ -556,7 +556,7 @@ final class DocumentIntegrityInspector
                                     (int) $task->id,
                                     $assigneeId,
                                     false,
-                                    'Actionable workflow task assignee does not currently have company access.',
+                                    'Actionable workflow task has no currently available assignee.',
                                 ));
                             }
                         }

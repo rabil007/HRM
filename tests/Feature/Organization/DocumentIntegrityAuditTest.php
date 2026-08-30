@@ -791,7 +791,51 @@ test('actionable pending workflow task reports assignee unavailable after member
     expect($issues)->toHaveCount(1)
         ->and($issues[0]->severity->value)->toBe('high')
         ->and($issues[0]->entityId)->toBe($task->id)
+        ->and($issues[0]->repairable)->toBeFalse()
         ->and(integrityIssuesByCode($result, 'workflow_task_user_cross_company'))->toBeEmpty();
+});
+
+test('actionable pending workflow task with null assignee is reported unavailable', function () {
+    $fixtures = makeGeneratedDocumentWorkflowFixtures();
+    ['task' => $task] = makeIntegrityWorkflowTask(
+        $fixtures,
+        DocumentWorkflowTaskStatus::Pending,
+    );
+
+    $task->forceFill([
+        'assignee_user_id' => null,
+        'assignee_name_snapshot' => 'Unassigned',
+    ])->save();
+
+    $result = app(DocumentIntegrityAudit::class)->handle((int) $fixtures['company']->id);
+    $issues = integrityIssuesByCode($result, 'workflow_task_assignee_unavailable');
+
+    expect($issues)->toHaveCount(1)
+        ->and($issues[0]->severity->value)->toBe('high')
+        ->and($issues[0]->repairable)->toBeFalse()
+        ->and($issues[0]->entityId)->toBe($task->id)
+        ->and(integrityIssuesByCode($result, 'workflow_task_user_cross_company'))->toBeEmpty();
+});
+
+test('historical completed workflow task with null assignee is not flagged', function () {
+    $fixtures = makeGeneratedDocumentWorkflowFixtures();
+    ['task' => $task] = makeIntegrityWorkflowTask(
+        $fixtures,
+        DocumentWorkflowTaskStatus::Completed,
+    );
+
+    $task->forceFill([
+        'assignee_user_id' => null,
+        'assignee_name_snapshot' => 'Historical unassigned',
+        'decided_by' => null,
+        'decision_actor_name_snapshot' => null,
+    ])->save();
+
+    $result = app(DocumentIntegrityAudit::class)->handle((int) $fixtures['company']->id);
+
+    expect(integrityIssuesByCode($result, 'workflow_task_assignee_unavailable'))->toBeEmpty()
+        ->and(integrityIssuesByCode($result, 'workflow_task_user_cross_company'))->toBeEmpty()
+        ->and($result->issuesForEntity('document_workflow_task', (int) $task->id))->toBeEmpty();
 });
 
 test('historical completed internal recipient does not fail when signer loses company access', function () {
