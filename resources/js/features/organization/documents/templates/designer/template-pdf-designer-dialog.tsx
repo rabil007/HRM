@@ -831,7 +831,7 @@ export function TemplatePdfDesignerDialog({
 
     return (
         <Dialog open={open} onOpenChange={handleSafeOpenChange}>
-            <DialogContent className="flex h-[92vh] w-[1400px] max-w-[96vw] flex-col overflow-hidden p-0">
+            <DialogContent className="flex h-[92vh] w-[1400px] max-w-[96vw] flex-col overflow-hidden p-0 sm:max-w-[96vw]">
                 <DialogHeader className="flex shrink-0 flex-row items-center justify-between border-b border-border/80 px-6 py-3">
                     <div className="flex items-center gap-3">
                         <DialogTitle className="text-base font-semibold">
