@@ -31,11 +31,21 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Drop the foreign key first so MySQL will allow removing its supporting indexes.
+        Schema::table('document_recipient_requests', function (Blueprint $table) {
+            $table->dropForeign(['document_signing_flow_id']);
+        });
+
         Schema::table('document_recipient_requests', function (Blueprint $table) {
             $table->dropIndex('doc_rr_comp_sign_flow_stat_idx');
             $table->dropIndex('doc_rr_sign_flow_step_idx');
-            $table->dropConstrainedForeignId('document_signing_flow_id');
-            $table->dropColumn('signing_step_sequence');
+        });
+
+        Schema::table('document_recipient_requests', function (Blueprint $table) {
+            $table->dropColumn([
+                'document_signing_flow_id',
+                'signing_step_sequence',
+            ]);
         });
     }
 };
