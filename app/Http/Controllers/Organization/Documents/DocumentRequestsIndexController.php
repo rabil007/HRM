@@ -60,7 +60,11 @@ class DocumentRequestsIndexController extends Controller
         if ($tab === 'review') {
             abort_unless($workflowPermissions['view'], 403);
         } elseif ($tab === 'recipient') {
-            abort_unless($workflowPermissions['view_recipient_requests'], 403);
+            abort_unless(
+                $workflowPermissions['view_recipient_requests']
+                    || $workflowPermissions['respond_recipient_requests'],
+                403,
+            );
         } else {
             abort_unless($workflowPermissions['view_signatures'], 403);
         }
@@ -103,12 +107,6 @@ class DocumentRequestsIndexController extends Controller
         }
 
         if ($tab === 'recipient') {
-            abort_unless(
-                $workflowPermissions['view_recipient_requests']
-                    || $workflowPermissions['respond_recipient_requests'],
-                403,
-            );
-
             $filters = [
                 'search' => trim((string) $request->query('search', '')),
                 'status' => trim((string) $request->query('status', '')),
