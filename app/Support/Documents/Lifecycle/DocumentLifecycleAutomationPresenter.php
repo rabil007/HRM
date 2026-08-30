@@ -110,6 +110,10 @@ final class DocumentLifecycleAutomationPresenter
             return false;
         }
 
+        if ($lifecycle->blocked_code === DocumentLifecycleAutomationPolicy::BLOCK_SOURCE_VERSION_CHANGED) {
+            return false;
+        }
+
         $companyId = (int) $lifecycle->company_id;
 
         if ($lifecycle->document_signing_flow_id !== null) {

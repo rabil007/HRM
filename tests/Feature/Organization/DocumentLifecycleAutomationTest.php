@@ -1109,11 +1109,114 @@ test('retry before workflow creation respects exact source version gate', functi
     ]);
     $instance->update(['current_version_id' => $newerVersion->id]);
 
+    expect(fn () => app(RetryDocumentLifecycleAutomation::class)->handle($lifecycle, $initiator, (int) $company->id))
+        ->toThrow(ValidationException::class);
+
+    expect($lifecycle->fresh()->status)->toBe(DocumentLifecycleAutomationStatus::Blocked)
+        ->and($lifecycle->fresh()->blocked_code)->toBe(DocumentLifecycleAutomationPolicy::BLOCK_SOURCE_VERSION_CHANGED)
+        ->and(DocumentWorkflowRequest::query()->where('document_instance_id', $instance->id)->count())->toBe(0)
+        ->and(Activity::query()->where('event', 'document_lifecycle_retried')->exists())->toBeFalse();
+});
+
+test('presenter hides retry when source version changed', function () {
+    [
+        'company' => $company,
+        'instance' => $instance,
+        'version' => $version,
+        'templateVersion' => $templateVersion,
+        'initiator' => $initiator,
+    ] = makeLifecycleFixtures();
+
+    $withoutChild = DocumentLifecycleAutomation::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'source_document_instance_version_id' => $version->id,
+        'document_generation_template_version_id' => $templateVersion->id,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => 1,
+            'workflow_preset_name' => 'Review',
+            'signing_preset_id' => null,
+            'signing_preset_name' => null,
+        ],
+        'status' => DocumentLifecycleAutomationStatus::Blocked,
+        'blocked_code' => DocumentLifecycleAutomationPolicy::BLOCK_SOURCE_VERSION_CHANGED,
+        'blocked_message' => 'The document current version no longer matches the lifecycle source version.',
+        'blocked_at' => now(),
+        'initiated_by' => $initiator->id,
+    ]);
+
+    expect(app(DocumentLifecycleAutomationPresenter::class)->canRetry($withoutChild))->toBeFalse()
+        ->and(app(DocumentLifecycleAutomationPresenter::class)->forDocumentShow($withoutChild)['can_retry'])->toBeFalse();
+
+    $workflowPreset = DocumentWorkflowPreset::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Approved Source Gate',
+        'status' => DocumentWorkflowPresetStatus::Active,
+        'created_by' => $initiator->id,
+    ]);
+
+    $workflowRequest = DocumentWorkflowRequest::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'document_instance_version_id' => $version->id,
+        'status' => DocumentWorkflowRequestStatus::Approved,
+        'requested_by' => $initiator->id,
+        'requester_name_snapshot' => $initiator->name,
+        'requested_at' => now(),
+        'completed_at' => now(),
+        'document_workflow_preset_id' => $workflowPreset->id,
+        'preset_name_snapshot' => $workflowPreset->name,
+    ]);
+
+    $withoutChild->update([
+        'document_workflow_preset_id' => $workflowPreset->id,
+        'document_workflow_request_id' => $workflowRequest->id,
+        'stage' => DocumentLifecycleAutomationStage::Review,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => $workflowPreset->id,
+            'workflow_preset_name' => $workflowPreset->name,
+            'signing_preset_id' => null,
+            'signing_preset_name' => null,
+        ],
+    ]);
+
+    expect(app(DocumentLifecycleAutomationPresenter::class)->canRetry($withoutChild->fresh()))->toBeFalse();
+});
+
+test('successful retry emits exactly one document_lifecycle_retried event', function () {
+    [
+        'company' => $company,
+        'instance' => $instance,
+        'version' => $version,
+        'templateVersion' => $templateVersion,
+        'initiator' => $initiator,
+    ] = makeLifecycleFixtures();
+
+    $lifecycle = DocumentLifecycleAutomation::query()->create([
+        'company_id' => $company->id,
+        'document_instance_id' => $instance->id,
+        'source_document_instance_version_id' => $version->id,
+        'document_generation_template_version_id' => $templateVersion->id,
+        'policy_snapshot' => [
+            'schema_version' => 1,
+            'workflow_preset_id' => null,
+            'workflow_preset_name' => null,
+            'signing_preset_id' => null,
+            'signing_preset_name' => null,
+        ],
+        'status' => DocumentLifecycleAutomationStatus::Blocked,
+        'blocked_code' => DocumentLifecycleAutomationPolicy::BLOCK_ROUTING_FAILED,
+        'blocked_message' => 'Temporary',
+        'blocked_at' => now(),
+        'initiated_by' => $initiator->id,
+    ]);
+
     $result = app(RetryDocumentLifecycleAutomation::class)->handle($lifecycle, $initiator, (int) $company->id);
 
-    expect($result->status)->toBe(DocumentLifecycleAutomationStatus::Blocked)
-        ->and($result->blocked_code)->toBe(DocumentLifecycleAutomationPolicy::BLOCK_SOURCE_VERSION_CHANGED)
-        ->and(DocumentWorkflowRequest::query()->where('document_instance_id', $instance->id)->count())->toBe(0);
+    expect($result->status)->toBe(DocumentLifecycleAutomationStatus::Completed)
+        ->and(Activity::query()->where('event', 'document_lifecycle_retried')->count())->toBe(1);
 });
 
 test('retry completes when approved workflow has no signing configured', function () {

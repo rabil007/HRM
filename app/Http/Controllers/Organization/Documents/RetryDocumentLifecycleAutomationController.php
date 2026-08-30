@@ -32,6 +32,6 @@ class RetryDocumentLifecycleAutomationController extends Controller
 
         $action->handle($lifecycle, $request->user(), $companyId);
 
-        return back()->with('success', 'Lifecycle automation retry attempted.');
+        return back()->with('success', 'Lifecycle automation recovered.');
     }
 }

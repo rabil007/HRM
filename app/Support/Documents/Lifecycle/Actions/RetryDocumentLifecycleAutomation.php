@@ -58,6 +58,12 @@ final class RetryDocumentLifecycleAutomation
 
         $result = $this->recover($locked['lifecycle'], $actor, $companyId);
 
+        if ($result->status === DocumentLifecycleAutomationStatus::Blocked) {
+            throw ValidationException::withMessages([
+                'lifecycle' => $this->safeStillBlockedMessage($result),
+            ]);
+        }
+
         $this->activityLogger->log(
             description: 'Document lifecycle automation retried',
             event: 'document_lifecycle_retried',
@@ -69,6 +75,21 @@ final class RetryDocumentLifecycleAutomation
         );
 
         return $result;
+    }
+
+    private function safeStillBlockedMessage(DocumentLifecycleAutomation $lifecycle): string
+    {
+        $message = is_string($lifecycle->blocked_message) ? trim($lifecycle->blocked_message) : '';
+
+        if (
+            $message !== ''
+            && strlen($message) <= 500
+            && ! str_contains(strtolower($message), 'sql')
+        ) {
+            return $message;
+        }
+
+        return 'Lifecycle automation is still blocked and could not be recovered.';
     }
 
     private function recover(
