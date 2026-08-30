@@ -32,8 +32,15 @@ return new class extends Migration
     public function down(): void
     {
         // Drop the foreign key first so MySQL will allow removing its supporting indexes.
+        // UP used constrained(..., indexName: 'doc_rr_sign_flow_fk'); dropping by column
+        // array would target the conventional *_foreign name and fail on MySQL.
+        // SQLite cannot drop foreign keys by name and must use the column list.
         Schema::table('document_recipient_requests', function (Blueprint $table) {
-            $table->dropForeign(['document_signing_flow_id']);
+            if (Schema::getConnection()->getDriverName() === 'sqlite') {
+                $table->dropForeign(['document_signing_flow_id']);
+            } else {
+                $table->dropForeign('doc_rr_sign_flow_fk');
+            }
         });
 
         Schema::table('document_recipient_requests', function (Blueprint $table) {

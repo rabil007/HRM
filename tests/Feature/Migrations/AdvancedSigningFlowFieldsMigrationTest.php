@@ -98,6 +98,16 @@ test('signing flow linkage migration down drops the foreign key before its suppo
 
     $fieldsMigration->down();
 
+    $signingFlowForeignKey = collect(Schema::getForeignKeys('document_recipient_requests'))
+        ->first(fn (array $foreignKey): bool => in_array('document_signing_flow_id', $foreignKey['columns'], true));
+
+    expect($signingFlowForeignKey)->not->toBeNull();
+
+    // Drivers that expose constraint names (MySQL) must report the custom UP name.
+    if (($signingFlowForeignKey['name'] ?? null) !== null) {
+        expect($signingFlowForeignKey['name'])->toBe('doc_rr_sign_flow_fk');
+    }
+
     expect(fn () => $linkageMigration->down())->not->toThrow(Throwable::class);
 
     $hasSigningFlowForeignKey = collect(Schema::getForeignKeys('document_recipient_requests'))
