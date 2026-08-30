@@ -13,6 +13,9 @@ final class DocumentIntegrityAudit
 
     /**
      * Read-only by default. Pass $repairSafe to apply deterministic repairs only.
+     *
+     * Safe repairs stream through every repairable issue as it is discovered
+     * (not only the retained diagnostic sample).
      */
     public function handle(
         ?int $onlyCompanyId = null,
@@ -21,23 +24,20 @@ final class DocumentIntegrityAudit
     ): DocumentIntegrityAuditResult {
         $result = new DocumentIntegrityAuditResult;
 
-        $this->eachCompanyId($onlyCompanyId, function (int $companyId) use ($verifyFiles, $repairSafe, $result): void {
-            $beforeCount = count($result->issues());
-            $this->inspector->inspectCompany($companyId, $verifyFiles, $result);
-
-            if (! $repairSafe) {
-                return;
-            }
-
-            foreach (array_slice($result->issues(), $beforeCount) as $issue) {
-                if (! $issue->repairable || $issue->companyId !== $companyId) {
-                    continue;
+        if ($repairSafe) {
+            $result->setIssueConsumer(function (DocumentIntegrityIssue $issue) use ($result): void {
+                if (! $issue->repairable) {
+                    return;
                 }
 
                 if ($this->repair->repair($issue)) {
                     $result->incrementRepaired();
                 }
-            }
+            });
+        }
+
+        $this->eachCompanyId($onlyCompanyId, function (int $companyId) use ($verifyFiles, $result): void {
+            $this->inspector->inspectCompany($companyId, $verifyFiles, $result);
         });
 
         return $result;

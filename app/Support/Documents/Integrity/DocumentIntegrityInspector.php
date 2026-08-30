@@ -13,6 +13,7 @@ use App\Enums\DocumentRecipientType;
 use App\Enums\DocumentSigningFlowStatus;
 use App\Enums\DocumentWorkflowRequestStatus;
 use App\Enums\DocumentWorkflowStageStatus;
+use App\Enums\DocumentWorkflowTaskStatus;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentInstance;
 use App\Models\DocumentInstanceVersion;
@@ -46,7 +47,7 @@ final class DocumentIntegrityInspector
     public function inspectCompany(int $companyId, bool $verifyFiles, DocumentIntegrityAuditResult $result): void
     {
         $this->inspectInstances($companyId, $verifyFiles, $result);
-        $this->inspectVersions($companyId, $result);
+        $this->inspectVersions($companyId, $verifyFiles, $result);
         $this->inspectWorkflows($companyId, $result);
         $this->inspectLifecycles($companyId, $result);
         $this->inspectSigningFlows($companyId, $result);
@@ -256,22 +257,14 @@ final class DocumentIntegrityInspector
                 'Generation template version belongs to another company.',
             ));
         }
-
-        if ($verifyFiles && $currentVersionId !== null) {
-            $current = $versions->get($currentVersionId);
-
-            if ($current instanceof DocumentInstanceVersion && (int) $current->company_id === $companyId) {
-                $this->inspectCanonicalFile($current, $result);
-            }
-        }
     }
 
-    private function inspectVersions(int $companyId, DocumentIntegrityAuditResult $result): void
+    private function inspectVersions(int $companyId, bool $verifyFiles, DocumentIntegrityAuditResult $result): void
     {
         DocumentInstanceVersion::query()
             ->where('company_id', $companyId)
             ->orderBy('id')
-            ->chunkById(self::CHUNK_SIZE, function (Collection $versions) use ($companyId, $result): void {
+            ->chunkById(self::CHUNK_SIZE, function (Collection $versions) use ($companyId, $verifyFiles, $result): void {
                 /** @var Collection<int, DocumentInstanceVersion> $versions */
                 $instanceIds = $versions->pluck('document_instance_id')->map(fn ($id): int => (int) $id)->unique()->all();
                 $instances = $instanceIds === []
@@ -324,11 +317,7 @@ final class DocumentIntegrityInspector
                             false,
                             'Version is not attached to an existing document instance.',
                         ));
-
-                        continue;
-                    }
-
-                    if ((int) $instance->company_id !== $companyId) {
+                    } elseif ((int) $instance->company_id !== $companyId) {
                         $result->add($this->issue(
                             'version_company_mismatch',
                             DocumentIntegrityIssueSeverity::Critical,
@@ -339,6 +328,10 @@ final class DocumentIntegrityInspector
                             false,
                             'Version company does not match its document instance.',
                         ));
+                    }
+
+                    if ($verifyFiles) {
+                        $this->inspectCanonicalFile($version, $result);
                     }
                 }
             });
@@ -374,10 +367,35 @@ final class DocumentIntegrityInspector
                     ? collect()
                     : DocumentWorkflowTask::query()->whereIn('document_workflow_stage_id', $stageIds)->get()->groupBy('document_workflow_stage_id');
 
-                $assigneeIds = $tasks->flatten()->pluck('assignee_user_id')->filter()->map(fn ($id): int => (int) $id)->unique()->values()->all();
-                $assigneeAccess = $assigneeIds === []
+                $actionableAssigneeIds = [];
+                foreach ($requests as $accessProbeRequest) {
+                    if ($accessProbeRequest->status !== DocumentWorkflowRequestStatus::Pending) {
+                        continue;
+                    }
+
+                    foreach ($stages->get($accessProbeRequest->id, collect()) as $accessProbeStage) {
+                        /** @var DocumentWorkflowStage $accessProbeStage */
+                        if ($accessProbeStage->status !== DocumentWorkflowStageStatus::Active) {
+                            continue;
+                        }
+
+                        foreach ($tasks->get($accessProbeStage->id, collect()) as $accessProbeTask) {
+                            /** @var DocumentWorkflowTask $accessProbeTask */
+                            if ($accessProbeTask->status !== DocumentWorkflowTaskStatus::Pending) {
+                                continue;
+                            }
+
+                            if ($accessProbeTask->assignee_user_id !== null) {
+                                $actionableAssigneeIds[] = (int) $accessProbeTask->assignee_user_id;
+                            }
+                        }
+                    }
+                }
+
+                $actionableAssigneeIds = array_values(array_unique($actionableAssigneeIds));
+                $assigneeAccess = $actionableAssigneeIds === []
                     ? []
-                    : $this->companyAccess->accessibleMembershipByUserId($companyId, $assigneeIds);
+                    : $this->companyAccess->accessibleMembershipByUserId($companyId, $actionableAssigneeIds);
 
                 foreach ($requests as $request) {
                     $instance = $instances->get((int) $request->document_instance_id);
@@ -523,16 +541,22 @@ final class DocumentIntegrityInspector
 
                             $assigneeId = $task->assignee_user_id !== null ? (int) $task->assignee_user_id : null;
 
-                            if ($assigneeId !== null && ($assigneeAccess[$assigneeId] ?? false) !== true) {
+                            $taskIsActionable = $request->status === DocumentWorkflowRequestStatus::Pending
+                                && $stage->status === DocumentWorkflowStageStatus::Active
+                                && $task->status === DocumentWorkflowTaskStatus::Pending;
+
+                            if ($taskIsActionable
+                                && $assigneeId !== null
+                                && ($assigneeAccess[$assigneeId] ?? false) !== true) {
                                 $result->add($this->issue(
-                                    'workflow_task_user_cross_company',
-                                    DocumentIntegrityIssueSeverity::Critical,
+                                    'workflow_task_assignee_unavailable',
+                                    DocumentIntegrityIssueSeverity::High,
                                     $companyId,
                                     'document_workflow_task',
                                     (int) $task->id,
                                     $assigneeId,
                                     false,
-                                    'Workflow task assignee does not have access to this company.',
+                                    'Actionable workflow task assignee does not currently have company access.',
                                 ));
                             }
                         }
@@ -1018,7 +1042,8 @@ final class DocumentIntegrityInspector
                 $flowIds = $requests->pluck('document_signing_flow_id')->filter()->map(fn ($id): int => (int) $id)->unique()->all();
                 $employeeIds = $requests->pluck('employee_id')->filter()->map(fn ($id): int => (int) $id)->unique()->all();
                 $userIds = $requests
-                    ->filter(fn (DocumentRecipientRequest $request): bool => $request->recipient_type === DocumentRecipientType::CompanyUser)
+                    ->filter(fn (DocumentRecipientRequest $request): bool => $request->recipient_type === DocumentRecipientType::CompanyUser
+                        && $request->status === DocumentRecipientRequestStatus::AwaitingAction)
                     ->pluck('recipient_user_id')
                     ->filter()
                     ->map(fn ($id): int => (int) $id)
@@ -1161,21 +1186,36 @@ final class DocumentIntegrityInspector
                             false,
                             'Recipient request employee belongs to another company.',
                         ));
+                    } elseif ($employee instanceof Employee
+                        && $instance instanceof DocumentInstance
+                        && $instance->employee_id !== null
+                        && (int) $request->employee_id !== (int) $instance->employee_id) {
+                        $result->add($this->issue(
+                            'recipient_employee_mismatch',
+                            DocumentIntegrityIssueSeverity::High,
+                            $companyId,
+                            'document_recipient_request',
+                            (int) $request->id,
+                            (int) $employee->id,
+                            false,
+                            'Recipient request employee does not match the document instance subject employee.',
+                        ));
                     }
 
-                    if ($request->recipient_type === DocumentRecipientType::CompanyUser) {
+                    if ($request->recipient_type === DocumentRecipientType::CompanyUser
+                        && $request->status === DocumentRecipientRequestStatus::AwaitingAction) {
                         $userId = $request->recipient_user_id !== null ? (int) $request->recipient_user_id : null;
 
                         if ($userId === null || ($userAccess[$userId] ?? false) !== true) {
                             $result->add($this->issue(
-                                'recipient_user_no_company_access',
+                                'recipient_internal_assignee_unavailable',
                                 DocumentIntegrityIssueSeverity::High,
                                 $companyId,
                                 'document_recipient_request',
                                 (int) $request->id,
                                 $userId,
                                 false,
-                                'Internal recipient does not have valid current company access.',
+                                'Actionable internal recipient does not currently have company access.',
                             ));
                         }
                     }
@@ -1389,7 +1429,7 @@ final class DocumentIntegrityInspector
         if (! $exists) {
             $result->add($this->issue(
                 'file_canonical_missing',
-                DocumentIntegrityIssueSeverity::Warning,
+                DocumentIntegrityIssueSeverity::High,
                 $companyId,
                 'document_instance_version',
                 (int) $version->id,

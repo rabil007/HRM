@@ -1179,32 +1179,34 @@ php artisan documents:audit-integrity --company=12 --repair-safe
 
 Default mode is **read-only**. It never mutates rows, never deletes files, and never sends email.
 
-`--verify-files` additionally checks that canonical `DocumentInstanceVersion` files and linked `EmployeeDocument` projection files exist, and that stored size/checksum metadata still matches. Checksum re-hashing is not part of scheduled reconciliation.
+`--verify-files` checks **every** company-owned immutable `DocumentInstanceVersion` canonical artifact (not only the current pointer), plus linked `EmployeeDocument` projection files, including size/checksum metadata when present. Checksum re-hashing is not part of scheduled reconciliation. Missing canonical version bytes are **High**; missing library projection files remain **Warning**.
 
 `--repair-safe` applies only deterministic repairs:
 
 - Terminal recipient requests (`completed` / `expired` / `cancelled` / `superseded`) that still have `next_reminder_at` → clear the pointer
 - Lifecycle Active/Review vs terminal workflow, or Active/Blocked signing vs signing-flow status → call the existing lifecycle advance / stop / `SyncDocumentLifecycleFromSigningFlow` actions
 
-It does **not** repair missing PDFs, cross-company pointers, missing versions, version-number corruption, missing signatures/evidence, or historical rewrite. Those are reported only.
+It does **not** repair missing PDFs, cross-company pointers, missing versions, version-number corruption, missing signatures/evidence, historical membership loss, or historical rewrite. Those are reported only.
 
-Safe repairs write one company-scoped activity row (`action`, `company_id`, `entity_type`, `entity_id`, `repair_code`). Raw tokens, paths, PDF bytes, merge values, email bodies, and credentials are not recorded. Read-only audits do not write one activity row per issue.
+Safe repairs stream across **every** repairable issue during the chunked scan (not only the retained diagnostic sample). Each successful repair writes one company-scoped activity row (`action`, `company_id`, `entity_type`, `entity_id`, `repair_code`). Raw tokens, paths, PDF bytes, merge values, email bodies, and credentials are not recorded. Read-only audits do not write one activity row per issue.
 
 ### Checks
 
-The auditor (`App\Support\Documents\Integrity\DocumentIntegrityAudit`) inspects company-owned records in bounded chunks (100 rows). It reports structured issues (`code`, `severity`, `company_id`, `entity_type`, `entity_id`, `related_id`, `repairable`, safe `summary`) without tokens, signature images, private paths, merge values, PDF content, or email bodies.
+The auditor (`App\Support\Documents\Integrity\DocumentIntegrityAudit`) inspects company-owned records in bounded chunks (100 rows). Aggregate severity / repairable / total counts stay exact. Only a bounded sample of issues is retained for CLI diagnostics (`RETAINED_ISSUE_LIMIT = 100`, table display `TABLE_LIMIT = 50`). Issue payloads never include tokens, signature images, private paths, merge values, PDF content, or email bodies.
 
 | Area | Examples |
 |------|----------|
 | Document instance | Missing current version (High); current version on another instance or company (Critical); EmployeeDocument company/employee mismatch; generation template-version company mismatch |
-| Version history | Company/instance mismatch, non-positive or duplicate version numbers. History is never rewritten. |
-| Workflow | Company/instance/version/preset tenancy; stage/task ownership; assignee company access; terminal request still having an active stage |
+| Version history | Company/instance mismatch, non-positive or duplicate version numbers. History is never rewritten. With `--verify-files`, every immutable canonical version is checked. |
+| Workflow | Company/instance/version/preset tenancy; stage/task ownership; **actionable** Pending/Active/Pending assignee current access (`workflow_task_assignee_unavailable`, High). Historical completed/rejected/skipped/cancelled task snapshots are not invalidated by later membership loss. |
 | Lifecycle | Source version / template / linked workflow or signing-flow tenancy; stale child state (Warning, repairable via existing reconciliation) |
 | Signing flow | Starting version tenancy; preset provenance; invalid current step; duplicate active recipient requests on the current step |
-| Recipient requests | SIGN completed without a later same-instance result version (High); ACK completed with a result version (High); terminal reminder pointer (Warning, repairable); awaiting request missing expiry |
+| Recipient requests | SIGN completed without a later same-instance result version (High); ACK completed with a result version (High); subject employee binding mismatch (High); terminal reminder pointer (Warning, repairable); awaiting request missing expiry; **AwaitingAction** CompanyUser without current access (`recipient_internal_assignee_unavailable`, High). Terminal internal-signer provenance is not flagged for later membership loss. |
 | Delivery ledger | Delivery/request company mismatch; queued reminder still attached to a terminal request (Warning; delivery repair stays with the existing dispatcher/reconciler) |
 
-**Critical** = cross-company ownership or a current/result version that belongs to another instance/tenant. **High** = missing canonical current/source/result versions. **Warning** = recoverable operational drift or optional missing projection files.
+**Critical** = cross-company ownership or a current/result version that belongs to another instance/tenant. **High** = missing canonical evidence / actionable assignee unavailability / structural version gaps. **Warning** = recoverable operational drift or optional missing projection files.
+
+Workflow and recipient routing rows are immutable snapshots. Later company membership deactivation, role changes, or permission loss do **not** rewrite history and do **not** create Critical “cross-company” corruption merely because a historical actor is no longer currently eligible. Current-access checks apply only to still-actionable rows.
 
 `--company=A --repair-safe` never updates company B.
 

@@ -13,7 +13,10 @@ use App\Enums\DocumentRecipientRequestStatus;
 use App\Enums\DocumentRecipientRole;
 use App\Enums\DocumentRecipientType;
 use App\Enums\DocumentSigningFlowStatus;
+use App\Enums\DocumentWorkflowAction;
+use App\Enums\DocumentWorkflowCompletionRule;
 use App\Enums\DocumentWorkflowRequestStatus;
+use App\Enums\DocumentWorkflowStageStatus;
 use App\Enums\DocumentWorkflowTaskStatus;
 use App\Jobs\GenerateCustomDocumentsJob;
 use App\Models\DocumentGenerationRun;
@@ -28,6 +31,7 @@ use App\Models\DocumentRecipientRequestDelivery;
 use App\Models\DocumentRecipientRequestEvent;
 use App\Models\DocumentSigningFlow;
 use App\Models\DocumentWorkflowRequest;
+use App\Models\DocumentWorkflowStage;
 use App\Models\DocumentWorkflowTask;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
@@ -35,6 +39,7 @@ use App\Models\User;
 use App\Services\Documents\CustomTemplatePdfRenderer;
 use App\Support\Documents\Actions\SyncGeneratedEmployeeDocument;
 use App\Support\Documents\Integrity\DocumentIntegrityAudit;
+use App\Support\Documents\Integrity\DocumentIntegrityAuditResult;
 use App\Support\Documents\Integrity\DocumentIntegrityIssue;
 use App\Support\Documents\Lifecycle\DocumentLifecycleAutomationPolicy;
 use App\Support\Documents\RecipientRequests\Actions\SubmitDocumentRecipientSignature;
@@ -45,6 +50,7 @@ use App\Support\EmployeeDocuments\DocumentDeletionService;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use setasign\Fpdi\Fpdi;
@@ -404,7 +410,7 @@ test('missing file is detected only with file verification', function () {
     );
 
     expect(integrityIssuesByCode($withFiles, 'file_canonical_missing'))->toHaveCount(1)
-        ->and(integrityIssuesByCode($withFiles, 'file_canonical_missing')[0]->severity->value)->toBe('warning');
+        ->and(integrityIssuesByCode($withFiles, 'file_canonical_missing')[0]->severity->value)->toBe('high');
 });
 
 test('invalid company option is rejected', function () {
@@ -692,4 +698,238 @@ test('overlay generation through review signing and audit stays healthy', functi
 
     expect($result->criticalCount())->toBe(0)
         ->and($result->highCount())->toBe(0);
+});
+
+function deactivateCompanyMembership(User $user, int $companyId): void
+{
+    DB::table('company_user')
+        ->where('company_id', $companyId)
+        ->where('user_id', $user->id)
+        ->update(['status' => 'inactive', 'updated_at' => now()]);
+}
+
+/**
+ * @return array{request: DocumentWorkflowRequest, stage: DocumentWorkflowStage, task: DocumentWorkflowTask, assignee: User}
+ */
+function makeIntegrityWorkflowTask(array $fixtures, DocumentWorkflowTaskStatus $taskStatus = DocumentWorkflowTaskStatus::Pending): array
+{
+    $assignee = User::factory()->create();
+    addCompanyMembership($assignee, $fixtures['company']);
+
+    $requestStatus = $taskStatus === DocumentWorkflowTaskStatus::Pending
+        ? DocumentWorkflowRequestStatus::Pending
+        : DocumentWorkflowRequestStatus::Approved;
+    $stageStatus = $taskStatus === DocumentWorkflowTaskStatus::Pending
+        ? DocumentWorkflowStageStatus::Active
+        : DocumentWorkflowStageStatus::Completed;
+
+    $request = DocumentWorkflowRequest::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'document_instance_id' => $fixtures['instance']->id,
+        'document_instance_version_id' => $fixtures['version']->id,
+        'status' => $requestStatus,
+        'requested_by' => $assignee->id,
+        'requester_name_snapshot' => $assignee->name,
+        'requested_at' => now(),
+        'completed_at' => $requestStatus->isTerminal() ? now() : null,
+    ]);
+
+    $stage = DocumentWorkflowStage::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'document_workflow_request_id' => $request->id,
+        'sequence' => 1,
+        'action' => DocumentWorkflowAction::Approve,
+        'completion_rule' => DocumentWorkflowCompletionRule::Any,
+        'status' => $stageStatus,
+        'started_at' => now(),
+        'completed_at' => $stageStatus === DocumentWorkflowStageStatus::Completed ? now() : null,
+    ]);
+
+    $task = DocumentWorkflowTask::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'document_workflow_stage_id' => $stage->id,
+        'assignee_user_id' => $assignee->id,
+        'assignee_name_snapshot' => $assignee->name,
+        'status' => $taskStatus,
+        'decided_by' => $taskStatus === DocumentWorkflowTaskStatus::Completed ? $assignee->id : null,
+        'decision_actor_name_snapshot' => $taskStatus === DocumentWorkflowTaskStatus::Completed ? $assignee->name : null,
+        'decided_at' => $taskStatus === DocumentWorkflowTaskStatus::Completed ? now() : null,
+    ]);
+
+    return compact('request', 'stage', 'task', 'assignee');
+}
+
+test('historical completed workflow task does not fail when assignee loses company access', function () {
+    $fixtures = makeGeneratedDocumentWorkflowFixtures();
+    ['task' => $task, 'assignee' => $assignee] = makeIntegrityWorkflowTask(
+        $fixtures,
+        DocumentWorkflowTaskStatus::Completed,
+    );
+
+    deactivateCompanyMembership($assignee, (int) $fixtures['company']->id);
+
+    $result = app(DocumentIntegrityAudit::class)->handle((int) $fixtures['company']->id);
+
+    expect(integrityIssuesByCode($result, 'workflow_task_assignee_unavailable'))->toBeEmpty()
+        ->and(integrityIssuesByCode($result, 'workflow_task_user_cross_company'))->toBeEmpty()
+        ->and($result->criticalCount())->toBe(0)
+        ->and($result->issuesForEntity('document_workflow_task', (int) $task->id))->toBeEmpty();
+});
+
+test('actionable pending workflow task reports assignee unavailable after membership loss', function () {
+    $fixtures = makeGeneratedDocumentWorkflowFixtures();
+    ['task' => $task, 'assignee' => $assignee] = makeIntegrityWorkflowTask(
+        $fixtures,
+        DocumentWorkflowTaskStatus::Pending,
+    );
+
+    deactivateCompanyMembership($assignee, (int) $fixtures['company']->id);
+
+    $result = app(DocumentIntegrityAudit::class)->handle((int) $fixtures['company']->id);
+    $issues = integrityIssuesByCode($result, 'workflow_task_assignee_unavailable');
+
+    expect($issues)->toHaveCount(1)
+        ->and($issues[0]->severity->value)->toBe('high')
+        ->and($issues[0]->entityId)->toBe($task->id)
+        ->and(integrityIssuesByCode($result, 'workflow_task_user_cross_company'))->toBeEmpty();
+});
+
+test('historical completed internal recipient does not fail when signer loses company access', function () {
+    $fixtures = makeGeneratedDocumentWorkflowFixtures();
+    $signer = User::factory()->create();
+    addCompanyMembership($signer, $fixtures['company']);
+
+    $request = makeIntegrityRecipientRequest($fixtures, [
+        'action' => DocumentRecipientAction::Sign,
+        'recipient_type' => DocumentRecipientType::CompanyUser,
+        'recipient_role' => DocumentRecipientRole::CompanySignatory,
+        'recipient_user_id' => $signer->id,
+        'recipient_name_snapshot' => $signer->name,
+        'status' => DocumentRecipientRequestStatus::Completed,
+        'completed_at' => now(),
+        'result_document_instance_version_id' => advanceDocumentInstanceCurrentVersion(
+            $fixtures['instance'],
+            "document-instances/{$fixtures['company']->id}/signed-v2.pdf",
+        )->id,
+        'next_reminder_at' => null,
+    ]);
+
+    deactivateCompanyMembership($signer, (int) $fixtures['company']->id);
+
+    $result = app(DocumentIntegrityAudit::class)->handle((int) $fixtures['company']->id);
+
+    expect(integrityIssuesByCode($result, 'recipient_internal_assignee_unavailable'))->toBeEmpty()
+        ->and(integrityIssuesByCode($result, 'recipient_user_no_company_access'))->toBeEmpty()
+        ->and($result->issuesForEntity('document_recipient_request', (int) $request->id))->toBeEmpty();
+});
+
+test('actionable internal recipient reports unavailable after membership loss', function () {
+    $fixtures = makeGeneratedDocumentWorkflowFixtures();
+    $signer = User::factory()->create();
+    addCompanyMembership($signer, $fixtures['company']);
+
+    $request = makeIntegrityRecipientRequest($fixtures, [
+        'action' => DocumentRecipientAction::Sign,
+        'recipient_type' => DocumentRecipientType::CompanyUser,
+        'recipient_role' => DocumentRecipientRole::Manager,
+        'recipient_user_id' => $signer->id,
+        'recipient_name_snapshot' => $signer->name,
+        'status' => DocumentRecipientRequestStatus::AwaitingAction,
+    ]);
+
+    deactivateCompanyMembership($signer, (int) $fixtures['company']->id);
+
+    $result = app(DocumentIntegrityAudit::class)->handle((int) $fixtures['company']->id);
+    $issues = integrityIssuesByCode($result, 'recipient_internal_assignee_unavailable');
+
+    expect($issues)->toHaveCount(1)
+        ->and($issues[0]->severity->value)->toBe('high')
+        ->and($issues[0]->entityId)->toBe($request->id)
+        ->and(integrityIssuesByCode($result, 'recipient_user_no_company_access'))->toBeEmpty();
+});
+
+test('verify-files detects missing historical non-current canonical version', function () {
+    $fixtures = makeGeneratedDocumentWorkflowFixtures();
+    $v1 = $fixtures['version'];
+    $v2 = advanceDocumentInstanceCurrentVersion(
+        $fixtures['instance'],
+        "document-instances/{$fixtures['company']->id}/historical-v2.pdf",
+    );
+
+    Storage::disk('local')->delete($v1->file_path);
+
+    $metadata = app(DocumentIntegrityAudit::class)->handle((int) $fixtures['company']->id);
+    expect(integrityIssuesByCode($metadata, 'file_canonical_missing'))->toBeEmpty()
+        ->and($metadata->repaired())->toBe(0);
+
+    $withFiles = app(DocumentIntegrityAudit::class)->handle(
+        (int) $fixtures['company']->id,
+        verifyFiles: true,
+        repairSafe: true,
+    );
+    $issues = integrityIssuesByCode($withFiles, 'file_canonical_missing');
+
+    expect($issues)->toHaveCount(1)
+        ->and($issues[0]->entityId)->toBe($v1->id)
+        ->and($issues[0]->severity->value)->toBe('high')
+        ->and($issues[0]->repairable)->toBeFalse()
+        ->and($withFiles->repaired())->toBe(0)
+        ->and(Storage::disk('local')->exists($v2->file_path))->toBeTrue();
+});
+
+test('recipient employee mismatch on same company is high', function () {
+    $fixtures = makeGeneratedDocumentWorkflowFixtures();
+    $otherEmployee = Employee::factory()->forCompany($fixtures['company'])->create(['status' => 'active']);
+
+    $request = makeIntegrityRecipientRequest($fixtures, [
+        'employee_id' => $otherEmployee->id,
+        'status' => DocumentRecipientRequestStatus::AwaitingAction,
+    ]);
+
+    $result = app(DocumentIntegrityAudit::class)->handle((int) $fixtures['company']->id);
+    $issues = integrityIssuesByCode($result, 'recipient_employee_mismatch');
+
+    expect($issues)->toHaveCount(1)
+        ->and($issues[0]->severity->value)->toBe('high')
+        ->and($issues[0]->entityId)->toBe($request->id)
+        ->and($issues[0]->repairable)->toBeFalse()
+        ->and($request->fresh()->employee_id)->toBe($otherEmployee->id);
+});
+
+test('audit result retains a bounded sample while counters and repairs stay exact', function () {
+    $fixtures = makeGeneratedDocumentWorkflowFixtures();
+    $limit = DocumentIntegrityAuditResult::RETAINED_ISSUE_LIMIT;
+    $extra = 25;
+    $total = $limit + $extra;
+
+    for ($i = 0; $i < $total; $i++) {
+        makeIntegrityRecipientRequest($fixtures, [
+            'action' => DocumentRecipientAction::Acknowledge,
+            'status' => DocumentRecipientRequestStatus::Cancelled,
+            'cancelled_at' => now(),
+            'token_hash' => hash('sha256', 'bounded-reminder-'.$i.'-'.(string) Str::uuid()),
+            'next_reminder_at' => now()->addDay(),
+        ]);
+    }
+
+    $readOnly = app(DocumentIntegrityAudit::class)->handle((int) $fixtures['company']->id);
+
+    expect($readOnly->totalIssueCount())->toBe($total)
+        ->and($readOnly->warningCount())->toBe($total)
+        ->and($readOnly->repairableCount())->toBe($total)
+        ->and(count($readOnly->issues()))->toBe($limit)
+        ->and(count($readOnly->tableRows()))->toBeLessThanOrEqual(DocumentIntegrityAuditResult::TABLE_LIMIT);
+
+    $repaired = app(DocumentIntegrityAudit::class)->handle(
+        (int) $fixtures['company']->id,
+        verifyFiles: false,
+        repairSafe: true,
+    );
+
+    expect($repaired->repaired())->toBe($total)
+        ->and($repaired->repairableCount())->toBe($total)
+        ->and(DocumentRecipientRequest::query()
+            ->where('company_id', $fixtures['company']->id)
+            ->whereNotNull('next_reminder_at')
+            ->count())->toBe(0);
 });

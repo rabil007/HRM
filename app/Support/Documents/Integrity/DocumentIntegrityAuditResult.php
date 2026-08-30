@@ -8,14 +8,57 @@ final class DocumentIntegrityAuditResult
 {
     public const TABLE_LIMIT = 50;
 
+    public const RETAINED_ISSUE_LIMIT = 100;
+
     /** @var list<DocumentIntegrityIssue> */
     private array $issues = [];
 
+    private int $totalIssueCount = 0;
+
+    private int $criticalCount = 0;
+
+    private int $highCount = 0;
+
+    private int $warningCount = 0;
+
+    private int $repairableCount = 0;
+
     private int $repaired = 0;
+
+    /** @var (callable(DocumentIntegrityIssue): void)|null */
+    private $issueConsumer = null;
+
+    /**
+     * Optional streaming consumer invoked for every issue (including those not retained).
+     *
+     * @param  (callable(DocumentIntegrityIssue): void)|null  $consumer
+     */
+    public function setIssueConsumer(?callable $consumer): void
+    {
+        $this->issueConsumer = $consumer;
+    }
 
     public function add(DocumentIntegrityIssue $issue): void
     {
-        $this->issues[] = $issue;
+        $this->totalIssueCount++;
+
+        match ($issue->severity) {
+            DocumentIntegrityIssueSeverity::Critical => $this->criticalCount++,
+            DocumentIntegrityIssueSeverity::High => $this->highCount++,
+            DocumentIntegrityIssueSeverity::Warning => $this->warningCount++,
+        };
+
+        if ($issue->repairable) {
+            $this->repairableCount++;
+        }
+
+        if (count($this->issues) < self::RETAINED_ISSUE_LIMIT) {
+            $this->issues[] = $issue;
+        }
+
+        if ($this->issueConsumer !== null) {
+            ($this->issueConsumer)($issue);
+        }
     }
 
     public function incrementRepaired(): void
@@ -23,7 +66,14 @@ final class DocumentIntegrityAuditResult
         $this->repaired++;
     }
 
+    public function totalIssueCount(): int
+    {
+        return $this->totalIssueCount;
+    }
+
     /**
+     * Retained/sample issues only (bounded by RETAINED_ISSUE_LIMIT).
+     *
      * @return list<DocumentIntegrityIssue>
      */
     public function issues(): array
@@ -38,25 +88,22 @@ final class DocumentIntegrityAuditResult
 
     public function criticalCount(): int
     {
-        return $this->countSeverity(DocumentIntegrityIssueSeverity::Critical);
+        return $this->criticalCount;
     }
 
     public function highCount(): int
     {
-        return $this->countSeverity(DocumentIntegrityIssueSeverity::High);
+        return $this->highCount;
     }
 
     public function warningCount(): int
     {
-        return $this->countSeverity(DocumentIntegrityIssueSeverity::Warning);
+        return $this->warningCount;
     }
 
     public function repairableCount(): int
     {
-        return count(array_filter(
-            $this->issues,
-            fn (DocumentIntegrityIssue $issue): bool => $issue->repairable,
-        ));
+        return $this->repairableCount;
     }
 
     /**
@@ -72,6 +119,8 @@ final class DocumentIntegrityAuditResult
     }
 
     /**
+     * Searches the retained sample only.
+     *
      * @return list<DocumentIntegrityIssue>
      */
     public function issuesForEntity(string $entityType, int $entityId): array
@@ -85,14 +134,6 @@ final class DocumentIntegrityAuditResult
 
     public function hasCriticalOrHigh(): bool
     {
-        return $this->criticalCount() > 0 || $this->highCount() > 0;
-    }
-
-    private function countSeverity(DocumentIntegrityIssueSeverity $severity): int
-    {
-        return count(array_filter(
-            $this->issues,
-            fn (DocumentIntegrityIssue $issue): bool => $issue->severity === $severity,
-        ));
+        return $this->criticalCount > 0 || $this->highCount > 0;
     }
 }

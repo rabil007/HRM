@@ -60,7 +60,7 @@ class AuditDocumentIntegrityCommand extends Command
                 ),
             );
 
-            $remaining = count($result->issues()) - count($rows);
+            $remaining = $result->totalIssueCount() - count($rows);
 
             if ($remaining > 0) {
                 $this->line('Showing first '.DocumentIntegrityAuditResult::TABLE_LIMIT." issues ({$remaining} more omitted).");
