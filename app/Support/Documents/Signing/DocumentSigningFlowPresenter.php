@@ -4,7 +4,6 @@ namespace App\Support\Documents\Signing;
 
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Enums\DocumentRecipientRole;
-use App\Enums\DocumentSigningFlowStatus;
 use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentSigningFlow;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestPresenter;
@@ -96,14 +95,7 @@ final class DocumentSigningFlowPresenter
             })
             ->all();
 
-        $canRetry = false;
-
-        if ($flow->status === DocumentSigningFlowStatus::Blocked) {
-            $currentStepRequest = $requestsBySequence->get((int) $flow->current_step_sequence);
-
-            $canRetry = $currentStepRequest instanceof DocumentRecipientRequest
-                && $currentStepRequest->status === DocumentRecipientRequestStatus::Completed;
-        }
+        $canRetry = DocumentSigningFlowRetryEligibility::canRetry($flow);
 
         return [
             'id' => $flow->id,

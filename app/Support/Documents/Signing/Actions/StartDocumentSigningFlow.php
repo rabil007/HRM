@@ -16,6 +16,7 @@ use App\Models\DocumentSigningPreset;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Support\Documents\Lifecycle\DocumentLifecycleAutomationGuard;
 use App\Support\Documents\RecipientRequests\Actions\CreateDocumentRecipientRequest;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestWorkflowGate;
 use App\Support\Documents\RecipientRequests\DocumentRecipientSignatureChainGuard;
@@ -50,6 +51,7 @@ final class StartDocumentSigningFlow
         User $actor,
         int $companyId,
         int $presetId,
+        bool $skipLifecycleGuard = false,
     ): array {
         DocumentAccess::assertDocumentInCompany($document, $companyId);
 
@@ -60,7 +62,7 @@ final class StartDocumentSigningFlow
             abort(404);
         }
 
-        return DB::transaction(function () use ($document, $employee, $actor, $companyId, $presetId): array {
+        return DB::transaction(function () use ($document, $employee, $actor, $companyId, $presetId, $skipLifecycleGuard): array {
             $instance = DocumentInstance::query()
                 ->where('employee_document_id', $document->id)
                 ->where('company_id', $companyId)
@@ -72,6 +74,10 @@ final class StartDocumentSigningFlow
                 throw ValidationException::withMessages([
                     'action' => 'Signing flows require a generated document instance.',
                 ]);
+            }
+
+            if (! $skipLifecycleGuard) {
+                app(DocumentLifecycleAutomationGuard::class)->assertManualSigningAllowed($instance, $companyId);
             }
 
             $this->openGuard->assertNoOpenFlow($instance, $companyId);

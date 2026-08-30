@@ -10,6 +10,7 @@ use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentSigningFlow;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Support\Documents\Lifecycle\Actions\SyncDocumentLifecycleFromSigningFlow;
 use App\Support\Documents\Signing\DocumentSignatureSlot;
 use App\Support\Documents\Signing\DocumentSigningFlowActivityLogger;
 use App\Support\Documents\Signing\DocumentSigningInternalSignerEligibility;
@@ -96,6 +97,16 @@ final class AdvanceDocumentSigningFlow
                     flow: $lockedFlow->fresh(),
                     actor: $actor,
                 );
+
+                $flowId = (int) $lockedFlow->id;
+                $companyId = (int) $lockedFlow->company_id;
+                DB::afterCommit(function () use ($flowId, $companyId): void {
+                    try {
+                        app(SyncDocumentLifecycleFromSigningFlow::class)->handle($flowId, $companyId);
+                    } catch (\Throwable $exception) {
+                        report($exception);
+                    }
+                });
 
                 return $lockedFlow->fresh();
             }

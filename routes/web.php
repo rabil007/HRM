@@ -122,6 +122,7 @@ use App\Http\Controllers\Organization\Documents\RegenerateDocumentRecipientReque
 use App\Http\Controllers\Organization\Documents\RejectDocumentWorkflowTaskController;
 use App\Http\Controllers\Organization\Documents\ResendDocumentRecipientRequestEmailController;
 use App\Http\Controllers\Organization\Documents\RespondDocumentRecipientRequestController;
+use App\Http\Controllers\Organization\Documents\RetryDocumentLifecycleAutomationController;
 use App\Http\Controllers\Organization\Documents\RetryDocumentSigningFlowController;
 use App\Http\Controllers\Organization\Documents\StartDocumentSigningFlowController;
 use App\Http\Controllers\Organization\Documents\StoreDocumentSigningPresetController;
@@ -738,6 +739,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('organization.documents.employee.files.signing-flows.store');
         Route::post('organization/documents/signing-flows/{signingFlow}/retry', RetryDocumentSigningFlowController::class)
             ->name('organization.documents.signing-flows.retry');
+        Route::post('organization/documents/{document}/lifecycle-automation/retry', RetryDocumentLifecycleAutomationController::class)
+            ->name('organization.documents.lifecycle-automation.retry');
         Route::post('organization/documents/recipient-requests/{recipientRequest}/regenerate-link', RegenerateDocumentRecipientRequestTokenController::class)
             ->name('organization.documents.recipient-requests.regenerate-link');
         Route::post('organization/documents/recipient-requests/{recipientRequest}/email', ResendDocumentRecipientRequestEmailController::class)
@@ -824,6 +827,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/documents/templates/{template}', [DocumentGenerationTemplateController::class, 'update'])
         ->middleware('can:documents.templates.update')
         ->name('organization.documents.templates.update');
+    Route::put('organization/documents/templates/{template}/automation', [DocumentGenerationTemplateController::class, 'updateAutomation'])
+        ->middleware('can:documents.templates.update')
+        ->name('organization.documents.templates.automation.update');
     Route::post('organization/documents/templates/{template}/duplicate', [DocumentGenerationTemplateController::class, 'duplicate'])
         ->middleware('can:documents.templates.update')
         ->name('organization.documents.templates.duplicate');

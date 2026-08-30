@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
+import { LifecycleAutomationCard } from '@/features/organization/documents/lifecycle/lifecycle-automation-card';
+import type { DocumentLifecycleAutomationSummary } from '@/features/organization/documents/lifecycle/types';
 import { DocumentShowHeaderActions } from '@/features/organization/documents/shared/document-actions/document-list-row-actions';
 import { DocumentExpiryStatusCell } from '@/features/organization/documents/shared/document-expiry-display';
 import { DocumentManagementDialogs } from '@/features/organization/documents/shared/document-management-dialogs';
@@ -85,6 +87,7 @@ type Props = {
         current_source_version: number | null | undefined;
     };
     signing_flow: DocumentShowSigningFlowProps;
+    lifecycle_automation: DocumentLifecycleAutomationSummary | null;
     back: {
         href: string;
         label: string;
@@ -121,6 +124,7 @@ export default function DocumentShow({
     workflow,
     recipient_request,
     signing_flow,
+    lifecycle_automation,
     back,
     recent_activity,
     can_view_audit,
@@ -425,6 +429,14 @@ export default function DocumentShow({
                                 />
                             </CardContent>
                         </Card>
+
+                        {lifecycle_automation ? (
+                            <LifecycleAutomationCard
+                                automation={lifecycle_automation}
+                                documentId={doc.id}
+                                canRetry={recipient_request.can.create}
+                            />
+                        ) : null}
 
                         {signing_flow.active_flow ? (
                             <SigningFlowCard

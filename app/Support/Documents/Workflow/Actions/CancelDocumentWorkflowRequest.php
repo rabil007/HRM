@@ -10,6 +10,8 @@ use App\Models\DocumentWorkflowRequest;
 use App\Models\DocumentWorkflowStage;
 use App\Models\DocumentWorkflowTask;
 use App\Models\User;
+use App\Support\Documents\Lifecycle\Actions\StopDocumentLifecycleAutomation;
+use App\Support\Documents\Lifecycle\DocumentLifecycleAutomationPolicy;
 use App\Support\Documents\Workflow\DocumentWorkflowAccess;
 use App\Support\Documents\Workflow\DocumentWorkflowActivityLogger;
 use Illuminate\Support\Facades\DB;
@@ -86,6 +88,19 @@ final class CancelDocumentWorkflowRequest
                 request: $request,
                 actor: $actor,
             );
+
+            $workflowRequestId = (int) $request->id;
+            DB::afterCommit(function () use ($workflowRequestId, $companyId): void {
+                try {
+                    app(StopDocumentLifecycleAutomation::class)->handleForWorkflowTerminal(
+                        $workflowRequestId,
+                        $companyId,
+                        DocumentLifecycleAutomationPolicy::STOP_WORKFLOW_CANCELLED,
+                    );
+                } catch (\Throwable $exception) {
+                    report($exception);
+                }
+            });
 
             return $request->fresh(['stages.tasks']) ?? $request;
         });

@@ -12,6 +12,8 @@ export type TemplateVersionSummary = {
     placement_config?: PlacementConfig | null;
     has_signature_placement?: boolean;
     signature_placement_config?: SignaturePlacementConfig | null;
+    document_workflow_preset_id?: number | null;
+    document_signing_preset_id?: number | null;
     published_at: string | null;
     created_at: string | null;
     updated_at: string | null;
@@ -91,6 +93,11 @@ export type SystemTemplate = {
     key: string;
     label: string;
     supports_esignature: boolean;
+};
+
+export type AutomationPresetOption = {
+    id: number;
+    name: string;
 };
 
 export type TemplatesPermissions = {

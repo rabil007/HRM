@@ -12,6 +12,8 @@ use App\Support\Documents\Actions\SyncGeneratedEmployeeDocument;
 use App\Support\Documents\DocumentInstanceStorage;
 use App\Support\Documents\Exceptions\DocumentTemplateLayoutException;
 use App\Support\Documents\Exceptions\DocumentTemplateSourceUnavailableException;
+use App\Support\Documents\Lifecycle\Actions\CreateDocumentLifecycleAutomation;
+use App\Support\Documents\Lifecycle\Actions\StartDocumentLifecycleAutomation;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
 use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Illuminate\Bus\Queueable;
@@ -170,6 +172,9 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                 $libraryFilePath = $storedLibraryDoc->filePath;
 
                 // 4. Transactional database creation: ALL database writes inside one atomic transaction!
+                // Lifecycle registration (when configured) commits with the instance so manual
+                // workflow/signing cannot race ahead of the automatic lifecycle guard.
+                /** @var array{status: 'created', instance: DocumentInstance, instanceVersion: DocumentInstanceVersion, lifecycleId: int|null}|array{status: 'skipped'} $creationResult */
                 $creationResult = DB::transaction(function () use (
                     $employee,
                     $template,
@@ -179,7 +184,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                     $artifact,
                     $storedLibraryDoc,
                     $syncEmployeeDoc,
-                ): string {
+                ): array {
                     // When non-repeat generation, lock the employee row and re-check existence
                     // to prevent concurrent cross-run duplicate generation
                     if (! $this->allowRepeatGeneration) {
@@ -198,7 +203,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                         if ($alreadyGenerated) {
                             $item->update(['status' => 'skipped']);
 
-                            return 'skipped';
+                            return ['status' => 'skipped'];
                         }
                     }
 
@@ -272,10 +277,35 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                         ])
                         ->log("Generated document '{$instance->title_snapshot}' for {$instance->employee_name_snapshot}");
 
-                    return 'created';
+                    $lifecycle = app(CreateDocumentLifecycleAutomation::class)->handle(
+                        $instance,
+                        $instanceVersion,
+                        $version,
+                        $this->userId,
+                    );
+
+                    return [
+                        'status' => 'created',
+                        'instance' => $instance,
+                        'instanceVersion' => $instanceVersion,
+                        'lifecycleId' => $lifecycle?->id !== null ? (int) $lifecycle->id : null,
+                    ];
                 });
 
-                if ($creationResult === 'skipped') {
+                if ($creationResult['status'] === 'created') {
+                    // Downstream start runs after generation+registration commit.
+                    // Start failures must not undo generation or delete PDFs.
+                    if ($creationResult['lifecycleId'] !== null) {
+                        try {
+                            app(StartDocumentLifecycleAutomation::class)->handle(
+                                $creationResult['lifecycleId'],
+                                $this->companyId,
+                            );
+                        } catch (Throwable $lifecycleException) {
+                            report($lifecycleException);
+                        }
+                    }
+                } elseif ($creationResult['status'] === 'skipped') {
                     // Stale worker dedupe: clean up this worker's newly rendered files
                     if ($canonicalPath !== null) {
                         DocumentInstanceStorage::deletePdf($canonicalPath, $this->companyId);

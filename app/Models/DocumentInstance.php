@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\Support\LogOptions;
 
 class DocumentInstance extends Model
@@ -155,6 +156,11 @@ class DocumentInstance extends Model
     public function recipientRequests(): HasMany
     {
         return $this->hasMany(DocumentRecipientRequest::class, 'document_instance_id');
+    }
+
+    public function lifecycleAutomation(): HasOne
+    {
+        return $this->hasOne(DocumentLifecycleAutomation::class, 'document_instance_id');
     }
 
     public function scopeForCompany(Builder $query, int $companyId): Builder

@@ -9,6 +9,7 @@ use App\Http\Requests\Organization\DocumentGenerationTemplate\SaveDocumentGenera
 use App\Http\Requests\Organization\DocumentGenerationTemplate\SaveDocumentGenerationTemplateSignaturePlacementRequest;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\StoreDocumentGenerationTemplateRequest;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\UpdateDocumentGenerationTemplateRequest;
+use App\Http\Requests\Organization\Documents\UpdateDocumentGenerationTemplateAutomationRequest;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Support\Documents\Actions\BranchDocumentGenerationTemplateDraft;
@@ -19,6 +20,7 @@ use App\Support\Documents\Actions\ReplaceDocumentGenerationTemplatePdf;
 use App\Support\Documents\Actions\SaveDocumentGenerationTemplatePlacements;
 use App\Support\Documents\Actions\SaveDocumentGenerationTemplateSignaturePlacement;
 use App\Support\Documents\Actions\UpdateDocumentGenerationTemplate;
+use App\Support\Documents\Actions\UpdateDocumentGenerationTemplateAutomation;
 use App\Support\Documents\DocumentTemplateStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -55,6 +57,20 @@ class DocumentGenerationTemplateController extends Controller
         $action->handle($template, $request->validated(), $request->user());
 
         return back()->with('success', 'Template updated.');
+    }
+
+    public function updateAutomation(
+        UpdateDocumentGenerationTemplateAutomationRequest $request,
+        DocumentGenerationTemplate $template,
+        UpdateDocumentGenerationTemplateAutomation $action,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_if($companyId <= 0, 403);
+        abort_unless((int) $template->company_id === $companyId, 404);
+
+        $action->handle($template, $request->validated(), $request->user());
+
+        return back()->with('success', 'Template automation updated.');
     }
 
     public function duplicate(

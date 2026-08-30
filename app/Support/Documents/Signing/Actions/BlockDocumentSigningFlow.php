@@ -5,6 +5,7 @@ namespace App\Support\Documents\Signing\Actions;
 use App\Enums\DocumentSigningFlowStatus;
 use App\Models\DocumentSigningFlow;
 use App\Models\User;
+use App\Support\Documents\Lifecycle\Actions\SyncDocumentLifecycleFromSigningFlow;
 use App\Support\Documents\Signing\DocumentSigningFlowActivityLogger;
 use Illuminate\Support\Facades\DB;
 
@@ -65,6 +66,15 @@ final class BlockDocumentSigningFlow
                     'blocked_reason' => $reason,
                 ],
             );
+
+            $syncedFlowId = (int) $locked->id;
+            DB::afterCommit(function () use ($syncedFlowId, $companyId): void {
+                try {
+                    app(SyncDocumentLifecycleFromSigningFlow::class)->handle($syncedFlowId, $companyId);
+                } catch (\Throwable $exception) {
+                    report($exception);
+                }
+            });
 
             return $locked->fresh();
         });

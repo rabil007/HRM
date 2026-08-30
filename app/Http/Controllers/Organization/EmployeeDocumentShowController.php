@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Documents\Lifecycle\DocumentLifecycleAutomationPresenter;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEligibility;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestPagePermissions;
 use App\Support\Documents\RecipientRequests\DocumentRecipientSignatoryOptionsQuery;
@@ -43,6 +44,7 @@ class EmployeeDocumentShowController extends Controller
             'versions.replacer:id,name',
             'documentInstance.currentVersion',
             'documentInstance.generatedBy:id,name',
+            'documentInstance.lifecycleAutomation',
         ]);
 
         $workflowPresenter = app(DocumentWorkflowPresenter::class);
@@ -67,6 +69,10 @@ class EmployeeDocumentShowController extends Controller
             $document,
             $companyId,
             $recipientPermissions['create'],
+        );
+
+        $lifecycleAutomation = app(DocumentLifecycleAutomationPresenter::class)->forDocumentShow(
+            $document->documentInstance?->lifecycleAutomation,
         );
 
         return Inertia::render('organization/documents/show', [
@@ -106,6 +112,7 @@ class EmployeeDocumentShowController extends Controller
                 'current_source_version' => $document->documentInstance?->currentVersion?->version,
             ],
             'signing_flow' => $signingFlow,
+            'lifecycle_automation' => $lifecycleAutomation,
             'back' => DocumentShowBackNavigation::resolve($request, $employee),
             'recent_activity' => RecentActivityQuery::for(
                 $request->user(),

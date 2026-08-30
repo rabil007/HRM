@@ -25,6 +25,8 @@ class DocumentGenerationTemplateVersion extends Model
         'source_pdf_page_count',
         'placement_config',
         'signature_placement_config',
+        'document_workflow_preset_id',
+        'document_signing_preset_id',
         'published_at',
         'created_by',
         'updated_by',
@@ -87,6 +89,8 @@ class DocumentGenerationTemplateVersion extends Model
                     'source_pdf_page_count',
                     'placement_config',
                     'signature_placement_config',
+                    'document_workflow_preset_id',
+                    'document_signing_preset_id',
                     'version',
                     'published_at',
                     'company_id',
@@ -125,6 +129,16 @@ class DocumentGenerationTemplateVersion extends Model
     public function instances(): HasMany
     {
         return $this->hasMany(DocumentInstance::class, 'document_generation_template_version_id');
+    }
+
+    public function workflowPreset(): BelongsTo
+    {
+        return $this->belongsTo(DocumentWorkflowPreset::class, 'document_workflow_preset_id');
+    }
+
+    public function signingPreset(): BelongsTo
+    {
+        return $this->belongsTo(DocumentSigningPreset::class, 'document_signing_preset_id');
     }
 
     public function isDraft(): bool
@@ -169,6 +183,8 @@ class DocumentGenerationTemplateVersion extends Model
      *     placement_config: ?array,
      *     has_signature_placement: bool,
      *     signature_placement_config: ?array,
+     *     document_workflow_preset_id: int|null,
+     *     document_signing_preset_id: int|null,
      *     published_at: ?string,
      *     created_at: ?string,
      *     updated_at: ?string
@@ -198,6 +214,12 @@ class DocumentGenerationTemplateVersion extends Model
             'placement_config' => $this->placement_config,
             'has_signature_placement' => count($signaturePlacements) > 0,
             'signature_placement_config' => $this->signature_placement_config,
+            'document_workflow_preset_id' => $this->document_workflow_preset_id !== null
+                ? (int) $this->document_workflow_preset_id
+                : null,
+            'document_signing_preset_id' => $this->document_signing_preset_id !== null
+                ? (int) $this->document_signing_preset_id
+                : null,
             'published_at' => $this->published_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

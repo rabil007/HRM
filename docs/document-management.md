@@ -1118,6 +1118,47 @@ Order: (1) expire overdue, (2) repair expired active signing flows, (3) process 
 
 ### Explicitly not in Phase 7B
 
-Generation/approval → signing auto-start, template→preset auto-assignment, WhatsApp/Web Push/SMS, parallel signing, external recipients, expired-step reissue, extending expiry, legacy `/esign` / BulkDocumentSignatureRequest / Salary Declaration migration (Phases 7C / 8).
+WhatsApp/Web Push/SMS, parallel signing, external recipients, expired-step reissue, extending expiry, legacy `/esign` / BulkDocumentSignatureRequest / Salary Declaration migration. Template→preset lifecycle automation is Phase 7C.
 
+## Phase 7C — Document Lifecycle Automation
+
+Phase 7C binds optional workflow and signing presets onto generation template versions so successful generation can automatically start review/approval and then signing without manual “start” clicks.
+
+### Template bindings
+
+- Columns on `document_generation_template_versions`: `document_workflow_preset_id`, `document_signing_preset_id` (nullable, company-scoped FKs)
+- Draft saves accept inactive presets (same company); **publish** requires active presets and, for signing, signature placement covering every preset step
+- Content templates may bind workflow only; PDF Overlay may bind workflow and/or signing
+- Branch draft / duplicate copy automation bindings (signing only for PDF Overlay)
+- Preset delete is blocked while referenced by any template version (deactivate instead)
+- UI: Templates → **Automation** sheet; route `PUT organization/documents/templates/{template}/automation` (`documents.templates.update`)
+
+### Per-document lifecycle row
+
+Table: `document_lifecycle_automations` (unique `document_instance_id`).
+
+| Field | Role |
+|-------|------|
+| `policy_snapshot` | Immutable workflow/signing preset ids + names at generation |
+| `status` | `pending` → `active` → `completed` / `stopped` / `blocked` |
+| `stage` | `review`, `signing`, or `done` |
+| Linked request/flow ids | Provenance for the automated children |
+
+**Atomic registration:** when a template version has lifecycle automation configured, `GenerateCustomDocumentsJob` creates the Pending `DocumentLifecycleAutomation` row **inside the same DB transaction** that creates `EmployeeDocument`, `DocumentInstance`, and version 1. A generated instance is never committed without its lifecycle registration. Registration write failure rolls back generation (existing file compensation still deletes canonical/library PDFs).
+
+**Execution after commit:** starting workflow/signing runs only after that transaction commits. Downstream start/routing failure leaves generation completed, keeps the lifecycle row, and marks the lifecycle Blocked when possible — it does **not** delete generated PDFs.
+
+### Runtime behavior
+
+1. **Start** — after commit, create workflow from snapshotted preset when present; otherwise start signing; otherwise mark completed. Before creating a workflow or signing flow, the instance `current_version_id` must equal `source_document_instance_version_id` (`lifecycle_source_version_changed` otherwise).
+2. **Advance** — on workflow **Approved**, after commit start snapshotted signing (or complete if signing was not configured). Exact source-version gate applies again before signing. An existing linked signing flow is synchronized from its real status (never blindly marked Active while the flow is Blocked).
+3. **Stop** — workflow reject/cancel after commit stops lifecycle (`workflow_rejected` / `workflow_cancelled`); signing cancel syncs to stopped
+4. **Sync** — signing flow Completed / Cancelled / Blocked (and retry → Active) mirrors into lifecycle via `SyncDocumentLifecycleFromSigningFlow`
+5. **Manual guard** — while lifecycle is pending/active/blocked, manual workflow create and signing start are rejected (`DocumentLifecycleAutomationGuard`); lifecycle-started actions pass `skipLifecycleGuard: true`. Atomic registration closes the generation → manual-start race.
+6. **Retry** — blocked lifecycles: `POST organization/documents/{document}/lifecycle-automation/retry` (`documents.recipient-requests.create`); document show card + Retry button. Retry follows existing linked workflow/signing state (no duplicate children). Exact source-version divergence (`lifecycle_source_version_changed`) and non-retryable expired signing steps are **not** retryable; lifecycle `can_retry` reflects that. Successful recovery alone emits `document_lifecycle_retried`.
+7. **Reconciliation (crash recovery only)** — `documents:reconcile-lifecycle-automations` every 5 minutes recovers lost after-commit starts and stale Active/Blocked rows. Scheduler batches select only actionable mismatches (terminal workflows; signing-flow/lifecycle desync) so healthy Active or Pending rows cannot starve recovery. It does not replace immediate post-commit execution and does not resurrect Completed/Stopped lifecycles.
+
+### Explicitly not in Phase 7C
+
+WhatsApp/Web Push/SMS, parallel signing, external recipients, expired-step reissue, extending expiry, legacy `/esign` / BulkDocumentSignatureRequest / Salary Declaration migration (Phase 8+).
 

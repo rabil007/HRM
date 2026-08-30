@@ -12,6 +12,7 @@ import {
     Power,
     PowerOff,
     Send,
+    Settings2,
     Trash2,
     UploadCloud,
     X,
@@ -59,6 +60,7 @@ import {
 } from '@/routes/organization/documents/templates';
 import { publish as publishTemplateVersion } from '@/routes/organization/documents/templates/versions';
 import { index as documentTypesIndex } from '@/routes/settings/master-data/document-types';
+import { TemplateAutomationSheet } from './components/template-automation-sheet';
 import { TemplateCreateChoiceDialog } from './components/template-create-choice-dialog';
 import { TemplateDeleteDialog } from './components/template-delete-dialog';
 import type { TemplateFormData } from './components/template-form-sheet';
@@ -69,6 +71,7 @@ import { TemplateReplacePdfDialog } from './components/template-replace-pdf-dial
 import { TemplatePdfDesignerDialog } from './designer/template-pdf-designer-dialog';
 import { TemplateSignaturePlacementDialog } from './designer/template-signature-placement-dialog';
 import type {
+    AutomationPresetOption,
     CustomTemplate,
     DocumentTypeOption,
     MergeField,
@@ -108,12 +111,16 @@ export function DocumentsTemplatesContent({
     customTemplates,
     mergeFields,
     documentTypes,
+    workflowPresets,
+    signingPresets,
     systemTemplates,
     can,
 }: {
     customTemplates: CustomTemplate[];
     mergeFields: MergeField[];
     documentTypes: DocumentTypeOption[];
+    workflowPresets: AutomationPresetOption[];
+    signingPresets: AutomationPresetOption[];
     systemTemplates: SystemTemplate[];
     can: TemplatesPermissions;
 }) {
@@ -163,6 +170,10 @@ export function DocumentsTemplatesContent({
         useState<TemplateVersionSummary | null>(null);
     const [signatureConfig, setSignatureConfig] =
         useState<SignaturePlacementConfig | null>(null);
+
+    const [isAutomationOpen, setIsAutomationOpen] = useState(false);
+    const [automationTemplate, setAutomationTemplate] =
+        useState<CustomTemplate | null>(null);
 
     const [pendingDesignerTemplateId, setPendingDesignerTemplateId] = useState<
         number | null
@@ -387,6 +398,11 @@ export function DocumentsTemplatesContent({
                 },
             },
         );
+    };
+
+    const handleOpenAutomation = (template: CustomTemplate) => {
+        setAutomationTemplate(template);
+        setIsAutomationOpen(true);
     };
 
     const handlePublishDraft = (
@@ -924,6 +940,20 @@ export function DocumentsTemplatesContent({
                                                                                     </DropdownMenuItem>
                                                                                 )}
 
+                                                                                <DropdownMenuItem
+                                                                                    onClick={() =>
+                                                                                        handleOpenAutomation(
+                                                                                            template,
+                                                                                        )
+                                                                                    }
+                                                                                    className="gap-2"
+                                                                                >
+                                                                                    <Settings2 className="h-3.5 w-3.5" />
+                                                                                    <span>
+                                                                                        Automation
+                                                                                    </span>
+                                                                                </DropdownMenuItem>
+
                                                                                 {/* Activate / Deactivate */}
                                                                                 {template.status ===
                                                                                 'active' ? (
@@ -1243,6 +1273,20 @@ export function DocumentsTemplatesContent({
                 template={signatureTemplate}
                 version={signatureVersion}
                 initialConfig={signatureConfig}
+            />
+
+            <TemplateAutomationSheet
+                open={isAutomationOpen}
+                onOpenChange={(open) => {
+                    setIsAutomationOpen(open);
+
+                    if (!open) {
+                        setAutomationTemplate(null);
+                    }
+                }}
+                template={automationTemplate}
+                workflowPresets={workflowPresets}
+                signingPresets={signingPresets}
             />
 
             {/* Content Template Editor Sheet */}
