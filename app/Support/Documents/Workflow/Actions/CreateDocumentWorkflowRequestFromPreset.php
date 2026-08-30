@@ -25,8 +25,9 @@ final class CreateDocumentWorkflowRequestFromPreset
         EmployeeDocument $document,
         int $presetId,
         Employee $subjectEmployee,
+        bool $skipLifecycleGuard = false,
     ): DocumentWorkflowRequest {
-        return DB::transaction(function () use ($requester, $companyId, $document, $presetId, $subjectEmployee) {
+        return DB::transaction(function () use ($requester, $companyId, $document, $presetId, $subjectEmployee, $skipLifecycleGuard) {
             $preset = DocumentWorkflowPreset::query()
                 ->forCompany($companyId)
                 ->whereKey($presetId)
@@ -56,6 +57,7 @@ final class CreateDocumentWorkflowRequestFromPreset
                     'preset_name' => $resolved['preset_name'],
                     'routing_snapshot' => $resolved['routing_snapshot'],
                 ],
+                skipLifecycleGuard: $skipLifecycleGuard,
             );
         });
     }

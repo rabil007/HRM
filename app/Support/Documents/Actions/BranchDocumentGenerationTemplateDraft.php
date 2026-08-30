@@ -51,9 +51,12 @@ final class BranchDocumentGenerationTemplateDraft
                 $pageCount = null;
                 $placementConfig = null;
                 $signaturePlacementConfig = null;
+                $workflowPresetId = null;
+                $signingPresetId = null;
 
                 if ($locked->isContent()) {
                     $content = $sourceVersion?->content ?? (string) $locked->content;
+                    $workflowPresetId = $sourceVersion?->document_workflow_preset_id;
                 } elseif ($locked->isPdfOverlay() && $sourceVersion?->source_pdf_path) {
                     // Physically copy source PDF to ensure complete immutability of published file
                     $newPdfPath = DocumentTemplateStorage::copyPdf(
@@ -66,6 +69,8 @@ final class BranchDocumentGenerationTemplateDraft
                     $pageCount = $sourceVersion->source_pdf_page_count;
                     $placementConfig = $sourceVersion->placement_config;
                     $signaturePlacementConfig = $sourceVersion->signature_placement_config;
+                    $workflowPresetId = $sourceVersion->document_workflow_preset_id;
+                    $signingPresetId = $sourceVersion->document_signing_preset_id;
                 }
 
                 $draft = DocumentGenerationTemplateVersion::query()->create([
@@ -80,6 +85,8 @@ final class BranchDocumentGenerationTemplateDraft
                     'source_pdf_page_count' => $pageCount,
                     'placement_config' => $placementConfig,
                     'signature_placement_config' => $signaturePlacementConfig,
+                    'document_workflow_preset_id' => $workflowPresetId,
+                    'document_signing_preset_id' => $signingPresetId,
                     'published_at' => null,
                     'created_by' => $userId,
                     'updated_by' => $userId,

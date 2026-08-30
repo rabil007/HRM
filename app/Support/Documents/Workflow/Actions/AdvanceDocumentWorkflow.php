@@ -12,6 +12,9 @@ use App\Models\DocumentWorkflowRequest;
 use App\Models\DocumentWorkflowStage;
 use App\Models\DocumentWorkflowTask;
 use App\Models\User;
+use App\Support\Documents\Lifecycle\Actions\AdvanceDocumentLifecycleAutomation;
+use App\Support\Documents\Lifecycle\Actions\StopDocumentLifecycleAutomation;
+use App\Support\Documents\Lifecycle\DocumentLifecycleAutomationPolicy;
 use App\Support\Documents\Workflow\DocumentWorkflowActivityLogger;
 use Illuminate\Support\Facades\DB;
 
@@ -143,6 +146,19 @@ final class AdvanceDocumentWorkflow
                 actor: $actor,
             );
 
+            $workflowRequestId = (int) $request->id;
+            $companyId = (int) $request->company_id;
+            DB::afterCommit(function () use ($workflowRequestId, $companyId): void {
+                try {
+                    app(AdvanceDocumentLifecycleAutomation::class)->handleForApprovedWorkflow(
+                        $workflowRequestId,
+                        $companyId,
+                    );
+                } catch (\Throwable $exception) {
+                    report($exception);
+                }
+            });
+
             return $request->fresh(['stages.tasks']) ?? $request;
         }
 
@@ -201,6 +217,20 @@ final class AdvanceDocumentWorkflow
                 'stage_id' => $stage->id,
             ],
         );
+
+        $workflowRequestId = (int) $request->id;
+        $companyId = (int) $request->company_id;
+        DB::afterCommit(function () use ($workflowRequestId, $companyId): void {
+            try {
+                app(StopDocumentLifecycleAutomation::class)->handleForWorkflowTerminal(
+                    $workflowRequestId,
+                    $companyId,
+                    DocumentLifecycleAutomationPolicy::STOP_WORKFLOW_REJECTED,
+                );
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        });
 
         return $request->fresh(['stages.tasks']) ?? $request;
     }

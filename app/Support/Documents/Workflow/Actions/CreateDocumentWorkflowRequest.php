@@ -14,6 +14,7 @@ use App\Models\DocumentWorkflowStage;
 use App\Models\DocumentWorkflowTask;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Support\Documents\Lifecycle\DocumentLifecycleAutomationGuard;
 use App\Support\Documents\Workflow\DocumentWorkflowActivityLogger;
 use App\Support\Documents\Workflow\DocumentWorkflowAssigneeValidator;
 use App\Support\EmployeeDocuments\DocumentAccess;
@@ -37,6 +38,7 @@ final class CreateDocumentWorkflowRequest
         EmployeeDocument $document,
         array $stages,
         array $presetProvenance = [],
+        bool $skipLifecycleGuard = false,
     ): DocumentWorkflowRequest {
         DocumentAccess::assertDocumentInCompany($document, $companyId);
 
@@ -50,6 +52,10 @@ final class CreateDocumentWorkflowRequest
         }
 
         abort_unless((int) $instance->company_id === $companyId, 404);
+
+        if (! $skipLifecycleGuard) {
+            app(DocumentLifecycleAutomationGuard::class)->assertManualWorkflowAllowed($instance, $companyId);
+        }
 
         $usersById = $this->assigneeValidator->validateStages($companyId, $stages, (int) $requester->id);
 

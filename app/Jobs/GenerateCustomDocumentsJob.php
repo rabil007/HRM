@@ -12,6 +12,7 @@ use App\Support\Documents\Actions\SyncGeneratedEmployeeDocument;
 use App\Support\Documents\DocumentInstanceStorage;
 use App\Support\Documents\Exceptions\DocumentTemplateLayoutException;
 use App\Support\Documents\Exceptions\DocumentTemplateSourceUnavailableException;
+use App\Support\Documents\Lifecycle\Actions\CreateDocumentLifecycleAutomation;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
 use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Illuminate\Bus\Queueable;
@@ -170,6 +171,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                 $libraryFilePath = $storedLibraryDoc->filePath;
 
                 // 4. Transactional database creation: ALL database writes inside one atomic transaction!
+                /** @var array{status: 'created', instance: DocumentInstance, instanceVersion: DocumentInstanceVersion}|array{status: 'skipped'} $creationResult */
                 $creationResult = DB::transaction(function () use (
                     $employee,
                     $template,
@@ -179,7 +181,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                     $artifact,
                     $storedLibraryDoc,
                     $syncEmployeeDoc,
-                ): string {
+                ): array {
                     // When non-repeat generation, lock the employee row and re-check existence
                     // to prevent concurrent cross-run duplicate generation
                     if (! $this->allowRepeatGeneration) {
@@ -198,7 +200,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                         if ($alreadyGenerated) {
                             $item->update(['status' => 'skipped']);
 
-                            return 'skipped';
+                            return ['status' => 'skipped'];
                         }
                     }
 
@@ -272,10 +274,25 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                         ])
                         ->log("Generated document '{$instance->title_snapshot}' for {$instance->employee_name_snapshot}");
 
-                    return 'created';
+                    return [
+                        'status' => 'created',
+                        'instance' => $instance,
+                        'instanceVersion' => $instanceVersion,
+                    ];
                 });
 
-                if ($creationResult === 'skipped') {
+                if ($creationResult['status'] === 'created') {
+                    try {
+                        app(CreateDocumentLifecycleAutomation::class)->handle(
+                            $creationResult['instance'],
+                            $creationResult['instanceVersion'],
+                            $version,
+                            $this->userId,
+                        );
+                    } catch (Throwable $lifecycleException) {
+                        report($lifecycleException);
+                    }
+                } elseif ($creationResult['status'] === 'skipped') {
                     // Stale worker dedupe: clean up this worker's newly rendered files
                     if ($canonicalPath !== null) {
                         DocumentInstanceStorage::deletePdf($canonicalPath, $this->companyId);

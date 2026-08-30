@@ -58,6 +58,10 @@ final class DuplicateDocumentGenerationTemplate
                     'source_pdf_page_count' => $sourceVersion?->source_pdf_page_count,
                     'placement_config' => $sourceVersion?->placement_config,
                     'signature_placement_config' => $sourceVersion?->signature_placement_config,
+                    'document_workflow_preset_id' => $sourceVersion?->document_workflow_preset_id,
+                    'document_signing_preset_id' => $template->isPdfOverlay()
+                        ? $sourceVersion?->document_signing_preset_id
+                        : null,
                     'published_at' => null,
                     'created_by' => $actor?->id,
                     'updated_by' => $actor?->id,

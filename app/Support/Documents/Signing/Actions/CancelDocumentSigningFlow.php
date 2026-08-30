@@ -8,6 +8,7 @@ use App\Enums\DocumentSigningFlowStatus;
 use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentSigningFlow;
 use App\Models\User;
+use App\Support\Documents\Lifecycle\Actions\SyncDocumentLifecycleFromSigningFlow;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
 use App\Support\Documents\Signing\DocumentSigningFlowActivityLogger;
 use Illuminate\Support\Facades\DB;
@@ -74,6 +75,15 @@ final class CancelDocumentSigningFlow
                 flow: $locked->fresh(),
                 actor: $actor,
             );
+
+            $flowId = (int) $locked->id;
+            DB::afterCommit(function () use ($flowId, $companyId): void {
+                try {
+                    app(SyncDocumentLifecycleFromSigningFlow::class)->handle($flowId, $companyId);
+                } catch (\Throwable $exception) {
+                    report($exception);
+                }
+            });
 
             return $locked->fresh();
         });

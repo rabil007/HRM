@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Documents\StoreDocumentWorkflowRequestRequest;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Support\Documents\Lifecycle\DocumentLifecycleAutomationGuard;
 use App\Support\Documents\Workflow\Actions\CreateDocumentWorkflowRequest;
 use App\Support\Documents\Workflow\Actions\CreateDocumentWorkflowRequestFromPreset;
 use App\Support\EmployeeDocuments\DocumentAccess;
@@ -27,6 +28,13 @@ class CreateDocumentWorkflowRequestController extends Controller
         DocumentAccess::assertEmployeeInCompany($employee, $companyId, 404);
         DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId, 404);
         DocumentAccess::assertDocumentInCompany($document, $companyId);
+
+        $document->loadMissing('documentInstance');
+        $instance = $document->documentInstance;
+
+        if ($instance !== null) {
+            app(DocumentLifecycleAutomationGuard::class)->assertManualWorkflowAllowed($instance, $companyId);
+        }
 
         try {
             if ($request->filled('workflow_preset_id')) {

@@ -2,6 +2,7 @@
 
 namespace App\Support\Documents\Workflow\Actions;
 
+use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentWorkflowPreset;
 use App\Models\DocumentWorkflowPresetStage;
 use App\Models\User;
@@ -29,6 +30,16 @@ final class DeleteDocumentWorkflowPreset
             if ($lockedPreset->workflowRequests()->exists()) {
                 throw ValidationException::withMessages([
                     'preset' => ['This preset has already been used and cannot be deleted. Deactivate it instead.'],
+                ]);
+            }
+
+            if (DocumentGenerationTemplateVersion::query()
+                ->where('company_id', $companyId)
+                ->where('document_workflow_preset_id', $lockedPreset->id)
+                ->exists()
+            ) {
+                throw ValidationException::withMessages([
+                    'preset' => ['Preset is used by a document template version. Deactivate it instead.'],
                 ]);
             }
 

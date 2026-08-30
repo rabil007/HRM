@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Documents\StartDocumentSigningFlowRequest;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Support\Documents\Lifecycle\DocumentLifecycleAutomationGuard;
 use App\Support\Documents\Signing\Actions\StartDocumentSigningFlow;
 use App\Support\EmployeeDocuments\DocumentAccess;
 use Illuminate\Http\RedirectResponse;
@@ -21,6 +22,13 @@ class StartDocumentSigningFlowController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         DocumentAccess::assertEmployeeInCompany($employee, $companyId, 404);
         DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId, 404);
+
+        $document->loadMissing('documentInstance');
+        $instance = $document->documentInstance;
+
+        if ($instance !== null) {
+            app(DocumentLifecycleAutomationGuard::class)->assertManualSigningAllowed($instance, $companyId);
+        }
 
         $result = $action->handle(
             $document,

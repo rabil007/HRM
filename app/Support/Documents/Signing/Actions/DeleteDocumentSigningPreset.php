@@ -2,6 +2,7 @@
 
 namespace App\Support\Documents\Signing\Actions;
 
+use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentSigningPreset;
 use App\Models\DocumentSigningPresetStep;
 use App\Models\User;
@@ -30,6 +31,16 @@ final class DeleteDocumentSigningPreset
             if ($locked->signingFlows()->exists()) {
                 throw ValidationException::withMessages([
                     'preset' => 'This preset has already been used and cannot be deleted. Deactivate it instead.',
+                ]);
+            }
+
+            if (DocumentGenerationTemplateVersion::query()
+                ->where('company_id', $companyId)
+                ->where('document_signing_preset_id', $locked->id)
+                ->exists()
+            ) {
+                throw ValidationException::withMessages([
+                    'preset' => 'Preset is used by a document template version. Deactivate it instead.',
                 ]);
             }
 
