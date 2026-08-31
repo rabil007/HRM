@@ -12,16 +12,18 @@ use Illuminate\Support\Str;
 function makeCompanyAuthorizationPair(): array
 {
     $suffix = Str::lower(Str::random(6));
+    $countryCode = 'C'.strtoupper(substr($suffix, 0, 2));
+    $currencyCode = 'Z'.strtoupper(substr($suffix, 0, 2));
 
     $country = Country::query()->create([
-        'code' => strtoupper(substr($suffix, 0, 3)),
+        'code' => $countryCode,
         'name' => 'Auth Land '.$suffix,
         'dial_code' => '+971',
         'is_active' => true,
     ]);
 
     $currency = Currency::query()->create([
-        'code' => strtoupper(substr($suffix, 3, 3)),
+        'code' => $currencyCode,
         'name' => 'Auth Currency '.$suffix,
         'symbol' => 'A$',
         'is_active' => true,
