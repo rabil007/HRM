@@ -572,9 +572,8 @@ export function DocumentsTemplatesContent({
         const matchesSearch =
             searchQuery === '' ||
             t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (t.description
-                ?.toLowerCase()
-                .includes(searchQuery.toLowerCase()) ?? false);
+            (t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ??
+                false);
         const matchesStatus =
             statusFilter === 'all' || t.status === statusFilter;
         const matchesFormat =
@@ -621,7 +620,7 @@ export function DocumentsTemplatesContent({
                                     <FileStack className="size-4" />
                                 </div>
                                 <div>
-                                    <div className="text-lg font-bold leading-none text-foreground">
+                                    <div className="text-lg leading-none font-bold text-foreground">
                                         {customTemplates.length}
                                     </div>
                                     <div className="mt-0.5 text-[11px] text-muted-foreground">
@@ -634,7 +633,7 @@ export function DocumentsTemplatesContent({
                                     <Power className="size-4" />
                                 </div>
                                 <div>
-                                    <div className="text-lg font-bold leading-none text-foreground">
+                                    <div className="text-lg leading-none font-bold text-foreground">
                                         {activeCount}
                                     </div>
                                     <div className="mt-0.5 text-[11px] text-muted-foreground">
@@ -647,7 +646,7 @@ export function DocumentsTemplatesContent({
                                     <Send className="size-4" />
                                 </div>
                                 <div>
-                                    <div className="text-lg font-bold leading-none text-foreground">
+                                    <div className="text-lg leading-none font-bold text-foreground">
                                         {pendingDraftCount}
                                     </div>
                                     <div className="mt-0.5 text-[11px] text-muted-foreground">
@@ -679,7 +678,7 @@ export function DocumentsTemplatesContent({
                                 {/* Search + Filter Bar */}
                                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                                     <div className="relative flex-1">
-                                        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                                        <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                                         <input
                                             type="text"
                                             placeholder="Search templates…"
@@ -687,7 +686,7 @@ export function DocumentsTemplatesContent({
                                             onChange={(e) =>
                                                 setSearchQuery(e.target.value)
                                             }
-                                            className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary/20"
+                                            className="h-9 w-full rounded-lg border border-border bg-background pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary/20"
                                         />
                                     </div>
                                     <div className="flex flex-wrap items-center gap-1.5">
@@ -747,7 +746,8 @@ export function DocumentsTemplatesContent({
                                             type="button"
                                             onClick={() =>
                                                 setFormatFilter(
-                                                    formatFilter === 'pdf_overlay'
+                                                    formatFilter ===
+                                                        'pdf_overlay'
                                                         ? 'all'
                                                         : 'pdf_overlay',
                                                 )
@@ -811,7 +811,7 @@ export function DocumentsTemplatesContent({
                                                                     )}
                                                                 </div>
                                                                 <div className="min-w-0">
-                                                                    <div className="truncate text-sm font-semibold leading-tight text-foreground">
+                                                                    <div className="truncate text-sm leading-tight font-semibold text-foreground">
                                                                         {
                                                                             template.name
                                                                         }
@@ -823,7 +823,7 @@ export function DocumentsTemplatesContent({
                                                                             }
                                                                         </p>
                                                                     ) : (
-                                                                        <p className="mt-0.5 text-xs italic text-muted-foreground/50">
+                                                                        <p className="mt-0.5 text-xs text-muted-foreground/50 italic">
                                                                             No
                                                                             description
                                                                         </p>
@@ -1383,7 +1383,7 @@ export function DocumentsTemplatesContent({
 
                 {/* 3. Help & Reference Section */}
                 <div className="grid gap-4 md:grid-cols-2">
-                    <Card className="border-border/60 border-l-2 border-l-blue-500">
+                    <Card className="border-l-2 border-border/60 border-l-blue-500">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-sm font-semibold">
                                 Merge Field Reference
@@ -1425,7 +1425,7 @@ export function DocumentsTemplatesContent({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-border/60 border-l-2 border-l-emerald-500">
+                    <Card className="border-l-2 border-border/60 border-l-emerald-500">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-sm font-semibold">
                                 Document Types
