@@ -35,7 +35,13 @@ const FILTER_KEYS: Record<SavedViewPageKey, readonly string[]> = {
         'missing_fields',
         'present_fields',
     ],
-    documents: ['search', 'expiry', 'requirement_status', 'department_id'],
+    documents: [
+        'search',
+        'expiry',
+        'requirement_status',
+        'department_id',
+        'document_type_id',
+    ],
     crew: [
         'search',
         'phase',

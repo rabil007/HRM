@@ -35,6 +35,7 @@ test('documents view users can open overview and library but not generate routes
             ->component('organization/documents/overview')
             ->where('summary.total_documents', 1)
             ->has('attention')
+            ->has('compliance_types')
             ->missing('employees'));
 
     $this->get(route('organization.documents.library'))

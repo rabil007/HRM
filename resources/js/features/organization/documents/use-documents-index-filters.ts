@@ -24,6 +24,7 @@ export function useDocumentsIndexFilters({
     initialExpiry,
     initialRequirementStatus = '',
     initialDepartmentId = '',
+    initialDocumentTypeId = '',
     perPage = 25,
 }: {
     url: string;
@@ -31,6 +32,7 @@ export function useDocumentsIndexFilters({
     initialExpiry: ExpiryFilter;
     initialRequirementStatus?: RequirementStatusFilter;
     initialDepartmentId?: string;
+    initialDocumentTypeId?: string;
     perPage?: number;
 }) {
     const [isSearching, setIsSearching] = useState(false);
@@ -43,12 +45,14 @@ export function useDocumentsIndexFilters({
             expiry: initialExpiry === 'all' ? undefined : initialExpiry,
             requirement_status: initialRequirementStatus || undefined,
             department_id: initialDepartmentId || undefined,
+            document_type_id: initialDocumentTypeId || undefined,
             per_page: perPage,
             page: null,
             ...overrides,
         }),
         [
             initialDepartmentId,
+            initialDocumentTypeId,
             initialExpiry,
             initialRequirementStatus,
             initialSearch,
@@ -72,6 +76,7 @@ export function useDocumentsIndexFilters({
                     'requirement_status',
                     'search',
                     'department_id',
+                    'document_type_id',
                     'department_tree',
                     'department_tree_selected_id',
                     'employees',

@@ -92,6 +92,39 @@ export function DocumentTypesContent({
             : initialDocumentTypeForm,
     );
 
+    const clearEditQuery = () => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+
+        if (!params.has('edit')) {
+            return;
+        }
+
+        router.get(
+            documentsConfiguration.url(),
+            {
+                search: search || undefined,
+                page:
+                    pagination.current_page > 1
+                        ? pagination.current_page
+                        : undefined,
+            },
+            {
+                replace: true,
+                preserveState: true,
+                preserveScroll: true,
+            },
+        );
+    };
+
+    const closeSheet = () => {
+        setSheetOpen(false);
+        clearEditQuery();
+    };
+
     const openCreate = () => {
         setCurrent(null);
         form.reset();
@@ -112,7 +145,7 @@ export function DocumentTypesContent({
         if (current) {
             form.put(updateDocumentType.url(current.id), {
                 preserveScroll: true,
-                onSuccess: () => setSheetOpen(false),
+                onSuccess: closeSheet,
             });
 
             return;
@@ -120,7 +153,7 @@ export function DocumentTypesContent({
 
         form.post(storeDocumentType.url(), {
             preserveScroll: true,
-            onSuccess: () => setSheetOpen(false),
+            onSuccess: closeSheet,
         });
     };
 
@@ -290,7 +323,15 @@ export function DocumentTypesContent({
 
             <DocumentTypeFormSheet
                 open={sheetOpen}
-                onOpenChange={setSheetOpen}
+                onOpenChange={(open) => {
+                    if (open) {
+                        setSheetOpen(true);
+
+                        return;
+                    }
+
+                    closeSheet();
+                }}
                 current={current}
                 form={form}
                 canUpdate={can.update}

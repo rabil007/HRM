@@ -118,6 +118,7 @@ class DocumentBrowseQuery
         ?string $search = null,
         int $perPage = 25,
         string $departmentId = '',
+        ?int $documentTypeId = null,
     ): LengthAwarePaginator {
         $search = $search !== null ? trim($search) : '';
         $today = now()->toDateString();
@@ -135,6 +136,10 @@ class DocumentBrowseQuery
 
         $query
             ->when($search !== '', fn (Builder $documentQuery) => $this->applyBrowseSearch($documentQuery, $search))
+            ->when(
+                $documentTypeId !== null && $documentTypeId > 0,
+                fn (Builder $documentQuery) => $documentQuery->where('document_type_id', $documentTypeId),
+            )
             ->tap(fn (Builder $documentQuery) => $this->applyOperationalEmployeeFilter($documentQuery, $companyId, $departmentId))
             ->orderByRaw('CASE WHEN expiry_date < ? THEN 0 ELSE 1 END', [$today])
             ->orderBy('expiry_date');

@@ -52,6 +52,7 @@ export type DocumentsLibraryQueryInput = {
     expiry?: string;
     requirement_status?: string;
     department_id?: string;
+    document_type_id?: number | string;
     page?: number | string;
 };
 
@@ -81,6 +82,12 @@ export function documentsLibraryQuery(
         query.department_id = departmentId;
     }
 
+    const documentTypeId = String(input.document_type_id ?? '').trim();
+
+    if (documentTypeId !== '' && documentTypeId !== '0') {
+        query.document_type_id = documentTypeId;
+    }
+
     const page = Number(input.page ?? 0);
 
     if (page > 1) {
@@ -88,6 +95,31 @@ export function documentsLibraryQuery(
     }
 
     return query;
+}
+
+export function documentsOverviewTypeViewQuery(input: {
+    document_type_id: number;
+    missing: number;
+    expired: number;
+}): Record<string, string> {
+    if (input.missing > 0) {
+        return documentsLibraryQuery({
+            requirement_status: 'missing',
+            document_type_id: input.document_type_id,
+        });
+    }
+
+    if (input.expired > 0) {
+        return documentsLibraryQuery({
+            expiry: 'expired',
+            document_type_id: input.document_type_id,
+        });
+    }
+
+    return documentsLibraryQuery({
+        requirement_status: 'expiring',
+        document_type_id: input.document_type_id,
+    });
 }
 
 export function documentsModuleIndexPath(

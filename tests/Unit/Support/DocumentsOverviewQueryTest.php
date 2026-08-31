@@ -44,8 +44,10 @@ test('overview query stays scoped to the given company', function () {
         ->and($payload['summary']['expired'])->toBe(1)
         ->and($payload['attention'])->toContain([
             'key' => 'expired',
-            'label' => 'Expired documents',
+            'label' => 'Expired',
             'count' => 1,
+            'action' => 'Review',
+            'destination' => 'library',
             'query' => ['expiry' => 'expired'],
         ]);
 });

@@ -55,6 +55,7 @@ type Props = {
     requirement_status?: RequirementStatusFilter;
     search: string;
     department_id?: string;
+    document_type_id?: string;
     department_tree?: DepartmentTreeNode[];
     department_tree_selected_id?: number | null;
     employees: EmployeeFolder[];
@@ -101,6 +102,7 @@ export default function DocumentsIndex({
     requirement_status: initialRequirementStatus = '',
     search: initialSearch,
     department_id: initialDepartmentId = '',
+    document_type_id: initialDocumentTypeId = '',
     department_tree = [],
     department_tree_selected_id = null,
     employees,
@@ -182,10 +184,11 @@ export default function DocumentsIndex({
         initialExpiry,
         initialRequirementStatus,
         initialDepartmentId,
+        initialDocumentTypeId,
         perPage: searchPerPage,
     });
 
-    const isRequirementView = initialRequirementStatus !== '';
+    const isRequirementView = requirementDocuments !== null;
     const isComplianceView = initialExpiry !== 'all' && !isRequirementView;
     const hasSearchQuery = initialSearch.trim() !== '';
     const searchMode = resolveDocumentsIndexSearchMode(
@@ -289,6 +292,7 @@ export default function DocumentsIndex({
             search: initialSearch,
             requirement_status: initialRequirementStatus,
             department_id: initialDepartmentId,
+            document_type_id: initialDocumentTypeId,
             page: isComplianceView
                 ? complianceDocuments?.current_page
                 : resolvedSearchDocuments.current_page,
@@ -366,6 +370,7 @@ export default function DocumentsIndex({
                                     requirement_status:
                                         initialRequirementStatus,
                                     department_id: initialDepartmentId,
+                                    document_type_id: initialDocumentTypeId,
                                 }}
                                 views={saved_views}
                             />
@@ -415,6 +420,7 @@ export default function DocumentsIndex({
                                         requirement_status:
                                             initialRequirementStatus,
                                         department_id: initialDepartmentId,
+                                        document_type_id: initialDocumentTypeId,
                                         page: requirementDocuments.current_page,
                                     },
                                 ),
@@ -435,6 +441,7 @@ export default function DocumentsIndex({
                                         requirement_status:
                                             initialRequirementStatus,
                                         department_id: initialDepartmentId,
+                                        document_type_id: initialDocumentTypeId,
                                         page: requirementDocuments.current_page,
                                     },
                                 ),

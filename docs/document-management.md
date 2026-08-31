@@ -8,7 +8,7 @@ Documents is one sidebar group with these destinations:
 
 | Path | Section | Reuses | Permission |
 |------|---------|--------|------------|
-| `/organization/documents` | Overview | Compact summary of existing document counts | `documents.view` |
+| `/organization/documents` | Overview | Operational attention dashboard | `documents.view` |
 | `/organization/documents/library` | Library | Canonical browse / search / compliance workspace | `documents.view` |
 | `/organization/documents/generate` | Generate & Send | Current Bulk Documents roster | `bulk_documents.view` |
 | `/organization/documents/requests` | Requests | Unified Review & Approval + legacy Signature Requests | `documents.requests.view` or `bulk_documents.view` |
@@ -16,13 +16,29 @@ Documents is one sidebar group with these destinations:
 | `/organization/documents/configuration` | Configuration | Document Types and employee requirement policy | `settings.master-data.document-types.view` |
 | `/organization/documents/activity` | Activity | Current bulk generation history | `bulk_documents.view` |
 
-**Overview** is a lightweight operational dashboard. It shows expiry and required-document counts, needs-attention actions, and permission-aware shortcuts. It does not render the document table, folder grid, search, or Saved Views. Summary cards and attention actions open Library with the matching supported filter (`expiry=expired`, `expiry=expiring_7` / `expiring_15` / `expiring_30`, `requirement_status=missing`). Overview never applies a default Documents Saved View.
+**Overview** is an operational dashboard. It answers what needs attention, who is affected, and the next action. It does not render the document table, folder grid, search, or Saved Views. Zero-value warning cards are omitted; a healthy company sees **No urgent document issues** plus compact secondary totals.
+
+Needs Attention items appear only when the count is greater than zero:
+
+| Item | Source | Drill-down |
+|------|--------|------------|
+| Missing Required | Existing requirement/compliance engine | Library `requirement_status=missing` |
+| Expiring Soon | Browse expiry summary, 7-day window only | Library `expiry=expiring_7` |
+| Expired | Browse expiry summary | Library `expiry=expired` |
+| Awaiting Your Action | Pending workflow tasks assigned to the current user | Requests `tab=review&status=pending&assigned_to_me=1` |
+| Awaiting Signature | Company recipient requests awaiting action, plus legacy bulk signature requests when the user can view them | Requests `tab=recipient&status=awaiting_action` or `tab=signatures&signature_filter=awaiting_signature` |
+
+Request and signature cards are omitted unless the user has the matching Requests permission. `documents.view` alone never grants request metrics or Configure actions.
+
+**Document Compliance** lists only Document Types that currently have missing, expiring, or expired required rows, from one grouped compliance query. **View** opens Library filtered by that type and the primary problem (`requirement_status=missing`, `expiry=expired`, or `requirement_status=expiring`). **Configure** appears only with `settings.master-data.document-types.view` and opens `Documents → Configuration?edit={documentTypeId}`.
+
+Library also accepts `document_type_id` as a supported filter (with Saved Views). Overview never applies a default Documents Saved View.
 
 **Library** is the canonical browsing workspace: employee folders, global search, expiry / required-document / department filters, Saved Views, pagination, tables, and bulk file/folder actions. `DocumentsFolderIndexController` serves Library only. Saved Views keep the `documents` page key and apply on Library (`organization.documents.library`). Applying or defaulting a Documents Saved View from Library stays on Library.
 
-Opening a document from Library uses `from=library` so **Back to Library** restores supported list state: `search`, `expiry`, `requirement_status`, `department_id`, and `page` (validated with the current filter rules). Overview document links use `from=index` (**Back to documents**). Employee-folder back stays **Back to files**. Employee-profile back stays **Back to employee profile**. Query `company_id` is ignored for ownership; list/controller tenant scoping remains authoritative. Employee browse URLs (`/organization/documents/employees/{employee}` and nested files) resolve to the Library favorites destination, not Overview.
+Opening a document from Library uses `from=library` so **Back to Library** restores supported list state: `search`, `expiry`, `requirement_status`, `department_id`, `document_type_id`, and `page` (validated with the current filter rules). Overview document links use `from=index` (**Back to documents**). Employee-folder back stays **Back to files**. Employee-profile back stays **Back to employee profile**. Query `company_id` is ignored for ownership; list/controller tenant scoping remains authoritative. Employee browse URLs (`/organization/documents/employees/{employee}` and nested files) resolve to the Library favorites destination, not Overview.
 
-Old filtered Overview bookmarks such as `/organization/documents?search=`, `?expiry=`, `?requirement_status=`, `?department_id=`, and `?page=` redirect to the equivalent Library URL with those supported keys preserved. Unknown parameters are not redirected and are not copied. Plain `/organization/documents` stays Overview.
+Old filtered Overview bookmarks such as `/organization/documents?search=`, `?expiry=`, `?requirement_status=`, `?department_id=`, `?document_type_id=`, and `?page=` redirect to the equivalent Library URL with those supported keys preserved. Unknown parameters are not redirected and are not copied. Plain `/organization/documents` stays Overview.
 
 Generate & Send and Activity are served by `BulkDocumentsController` (`/organization/documents/generate`, `/organization/documents/activity`, and legacy `/organization/documents/bulk`). **Requests** is served by `DocumentRequestsIndexController` at `/organization/documents/requests` (Review & Approval and Signature Requests tabs). Legacy `/organization/documents/bulk?view=signatures` remains a valid bookmark into the signature roster via `BulkDocumentsController`. Explicit module routes for Generate and Activity set a `module_view` route default (`roster` / `history`) resolved before the legacy `view` query string. Templates bridge now supports company-owned content and visual PDF overlay templates with controlled merge fields and Fabric.js visual placement; system templates bridge remains available. Protected Salary Declaration / Salary Certificate PDF layout, Browsershot, Puppeteer, FPDI stamping, and the public e-sign workflow are unchanged.
 
@@ -216,7 +232,7 @@ HR configures compulsory document types under **Documents → Configuration → 
 
 The previous Settings location remains a compatibility bookmark: `/settings/master-data/document-types` redirects to `/organization/documents/configuration` and preserves supported query keys such as `search`, `page`, and `edit`. Create, update, delete, and CSV import still use the existing Settings mutation routes and `settings.master-data.document-types.*` permissions.
 
-Deep-linking a specific type is supported with `?edit={documentTypeId}` on the Configuration URL. Invalid IDs are ignored and do not fail the page.
+Deep-linking a specific type is supported with `?edit={documentTypeId}` on the Configuration URL. Direct loads, Overview **Configure** visits, and same-page visits from one `edit` ID to another open or switch the Document Type Sheet. Invalid or unknown IDs are ignored and do not fail the page. Closing the Sheet replaces the URL without `edit` so the same ID can be opened again without an accidental reopen loop.
 
 `DocumentType` remains global master data (title + active). Requirement **policy** is company-scoped (`document_requirements`): one policy per company per document type.
 
@@ -350,7 +366,7 @@ Not implemented: a separate requirements page, individual exceptions/waivers, ap
 
 | Class | Role |
 |-------|------|
-| `DocumentsOverviewQuery` | Overview counts and needs-attention items from existing browse/compliance summaries |
+| `DocumentsOverviewQuery` | Overview attention items, request/signature counts, and Document Compliance-by-type from existing browse/compliance/request queries |
 | `DocumentsLibraryQueryState` | Sanitize supported Library query keys for redirects, back-navigation, and Library |
 | `DocumentBrowseQuery` | Folders, expiry compliance list, search results, summaries |
 | `DocumentRequirementResolver` | Which active company policies apply to an employee (AND between selected categories; OR within a category) |
@@ -364,6 +380,7 @@ Not implemented: a separate requirements page, individual exceptions/waivers, ap
 
 ## Tests
 
+- `tests/Feature/Organization/DocumentsOverviewDashboardTest.php`
 - `tests/Feature/Organization/DocumentsConfigurationTest.php`
 - `tests/Feature/Settings/MasterData/DocumentRequirementTest.php`
 - `tests/Feature/Organization/DocumentRequirementComplianceTest.php`

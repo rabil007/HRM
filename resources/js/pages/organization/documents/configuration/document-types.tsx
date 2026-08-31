@@ -1,4 +1,5 @@
 import { Head } from '@inertiajs/react';
+import { documentTypeSheetKey } from '@/features/organization/documents/configuration/document-type-sheet-key';
 import { DocumentTypesContent } from '@/features/organization/documents/configuration/document-types-content';
 import type {
     DepartmentOption,
@@ -32,6 +33,7 @@ export default function DocumentTypes({
         <>
             <Head title="Document Types" />
             <DocumentTypesContent
+                key={documentTypeSheetKey(open_document_type?.id)}
                 documentTypes={document_types}
                 pagination={pagination}
                 search={search}

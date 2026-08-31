@@ -4,6 +4,7 @@ import {
     canViewDocumentsModuleSection,
     documentsModuleIndexPath,
     documentsLibraryQuery,
+    documentsOverviewTypeViewQuery,
     documentsModuleSectionFromUrl,
     documentsShowBackFromSection,
     isDocumentsModuleNavUrlActive,
@@ -101,6 +102,7 @@ describe('documents module URL mapping', () => {
                 expiry: 'expired',
                 requirement_status: 'missing',
                 department_id: '12',
+                document_type_id: 9,
                 page: 2,
             }),
             {
@@ -108,6 +110,7 @@ describe('documents module URL mapping', () => {
                 expiry: 'expired',
                 requirement_status: 'missing',
                 department_id: '12',
+                document_type_id: '9',
                 page: '2',
             },
         );
@@ -118,6 +121,39 @@ describe('documents module URL mapping', () => {
                 page: 1,
             }),
             {},
+        );
+        assert.deepEqual(
+            documentsOverviewTypeViewQuery({
+                document_type_id: 12,
+                missing: 7,
+                expired: 1,
+            }),
+            {
+                requirement_status: 'missing',
+                document_type_id: '12',
+            },
+        );
+        assert.deepEqual(
+            documentsOverviewTypeViewQuery({
+                document_type_id: 12,
+                missing: 0,
+                expired: 4,
+            }),
+            {
+                expiry: 'expired',
+                document_type_id: '12',
+            },
+        );
+        assert.deepEqual(
+            documentsOverviewTypeViewQuery({
+                document_type_id: 12,
+                missing: 0,
+                expired: 0,
+            }),
+            {
+                requirement_status: 'expiring',
+                document_type_id: '12',
+            },
         );
     });
 

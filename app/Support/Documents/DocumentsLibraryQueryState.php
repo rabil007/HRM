@@ -13,6 +13,7 @@ final class DocumentsLibraryQueryState
         public readonly string $expiry = 'all',
         public readonly string $requirementStatus = '',
         public readonly string $departmentId = '',
+        public readonly string $documentTypeId = '',
         public readonly int $page = 1,
     ) {}
 
@@ -36,6 +37,12 @@ final class DocumentsLibraryQueryState
             $departmentId = '';
         }
 
+        $documentTypeId = trim((string) $request->query('document_type_id', ''));
+
+        if ($documentTypeId !== '' && ! ctype_digit($documentTypeId)) {
+            $documentTypeId = '';
+        }
+
         $page = (int) $request->query('page', 1);
 
         if ($page < 1) {
@@ -47,6 +54,7 @@ final class DocumentsLibraryQueryState
             expiry: $expiry,
             requirementStatus: $requirementStatus,
             departmentId: $departmentId,
+            documentTypeId: $documentTypeId,
             page: $page,
         );
     }
@@ -79,6 +87,10 @@ final class DocumentsLibraryQueryState
 
         if ($this->departmentId !== '') {
             $query['department_id'] = $this->departmentId;
+        }
+
+        if ($this->documentTypeId !== '') {
+            $query['document_type_id'] = $this->documentTypeId;
         }
 
         if ($this->page > 1) {

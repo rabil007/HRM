@@ -37,6 +37,9 @@ class DocumentsFolderIndexController extends Controller
         $expiry = $libraryQuery->expiry;
         $departmentId = $libraryQuery->departmentId;
         $requirementStatus = $libraryQuery->requirementStatus;
+        $documentTypeId = $libraryQuery->documentTypeId !== ''
+            ? (int) $libraryQuery->documentTypeId
+            : null;
 
         $directoryFilters = new EmployeeDirectoryFilters(departmentId: $departmentId);
         $summary = $browse->expirySummary($companyId, departmentId: $departmentId);
@@ -49,6 +52,7 @@ class DocumentsFolderIndexController extends Controller
             'requirement_status' => $requirementStatus,
             'search' => $search,
             'department_id' => $departmentId,
+            'document_type_id' => $libraryQuery->documentTypeId,
             'department_tree' => DocumentDepartmentTree::for($companyId, $directoryFilters),
             'department_tree_selected_id' => $departmentId !== '' ? (int) $departmentId : null,
             'employees' => [],
@@ -69,8 +73,27 @@ class DocumentsFolderIndexController extends Controller
                 $search !== '' ? $search : null,
                 $perPage,
                 $departmentId,
+                $documentTypeId,
             );
-        } elseif ($expiry === 'all') {
+        } elseif ($expiry !== 'all') {
+            $payload['complianceDocuments'] = $browse->documentsForCompliance(
+                $companyId,
+                $expiry,
+                $search !== '' ? $search : null,
+                $perPage,
+                $departmentId,
+                $documentTypeId,
+            );
+        } elseif ($documentTypeId !== null) {
+            $payload['requirementDocuments'] = $compliance->paginate(
+                $companyId,
+                'required',
+                $search !== '' ? $search : null,
+                $perPage,
+                $departmentId,
+                $documentTypeId,
+            );
+        } else {
             $payload['employees'] = $browse->employeesWithDocuments(
                 $companyId,
                 $search !== '' ? $search : null,
@@ -85,14 +108,6 @@ class DocumentsFolderIndexController extends Controller
                     $departmentId,
                 );
             }
-        } else {
-            $payload['complianceDocuments'] = $browse->documentsForCompliance(
-                $companyId,
-                $expiry,
-                $search !== '' ? $search : null,
-                $perPage,
-                $departmentId,
-            );
         }
 
         return Inertia::render('organization/documents/index', $payload);

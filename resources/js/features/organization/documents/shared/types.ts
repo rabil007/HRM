@@ -187,6 +187,7 @@ export type DocumentShowListBackContext = {
     search?: string;
     requirement_status?: string;
     department_id?: string;
+    document_type_id?: string;
     page?: number;
 };
 

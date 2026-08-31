@@ -9,6 +9,7 @@ test('keeps supported library filters and drops unknown parameters including com
         'expiry' => 'expired',
         'requirement_status' => 'missing',
         'department_id' => '12',
+        'document_type_id' => '9',
         'page' => '3',
         'company_id' => '99',
         'foo' => 'bar',
@@ -22,6 +23,7 @@ test('keeps supported library filters and drops unknown parameters including com
             'expiry' => 'expired',
             'requirement_status' => 'missing',
             'department_id' => '12',
+            'document_type_id' => '9',
             'page' => '3',
         ]);
 });
@@ -31,6 +33,7 @@ test('invalid filters sanitize to defaults and are not browse state', function (
         'expiry' => 'bogus',
         'requirement_status' => 'nope',
         'department_id' => 'abc',
+        'document_type_id' => 'nope',
         'page' => '1',
         'search' => '  ',
         'company_id' => '1',

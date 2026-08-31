@@ -24,6 +24,10 @@ export function documentShowBackQuery(
             query.department_id = back.department_id.trim();
         }
 
+        if (back.document_type_id?.trim()) {
+            query.document_type_id = back.document_type_id.trim();
+        }
+
         if (back.page && back.page > 1) {
             query.page = String(back.page);
         }

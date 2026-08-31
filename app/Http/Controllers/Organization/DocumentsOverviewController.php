@@ -26,7 +26,7 @@ class DocumentsOverviewController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
 
         return Inertia::render('organization/documents/overview', [
-            ...$overview->forCompany($companyId),
+            ...$overview->forCompany($companyId, $request->user()),
             'sections' => DocumentsModuleAccess::sections($request->user()),
         ]);
     }

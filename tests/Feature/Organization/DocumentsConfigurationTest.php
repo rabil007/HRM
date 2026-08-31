@@ -58,6 +58,22 @@ test('the settings document types bookmark redirects to documents configuration'
         ]));
 });
 
+test('invalid document type edit query is ignored', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.document-types.view',
+    ]);
+
+    $this->get(route('organization.documents.configuration', ['edit' => 999_999]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/configuration/document-types')
+            ->where('open_document_type', null));
+});
+
 test('document type edit query opens that type for configuration', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

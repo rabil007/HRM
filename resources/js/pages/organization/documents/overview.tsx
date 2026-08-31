@@ -1,36 +1,28 @@
 import { Head } from '@inertiajs/react';
 import { DocumentsOverviewContent } from '@/features/organization/documents/overview/documents-overview-content';
 import type {
+    OverviewAttentionItem,
+    OverviewComplianceType,
+    OverviewSections,
+} from '@/features/organization/documents/overview/types';
+import type {
     DocumentExpirySummary,
     DocumentRequirementSummary,
 } from '@/features/organization/documents/shared/types';
 
-type AttentionItem = {
-    key: string;
-    label: string;
-    count: number;
-    query: Record<string, string>;
-};
-
 type Props = {
     summary: DocumentExpirySummary;
     requirement_summary: DocumentRequirementSummary;
-    attention: AttentionItem[];
-    sections: {
-        overview: boolean;
-        library: boolean;
-        generate: boolean;
-        requests: boolean;
-        templates: boolean;
-        configuration: boolean;
-        activity: boolean;
-    };
+    attention: OverviewAttentionItem[];
+    compliance_types?: OverviewComplianceType[];
+    sections: OverviewSections;
 };
 
 export default function DocumentsOverview({
     summary,
     requirement_summary,
     attention,
+    compliance_types = [],
     sections,
 }: Props) {
     return (
@@ -40,6 +32,7 @@ export default function DocumentsOverview({
                 summary={summary}
                 requirementSummary={requirement_summary}
                 attention={attention}
+                complianceTypes={compliance_types}
                 sections={sections}
             />
         </>

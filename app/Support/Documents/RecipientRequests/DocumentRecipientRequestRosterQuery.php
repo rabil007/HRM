@@ -50,6 +50,17 @@ final class DocumentRecipientRequestRosterQuery
     }
 
     /**
+     * @param  array{search?: string, status?: string, action?: string, assigned_to_me?: bool}  $filters
+     */
+    public function count(int $companyId, array $filters = [], ?User $viewer = null): int
+    {
+        $query = DocumentRecipientRequest::query()->forCompany($companyId);
+        $this->applyFilters($query, $filters, $viewer, $companyId);
+
+        return $query->count();
+    }
+
+    /**
      * @param  Builder<DocumentRecipientRequest>  $query
      * @param  array{search?: string, status?: string, action?: string, assigned_to_me?: bool}  $filters
      */

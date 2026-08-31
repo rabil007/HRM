@@ -16,6 +16,7 @@ use App\Models\Client;
 use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Department;
+use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\Gender;
 use App\Models\LeaveType;
@@ -182,6 +183,7 @@ final class SavedViewCatalog
                 'expiry' => ['type' => 'enum', 'values' => ['expired', 'expiring_30', 'expiring_15', 'expiring_7'], 'omit' => ['all']],
                 'requirement_status' => ['type' => 'enum', 'values' => ['required', 'valid', 'expiring', 'expired', 'missing']],
                 'department_id' => ['type' => 'id', 'model' => Department::class, 'company' => true],
+                'document_type_id' => ['type' => 'id', 'model' => DocumentType::class, 'company' => false],
             ],
             SavedViewPage::Crew => [
                 'search' => ['type' => 'search'],

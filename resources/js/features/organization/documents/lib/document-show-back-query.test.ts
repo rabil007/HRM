@@ -32,6 +32,7 @@ describe('document show back query', () => {
                 search: 'passport',
                 requirement_status: 'required',
                 department_id: '4',
+                document_type_id: '9',
                 page: 3,
             }),
             {
@@ -40,6 +41,7 @@ describe('document show back query', () => {
                 search: 'passport',
                 requirement_status: 'required',
                 department_id: '4',
+                document_type_id: '9',
                 page: '3',
             },
         );

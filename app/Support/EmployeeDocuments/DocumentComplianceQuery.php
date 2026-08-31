@@ -21,21 +21,73 @@ final class DocumentComplianceQuery
      */
     public function summary(int $companyId, string $departmentId = ''): array
     {
-        $row = DB::query()
+        return $this->overviewRollup($companyId, $departmentId)['summary'];
+    }
+
+    /**
+     * One grouped pass over the existing compliance pairs: overall totals plus
+     * only Document Types that currently have missing, expiring, or expired rows.
+     *
+     * @return array{
+     *     summary: array{required: int, valid: int, expiring: int, expired: int, missing: int},
+     *     types: list<array{document_type_id: int, title: string, missing: int, expiring: int, expired: int}>
+     * }
+     */
+    public function overviewRollup(int $companyId, string $departmentId = ''): array
+    {
+        $rows = DB::query()
             ->fromSub($this->statusQuery($companyId, $departmentId), 'compliance')
+            ->select(['document_type_id', 'document_type_title'])
             ->selectRaw('COUNT(*) as required_count')
             ->selectRaw("SUM(CASE WHEN compliance_status = 'valid' THEN 1 ELSE 0 END) as valid_count")
             ->selectRaw("SUM(CASE WHEN compliance_status = 'expiring' THEN 1 ELSE 0 END) as expiring_count")
             ->selectRaw("SUM(CASE WHEN compliance_status = 'expired' THEN 1 ELSE 0 END) as expired_count")
             ->selectRaw("SUM(CASE WHEN compliance_status = 'missing' THEN 1 ELSE 0 END) as missing_count")
-            ->first();
+            ->groupBy('document_type_id', 'document_type_title')
+            ->orderBy('document_type_title')
+            ->get();
+
+        $summary = [
+            'required' => 0,
+            'valid' => 0,
+            'expiring' => 0,
+            'expired' => 0,
+            'missing' => 0,
+        ];
+        $types = [];
+
+        foreach ($rows as $row) {
+            $missing = (int) ($row->missing_count ?? 0);
+            $expiring = (int) ($row->expiring_count ?? 0);
+            $expired = (int) ($row->expired_count ?? 0);
+
+            $summary['required'] += (int) ($row->required_count ?? 0);
+            $summary['valid'] += (int) ($row->valid_count ?? 0);
+            $summary['expiring'] += $expiring;
+            $summary['expired'] += $expired;
+            $summary['missing'] += $missing;
+
+            if ($missing + $expiring + $expired === 0) {
+                continue;
+            }
+
+            $types[] = [
+                'document_type_id' => (int) $row->document_type_id,
+                'title' => (string) $row->document_type_title,
+                'missing' => $missing,
+                'expiring' => $expiring,
+                'expired' => $expired,
+            ];
+        }
+
+        usort($types, function (array $left, array $right): int {
+            return [$right['missing'], $right['expired'], $left['title']]
+                <=> [$left['missing'], $left['expired'], $right['title']];
+        });
 
         return [
-            'required' => (int) ($row->required_count ?? 0),
-            'valid' => (int) ($row->valid_count ?? 0),
-            'expiring' => (int) ($row->expiring_count ?? 0),
-            'expired' => (int) ($row->expired_count ?? 0),
-            'missing' => (int) ($row->missing_count ?? 0),
+            'summary' => $summary,
+            'types' => $types,
         ];
     }
 
@@ -48,6 +100,7 @@ final class DocumentComplianceQuery
         ?string $search = null,
         int $perPage = 25,
         string $departmentId = '',
+        ?int $documentTypeId = null,
     ): LengthAwarePaginator {
         $search = $search !== null ? trim($search) : '';
         $status = $statusFilter === 'required' ? null : $statusFilter;
@@ -60,6 +113,10 @@ final class DocumentComplianceQuery
             ->when(
                 $status !== null && DocumentRequirementComplianceStatus::isValidFilter($status),
                 fn (Builder $inner) => $inner->where('compliance_status', $status),
+            )
+            ->when(
+                $documentTypeId !== null && $documentTypeId > 0,
+                fn (Builder $inner) => $inner->where('document_type_id', $documentTypeId),
             )
             ->orderBy('employee_name')
             ->orderBy('document_type_title')
