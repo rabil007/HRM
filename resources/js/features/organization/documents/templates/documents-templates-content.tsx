@@ -45,7 +45,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import { edit as applicationSettings } from '@/routes/application';
 import { configuration as documentsConfiguration } from '@/routes/organization/documents';
 import {
@@ -567,8 +566,6 @@ export function DocumentsTemplatesContent({
                     ) : null
                 }
             />
-
-            <DocumentsModuleNav />
 
             <div className="space-y-8">
                 {/* 1. Company Custom Templates Section */}

@@ -72,7 +72,6 @@ import {
     canRegenerateSignatureAlignment,
 } from '@/features/organization/documents/bulk/bulk-signatures-table';
 import { SignatureStatusBadge } from '@/features/organization/documents/bulk/signature-status-badge';
-import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import { bulkDocumentsPollOnlyProps } from '@/features/organization/documents/lib/bulk-documents-poll-props';
 import { downloadBinaryExport } from '@/features/organization/documents/shared/download-binary-export';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
@@ -1730,8 +1729,6 @@ export function BulkDocumentsContent({
                             </div>
                         }
                     />
-
-                    <DocumentsModuleNav />
                 </>
             ) : (
                 <div className="mb-6 flex justify-end">

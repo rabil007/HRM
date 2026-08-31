@@ -4,7 +4,7 @@ Employee documents are stored per company and linked to employees. HR can browse
 
 ## Unified Documents module
 
-Documents is one sidebar group with these destinations:
+Documents is one sidebar group with these destinations. Pages do not repeat that list as an in-page tab strip.
 
 | Path | Section | Reuses | Permission |
 |------|---------|--------|------------|
