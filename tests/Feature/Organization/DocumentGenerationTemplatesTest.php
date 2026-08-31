@@ -118,7 +118,7 @@ test('store creates custom template with valid allowed merge fields', function (
             'content' => $content,
         ]);
 
-    $response->assertRedirect();
+    $response->assertRedirect(route('organization.documents.templates'));
     $response->assertSessionHas('success', 'Template created.');
 
     $this->assertDatabaseHas('document_generation_templates', [

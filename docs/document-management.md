@@ -89,6 +89,13 @@ Documents → Templates serves as the centralized company custom document templa
 1. **Company Templates** (`document_generation_templates`):
    - Scoped to the active company.
    - User-facing terminology: "Company Templates", "Content Template", "PDF Template", "After generation".
+   - **List → dedicated pages flow**:
+     - Templates list **New Template** opens `/organization/documents/templates/create` (choice between Content and Upload PDF).
+     - Content create/edit use dedicated pages (`/create/content`, `/{template}/edit`); Save returns to the Templates list.
+     - PDF upload uses `/create/pdf`; **Create & open designer** stores the template and redirects to `/{template}/design` (Design Template).
+     - List **Edit Content** deep-links to the content edit page. **Design Template** deep-links to the unified visual designer.
+     - Secondary actions remain dialogs/sheets on the list: Preview, Delete, After generation, Replace PDF.
+     - **Opening the designer is side-effect free.** It does not create a draft. It displays the most relevant version (draft if present, otherwise published, otherwise latest archived). A 404 is returned if no versions exist.
    - **Formats**:
      - `content`: Text/content template with controlled merge fields.
      - `pdf_overlay`: Branded uploaded PDF with visual merge field placement. Format cannot be changed after creation.
@@ -97,15 +104,23 @@ Documents → Templates serves as the centralized company custom document templa
      - Authoritative renderable data resides in `DocumentGenerationTemplateVersion` (`version`, `status`, `content`, `source_pdf_path`, `placement_config`, `published_at`).
      - **Strict Immutability**: Published and archived versions cannot be altered. Editing an active template branches a new single `draft` version (`version = max + 1`), preserving historical published versions and source files indefinitely.
      - Concurrency-safe draft branching (`BranchDocumentGenerationTemplateDraft`) guarantees at most one draft per template.
-   - **Visual Merge-Field Placement**:
-     - Visual designer operates exclusively on a draft version using Fabric.js and PDF.js.
+   - **Unified PDF Designer** (`/{template}/design`):
+     - Single visual workspace combining merge field placements, static text boxes, and signature slot placements on one Fabric.js canvas.
+     - **`placement_config`** and **`signature_placement_config`** remain separate persisted domain structures with independent validation and audit trails.
+     - `isEditable = (version.status === 'draft')` gates all add/delete/drag controls and the Save Design / Publish buttons. Historical versions are selectable for inspection but fully read-only.
      - Normalized coordinates `[0.0, 1.0]` ensure resolution-independent placement across any viewer or print scale.
-     - Placement schema version 1 enforces bounds (`0 <= x, y <= 1`, `0 < width, height <= 1`, `x + width <= 1`), valid page numbers, and allowed merge fields.
+     - **Schema versioning**: `schema_version: 1` (legacy, field-only; never auto-migrated on read); `schema_version: 2` (field + static text). All saves write v2.
+     - **Static text boxes**: `type: 'text'` placements with `text_content` (1–500 chars). No `field` key stored. Rendered with `white-space: pre-wrap` for multiline wrapping; Browsershot DOM measurement (`scrollHeight > clientHeight`) used for font-size preflight.
+     - **Explicit draft creation**: Users with update permission see a "Create Draft" button when no draft exists. Clicking it branches a draft from the current published version using `BranchDocumentGenerationTemplateDraft` (at-most-one-draft invariant preserved). Opening the designer never creates a draft automatically.
+     - **Version switcher**: Toolbar dropdown lists all versions newest → oldest. Switching from an unsaved draft prompts "Stay on Draft / Discard changes and switch". Historical versions show a Version Info panel (PDF metadata, placement counts, change summary from `VersionChangeSummary`).
+     - **Save Design**: Single atomic endpoint (`PUT .../versions/{version}/design`). Validates both `placement_config` and `signature_placement_config` and writes them in a single DB transaction with one `$version->save()`. If either validation fails, neither config is persisted (full rollback).
+     - **Historical immutability**: Fetching a historical version via `showVersion` performs no DB writes, creates no activity log entries, and never migrates schema v1 configs.
      - In-place sample preview toggle previews dynamic fields directly on the canvas without querying real employees.
-   - **Employee Signature Placement (Phase 6A)**:
-     - Separate from merge-field `placement_config`; stored as version-owned `signature_placement_config`.
-     - Visual editor on draft PDF Overlay versions only; one subject employee signature box.
-     - Published/Archived versions remain immutable; editing an active template branches a draft first.
+   - **Employee Signature Placement**:
+     - Managed in the unified designer's Signatures section (left panel) and right properties panel.
+     - Stored as version-owned `signature_placement_config` (separate from `placement_config`). Independent validation and audit trail.
+     - Subject slot cannot be deleted; manager and company signatory slots can be added (up to 7 each) and removed with automatic renumbering.
+     - Published/Archived versions remain immutable; viewing them in the designer is read-only.
      - Required for Phase 6A **Request Signature** eligibility on generated custom PDF Overlay documents.
    - **PDF Storage & Compensation**:
      - Stored on the `local` private disk under `document-generation-templates/{companyId}/{uuid}.pdf`.
@@ -116,10 +131,11 @@ Documents → Templates serves as the centralized company custom document templa
      - `Deactivate`: Changes parent template to `inactive` without modifying version history.
      - `Activate`: Re-enables an inactive template that has a published version.
    - **Allowed Merge Fields**: Strict allowlist catalog (`App\Support\Documents\DocumentTemplateMergeFields`) covering:
-     - *Employee*: `{{employee_name}}`, `{{employee_no}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{phone}}`, `{{gender}}`, `{{joining_date}}`
-     - *Organization*: `{{company_name}}`, `{{department_name}}`, `{{position_name}}`, `{{branch_name}}`
+     - *Employee*: `{{employee_name}}`, `{{employee_no}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{phone}}`, `{{gender}}`, `{{joining_date}}`, `{{nationality}}`, `{{passport_number}}`, `{{position_name}}`, `{{rank_name}}`
+     - *Manager*: `{{manager_name}}` (employee's department effective manager)
+     - *Organization*: `{{company_name}}`, `{{department_name}}`, `{{branch_name}}`
      - *System*: `{{today}}`, `{{current_year}}`
-     - Sensitive fields (bank/IBAN, salary, passport number, Emirates ID, credentials) are strictly forbidden. Content with unsupported placeholders is rejected at validation.
+     - Sensitive fields (bank/IBAN, salary, Emirates ID, credentials) are strictly forbidden. Content with unsupported placeholders is rejected at validation.
 
 2. **Built-in Templates** from `BulkDocumentTypeRegistry` (Salary Declaration, Salary Certificate):
    - User-facing terminology: "Built-in Templates".
@@ -142,7 +158,12 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents/requests/{workflowRequest}/version-preview` | Stream bound canonical `DocumentInstanceVersion` PDF inline | `documents.requests.view` |
 | `/organization/documents/configuration` | Documents Configuration (Document Types) | `settings.master-data.document-types.view` |
 | `/organization/documents/templates` | Custom and System Document Templates | `documents.templates.view` \| `bulk_documents.view` \| `settings.master-data.document-types.view` \| platform view |
-| `/organization/documents/templates` (POST) | Store custom document template | `documents.templates.create` |
+| `/organization/documents/templates/create` | Choose Content vs Upload PDF | `documents.templates.create` |
+| `/organization/documents/templates/create/content` | Content template create page | `documents.templates.create` |
+| `/organization/documents/templates/create/pdf` | PDF upload create page | `documents.templates.create` |
+| `/organization/documents/templates/{template}/edit` | Content template edit page | `documents.templates.update` |
+| `/organization/documents/templates/{template}/design` | Unified visual designer — side-effect free; shows draft > published > latest | `documents.templates.update` |
+| `/organization/documents/templates` (POST) | Store custom document template (PDF → design page; content → list) | `documents.templates.create` |
 | `/organization/documents/templates/preview-draft` (POST) | Render preview for unsaved draft | `documents.templates.create` \| `documents.templates.update` |
 | `/organization/documents/templates/{template}/preview` (GET) | Render preview for saved template | `documents.templates.view` |
 | `/organization/documents/templates/{template}` (PUT) | Update custom document template | `documents.templates.update` |
@@ -150,8 +171,10 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents/templates/{template}` (DELETE) | Delete custom template | `documents.templates.delete` |
 | `/organization/documents/templates/{template}/draft` (POST) | Get or branch editable draft version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/versions/{version}/source-pdf` (GET) | Stream private source PDF | `documents.templates.view` |
-| `/organization/documents/templates/{template}/versions/{version}/placements` (PUT) | Save visual placements to draft | `documents.templates.update` |
-| `/organization/documents/templates/{template}/versions/{version}/signature-placement` (PUT) | Save version-owned Subject Employee, Department Manager, and Company Signatory signature placements on draft PDF Overlay version | `documents.templates.update` |
+| `/organization/documents/templates/{template}/versions/{version}/placements` (PUT) | Save visual placements to draft (merge fields + static text; schema v2) | `documents.templates.update` |
+| `/organization/documents/templates/{template}/versions/{version}/signature-placement` (PUT) | Save signature placements to draft (backward-compat endpoint) | `documents.templates.update` |
+| `/organization/documents/templates/{template}/versions/{version}/design` (PUT) | Atomic save — both `placement_config` + `signature_placement_config` in one transaction | `documents.templates.update` |
+| `/organization/documents/templates/{template}/versions/{version}` (GET) | Side-effect-free version detail + `change_summary` for version switcher | `documents.templates.view` |
 | `/organization/documents/templates/{template}/versions/{version}/replace-pdf` (POST) | Replace PDF on draft version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/versions/{version}/publish` (POST) | Publish draft version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/activate` (POST) | Activate template | `documents.templates.update` |

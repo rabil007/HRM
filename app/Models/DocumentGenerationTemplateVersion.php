@@ -174,6 +174,49 @@ class DocumentGenerationTemplateVersion extends Model
      *     version: int,
      *     status: string,
      *     status_label: string,
+     *     source_pdf_original_name: ?string,
+     *     source_pdf_page_count: ?int,
+     *     placement_count: int,
+     *     has_signature_placement: bool,
+     *     document_workflow_preset_id: int|null,
+     *     document_signing_preset_id: int|null,
+     *     published_at: ?string,
+     *     created_at: ?string,
+     *     updated_at: ?string
+     * }
+     */
+    public function toVersionListItem(): array
+    {
+        $placements = is_array($this->placement_config['placements'] ?? null)
+            ? $this->placement_config['placements'] : [];
+        $signatures = is_array($this->signature_placement_config['placements'] ?? null)
+            ? $this->signature_placement_config['placements'] : [];
+
+        return [
+            'id' => $this->id,
+            'version' => $this->version,
+            'status' => $this->status->value,
+            'status_label' => $this->status->label(),
+            'source_pdf_original_name' => $this->source_pdf_original_name,
+            'source_pdf_page_count' => $this->source_pdf_page_count,
+            'placement_count' => count($placements),
+            'has_signature_placement' => count($signatures) > 0,
+            'document_workflow_preset_id' => $this->document_workflow_preset_id !== null
+                ? (int) $this->document_workflow_preset_id : null,
+            'document_signing_preset_id' => $this->document_signing_preset_id !== null
+                ? (int) $this->document_signing_preset_id : null,
+            'published_at' => $this->published_at?->toISOString(),
+            'created_at' => $this->created_at?->toISOString(),
+            'updated_at' => $this->updated_at?->toISOString(),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     id: int,
+     *     version: int,
+     *     status: string,
+     *     status_label: string,
      *     content: ?string,
      *     source_pdf_original_name: ?string,
      *     source_pdf_size_bytes: ?int,

@@ -6,6 +6,7 @@ use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
+use App\Models\Rank;
 use App\Support\Documents\DocumentTemplateMergeFields;
 
 function createMergeFieldsTestCompany(string $name = 'Test Co'): Company
@@ -54,9 +55,13 @@ test('allowed keys contain expected core fields', function () {
         '{{phone}}',
         '{{gender}}',
         '{{joining_date}}',
+        '{{nationality}}',
+        '{{passport_number}}',
+        '{{position_name}}',
+        '{{rank_name}}',
+        '{{manager_name}}',
         '{{company_name}}',
         '{{department_name}}',
-        '{{position_name}}',
         '{{branch_name}}',
         '{{today}}',
         '{{current_year}}',
@@ -89,11 +94,19 @@ test('values for employee maps employee attributes to placeholders', function ()
     $company = createMergeFieldsTestCompany('Atlantic Shipping');
     $department = Department::query()->create(['company_id' => $company->id, 'name' => 'Deck']);
     $position = Position::query()->create(['company_id' => $company->id, 'title' => 'First Officer']);
+    $rank = Rank::query()->create(['name' => 'Captain', 'is_active' => true]);
+    $nationality = Country::query()->firstOrCreate(
+        ['code' => 'PH'],
+        ['name' => 'Philippines', 'dial_code' => '+63', 'is_active' => true],
+    );
 
     $employee = Employee::factory()->create([
         'company_id' => $company->id,
         'department_id' => $department->id,
         'position_id' => $position->id,
+        'rank_id' => $rank->id,
+        'nationality_id' => $nationality->id,
+        'passport_number' => 'P99887766',
         'name' => 'Johnathan Doe',
         'employee_no' => 'EMP-999',
         'work_email' => 'john.doe@atlantic.com',
@@ -108,7 +121,32 @@ test('values for employee maps employee attributes to placeholders', function ()
     expect($values['{{company_name}}'])->toBe('Atlantic Shipping');
     expect($values['{{department_name}}'])->toBe('Deck');
     expect($values['{{position_name}}'])->toBe('First Officer');
+    expect($values['{{rank_name}}'])->toBe('Captain');
+    expect($values['{{nationality}}'])->toBe('Philippines');
+    expect($values['{{passport_number}}'])->toBe('P99887766');
     expect($values['{{joining_date}}'])->toBe('10 May 2023');
+    expect($values['{{manager_name}}'])->toBe('');
+});
+
+test('values for employee maps department effective manager name', function () {
+    $company = createMergeFieldsTestCompany('Pacific Crew');
+    $manager = Employee::factory()->forCompany($company)->create([
+        'name' => 'Sara Manager',
+        'employee_no' => 'MGR-001',
+    ]);
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Deck',
+        'manager_id' => $manager->id,
+    ]);
+    $employee = Employee::factory()->forCompany($company)->inDepartment($department)->create([
+        'name' => 'Alex Seafarer',
+        'employee_no' => 'EMP-100',
+    ]);
+
+    $values = DocumentTemplateMergeFields::valuesForEmployee($employee);
+
+    expect($values['{{manager_name}}'])->toBe('Sara Manager');
 });
 
 test('apply replaces known placeholders and preserves unknown ones', function () {

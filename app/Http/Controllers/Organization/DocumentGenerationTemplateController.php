@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Enums\DocumentGenerationTemplateStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\ReplaceDocumentGenerationTemplatePdfRequest;
+use App\Http\Requests\Organization\DocumentGenerationTemplate\SaveDocumentGenerationTemplateDesignRequest;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\SaveDocumentGenerationTemplatePlacementsRequest;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\SaveDocumentGenerationTemplateSignaturePlacementRequest;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\StoreDocumentGenerationTemplateRequest;
@@ -17,20 +18,166 @@ use App\Support\Documents\Actions\CreateDocumentGenerationTemplate;
 use App\Support\Documents\Actions\DuplicateDocumentGenerationTemplate;
 use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
 use App\Support\Documents\Actions\ReplaceDocumentGenerationTemplatePdf;
+use App\Support\Documents\Actions\SaveDocumentGenerationTemplateDesign;
 use App\Support\Documents\Actions\SaveDocumentGenerationTemplatePlacements;
 use App\Support\Documents\Actions\SaveDocumentGenerationTemplateSignaturePlacement;
 use App\Support\Documents\Actions\UpdateDocumentGenerationTemplate;
 use App\Support\Documents\Actions\UpdateDocumentGenerationTemplateAutomation;
+use App\Support\Documents\DocumentGenerationTemplatePageOptions;
+use App\Support\Documents\DocumentsModuleAccess;
 use App\Support\Documents\DocumentTemplateStorage;
+use App\Support\Documents\VersionChangeSummary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class DocumentGenerationTemplateController extends Controller
 {
+    public function create(Request $request): InertiaResponse
+    {
+        abort_unless(DocumentsModuleAccess::canCreateCustomTemplates($request->user()), 403);
+
+        return Inertia::render('organization/documents/templates/create', [
+            'can' => [
+                'create_templates' => true,
+            ],
+        ]);
+    }
+
+    public function createContent(Request $request): InertiaResponse
+    {
+        abort_unless(DocumentsModuleAccess::canCreateCustomTemplates($request->user()), 403);
+
+        return Inertia::render('organization/documents/templates/create-content', [
+            'template' => null,
+            ...DocumentGenerationTemplatePageOptions::for($request->user()),
+        ]);
+    }
+
+    public function createPdf(Request $request): InertiaResponse
+    {
+        abort_unless(DocumentsModuleAccess::canCreateCustomTemplates($request->user()), 403);
+
+        return Inertia::render('organization/documents/templates/create-pdf', [
+            ...DocumentGenerationTemplatePageOptions::for($request->user()),
+        ]);
+    }
+
+    public function edit(Request $request, DocumentGenerationTemplate $template): InertiaResponse
+    {
+        abort_unless(DocumentsModuleAccess::canUpdateCustomTemplates($request->user()), 403);
+
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_if($companyId <= 0, 403);
+        abort_unless((int) $template->company_id === $companyId, 404);
+        abort_unless($template->isContent(), 404);
+
+        $template->load(['documentType:id,title', 'publishedVersion', 'draftVersion', 'creator:id,name', 'updater:id,name']);
+
+        return Inertia::render('organization/documents/templates/edit', [
+            'template' => $template->toBrowseArray(),
+            ...DocumentGenerationTemplatePageOptions::for($request->user()),
+        ]);
+    }
+
+    public function design(
+        Request $request,
+        DocumentGenerationTemplate $template,
+    ): InertiaResponse {
+        abort_unless(DocumentsModuleAccess::canUpdateCustomTemplates($request->user()), 403);
+
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_if($companyId <= 0, 403);
+        abort_unless((int) $template->company_id === $companyId, 404);
+        abort_unless($template->isPdfOverlay(), 404);
+
+        $template->load(['versions', 'documentType:id,title', 'publishedVersion', 'draftVersion', 'creator:id,name', 'updater:id,name']);
+
+        $initialVersion = $template->draftVersion
+            ?? $template->publishedVersion
+            ?? $template->versions()->orderByDesc('version')->first();
+
+        abort_if($initialVersion === null, 404, 'No versions found for this template.');
+
+        $pageOptions = DocumentGenerationTemplatePageOptions::for($request->user());
+
+        return Inertia::render('organization/documents/templates/design', [
+            'template' => $template->toBrowseArray(),
+            'initial_version' => $initialVersion->toArraySummary(),
+            'all_versions' => $template->versions()
+                ->orderByDesc('version')
+                ->get()
+                ->map(fn ($v) => $v->toVersionListItem())
+                ->values()
+                ->toArray(),
+            ...$pageOptions,
+            'can' => array_merge($pageOptions['can'], [
+                'create_draft' => DocumentsModuleAccess::canUpdateCustomTemplates($request->user()),
+                'update' => DocumentsModuleAccess::canUpdateCustomTemplates($request->user()),
+            ]),
+        ]);
+    }
+
+    public function showVersion(
+        Request $request,
+        DocumentGenerationTemplate $template,
+        DocumentGenerationTemplateVersion $version,
+    ): JsonResponse {
+        abort_unless($request->user()?->can('documents.templates.view') ?? false, 403);
+
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_if($companyId <= 0, 403);
+        abort_unless((int) $template->company_id === $companyId, 404);
+        abort_unless((int) $version->document_generation_template_id === (int) $template->id, 404);
+        abort_unless((int) $version->company_id === $companyId, 404);
+
+        $previousVersion = $template->versions()
+            ->where('version', '<', $version->version)
+            ->orderByDesc('version')
+            ->first();
+
+        $changeSummary = VersionChangeSummary::compare($previousVersion, $version);
+
+        $summary = $version->toArraySummary();
+        unset($summary['source_pdf_path']);
+
+        return response()->json([
+            'version' => $summary,
+            'change_summary' => $changeSummary,
+        ]);
+    }
+
+    public function saveDesign(
+        SaveDocumentGenerationTemplateDesignRequest $request,
+        DocumentGenerationTemplate $template,
+        DocumentGenerationTemplateVersion $version,
+        SaveDocumentGenerationTemplateDesign $action,
+    ): JsonResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_if($companyId <= 0, 403);
+        abort_unless((int) $template->company_id === $companyId, 404);
+        abort_unless((int) $version->document_generation_template_id === (int) $template->id, 404);
+        abort_unless((int) $version->company_id === $companyId, 404);
+
+        $updated = $action->handle(
+            $version,
+            $request->placements(),
+            $request->signaturePlacementConfig(),
+            $request->user()?->id,
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Design saved.',
+            'version' => $updated->fresh()->toArraySummary(),
+        ]);
+    }
+
     public function store(
         StoreDocumentGenerationTemplateRequest $request,
         CreateDocumentGenerationTemplate $action,
@@ -38,11 +185,19 @@ class DocumentGenerationTemplateController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_if($companyId <= 0, 403);
 
-        $action->handle($companyId, array_merge($request->validated(), [
+        $template = $action->handle($companyId, array_merge($request->validated(), [
             'file' => $request->file('file'),
         ]), $request->user());
 
-        return back()->with('success', 'Template created.');
+        if ($template->isPdfOverlay()) {
+            return redirect()
+                ->route('organization.documents.templates.design', $template)
+                ->with('success', 'Template created. Place merge fields on the PDF.');
+        }
+
+        return redirect()
+            ->route('organization.documents.templates')
+            ->with('success', 'Template created.');
     }
 
     public function update(
@@ -56,7 +211,9 @@ class DocumentGenerationTemplateController extends Controller
 
         $action->handle($template, $request->validated(), $request->user());
 
-        return back()->with('success', 'Template updated.');
+        return redirect()
+            ->route('organization.documents.templates')
+            ->with('success', 'Template updated.');
     }
 
     public function updateAutomation(
@@ -219,7 +376,9 @@ class DocumentGenerationTemplateController extends Controller
 
         $action->handle($version, $request->user()?->id);
 
-        return back()->with('success', "Version {$version->version} published.");
+        return redirect()
+            ->route('organization.documents.templates')
+            ->with('success', "Version {$version->version} published.");
     }
 
     public function activate(

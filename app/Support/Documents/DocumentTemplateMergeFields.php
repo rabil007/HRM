@@ -3,6 +3,7 @@
 namespace App\Support\Documents;
 
 use App\Models\Employee;
+use App\Support\Departments\ResolveDepartmentEffectiveManager;
 
 final class DocumentTemplateMergeFields
 {
@@ -61,6 +62,38 @@ final class DocumentTemplateMergeFields
                 'category' => 'Employee',
                 'sample' => '15 Jan 2022',
             ],
+            [
+                'key' => '{{nationality}}',
+                'label' => 'Nationality',
+                'category' => 'Employee',
+                'sample' => 'Filipino',
+            ],
+            [
+                'key' => '{{passport_number}}',
+                'label' => 'Passport Number',
+                'category' => 'Employee',
+                'sample' => 'P1234567A',
+            ],
+            [
+                'key' => '{{position_name}}',
+                'label' => 'Position Title',
+                'category' => 'Employee',
+                'sample' => 'Chief Engineer',
+            ],
+            [
+                'key' => '{{rank_name}}',
+                'label' => 'Rank',
+                'category' => 'Employee',
+                'sample' => 'Captain',
+            ],
+
+            // Manager (department effective manager)
+            [
+                'key' => '{{manager_name}}',
+                'label' => 'Manager Name',
+                'category' => 'Manager',
+                'sample' => 'John Manager',
+            ],
 
             // Organization
             [
@@ -74,12 +107,6 @@ final class DocumentTemplateMergeFields
                 'label' => 'Department Name',
                 'category' => 'Organization',
                 'sample' => 'Marine Operations',
-            ],
-            [
-                'key' => '{{position_name}}',
-                'label' => 'Position Title',
-                'category' => 'Organization',
-                'sample' => 'Chief Engineer',
             ],
             [
                 'key' => '{{branch_name}}',
@@ -151,13 +178,14 @@ final class DocumentTemplateMergeFields
      */
     public static function valuesForEmployee(Employee $employee): array
     {
-        $employee->loadMissing(['company', 'department', 'position', 'branch', 'genderRef']);
+        $employee->loadMissing(['company', 'department', 'position', 'branch', 'genderRef', 'nationalityRef', 'rank']);
 
         $fullName = trim((string) $employee->name);
         $firstName = (string) ($employee->first_name ?: explode(' ', $fullName)[0] ?: '');
         $lastName = (string) ($employee->last_name ?: (str_contains($fullName, ' ') ? substr($fullName, strpos($fullName, ' ') + 1) : ''));
 
         $joiningDate = $employee->hire_date ? $employee->hire_date->format('d M Y') : '';
+        $manager = ResolveDepartmentEffectiveManager::managerForEmployee($employee);
 
         return [
             '{{employee_name}}' => $fullName,
@@ -168,9 +196,13 @@ final class DocumentTemplateMergeFields
             '{{phone}}' => (string) ($employee->phone ?? ''),
             '{{gender}}' => (string) ($employee->genderRef?->name ?? $employee->genderRef?->title ?? ''),
             '{{joining_date}}' => $joiningDate,
+            '{{nationality}}' => (string) ($employee->nationalityRef?->name ?? ''),
+            '{{passport_number}}' => (string) ($employee->passport_number ?? ''),
+            '{{position_name}}' => (string) ($employee->position?->title ?? $employee->position?->name ?? ''),
+            '{{rank_name}}' => (string) ($employee->rank?->name ?? ''),
+            '{{manager_name}}' => (string) ($manager?->name ?? ''),
             '{{company_name}}' => (string) ($employee->company?->name ?? ''),
             '{{department_name}}' => (string) ($employee->department?->name ?? ''),
-            '{{position_name}}' => (string) ($employee->position?->title ?? $employee->position?->name ?? ''),
             '{{branch_name}}' => (string) ($employee->branch?->name ?? ''),
             '{{today}}' => now()->format('d M Y'),
             '{{current_year}}' => now()->format('Y'),

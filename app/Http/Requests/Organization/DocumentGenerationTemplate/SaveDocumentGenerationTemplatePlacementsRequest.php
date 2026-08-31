@@ -19,7 +19,9 @@ class SaveDocumentGenerationTemplatePlacementsRequest extends FormRequest
         return [
             'placements' => ['present', 'array'],
             'placements.*.id' => ['nullable', 'string'],
-            'placements.*.field' => ['required', 'string'],
+            'placements.*.type' => ['nullable', 'string', 'in:field,text'],
+            'placements.*.field' => ['nullable', 'string'],
+            'placements.*.text_content' => ['nullable', 'string'],
             'placements.*.page' => ['required', 'integer', 'min:1'],
             'placements.*.x' => ['required', 'numeric', 'min:0', 'max:1'],
             'placements.*.y' => ['required', 'numeric', 'min:0', 'max:1'],
