@@ -4,6 +4,7 @@ import {
     clamp,
     normalizedToPixel,
     pixelToNormalized,
+    placementRectInVisibleCanvas,
 } from '../templates/lib/coordinates.ts';
 
 describe('coordinates conversion', () => {
@@ -50,5 +51,82 @@ describe('coordinates conversion', () => {
         assert.equal(clamp(15, 0, 10), 10);
         assert.equal(clamp(-5, 0, 10), 0);
         assert.equal(clamp(5, 0, 10), 5);
+    });
+});
+
+describe('placementRectInVisibleCanvas', () => {
+    const canvas = {
+        top: 0,
+        left: 100,
+        width: 800,
+        height: 2000,
+        bottom: 2000,
+        right: 900,
+    };
+    const view = {
+        top: 0,
+        left: 0,
+        width: 1000,
+        height: 600,
+        bottom: 600,
+        right: 1000,
+    };
+
+    it('places the box in the middle of the visible viewport near the top', () => {
+        const pixel = placementRectInVisibleCanvas({
+            canvasWidth: 800,
+            canvasHeight: 2000,
+            boxWidth: 160,
+            boxHeight: 26,
+            canvasRect: canvas,
+            viewRect: view,
+        });
+
+        assert.equal(pixel.left, 320);
+        assert.equal(pixel.top, 287);
+        assert.equal(pixel.width, 160);
+        assert.equal(pixel.height, 26);
+    });
+
+    it('places the box in the visible bottom section when scrolled down', () => {
+        const pixel = placementRectInVisibleCanvas({
+            canvasWidth: 800,
+            canvasHeight: 2000,
+            boxWidth: 160,
+            boxHeight: 26,
+            canvasRect: { ...canvas, top: -1400, bottom: 600 },
+            viewRect: view,
+        });
+
+        assert.equal(pixel.left, 320);
+        assert.equal(pixel.top, 1687);
+    });
+
+    it('keeps the box on the canvas when the full page is visible', () => {
+        const pixel = placementRectInVisibleCanvas({
+            canvasWidth: 800,
+            canvasHeight: 500,
+            boxWidth: 160,
+            boxHeight: 26,
+            canvasRect: {
+                top: 80,
+                left: 100,
+                width: 800,
+                height: 500,
+                bottom: 580,
+                right: 900,
+            },
+            viewRect: {
+                top: 0,
+                left: 0,
+                width: 1000,
+                height: 800,
+                bottom: 800,
+                right: 1000,
+            },
+        });
+
+        assert.equal(pixel.left, 320);
+        assert.equal(pixel.top, 237);
     });
 });

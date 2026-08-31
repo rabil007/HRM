@@ -6,23 +6,27 @@ use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Support\Documents\DocumentTemplateMergeFields;
 use App\Support\Documents\PdfOverlayPlacementValidator;
+use App\Support\Documents\RecipientRequests\DocumentSignaturePlacementValidator;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use Spatie\Activitylog\Models\Activity;
 
-final class SaveDocumentGenerationTemplatePlacements
+final class SaveDocumentGenerationTemplateDesign
 {
     /**
-     * @param  list<array<string, mixed>>  $placements
+     * @param  list<array<string, mixed>>  $rawPlacements
+     * @param  array{schema_version?: mixed, placements?: mixed}  $rawSignatureConfig
      */
     public function handle(
         DocumentGenerationTemplateVersion $version,
-        array $placements,
+        array $rawPlacements,
+        array $rawSignatureConfig,
         ?int $userId = null,
     ): DocumentGenerationTemplateVersion {
-        return DB::transaction(function () use ($version, $placements, $userId): DocumentGenerationTemplateVersion {
+        return DB::transaction(function () use ($version, $rawPlacements, $rawSignatureConfig, $userId): DocumentGenerationTemplateVersion {
             /** @var DocumentGenerationTemplate $lockedTemplate */
             $lockedTemplate = DocumentGenerationTemplate::query()
                 ->whereKey($version->document_generation_template_id)
@@ -46,15 +50,17 @@ final class SaveDocumentGenerationTemplatePlacements
             }
 
             if (! $lockedTemplate->isPdfOverlay()) {
-                throw new DomainException('Cannot save placements for a content template.');
+                throw new DomainException('Cannot save design for a content template.');
             }
 
             $pageCount = (int) ($lockedVersion->source_pdf_page_count ?? 1);
             $allowedKeys = DocumentTemplateMergeFields::allowedKeys();
-            $seenIds = [];
-            $validated = [];
 
-            foreach ($placements as $index => $item) {
+            // --- Validate placements ---
+            $seenIds = [];
+            $validatedPlacements = [];
+
+            foreach ($rawPlacements as $index => $item) {
                 $id = trim((string) ($item['id'] ?? ''));
                 if ($id === '') {
                     $id = (string) Str::uuid();
@@ -93,7 +99,6 @@ final class SaveDocumentGenerationTemplatePlacements
                     ]);
                 }
 
-                // Small epsilon to accommodate floating point rounding in browser
                 if (($x + $width) > 1.0005 || ($y + $height) > 1.0005) {
                     throw ValidationException::withMessages([
                         "placements.{$index}" => 'Placement exceeds the boundaries of the PDF page.',
@@ -128,7 +133,7 @@ final class SaveDocumentGenerationTemplatePlacements
                             "placements.{$index}.text_content" => 'Static text content must not exceed 500 characters.',
                         ]);
                     }
-                    $validated[] = [
+                    $validatedPlacements[] = [
                         'id' => $id,
                         'type' => 'text',
                         'text_content' => $textContent,
@@ -150,7 +155,7 @@ final class SaveDocumentGenerationTemplatePlacements
                             "placements.{$index}.field" => "The merge field '{$field}' is not supported.",
                         ]);
                     }
-                    $validated[] = [
+                    $validatedPlacements[] = [
                         'id' => $id,
                         'type' => 'field',
                         'field' => $field,
@@ -168,9 +173,48 @@ final class SaveDocumentGenerationTemplatePlacements
                 }
             }
 
+            // --- Validate signature placements ---
+            try {
+                $validatedSigConfig = DocumentSignaturePlacementValidator::validateSignaturePlacementConfig(
+                    $rawSignatureConfig,
+                    $pageCount,
+                );
+            } catch (InvalidArgumentException $e) {
+                throw ValidationException::withMessages([
+                    'signature_placement_config' => $e->getMessage(),
+                ]);
+            }
+
+            $normalizedSignatures = array_map(
+                function (array $placement): array {
+                    $normalized = [
+                        'id' => $placement['id'],
+                        'type' => $placement['type'],
+                        'role' => $placement['role'],
+                        'page' => $placement['page'],
+                        'x' => round($placement['x'], 6),
+                        'y' => round($placement['y'], 6),
+                        'width' => round($placement['width'], 6),
+                        'height' => round($placement['height'], 6),
+                        'required' => $placement['required'],
+                    ];
+                    if (isset($placement['slot_key'])) {
+                        $normalized['slot_key'] = $placement['slot_key'];
+                    }
+
+                    return $normalized;
+                },
+                $validatedSigConfig['placements'],
+            );
+
+            // --- Single save: both configs in one DB write ---
             $lockedVersion->placement_config = [
                 'schema_version' => 2,
-                'placements' => $validated,
+                'placements' => $validatedPlacements,
+            ];
+            $lockedVersion->signature_placement_config = [
+                'schema_version' => $validatedSigConfig['schema_version'],
+                'placements' => $normalizedSignatures,
             ];
             $lockedVersion->updated_by = $userId;
             $lockedVersion->save();
@@ -183,13 +227,14 @@ final class SaveDocumentGenerationTemplatePlacements
                     $activity->company_id = $companyId;
                 })
                 ->withProperties([
-                    'action' => 'template_pdf_placements_updated',
+                    'action' => 'template_design_saved',
                     'template_id' => $lockedTemplate->id,
                     'version' => $lockedVersion->version,
-                    'placement_count' => count($validated),
+                    'placement_count' => count($validatedPlacements),
+                    'signature_count' => count($normalizedSignatures),
                     'page_count' => $pageCount,
                 ])
-                ->log("Updated PDF placements for template {$lockedTemplate->name} (v{$lockedVersion->version})");
+                ->log("Design saved for template {$lockedTemplate->name} (v{$lockedVersion->version})");
 
             return $lockedVersion;
         });

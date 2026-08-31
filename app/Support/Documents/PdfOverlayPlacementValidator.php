@@ -22,9 +22,34 @@ final class PdfOverlayPlacementValidator
     public static function emptyConfig(): array
     {
         return [
-            'schema_version' => 1,
+            'schema_version' => 2,
             'placements' => [],
         ];
+    }
+
+    public static function normalizeFontFamily(mixed $value): string
+    {
+        return $value === 'serif' ? 'serif' : 'sans';
+    }
+
+    public static function cssFontFamily(string $family): string
+    {
+        return self::normalizeFontFamily($family) === 'serif'
+            ? "'DejaVu Serif', serif"
+            : "'DejaVu Sans', sans-serif";
+    }
+
+    public const DEFAULT_FONT_COLOR = '#000000';
+
+    public static function normalizeFontColor(mixed $value): ?string
+    {
+        $color = strtolower(trim((string) $value));
+
+        if ($color === '') {
+            return self::DEFAULT_FONT_COLOR;
+        }
+
+        return preg_match('/^#[0-9a-f]{6}$/', $color) === 1 ? $color : null;
     }
 
     /**
@@ -59,15 +84,16 @@ final class PdfOverlayPlacementValidator
      * Validate a published placement_config at generation time.
      *
      * @param  array<string, mixed>|null  $config
-     * @return list<array{id: string, field: string, page: int, x: float, y: float, width: float, height: float, font_size: int, font_weight: string, text_align: string}>
+     * @return list<array{id: string, type: string, page: int, x: float, y: float, width: float, height: float, font_size: int, font_weight: string, text_align: string, font_family: string, field?: string, text_content?: string}>
      *
      * @throws InvalidArgumentException if the configuration is invalid.
      */
     public static function validate(?array $config, int $sourcePageCount): array
     {
         $config = self::normalize($config);
+        $schemaVersion = (int) ($config['schema_version'] ?? 0);
 
-        if ((int) ($config['schema_version'] ?? 0) !== 1) {
+        if (! in_array($schemaVersion, [1, 2], true)) {
             throw new InvalidArgumentException('Unsupported placement configuration schema version.');
         }
 
@@ -94,13 +120,10 @@ final class PdfOverlayPlacementValidator
             if (isset($seenIds[$id])) {
                 throw new InvalidArgumentException("Placement #{$index} uses a duplicate ID.");
             }
-
             $seenIds[$id] = true;
 
-            $field = trim((string) ($item['field'] ?? ''));
-            if (! in_array($field, $allowedKeys, true)) {
-                throw new InvalidArgumentException("Placement #{$index} references an unsupported merge field.");
-            }
+            // In schema v1, type key is absent — treat all as 'field'
+            $type = ($item['type'] ?? 'field') === 'text' ? 'text' : 'field';
 
             $page = (int) ($item['page'] ?? 0);
             if ($page < 1 || $page > $sourcePageCount) {
@@ -153,18 +176,61 @@ final class PdfOverlayPlacementValidator
                 throw new InvalidArgumentException("Placement #{$index} has an invalid text alignment.");
             }
 
-            $validated[] = [
-                'id' => $id,
-                'field' => $field,
-                'page' => $page,
-                'x' => $x,
-                'y' => $y,
-                'width' => $width,
-                'height' => $height,
-                'font_size' => $fontSize,
-                'font_weight' => $fontWeight,
-                'text_align' => $textAlign,
-            ];
+            $rawFamily = $item['font_family'] ?? 'sans';
+            $fontFamily = in_array($rawFamily, ['sans', 'serif'], true) ? $rawFamily : null;
+            if ($fontFamily === null) {
+                throw new InvalidArgumentException("Placement #{$index} has an invalid font family.");
+            }
+
+            $fontColor = self::normalizeFontColor($item['font_color'] ?? self::DEFAULT_FONT_COLOR);
+            if ($fontColor === null) {
+                throw new InvalidArgumentException("Placement #{$index} has an invalid font color.");
+            }
+
+            if ($type === 'text') {
+                $textContent = trim((string) ($item['text_content'] ?? ''));
+                if ($textContent === '') {
+                    throw new InvalidArgumentException("Placement #{$index} (static text) is missing text_content.");
+                }
+                if (strlen($textContent) > 500) {
+                    throw new InvalidArgumentException("Placement #{$index} (static text) text_content exceeds 500 characters.");
+                }
+                $validated[] = [
+                    'id' => $id,
+                    'type' => 'text',
+                    'text_content' => $textContent,
+                    'page' => $page,
+                    'x' => $x,
+                    'y' => $y,
+                    'width' => $width,
+                    'height' => $height,
+                    'font_size' => $fontSize,
+                    'font_weight' => $fontWeight,
+                    'text_align' => $textAlign,
+                    'font_family' => $fontFamily,
+                    'font_color' => $fontColor,
+                ];
+            } else {
+                $field = trim((string) ($item['field'] ?? ''));
+                if (! in_array($field, $allowedKeys, true)) {
+                    throw new InvalidArgumentException("Placement #{$index} references an unsupported merge field.");
+                }
+                $validated[] = [
+                    'id' => $id,
+                    'type' => 'field',
+                    'field' => $field,
+                    'page' => $page,
+                    'x' => $x,
+                    'y' => $y,
+                    'width' => $width,
+                    'height' => $height,
+                    'font_size' => $fontSize,
+                    'font_weight' => $fontWeight,
+                    'text_align' => $textAlign,
+                    'font_family' => $fontFamily,
+                    'font_color' => $fontColor,
+                ];
+            }
         }
 
         return $validated;
@@ -173,7 +239,7 @@ final class PdfOverlayPlacementValidator
     /**
      * Validate a published version's placement config and return validated placements.
      *
-     * @return list<array{id: string, field: string, page: int, x: float, y: float, width: float, height: float, font_size: int, font_weight: string, text_align: string}>
+     * @return list<array{id: string, type: string, page: int, x: float, y: float, width: float, height: float, font_size: int, font_weight: string, text_align: string, font_family: string, field?: string, text_content?: string}>
      *
      * @throws InvalidArgumentException if validation fails.
      */

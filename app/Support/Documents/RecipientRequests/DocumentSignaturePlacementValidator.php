@@ -263,10 +263,6 @@ final class DocumentSignaturePlacementValidator
             $validated[] = $parsed;
         }
 
-        if ($validated === []) {
-            throw new InvalidArgumentException('Signature placement configuration is required.');
-        }
-
         self::assertContiguousOccurrences($managerOccurrences, 'manager');
         self::assertContiguousOccurrences($companyOccurrences, 'company_signatory');
 

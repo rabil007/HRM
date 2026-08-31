@@ -35,21 +35,48 @@
 <body>
     @foreach ($placements as $placement)
         @if ($placement['value'] !== '')
-            <div
-                class="overlay-placement"
-                style="
-                    left: {{ $placement['left_mm'] }}mm;
-                    top: {{ $placement['top_mm'] }}mm;
-                    width: {{ $placement['width_mm'] }}mm;
-                    height: {{ $placement['height_mm'] }}mm;
-                    font-size: {{ $placement['effective_font_size'] }}pt;
-                    font-weight: {{ $placement['font_weight'] }};
-                    text-align: {{ $placement['text_align'] }};
-                    justify-content: {{ $placement['text_align'] === 'center' ? 'center' : ($placement['text_align'] === 'right' ? 'flex-end' : 'flex-start') }};
-                "
-            >
-                <span dir="auto" style="unicode-bidi: plaintext;">{{ $placement['value'] }}</span>
-            </div>
+            @if (!empty($placement['is_static_text']))
+                <div
+                    class="overlay-placement"
+                    style="
+                        left: {{ $placement['left_mm'] }}mm;
+                        top: {{ $placement['top_mm'] }}mm;
+                        width: {{ $placement['width_mm'] }}mm;
+                        height: {{ $placement['height_mm'] }}mm;
+                        font-size: {{ $placement['effective_font_size'] }}pt;
+                        font-weight: {{ $placement['font_weight'] }};
+                        font-family: {{ $placement['font_family_css'] ?? "'DejaVu Sans', sans-serif" }};
+                        color: {{ $placement['font_color'] ?? '#000000' }};
+                        text-align: {{ $placement['text_align'] }};
+                        white-space: pre-wrap;
+                        overflow-wrap: break-word;
+                        word-break: normal;
+                        line-height: 1.2;
+                        overflow: hidden;
+                        align-items: flex-start;
+                    "
+                >
+                    <span dir="auto" style="unicode-bidi: plaintext;">{{ $placement['value'] }}</span>
+                </div>
+            @else
+                <div
+                    class="overlay-placement"
+                    style="
+                        left: {{ $placement['left_mm'] }}mm;
+                        top: {{ $placement['top_mm'] }}mm;
+                        width: {{ $placement['width_mm'] }}mm;
+                        height: {{ $placement['height_mm'] }}mm;
+                        font-size: {{ $placement['effective_font_size'] }}pt;
+                        font-weight: {{ $placement['font_weight'] }};
+                        font-family: {{ $placement['font_family_css'] ?? "'DejaVu Sans', sans-serif" }};
+                        color: {{ $placement['font_color'] ?? '#000000' }};
+                        text-align: {{ $placement['text_align'] }};
+                        justify-content: {{ $placement['text_align'] === 'center' ? 'center' : ($placement['text_align'] === 'right' ? 'flex-end' : 'flex-start') }};
+                    "
+                >
+                    <span dir="auto" style="unicode-bidi: plaintext;">{{ $placement['value'] }}</span>
+                </div>
+            @endif
         @endif
     @endforeach
 </body>

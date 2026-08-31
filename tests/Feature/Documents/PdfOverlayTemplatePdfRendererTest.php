@@ -142,6 +142,36 @@ test('overlay blade renders escaped values and physical alignment', function () 
         ->toContain('direction: ltr');
 });
 
+test('overlay blade applies serif font family for matching letter templates', function () {
+    $html = view('documents.pdf-overlay-page', [
+        'page_width_mm' => 210.0,
+        'page_height_mm' => 297.0,
+        'embedded_font_styles' => BrowsershotEmbeddedFonts::dejaVuStyles(),
+        'placements' => [
+            [
+                'id' => 'p1',
+                'field' => '{{employee_name}}',
+                'value' => '5000',
+                'left_mm' => 21.0,
+                'top_mm' => 29.7,
+                'width_mm' => 40.0,
+                'height_mm' => 10.0,
+                'effective_font_size' => 12.0,
+                'font_weight' => 'normal',
+                'text_align' => 'left',
+                'font_family' => 'serif',
+                'font_family_css' => PdfOverlayPlacementValidator::cssFontFamily('serif'),
+                'font_color' => '#000000',
+            ],
+        ],
+    ])->render();
+
+    expect($html)
+        ->toContain('5000')
+        ->toContain('DejaVu Serif')
+        ->toContain('color: #000000');
+});
+
 test('overlay blade escapes script and img onerror values', function () {
     $html = view('documents.pdf-overlay-page', [
         'page_width_mm' => 210.0,
@@ -272,8 +302,14 @@ test('placement validator accepts distinct placement ids', function () {
         ->and($result[1]['id'])->toBe('placement-002');
 });
 
-test('placement validator rejects schema_version other than 1', function () {
-    expect(fn () => PdfOverlayPlacementValidator::validate(['schema_version' => 2, 'placements' => []], 1))
+test('placement validator accepts schema versions 1 and 2', function (int $schemaVersion) {
+    $result = PdfOverlayPlacementValidator::validate(['schema_version' => $schemaVersion, 'placements' => []], 1);
+
+    expect($result)->toBe([]);
+})->with([1, 2]);
+
+test('placement validator rejects schema_version other than 1 or 2', function () {
+    expect(fn () => PdfOverlayPlacementValidator::validate(['schema_version' => 3, 'placements' => []], 1))
         ->toThrow(InvalidArgumentException::class, 'schema version');
 });
 
@@ -292,6 +328,9 @@ test('placement validator rejects coordinates and sizes outside the page', funct
     'font too large' => [['font_size' => 72], 'font size'],
     'invalid page' => [['page' => 5], 'page number'],
     'invalid weight' => [['font_weight' => 'ultra-bold'], 'font weight'],
+    'invalid family' => [['font_family' => 'comic-sans'], 'font family'],
+    'invalid color' => [['font_color' => 'red'], 'font color'],
+    'invalid color css' => [['font_color' => 'rgb(0,0,0)'], 'font color'],
 ]);
 
 test('placement validator accepts a valid schema v1 config', function () {
@@ -300,7 +339,26 @@ test('placement validator accepts a valid schema v1 config', function () {
     expect($result)->toHaveCount(1)
         ->and($result[0]['field'])->toBe('{{employee_name}}')
         ->and($result[0]['font_size'])->toBe(14)
-        ->and($result[0]['text_align'])->toBe('left');
+        ->and($result[0]['text_align'])->toBe('left')
+        ->and($result[0]['font_family'])->toBe('sans')
+        ->and($result[0]['font_color'])->toBe('#000000');
+});
+
+test('placement validator defaults missing font family to sans and accepts serif', function () {
+    $sans = PdfOverlayPlacementValidator::validate(overlayPlacementConfig(), 1);
+    $serif = PdfOverlayPlacementValidator::validate(overlayPlacementConfig(['font_family' => 'serif']), 1);
+
+    expect($sans[0]['font_family'])->toBe('sans')
+        ->and($serif[0]['font_family'])->toBe('serif')
+        ->and(PdfOverlayPlacementValidator::cssFontFamily('serif'))->toContain('DejaVu Serif');
+});
+
+test('placement validator accepts and normalizes hex font colors', function () {
+    $black = PdfOverlayPlacementValidator::validate(overlayPlacementConfig(), 1);
+    $navy = PdfOverlayPlacementValidator::validate(overlayPlacementConfig(['font_color' => '#1E3A8A']), 1);
+
+    expect($black[0]['font_color'])->toBe('#000000')
+        ->and($navy[0]['font_color'])->toBe('#1e3a8a');
 });
 
 test('placement validator rejects draft versions', function () {

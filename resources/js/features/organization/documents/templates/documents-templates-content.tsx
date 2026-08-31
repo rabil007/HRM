@@ -1,4 +1,4 @@
-import { Link, router, useForm } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import {
     Copy,
     Eye,
@@ -24,13 +24,7 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -48,47 +42,31 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { edit as applicationSettings } from '@/routes/application';
-import { configuration as documentsConfiguration } from '@/routes/organization/documents';
 import {
     activate as activateTemplate,
+    create as createTemplate,
     deactivate as deactivateTemplate,
+    design as designTemplate,
     destroy as destroyTemplate,
     draft as draftTemplate,
     duplicate as duplicateTemplate,
+    edit as editTemplate,
     preview as previewTemplate,
-    previewDraft as previewDraftTemplate,
-    store as storeTemplate,
-    update as updateTemplate,
 } from '@/routes/organization/documents/templates';
 import { publish as publishTemplateVersion } from '@/routes/organization/documents/templates/versions';
 import { TemplateAutomationSheet } from './components/template-automation-sheet';
-import { TemplateCreateChoiceDialog } from './components/template-create-choice-dialog';
 import { TemplateDeleteDialog } from './components/template-delete-dialog';
-import type { TemplateFormData } from './components/template-form-sheet';
-import { TemplateFormSheet } from './components/template-form-sheet';
-import { TemplatePdfUploadDialog } from './components/template-pdf-upload-dialog';
 import { TemplatePreviewDialog } from './components/template-preview-dialog';
 import { TemplateReplacePdfDialog } from './components/template-replace-pdf-dialog';
-import { TemplatePdfDesignerDialog } from './designer/template-pdf-designer-dialog';
-import { TemplateSignaturePlacementDialog } from './designer/template-signature-placement-dialog';
 import type {
     AutomationPresetOption,
     CustomTemplate,
     DocumentTypeOption,
     MergeField,
-    PlacementConfig,
-    SignaturePlacementConfig,
     SystemTemplate,
     TemplatesPermissions,
     TemplateVersionSummary,
 } from './types';
-
-function getCsrfToken(): string {
-    return (
-        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
-            ?.content ?? ''
-    );
-}
 
 function formatDate(isoString: string | null): string {
     if (!isoString) {
@@ -110,8 +88,6 @@ function formatDate(isoString: string | null): string {
 
 export function DocumentsTemplatesContent({
     customTemplates,
-    mergeFields,
-    documentTypes,
     workflowPresets,
     signingPresets,
     systemTemplates,
@@ -126,12 +102,6 @@ export function DocumentsTemplatesContent({
     can: TemplatesPermissions;
 }) {
     // Dialog state
-    const [isCreateChoiceOpen, setIsCreateChoiceOpen] = useState(false);
-    const [isPdfUploadOpen, setIsPdfUploadOpen] = useState(false);
-    const [isFormOpen, setIsFormOpen] = useState(false);
-    const [editingTemplate, setEditingTemplate] =
-        useState<CustomTemplate | null>(null);
-
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [deletingTemplate, setDeletingTemplate] =
         useState<CustomTemplate | null>(null);
@@ -148,43 +118,18 @@ export function DocumentsTemplatesContent({
         unresolvedPlaceholders: [],
     });
 
-    // Phase 3B: Visual Designer & Replace PDF state
-    const [isDesignerOpen, setIsDesignerOpen] = useState(false);
-    const [designerTemplate, setDesignerTemplate] =
-        useState<CustomTemplate | null>(null);
-    const [designerVersion, setDesignerVersion] =
-        useState<TemplateVersionSummary | null>(null);
-    const [designerConfig, setDesignerConfig] =
-        useState<PlacementConfig | null>(null);
-
     const [isReplacePdfOpen, setIsReplacePdfOpen] = useState(false);
     const [replacingTemplate, setReplacingTemplate] =
         useState<CustomTemplate | null>(null);
     const [replacingVersion, setReplacingVersion] =
         useState<TemplateVersionSummary | null>(null);
 
-    const [isSignaturePlacementOpen, setIsSignaturePlacementOpen] =
-        useState(false);
-    const [signatureTemplate, setSignatureTemplate] =
-        useState<CustomTemplate | null>(null);
-    const [signatureVersion, setSignatureVersion] =
-        useState<TemplateVersionSummary | null>(null);
-    const [signatureConfig, setSignatureConfig] =
-        useState<SignaturePlacementConfig | null>(null);
-
     const [isAutomationOpen, setIsAutomationOpen] = useState(false);
     const [automationTemplate, setAutomationTemplate] =
         useState<CustomTemplate | null>(null);
 
-    const [pendingDesignerTemplateId, setPendingDesignerTemplateId] = useState<
-        number | null
-    >(null);
     const [pendingReplacePdfTemplateId, setPendingReplacePdfTemplateId] =
         useState<number | null>(null);
-    const [
-        pendingSignaturePlacementTemplateId,
-        setPendingSignaturePlacementTemplateId,
-    ] = useState<number | null>(null);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
 
@@ -198,26 +143,6 @@ export function DocumentsTemplatesContent({
     >('all');
 
     useEffect(() => {
-        if (pendingDesignerTemplateId !== null) {
-            const matched = customTemplates.find(
-                (t) => t.id === pendingDesignerTemplateId,
-            );
-
-            if (matched?.draft_version) {
-                setDesignerTemplate(matched);
-                setDesignerVersion(matched.draft_version);
-                setDesignerConfig(
-                    matched.draft_version.placement_config ?? {
-                        schema_version: 1,
-                        placements: [],
-                    },
-                );
-                setIsDesignerOpen(true);
-                setPendingDesignerTemplateId(null);
-                setIsActionLoading(false);
-            }
-        }
-
         if (pendingReplacePdfTemplateId !== null) {
             const matched = customTemplates.find(
                 (t) => t.id === pendingReplacePdfTemplateId,
@@ -231,121 +156,7 @@ export function DocumentsTemplatesContent({
                 setIsActionLoading(false);
             }
         }
-
-        if (pendingSignaturePlacementTemplateId !== null) {
-            const matched = customTemplates.find(
-                (t) => t.id === pendingSignaturePlacementTemplateId,
-            );
-
-            if (matched?.draft_version) {
-                setSignatureTemplate(matched);
-                setSignatureVersion(matched.draft_version);
-                setSignatureConfig(
-                    matched.draft_version.signature_placement_config ?? null,
-                );
-                setIsSignaturePlacementOpen(true);
-                setPendingSignaturePlacementTemplateId(null);
-                setIsActionLoading(false);
-            }
-        }
-    }, [
-        customTemplates,
-        pendingDesignerTemplateId,
-        pendingReplacePdfTemplateId,
-        pendingSignaturePlacementTemplateId,
-    ]);
-
-    const form = useForm<TemplateFormData>({
-        name: '',
-        description: '',
-        document_type_id: null,
-        content: '',
-    });
-
-    const handleOpenCreateContent = () => {
-        setEditingTemplate(null);
-        form.reset();
-        form.clearErrors();
-        form.setData({
-            name: '',
-            description: '',
-            document_type_id: null,
-            content: '',
-        });
-        setIsFormOpen(true);
-    };
-
-    const handleOpenEdit = (template: CustomTemplate) => {
-        setEditingTemplate(template);
-        form.clearErrors();
-        const editorContent =
-            template.draft_version?.content ??
-            template.published_version?.content ??
-            template.content;
-        form.setData({
-            name: template.name,
-            description: template.description ?? '',
-            document_type_id: template.document_type_id,
-            content: editorContent,
-        });
-        setIsFormOpen(true);
-    };
-
-    const handleFormSubmit = () => {
-        if (editingTemplate) {
-            form.put(updateTemplate.url({ template: editingTemplate.id }), {
-                preserveScroll: true,
-                onSuccess: () => {
-                    setIsFormOpen(false);
-                    form.reset();
-                },
-            });
-        } else {
-            form.post(storeTemplate.url(), {
-                preserveScroll: true,
-                onSuccess: () => {
-                    setIsFormOpen(false);
-                    form.reset();
-                },
-            });
-        }
-    };
-
-    const handleOpenDesigner = (template: CustomTemplate) => {
-        setActionError(null);
-
-        if (template.draft_version) {
-            setDesignerTemplate(template);
-            setDesignerVersion(template.draft_version);
-            setDesignerConfig(
-                template.draft_version.placement_config ?? {
-                    schema_version: 1,
-                    placements: [],
-                },
-            );
-            setIsDesignerOpen(true);
-
-            return;
-        }
-
-        setIsActionLoading(true);
-        setPendingDesignerTemplateId(template.id);
-        router.post(
-            draftTemplate.url({ template: template.id }),
-            {},
-            {
-                preserveScroll: true,
-                onError: (err) => {
-                    setIsActionLoading(false);
-                    setPendingDesignerTemplateId(null);
-                    const msg =
-                        (Object.values(err)[0] as string) ||
-                        'Failed to prepare template draft.';
-                    setActionError(msg);
-                },
-            },
-        );
-    };
+    }, [customTemplates, pendingReplacePdfTemplateId]);
 
     const handleOpenReplacePdf = (template: CustomTemplate) => {
         setActionError(null);
@@ -371,39 +182,6 @@ export function DocumentsTemplatesContent({
                     const msg =
                         (Object.values(err)[0] as string) ||
                         'Failed to prepare template draft for replacement.';
-                    setActionError(msg);
-                },
-            },
-        );
-    };
-
-    const handleOpenSignaturePlacement = (template: CustomTemplate) => {
-        setActionError(null);
-
-        if (template.draft_version) {
-            setSignatureTemplate(template);
-            setSignatureVersion(template.draft_version);
-            setSignatureConfig(
-                template.draft_version.signature_placement_config ?? null,
-            );
-            setIsSignaturePlacementOpen(true);
-
-            return;
-        }
-
-        setIsActionLoading(true);
-        setPendingSignaturePlacementTemplateId(template.id);
-        router.post(
-            draftTemplate.url({ template: template.id }),
-            {},
-            {
-                preserveScroll: true,
-                onError: (err) => {
-                    setIsActionLoading(false);
-                    setPendingSignaturePlacementTemplateId(null);
-                    const msg =
-                        (Object.values(err)[0] as string) ||
-                        'Failed to prepare template draft for signature placement.';
                     setActionError(msg);
                 },
             },
@@ -514,52 +292,6 @@ export function DocumentsTemplatesContent({
         }
     };
 
-    const handlePreviewDraft = async (name: string, content: string) => {
-        setIsPreviewOpen(true);
-        setPreviewLoading(true);
-        setPreviewData({
-            title: name || 'Draft Template Preview',
-            contentHtml: '',
-            unresolvedPlaceholders: [],
-        });
-
-        try {
-            const res = await fetch(previewDraftTemplate.url(), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                    'X-CSRF-TOKEN': getCsrfToken(),
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: JSON.stringify({
-                    name: name || 'Draft Template Preview',
-                    content,
-                }),
-            });
-
-            if (!res.ok) {
-                throw new Error('Failed to generate draft preview');
-            }
-
-            const data = await res.json();
-            setPreviewData({
-                title: data.name,
-                contentHtml: data.content_html,
-                unresolvedPlaceholders: data.unresolved_placeholders || [],
-            });
-        } catch {
-            setPreviewData({
-                title: name || 'Draft Template Preview',
-                contentHtml:
-                    '<p class="text-destructive">Failed to generate draft preview.</p>',
-                unresolvedPlaceholders: [],
-            });
-        } finally {
-            setPreviewLoading(false);
-        }
-    };
-
     // Derived / filtered values
     const activeCount = customTemplates.filter(
         (t) => t.status === 'active',
@@ -589,12 +321,11 @@ export function DocumentsTemplatesContent({
                 description="Create reusable documents for Generate & Send."
                 right={
                     can.create_templates ? (
-                        <Button
-                            onClick={() => setIsCreateChoiceOpen(true)}
-                            className="gap-1.5"
-                        >
-                            <Plus className="h-4 w-4" />
-                            <span>New Template</span>
+                        <Button asChild className="gap-1.5">
+                            <Link href={createTemplate.url()}>
+                                <Plus className="h-4 w-4" />
+                                <span>New Template</span>
+                            </Link>
                         </Button>
                     ) : null
                 }
@@ -603,15 +334,6 @@ export function DocumentsTemplatesContent({
             <div className="space-y-8">
                 {/* 1. Company Custom Templates Section */}
                 <div className="space-y-4">
-                    <div>
-                        <h2 className="text-base font-semibold tracking-tight text-foreground">
-                            Company Templates
-                        </h2>
-                        <p className="text-xs text-muted-foreground">
-                            Custom documents built for your organization.
-                        </p>
-                    </div>
-
                     {/* Stats strip */}
                     {can.view_templates && customTemplates.length > 0 && (
                         <div className="grid grid-cols-3 gap-3">
@@ -859,18 +581,23 @@ export function DocumentsTemplatesContent({
                                                                                 {/* Content template edit */}
                                                                                 {!isPdf && (
                                                                                     <DropdownMenuItem
-                                                                                        onClick={() =>
-                                                                                            handleOpenEdit(
-                                                                                                template,
-                                                                                            )
-                                                                                        }
+                                                                                        asChild
                                                                                         className="gap-2"
                                                                                     >
-                                                                                        <Pencil className="h-3.5 w-3.5" />
-                                                                                        <span>
-                                                                                            Edit
-                                                                                            Content
-                                                                                        </span>
+                                                                                        <Link
+                                                                                            href={editTemplate.url(
+                                                                                                {
+                                                                                                    template:
+                                                                                                        template.id,
+                                                                                                },
+                                                                                            )}
+                                                                                        >
+                                                                                            <Pencil className="h-3.5 w-3.5" />
+                                                                                            <span>
+                                                                                                Edit
+                                                                                                Content
+                                                                                            </span>
+                                                                                        </Link>
                                                                                     </DropdownMenuItem>
                                                                                 )}
 
@@ -878,52 +605,25 @@ export function DocumentsTemplatesContent({
                                                                                 {isPdf && (
                                                                                     <>
                                                                                         <DropdownMenuItem
-                                                                                            disabled={
-                                                                                                isActionLoading
-                                                                                            }
-                                                                                            onClick={() =>
-                                                                                                handleOpenDesigner(
-                                                                                                    template,
-                                                                                                )
-                                                                                            }
+                                                                                            asChild
                                                                                             className="gap-2"
                                                                                         >
-                                                                                            <Layers className="h-3.5 w-3.5" />
-                                                                                            <span>
-                                                                                                Design
-                                                                                                Fields
-                                                                                            </span>
+                                                                                            <Link
+                                                                                                href={designTemplate.url(
+                                                                                                    {
+                                                                                                        template:
+                                                                                                            template.id,
+                                                                                                    },
+                                                                                                )}
+                                                                                            >
+                                                                                                <Layers className="h-3.5 w-3.5" />
+                                                                                                <span>
+                                                                                                    Design
+                                                                                                    Template
+                                                                                                </span>
+                                                                                            </Link>
                                                                                         </DropdownMenuItem>
-                                                                                        <DropdownMenuItem
-                                                                                            disabled={
-                                                                                                isActionLoading
-                                                                                            }
-                                                                                            onClick={() =>
-                                                                                                handleOpenSignaturePlacement(
-                                                                                                    template,
-                                                                                                )
-                                                                                            }
-                                                                                            className="gap-2"
-                                                                                        >
-                                                                                            <PenLine className="h-3.5 w-3.5" />
-                                                                                            <span>
-                                                                                                Signature
-                                                                                                placement
-                                                                                            </span>
-                                                                                            {(template
-                                                                                                .draft_version
-                                                                                                ?.has_signature_placement ||
-                                                                                                template
-                                                                                                    .published_version
-                                                                                                    ?.has_signature_placement) && (
-                                                                                                <Badge
-                                                                                                    variant="secondary"
-                                                                                                    className="ml-auto text-[10px]"
-                                                                                                >
-                                                                                                    Set
-                                                                                                </Badge>
-                                                                                            )}
-                                                                                        </DropdownMenuItem>
+                                                                                        <DropdownMenuSeparator />
                                                                                         <DropdownMenuItem
                                                                                             disabled={
                                                                                                 isActionLoading
@@ -1162,25 +862,26 @@ export function DocumentsTemplatesContent({
                                                             {isPdf &&
                                                                 can.update_templates && (
                                                                     <Button
-                                                                        type="button"
+                                                                        asChild
                                                                         variant="ghost"
                                                                         size="icon"
                                                                         className="h-7 w-7 text-primary"
                                                                         title="Design Merge Fields"
-                                                                        disabled={
-                                                                            isActionLoading
-                                                                        }
-                                                                        onClick={() =>
-                                                                            handleOpenDesigner(
-                                                                                template,
-                                                                            )
-                                                                        }
                                                                     >
-                                                                        <Layers className="h-3.5 w-3.5" />
-                                                                        <span className="sr-only">
-                                                                            Design
-                                                                            Fields
-                                                                        </span>
+                                                                        <Link
+                                                                            href={designTemplate.url(
+                                                                                {
+                                                                                    template:
+                                                                                        template.id,
+                                                                                },
+                                                                            )}
+                                                                        >
+                                                                            <Layers className="h-3.5 w-3.5" />
+                                                                            <span className="sr-only">
+                                                                                Design
+                                                                                Fields
+                                                                            </span>
+                                                                        </Link>
                                                                     </Button>
                                                                 )}
 
@@ -1270,14 +971,13 @@ export function DocumentsTemplatesContent({
                                 description="Create a reusable document template for Generate & Send."
                                 action={
                                     can.create_templates ? (
-                                        <Button
-                                            onClick={() =>
-                                                setIsCreateChoiceOpen(true)
-                                            }
-                                            size="sm"
-                                        >
-                                            <Plus className="mr-1.5 h-3.5 w-3.5" />
-                                            <span>Create First Template</span>
+                                        <Button asChild size="sm">
+                                            <Link href={createTemplate.url()}>
+                                                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                                <span>
+                                                    Create First Template
+                                                </span>
+                                            </Link>
                                         </Button>
                                     ) : null
                                 }
@@ -1380,94 +1080,7 @@ export function DocumentsTemplatesContent({
                         </Table>
                     </div>
                 </div>
-
-                {/* 3. Help & Reference Section */}
-                <div className="grid gap-4 md:grid-cols-2">
-                    <Card className="border-l-2 border-border/60 border-l-blue-500">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-sm font-semibold">
-                                Merge Field Reference
-                            </CardTitle>
-                            <CardDescription className="text-xs">
-                                Dynamic placeholders automatically populated
-                                from employee and company data.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <p className="text-xs text-muted-foreground">
-                                Supported placeholders include{' '}
-                                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">
-                                    {'{{employee_name}}'}
-                                </code>
-                                ,{' '}
-                                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">
-                                    {'{{position_name}}'}
-                                </code>
-                                ,{' '}
-                                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">
-                                    {'{{employee_no}}'}
-                                </code>
-                                , and{' '}
-                                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">
-                                    {'{{company_name}}'}
-                                </code>
-                                . Unsupported merge fields are rejected upon
-                                save.
-                            </p>
-                            <div className="flex items-center gap-2">
-                                <Badge
-                                    variant="outline"
-                                    className="text-[11px]"
-                                >
-                                    {mergeFields.length} Merge Fields Available
-                                </Badge>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-l-2 border-border/60 border-l-emerald-500">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-sm font-semibold">
-                                Document Types
-                            </CardTitle>
-                            <CardDescription className="text-xs">
-                                Associate templates with document types for
-                                employee record tracking.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <p className="text-xs text-muted-foreground">
-                                Document types define expiration requirements,
-                                compliance rules, and categorization across
-                                employee profiles and company archives.
-                            </p>
-                            {can.document_types && (
-                                <Button variant="outline" size="sm" asChild>
-                                    <Link href={documentsConfiguration.url()}>
-                                        <Settings2 className="mr-1.5 size-3.5" />
-                                        Manage Document Types
-                                    </Link>
-                                </Button>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
             </div>
-
-            {/* Template Creation Choice Modal */}
-            <TemplateCreateChoiceDialog
-                open={isCreateChoiceOpen}
-                onOpenChange={setIsCreateChoiceOpen}
-                onSelectContent={handleOpenCreateContent}
-                onSelectPdf={() => setIsPdfUploadOpen(true)}
-            />
-
-            {/* Upload PDF Template Dialog */}
-            <TemplatePdfUploadDialog
-                open={isPdfUploadOpen}
-                onOpenChange={setIsPdfUploadOpen}
-                documentTypes={documentTypes}
-            />
 
             {/* Replace PDF Dialog */}
             <TemplateReplacePdfDialog
@@ -1475,28 +1088,6 @@ export function DocumentsTemplatesContent({
                 onOpenChange={setIsReplacePdfOpen}
                 template={replacingTemplate}
                 version={replacingVersion}
-            />
-
-            {/* Visual Merge-Field Placement Designer Dialog */}
-            <TemplatePdfDesignerDialog
-                open={isDesignerOpen}
-                onOpenChange={setIsDesignerOpen}
-                template={designerTemplate}
-                version={designerVersion}
-                initialConfig={designerConfig}
-                mergeFields={mergeFields}
-                onSaved={() => {
-                    // Refresh data
-                }}
-            />
-
-            {/* Employee Signature Placement Editor Dialog */}
-            <TemplateSignaturePlacementDialog
-                open={isSignaturePlacementOpen}
-                onOpenChange={setIsSignaturePlacementOpen}
-                template={signatureTemplate}
-                version={signatureVersion}
-                initialConfig={signatureConfig}
             />
 
             <TemplateAutomationSheet
@@ -1511,18 +1102,6 @@ export function DocumentsTemplatesContent({
                 template={automationTemplate}
                 workflowPresets={workflowPresets}
                 signingPresets={signingPresets}
-            />
-
-            {/* Content Template Editor Sheet */}
-            <TemplateFormSheet
-                open={isFormOpen}
-                onOpenChange={setIsFormOpen}
-                template={editingTemplate}
-                documentTypes={documentTypes}
-                mergeFields={mergeFields}
-                form={form}
-                onSubmit={handleFormSubmit}
-                onPreviewDraft={handlePreviewDraft}
             />
 
             {/* Sample-Only Preview Modal */}

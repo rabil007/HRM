@@ -83,7 +83,13 @@ class PdfOverlayTemplatePdfRenderer
         $resolvedPlacements = [];
 
         foreach ($placements as $placement) {
-            $value = $mergeValues[$placement['field']] ?? '';
+            $type = $placement['type'] ?? 'field';
+
+            if ($type === 'text') {
+                $value = $placement['text_content'] ?? '';
+            } else {
+                $value = $mergeValues[$placement['field'] ?? ''] ?? '';
+            }
 
             if ($value === '') {
                 continue;
@@ -95,7 +101,8 @@ class PdfOverlayTemplatePdfRenderer
 
             $resolvedPlacements[] = [
                 'id' => $placement['id'],
-                'field' => $placement['field'],
+                'type' => $type,
+                'field' => $placement['field'] ?? null,
                 'value' => $value,
                 'page' => $page,
                 'left_mm' => $placement['x'] * $pageWidth,
@@ -105,6 +112,12 @@ class PdfOverlayTemplatePdfRenderer
                 'requested_font_size' => (float) $placement['font_size'],
                 'font_weight' => $placement['font_weight'],
                 'text_align' => $placement['text_align'],
+                'font_family' => $placement['font_family'] ?? 'sans',
+                'font_family_css' => PdfOverlayPlacementValidator::cssFontFamily(
+                    (string) ($placement['font_family'] ?? 'sans'),
+                ),
+                'font_color' => $placement['font_color'] ?? PdfOverlayPlacementValidator::DEFAULT_FONT_COLOR,
+                'is_static_text' => $type === 'text',
             ];
         }
 
@@ -224,14 +237,24 @@ class PdfOverlayTemplatePdfRenderer
 
         foreach ($placements as $index => $placement) {
             $candidates = $this->fontSizeCandidates((float) $placement['requested_font_size']);
+            $isStaticText = (bool) ($placement['is_static_text'] ?? false);
             $escapedValue = htmlspecialchars((string) $placement['value'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
             $fontWeightCss = $placement['font_weight'] === 'bold' ? 'bold' : 'normal';
+            $fontFamilyCss = htmlspecialchars(
+                PdfOverlayPlacementValidator::cssFontFamily((string) ($placement['font_family'] ?? 'sans')),
+                ENT_QUOTES | ENT_SUBSTITUTE,
+                'UTF-8',
+            );
             $widthMm = (float) $placement['width_mm'];
             $heightMm = (float) $placement['height_mm'];
 
             foreach ($candidates as $candidateIndex => $candidatePt) {
                 $boxId = "b{$index}_{$candidateIndex}";
-                $boxesHtml .= "<div id=\"{$boxId}\" style=\"width:{$widthMm}mm;height:{$heightMm}mm;font-size:{$candidatePt}pt;font-weight:{$fontWeightCss};white-space:nowrap;line-height:1;overflow:hidden;display:block;\" dir=\"auto\"><span style=\"unicode-bidi:plaintext;\">{$escapedValue}</span></div>\n";
+                if ($isStaticText) {
+                    $boxesHtml .= "<div id=\"{$boxId}\" style=\"width:{$widthMm}mm;height:{$heightMm}mm;font-size:{$candidatePt}pt;font-weight:{$fontWeightCss};font-family:{$fontFamilyCss};white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;line-height:1.2;overflow:hidden;display:flex;align-items:flex-start;box-sizing:border-box;\" dir=\"auto\"><span style=\"unicode-bidi:plaintext;\">{$escapedValue}</span></div>\n";
+                } else {
+                    $boxesHtml .= "<div id=\"{$boxId}\" style=\"width:{$widthMm}mm;height:{$heightMm}mm;font-size:{$candidatePt}pt;font-weight:{$fontWeightCss};font-family:{$fontFamilyCss};white-space:nowrap;line-height:1;overflow:hidden;display:block;\" dir=\"auto\"><span style=\"unicode-bidi:plaintext;\">{$escapedValue}</span></div>\n";
+                }
                 $measureJs .= "var el{$index}_{$candidateIndex}=document.getElementById('{$boxId}'); results.push({id:{$index},size:{$candidatePt},overflow:el{$index}_{$candidateIndex}.scrollWidth>el{$index}_{$candidateIndex}.clientWidth+1||el{$index}_{$candidateIndex}.scrollHeight>el{$index}_{$candidateIndex}.clientHeight+1});\n";
             }
         }
@@ -300,7 +323,7 @@ HTML;
         foreach ($placements as $index => $placement) {
             if ($chosen[$index] === null) {
                 throw new DocumentTemplateLayoutException(
-                    fieldKey: (string) $placement['field'],
+                    fieldKey: (string) ($placement['field'] ?? $placement['id']),
                     pageNumber: (int) $placement['page'],
                     message: 'Field value does not fit in the configured placement box even at minimum font size.',
                     placementId: (string) $placement['id'],
