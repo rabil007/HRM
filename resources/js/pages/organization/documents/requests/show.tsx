@@ -17,7 +17,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import { DocumentPreviewPanel } from '@/features/organization/documents/shared/document-preview-panel';
 import type {
     DocumentWorkflowPermissions,
@@ -71,8 +70,6 @@ export default function DocumentWorkflowRequestShow({
             <Head title={`Request #${request.id}`} />
 
             <Main>
-                <DocumentsModuleNav />
-
                 <DetailsHeader
                     kicker="Review & Approval"
                     title={request.document.title ?? 'Document request'}
