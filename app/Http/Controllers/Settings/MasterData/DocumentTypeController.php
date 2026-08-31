@@ -13,6 +13,8 @@ use App\Models\DocumentType;
 use App\Support\EmployeeDocuments\Actions\SyncDocumentRequirement;
 use App\Support\EmployeeDocuments\DocumentRequirementFormOptions;
 use App\Support\EmployeeDocuments\DocumentRequirementPresenter;
+use App\Support\EmployeeDocuments\DocumentTypeDetailPresenter;
+use App\Support\EmployeeDocuments\DocumentTypeRecentActivityQuery;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -47,6 +49,29 @@ class DocumentTypeController extends Controller
             'pagination' => $page['pagination'],
             'search' => $page['search'],
             'open_document_type' => $this->resolveOpenDocumentType($request, $companyId),
+            ...DocumentRequirementFormOptions::for($companyId),
+        ]);
+    }
+
+    public function show(Request $request, DocumentType $documentType): InertiaResponse
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $user = $request->user();
+
+        $documentType->load($this->requirementRelationsForCompany($companyId));
+
+        return Inertia::render('organization/documents/configuration/document-type-show', [
+            'document_type' => DocumentTypeDetailPresenter::toArray($documentType, $companyId, $user),
+            'can' => [
+                'update' => $user?->can('settings.master-data.document-types.update') ?? false,
+                'delete' => $user?->can('settings.master-data.document-types.delete') ?? false,
+            ],
+            'recent_activity' => DocumentTypeRecentActivityQuery::for(
+                $user,
+                $companyId,
+                $documentType,
+            ),
+            'can_view_audit' => $user?->can('audit.view') ?? false,
             ...DocumentRequirementFormOptions::for($companyId),
         ]);
     }
@@ -100,6 +125,12 @@ class DocumentTypeController extends Controller
                 $sync->handle($companyId, $document_type, $validated, $request->user());
             }
         });
+
+        if (($validated['redirect_to'] ?? null) === 'show') {
+            return redirect()
+                ->route('organization.documents.configuration.show', $document_type)
+                ->with('success', 'Document type updated successfully.');
+        }
 
         return $this->indexRedirect()->with('success', 'Document type updated successfully.');
     }

@@ -108,15 +108,15 @@ export function DocumentWorkflowPresetsContent({
     return (
         <Main>
             <DetailsHeader
-                title="Workflow presets"
-                description="Reusable review and approval routing templates for generated documents."
+                title="Approval Flows"
+                description="Reusable multi-stage review and approval workflows for generated documents."
                 backHref={documentRoutes.requests.url()}
                 backLabel="Requests"
                 actions={
                     can.create ? (
                         <Button type="button" onClick={openCreate}>
                             <Plus className="mr-2 h-4 w-4" />
-                            New preset
+                            New approval flow
                         </Button>
                     ) : null
                 }
@@ -142,7 +142,7 @@ export function DocumentWorkflowPresetsContent({
                                 colSpan={6}
                                 className={`${dataTableCellClass()} py-10 text-center text-sm text-muted-foreground`}
                             >
-                                No workflow presets yet.
+                                No approval flows configured yet.
                             </TableCell>
                         </TableRow>
                     ) : (

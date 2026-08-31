@@ -102,7 +102,7 @@ function RequestsTabSwitcher({
                     )}
                 >
                     <ClipboardCheck className="h-3.5 w-3.5" />
-                    Review &amp; Approval
+                    Approvals
                 </button>
             ) : null}
             {canViewRecipient ? (
@@ -121,7 +121,7 @@ function RequestsTabSwitcher({
                     )}
                 >
                     <FileSignature className="h-3.5 w-3.5" />
-                    Signing &amp; Acknowledgement
+                    Employee Signing
                 </button>
             ) : null}
             {canViewSignatures ? (
@@ -180,7 +180,7 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
         <Main>
             <PageHeader
                 title="Requests"
-                description="Review and approval, unified signing and acknowledgement, plus legacy bulk signature requests."
+                description="Manage documents waiting for review, approval, signature or acknowledgement."
                 right={
                     <RequestsTabSwitcher
                         tab={tab}
@@ -203,7 +203,7 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                                     href={documentRoutes.workflowPresets.url()}
                                 >
                                     <Settings2 className="mr-2 h-4 w-4" />
-                                    Workflow presets
+                                    Approval Flows
                                 </Link>
                             </Button>
                         </div>
@@ -330,29 +330,34 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
             {tab === 'recipient' &&
             (can.view_recipient_requests || can.respond_recipient_requests) ? (
                 <div className="space-y-4">
-                    <div className="flex justify-end gap-2">
-                        {recipient_automation?.can_view ? (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setReminderSettingsOpen(true)}
-                            >
-                                <Settings2 className="mr-2 h-4 w-4" />
-                                Reminder settings
-                            </Button>
-                        ) : null}
-                        {signing_preset_can.view ? (
-                            <Button asChild variant="outline" size="sm">
-                                <Link
-                                    href={documentRoutes.signingPresets.url()}
+                    {(signing_preset_can.view ||
+                        recipient_automation?.can_view) && (
+                        <div className="flex justify-end gap-2">
+                            {signing_preset_can.view ? (
+                                <Button asChild variant="outline" size="sm">
+                                    <Link
+                                        href={documentRoutes.signingPresets.url()}
+                                    >
+                                        <Settings2 className="mr-2 h-4 w-4" />
+                                        Signing Flows
+                                    </Link>
+                                </Button>
+                            ) : null}
+                            {recipient_automation?.can_view ? (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                        setReminderSettingsOpen(true)
+                                    }
                                 >
                                     <Settings2 className="mr-2 h-4 w-4" />
-                                    Signing presets
-                                </Link>
-                            </Button>
-                        ) : null}
-                    </div>
+                                    Reminder Settings
+                                </Button>
+                            ) : null}
+                        </div>
+                    )}
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                         <SearchBar
                             value={list.searchInput}

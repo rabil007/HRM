@@ -553,7 +553,7 @@ export function DocumentsTemplatesContent({
         <Main>
             <PageHeader
                 title="Templates"
-                description="Create and manage reusable company document templates."
+                description="Create reusable documents for Generate & Send."
                 right={
                     can.create_templates ? (
                         <Button
@@ -572,11 +572,10 @@ export function DocumentsTemplatesContent({
                 <div className="space-y-4">
                     <div>
                         <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                            Custom Templates
+                            Company Templates
                         </h2>
                         <p className="text-xs text-muted-foreground">
-                            Company-owned reusable templates supporting
-                            controlled merge fields and visual PDF overlays.
+                            Create reusable documents for Generate & Send.
                         </p>
                     </div>
 
@@ -947,7 +946,8 @@ export function DocumentsTemplatesContent({
                                                                                 >
                                                                                     <Settings2 className="h-3.5 w-3.5" />
                                                                                     <span>
-                                                                                        Automation
+                                                                                        After
+                                                                                        generation
                                                                                     </span>
                                                                                 </DropdownMenuItem>
 
@@ -1035,8 +1035,8 @@ export function DocumentsTemplatesContent({
                                 icon={
                                     <FileText className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
                                 }
-                                title="No custom templates yet."
-                                description="Create reusable company letters, employment certificates, or upload branded PDF templates."
+                                title="No company templates yet."
+                                description="Create a reusable document template for Generate & Send."
                                 action={
                                     can.create_templates ? (
                                         <Button
@@ -1066,12 +1066,10 @@ export function DocumentsTemplatesContent({
                 <div className="space-y-4">
                     <div>
                         <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                            System Generation Templates
+                            Built-in Templates
                         </h2>
                         <p className="text-xs text-muted-foreground">
-                            Protected application templates built into OMS-HRM.
-                            Configuration for e-signatures and company issuance
-                            rules is managed in dedicated settings.
+                            Ready-to-use templates provided by the system.
                         </p>
                     </div>
 

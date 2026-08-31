@@ -3,7 +3,6 @@ import {
     Download,
     Eye,
     FileDown,
-    FileStack,
     FileText,
     Folder,
     FolderTree,
@@ -87,6 +86,10 @@ import documentRoutes, {
     generate as documentsGenerate,
     requests as documentsRequests,
 } from '@/routes/organization/documents';
+import { DocumentContextHeader } from './components/document-context-header';
+import { EmployeeFilters } from './components/employee-filters';
+import { GenerationStatusFilter } from './components/generation-status-filter';
+import { RegenerationWarning } from './components/regeneration-warning';
 import { EMPTY_BULK_DOCUMENT_FILTERS } from './types';
 import type {
     BulkDocumentFilters,
@@ -530,6 +533,7 @@ export function BulkDocumentsContent({
     custom_template,
     view,
     embedded_in_requests: embeddedInRequests = false,
+    module_view_locked = false,
     filters: initialFilters,
     search: initialSearch,
     counts,
@@ -555,8 +559,7 @@ export function BulkDocumentsContent({
     const isRosterView = view === 'roster';
     const isSignaturesView = view === 'signatures';
     const isHistoryView = view === 'history';
-    const showEmployeeFilters =
-        isRosterView || isSignaturesView || isHistoryView;
+    const showEmployeeFilters = isRosterView || isSignaturesView;
     const supportsEsignature = document_type_key === 'salary_declaration';
     const [searchInput, setSearchInput] = useState(initialSearch);
     const [filters, setFilters] = useState<BulkDocumentFilters>({
@@ -1638,11 +1641,6 @@ export function BulkDocumentsContent({
         email_filter !== 'all',
     ].filter(Boolean).length;
 
-    const selectedSponsorName =
-        company_visa_types.find(
-            (sponsor) => String(sponsor.id) === filters.company_visa_type_id,
-        )?.name ?? null;
-
     const activeFilterCount = isRosterView
         ? employeeFilterCount + (generation_filter !== 'all' ? 1 : 0)
         : employeeFilterCount;
@@ -1672,63 +1670,75 @@ export function BulkDocumentsContent({
                     <PageHeader
                         title={
                             isSignaturesView
-                                ? 'Requests'
+                                ? 'Signature Requests'
                                 : isHistoryView
                                   ? 'Activity'
                                   : 'Generate & Send'
                         }
                         description={
                             isSignaturesView
-                                ? `Review and manage ${selectedTypeLabel} signature requests.`
+                                ? `Review and approve employee signature submissions for ${selectedTypeLabel}.`
                                 : isHistoryView
-                                  ? `Generation history for ${selectedTypeLabel}.`
-                                  : `Generate and send ${selectedTypeLabel} documents for multiple employees.`
-                        }
-                        right={
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                                <AppSelect
-                                    value={document_type_key}
-                                    onValueChange={(value) => navigate(value)}
-                                    className="h-12 w-full rounded-xl sm:w-64"
-                                >
-                                    {document_type_options.map((option) => (
-                                        <AppSelectItem
-                                            key={option.value}
-                                            value={option.value}
-                                            keywords={option.category}
-                                        >
-                                            {option.category ===
-                                            'Company Templates'
-                                                ? `📄 ${option.label}`
-                                                : option.label}
-                                        </AppSelectItem>
-                                    ))}
-                                </AppSelect>
-
-                                {isRosterView &&
-                                can.generate &&
-                                effectiveSelectedCount === 0 ? (
-                                    <Button
-                                        type="button"
-                                        onClick={handleGenerate}
-                                        disabled={
-                                            isGenerating ||
-                                            missingCount === 0 ||
-                                            isRunActive
-                                        }
-                                        className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
-                                    >
-                                        {isGenerating ? (
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <FileStack className="mr-2 h-4 w-4" />
-                                        )}
-                                        {generateLabel}
-                                    </Button>
-                                ) : null}
-                            </div>
+                                  ? 'Review document generation and email history.'
+                                  : `Create ${selectedTypeLabel} documents for multiple employees at once, then email or download them.`
                         }
                     />
+
+                    {isRosterView ? (
+                        <DocumentContextHeader
+                            documentTypeKey={document_type_key}
+                            documentTypeOptions={document_type_options}
+                            missingCount={counts.not_generated}
+                            onDocumentTypeChange={(value) => navigate(value)}
+                        />
+                    ) : isHistoryView ? (
+                        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-sm text-muted-foreground">
+                                Generation and email history for{' '}
+                                <span className="font-medium text-foreground">
+                                    {selectedTypeLabel}
+                                </span>
+                                .
+                            </p>
+                            <AppSelect
+                                value={document_type_key}
+                                onValueChange={(value) => navigate(value)}
+                                className="h-10 w-full rounded-xl sm:w-64"
+                            >
+                                {document_type_options.map((option) => (
+                                    <AppSelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                        keywords={option.category}
+                                    >
+                                        {option.category === 'Company Templates'
+                                            ? `📄 ${option.label}`
+                                            : option.label}
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+                        </div>
+                    ) : (
+                        <div className="mb-6">
+                            <AppSelect
+                                value={document_type_key}
+                                onValueChange={(value) => navigate(value)}
+                                className="h-12 w-full rounded-xl sm:w-64"
+                            >
+                                {document_type_options.map((option) => (
+                                    <AppSelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                        keywords={option.category}
+                                    >
+                                        {option.category === 'Company Templates'
+                                            ? `📄 ${option.label}`
+                                            : option.label}
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+                        </div>
+                    )}
                 </>
             ) : (
                 <div className="mb-6 flex justify-end">
@@ -1802,35 +1812,15 @@ export function BulkDocumentsContent({
                     />
                 </div>
             ) : isRosterView ? (
-                <div className="mb-8 grid gap-4 sm:grid-cols-3">
-                    <SummaryCard
-                        label="In this list"
-                        value={counts.targeted}
-                        active={generation_filter === 'all'}
-                        onClick={() => setGenerationFilter('all')}
-                        cardClass="border-border bg-muted/20 hover:border-border dark:border-white/10 dark:hover:border-white/20"
-                        activeClass="border-primary/30 ring-1 ring-primary/10 dark:border-white/20 dark:ring-white/10"
-                        valueClass="text-foreground"
-                    />
-                    <SummaryCard
-                        label="Already generated"
-                        value={counts.generated}
-                        active={generation_filter === 'generated'}
-                        onClick={() => setGenerationFilter('generated')}
-                        cardClass="border-emerald-500/15 bg-emerald-500/[0.04] hover:border-emerald-500/30"
-                        activeClass="border-emerald-500/40 ring-1 ring-emerald-500/25"
-                        valueClass="text-emerald-500 dark:text-emerald-400"
-                    />
-                    <SummaryCard
-                        label="Missing document"
-                        value={counts.not_generated}
-                        active={generation_filter === 'missing'}
-                        onClick={() => setGenerationFilter('missing')}
-                        cardClass="border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30"
-                        activeClass="border-amber-500/40 ring-1 ring-amber-500/25"
-                        valueClass="text-amber-500 dark:text-amber-400"
-                    />
-                </div>
+                <GenerationStatusFilter
+                    generationFilter={generation_filter}
+                    onFilterChange={setGenerationFilter}
+                    counts={{
+                        targeted: counts.targeted,
+                        not_generated: counts.not_generated,
+                        generated: counts.generated,
+                    }}
+                />
             ) : null}
 
             {isSignaturesView && supportsEsignature ? (
@@ -1866,7 +1856,32 @@ export function BulkDocumentsContent({
             ) : null}
 
             {/* Search / view controls */}
-            {showEmployeeFilters ? (
+            {showEmployeeFilters && isRosterView ? (
+                <EmployeeFilters
+                    searchInput={searchInput}
+                    onSearchChange={setSearchInput}
+                    filters={{
+                        ...filters,
+                        search: searchInput,
+                    }}
+                    onFiltersChange={(next) => {
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                        const { search: _, ...filtersOnly } = next;
+                        setFilters(filtersOnly);
+                        navigate(document_type_key, filtersOnly, searchInput);
+                    }}
+                    emailFilter={email_filter}
+                    onEmailFilterChange={setEmailFilter}
+                    companyVisaTypes={company_visa_types}
+                    departmentTree={department_tree}
+                    departmentTreeSelectedId={department_tree_selected_id}
+                    departmentTreeSelectedPositionId={
+                        department_tree_selected_position_id
+                    }
+                    activeFilterCount={activeFilterCount}
+                    onClearFilters={clearAllFilters}
+                />
+            ) : showEmployeeFilters ? (
                 <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center">
                     <SearchBar
                         placeholder="Search employees by name or employee no…"
@@ -2002,186 +2017,6 @@ export function BulkDocumentsContent({
                 </div>
             ) : null}
 
-            {/* Active filter chips */}
-            {showEmployeeFilters && activeFilterCount > 0 ? (
-                <div className="mb-4 flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium text-muted-foreground/80">
-                        Active filters
-                    </span>
-
-                    {filters.department_id || filters.position_id ? (
-                        <Badge
-                            variant="outline"
-                            className="gap-1 pr-1 pl-2.5 font-normal"
-                        >
-                            {filters.position_id
-                                ? 'Department · position'
-                                : 'Department'}
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 rounded-full hover:bg-muted"
-                                onClick={() => {
-                                    const next = {
-                                        ...filters,
-                                        department_id: '',
-                                        position_id: '',
-                                    };
-                                    setFilters(next);
-                                    navigate(
-                                        document_type_key,
-                                        next,
-                                        searchInput,
-                                    );
-                                }}
-                                aria-label="Clear department filter"
-                            >
-                                <X className="h-3 w-3" />
-                            </Button>
-                        </Badge>
-                    ) : null}
-
-                    {filters.company_visa_type_id && selectedSponsorName ? (
-                        <Badge
-                            variant="outline"
-                            className="gap-1 pr-1 pl-2.5 font-normal"
-                        >
-                            Sponsor: {selectedSponsorName}
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 rounded-full hover:bg-muted"
-                                onClick={() => {
-                                    const next = {
-                                        ...filters,
-                                        company_visa_type_id: '',
-                                    };
-                                    setFilters(next);
-                                    navigate(
-                                        document_type_key,
-                                        next,
-                                        searchInput,
-                                    );
-                                }}
-                                aria-label="Clear sponsor filter"
-                            >
-                                <X className="h-3 w-3" />
-                            </Button>
-                        </Badge>
-                    ) : null}
-
-                    {searchInput.trim() ? (
-                        <Badge
-                            variant="outline"
-                            className="gap-1 pr-1 pl-2.5 font-normal"
-                        >
-                            Search: {searchInput.trim()}
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 rounded-full hover:bg-muted"
-                                onClick={() => {
-                                    setSearchInput('');
-                                    navigate(document_type_key, filters, '');
-                                }}
-                                aria-label="Clear search"
-                            >
-                                <X className="h-3 w-3" />
-                            </Button>
-                        </Badge>
-                    ) : null}
-
-                    {email_filter === 'emailed' ? (
-                        <Badge
-                            variant="outline"
-                            className="gap-1 border-sky-500/25 bg-sky-500/5 pr-1 pl-2.5 font-normal"
-                        >
-                            Emailed only
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 rounded-full hover:bg-sky-500/10"
-                                onClick={() => setEmailFilter('all')}
-                                aria-label="Clear emailed filter"
-                            >
-                                <X className="h-3 w-3" />
-                            </Button>
-                        </Badge>
-                    ) : null}
-
-                    {email_filter === 'not_emailed' ? (
-                        <Badge
-                            variant="outline"
-                            className="gap-1 border-dashed pr-1 pl-2.5 font-normal"
-                        >
-                            Not emailed only
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 rounded-full hover:bg-muted"
-                                onClick={() => setEmailFilter('all')}
-                                aria-label="Clear not emailed filter"
-                            >
-                                <X className="h-3 w-3" />
-                            </Button>
-                        </Badge>
-                    ) : null}
-
-                    {isRosterView && generation_filter === 'generated' ? (
-                        <Badge
-                            variant="outline"
-                            className="gap-1 border-emerald-500/25 bg-emerald-500/5 pr-1 pl-2.5 font-normal"
-                        >
-                            Already generated only
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 rounded-full hover:bg-emerald-500/10"
-                                onClick={() => setGenerationFilter('all')}
-                                aria-label="Clear generated filter"
-                            >
-                                <X className="h-3 w-3" />
-                            </Button>
-                        </Badge>
-                    ) : null}
-
-                    {isRosterView && generation_filter === 'missing' ? (
-                        <Badge
-                            variant="outline"
-                            className="gap-1 border-amber-500/25 bg-amber-500/5 pr-1 pl-2.5 font-normal"
-                        >
-                            Missing document only
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 rounded-full hover:bg-amber-500/10"
-                                onClick={() => setGenerationFilter('all')}
-                                aria-label="Clear missing document filter"
-                            >
-                                <X className="h-3 w-3" />
-                            </Button>
-                        </Badge>
-                    ) : null}
-
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                        onClick={clearAllFilters}
-                    >
-                        Clear all
-                    </Button>
-                </div>
-            ) : null}
-
             {isRosterView ? <ProgressBanner latestRun={latest_run} /> : null}
             {isRosterView ? (
                 <EmailProgressBanner latestEmailBatch={latest_email_batch} />
@@ -2189,6 +2024,22 @@ export function BulkDocumentsContent({
 
             {isRosterView ? (
                 <>
+                    <h3 className="mb-4 text-sm font-medium text-foreground">
+                        Take Action
+                    </h3>
+
+                    {effectiveSelectedCount > 0 ? (
+                        <RegenerationWarning
+                            count={
+                                employees.filter(
+                                    (emp) =>
+                                        effectiveSelectedIds.includes(emp.id) &&
+                                        emp.document !== null,
+                                ).length
+                            }
+                        />
+                    ) : null}
+
                     {/* Selection toolbar */}
                     <SelectionToolbar
                         count={effectiveSelectedCount}
@@ -2289,25 +2140,19 @@ export function BulkDocumentsContent({
                         }
                     />
 
-                    {effectiveSelectedCount > 0 ? (
-                        <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground/80">
-                            <RotateCcw className="h-3 w-3" />
-                            Existing documents for selected employees will be
-                            replaced.
-                        </p>
-                    ) : null}
-
                     {/* Employee table */}
                     <OrganizationDataTable
                         minWidth="min-w-[880px]"
                         header={
                             <>
                                 <span />
-                                <BulkDocumentsViewSwitcher
-                                    value={view}
-                                    onChange={setView}
-                                    showSignatures={supportsEsignature}
-                                />
+                                {!module_view_locked ? (
+                                    <BulkDocumentsViewSwitcher
+                                        value={view}
+                                        onChange={setView}
+                                        showSignatures={supportsEsignature}
+                                    />
+                                ) : null}
                             </>
                         }
                     >
@@ -2551,7 +2396,7 @@ export function BulkDocumentsContent({
                                     Review employee signature submissions for{' '}
                                     {selectedTypeLabel}.
                                 </span>
-                                {!embeddedInRequests ? (
+                                {!embeddedInRequests && !module_view_locked ? (
                                     <BulkDocumentsViewSwitcher
                                         value={view}
                                         onChange={setView}
@@ -2581,15 +2426,16 @@ export function BulkDocumentsContent({
                         onEmailBatchClick={setSelectedEmailBatchId}
                         header={
                             <>
-                                <span className="text-sm text-muted-foreground/80">
-                                    All bulk generation and email runs for{' '}
-                                    {selectedTypeLabel}.
+                                <span className="text-sm font-medium text-foreground">
+                                    Recent Operations
                                 </span>
-                                <BulkDocumentsViewSwitcher
-                                    value={view}
-                                    onChange={setView}
-                                    showSignatures={supportsEsignature}
-                                />
+                                {!module_view_locked ? (
+                                    <BulkDocumentsViewSwitcher
+                                        value={view}
+                                        onChange={setView}
+                                        showSignatures={supportsEsignature}
+                                    />
+                                ) : null}
                             </>
                         }
                     />
