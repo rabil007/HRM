@@ -21,7 +21,6 @@ import type {
     BulkEmailFilter,
     BulkSignatureFilter,
 } from '@/features/organization/documents/bulk/types';
-import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import { RecipientReminderSettingsSheet } from '@/features/organization/documents/workflow/recipient-reminder-settings-sheet';
 import { RecipientRequestsTable } from '@/features/organization/documents/workflow/recipient-requests-table';
 import type { DocumentRequestsIndexProps } from '@/features/organization/documents/workflow/types';
@@ -179,7 +178,6 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
 
     return (
         <Main>
-            <DocumentsModuleNav />
             <PageHeader
                 title="Requests"
                 description="Review and approval, unified signing and acknowledgement, plus legacy bulk signature requests."

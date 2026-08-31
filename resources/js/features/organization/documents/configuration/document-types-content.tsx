@@ -45,7 +45,6 @@ import type {
     ProjectOption,
     RankOption,
 } from '@/features/organization/documents/configuration/types';
-import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { cn } from '@/lib/utils';
@@ -213,8 +212,6 @@ export function DocumentTypesContent({
                     </div>
                 }
             />
-
-            <DocumentsModuleNav />
 
             <SearchBar
                 value={list.searchInput}

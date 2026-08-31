@@ -16,7 +16,6 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import type {
     OverviewAttentionItem,
     OverviewComplianceType,
@@ -100,8 +99,6 @@ export function DocumentsOverviewContent({
                 title="Overview"
                 description="What needs attention now, who is affected, and the next action to take."
             />
-
-            <DocumentsModuleNav />
 
             {attention.length > 0 ? (
                 <section

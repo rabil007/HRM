@@ -8,7 +8,6 @@ import { DocumentRequirementSummaryCards } from '@/features/organization/documen
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
-import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
 import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
 import { DocumentsIndexDocumentBulkActions } from '@/features/organization/documents/index/documents-index-document-bulk-actions';
@@ -313,8 +312,6 @@ export default function DocumentsIndex({
             <Head title="Library" />
 
             <DocumentsBreadcrumbs items={[{ title: 'Documents' }]} />
-
-            <DocumentsModuleNav />
 
             <DocumentsSummaryCards
                 summary={summary}

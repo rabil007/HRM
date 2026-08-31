@@ -34,7 +34,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import { SigningPresetFormDialog } from '@/features/organization/documents/signing/signing-preset-form-dialog';
 import type {
     DocumentSigningPresetsIndexProps,
@@ -73,7 +72,6 @@ export function DocumentSigningPresetsContent({
     return (
         <>
             <Main>
-                <DocumentsModuleNav />
                 <DetailsHeader
                     title="Signing presets"
                     description="Reusable sequential signing chains for employee documents."

@@ -34,7 +34,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import type {
     DocumentWorkflowPresetsIndexProps,
     WorkflowPresetSummary,
@@ -108,7 +107,6 @@ export function DocumentWorkflowPresetsContent({
 
     return (
         <Main>
-            <DocumentsModuleNav />
             <DetailsHeader
                 title="Workflow presets"
                 description="Reusable review and approval routing templates for generated documents."
