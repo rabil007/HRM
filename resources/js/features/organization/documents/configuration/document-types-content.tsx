@@ -56,6 +56,7 @@ import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { cn } from '@/lib/utils';
 import { configuration as documentsConfiguration } from '@/routes/organization/documents';
+import { show as documentTypeShow } from '@/routes/organization/documents/configuration';
 import type { PaginationMeta } from '@/types/pagination';
 
 export function DocumentTypesContent({
@@ -85,6 +86,9 @@ export function DocumentTypesContent({
         filters: {},
         pagination,
     });
+
+    const detailHref = (documentTypeId: number) =>
+        documentTypeShow.url(documentTypeId);
 
     const [sheetOpen, setSheetOpen] = useState(openDocumentType !== null);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -302,6 +306,7 @@ export function DocumentTypesContent({
                                             isRequired ? 'Required' : 'Optional'
                                         }
                                         meta={metaParts}
+                                        href={detailHref(documentType.id)}
                                         status={
                                             <Badge
                                                 variant={
@@ -316,17 +321,10 @@ export function DocumentTypesContent({
                                             </Badge>
                                         }
                                         overflowActions={overflowActions}
-                                        primaryAction={
-                                            can.update
-                                                ? {
-                                                      label: 'Edit',
-                                                      onClick: () =>
-                                                          openEdit(
-                                                              documentType,
-                                                          ),
-                                                  }
-                                                : undefined
-                                        }
+                                        primaryAction={{
+                                            label: 'View',
+                                            href: detailHref(documentType.id),
+                                        }}
                                     />
                                 );
                             })}
@@ -350,26 +348,25 @@ export function DocumentTypesContent({
                             </TableHeader>
                             <TableBody>
                                 {documentTypes.map((documentType) => {
-                                    const canOpen = can.update;
                                     const isRequired =
                                         documentType.requirement?.is_required;
                                     const appliesTo =
                                         documentTypeAppliesToLabel(
                                             documentType.requirement,
                                         );
+                                    const viewHref = detailHref(
+                                        documentType.id,
+                                    );
 
                                     return (
                                         <TableRow
                                             key={documentType.id}
                                             className={cn(
-                                                dataTableBodyRowClass(canOpen),
-                                                canOpen && 'cursor-pointer',
+                                                dataTableBodyRowClass(false),
+                                                'cursor-pointer',
                                             )}
-                                            onClick={
-                                                canOpen
-                                                    ? () =>
-                                                          openEdit(documentType)
-                                                    : undefined
+                                            onClick={() =>
+                                                router.visit(viewHref)
                                             }
                                         >
                                             <TableCell
@@ -460,7 +457,8 @@ export function DocumentTypesContent({
                                                 }
                                             >
                                                 <ListTableCrudActions
-                                                    showView={false}
+                                                    showView
+                                                    viewHref={viewHref}
                                                     showEdit={can.update}
                                                     showDelete={can.delete}
                                                     onEdit={() =>

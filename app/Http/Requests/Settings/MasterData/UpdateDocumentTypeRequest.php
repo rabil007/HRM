@@ -37,6 +37,7 @@ class UpdateDocumentTypeRequest extends FormRequest
                     ->whereNull('deleted_at'),
             ],
             'is_active' => ['sometimes', 'boolean'],
+            'redirect_to' => ['nullable', 'string', 'in:show'],
         ]);
     }
 

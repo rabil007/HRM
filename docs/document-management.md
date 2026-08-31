@@ -265,14 +265,15 @@ HR configures document types and requirement rules under **Documents → Configu
 The page answers one core question: *What kind of employee document is this, and who is required to have it?*
 
 - **Purpose & description:** *"Define document categories, requirements, and who needs each document."*
+- **Detail page:** Opening a Document Type name or row navigates to `/organization/documents/configuration/{documentType}` (**Documents → Document Types → {name}**). The detail page answers: what the type is, whether it is required, who it applies to, which details are tracked, and recent changes. **Edit** reuses the existing create/edit Sheet and stays on the detail page after a successful update (`redirect_to=show`). **Delete** is available under overflow actions when permitted and returns to the Document Types list. **Recent activity** renders only with `audit.view` and includes Document Type field changes plus company-scoped requirement policy phrases. When the type is required and the user has `documents.view`, compliance shortcuts open Library filtered by that type (`View missing employees`, `View documents`).
 - **Table columns:**
-  - **Document Type:** Name of the document type (e.g. Passport Copy, Sea Service Book).
+  - **Document Type:** Name of the document type (e.g. Passport Copy, Sea Service Book). Clicking the name or row opens the detail page.
   - **Requirement:** Clear status badge indicating **Required** or **Optional**.
   - **Applies To:** Who must hold it when required (**All employees**, specific group summary like `Crew · Captain`, or `—` when optional).
   - **Expiry:** Shows **Tracked** when expiry tracking is active, or `—`.
   - **Status:** **Active** / **Inactive** badge with inline status switch for fast updates.
-  - **Actions:** Edit and Delete actions (permission-governed).
-- **Responsive card view:** On mobile screens (`< md`), records render as streamlined cards showing title, requirement status, applies-to scope, expiry tracking, active badge, and inline edit/delete actions.
+  - **Actions:** View, Edit, and Delete actions (permission-governed).
+- **Responsive card view:** On mobile screens (`< md`), records render as streamlined cards showing title, requirement status, applies-to scope, expiry tracking, active badge, View primary action, and inline edit/delete overflow actions.
 - **Empty state:** Clean empty state with direct **Add document type** action when the user has create permissions.
 - **Create / Edit Sheet structure:**
   1. **Basics:** Document Type Name (`title`) and Active status switch (`is_active`).
@@ -282,7 +283,7 @@ The page answers one core question: *What kind of employee document is this, and
 
 The previous Settings location remains a compatibility bookmark: `/settings/master-data/document-types` redirects to `/organization/documents/configuration` and preserves supported query keys such as `search`, `page`, and `edit`. Create, update, delete, and CSV import still use the existing Settings mutation routes and `settings.master-data.document-types.*` permissions.
 
-Deep-linking a specific type is supported with `?edit={documentTypeId}` on the Configuration URL. Direct loads, Overview **Configure** visits, and same-page visits from one `edit` ID to another open or switch the Document Type Sheet. Invalid or unknown IDs are ignored and do not fail the page. Closing the Sheet replaces the URL without `edit` so the same ID can be opened again without an accidental reopen loop.
+Deep-linking a specific type is supported with `?edit={documentTypeId}` on the Configuration URL. Direct loads, Overview **Configure** visits, and same-page visits from one `edit` ID to another open or switch the Document Type Sheet. Invalid or unknown IDs are ignored and do not fail the page. Closing the Sheet replaces the URL without `edit` so the same ID can be opened again without an accidental reopen loop. The detail page Edit action uses the same Sheet component rather than a separate form implementation.
 
 `DocumentType` remains global master data (title + active). Requirement **policy** is company-scoped (`document_requirements`): one policy per company per document type.
 
@@ -432,6 +433,7 @@ Not implemented: a separate requirements page, individual exceptions/waivers, ap
 
 - `tests/Feature/Organization/DocumentsOverviewDashboardTest.php`
 - `tests/Feature/Organization/DocumentsConfigurationTest.php`
+- `tests/Feature/Organization/DocumentTypeShowTest.php`
 - `tests/Feature/Settings/MasterData/DocumentRequirementTest.php`
 - `tests/Feature/Organization/DocumentRequirementComplianceTest.php`
 - `tests/Feature/Organization/UnmappedEmployeeDocumentTypeCommandTest.php`

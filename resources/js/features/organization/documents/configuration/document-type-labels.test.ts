@@ -4,9 +4,14 @@ import {
     documentTypeAppliesToLabel,
     documentTypeExpiryLabel,
     documentTypeRequirementStatus,
+    documentTypeToRow,
     requirementToFormData,
 } from './types.ts';
-import type { DocumentRequirementPayload, DocumentTypeRow } from './types.ts';
+import type {
+    DocumentRequirementPayload,
+    DocumentTypeDetail,
+    DocumentTypeRow,
+} from './types.ts';
 
 describe('document type helpers', () => {
     it('formats expiry label correctly', () => {
@@ -188,5 +193,66 @@ describe('document type helpers', () => {
         assert.equal(formData.require_issue_date, true);
         assert.equal(formData.require_expiry_date, true);
         assert.equal(formData.require_document_number, false);
+        assert.equal(formData.redirect_to, undefined);
+
+        const showFormData = requirementToFormData(row, {
+            redirectToShow: true,
+        });
+        assert.equal(showFormData.redirect_to, 'show');
+    });
+
+    it('maps detail payloads back to list rows for the edit sheet', () => {
+        const detailRequirement: DocumentTypeDetail['requirement'] = {
+            is_required: true,
+            required_for_all: true,
+            department_ids: [],
+            position_ids: [],
+            rank_ids: [],
+            project_ids: [],
+            require_issue_date: true,
+            require_expiry_date: false,
+            require_document_number: true,
+            label: 'All employees',
+            requirement_label: 'Required',
+            scope_kind: 'all_employees',
+            scope_summary: 'Required for all employees',
+            applies_to_label: 'All employees',
+            who_needs_copy: 'Required for all active employees.',
+            matching_rule_applies: false,
+            targets: {
+                departments: [],
+                positions: [],
+                ranks: [],
+                projects: [],
+            },
+            tracked_details: [
+                { key: 'document_number', label: 'Document number' },
+                { key: 'issue_date', label: 'Issue date' },
+            ],
+        };
+
+        const row = documentTypeToRow({
+            id: 4,
+            title: 'Visa',
+            is_active: true,
+            requirement: detailRequirement,
+        });
+
+        assert.equal(row.id, 4);
+        assert.equal(row.title, 'Visa');
+        assert.equal(row.requirement.is_required, true);
+        assert.equal(row.requirement.require_document_number, true);
+        assert.equal(row.requirement.label, 'All employees');
+        assert.equal(
+            Object.prototype.hasOwnProperty.call(
+                row.requirement,
+                'tracked_details',
+            ),
+            false,
+        );
+        assert.equal(
+            Object.prototype.hasOwnProperty.call(row.requirement, 'targets'),
+            false,
+        );
     });
 });
