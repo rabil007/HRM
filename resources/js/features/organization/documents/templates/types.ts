@@ -88,7 +88,9 @@ export function normalizeFontColor(raw: unknown): string {
     return '#000000';
 }
 
-export function normalizePlacementItem(raw: Record<string, unknown>): PdfPlacementItem {
+export function normalizePlacementItem(
+    raw: Record<string, unknown>,
+): PdfPlacementItem {
     const base: BasePdfPlacement = {
         id: raw.id as string,
         page: raw.page as number,
@@ -98,20 +100,28 @@ export function normalizePlacementItem(raw: Record<string, unknown>): PdfPlaceme
         height: raw.height as number,
         font_size: raw.font_size as number | undefined,
         font_weight: raw.font_weight as 'normal' | 'bold' | undefined,
-        font_family: (raw.font_family === 'serif' ? 'serif' : 'sans') as 'sans' | 'serif',
+        font_family: (raw.font_family === 'serif' ? 'serif' : 'sans') as
+            | 'sans'
+            | 'serif',
         font_color: normalizeFontColor(raw.font_color),
         text_align: raw.text_align as 'left' | 'center' | 'right' | undefined,
     };
 
     if (raw.type === 'text') {
-        return { ...base, type: 'text', text_content: (raw.text_content as string) ?? '' };
+        return {
+            ...base,
+            type: 'text',
+            text_content: (raw.text_content as string) ?? '',
+        };
     }
 
     // Schema v1 (no type) and explicit type:'field' both normalize to field
     return { ...base, type: 'field', field: (raw.field as string) ?? '' };
 }
 
-export function normalizePlacementConfig(config: PlacementConfig | null | undefined): PlacementConfig {
+export function normalizePlacementConfig(
+    config: PlacementConfig | null | undefined,
+): PlacementConfig {
     if (!config) {
         return { schema_version: 2, placements: [] };
     }

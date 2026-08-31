@@ -40,8 +40,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
 import { getPdfJs } from '@/lib/pdfjs';
+import { cn } from '@/lib/utils';
 import { draft as draftTemplate } from '@/routes/organization/documents/templates';
 import {
     publish as publishVersion,
@@ -49,22 +49,25 @@ import {
     sourcePdf,
 } from '@/routes/organization/documents/templates/versions';
 import { save as saveDesignRoute } from '@/routes/organization/documents/templates/versions/design';
-import { normalizedToPixel, pixelToNormalized, placementRectInVisibleCanvas } from '../lib/coordinates';
 import {
-    normalizePlacementConfig,
-    normalizeFontColor,
-    type CustomTemplate,
-    type MergeField,
-    type PlacementFontFamily,
-    type PdfFieldPlacement,
-    type PdfPlacementItem,
-    type PdfTextPlacement,
-    type SignaturePlacementConfig,
-    type SignaturePlacementItem,
-    type TemplateVersionListItem,
-    type TemplateVersionSummary,
-    type VersionChangeSummary,
-    type VersionDetailResponse,
+    normalizedToPixel,
+    pixelToNormalized,
+    placementRectInVisibleCanvas,
+} from '../lib/coordinates';
+import { normalizePlacementConfig, normalizeFontColor } from '../types';
+import type {
+    CustomTemplate,
+    MergeField,
+    PlacementFontFamily,
+    PdfFieldPlacement,
+    PdfPlacementItem,
+    PdfTextPlacement,
+    SignaturePlacementConfig,
+    SignaturePlacementItem,
+    TemplateVersionListItem,
+    TemplateVersionSummary,
+    VersionChangeSummary,
+    VersionDetailResponse,
 } from '../types';
 
 // ─── Signature helper constants ───────────────────────────────────────────────
@@ -77,67 +80,123 @@ const DEFAULT_X = 0.1;
 type SignatureRole = SignaturePlacementItem['role'];
 
 function placementIdForSlot(slotKey: string): string {
-    if (slotKey === SUBJECT_SLOT) return 'subject_signature';
+    if (slotKey === SUBJECT_SLOT) {
+        return 'subject_signature';
+    }
+
     const managerMatch = /^manager_(\d+)$/.exec(slotKey);
+
     if (managerMatch) {
         const occ = Number(managerMatch[1]);
+
         return occ === 1 ? 'manager_signature' : `manager_signature_${occ}`;
     }
+
     const companyMatch = /^company_signatory_(\d+)$/.exec(slotKey);
+
     if (companyMatch) {
         const occ = Number(companyMatch[1]);
+
         return occ === 1
             ? 'company_signatory_signature'
             : `company_signatory_signature_${occ}`;
     }
+
     return `${slotKey}_signature`;
 }
 
 function roleForSlot(slotKey: string): SignatureRole {
-    if (slotKey === SUBJECT_SLOT) return 'subject';
-    if (slotKey.startsWith('manager_')) return 'manager';
+    if (slotKey === SUBJECT_SLOT) {
+        return 'subject';
+    }
+
+    if (slotKey.startsWith('manager_')) {
+        return 'manager';
+    }
+
     return 'company_signatory';
 }
 
 function occurrenceForSlot(slotKey: string): number {
-    if (slotKey === SUBJECT_SLOT) return 1;
+    if (slotKey === SUBJECT_SLOT) {
+        return 1;
+    }
+
     const match = /_(\d+)$/.exec(slotKey);
+
     return match ? Number(match[1]) : 1;
 }
 
-function slotKeyForRole(
-    role: SignatureRole,
-    occurrence: number,
-): string {
-    if (role === 'subject') return SUBJECT_SLOT;
+function slotKeyForRole(role: SignatureRole, occurrence: number): string {
+    if (role === 'subject') {
+        return SUBJECT_SLOT;
+    }
+
     return role === 'manager'
         ? `manager_${occurrence}`
         : `company_signatory_${occurrence}`;
 }
 
 function defaultYForRole(role: SignatureRole, occurrence: number): number {
-    if (role === 'subject') return 0.75;
-    if (role === 'manager') return Math.max(0.2, 0.62 - (occurrence - 1) * 0.1);
+    if (role === 'subject') {
+        return 0.75;
+    }
+
+    if (role === 'manager') {
+        return Math.max(0.2, 0.62 - (occurrence - 1) * 0.1);
+    }
+
     return Math.max(0.15, 0.5 - (occurrence - 1) * 0.1);
 }
 
 function slotLabel(slotKey: string): string {
     const role = roleForSlot(slotKey);
     const occ = occurrenceForSlot(slotKey);
-    if (role === 'subject') return 'Employee Signature';
-    if (role === 'manager') return occ === 1 ? 'Manager Signature' : `Manager Signature ${occ}`;
-    return occ === 1 ? 'Company Signatory Signature' : `Company Signatory Signature ${occ}`;
+
+    if (role === 'subject') {
+        return 'Employee Signature';
+    }
+
+    if (role === 'manager') {
+        return occ === 1 ? 'Manager Signature' : `Manager Signature ${occ}`;
+    }
+
+    return occ === 1
+        ? 'Company Signatory Signature'
+        : `Company Signatory Signature ${occ}`;
 }
 
-function roleColors(role: SignatureRole): { fill: string; stroke: string; text: string } {
-    if (role === 'subject') return { fill: 'rgba(37,99,235,0.28)', stroke: '#2563eb', text: '#1e3a8a' };
-    if (role === 'manager') return { fill: 'rgba(5,150,105,0.28)', stroke: '#059669', text: '#065f46' };
+function roleColors(role: SignatureRole): {
+    fill: string;
+    stroke: string;
+    text: string;
+} {
+    if (role === 'subject') {
+        return {
+            fill: 'rgba(37,99,235,0.28)',
+            stroke: '#2563eb',
+            text: '#1e3a8a',
+        };
+    }
+
+    if (role === 'manager') {
+        return {
+            fill: 'rgba(5,150,105,0.28)',
+            stroke: '#059669',
+            text: '#065f46',
+        };
+    }
+
     return { fill: 'rgba(180,83,9,0.28)', stroke: '#b45309', text: '#78350f' };
 }
 
-function defaultPlacement(slotKey: string, page: number): SignaturePlacementItem {
+function defaultPlacement(
+    slotKey: string,
+    page: number,
+): SignaturePlacementItem {
     const role = roleForSlot(slotKey);
     const occ = occurrenceForSlot(slotKey);
+
     return {
         id: placementIdForSlot(slotKey),
         type: 'signature',
@@ -182,6 +241,7 @@ function loadPlacementsFromConfig(
         if (initialConfig == null) {
             placements[SUBJECT_SLOT] = defaultPlacement(SUBJECT_SLOT, 1);
         }
+
         return placements;
     }
 
@@ -210,9 +270,11 @@ function sortedSlotKeys(
     return Object.keys(placements).sort((a, b) => {
         const roleOrder = (slot: string): number => {
             const r = roleForSlot(slot);
+
             return r === 'subject' ? 0 : r === 'manager' ? 1 : 2;
         };
         const diff = roleOrder(a) - roleOrder(b);
+
         return diff !== 0 ? diff : occurrenceForSlot(a) - occurrenceForSlot(b);
     });
 }
@@ -226,6 +288,7 @@ function nextOccurrence(
         .map(occurrenceForSlot)
         .sort((a, b) => a - b);
     const next = existing.length + 1;
+
     return next > MAX_ROLE_OCCURRENCE ? null : next;
 }
 
@@ -237,16 +300,30 @@ function renumberRoleSlots(
         (slot) => roleForSlot(slot) === role,
     );
     const next: Record<string, SignaturePlacementItem> = {};
+
     for (const [slotKey, item] of Object.entries(placements)) {
-        if (roleForSlot(slotKey) !== role) next[slotKey] = item;
+        if (roleForSlot(slotKey) !== role) {
+            next[slotKey] = item;
+        }
     }
+
     roleSlots.forEach((oldSlot, index) => {
         const occ = index + 1;
         const newSlot = slotKeyForRole(role, occ);
         const item = placements[oldSlot];
-        if (!item) return;
-        next[newSlot] = { ...item, id: placementIdForSlot(newSlot), role, slot_key: newSlot };
+
+        if (!item) {
+            return;
+        }
+
+        next[newSlot] = {
+            ...item,
+            id: placementIdForSlot(newSlot),
+            role,
+            slot_key: newSlot,
+        };
     });
+
     return next;
 }
 
@@ -258,28 +335,38 @@ function VersionInfoPanel({
     version: TemplateVersionSummary | null;
     changeSummary: VersionChangeSummary | null;
 }) {
-    if (!version) return null;
+    if (!version) {
+        return null;
+    }
+
     return (
         <div className="space-y-3 text-xs">
             <p className="font-semibold text-foreground">Version Information</p>
             <div className="space-y-1 text-muted-foreground">
                 <div className="flex justify-between">
                     <span>Version</span>
-                    <span className="font-medium text-foreground">v{version.version}</span>
+                    <span className="font-medium text-foreground">
+                        v{version.version}
+                    </span>
                 </div>
                 <div className="flex justify-between">
                     <span>Status</span>
-                    <span className="font-medium capitalize text-foreground">{version.status}</span>
+                    <span className="font-medium text-foreground capitalize">
+                        {version.status}
+                    </span>
                 </div>
                 {version.published_at && (
                     <div className="flex justify-between">
                         <span>Published</span>
                         <span>
-                            {new Date(version.published_at).toLocaleDateString('en-GB', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                            })}
+                            {new Date(version.published_at).toLocaleDateString(
+                                'en-GB',
+                                {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric',
+                                },
+                            )}
                         </span>
                     </div>
                 )}
@@ -304,35 +391,53 @@ function VersionInfoPanel({
             </div>
             {changeSummary ? (
                 <div className="space-y-1 border-t border-border/60 pt-2">
-                    <p className="font-semibold text-foreground">Changes from previous</p>
+                    <p className="font-semibold text-foreground">
+                        Changes from previous
+                    </p>
                     <div className="space-y-0.5 text-muted-foreground">
-                        {changeSummary.pdf_metadata_changed && <p>· PDF metadata changed</p>}
+                        {changeSummary.pdf_metadata_changed && (
+                            <p>· PDF metadata changed</p>
+                        )}
                         {(changeSummary.fields_added > 0 ||
                             changeSummary.fields_removed > 0 ||
                             changeSummary.fields_moved > 0) && (
                             <p>
-                                · Fields: +{changeSummary.fields_added} -{changeSummary.fields_removed}{' '}
-                                moved:{changeSummary.fields_moved}
+                                · Fields: +{changeSummary.fields_added} -
+                                {changeSummary.fields_removed} moved:
+                                {changeSummary.fields_moved}
                             </p>
                         )}
                         {(changeSummary.static_text_added > 0 ||
                             changeSummary.static_text_removed > 0) && (
                             <p>
-                                · Text: +{changeSummary.static_text_added} -{changeSummary.static_text_removed}
+                                · Text: +{changeSummary.static_text_added} -
+                                {changeSummary.static_text_removed}
                             </p>
                         )}
                         {changeSummary.signatures_added.length > 0 && (
-                            <p>· Added: {changeSummary.signatures_added.join(', ')}</p>
+                            <p>
+                                · Added:{' '}
+                                {changeSummary.signatures_added.join(', ')}
+                            </p>
                         )}
                         {changeSummary.signatures_removed.length > 0 && (
-                            <p>· Removed: {changeSummary.signatures_removed.join(', ')}</p>
+                            <p>
+                                · Removed:{' '}
+                                {changeSummary.signatures_removed.join(', ')}
+                            </p>
                         )}
-                        {changeSummary.workflow_preset_changed && <p>· Workflow preset changed</p>}
-                        {changeSummary.signing_preset_changed && <p>· Signing preset changed</p>}
+                        {changeSummary.workflow_preset_changed && (
+                            <p>· Workflow preset changed</p>
+                        )}
+                        {changeSummary.signing_preset_changed && (
+                            <p>· Signing preset changed</p>
+                        )}
                     </div>
                 </div>
             ) : (
-                <p className="text-muted-foreground">Initial version — no previous to compare.</p>
+                <p className="text-muted-foreground">
+                    Initial version — no previous to compare.
+                </p>
             )}
         </div>
     );
@@ -352,9 +457,21 @@ type Props = {
 };
 
 const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48];
-const FONT_FAMILIES: { value: PlacementFontFamily; label: string; fabric: string }[] = [
-    { value: 'serif', label: 'Times (Serif)', fabric: '"Times New Roman", Times, Georgia, serif' },
-    { value: 'sans', label: 'Arial (Sans)', fabric: 'Arial, Helvetica, sans-serif' },
+const FONT_FAMILIES: {
+    value: PlacementFontFamily;
+    label: string;
+    fabric: string;
+}[] = [
+    {
+        value: 'serif',
+        label: 'Times (Serif)',
+        fabric: '"Times New Roman", Times, Georgia, serif',
+    },
+    {
+        value: 'sans',
+        label: 'Arial (Sans)',
+        fabric: 'Arial, Helvetica, sans-serif',
+    },
 ];
 
 const FONT_COLORS: { value: string; label: string }[] = [
@@ -365,8 +482,10 @@ const FONT_COLORS: { value: string; label: string }[] = [
 ];
 
 function fabricFontFamily(family: PlacementFontFamily | undefined): string {
-    return FONT_FAMILIES.find((item) => item.value === (family ?? 'sans'))?.fabric
-        ?? 'Arial, Helvetica, sans-serif';
+    return (
+        FONT_FAMILIES.find((item) => item.value === (family ?? 'sans'))
+            ?.fabric ?? 'Arial, Helvetica, sans-serif'
+    );
 }
 
 function PlacementFontControls({
@@ -378,7 +497,14 @@ function PlacementFontControls({
     disabled: boolean;
     onChange: (
         patch: Partial<
-            Pick<PdfPlacementItem, 'font_size' | 'font_weight' | 'text_align' | 'font_family' | 'font_color'>
+            Pick<
+                PdfPlacementItem,
+                | 'font_size'
+                | 'font_weight'
+                | 'text_align'
+                | 'font_family'
+                | 'font_color'
+            >
         >,
     ) => void;
 }) {
@@ -433,16 +559,24 @@ function PlacementFontControls({
                         aria-label="Custom font color"
                         className="h-6 w-8 cursor-pointer rounded border border-border bg-background p-0 disabled:cursor-not-allowed"
                         onChange={(event) =>
-                            onChange({ font_color: normalizeFontColor(event.target.value) })
+                            onChange({
+                                font_color: normalizeFontColor(
+                                    event.target.value,
+                                ),
+                            })
                         }
                     />
                 </div>
             </div>
             <div>
-                <p className="mb-1 text-[11px] text-muted-foreground">Font Size</p>
+                <p className="mb-1 text-[11px] text-muted-foreground">
+                    Font Size
+                </p>
                 <Select
                     value={String(placement.font_size || 12)}
-                    onValueChange={(value) => onChange({ font_size: Number(value) })}
+                    onValueChange={(value) =>
+                        onChange({ font_size: Number(value) })
+                    }
                     disabled={disabled}
                 >
                     <SelectTrigger className="h-7 w-full text-xs">
@@ -462,12 +596,17 @@ function PlacementFontControls({
                 <Button
                     type="button"
                     size="icon"
-                    variant={placement.font_weight === 'bold' ? 'default' : 'ghost'}
+                    variant={
+                        placement.font_weight === 'bold' ? 'default' : 'ghost'
+                    }
                     className="size-7"
                     disabled={disabled}
                     onClick={() =>
                         onChange({
-                            font_weight: placement.font_weight === 'bold' ? 'normal' : 'bold',
+                            font_weight:
+                                placement.font_weight === 'bold'
+                                    ? 'normal'
+                                    : 'bold',
                         })
                     }
                 >
@@ -475,17 +614,28 @@ function PlacementFontControls({
                 </Button>
             </div>
             <div>
-                <p className="mb-1 text-[11px] text-muted-foreground">Alignment</p>
+                <p className="mb-1 text-[11px] text-muted-foreground">
+                    Alignment
+                </p>
                 <div className="flex items-center gap-0.5">
                     {(['left', 'center', 'right'] as const).map((align) => {
                         const Icon =
-                            align === 'left' ? AlignLeft : align === 'center' ? AlignCenter : AlignRight;
+                            align === 'left'
+                                ? AlignLeft
+                                : align === 'center'
+                                  ? AlignCenter
+                                  : AlignRight;
+
                         return (
                             <Button
                                 key={align}
                                 type="button"
                                 size="icon"
-                                variant={(placement.text_align || 'left') === align ? 'default' : 'ghost'}
+                                variant={
+                                    (placement.text_align || 'left') === align
+                                        ? 'default'
+                                        : 'ghost'
+                                }
                                 className="size-7"
                                 disabled={disabled}
                                 onClick={() => onChange({ text_align: align })}
@@ -517,13 +667,20 @@ export function TemplatePdfDesignerDialog({
     const open = mode === 'page' ? true : Boolean(openProp);
 
     // ── State ──────────────────────────────────────────────────────────────────
-    const [selectedVersion, setSelectedVersion] = useState<TemplateVersionSummary | null>(initialVersion);
+    const [selectedVersion, setSelectedVersion] =
+        useState<TemplateVersionSummary | null>(initialVersion);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [placements, setPlacements] = useState<PdfPlacementItem[]>([]);
-    const [signaturePlacements, setSignaturePlacements] = useState<Record<string, SignaturePlacementItem>>({});
-    const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
-    const [selectedElementType, setSelectedElementType] = useState<'field' | 'text' | 'signature' | null>(null);
+    const [signaturePlacements, setSignaturePlacements] = useState<
+        Record<string, SignaturePlacementItem>
+    >({});
+    const [selectedElementId, setSelectedElementId] = useState<string | null>(
+        null,
+    );
+    const [selectedElementType, setSelectedElementType] = useState<
+        'field' | 'text' | 'signature' | null
+    >(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [isLoadingVersion, setIsLoadingVersion] = useState(false);
@@ -535,12 +692,15 @@ export function TemplatePdfDesignerDialog({
     const [signatureError, setSignatureError] = useState<string | null>(null);
     const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
     const [isSamplePreview, setIsSamplePreview] = useState(false);
-    const [pendingVersionSwitch, setPendingVersionSwitch] = useState<TemplateVersionListItem | null>(null);
+    const [pendingVersionSwitch, setPendingVersionSwitch] =
+        useState<TemplateVersionListItem | null>(null);
     const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
     const [isCloseDiscardOpen, setIsCloseDiscardOpen] = useState(false);
-    const [isCreateDraftConfirmOpen, setIsCreateDraftConfirmOpen] = useState(false);
+    const [isCreateDraftConfirmOpen, setIsCreateDraftConfirmOpen] =
+        useState(false);
     const [isPublishConfirmOpen, setIsPublishConfirmOpen] = useState(false);
-    const [changeSummary, setChangeSummary] = useState<VersionChangeSummary | null>(null);
+    const [changeSummary, setChangeSummary] =
+        useState<VersionChangeSummary | null>(null);
 
     // ── Derived ────────────────────────────────────────────────────────────────
     const isEditable = selectedVersion?.status === 'draft';
@@ -551,18 +711,30 @@ export function TemplatePdfDesignerDialog({
     const fabricCanvasRef = useRef<Canvas | null>(null);
     const labelRefs = useRef<Map<string, FabricText>>(new Map());
     const placementsRef = useRef<PdfPlacementItem[]>([]);
-    const signaturePlacementsRef = useRef<Record<string, SignaturePlacementItem>>({});
+    const signaturePlacementsRef = useRef<
+        Record<string, SignaturePlacementItem>
+    >({});
     const canvasSizeRef = useRef({ width: 0, height: 0 });
     const isSamplePreviewRef = useRef(false);
     const isEditableRef = useRef(isEditable);
     const pdfDocRef = useRef<any>(null);
 
     // ── Ref sync effects ────────────────────────────────────────────────────────
-    useEffect(() => { placementsRef.current = placements; }, [placements]);
-    useEffect(() => { signaturePlacementsRef.current = signaturePlacements; }, [signaturePlacements]);
-    useEffect(() => { canvasSizeRef.current = canvasSize; }, [canvasSize]);
-    useEffect(() => { isSamplePreviewRef.current = isSamplePreview; }, [isSamplePreview]);
-    useEffect(() => { isEditableRef.current = Boolean(isEditable); }, [isEditable]);
+    useEffect(() => {
+        placementsRef.current = placements;
+    }, [placements]);
+    useEffect(() => {
+        signaturePlacementsRef.current = signaturePlacements;
+    }, [signaturePlacements]);
+    useEffect(() => {
+        canvasSizeRef.current = canvasSize;
+    }, [canvasSize]);
+    useEffect(() => {
+        isSamplePreviewRef.current = isSamplePreview;
+    }, [isSamplePreview]);
+    useEffect(() => {
+        isEditableRef.current = Boolean(isEditable);
+    }, [isEditable]);
 
     const disposeFabricCanvas = useCallback(() => {
         if (fabricCanvasRef.current) {
@@ -577,6 +749,7 @@ export function TemplatePdfDesignerDialog({
     const mergeFieldsMap = useMemo(() => {
         const map = new Map<string, MergeField>();
         mergeFields.forEach((f) => map.set(f.key, f));
+
         return map;
     }, [mergeFields]);
 
@@ -591,9 +764,14 @@ export function TemplatePdfDesignerDialog({
             ) {
                 return;
             }
-            if (!groups[field.category]) groups[field.category] = [];
+
+            if (!groups[field.category]) {
+                groups[field.category] = [];
+            }
+
             groups[field.category].push(field);
         });
+
         return groups;
     }, [mergeFields, searchQuery]);
 
@@ -604,10 +782,14 @@ export function TemplatePdfDesignerDialog({
     );
 
     const selectedSignature = useMemo(() => {
-        if (!selectedElementId) return null;
+        if (!selectedElementId) {
+            return null;
+        }
+
         const key = Object.keys(signaturePlacements).find(
             (k) => signaturePlacements[k]?.id === selectedElementId,
         );
+
         return key ? { slotKey: key, item: signaturePlacements[key]! } : null;
     }, [signaturePlacements, selectedElementId]);
 
@@ -617,6 +799,7 @@ export function TemplatePdfDesignerDialog({
             const rect = canvas
                 .getObjects()
                 .find((obj) => (obj.get('data') as { id?: string })?.id === id);
+
             if (rect) {
                 const bounds = rect.getBoundingRect();
                 label.set({ left: bounds.left + 6, top: bounds.top + 4 });
@@ -630,7 +813,10 @@ export function TemplatePdfDesignerDialog({
         (canvas: Canvas, page: number, isEditableArg: boolean) => {
             // Remove all managed objects
             const existing = canvas.getObjects().filter((obj) => {
-                const d = obj.get('data') as Record<string, unknown> | undefined;
+                const d = obj.get('data') as
+                    | Record<string, unknown>
+                    | undefined;
+
                 return Boolean(d?.id) || Boolean(d?.parentId);
             });
             existing.forEach((obj) => canvas.remove(obj));
@@ -639,14 +825,24 @@ export function TemplatePdfDesignerDialog({
             const preview = isSamplePreviewRef.current;
             const width = canvasSizeRef.current.width;
             const height = canvasSizeRef.current.height;
-            if (width <= 0 || height <= 0) return;
+
+            if (width <= 0 || height <= 0) {
+                return;
+            }
 
             // ── Field + Text placements ──────────────────────────────────────
-            const pagePlacements = placementsRef.current.filter((p) => p.page === page);
+            const pagePlacements = placementsRef.current.filter(
+                (p) => p.page === page,
+            );
 
             pagePlacements.forEach((item) => {
                 const pixel = normalizedToPixel(
-                    { x: item.x, y: item.y, width: item.width, height: item.height },
+                    {
+                        x: item.x,
+                        y: item.y,
+                        width: item.width,
+                        height: item.height,
+                    },
                     width,
                     height,
                 );
@@ -662,7 +858,9 @@ export function TemplatePdfDesignerDialog({
                         top: pixel.top,
                         width: pixel.width,
                         height: pixel.height,
-                        fill: preview ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.25)',
+                        fill: preview
+                            ? 'rgba(16,185,129,0.2)'
+                            : 'rgba(59,130,246,0.25)',
                         stroke: preview ? '#059669' : '#2563eb',
                         strokeWidth: 1.5,
                         cornerColor: '#2563eb',
@@ -688,8 +886,14 @@ export function TemplatePdfDesignerDialog({
                     const align = item.text_align || 'left';
                     let labelLeft = pixel.left + 6;
                     let originX: 'left' | 'center' | 'right' = 'left';
-                    if (align === 'center') { labelLeft = pixel.left + pixel.width / 2; originX = 'center'; }
-                    else if (align === 'right') { labelLeft = pixel.left + pixel.width - 6; originX = 'right'; }
+
+                    if (align === 'center') {
+                        labelLeft = pixel.left + pixel.width / 2;
+                        originX = 'center';
+                    } else if (align === 'right') {
+                        labelLeft = pixel.left + pixel.width - 6;
+                        originX = 'right';
+                    }
 
                     const label = new FabricText(displayText, {
                         left: labelLeft,
@@ -697,12 +901,17 @@ export function TemplatePdfDesignerDialog({
                         fontSize: item.font_size || 12,
                         fontFamily: fabricFontFamily(item.font_family),
                         fontWeight: item.font_weight || 'normal',
-                        fill: preview ? '#065f46' : normalizeFontColor(item.font_color),
+                        fill: preview
+                            ? '#065f46'
+                            : normalizeFontColor(item.font_color),
                         selectable: false,
                         evented: false,
                         originX,
                     });
-                    label.set('data', { parentId: item.id, elementType: 'field' });
+                    label.set('data', {
+                        parentId: item.id,
+                        elementType: 'field',
+                    });
 
                     canvas.add(rect);
                     canvas.add(label);
@@ -743,59 +952,76 @@ export function TemplatePdfDesignerDialog({
             });
 
             // ── Signature placements ─────────────────────────────────────────
-            sortedSlotKeys(signaturePlacementsRef.current).forEach((slotKey) => {
-                const item = signaturePlacementsRef.current[slotKey];
-                if (!item || item.page !== page) return;
+            sortedSlotKeys(signaturePlacementsRef.current).forEach(
+                (slotKey) => {
+                    const item = signaturePlacementsRef.current[slotKey];
 
-                const pixel = normalizedToPixel(
-                    { x: item.x, y: item.y, width: item.width, height: item.height },
-                    width,
-                    height,
-                );
-                const colors = roleColors(item.role);
+                    if (!item || item.page !== page) {
+                        return;
+                    }
 
-                const rect = new Rect({
-                    left: pixel.left,
-                    top: pixel.top,
-                    width: pixel.width,
-                    height: pixel.height,
-                    fill: colors.fill,
-                    stroke: colors.stroke,
-                    strokeWidth: 2,
-                    cornerColor: colors.stroke,
-                    cornerStyle: 'circle',
-                    transparentCorners: false,
-                    hasRotatingPoint: false,
-                    lockRotation: true,
-                    selectable: !preview,
-                    evented: !preview,
-                });
-                rect.set('data', { id: item.id, elementType: 'signature', slotKey });
+                    const pixel = normalizedToPixel(
+                        {
+                            x: item.x,
+                            y: item.y,
+                            width: item.width,
+                            height: item.height,
+                        },
+                        width,
+                        height,
+                    );
+                    const colors = roleColors(item.role);
 
-                if (!isEditableArg) {
-                    rect.set({
-                        lockMovementX: true,
-                        lockMovementY: true,
-                        lockScalingX: true,
-                        lockScalingY: true,
-                        hasControls: false,
+                    const rect = new Rect({
+                        left: pixel.left,
+                        top: pixel.top,
+                        width: pixel.width,
+                        height: pixel.height,
+                        fill: colors.fill,
+                        stroke: colors.stroke,
+                        strokeWidth: 2,
+                        cornerColor: colors.stroke,
+                        cornerStyle: 'circle',
+                        transparentCorners: false,
+                        hasRotatingPoint: false,
+                        lockRotation: true,
+                        selectable: !preview,
+                        evented: !preview,
                     });
-                }
+                    rect.set('data', {
+                        id: item.id,
+                        elementType: 'signature',
+                        slotKey,
+                    });
 
-                const label = new FabricText(slotLabel(slotKey), {
-                    left: pixel.left + 6,
-                    top: pixel.top + 6,
-                    fontSize: 12,
-                    fill: colors.text,
-                    selectable: false,
-                    evented: false,
-                });
-                label.set('data', { parentId: item.id, elementType: 'signature' });
+                    if (!isEditableArg) {
+                        rect.set({
+                            lockMovementX: true,
+                            lockMovementY: true,
+                            lockScalingX: true,
+                            lockScalingY: true,
+                            hasControls: false,
+                        });
+                    }
 
-                canvas.add(rect);
-                canvas.add(label);
-                labelRefs.current.set(item.id, label);
-            });
+                    const label = new FabricText(slotLabel(slotKey), {
+                        left: pixel.left + 6,
+                        top: pixel.top + 6,
+                        fontSize: 12,
+                        fill: colors.text,
+                        selectable: false,
+                        evented: false,
+                    });
+                    label.set('data', {
+                        parentId: item.id,
+                        elementType: 'signature',
+                    });
+
+                    canvas.add(rect);
+                    canvas.add(label);
+                    labelRefs.current.set(item.id, label);
+                },
+            );
 
             canvas.requestRenderAll();
         },
@@ -807,26 +1033,45 @@ export function TemplatePdfDesignerDialog({
         (canvas: Canvas) => {
             canvas.on('object:moving', (e) => {
                 const target = e.target;
-                const data = target?.get('data') as { id?: string; elementType?: string; slotKey?: string } | undefined;
-                if (!data?.id || !isEditableRef.current) return;
+                const data = target?.get('data') as
+                    | { id?: string; elementType?: string; slotKey?: string }
+                    | undefined;
+
+                if (!data?.id || !isEditableRef.current) {
+                    return;
+                }
 
                 syncLabels(canvas);
                 const bounds = target.getBoundingRect();
                 const dims = canvasSizeRef.current;
-                if (dims.width <= 0 || dims.height <= 0) return;
+
+                if (dims.width <= 0 || dims.height <= 0) {
+                    return;
+                }
 
                 const norm = pixelToNormalized(
-                    { left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height },
+                    {
+                        left: bounds.left,
+                        top: bounds.top,
+                        width: bounds.width,
+                        height: bounds.height,
+                    },
                     dims.width,
                     dims.height,
                 );
 
-                if (data.elementType === 'field' || data.elementType === 'text') {
+                if (
+                    data.elementType === 'field' ||
+                    data.elementType === 'text'
+                ) {
                     setPlacements((prev) => {
                         const updated = prev.map((p) =>
-                            p.id === data.id ? { ...p, x: norm.x, y: norm.y } : p,
+                            p.id === data.id
+                                ? { ...p, x: norm.x, y: norm.y }
+                                : p,
                         );
                         placementsRef.current = updated;
+
                         return updated;
                     });
                 } else if (data.elementType === 'signature' && data.slotKey) {
@@ -834,39 +1079,68 @@ export function TemplatePdfDesignerDialog({
                     setSignaturePlacements((prev) => {
                         const updated = {
                             ...prev,
-                            [slotKey]: { ...prev[slotKey]!, x: norm.x, y: norm.y },
+                            [slotKey]: {
+                                ...prev[slotKey]!,
+                                x: norm.x,
+                                y: norm.y,
+                            },
                         };
                         signaturePlacementsRef.current = updated;
+
                         return updated;
                     });
                 }
+
                 setHasUnsavedChanges(true);
             });
 
             canvas.on('object:scaling', (e) => {
                 const target = e.target;
-                const data = target?.get('data') as { id?: string; elementType?: string; slotKey?: string } | undefined;
-                if (!data?.id || !isEditableRef.current) return;
+                const data = target?.get('data') as
+                    | { id?: string; elementType?: string; slotKey?: string }
+                    | undefined;
+
+                if (!data?.id || !isEditableRef.current) {
+                    return;
+                }
 
                 syncLabels(canvas);
                 const bounds = target.getBoundingRect();
                 const dims = canvasSizeRef.current;
-                if (dims.width <= 0 || dims.height <= 0) return;
+
+                if (dims.width <= 0 || dims.height <= 0) {
+                    return;
+                }
 
                 const norm = pixelToNormalized(
-                    { left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height },
+                    {
+                        left: bounds.left,
+                        top: bounds.top,
+                        width: bounds.width,
+                        height: bounds.height,
+                    },
                     dims.width,
                     dims.height,
                 );
 
-                if (data.elementType === 'field' || data.elementType === 'text') {
+                if (
+                    data.elementType === 'field' ||
+                    data.elementType === 'text'
+                ) {
                     setPlacements((prev) => {
                         const updated = prev.map((p) =>
                             p.id === data.id
-                                ? { ...p, x: norm.x, y: norm.y, width: norm.width, height: norm.height }
+                                ? {
+                                      ...p,
+                                      x: norm.x,
+                                      y: norm.y,
+                                      width: norm.width,
+                                      height: norm.height,
+                                  }
                                 : p,
                         );
                         placementsRef.current = updated;
+
                         return updated;
                     });
                 } else if (data.elementType === 'signature' && data.slotKey) {
@@ -883,17 +1157,28 @@ export function TemplatePdfDesignerDialog({
                             },
                         };
                         signaturePlacementsRef.current = updated;
+
                         return updated;
                     });
                 }
+
                 setHasUnsavedChanges(true);
             });
 
             canvas.on('text:changed', (e) => {
-                if (!isEditableRef.current) return;
+                if (!isEditableRef.current) {
+                    return;
+                }
+
                 const target = e.target;
-                const data = target?.get('data') as { id?: string; elementType?: string } | undefined;
-                if (data?.elementType !== 'text' || !data.id) return;
+                const data = target?.get('data') as
+                    | { id?: string; elementType?: string }
+                    | undefined;
+
+                if (data?.elementType !== 'text' || !data.id) {
+                    return;
+                }
+
                 const newText = (target as Textbox).text || '';
                 setPlacements((prev) => {
                     const updated = prev.map((p) =>
@@ -902,6 +1187,7 @@ export function TemplatePdfDesignerDialog({
                             : p,
                     );
                     placementsRef.current = updated;
+
                     return updated;
                 });
                 setHasUnsavedChanges(true);
@@ -909,16 +1195,26 @@ export function TemplatePdfDesignerDialog({
 
             canvas.on('selection:created', (e) => {
                 const target = e.selected?.[0];
-                const data = target?.get('data') as { id?: string; elementType?: string } | undefined;
+                const data = target?.get('data') as
+                    | { id?: string; elementType?: string }
+                    | undefined;
                 setSelectedElementId(data?.id ?? null);
-                setSelectedElementType((data?.elementType as 'field' | 'text' | 'signature') ?? null);
+                setSelectedElementType(
+                    (data?.elementType as 'field' | 'text' | 'signature') ??
+                        null,
+                );
             });
 
             canvas.on('selection:updated', (e) => {
                 const target = e.selected?.[0];
-                const data = target?.get('data') as { id?: string; elementType?: string } | undefined;
+                const data = target?.get('data') as
+                    | { id?: string; elementType?: string }
+                    | undefined;
                 setSelectedElementId(data?.id ?? null);
-                setSelectedElementType((data?.elementType as 'field' | 'text' | 'signature') ?? null);
+                setSelectedElementType(
+                    (data?.elementType as 'field' | 'text' | 'signature') ??
+                        null,
+                );
             });
 
             canvas.on('selection:cleared', () => {
@@ -929,7 +1225,11 @@ export function TemplatePdfDesignerDialog({
             canvas.on('mouse:wheel', (opt) => {
                 const event = opt.e as WheelEvent;
                 const scrollParent = containerRef.current;
-                if (!scrollParent) return;
+
+                if (!scrollParent) {
+                    return;
+                }
+
                 scrollParent.scrollTop += event.deltaY;
                 scrollParent.scrollLeft += event.deltaX;
                 event.preventDefault();
@@ -941,7 +1241,10 @@ export function TemplatePdfDesignerDialog({
 
     // ── PDF load effect ─────────────────────────────────────────────────────────
     useEffect(() => {
-        if (!open || !template || !selectedVersion) return;
+        if (!open || !template || !selectedVersion) {
+            return;
+        }
+
         let cancelled = false;
 
         const loadAndRenderPdfPage = async () => {
@@ -956,38 +1259,73 @@ export function TemplatePdfDesignerDialog({
                         template: template.id,
                         version: selectedVersion.id,
                     });
-                    const response = await fetch(pdfUrl, { credentials: 'same-origin' });
-                    if (!response.ok) throw new Error('Failed to stream private template PDF.');
+                    const response = await fetch(pdfUrl, {
+                        credentials: 'same-origin',
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(
+                            'Failed to stream private template PDF.',
+                        );
+                    }
 
                     const data = await response.arrayBuffer();
                     const pdfjs = await getPdfJs();
                     pdf = await pdfjs.getDocument({ data }).promise;
-                    if (cancelled) return;
+
+                    if (cancelled) {
+                        return;
+                    }
+
                     pdfDocRef.current = pdf;
                     setTotalPages(pdf.numPages);
                 }
 
-                const pageNumber = Math.min(Math.max(1, currentPage), pdf.numPages);
+                const pageNumber = Math.min(
+                    Math.max(1, currentPage),
+                    pdf.numPages,
+                );
                 const pdfPage = await pdf.getPage(pageNumber);
-                if (cancelled) return;
+
+                if (cancelled) {
+                    return;
+                }
 
                 const unscaledViewport = pdfPage.getViewport({ scale: 1 });
-                const targetWidth = Math.min(900, Math.max(600, window.innerWidth * 0.55));
+                const targetWidth = Math.min(
+                    900,
+                    Math.max(600, window.innerWidth * 0.55),
+                );
                 const scale = targetWidth / unscaledViewport.width;
                 const viewport = pdfPage.getViewport({ scale });
 
                 const offscreen = document.createElement('canvas');
                 const context = offscreen.getContext('2d');
-                if (!context) throw new Error('Could not get 2d context for PDF rendering.');
+
+                if (!context) {
+                    throw new Error(
+                        'Could not get 2d context for PDF rendering.',
+                    );
+                }
 
                 offscreen.width = viewport.width;
                 offscreen.height = viewport.height;
 
-                await pdfPage.render({ canvasContext: context, viewport, canvas: offscreen }).promise;
-                if (cancelled) return;
+                await pdfPage.render({
+                    canvasContext: context,
+                    viewport,
+                    canvas: offscreen,
+                }).promise;
+
+                if (cancelled) {
+                    return;
+                }
 
                 const backgroundUrl = offscreen.toDataURL('image/png');
-                const newSize = { width: viewport.width, height: viewport.height };
+                const newSize = {
+                    width: viewport.width,
+                    height: viewport.height,
+                };
                 setCanvasSize(newSize);
                 canvasSizeRef.current = newSize;
 
@@ -1005,9 +1343,15 @@ export function TemplatePdfDesignerDialog({
                     fabricCanvasRef.current = canvas;
                     attachCanvasEvents(canvas);
                 } else if (canvas) {
-                    canvas.setDimensions({ width: viewport.width, height: viewport.height });
+                    canvas.setDimensions({
+                        width: viewport.width,
+                        height: viewport.height,
+                    });
                 }
-                if (!canvas) return;
+
+                if (!canvas) {
+                    return;
+                }
 
                 const bgImage = await FabricImage.fromURL(backgroundUrl);
                 canvas.backgroundImage = bgImage;
@@ -1016,7 +1360,10 @@ export function TemplatePdfDesignerDialog({
                 setIsLoadingPdf(false);
             } catch (err: unknown) {
                 if (!cancelled) {
-                    const message = err instanceof Error ? err.message : 'Failed to render PDF page.';
+                    const message =
+                        err instanceof Error
+                            ? err.message
+                            : 'Failed to render PDF page.';
                     setErrorMessage(message);
                     setIsLoadingPdf(false);
                 }
@@ -1024,21 +1371,47 @@ export function TemplatePdfDesignerDialog({
         };
 
         loadAndRenderPdfPage();
-        return () => { cancelled = true; };
-    }, [open, template, selectedVersion, currentPage, attachCanvasEvents, syncAllObjects, isEditable]);
+
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        open,
+        template,
+        selectedVersion,
+        currentPage,
+        attachCanvasEvents,
+        syncAllObjects,
+        isEditable,
+    ]);
 
     // ── Fast sync for preview toggle / editable state ─────────────────────────
     useEffect(() => {
         const canvas = fabricCanvasRef.current;
-        if (canvas && canvasSize.width > 0 && canvasSize.height > 0 && !isLoadingPdf) {
+
+        if (
+            canvas &&
+            canvasSize.width > 0 &&
+            canvasSize.height > 0 &&
+            !isLoadingPdf
+        ) {
             syncAllObjects(canvas, currentPage, Boolean(isEditable));
         }
-    }, [isSamplePreview, currentPage, canvasSize, isLoadingPdf, syncAllObjects, isEditable]);
+    }, [
+        isSamplePreview,
+        currentPage,
+        canvasSize,
+        isLoadingPdf,
+        syncAllObjects,
+        isEditable,
+    ]);
 
     // ── Initialization effect ─────────────────────────────────────────────────
     useEffect(() => {
         if (open && initialVersion) {
-            const normalizedConfig = normalizePlacementConfig(initialVersion.placement_config);
+            const normalizedConfig = normalizePlacementConfig(
+                initialVersion.placement_config,
+            );
             const normalizedSigs = loadPlacementsFromConfig(
                 initialVersion.signature_placement_config ?? null,
             );
@@ -1065,12 +1438,20 @@ export function TemplatePdfDesignerDialog({
 
     // ── Signature slot helpers ─────────────────────────────────────────────────
     const canAddSubject = signaturePlacements[SUBJECT_SLOT] == null;
-    const canAddManager = nextOccurrence(signaturePlacements, 'manager') !== null;
-    const canAddCompany = nextOccurrence(signaturePlacements, 'company_signatory') !== null;
+    const canAddManager =
+        nextOccurrence(signaturePlacements, 'manager') !== null;
+    const canAddCompany =
+        nextOccurrence(signaturePlacements, 'company_signatory') !== null;
 
     const refreshCanvasObjects = () => {
         const canvas = fabricCanvasRef.current;
-        if (canvas && canvasSize.width > 0 && canvasSize.height > 0 && !isLoadingPdf) {
+
+        if (
+            canvas &&
+            canvasSize.width > 0 &&
+            canvasSize.height > 0 &&
+            !isLoadingPdf
+        ) {
             syncAllObjects(canvas, currentPage, Boolean(isEditable));
         }
     };
@@ -1080,20 +1461,32 @@ export function TemplatePdfDesignerDialog({
             if (signaturePlacementsRef.current[SUBJECT_SLOT]) {
                 return;
             }
+
             const newItem = defaultPlacement(SUBJECT_SLOT, currentPage);
-            const updated = { ...signaturePlacementsRef.current, [SUBJECT_SLOT]: newItem };
+            const updated = {
+                ...signaturePlacementsRef.current,
+                [SUBJECT_SLOT]: newItem,
+            };
             signaturePlacementsRef.current = updated;
             setSignaturePlacements(updated);
             setHasUnsavedChanges(true);
             refreshCanvasObjects();
+
             return;
         }
 
         const occurrence = nextOccurrence(signaturePlacementsRef.current, role);
-        if (occurrence === null) return;
+
+        if (occurrence === null) {
+            return;
+        }
+
         const slotKey = slotKeyForRole(role, occurrence);
         const newItem = defaultPlacement(slotKey, currentPage);
-        const updated = { ...signaturePlacementsRef.current, [slotKey]: newItem };
+        const updated = {
+            ...signaturePlacementsRef.current,
+            [slotKey]: newItem,
+        };
         signaturePlacementsRef.current = updated;
         setSignaturePlacements(updated);
         setHasUnsavedChanges(true);
@@ -1103,14 +1496,17 @@ export function TemplatePdfDesignerDialog({
     const removeSlot = (slotKey: string) => {
         const role = roleForSlot(slotKey);
         const removedId = signaturePlacementsRef.current[slotKey]?.id;
-        const { [slotKey]: _removed, ...rest } = signaturePlacementsRef.current;
+        const rest = { ...signaturePlacementsRef.current };
+        delete rest[slotKey];
         const next = role === 'subject' ? rest : renumberRoleSlots(rest, role);
         signaturePlacementsRef.current = next;
         setSignaturePlacements(next);
+
         if (selectedElementId === removedId) {
             setSelectedElementId(null);
             setSelectedElementType(null);
         }
+
         setHasUnsavedChanges(true);
         refreshCanvasObjects();
     };
@@ -1120,7 +1516,12 @@ export function TemplatePdfDesignerDialog({
         const canvasHost = canvasHostRef.current;
         const container = containerRef.current;
 
-        if (!canvasHost || !container || !canvasSize.width || !canvasSize.height) {
+        if (
+            !canvasHost ||
+            !container ||
+            !canvasSize.width ||
+            !canvasSize.height
+        ) {
             return {
                 left: Math.round((canvasSize.width - boxWidth) / 2),
                 top: Math.round((canvasSize.height - boxHeight) / 2),
@@ -1140,13 +1541,20 @@ export function TemplatePdfDesignerDialog({
     };
 
     const handleAddFieldPlacement = (fieldKey: string) => {
-        if (!canvasSize.width || !canvasSize.height) return;
+        if (!canvasSize.width || !canvasSize.height) {
+            return;
+        }
+
         const newId = crypto.randomUUID();
         const initialPixel = viewportPlacementRect(
             DEFAULT_PLACEMENT_WIDTH,
             DEFAULT_PLACEMENT_HEIGHT,
         );
-        const norm = pixelToNormalized(initialPixel, canvasSize.width, canvasSize.height);
+        const norm = pixelToNormalized(
+            initialPixel,
+            canvasSize.width,
+            canvasSize.height,
+        );
         const newPlacement: PdfFieldPlacement = {
             id: newId,
             type: 'field',
@@ -1167,10 +1575,12 @@ export function TemplatePdfDesignerDialog({
         setPlacements((prev) => {
             const updated = [...prev, newPlacement];
             placementsRef.current = updated;
+
             return updated;
         });
 
         const canvas = fabricCanvasRef.current;
+
         if (canvas) {
             const fieldMeta = mergeFieldsMap.get(fieldKey);
             const rect = new Rect({
@@ -1211,10 +1621,17 @@ export function TemplatePdfDesignerDialog({
     };
 
     const handleAddTextPlacement = () => {
-        if (!canvasSize.width || !canvasSize.height) return;
+        if (!canvasSize.width || !canvasSize.height) {
+            return;
+        }
+
         const newId = crypto.randomUUID();
         const initialPixel = viewportPlacementRect(200, 60);
-        const norm = pixelToNormalized(initialPixel, canvasSize.width, canvasSize.height);
+        const norm = pixelToNormalized(
+            initialPixel,
+            canvasSize.width,
+            canvasSize.height,
+        );
         const newPlacement: PdfTextPlacement = {
             id: newId,
             type: 'text',
@@ -1235,12 +1652,18 @@ export function TemplatePdfDesignerDialog({
         setPlacements((prev) => {
             const updated = [...prev, newPlacement];
             placementsRef.current = updated;
+
             return updated;
         });
 
         const canvas = fabricCanvasRef.current;
+
         if (canvas) {
-            const pixel = normalizedToPixel(norm, canvasSize.width, canvasSize.height);
+            const pixel = normalizedToPixel(
+                norm,
+                canvasSize.width,
+                canvasSize.height,
+            );
             const tb = new Textbox('Text', {
                 left: pixel.left,
                 top: pixel.top,
@@ -1278,6 +1701,7 @@ export function TemplatePdfDesignerDialog({
         if (x + source.width > 1) {
             x = Math.max(0, 1 - source.width);
         }
+
         if (y + source.height > 1) {
             y = Math.max(0, 1 - source.height);
         }
@@ -1293,6 +1717,7 @@ export function TemplatePdfDesignerDialog({
         setPlacements((prev) => {
             const updated = [...prev, duplicate];
             placementsRef.current = updated;
+
             return updated;
         });
         setHasUnsavedChanges(true);
@@ -1303,7 +1728,10 @@ export function TemplatePdfDesignerDialog({
         const canvas = fabricCanvasRef.current;
         const cloned = canvas
             ?.getObjects()
-            .find((object) => (object.get('data') as { id?: string })?.id === newId);
+            .find(
+                (object) =>
+                    (object.get('data') as { id?: string })?.id === newId,
+            );
 
         if (canvas && cloned) {
             canvas.setActiveObject(cloned);
@@ -1311,21 +1739,29 @@ export function TemplatePdfDesignerDialog({
         }
     };
 
-    const handleDeleteSelected = (id: string, elementType: 'field' | 'text' | 'signature') => {
-        if (!isEditable) return;
+    const handleDeleteSelected = (
+        id: string,
+        elementType: 'field' | 'text' | 'signature',
+    ) => {
+        if (!isEditable) {
+            return;
+        }
 
         if (elementType === 'field' || elementType === 'text') {
             setPlacements((prev) => {
                 const updated = prev.filter((p) => p.id !== id);
                 placementsRef.current = updated;
+
                 return updated;
             });
         } else if (elementType === 'signature') {
             const slotKey = Object.keys(signaturePlacementsRef.current).find(
                 (k) => signaturePlacementsRef.current[k]?.id === id,
             );
+
             if (slotKey) {
                 removeSlot(slotKey);
+
                 return;
             }
         }
@@ -1334,19 +1770,33 @@ export function TemplatePdfDesignerDialog({
         setSelectedElementType(null);
 
         const canvas = fabricCanvasRef.current;
+
         if (canvas) {
-            const obj = canvas.getObjects().find((o) => (o.get('data') as { id?: string })?.id === id);
+            const obj = canvas
+                .getObjects()
+                .find((o) => (o.get('data') as { id?: string })?.id === id);
             const lbl = labelRefs.current.get(id);
-            if (obj) canvas.remove(obj);
-            if (lbl) canvas.remove(lbl);
+
+            if (obj) {
+                canvas.remove(obj);
+            }
+
+            if (lbl) {
+                canvas.remove(lbl);
+            }
+
             labelRefs.current.delete(id);
             canvas.requestRenderAll();
         }
+
         setHasUnsavedChanges(true);
     };
 
     const doVersionSwitch = async (target: TemplateVersionListItem) => {
-        if (!template) return;
+        if (!template) {
+            return;
+        }
+
         setIsLoadingVersion(true);
         setSelectedElementId(null);
         setSelectedElementType(null);
@@ -1355,7 +1805,10 @@ export function TemplatePdfDesignerDialog({
         setErrorMessage(null);
 
         try {
-            const url = showVersionRoute.url({ template: template.id, version: target.id });
+            const url = showVersionRoute.url({
+                template: template.id,
+                version: target.id,
+            });
             const response = await fetch(url, {
                 credentials: 'same-origin',
                 headers: {
@@ -1363,10 +1816,16 @@ export function TemplatePdfDesignerDialog({
                     'X-Requested-With': 'XMLHttpRequest',
                 },
             });
-            if (!response.ok) throw new Error('Failed to load version');
+
+            if (!response.ok) {
+                throw new Error('Failed to load version');
+            }
+
             const data: VersionDetailResponse = await response.json();
 
-            const normalizedConfig = normalizePlacementConfig(data.version.placement_config);
+            const normalizedConfig = normalizePlacementConfig(
+                data.version.placement_config,
+            );
             const normalizedSigs = loadPlacementsFromConfig(
                 data.version.signature_placement_config ?? null,
             );
@@ -1384,7 +1843,10 @@ export function TemplatePdfDesignerDialog({
             labelRefs.current.clear();
             pdfDocRef.current = null;
         } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : 'Failed to switch version.';
+            const message =
+                err instanceof Error
+                    ? err.message
+                    : 'Failed to switch version.';
             setErrorMessage(message);
         } finally {
             setIsLoadingVersion(false);
@@ -1393,13 +1855,21 @@ export function TemplatePdfDesignerDialog({
 
     const handleVersionSelect = (versionIdStr: string) => {
         const versionId = Number(versionIdStr);
-        if (versionId === selectedVersion?.id) return;
+
+        if (versionId === selectedVersion?.id) {
+            return;
+        }
+
         const target = allVersions.find((v) => v.id === versionId);
-        if (!target) return;
+
+        if (!target) {
+            return;
+        }
 
         if (hasUnsavedChanges) {
             setPendingVersionSwitch(target);
             setIsDiscardConfirmOpen(true);
+
             return;
         }
 
@@ -1407,24 +1877,35 @@ export function TemplatePdfDesignerDialog({
     };
 
     const handleCreateDraft = () => {
-        if (!template) return;
+        if (!template) {
+            return;
+        }
+
         router.post(
             draftTemplate.url({ template: template.id }),
             {},
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    router.reload({ only: ['all_versions', 'initial_version'] as never[] });
+                    router.reload({
+                        only: ['all_versions', 'initial_version'] as never[],
+                    });
                 },
                 onError: (err) => {
-                    setErrorMessage((Object.values(err)[0] as string) || 'Failed to create draft.');
+                    setErrorMessage(
+                        (Object.values(err)[0] as string) ||
+                            'Failed to create draft.',
+                    );
                 },
             },
         );
     };
 
     const handleSaveDesign = async (): Promise<boolean> => {
-        if (!template || !selectedVersion) return false;
+        if (!template || !selectedVersion) {
+            return false;
+        }
+
         setIsSaving(true);
         setPlacementError(null);
         setSignatureError(null);
@@ -1433,7 +1914,9 @@ export function TemplatePdfDesignerDialog({
             signaturePlacementsRef.current,
         ).map((slotKey) => {
             const item =
-                signaturePlacementsRef.current[slotKey] ?? defaultPlacement(slotKey, 1);
+                signaturePlacementsRef.current[slotKey] ??
+                defaultPlacement(slotKey, 1);
+
             return {
                 ...item,
                 id: placementIdForSlot(slotKey),
@@ -1458,11 +1941,16 @@ export function TemplatePdfDesignerDialog({
                         height: p.height,
                         font_size: p.font_size || 12,
                         font_weight: p.font_weight || 'normal',
-                        font_family: p.font_family === 'serif' ? 'serif' : 'sans',
+                        font_family:
+                            p.font_family === 'serif' ? 'serif' : 'sans',
                         font_color: normalizeFontColor(p.font_color),
                         text_align: p.text_align || 'left',
                     };
-                    if (p.type === 'text') return { ...base, text_content: p.text_content };
+
+                    if (p.type === 'text') {
+                        return { ...base, text_content: p.text_content };
+                    }
+
                     return { ...base, field: p.field };
                 }),
             },
@@ -1502,7 +1990,8 @@ export function TemplatePdfDesignerDialog({
                 };
                 const errors = body.errors ?? {};
                 const keys = Object.keys(errors);
-                const firstValue = keys.length > 0 ? errors[keys[0]!] : body.message;
+                const firstValue =
+                    keys.length > 0 ? errors[keys[0]!] : body.message;
                 const firstMsg = Array.isArray(firstValue)
                     ? (firstValue[0] ?? 'Failed to save design.')
                     : firstValue || 'Failed to save design.';
@@ -1535,6 +2024,7 @@ export function TemplatePdfDesignerDialog({
             }
 
             setHasUnsavedChanges(false);
+
             if (onSaved) {
                 onSaved();
             }
@@ -1552,18 +2042,29 @@ export function TemplatePdfDesignerDialog({
     };
 
     const handlePublish = async () => {
-        if (!template || !selectedVersion) return;
+        if (!template || !selectedVersion) {
+            return;
+        }
+
         setErrorMessage(null);
 
         if (hasUnsavedChanges) {
             setIsPublishing(true);
             const saved = await handleSaveDesign();
-            if (!saved) { setIsPublishing(false); return; }
+
+            if (!saved) {
+                setIsPublishing(false);
+
+                return;
+            }
         }
 
         setIsPublishing(true);
         router.post(
-            publishVersion.url({ template: template.id, version: selectedVersion.id }),
+            publishVersion.url({
+                template: template.id,
+                version: selectedVersion.id,
+            }),
             {},
             {
                 preserveScroll: true,
@@ -1574,7 +2075,10 @@ export function TemplatePdfDesignerDialog({
                 },
                 onError: (err) => {
                     setIsPublishing(false);
-                    setErrorMessage((Object.values(err)[0] as string) || 'Failed to publish.');
+                    setErrorMessage(
+                        (Object.values(err)[0] as string) ||
+                            'Failed to publish.',
+                    );
                 },
             },
         );
@@ -1583,84 +2087,137 @@ export function TemplatePdfDesignerDialog({
     const handleSafeOpenChange = (newOpen: boolean) => {
         if (!newOpen && hasUnsavedChanges) {
             setIsCloseDiscardOpen(true);
+
             return;
         }
+
         onOpenChange(newOpen);
     };
 
     // ── Update field property on canvas ───────────────────────────────────────
     const updateFieldProperty = (
         id: string,
-        patch: Partial<Pick<PdfPlacementItem, 'font_size' | 'font_weight' | 'text_align' | 'font_family' | 'font_color'>>,
+        patch: Partial<
+            Pick<
+                PdfPlacementItem,
+                | 'font_size'
+                | 'font_weight'
+                | 'text_align'
+                | 'font_family'
+                | 'font_color'
+            >
+        >,
     ) => {
         setPlacements((prev) => {
-            const updated = prev.map((p) => (p.id === id ? { ...p, ...patch } : p));
+            const updated = prev.map((p) =>
+                p.id === id ? { ...p, ...patch } : p,
+            );
             placementsRef.current = updated;
+
             return updated;
         });
         setHasUnsavedChanges(true);
 
         const canvas = fabricCanvasRef.current;
-        if (!canvas) return;
+
+        if (!canvas) {
+            return;
+        }
 
         const label = labelRefs.current.get(id);
+
         if (label) {
-            if ('font_size' in patch && patch.font_size !== undefined)
+            if ('font_size' in patch && patch.font_size !== undefined) {
                 label.set('fontSize', patch.font_size);
-            if ('font_family' in patch && patch.font_family !== undefined)
+            }
+
+            if ('font_family' in patch && patch.font_family !== undefined) {
                 label.set('fontFamily', fabricFontFamily(patch.font_family));
-            if ('font_color' in patch && patch.font_color !== undefined)
+            }
+
+            if ('font_color' in patch && patch.font_color !== undefined) {
                 label.set('fill', normalizeFontColor(patch.font_color));
-            if ('font_weight' in patch && patch.font_weight !== undefined)
+            }
+
+            if ('font_weight' in patch && patch.font_weight !== undefined) {
                 label.set('fontWeight', patch.font_weight);
+            }
+
             if ('text_align' in patch && patch.text_align !== undefined) {
-                const rect = canvas.getObjects().find(
-                    (o) => (o.get('data') as { id?: string })?.id === id,
-                );
+                const rect = canvas
+                    .getObjects()
+                    .find((o) => (o.get('data') as { id?: string })?.id === id);
+
                 if (rect) {
                     const bounds = rect.getBoundingRect();
                     const align = patch.text_align!;
                     let labelLeft = bounds.left + 6;
                     let originX: 'left' | 'center' | 'right' = 'left';
-                    if (align === 'center') { labelLeft = bounds.left + bounds.width / 2; originX = 'center'; }
-                    else if (align === 'right') { labelLeft = bounds.left + bounds.width - 6; originX = 'right'; }
+
+                    if (align === 'center') {
+                        labelLeft = bounds.left + bounds.width / 2;
+                        originX = 'center';
+                    } else if (align === 'right') {
+                        labelLeft = bounds.left + bounds.width - 6;
+                        originX = 'right';
+                    }
+
                     label.set({ left: labelLeft, originX });
                 }
             }
+
             canvas.requestRenderAll();
         }
 
         // For text Textbox
-        const tb = canvas.getObjects().find(
-            (o) => (o.get('data') as { id?: string })?.id === id,
-        ) as Textbox | undefined;
+        const tb = canvas
+            .getObjects()
+            .find((o) => (o.get('data') as { id?: string })?.id === id) as
+            | Textbox
+            | undefined;
+
         if (tb && tb.type === 'textbox') {
-            if ('font_size' in patch && patch.font_size !== undefined)
+            if ('font_size' in patch && patch.font_size !== undefined) {
                 tb.set('fontSize', patch.font_size);
-            if ('font_family' in patch && patch.font_family !== undefined)
+            }
+
+            if ('font_family' in patch && patch.font_family !== undefined) {
                 tb.set('fontFamily', fabricFontFamily(patch.font_family));
-            if ('font_color' in patch && patch.font_color !== undefined)
+            }
+
+            if ('font_color' in patch && patch.font_color !== undefined) {
                 tb.set('fill', normalizeFontColor(patch.font_color));
-            if ('font_weight' in patch && patch.font_weight !== undefined)
+            }
+
+            if ('font_weight' in patch && patch.font_weight !== undefined) {
                 tb.set('fontWeight', patch.font_weight);
-            if ('text_align' in patch && patch.text_align !== undefined)
+            }
+
+            if ('text_align' in patch && patch.text_align !== undefined) {
                 tb.set('textAlign', patch.text_align);
+            }
+
             canvas.requestRenderAll();
         }
     };
 
     // ─── Right Panel Inline Panels ────────────────────────────────────────────
     const fieldPanelEl =
-        selectedElementId && selectedElementType === 'field' && selectedPlacement?.type === 'field' ? (
+        selectedElementId &&
+        selectedElementType === 'field' &&
+        selectedPlacement?.type === 'field' ? (
             <div className="space-y-3">
                 <p className="text-xs font-semibold text-foreground">
-                    {mergeFieldsMap.get((selectedPlacement as PdfFieldPlacement).field)?.label ||
-                        (selectedPlacement as PdfFieldPlacement).field}
+                    {mergeFieldsMap.get(
+                        (selectedPlacement as PdfFieldPlacement).field,
+                    )?.label || (selectedPlacement as PdfFieldPlacement).field}
                 </p>
                 <PlacementFontControls
                     placement={selectedPlacement}
                     disabled={!isEditable}
-                    onChange={(patch) => updateFieldProperty(selectedPlacement.id, patch)}
+                    onChange={(patch) =>
+                        updateFieldProperty(selectedPlacement.id, patch)
+                    }
                 />
                 {isEditable && (
                     <Button
@@ -1668,7 +2225,9 @@ export function TemplatePdfDesignerDialog({
                         size="sm"
                         variant="ghost"
                         className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => handleDeleteSelected(selectedPlacement.id, 'field')}
+                        onClick={() =>
+                            handleDeleteSelected(selectedPlacement.id, 'field')
+                        }
                     >
                         <Trash2 className="mr-1.5 size-3.5" /> Delete
                     </Button>
@@ -1677,39 +2236,50 @@ export function TemplatePdfDesignerDialog({
         ) : null;
 
     const textPanelEl =
-        selectedElementId && selectedElementType === 'text' && selectedPlacement?.type === 'text' ? (
+        selectedElementId &&
+        selectedElementType === 'text' &&
+        selectedPlacement?.type === 'text' ? (
             <div className="space-y-3">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <p className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
                     Text Box
                 </p>
                 <div>
-                    <p className="mb-1 text-[11px] text-muted-foreground">Content</p>
+                    <p className="mb-1 text-[11px] text-muted-foreground">
+                        Content
+                    </p>
                     <textarea
-                        value={(selectedPlacement as PdfTextPlacement).text_content}
+                        value={
+                            (selectedPlacement as PdfTextPlacement).text_content
+                        }
                         readOnly={!isEditable}
                         rows={3}
-                        className="w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/30"
+                        className="w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-xs focus:ring-1 focus:ring-primary/30 focus:outline-none"
                         onChange={(e) => {
                             const val = e.target.value;
                             setPlacements((prev) => {
                                 const updated = prev.map((p) =>
-                                    p.id === selectedPlacement.id && p.type === 'text'
+                                    p.id === selectedPlacement.id &&
+                                    p.type === 'text'
                                         ? { ...p, text_content: val }
                                         : p,
                                 );
                                 placementsRef.current = updated;
+
                                 return updated;
                             });
                             const tb = fabricCanvasRef.current
                                 ?.getObjects()
                                 .find(
                                     (o) =>
-                                        (o.get('data') as { id?: string })?.id === selectedPlacement.id,
+                                        (o.get('data') as { id?: string })
+                                            ?.id === selectedPlacement.id,
                                 ) as Textbox | undefined;
+
                             if (tb) {
                                 tb.set('text', val);
                                 fabricCanvasRef.current?.requestRenderAll();
                             }
+
                             setHasUnsavedChanges(true);
                         }}
                     />
@@ -1717,7 +2287,9 @@ export function TemplatePdfDesignerDialog({
                 <PlacementFontControls
                     placement={selectedPlacement}
                     disabled={!isEditable}
-                    onChange={(patch) => updateFieldProperty(selectedPlacement.id, patch)}
+                    onChange={(patch) =>
+                        updateFieldProperty(selectedPlacement.id, patch)
+                    }
                 />
                 {isEditable && (
                     <>
@@ -1727,7 +2299,9 @@ export function TemplatePdfDesignerDialog({
                             variant="outline"
                             className="w-full"
                             onClick={() =>
-                                handleDuplicateTextPlacement(selectedPlacement as PdfTextPlacement)
+                                handleDuplicateTextPlacement(
+                                    selectedPlacement as PdfTextPlacement,
+                                )
                             }
                         >
                             <Copy className="mr-1.5 size-3.5" /> Duplicate
@@ -1737,7 +2311,12 @@ export function TemplatePdfDesignerDialog({
                             size="sm"
                             variant="ghost"
                             className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => handleDeleteSelected(selectedPlacement.id, 'text')}
+                            onClick={() =>
+                                handleDeleteSelected(
+                                    selectedPlacement.id,
+                                    'text',
+                                )
+                            }
                         >
                             <Trash2 className="mr-1.5 size-3.5" /> Delete
                         </Button>
@@ -1747,30 +2326,41 @@ export function TemplatePdfDesignerDialog({
         ) : null;
 
     const signaturePanelEl =
-        selectedElementId && selectedElementType === 'signature' && selectedSignature ? (
+        selectedElementId &&
+        selectedElementType === 'signature' &&
+        selectedSignature ? (
             <div className="space-y-3">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <p className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
                     Signature
                 </p>
                 <div>
-                    <p className="mb-0.5 text-[11px] text-muted-foreground">Slot</p>
-                    <p className="font-mono text-xs text-foreground">{selectedSignature.slotKey}</p>
+                    <p className="mb-0.5 text-[11px] text-muted-foreground">
+                        Slot
+                    </p>
+                    <p className="font-mono text-xs text-foreground">
+                        {selectedSignature.slotKey}
+                    </p>
                 </div>
                 <div>
-                    <p className="mb-1 text-[11px] text-muted-foreground">Role</p>
+                    <p className="mb-1 text-[11px] text-muted-foreground">
+                        Role
+                    </p>
                     <Badge
                         variant="secondary"
                         className="text-xs capitalize"
                         style={{
                             color: roleColors(selectedSignature.item.role).text,
-                            borderColor: roleColors(selectedSignature.item.role).stroke,
+                            borderColor: roleColors(selectedSignature.item.role)
+                                .stroke,
                         }}
                     >
                         {selectedSignature.item.role.replace('_', ' ')}
                     </Badge>
                 </div>
                 <div>
-                    <p className="mb-1 text-[11px] text-muted-foreground">Page</p>
+                    <p className="mb-1 text-[11px] text-muted-foreground">
+                        Page
+                    </p>
                     <Select
                         value={String(selectedSignature.item.page)}
                         disabled={!isEditable}
@@ -1783,6 +2373,7 @@ export function TemplatePdfDesignerDialog({
                                     [slotKey]: { ...prev[slotKey]!, page },
                                 };
                                 signaturePlacementsRef.current = updated;
+
                                 return updated;
                             });
                             setHasUnsavedChanges(true);
@@ -1792,7 +2383,10 @@ export function TemplatePdfDesignerDialog({
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                            {Array.from(
+                                { length: totalPages },
+                                (_, i) => i + 1,
+                            ).map((p) => (
                                 <SelectItem key={p} value={String(p)}>
                                     Page {p}
                                 </SelectItem>
@@ -1806,7 +2400,12 @@ export function TemplatePdfDesignerDialog({
                         size="sm"
                         variant="ghost"
                         className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => handleDeleteSelected(selectedSignature.item.id, 'signature')}
+                        onClick={() =>
+                            handleDeleteSelected(
+                                selectedSignature.item.id,
+                                'signature',
+                            )
+                        }
                     >
                         <Trash2 className="mr-1.5 size-3.5" /> Delete
                     </Button>
@@ -1830,7 +2429,9 @@ export function TemplatePdfDesignerDialog({
                         Templates
                     </Button>
                 )}
-                <h2 className="truncate text-base font-semibold">Design: {template?.name}</h2>
+                <h2 className="truncate text-base font-semibold">
+                    Design: {template?.name}
+                </h2>
 
                 {/* Version dropdown */}
                 {allVersions.length > 0 && (
@@ -1877,31 +2478,42 @@ export function TemplatePdfDesignerDialog({
                 {/* Return to Draft / Create Draft */}
                 {!isEditable &&
                     (() => {
-                        const draftVersion = allVersions.find((v) => v.status === 'draft');
+                        const draftVersion = allVersions.find(
+                            (v) => v.status === 'draft',
+                        );
+
                         if (draftVersion) {
                             return (
                                 <Button
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => handleVersionSelect(String(draftVersion.id))}
+                                    onClick={() =>
+                                        handleVersionSelect(
+                                            String(draftVersion.id),
+                                        )
+                                    }
                                 >
                                     Return to Draft v{draftVersion.version}
                                 </Button>
                             );
                         }
+
                         if (can.create_draft) {
                             return (
                                 <Button
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => setIsCreateDraftConfirmOpen(true)}
+                                    onClick={() =>
+                                        setIsCreateDraftConfirmOpen(true)
+                                    }
                                 >
                                     Create Draft
                                 </Button>
                             );
                         }
+
                         return null;
                     })()}
 
@@ -1933,11 +2545,13 @@ export function TemplatePdfDesignerDialog({
                         size="icon"
                         className="size-7"
                         disabled={currentPage <= 1 || isLoadingPdf}
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        onClick={() =>
+                            setCurrentPage((p) => Math.max(1, p - 1))
+                        }
                     >
                         <ChevronLeft className="size-4" />
                     </Button>
-                    <span className="select-none px-1 text-xs font-medium">
+                    <span className="px-1 text-xs font-medium select-none">
                         Page {currentPage} of {totalPages}
                     </span>
                     <Button
@@ -1946,7 +2560,9 @@ export function TemplatePdfDesignerDialog({
                         size="icon"
                         className="size-7"
                         disabled={currentPage >= totalPages || isLoadingPdf}
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        onClick={() =>
+                            setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        }
                     >
                         <ChevronRight className="size-4" />
                     </Button>
@@ -1987,7 +2603,9 @@ export function TemplatePdfDesignerDialog({
                             {isPublishing ? (
                                 <>
                                     <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                                    {hasUnsavedChanges ? 'Saving & Publishing...' : 'Publishing...'}
+                                    {hasUnsavedChanges
+                                        ? 'Saving & Publishing...'
+                                        : 'Publishing...'}
                                 </>
                             ) : (
                                 <>
@@ -2028,7 +2646,7 @@ export function TemplatePdfDesignerDialog({
                     {/* TEXT section */}
                     {isEditable && (
                         <div className="border-b border-border/60 p-3">
-                            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                            <p className="mb-2 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
                                 Text
                             </p>
                             <Button
@@ -2058,48 +2676,57 @@ export function TemplatePdfDesignerDialog({
                     </div>
 
                     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
-                        {Object.entries(categories).map(([category, fields]) => (
-                            <div key={category} className="space-y-1.5">
-                                <p className="px-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                                    {category}
-                                </p>
-                                <div className="space-y-1">
-                                    {fields.map((field) => (
-                                        <div
-                                            key={field.key}
-                                            className="group flex items-center justify-between rounded-lg border border-border/60 bg-background p-2 transition-colors hover:border-primary/50 hover:bg-muted/30"
-                                        >
-                                            <div className="min-w-0 pr-2">
-                                                <p className="truncate text-xs font-medium text-foreground">
-                                                    {field.label}
-                                                </p>
-                                                <p className="truncate font-mono text-[10px] text-muted-foreground">
-                                                    {field.key}
-                                                </p>
+                        {Object.entries(categories).map(
+                            ([category, fields]) => (
+                                <div key={category} className="space-y-1.5">
+                                    <p className="px-1 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+                                        {category}
+                                    </p>
+                                    <div className="space-y-1">
+                                        {fields.map((field) => (
+                                            <div
+                                                key={field.key}
+                                                className="group flex items-center justify-between rounded-lg border border-border/60 bg-background p-2 transition-colors hover:border-primary/50 hover:bg-muted/30"
+                                            >
+                                                <div className="min-w-0 pr-2">
+                                                    <p className="truncate text-xs font-medium text-foreground">
+                                                        {field.label}
+                                                    </p>
+                                                    <p className="truncate font-mono text-[10px] text-muted-foreground">
+                                                        {field.key}
+                                                    </p>
+                                                </div>
+                                                {isEditable &&
+                                                    !isSamplePreview && (
+                                                        <Button
+                                                            type="button"
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            className="size-6 shrink-0 text-primary opacity-80 group-hover:opacity-100"
+                                                            onClick={() =>
+                                                                handleAddFieldPlacement(
+                                                                    field.key,
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                isLoadingPdf
+                                                            }
+                                                            title={`Add ${field.label} to page`}
+                                                        >
+                                                            <Plus className="size-3.5" />
+                                                        </Button>
+                                                    )}
                                             </div>
-                                            {isEditable && !isSamplePreview && (
-                                                <Button
-                                                    type="button"
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="size-6 shrink-0 text-primary opacity-80 group-hover:opacity-100"
-                                                    onClick={() => handleAddFieldPlacement(field.key)}
-                                                    disabled={isLoadingPdf}
-                                                    title={`Add ${field.label} to page`}
-                                                >
-                                                    <Plus className="size-3.5" />
-                                                </Button>
-                                            )}
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ),
+                        )}
                     </div>
 
                     {/* SIGNATURES section */}
-                    <div className="border-t border-border/60 p-3 space-y-2">
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <div className="space-y-2 border-t border-border/60 p-3">
+                        <p className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
                             Signatures
                         </p>
                         {sortedSlotKeys(signaturePlacements).map((slotKey) => (
@@ -2108,8 +2735,12 @@ export function TemplatePdfDesignerDialog({
                                 className="flex items-center justify-between rounded border border-border/60 bg-background p-2"
                             >
                                 <div>
-                                    <p className="text-xs font-medium">{slotLabel(slotKey)}</p>
-                                    <p className="font-mono text-[10px] text-muted-foreground">{slotKey}</p>
+                                    <p className="text-xs font-medium">
+                                        {slotLabel(slotKey)}
+                                    </p>
+                                    <p className="font-mono text-[10px] text-muted-foreground">
+                                        {slotKey}
+                                    </p>
                                 </div>
                                 {isEditable && (
                                     <Button
@@ -2151,7 +2782,9 @@ export function TemplatePdfDesignerDialog({
                                     size="sm"
                                     variant="outline"
                                     className="w-full"
-                                    onClick={() => addRoleSlot('company_signatory')}
+                                    onClick={() =>
+                                        addRoleSlot('company_signatory')
+                                    }
                                     disabled={!canAddCompany}
                                 >
                                     <Plus className="mr-1.5 size-3.5" />
@@ -2195,7 +2828,8 @@ export function TemplatePdfDesignerDialog({
                         <div
                             className={cn(
                                 'absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/70 backdrop-blur-xs transition-opacity',
-                                !isLoadingPdf && 'pointer-events-none opacity-0',
+                                !isLoadingPdf &&
+                                    'pointer-events-none opacity-0',
                             )}
                             aria-hidden={!isLoadingPdf}
                         >
@@ -2226,7 +2860,9 @@ export function TemplatePdfDesignerDialog({
                 {/* Right panel — 260px */}
                 <div className="flex w-[260px] shrink-0 flex-col border-l border-border/80 bg-background">
                     <div className="border-b border-border/60 px-3 py-2">
-                        <p className="text-xs font-semibold text-foreground">Properties</p>
+                        <p className="text-xs font-semibold text-foreground">
+                            Properties
+                        </p>
                     </div>
                     <div className="min-h-0 flex-1 overflow-y-auto p-3">
                         {!selectedElementId && isEditable && (
@@ -2251,13 +2887,18 @@ export function TemplatePdfDesignerDialog({
 
     // ─── Dialogs ──────────────────────────────────────────────────────────────
     const versionDiscardDialog = (
-        <AlertDialog open={isDiscardConfirmOpen} onOpenChange={setIsDiscardConfirmOpen}>
+        <AlertDialog
+            open={isDiscardConfirmOpen}
+            onOpenChange={setIsDiscardConfirmOpen}
+        >
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>You have unsaved design changes.</AlertDialogTitle>
+                    <AlertDialogTitle>
+                        You have unsaved design changes.
+                    </AlertDialogTitle>
                     <AlertDialogDescription>
-                        Switching versions will discard unsaved changes to both placements and signature
-                        positions.
+                        Switching versions will discard unsaved changes to both
+                        placements and signature positions.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -2274,7 +2915,11 @@ export function TemplatePdfDesignerDialog({
                         onClick={() => {
                             setIsDiscardConfirmOpen(false);
                             setHasUnsavedChanges(false);
-                            if (pendingVersionSwitch) void doVersionSwitch(pendingVersionSwitch);
+
+                            if (pendingVersionSwitch) {
+                                void doVersionSwitch(pendingVersionSwitch);
+                            }
+
                             setPendingVersionSwitch(null);
                         }}
                     >
@@ -2286,14 +2931,18 @@ export function TemplatePdfDesignerDialog({
     );
 
     const createDraftConfirmDialog = (
-        <AlertDialog open={isCreateDraftConfirmOpen} onOpenChange={setIsCreateDraftConfirmOpen}>
+        <AlertDialog
+            open={isCreateDraftConfirmOpen}
+            onOpenChange={setIsCreateDraftConfirmOpen}
+        >
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Create a new draft?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This copies the published design into a new editable draft. The live
-                        published version stays unchanged until you publish this draft. Are you
-                        sure you want to continue?
+                        This copies the published design into a new editable
+                        draft. The live published version stays unchanged until
+                        you publish this draft. Are you sure you want to
+                        continue?
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -2312,7 +2961,10 @@ export function TemplatePdfDesignerDialog({
     );
 
     const publishConfirmDialog = (
-        <AlertDialog open={isPublishConfirmOpen} onOpenChange={setIsPublishConfirmOpen}>
+        <AlertDialog
+            open={isPublishConfirmOpen}
+            onOpenChange={setIsPublishConfirmOpen}
+        >
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Publish this draft?</AlertDialogTitle>
@@ -2338,16 +2990,22 @@ export function TemplatePdfDesignerDialog({
     );
 
     const closeDiscardDialog = (
-        <AlertDialog open={isCloseDiscardOpen} onOpenChange={setIsCloseDiscardOpen}>
+        <AlertDialog
+            open={isCloseDiscardOpen}
+            onOpenChange={setIsCloseDiscardOpen}
+        >
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Unsaved Design Changes</AlertDialogTitle>
                     <AlertDialogDescription>
-                        You have unsaved changes. Are you sure you want to discard them?
+                        You have unsaved changes. Are you sure you want to
+                        discard them?
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setIsCloseDiscardOpen(false)}>
+                    <AlertDialogCancel
+                        onClick={() => setIsCloseDiscardOpen(false)}
+                    >
                         Keep Editing
                     </AlertDialogCancel>
                     <AlertDialogAction

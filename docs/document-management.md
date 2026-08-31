@@ -603,13 +603,13 @@ The uploaded source PDF is imported as PDF page content through FPDI. The whole 
 
 ### Zero-placement overlays
 
-A PDF Overlay template with no field placements is a supported production state. New drafts initialize `placement_config` as schema version 1 with an empty `placements` array. Replacing the draft source PDF resets placements to the same empty schema. Publishing validates that the configuration is structurally renderable.
+A PDF Overlay template with no field placements is a supported production state. New drafts initialize `placement_config` as schema version 2 with an empty `placements` array. Replacing the draft source PDF resets placements to the same empty schema. Publishing validates that the configuration is structurally renderable.
 
 At generation time, zero placements reproduce the original source PDF through the official pipeline (FPDI import only; no overlay pages are rendered). Legacy published versions that still store `placement_config = null` are treated as zero placements for backward compatibility. Malformed non-null configs are rejected.
 
 ### Coordinate mapping
 
-Published `placement_config` remains schema version 1 with normalized coordinates (`0.0`–`1.0`). At render time:
+Published `placement_config` uses schema version 1 or 2 with normalized coordinates (`0.0`–`1.0`). At render time:
 
 - `x_mm = placement.x * page_width_mm`
 - `y_mm = placement.y * page_height_mm`

@@ -84,8 +84,16 @@ export function placementRectInVisibleCanvas({
     const visibleHeight = visibleBottom - visibleTop;
     const visibleWidth = visibleRight - visibleLeft;
 
-    const left = clamp(visibleLeft + (visibleWidth - width) / 2, 0, canvasWidth - width);
-    const top = clamp(visibleTop + (visibleHeight - height) / 2, 0, canvasHeight - height);
+    const left = clamp(
+        visibleLeft + (visibleWidth - width) / 2,
+        0,
+        canvasWidth - width,
+    );
+    const top = clamp(
+        visibleTop + (visibleHeight - height) / 2,
+        0,
+        canvasHeight - height,
+    );
 
     return {
         left: Math.round(left),

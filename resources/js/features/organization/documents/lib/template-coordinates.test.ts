@@ -55,8 +55,22 @@ describe('coordinates conversion', () => {
 });
 
 describe('placementRectInVisibleCanvas', () => {
-    const canvas = { top: 0, left: 100, width: 800, height: 2000, bottom: 2000, right: 900 };
-    const view = { top: 0, left: 0, width: 1000, height: 600, bottom: 600, right: 1000 };
+    const canvas = {
+        top: 0,
+        left: 100,
+        width: 800,
+        height: 2000,
+        bottom: 2000,
+        right: 900,
+    };
+    const view = {
+        top: 0,
+        left: 0,
+        width: 1000,
+        height: 600,
+        bottom: 600,
+        right: 1000,
+    };
 
     it('places the box in the middle of the visible viewport near the top', () => {
         const pixel = placementRectInVisibleCanvas({
@@ -94,8 +108,22 @@ describe('placementRectInVisibleCanvas', () => {
             canvasHeight: 500,
             boxWidth: 160,
             boxHeight: 26,
-            canvasRect: { top: 80, left: 100, width: 800, height: 500, bottom: 580, right: 900 },
-            viewRect: { top: 0, left: 0, width: 1000, height: 800, bottom: 800, right: 1000 },
+            canvasRect: {
+                top: 80,
+                left: 100,
+                width: 800,
+                height: 500,
+                bottom: 580,
+                right: 900,
+            },
+            viewRect: {
+                top: 0,
+                left: 0,
+                width: 1000,
+                height: 800,
+                bottom: 800,
+                right: 1000,
+            },
         });
 
         assert.equal(pixel.left, 320);

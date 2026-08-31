@@ -156,11 +156,7 @@ export function DocumentsTemplatesContent({
                 setIsActionLoading(false);
             }
         }
-
-    }, [
-        customTemplates,
-        pendingReplacePdfTemplateId,
-    ]);
+    }, [customTemplates, pendingReplacePdfTemplateId]);
 
     const handleOpenReplacePdf = (template: CustomTemplate) => {
         setActionError(null);
@@ -605,48 +601,48 @@ export function DocumentsTemplatesContent({
                                                                                     </DropdownMenuItem>
                                                                                 )}
 
-                                                                {/* PDF template actions */}
-                                                                {isPdf && (
-                                                                    <>
-                                                                        <DropdownMenuItem
-                                                                            asChild
-                                                                            className="gap-2"
-                                                                        >
-                                                                            <Link
-                                                                                href={designTemplate.url(
-                                                                                    {
-                                                                                        template:
-                                                                                            template.id,
-                                                                                    },
+                                                                                {/* PDF template actions */}
+                                                                                {isPdf && (
+                                                                                    <>
+                                                                                        <DropdownMenuItem
+                                                                                            asChild
+                                                                                            className="gap-2"
+                                                                                        >
+                                                                                            <Link
+                                                                                                href={designTemplate.url(
+                                                                                                    {
+                                                                                                        template:
+                                                                                                            template.id,
+                                                                                                    },
+                                                                                                )}
+                                                                                            >
+                                                                                                <Layers className="h-3.5 w-3.5" />
+                                                                                                <span>
+                                                                                                    Design
+                                                                                                    Template
+                                                                                                </span>
+                                                                                            </Link>
+                                                                                        </DropdownMenuItem>
+                                                                                        <DropdownMenuSeparator />
+                                                                                        <DropdownMenuItem
+                                                                                            disabled={
+                                                                                                isActionLoading
+                                                                                            }
+                                                                                            onClick={() =>
+                                                                                                handleOpenReplacePdf(
+                                                                                                    template,
+                                                                                                )
+                                                                                            }
+                                                                                            className="gap-2"
+                                                                                        >
+                                                                                            <UploadCloud className="h-3.5 w-3.5" />
+                                                                                            <span>
+                                                                                                Replace
+                                                                                                PDF
+                                                                                            </span>
+                                                                                        </DropdownMenuItem>
+                                                                                    </>
                                                                                 )}
-                                                                            >
-                                                                                <Layers className="h-3.5 w-3.5" />
-                                                                                <span>
-                                                                                    Design
-                                                                                    Template
-                                                                                </span>
-                                                                            </Link>
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuSeparator />
-                                                                        <DropdownMenuItem
-                                                                            disabled={
-                                                                                isActionLoading
-                                                                            }
-                                                                            onClick={() =>
-                                                                                handleOpenReplacePdf(
-                                                                                    template,
-                                                                                )
-                                                                            }
-                                                                            className="gap-2"
-                                                                        >
-                                                                            <UploadCloud className="h-3.5 w-3.5" />
-                                                                            <span>
-                                                                                Replace
-                                                                                PDF
-                                                                            </span>
-                                                                        </DropdownMenuItem>
-                                                                    </>
-                                                                )}
 
                                                                                 {/* Publish draft */}
                                                                                 {hasDraft && (

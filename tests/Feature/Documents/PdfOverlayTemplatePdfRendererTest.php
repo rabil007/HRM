@@ -302,8 +302,14 @@ test('placement validator accepts distinct placement ids', function () {
         ->and($result[1]['id'])->toBe('placement-002');
 });
 
-test('placement validator rejects schema_version other than 1', function () {
-    expect(fn () => PdfOverlayPlacementValidator::validate(['schema_version' => 2, 'placements' => []], 1))
+test('placement validator accepts schema versions 1 and 2', function (int $schemaVersion) {
+    $result = PdfOverlayPlacementValidator::validate(['schema_version' => $schemaVersion, 'placements' => []], 1);
+
+    expect($result)->toBe([]);
+})->with([1, 2]);
+
+test('placement validator rejects schema_version other than 1 or 2', function () {
+    expect(fn () => PdfOverlayPlacementValidator::validate(['schema_version' => 3, 'placements' => []], 1))
         ->toThrow(InvalidArgumentException::class, 'schema version');
 });
 

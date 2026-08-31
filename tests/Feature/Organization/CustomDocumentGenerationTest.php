@@ -2350,7 +2350,7 @@ test('pdf overlay create publish and generate with zero placements succeeds thro
     $draft = $template->draftVersion;
     expect($draft)->not->toBeNull()
         ->and($draft->placement_config)->toMatchArray([
-            'schema_version' => 1,
+            'schema_version' => 2,
             'placements' => [],
         ]);
 
@@ -2359,7 +2359,7 @@ test('pdf overlay create publish and generate with zero placements succeeds thro
     $published = $template->fresh()->publishedVersion;
     expect($published)->not->toBeNull()
         ->and($published->placement_config)->toMatchArray([
-            'schema_version' => 1,
+            'schema_version' => 2,
             'placements' => [],
         ]);
 
@@ -2447,7 +2447,7 @@ test('pdf overlay replace pdf publish and generate with zero placements succeeds
 
     $draft->refresh();
     expect($draft->placement_config)->toMatchArray([
-        'schema_version' => 1,
+        'schema_version' => 2,
         'placements' => [],
     ])
         ->and($draft->source_pdf_page_count)->toBe(2);
