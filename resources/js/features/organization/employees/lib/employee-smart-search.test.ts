@@ -46,6 +46,7 @@ const emptyFilters = {
     visa_type_id: '',
     company_visa_type_id: '',
     rank_id: '',
+    project_id: '',
     approval_location_id: '',
     sssa_option_id: '',
     crew_status: '',
