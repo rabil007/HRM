@@ -1,5 +1,7 @@
 import { Link, router } from '@inertiajs/react';
 import {
+    Bell,
+    CheckCircle2,
     ClipboardCheck,
     FilePenLine,
     FileSignature,
@@ -13,7 +15,6 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { BulkDocumentsContent } from '@/features/organization/documents/bulk/bulk-documents-content';
 import type {
     BulkDocumentCounts,
@@ -73,6 +74,12 @@ function mapSignaturePayloadToBulkProps(
     };
 }
 
+const TAB_ICONS = {
+    review: ClipboardCheck,
+    recipient: FileSignature,
+    signatures: FilePenLine,
+};
+
 function RequestsTabSwitcher({
     tab,
     canViewReview,
@@ -84,65 +91,67 @@ function RequestsTabSwitcher({
     canViewRecipient: boolean;
     canViewSignatures: boolean;
 }) {
+    const tabs = [
+        {
+            key: 'review' as const,
+            label: 'Approvals',
+            visible: canViewReview,
+        },
+        {
+            key: 'recipient' as const,
+            label: 'Employee Signing',
+            visible: canViewRecipient,
+        },
+        {
+            key: 'signatures' as const,
+            label: 'Signature Requests',
+            visible: canViewSignatures,
+        },
+    ].filter((t) => t.visible);
+
+    if (tabs.length <= 1) {
+        return null;
+    }
+
     return (
-        <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted/60 p-0.5">
-            {canViewReview ? (
-                <button
-                    type="button"
-                    onClick={() =>
-                        router.get(documentRoutes.requests.url(), {
-                            tab: 'review',
-                        })
-                    }
-                    className={cn(
-                        'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                        tab === 'review'
-                            ? 'bg-background text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground',
-                    )}
-                >
-                    <ClipboardCheck className="h-3.5 w-3.5" />
-                    Approvals
-                </button>
-            ) : null}
-            {canViewRecipient ? (
-                <button
-                    type="button"
-                    onClick={() =>
-                        router.get(documentRoutes.requests.url(), {
-                            tab: 'recipient',
-                        })
-                    }
-                    className={cn(
-                        'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                        tab === 'recipient'
-                            ? 'bg-background text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground',
-                    )}
-                >
-                    <FileSignature className="h-3.5 w-3.5" />
-                    Employee Signing
-                </button>
-            ) : null}
-            {canViewSignatures ? (
-                <button
-                    type="button"
-                    onClick={() =>
-                        router.get(documentRoutes.requests.url(), {
-                            tab: 'signatures',
-                        })
-                    }
-                    className={cn(
-                        'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                        tab === 'signatures'
-                            ? 'bg-background text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground',
-                    )}
-                >
-                    <FilePenLine className="h-3.5 w-3.5" />
-                    Signature Requests
-                </button>
-            ) : null}
+        <div className="border-b border-border">
+            <div className="flex items-center gap-0.5 px-1">
+                {tabs.map(({ key, label }) => {
+                    const Icon = TAB_ICONS[key];
+                    const isActive = tab === key;
+
+                    return (
+                        <button
+                            key={key}
+                            type="button"
+                            onClick={() =>
+                                router.get(documentRoutes.requests.url(), {
+                                    tab: key,
+                                })
+                            }
+                            className={cn(
+                                'relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors',
+                                isActive
+                                    ? 'text-foreground'
+                                    : 'text-muted-foreground hover:text-foreground',
+                            )}
+                        >
+                            <Icon
+                                className={cn(
+                                    'h-4 w-4 shrink-0',
+                                    isActive
+                                        ? 'text-primary'
+                                        : 'text-muted-foreground',
+                                )}
+                            />
+                            {label}
+                            {isActive && (
+                                <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary" />
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
         </div>
     );
 }
@@ -181,43 +190,36 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
             <PageHeader
                 title="Requests"
                 description="Manage documents waiting for review, approval, signature or acknowledgement."
-                right={
-                    <RequestsTabSwitcher
-                        tab={tab}
-                        canViewReview={can.view}
-                        canViewRecipient={
-                            can.view_recipient_requests ||
-                            can.respond_recipient_requests
-                        }
-                        canViewSignatures={can.view_signatures}
-                    />
-                }
             />
 
-            {tab === 'review' && can.view ? (
-                <div className="space-y-4">
-                    {preset_can.view ? (
-                        <div className="flex justify-end">
-                            <Button asChild variant="outline" size="sm">
-                                <Link
-                                    href={documentRoutes.workflowPresets.url()}
-                                >
-                                    <Settings2 className="mr-2 h-4 w-4" />
-                                    Approval Flows
-                                </Link>
-                            </Button>
-                        </div>
-                    ) : null}
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                        <SearchBar
-                            value={list.searchInput}
-                            onChange={list.onSearchChange}
-                            placeholder="Search employee, document, requester"
-                            className="max-w-md"
-                        />
-                        <div className="flex flex-wrap items-end gap-3">
-                            <div className="space-y-2">
-                                <Label>Status</Label>
+            {/* Tab switcher — underline style full width */}
+            <RequestsTabSwitcher
+                tab={tab}
+                canViewReview={can.view}
+                canViewRecipient={
+                    can.view_recipient_requests ||
+                    can.respond_recipient_requests
+                }
+                canViewSignatures={can.view_signatures}
+            />
+
+            <div className="pt-6">
+                {/* ── Approvals tab ─────────────────────────────────────── */}
+                {tab === 'review' && can.view ? (
+                    <div className="space-y-4">
+                        {/* Unified filter bar */}
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            {/* Left: search */}
+                            <SearchBar
+                                value={list.searchInput}
+                                onChange={list.onSearchChange}
+                                placeholder="Search employee, document, requester"
+                                className="max-w-sm"
+                            />
+
+                            {/* Right: filters + settings */}
+                            <div className="flex flex-wrap items-center gap-2">
+                                {/* Status select */}
                                 <AppSelect
                                     value={String(filters.status ?? '')}
                                     onValueChange={(value) =>
@@ -242,7 +244,7 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                                     }
                                 >
                                     <AppSelectItem value="__all__">
-                                        All
+                                        All statuses
                                     </AppSelectItem>
                                     <AppSelectItem value="pending">
                                         Pending
@@ -257,9 +259,8 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                                         Cancelled
                                     </AppSelectItem>
                                 </AppSelect>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Stage action</Label>
+
+                                {/* Stage action select */}
                                 <AppSelect
                                     value={String(filters.action ?? '')}
                                     onValueChange={(value) =>
@@ -284,7 +285,7 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                                     }
                                 >
                                     <AppSelectItem value="__all__">
-                                        All
+                                        All stages
                                     </AppSelectItem>
                                     <AppSelectItem value="review">
                                         Review
@@ -293,128 +294,197 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                                         Approve
                                     </AppSelectItem>
                                 </AppSelect>
-                            </div>
-                            <label className="flex items-center gap-2 pb-2 text-sm">
-                                <Checkbox
-                                    checked={Boolean(filters.assigned_to_me)}
-                                    onCheckedChange={(checked) =>
-                                        router.get(
-                                            documentRoutes.requests.url(),
-                                            {
-                                                tab: 'review',
-                                                search: list.searchInput,
-                                                status: String(
-                                                    filters.status ?? '',
-                                                ),
-                                                action: String(
-                                                    filters.action ?? '',
-                                                ),
-                                                assigned_to_me: checked
-                                                    ? '1'
-                                                    : '',
-                                            },
-                                        )
-                                    }
-                                />
-                                Assigned to me
-                            </label>
-                        </div>
-                    </div>
 
-                    <WorkflowRequestsTable requests={workflow_requests} />
-
-                    <Pagination {...list.paginationProps} />
-                </div>
-            ) : null}
-
-            {tab === 'recipient' &&
-            (can.view_recipient_requests || can.respond_recipient_requests) ? (
-                <div className="space-y-4">
-                    {(signing_preset_can.view ||
-                        recipient_automation?.can_view) && (
-                        <div className="flex justify-end gap-2">
-                            {signing_preset_can.view ? (
-                                <Button asChild variant="outline" size="sm">
-                                    <Link
-                                        href={documentRoutes.signingPresets.url()}
-                                    >
-                                        <Settings2 className="mr-2 h-4 w-4" />
-                                        Signing Flows
-                                    </Link>
-                                </Button>
-                            ) : null}
-                            {recipient_automation?.can_view ? (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                        setReminderSettingsOpen(true)
-                                    }
+                                {/* Assigned to me toggle */}
+                                <label
+                                    className={cn(
+                                        'flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm transition-colors',
+                                        filters.assigned_to_me
+                                            ? 'border-primary bg-primary/5 font-medium text-foreground'
+                                            : 'border-border bg-background text-muted-foreground hover:bg-muted',
+                                    )}
                                 >
-                                    <Settings2 className="mr-2 h-4 w-4" />
-                                    Reminder Settings
-                                </Button>
-                            ) : null}
+                                    <Checkbox
+                                        checked={Boolean(
+                                            filters.assigned_to_me,
+                                        )}
+                                        onCheckedChange={(checked) =>
+                                            router.get(
+                                                documentRoutes.requests.url(),
+                                                {
+                                                    tab: 'review',
+                                                    search: list.searchInput,
+                                                    status: String(
+                                                        filters.status ?? '',
+                                                    ),
+                                                    action: String(
+                                                        filters.action ?? '',
+                                                    ),
+                                                    assigned_to_me: checked
+                                                        ? '1'
+                                                        : '',
+                                                },
+                                            )
+                                        }
+                                    />
+                                    Assigned to me
+                                </label>
+
+                                {/* Separator */}
+                                {preset_can.view && (
+                                    <>
+                                        <div className="h-5 w-px bg-border" />
+                                        <Button
+                                            asChild
+                                            variant="ghost"
+                                            size="sm"
+                                            className="gap-1.5 text-muted-foreground hover:text-foreground"
+                                        >
+                                            <Link
+                                                href={documentRoutes.workflowPresets.url()}
+                                            >
+                                                <Settings2 className="h-3.5 w-3.5" />
+                                                Approval Flows
+                                            </Link>
+                                        </Button>
+                                    </>
+                                )}
+                            </div>
                         </div>
-                    )}
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                        <SearchBar
-                            value={list.searchInput}
-                            onChange={list.onSearchChange}
-                            placeholder="Search employee, signatory, or document"
-                            className="max-w-md"
+
+                        <WorkflowRequestsTable requests={workflow_requests} />
+
+                        <Pagination {...list.paginationProps} />
+                    </div>
+                ) : null}
+
+                {/* ── Employee Signing tab ───────────────────────────────── */}
+                {tab === 'recipient' &&
+                (can.view_recipient_requests ||
+                    can.respond_recipient_requests) ? (
+                    <div className="space-y-4">
+                        {/* Unified filter bar */}
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <SearchBar
+                                value={list.searchInput}
+                                onChange={list.onSearchChange}
+                                placeholder="Search employee, signatory, or document"
+                                className="max-w-sm"
+                            />
+
+                            <div className="flex flex-wrap items-center gap-2">
+                                {can.respond_recipient_requests && (
+                                    <label
+                                        className={cn(
+                                            'flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm transition-colors',
+                                            filters.assigned_to_me
+                                                ? 'border-primary bg-primary/5 font-medium text-foreground'
+                                                : 'border-border bg-background text-muted-foreground hover:bg-muted',
+                                        )}
+                                    >
+                                        <Checkbox
+                                            checked={Boolean(
+                                                filters.assigned_to_me,
+                                            )}
+                                            onCheckedChange={(checked) =>
+                                                router.get(
+                                                    documentRoutes.requests.url(),
+                                                    {
+                                                        tab: 'recipient',
+                                                        search: list.searchInput,
+                                                        status: String(
+                                                            filters.status ??
+                                                                '',
+                                                        ),
+                                                        action: String(
+                                                            filters.action ??
+                                                                '',
+                                                        ),
+                                                        assigned_to_me: checked
+                                                            ? '1'
+                                                            : '',
+                                                    },
+                                                )
+                                            }
+                                        />
+                                        Assigned to me
+                                    </label>
+                                )}
+
+                                {(signing_preset_can.view ||
+                                    recipient_automation?.can_view) && (
+                                    <div className="h-5 w-px bg-border" />
+                                )}
+
+                                {signing_preset_can.view && (
+                                    <Button
+                                        asChild
+                                        variant="ghost"
+                                        size="sm"
+                                        className="gap-1.5 text-muted-foreground hover:text-foreground"
+                                    >
+                                        <Link
+                                            href={documentRoutes.signingPresets.url()}
+                                        >
+                                            <Settings2 className="h-3.5 w-3.5" />
+                                            Signing Flows
+                                        </Link>
+                                    </Button>
+                                )}
+
+                                {recipient_automation?.can_view && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="gap-1.5 text-muted-foreground hover:text-foreground"
+                                        onClick={() =>
+                                            setReminderSettingsOpen(true)
+                                        }
+                                    >
+                                        <Bell className="h-3.5 w-3.5" />
+                                        Reminder Settings
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+
+                        <RecipientRequestsTable
+                            requests={recipient_requests}
+                            canRespond={can.respond_recipient_requests}
+                            canCreate={can.create_recipient_requests}
                         />
-                        {can.respond_recipient_requests ? (
-                            <label className="flex items-center gap-2 text-sm">
-                                <Checkbox
-                                    checked={Boolean(filters.assigned_to_me)}
-                                    onCheckedChange={(checked) =>
-                                        router.get(
-                                            documentRoutes.requests.url(),
-                                            {
-                                                tab: 'recipient',
-                                                search: list.searchInput,
-                                                status: String(
-                                                    filters.status ?? '',
-                                                ),
-                                                action: String(
-                                                    filters.action ?? '',
-                                                ),
-                                                assigned_to_me: checked
-                                                    ? '1'
-                                                    : '',
-                                            },
-                                        )
-                                    }
-                                />
-                                Assigned to me
-                            </label>
+
+                        <Pagination {...list.paginationProps} />
+
+                        {recipient_automation?.can_view ? (
+                            <RecipientReminderSettingsSheet
+                                open={reminderSettingsOpen}
+                                onOpenChange={setReminderSettingsOpen}
+                                settings={recipient_automation}
+                            />
                         ) : null}
                     </div>
-                    <RecipientRequestsTable
-                        requests={recipient_requests}
-                        canRespond={can.respond_recipient_requests}
-                        canCreate={can.create_recipient_requests}
-                    />
-                    <Pagination {...list.paginationProps} />
-                    {recipient_automation?.can_view ? (
-                        <RecipientReminderSettingsSheet
-                            open={reminderSettingsOpen}
-                            onOpenChange={setReminderSettingsOpen}
-                            settings={recipient_automation}
-                        />
-                    ) : null}
-                </div>
-            ) : null}
+                ) : null}
 
-            {tab === 'signatures' &&
-            can.view_signatures &&
-            signature_payload ? (
-                <BulkDocumentsContent
-                    {...mapSignaturePayloadToBulkProps(props)}
-                />
-            ) : null}
+                {/* ── Signature Requests tab ────────────────────────────── */}
+                {tab === 'signatures' &&
+                can.view_signatures &&
+                signature_payload ? (
+                    <BulkDocumentsContent
+                        {...mapSignaturePayloadToBulkProps(props)}
+                    />
+                ) : null}
+
+                {/* ── No-permission fallback ────────────────────────────── */}
+                {tab === 'review' && !can.view ? (
+                    <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/30 px-5 py-4 text-sm text-muted-foreground">
+                        <CheckCircle2 className="h-5 w-5 shrink-0 text-muted-foreground/50" />
+                        You don&apos;t have permission to view approval
+                        requests.
+                    </div>
+                ) : null}
+            </div>
         </Main>
     );
 }
