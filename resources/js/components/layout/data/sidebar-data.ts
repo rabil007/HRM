@@ -170,7 +170,7 @@ const baseSidebarData: SidebarData = {
                             icon: ClipboardList,
                         },
                         {
-                            title: 'Configuration',
+                            title: 'Document Types',
                             url: documentsConfiguration.url(),
                             icon: SlidersHorizontal,
                         },
