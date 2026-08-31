@@ -102,6 +102,7 @@ class BulkDocumentsController extends Controller
             default => 'all',
         };
         $view = $isCustom ? 'roster' : DocumentsModuleAccess::resolveBulkView($request);
+        $moduleViewLocked = $request->route('module_view') !== null;
         $formOptions = EmployeeFormOptions::for($companyId);
 
         if ($isCustom && $customTemplate !== null && $customVersion !== null) {
@@ -121,6 +122,7 @@ class BulkDocumentsController extends Controller
                 $filters,
                 $formOptions,
                 $customTemplates,
+                $moduleViewLocked,
                 $customTemplate,
                 $customVersion,
             ) + [
@@ -157,6 +159,7 @@ class BulkDocumentsController extends Controller
                 $filters,
                 $formOptions,
                 $customTemplates,
+                $moduleViewLocked,
             ) + [
                 'view' => 'history',
                 'activity' => $activityPaginator->items(),
@@ -188,6 +191,7 @@ class BulkDocumentsController extends Controller
                 $filters,
                 $formOptions,
                 $customTemplates,
+                $moduleViewLocked,
             ) + [
                 'view' => 'signatures',
                 'signature_requests' => $signaturesPaginator->items(),
@@ -217,6 +221,7 @@ class BulkDocumentsController extends Controller
             $filters,
             $formOptions,
             $customTemplates,
+            $moduleViewLocked,
         ) + [
             'view' => 'roster',
             'activity' => [],
@@ -241,6 +246,7 @@ class BulkDocumentsController extends Controller
         EmployeeDirectoryFilters $filters,
         array $formOptions,
         Collection $customTemplates,
+        bool $moduleViewLocked = false,
         ?DocumentGenerationTemplate $customTemplate = null,
         ?DocumentGenerationTemplateVersion $customVersion = null,
     ): array {
@@ -273,6 +279,7 @@ class BulkDocumentsController extends Controller
                 'version' => $customVersion?->version,
                 'template_format' => $customTemplate->template_format->value,
             ] : null,
+            'module_view_locked' => $moduleViewLocked,
             'filters' => $this->filtersPayload($filters),
             'search' => $filters->search,
             'departments' => $formOptions['departments'],

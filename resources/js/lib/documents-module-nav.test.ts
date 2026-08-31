@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     canViewDocumentsModuleSection,
+    DOCUMENTS_MODULE_LABELS,
     documentsModuleIndexPath,
     documentsLibraryQuery,
     documentsOverviewTypeViewQuery,
@@ -12,6 +13,10 @@ import {
 } from './documents-module-nav.ts';
 
 describe('documents module URL mapping', () => {
+    it('labels the document types section for users', () => {
+        assert.equal(DOCUMENTS_MODULE_LABELS.configuration, 'Document Types');
+    });
+
     it('maps overview and library independently', () => {
         assert.equal(
             documentsModuleSectionFromUrl('/organization/documents'),

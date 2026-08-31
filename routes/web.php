@@ -818,6 +818,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/documents/configuration', [DocumentTypeController::class, 'index'])
         ->middleware('can:settings.master-data.document-types.view')
         ->name('organization.documents.configuration');
+    Route::get('organization/documents/configuration/{documentType}', [DocumentTypeController::class, 'show'])
+        ->middleware('can:settings.master-data.document-types.view')
+        ->name('organization.documents.configuration.show');
     Route::get('organization/documents/templates', DocumentsTemplatesController::class)
         ->name('organization.documents.templates');
     Route::post('organization/documents/templates', [DocumentGenerationTemplateController::class, 'store'])

@@ -23,7 +23,7 @@ export const DOCUMENTS_MODULE_LABELS: Record<DocumentsModuleSection, string> = {
     generate: 'Generate & Send',
     requests: 'Requests',
     templates: 'Templates',
-    configuration: 'Configuration',
+    configuration: 'Document Types',
     activity: 'Activity',
 };
 

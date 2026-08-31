@@ -42,6 +42,8 @@ export type WorkflowRequestListItem = {
     id: number;
     status: string;
     status_label: string;
+    human_status: string;
+    waiting_for: string;
     requested_at: string | null;
     requested_by: { id: number; name: string };
     document: {
@@ -278,6 +280,8 @@ export type RecipientRequestListItem = {
     action_label: string;
     status: RecipientRequestStatus;
     status_label: string;
+    human_status: string;
+    waiting_for: string;
     recipient_type: string;
     recipient_type_label: string;
     recipient_role: string;
@@ -301,6 +305,10 @@ export type RecipientRequestListItem = {
         employee_no: string | null;
     };
     company_signatory: {
+        id: number;
+        name: string;
+    } | null;
+    assigned_signer: {
         id: number;
         name: string;
     } | null;

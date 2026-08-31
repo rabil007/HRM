@@ -205,6 +205,7 @@ export type BulkDocumentsPageProps = {
     } | null;
     view: 'roster' | 'signatures' | 'history';
     embedded_in_requests?: boolean;
+    module_view_locked?: boolean;
     filters: {
         department_id: string;
         position_id: string;

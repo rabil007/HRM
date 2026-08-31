@@ -11,6 +11,7 @@ import {
     Plus,
     Power,
     PowerOff,
+    Search,
     Send,
     Settings2,
     Trash2,
@@ -45,6 +46,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import { edit as applicationSettings } from '@/routes/application';
 import { configuration as documentsConfiguration } from '@/routes/organization/documents';
 import {
@@ -185,6 +187,15 @@ export function DocumentsTemplatesContent({
     ] = useState<number | null>(null);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
+
+    // Filter state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState<
+        'all' | 'active' | 'draft' | 'inactive'
+    >('all');
+    const [formatFilter, setFormatFilter] = useState<
+        'all' | 'content' | 'pdf_overlay'
+    >('all');
 
     useEffect(() => {
         if (pendingDesignerTemplateId !== null) {
@@ -549,11 +560,33 @@ export function DocumentsTemplatesContent({
         }
     };
 
+    // Derived / filtered values
+    const activeCount = customTemplates.filter(
+        (t) => t.status === 'active',
+    ).length;
+    const pendingDraftCount = customTemplates.filter(
+        (t) => t.draft_version !== null,
+    ).length;
+
+    const filteredTemplates = customTemplates.filter((t) => {
+        const matchesSearch =
+            searchQuery === '' ||
+            t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ??
+                false);
+        const matchesStatus =
+            statusFilter === 'all' || t.status === statusFilter;
+        const matchesFormat =
+            formatFilter === 'all' || t.template_format === formatFilter;
+
+        return matchesSearch && matchesStatus && matchesFormat;
+    });
+
     return (
         <Main>
             <PageHeader
                 title="Templates"
-                description="Create and manage reusable company document templates."
+                description="Create reusable documents for Generate & Send."
                 right={
                     can.create_templates ? (
                         <Button
@@ -571,15 +604,60 @@ export function DocumentsTemplatesContent({
                 {/* 1. Company Custom Templates Section */}
                 <div className="space-y-4">
                     <div>
-                        <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                            Custom Templates
+                        <h2 className="text-base font-semibold tracking-tight text-foreground">
+                            Company Templates
                         </h2>
                         <p className="text-xs text-muted-foreground">
-                            Company-owned reusable templates supporting
-                            controlled merge fields and visual PDF overlays.
+                            Custom documents built for your organization.
                         </p>
                     </div>
 
+                    {/* Stats strip */}
+                    {can.view_templates && customTemplates.length > 0 && (
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-card px-4 py-3">
+                                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                    <FileStack className="size-4" />
+                                </div>
+                                <div>
+                                    <div className="text-lg leading-none font-bold text-foreground">
+                                        {customTemplates.length}
+                                    </div>
+                                    <div className="mt-0.5 text-[11px] text-muted-foreground">
+                                        Total
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-card px-4 py-3">
+                                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                    <Power className="size-4" />
+                                </div>
+                                <div>
+                                    <div className="text-lg leading-none font-bold text-foreground">
+                                        {activeCount}
+                                    </div>
+                                    <div className="mt-0.5 text-[11px] text-muted-foreground">
+                                        Active
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-card px-4 py-3">
+                                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                                    <Send className="size-4" />
+                                </div>
+                                <div>
+                                    <div className="text-lg leading-none font-bold text-foreground">
+                                        {pendingDraftCount}
+                                    </div>
+                                    <div className="mt-0.5 text-[11px] text-muted-foreground">
+                                        Pending Draft
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Error banner */}
                     {actionError && (
                         <div className="flex items-center justify-between rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-2.5 text-xs text-destructive">
                             <span>{actionError}</span>
@@ -596,32 +674,100 @@ export function DocumentsTemplatesContent({
 
                     {can.view_templates ? (
                         customTemplates.length > 0 ? (
-                            <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-xs">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="hover:bg-transparent">
-                                            <TableHead className="w-[30%]">
-                                                Template
-                                            </TableHead>
-                                            <TableHead className="w-[14%]">
-                                                Format
-                                            </TableHead>
-                                            <TableHead className="w-[16%]">
-                                                Document Type
-                                            </TableHead>
-                                            <TableHead className="w-[14%]">
-                                                Status & Version
-                                            </TableHead>
-                                            <TableHead className="w-[14%]">
-                                                Last Updated
-                                            </TableHead>
-                                            <TableHead className="w-[12%] text-right">
-                                                Actions
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {customTemplates.map((template) => {
+                            <>
+                                {/* Search + Filter Bar */}
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                    <div className="relative flex-1">
+                                        <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search templates…"
+                                            value={searchQuery}
+                                            onChange={(e) =>
+                                                setSearchQuery(e.target.value)
+                                            }
+                                            className="h-9 w-full rounded-lg border border-border bg-background pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary/20"
+                                        />
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        {(
+                                            [
+                                                { value: 'all', label: 'All' },
+                                                {
+                                                    value: 'active',
+                                                    label: 'Active',
+                                                },
+                                                {
+                                                    value: 'draft',
+                                                    label: 'Draft',
+                                                },
+                                                {
+                                                    value: 'inactive',
+                                                    label: 'Inactive',
+                                                },
+                                            ] as const
+                                        ).map(({ value, label }) => (
+                                            <button
+                                                key={value}
+                                                type="button"
+                                                onClick={() =>
+                                                    setStatusFilter(value)
+                                                }
+                                                className={cn(
+                                                    'h-9 rounded-lg px-3 text-xs font-medium transition-colors',
+                                                    statusFilter === value
+                                                        ? 'bg-primary text-primary-foreground'
+                                                        : 'border border-border bg-background text-muted-foreground hover:bg-muted',
+                                                )}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
+                                        <div className="mx-0.5 h-5 w-px bg-border" />
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormatFilter(
+                                                    formatFilter === 'content'
+                                                        ? 'all'
+                                                        : 'content',
+                                                )
+                                            }
+                                            className={cn(
+                                                'h-9 rounded-lg px-3 text-xs font-medium transition-colors',
+                                                formatFilter === 'content'
+                                                    ? 'bg-blue-500 text-white'
+                                                    : 'border border-border bg-background text-muted-foreground hover:bg-muted',
+                                            )}
+                                        >
+                                            Content
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormatFilter(
+                                                    formatFilter ===
+                                                        'pdf_overlay'
+                                                        ? 'all'
+                                                        : 'pdf_overlay',
+                                                )
+                                            }
+                                            className={cn(
+                                                'h-9 rounded-lg px-3 text-xs font-medium transition-colors',
+                                                formatFilter === 'pdf_overlay'
+                                                    ? 'bg-purple-500 text-white'
+                                                    : 'border border-border bg-background text-muted-foreground hover:bg-muted',
+                                            )}
+                                        >
+                                            PDF
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Card Grid or no-results state */}
+                                {filteredTemplates.length > 0 ? (
+                                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                        {filteredTemplates.map((template) => {
                                             const isPdf =
                                                 template.template_format ===
                                                 'pdf_overlay';
@@ -632,173 +778,60 @@ export function DocumentsTemplatesContent({
                                                 null;
 
                                             return (
-                                                <TableRow key={template.id}>
-                                                    <TableCell>
-                                                        <div className="font-medium text-foreground">
-                                                            {template.name}
-                                                        </div>
-                                                        {template.description && (
-                                                            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                                                                {
-                                                                    template.description
-                                                                }
-                                                            </p>
+                                                <div
+                                                    key={template.id}
+                                                    className="group relative flex flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-xs transition-all hover:border-border hover:shadow-md"
+                                                >
+                                                    {/* Top colour accent bar */}
+                                                    <div
+                                                        className={cn(
+                                                            'h-0.5 w-full shrink-0',
+                                                            isPdf
+                                                                ? 'bg-purple-500'
+                                                                : 'bg-blue-500',
                                                         )}
-                                                    </TableCell>
+                                                    />
 
-                                                    <TableCell>
-                                                        {isPdf ? (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="border-purple-500/30 bg-purple-500/10 text-xs font-medium text-purple-700 dark:text-purple-400"
-                                                            >
-                                                                PDF Template
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="border-blue-500/30 bg-blue-500/10 text-xs font-medium text-blue-700 dark:text-blue-400"
-                                                            >
-                                                                Content
-                                                            </Badge>
-                                                        )}
-                                                    </TableCell>
-
-                                                    <TableCell>
-                                                        {template.document_type_title ? (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="text-xs font-normal"
-                                                            >
-                                                                {
-                                                                    template.document_type_title
-                                                                }
-                                                            </Badge>
-                                                        ) : (
-                                                            <span className="text-xs text-muted-foreground">
-                                                                (General)
-                                                            </span>
-                                                        )}
-                                                    </TableCell>
-
-                                                    <TableCell>
-                                                        <div className="space-y-1">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <Badge
-                                                                    variant={
-                                                                        template.status ===
-                                                                        'active'
-                                                                            ? 'default'
-                                                                            : template.status ===
-                                                                                'draft'
-                                                                              ? 'secondary'
-                                                                              : 'outline'
-                                                                    }
-                                                                    className="text-xs capitalize"
+                                                    {/* Card body */}
+                                                    <div className="flex flex-1 flex-col p-4">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="flex min-w-0 items-start gap-3">
+                                                                <div
+                                                                    className={cn(
+                                                                        'flex size-9 shrink-0 items-center justify-center rounded-lg',
+                                                                        isPdf
+                                                                            ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                                                                            : 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+                                                                    )}
                                                                 >
-                                                                    {
-                                                                        template.status_label
-                                                                    }
-                                                                </Badge>
-                                                            </div>
-                                                            <div className="text-[11px] text-muted-foreground">
-                                                                {hasPublished && (
-                                                                    <span>
-                                                                        v
+                                                                    {isPdf ? (
+                                                                        <Layers className="size-4" />
+                                                                    ) : (
+                                                                        <FileText className="size-4" />
+                                                                    )}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <div className="truncate text-sm leading-tight font-semibold text-foreground">
                                                                         {
-                                                                            template
-                                                                                .published_version
-                                                                                ?.version
-                                                                        }{' '}
-                                                                        Published
-                                                                    </span>
-                                                                )}
-                                                                {hasDraft && (
-                                                                    <span
-                                                                        className={
-                                                                            hasPublished
-                                                                                ? 'block font-medium text-amber-600 dark:text-amber-400'
-                                                                                : 'font-medium'
+                                                                            template.name
                                                                         }
-                                                                    >
-                                                                        v
-                                                                        {
-                                                                            template
-                                                                                .draft_version
-                                                                                ?.version
-                                                                        }{' '}
-                                                                        Draft
-                                                                    </span>
-                                                                )}
+                                                                    </div>
+                                                                    {template.description ? (
+                                                                        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                                                                            {
+                                                                                template.description
+                                                                            }
+                                                                        </p>
+                                                                    ) : (
+                                                                        <p className="mt-0.5 text-xs text-muted-foreground/50 italic">
+                                                                            No
+                                                                            description
+                                                                        </p>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    </TableCell>
 
-                                                    <TableCell>
-                                                        <div className="text-xs text-foreground">
-                                                            {formatDate(
-                                                                template.updated_at,
-                                                            )}
-                                                        </div>
-                                                        {template.updated_by_name && (
-                                                            <div className="text-[11px] text-muted-foreground">
-                                                                by{' '}
-                                                                {
-                                                                    template.updated_by_name
-                                                                }
-                                                            </div>
-                                                        )}
-                                                    </TableCell>
-
-                                                    <TableCell className="text-right">
-                                                        <div className="flex items-center justify-end gap-1">
-                                                            {/* Direct Design button for PDF templates */}
-                                                            {isPdf &&
-                                                                can.update_templates && (
-                                                                    <Button
-                                                                        type="button"
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-8 w-8 text-primary"
-                                                                        title="Design Merge Fields"
-                                                                        disabled={
-                                                                            isActionLoading
-                                                                        }
-                                                                        onClick={() =>
-                                                                            handleOpenDesigner(
-                                                                                template,
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        <Layers className="h-4 w-4" />
-                                                                        <span className="sr-only">
-                                                                            Design
-                                                                            Fields
-                                                                        </span>
-                                                                    </Button>
-                                                                )}
-
-                                                            {/* Preview button for Content templates */}
-                                                            {!isPdf && (
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-8 w-8"
-                                                                    title="Preview"
-                                                                    onClick={() =>
-                                                                        handlePreviewStored(
-                                                                            template,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Eye className="h-4 w-4 text-muted-foreground" />
-                                                                    <span className="sr-only">
-                                                                        Preview
-                                                                    </span>
-                                                                </Button>
-                                                            )}
-
+                                                            {/* Actions overflow menu */}
                                                             {(can.update_templates ||
                                                                 can.delete_templates) && (
                                                                 <DropdownMenu>
@@ -809,7 +842,7 @@ export function DocumentsTemplatesContent({
                                                                             type="button"
                                                                             variant="ghost"
                                                                             size="icon"
-                                                                            className="h-8 w-8"
+                                                                            className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                                                                         >
                                                                             <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                                                                             <span className="sr-only">
@@ -841,7 +874,7 @@ export function DocumentsTemplatesContent({
                                                                                     </DropdownMenuItem>
                                                                                 )}
 
-                                                                                {/* PDF template visual design */}
+                                                                                {/* PDF template actions */}
                                                                                 {isPdf && (
                                                                                     <>
                                                                                         <DropdownMenuItem
@@ -911,7 +944,7 @@ export function DocumentsTemplatesContent({
                                                                                     </>
                                                                                 )}
 
-                                                                                {/* Publish Draft if available */}
+                                                                                {/* Publish draft */}
                                                                                 {hasDraft && (
                                                                                     <DropdownMenuItem
                                                                                         onClick={() =>
@@ -947,7 +980,8 @@ export function DocumentsTemplatesContent({
                                                                                 >
                                                                                     <Settings2 className="h-3.5 w-3.5" />
                                                                                     <span>
-                                                                                        Automation
+                                                                                        After
+                                                                                        generation
                                                                                     </span>
                                                                                 </DropdownMenuItem>
 
@@ -1023,20 +1057,217 @@ export function DocumentsTemplatesContent({
                                                                 </DropdownMenu>
                                                             )}
                                                         </div>
-                                                    </TableCell>
-                                                </TableRow>
+
+                                                        {/* Badges */}
+                                                        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                                                            <Badge
+                                                                variant={
+                                                                    template.status ===
+                                                                    'active'
+                                                                        ? 'default'
+                                                                        : template.status ===
+                                                                            'draft'
+                                                                          ? 'secondary'
+                                                                          : 'outline'
+                                                                }
+                                                                className="text-[11px] capitalize"
+                                                            >
+                                                                {
+                                                                    template.status_label
+                                                                }
+                                                            </Badge>
+                                                            {isPdf ? (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="border-purple-500/30 bg-purple-500/10 text-[11px] font-medium text-purple-700 dark:text-purple-400"
+                                                                >
+                                                                    PDF
+                                                                </Badge>
+                                                            ) : (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="border-blue-500/30 bg-blue-500/10 text-[11px] font-medium text-blue-700 dark:text-blue-400"
+                                                                >
+                                                                    Content
+                                                                </Badge>
+                                                            )}
+                                                            {template.document_type_title && (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="text-[11px] font-normal"
+                                                                >
+                                                                    {
+                                                                        template.document_type_title
+                                                                    }
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Version info */}
+                                                        {(hasPublished ||
+                                                            hasDraft) && (
+                                                            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                                                {hasPublished && (
+                                                                    <span className="text-[11px] text-muted-foreground">
+                                                                        v
+                                                                        {
+                                                                            template
+                                                                                .published_version
+                                                                                ?.version
+                                                                        }{' '}
+                                                                        published
+                                                                    </span>
+                                                                )}
+                                                                {hasDraft && (
+                                                                    <span
+                                                                        className={cn(
+                                                                            'text-[11px] font-medium',
+                                                                            hasPublished
+                                                                                ? 'text-amber-600 dark:text-amber-400'
+                                                                                : 'text-muted-foreground',
+                                                                        )}
+                                                                    >
+                                                                        v
+                                                                        {
+                                                                            template
+                                                                                .draft_version
+                                                                                ?.version
+                                                                        }{' '}
+                                                                        draft
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Card footer with quick actions */}
+                                                    <div className="flex items-center justify-between border-t border-border/60 bg-muted/20 px-4 py-2.5">
+                                                        <div className="text-[11px] text-muted-foreground">
+                                                            {formatDate(
+                                                                template.updated_at,
+                                                            )}
+                                                            {template.updated_by_name && (
+                                                                <span>
+                                                                    {' '}
+                                                                    ·{' '}
+                                                                    {
+                                                                        template.updated_by_name
+                                                                    }
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="flex items-center gap-0.5">
+                                                            {/* Design button for PDF */}
+                                                            {isPdf &&
+                                                                can.update_templates && (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-7 w-7 text-primary"
+                                                                        title="Design Merge Fields"
+                                                                        disabled={
+                                                                            isActionLoading
+                                                                        }
+                                                                        onClick={() =>
+                                                                            handleOpenDesigner(
+                                                                                template,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Layers className="h-3.5 w-3.5" />
+                                                                        <span className="sr-only">
+                                                                            Design
+                                                                            Fields
+                                                                        </span>
+                                                                    </Button>
+                                                                )}
+
+                                                            {/* Preview for content templates */}
+                                                            {!isPdf && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-7 w-7"
+                                                                    title="Preview"
+                                                                    onClick={() =>
+                                                                        handlePreviewStored(
+                                                                            template,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                    <span className="sr-only">
+                                                                        Preview
+                                                                    </span>
+                                                                </Button>
+                                                            )}
+
+                                                            {/* Publish draft quick-action */}
+                                                            {hasDraft &&
+                                                                can.update_templates && (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-7 w-7 text-emerald-600 dark:text-emerald-400"
+                                                                        title={`Publish v${template.draft_version!.version}`}
+                                                                        onClick={() =>
+                                                                            handlePublishDraft(
+                                                                                template,
+                                                                                template
+                                                                                    .draft_version!
+                                                                                    .id,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Send className="h-3.5 w-3.5" />
+                                                                        <span className="sr-only">
+                                                                            Publish
+                                                                            Draft
+                                                                        </span>
+                                                                    </Button>
+                                                                )}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             );
                                         })}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                                    </div>
+                                ) : (
+                                    /* No results after filtering */
+                                    <div className="rounded-xl border border-border/80 bg-muted/30 p-10 text-center backdrop-blur-xl dark:border-white/5 dark:bg-white/5">
+                                        <Search className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
+                                        <div className="text-sm font-semibold text-foreground/90">
+                                            No templates match your filters.
+                                        </div>
+                                        <div className="mt-1 text-xs text-muted-foreground">
+                                            Try adjusting your search or
+                                            clearing the filters.
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSearchQuery('');
+                                                setStatusFilter('all');
+                                                setFormatFilter('all');
+                                            }}
+                                            className="mt-4 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                                        >
+                                            Clear filters
+                                        </button>
+                                    </div>
+                                )}
+                            </>
                         ) : (
                             <EmptyState
                                 icon={
                                     <FileText className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
                                 }
-                                title="No custom templates yet."
-                                description="Create reusable company letters, employment certificates, or upload branded PDF templates."
+                                title="No company templates yet."
+                                description="Create a reusable document template for Generate & Send."
                                 action={
                                     can.create_templates ? (
                                         <Button
@@ -1065,13 +1296,11 @@ export function DocumentsTemplatesContent({
                 {/* 2. System Generation Templates Section */}
                 <div className="space-y-4">
                     <div>
-                        <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                            System Generation Templates
+                        <h2 className="text-base font-semibold tracking-tight text-foreground">
+                            Built-in Templates
                         </h2>
                         <p className="text-xs text-muted-foreground">
-                            Protected application templates built into OMS-HRM.
-                            Configuration for e-signatures and company issuance
-                            rules is managed in dedicated settings.
+                            Ready-to-use templates provided by the system.
                         </p>
                     </div>
 
@@ -1079,10 +1308,10 @@ export function DocumentsTemplatesContent({
                         <Table>
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent">
-                                    <TableHead className="w-[45%]">
+                                    <TableHead className="w-[50%]">
                                         Template
                                     </TableHead>
-                                    <TableHead className="w-[30%]">
+                                    <TableHead className="w-[25%]">
                                         Type
                                     </TableHead>
                                     <TableHead className="w-[25%] text-right">
@@ -1092,21 +1321,18 @@ export function DocumentsTemplatesContent({
                             </TableHeader>
                             <TableBody>
                                 {systemTemplates.map((item) => (
-                                    <TableRow key={item.key}>
+                                    <TableRow key={item.key} className="group">
                                         <TableCell>
-                                            <div className="flex items-center gap-2.5">
-                                                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
                                                     <FileStack className="size-4" />
                                                 </div>
                                                 <div>
                                                     <div className="font-medium text-foreground">
                                                         {item.label}
                                                     </div>
-                                                    <div className="text-[11px] text-muted-foreground">
-                                                        Code:{' '}
-                                                        <span className="font-mono">
-                                                            {item.key}
-                                                        </span>
+                                                    <div className="font-mono text-[11px] text-muted-foreground">
+                                                        {item.key}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1157,7 +1383,7 @@ export function DocumentsTemplatesContent({
 
                 {/* 3. Help & Reference Section */}
                 <div className="grid gap-4 md:grid-cols-2">
-                    <Card className="border-border/60">
+                    <Card className="border-l-2 border-border/60 border-l-blue-500">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-sm font-semibold">
                                 Merge Field Reference
@@ -1199,7 +1425,7 @@ export function DocumentsTemplatesContent({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-border/60">
+                    <Card className="border-l-2 border-border/60 border-l-emerald-500">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-sm font-semibold">
                                 Document Types
@@ -1218,6 +1444,7 @@ export function DocumentsTemplatesContent({
                             {can.document_types && (
                                 <Button variant="outline" size="sm" asChild>
                                     <Link href={documentsConfiguration.url()}>
+                                        <Settings2 className="mr-1.5 size-3.5" />
                                         Manage Document Types
                                     </Link>
                                 </Button>
