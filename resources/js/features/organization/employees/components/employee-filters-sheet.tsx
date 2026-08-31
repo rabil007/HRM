@@ -23,6 +23,7 @@ import type {
     ApprovalLocationOption,
     ManagerOption,
     PositionOption,
+    ProjectOption,
     RankOption,
     RoleOption,
     SssaOption,
@@ -40,6 +41,7 @@ export type EmployeeFilters = {
     visa_type_id: string;
     company_visa_type_id: string;
     rank_id: string;
+    project_id: string;
     approval_location_id: string;
     sssa_option_id: string;
     crew_status: string;
@@ -59,6 +61,7 @@ export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
     visa_type_id: '',
     company_visa_type_id: '',
     rank_id: '',
+    project_id: '',
     approval_location_id: '',
     sssa_option_id: '',
     crew_status: '',
@@ -105,6 +108,7 @@ export function EmployeeFiltersSheet({
     approvalLocations,
     sssaOptions,
     ranks,
+    projects,
     roles,
 }: {
     open: boolean;
@@ -122,6 +126,7 @@ export function EmployeeFiltersSheet({
     approvalLocations: ApprovalLocationOption[];
     sssaOptions: SssaOption[];
     ranks: RankOption[];
+    projects: ProjectOption[];
     roles: RoleOption[];
 }) {
     const selectedApprovalLocationIds = csvIdSet(value.approval_location_id);
@@ -219,6 +224,30 @@ export function EmployeeFiltersSheet({
                         {ranks.map((r) => (
                             <AppSelectItem key={r.id} value={String(r.id)}>
                                 {r.name}
+                            </AppSelectItem>
+                        ))}
+                    </AppSelect>
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                        Project
+                    </Label>
+                    <AppSelect
+                        value={value.project_id}
+                        onValueChange={(v) =>
+                            onChange({ ...value, project_id: v })
+                        }
+                        variant="dark"
+                        placeholder="All"
+                    >
+                        <AppSelectItem value="">All</AppSelectItem>
+                        {projects.map((project) => (
+                            <AppSelectItem
+                                key={project.id}
+                                value={String(project.id)}
+                            >
+                                {project.title}
                             </AppSelectItem>
                         ))}
                     </AppSelect>

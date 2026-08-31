@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\SavedViewPage;
+use App\Models\Project;
 use App\Models\User;
 use App\Support\SavedViews\SavedViewCatalog;
 use Illuminate\Validation\ValidationException;
@@ -72,6 +73,23 @@ test('employee saved views reject unknown completeness concepts and prompts', fu
         ['emirates_id_presence' => '784-1234-1234567-1'],
         1,
     ))->toThrow(ValidationException::class);
+});
+
+test('employee saved views accept project_id', function () {
+    $project = Project::query()->create([
+        'title' => 'Saved View Project',
+        'is_active' => true,
+    ]);
+
+    expect(SavedViewCatalog::forApply(SavedViewPage::Employees, [
+        'project_id' => (string) $project->id,
+    ]))->toBe(['project_id' => (string) $project->id]);
+
+    expect(SavedViewCatalog::normalizeForSave(
+        SavedViewPage::Employees,
+        ['project_id' => (string) $project->id],
+        1,
+    ))->toBe(['project_id' => (string) $project->id]);
 });
 
 test('empty and default values are omitted', function () {
