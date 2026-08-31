@@ -28,8 +28,8 @@ export function WorkflowRequestsTable({
     if (requests.length === 0) {
         return (
             <EmptyState
-                title="No review or approval requests"
-                description="Generated documents with an active workflow will appear here."
+                title="You're all caught up"
+                description="No approval requests need attention right now."
             />
         );
     }
@@ -38,11 +38,9 @@ export function WorkflowRequestsTable({
         <OrganizationDataTable minWidth="min-w-[960px]">
             <TableHeader>
                 <DataTableHeaderRow>
-                    <DataTableHead>Document</DataTableHead>
                     <DataTableHead>Employee</DataTableHead>
-                    <DataTableHead>Requested by</DataTableHead>
-                    <DataTableHead>Current stage</DataTableHead>
-                    <DataTableHead>Assigned to</DataTableHead>
+                    <DataTableHead>Document</DataTableHead>
+                    <DataTableHead>Waiting for</DataTableHead>
                     <DataTableHead>Status</DataTableHead>
                     <DataTableHead>Requested</DataTableHead>
                 </DataTableHeaderRow>
@@ -63,31 +61,28 @@ export function WorkflowRequestsTable({
                             onClick={() => router.visit(href)}
                         >
                             <TableCell className={dataTableCellPrimaryClass()}>
-                                {request.document.title ?? 'Document'}
-                            </TableCell>
-                            <TableCell className={dataTableCellClass()}>
                                 <div>{request.employee.name ?? '—'}</div>
                                 <div className="text-xs text-muted-foreground">
                                     {request.employee.employee_no ?? ''}
                                 </div>
                             </TableCell>
                             <TableCell className={dataTableCellClass()}>
-                                {request.requested_by.name}
+                                <div className="font-medium">
+                                    {request.document.title ?? 'Document'}
+                                </div>
+                                {request.current_stage ? (
+                                    <div className="text-xs text-muted-foreground">
+                                        {request.current_stage.action_label}
+                                    </div>
+                                ) : null}
                             </TableCell>
                             <TableCell className={dataTableCellClass()}>
-                                {request.current_stage
-                                    ? `${request.current_stage.action_label} (${request.current_stage.sequence})`
-                                    : '—'}
-                            </TableCell>
-                            <TableCell className={dataTableCellClass()}>
-                                {request.assigned_to.length > 0
-                                    ? request.assigned_to.join(', ')
-                                    : '—'}
+                                {request.waiting_for || '—'}
                             </TableCell>
                             <TableCell className={dataTableCellClass()}>
                                 <WorkflowStatusBadge
                                     status={request.status}
-                                    label={request.status_label}
+                                    label={request.human_status}
                                 />
                             </TableCell>
                             <TableCell className={dataTableCellClass()}>

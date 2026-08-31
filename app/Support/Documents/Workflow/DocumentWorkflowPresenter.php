@@ -2,6 +2,7 @@
 
 namespace App\Support\Documents\Workflow;
 
+use App\Enums\DocumentWorkflowAction;
 use App\Enums\DocumentWorkflowRequestStatus;
 use App\Enums\DocumentWorkflowStageStatus;
 use App\Enums\DocumentWorkflowTaskStatus;
@@ -31,10 +32,18 @@ final class DocumentWorkflowPresenter
                 ->all()
             : [];
 
+        [$humanStatus, $waitingFor] = $this->computeHumanStatusAndWaitingFor(
+            $request,
+            $activeStage,
+            $assignedTo,
+        );
+
         return [
             'id' => $request->id,
             'status' => $request->status->value,
             'status_label' => $request->status->label(),
+            'human_status' => $humanStatus,
+            'waiting_for' => $waitingFor,
             'requested_at' => $request->requested_at?->toIso8601String(),
             'requested_by' => [
                 'id' => $request->requested_by,
@@ -59,6 +68,43 @@ final class DocumentWorkflowPresenter
             ] : null,
             'assigned_to' => $assignedTo,
         ];
+    }
+
+    /**
+     * @param  array<int, string>  $assignedTo
+     * @return array{string, string}
+     */
+    private function computeHumanStatusAndWaitingFor(
+        DocumentWorkflowRequest $request,
+        ?DocumentWorkflowStage $activeStage,
+        array $assignedTo,
+    ): array {
+        if ($request->status === DocumentWorkflowRequestStatus::Cancelled) {
+            return ['Cancelled', ''];
+        }
+
+        if ($request->status === DocumentWorkflowRequestStatus::Rejected) {
+            return ['Rejected', ''];
+        }
+
+        if ($request->status === DocumentWorkflowRequestStatus::Approved) {
+            return ['Approved', ''];
+        }
+
+        if ($activeStage === null || count($assignedTo) === 0) {
+            return ['Pending', ''];
+        }
+
+        $actionLabel = $activeStage->action->label();
+        $waitingForList = implode(', ', $assignedTo);
+
+        $statusText = match ($activeStage->action) {
+            DocumentWorkflowAction::Review => "Waiting for {$actionLabel}",
+            DocumentWorkflowAction::Approve => "Waiting for {$actionLabel}",
+            default => 'Pending',
+        };
+
+        return [$statusText, $waitingForList];
     }
 
     /**

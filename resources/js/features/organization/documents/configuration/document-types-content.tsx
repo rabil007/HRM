@@ -19,6 +19,11 @@ import {
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
 import { ListTableCrudActions } from '@/components/list-table-actions';
+import {
+    MobileRecordCard,
+    MobileRecordList,
+} from '@/components/mobile-record-list';
+import type { MobileRecordOverflowAction } from '@/components/mobile-record-list';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
@@ -34,7 +39,9 @@ import {
 import { DocumentTypeFormSheet } from '@/features/organization/documents/configuration/document-type-form-sheet';
 import { DocumentTypeImportDialog } from '@/features/organization/documents/configuration/document-type-import-dialog';
 import {
+    documentTypeAppliesToLabel,
     documentTypeExpiryLabel,
+    documentTypeRequirementStatus,
     initialDocumentTypeForm,
     requirementToFormData,
 } from '@/features/organization/documents/configuration/types';
@@ -193,7 +200,7 @@ export function DocumentTypesContent({
             <PageHeader
                 kicker="Documents"
                 title="Document Types"
-                description="Configure document labels and employee requirements used across Library, Templates, and compliance."
+                description="Define document categories, requirements, and who needs each document."
                 right={
                     <div className="flex flex-wrap items-center gap-2">
                         <Button
@@ -220,53 +227,82 @@ export function DocumentTypesContent({
             />
 
             {documentTypes.length === 0 ? (
-                <EmptyState title="No document types found." />
+                <EmptyState
+                    title={
+                        list.searchInput
+                            ? 'No document types found.'
+                            : 'No document types yet.'
+                    }
+                    description={
+                        list.searchInput
+                            ? 'Try adjusting your search query to find the document type.'
+                            : 'Add a document type to organize employee documents and configure requirements.'
+                    }
+                    action={
+                        !list.searchInput && can.create ? (
+                            <Button onClick={openCreate}>
+                                Add document type
+                            </Button>
+                        ) : null
+                    }
+                />
             ) : (
-                <OrganizationDataTable minWidth="min-w-[880px]" compact>
-                    <TableHeader>
-                        <DataTableHeaderRow>
-                            <DataTableHead>Document Type</DataTableHead>
-                            <DataTableHead>Requirement</DataTableHead>
-                            <DataTableHead>Expiry</DataTableHead>
-                            <DataTableHead>Status</DataTableHead>
-                            <DataTableHead className="text-right">
-                                Actions
-                            </DataTableHead>
-                        </DataTableHeaderRow>
-                    </TableHeader>
-                    <TableBody>
-                        {documentTypes.map((documentType) => {
-                            const canOpen = can.update;
+                <>
+                    {/* Mobile Record List (Small screens) */}
+                    <div className="md:hidden">
+                        <MobileRecordList labelledBy="document-types-mobile-heading">
+                            {documentTypes.map((documentType) => {
+                                const isRequired =
+                                    documentType.requirement?.is_required;
+                                const appliesTo = documentTypeAppliesToLabel(
+                                    documentType.requirement,
+                                );
+                                const expiryLabel = documentTypeExpiryLabel(
+                                    documentType.requirement,
+                                );
 
-                            return (
-                                <TableRow
-                                    key={documentType.id}
-                                    className={cn(
-                                        dataTableBodyRowClass(canOpen),
-                                        canOpen && 'cursor-pointer',
-                                    )}
-                                    onClick={
-                                        canOpen
-                                            ? () => openEdit(documentType)
-                                            : undefined
-                                    }
-                                >
-                                    <TableCell
-                                        className={dataTableCellPrimaryClass()}
-                                    >
-                                        {documentType.title}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {documentType.requirement?.label ??
-                                            'Optional'}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {documentTypeExpiryLabel(
-                                            documentType.requirement,
-                                        )}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        <div className="flex items-center gap-2">
+                                const metaParts: string[] = [];
+
+                                if (isRequired) {
+                                    metaParts.push(`Applies to: ${appliesTo}`);
+                                } else {
+                                    metaParts.push('Optional document');
+                                }
+
+                                if (expiryLabel !== '—') {
+                                    metaParts.push('Expiry tracked');
+                                }
+
+                                const overflowActions: MobileRecordOverflowAction[] =
+                                    [];
+
+                                if (can.update) {
+                                    overflowActions.push({
+                                        key: 'edit',
+                                        label: 'Edit',
+                                        onSelect: () => openEdit(documentType),
+                                    });
+                                }
+
+                                if (can.delete) {
+                                    overflowActions.push({
+                                        key: 'delete',
+                                        label: 'Delete',
+                                        destructive: true,
+                                        onSelect: () =>
+                                            requestDelete(documentType),
+                                    });
+                                }
+
+                                return (
+                                    <MobileRecordCard
+                                        key={documentType.id}
+                                        title={documentType.title}
+                                        subtitle={
+                                            isRequired ? 'Required' : 'Optional'
+                                        }
+                                        meta={metaParts}
+                                        status={
                                             <Badge
                                                 variant={
                                                     documentType.is_active
@@ -278,42 +314,172 @@ export function DocumentTypesContent({
                                                     ? 'Active'
                                                     : 'Inactive'}
                                             </Badge>
-                                            <Switch
-                                                disabled={!can.update}
-                                                checked={documentType.is_active}
-                                                onCheckedChange={() =>
-                                                    toggleActive(documentType)
-                                                }
+                                        }
+                                        overflowActions={overflowActions}
+                                        primaryAction={
+                                            can.update
+                                                ? {
+                                                      label: 'Edit',
+                                                      onClick: () =>
+                                                          openEdit(
+                                                              documentType,
+                                                          ),
+                                                  }
+                                                : undefined
+                                        }
+                                    />
+                                );
+                            })}
+                        </MobileRecordList>
+                    </div>
+
+                    {/* Desktop Data Table */}
+                    <div className="hidden md:block">
+                        <OrganizationDataTable minWidth="min-w-[960px]" compact>
+                            <TableHeader>
+                                <DataTableHeaderRow>
+                                    <DataTableHead>Document Type</DataTableHead>
+                                    <DataTableHead>Requirement</DataTableHead>
+                                    <DataTableHead>Applies To</DataTableHead>
+                                    <DataTableHead>Expiry</DataTableHead>
+                                    <DataTableHead>Status</DataTableHead>
+                                    <DataTableHead className="text-right">
+                                        Actions
+                                    </DataTableHead>
+                                </DataTableHeaderRow>
+                            </TableHeader>
+                            <TableBody>
+                                {documentTypes.map((documentType) => {
+                                    const canOpen = can.update;
+                                    const isRequired =
+                                        documentType.requirement?.is_required;
+                                    const appliesTo =
+                                        documentTypeAppliesToLabel(
+                                            documentType.requirement,
+                                        );
+
+                                    return (
+                                        <TableRow
+                                            key={documentType.id}
+                                            className={cn(
+                                                dataTableBodyRowClass(canOpen),
+                                                canOpen && 'cursor-pointer',
+                                            )}
+                                            onClick={
+                                                canOpen
+                                                    ? () =>
+                                                          openEdit(documentType)
+                                                    : undefined
+                                            }
+                                        >
+                                            <TableCell
+                                                className={dataTableCellPrimaryClass()}
+                                            >
+                                                {documentType.title}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                <Badge
+                                                    variant={
+                                                        isRequired
+                                                            ? 'default'
+                                                            : 'secondary'
+                                                    }
+                                                    className="font-normal"
+                                                >
+                                                    {documentTypeRequirementStatus(
+                                                        documentType.requirement,
+                                                    )}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                <span
+                                                    className={cn(
+                                                        !isRequired &&
+                                                            'text-muted-foreground',
+                                                    )}
+                                                >
+                                                    {appliesTo}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                <span
+                                                    className={cn(
+                                                        documentTypeExpiryLabel(
+                                                            documentType.requirement,
+                                                        ) === '—' &&
+                                                            'text-muted-foreground',
+                                                    )}
+                                                >
+                                                    {documentTypeExpiryLabel(
+                                                        documentType.requirement,
+                                                    )}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Badge
+                                                        variant={
+                                                            documentType.is_active
+                                                                ? 'success'
+                                                                : 'secondary'
+                                                        }
+                                                    >
+                                                        {documentType.is_active
+                                                            ? 'Active'
+                                                            : 'Inactive'}
+                                                    </Badge>
+                                                    <Switch
+                                                        disabled={!can.update}
+                                                        checked={
+                                                            documentType.is_active
+                                                        }
+                                                        onCheckedChange={() =>
+                                                            toggleActive(
+                                                                documentType,
+                                                            )
+                                                        }
+                                                        onClick={(event) =>
+                                                            event.stopPropagation()
+                                                        }
+                                                        aria-label={`Toggle ${documentType.title} status`}
+                                                    />
+                                                </div>
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableActionsCellClass()}
                                                 onClick={(event) =>
                                                     event.stopPropagation()
                                                 }
-                                                aria-label={`Toggle ${documentType.title} status`}
-                                            />
-                                        </div>
-                                    </TableCell>
-                                    <TableCell
-                                        className={dataTableActionsCellClass()}
-                                        onClick={(event) =>
-                                            event.stopPropagation()
-                                        }
-                                    >
-                                        <ListTableCrudActions
-                                            showView={false}
-                                            showEdit={can.update}
-                                            showDelete={can.delete}
-                                            onEdit={() =>
-                                                openEdit(documentType)
-                                            }
-                                            onDelete={() =>
-                                                requestDelete(documentType)
-                                            }
-                                        />
-                                    </TableCell>
-                                </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                </OrganizationDataTable>
+                                            >
+                                                <ListTableCrudActions
+                                                    showView={false}
+                                                    showEdit={can.update}
+                                                    showDelete={can.delete}
+                                                    onEdit={() =>
+                                                        openEdit(documentType)
+                                                    }
+                                                    onDelete={() =>
+                                                        requestDelete(
+                                                            documentType,
+                                                        )
+                                                    }
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </OrganizationDataTable>
+                    </div>
+                </>
             )}
 
             <Pagination {...list.paginationProps} label="document types" />

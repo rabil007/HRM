@@ -4,6 +4,7 @@ namespace App\Support\Documents\RecipientRequests;
 
 use App\Enums\DocumentRecipientRequestDeliveryPurpose;
 use App\Enums\DocumentRecipientRequestDeliveryStatus;
+use App\Enums\DocumentRecipientRequestStatus;
 use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentRecipientRequestDelivery;
 use App\Support\Documents\RecipientRequests\Automation\DocumentRecipientAutomationPolicy;
@@ -32,12 +33,16 @@ final class DocumentRecipientRequestPresenter
 
         $document = $request->documentInstance?->employeeDocument;
 
+        [$humanStatus, $waitingFor] = $this->computeHumanStatusAndWaitingFor($request);
+
         return [
             'id' => $request->id,
             'action' => $request->action->value,
             'action_label' => $request->action->label(),
             'status' => $request->status->value,
             'status_label' => $request->status->label(),
+            'human_status' => $humanStatus,
+            'waiting_for' => $waitingFor,
             'recipient_type' => $request->recipient_type->value,
             'recipient_type_label' => $request->recipient_type->label(),
             'recipient_role' => $request->recipient_role->value,
@@ -88,6 +93,40 @@ final class DocumentRecipientRequestPresenter
                 ])
                 : null,
         ];
+    }
+
+    /**
+     * @return array{string, string}
+     */
+    private function computeHumanStatusAndWaitingFor(DocumentRecipientRequest $request): array
+    {
+        $recipientName = $request->recipient_name_snapshot;
+        $roleLabel = $request->recipient_role->label();
+
+        if ($request->status === DocumentRecipientRequestStatus::Completed) {
+            return ['Completed', ''];
+        }
+
+        if ($request->status === DocumentRecipientRequestStatus::Expired) {
+            return ['Expired', ''];
+        }
+
+        if ($request->status === DocumentRecipientRequestStatus::Cancelled) {
+            return ['Cancelled', ''];
+        }
+
+        if ($request->status === DocumentRecipientRequestStatus::Rejected) {
+            return ['Rejected', ''];
+        }
+
+        $emailDelivery = $this->emailDeliverySummary($request);
+        if ($emailDelivery && in_array($emailDelivery['status'], ['failed', 'permanent_bounce'], true)) {
+            return ['Email delivery failed', "{$recipientName} · {$roleLabel}"];
+        }
+
+        $actionLabel = $request->action->label();
+
+        return ["Waiting for {$actionLabel}", "{$recipientName} · {$roleLabel}"];
     }
 
     /**

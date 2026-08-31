@@ -72,16 +72,20 @@ export function TemplateAutomationSheet({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent className="sm:max-w-md">
                 <SheetHeader>
-                    <SheetTitle>Template automation</SheetTitle>
+                    <SheetTitle>After generation</SheetTitle>
                     <SheetDescription>
-                        Bind active workflow and signing presets. Generation
-                        will start the configured lifecycle automatically.
+                        Choose what should happen after this document is
+                        generated.
                     </SheetDescription>
                 </SheetHeader>
 
                 <div className="mt-6 space-y-4">
                     <div className="space-y-2">
-                        <Label>Workflow preset</Label>
+                        <Label>Review & approval</Label>
+                        <p className="text-xs text-muted-foreground">
+                            Define who reviews or approves generated documents
+                            and in what order.
+                        </p>
                         <AppSelect
                             value={
                                 form.data.document_workflow_preset_id !== null

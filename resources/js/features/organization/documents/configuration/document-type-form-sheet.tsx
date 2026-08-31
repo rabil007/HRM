@@ -88,14 +88,15 @@ export function DocumentTypeFormSheet({
                     }}
                     className="flex-1 space-y-8 overflow-y-auto p-8"
                 >
-                    <section className="space-y-5">
+                    {/* Section 1: Basics */}
+                    <section className="space-y-4">
                         <div>
-                            <h3 className="text-sm font-semibold tracking-tight">
-                                General
+                            <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                                Basics
                             </h3>
                             <p className="mt-1 text-xs text-muted-foreground">
-                                Document type label and whether it appears in
-                                dropdowns.
+                                Name and general availability of this document
+                                type across the workspace.
                             </p>
                         </div>
 
@@ -104,7 +105,7 @@ export function DocumentTypeFormSheet({
                                 htmlFor="title"
                                 className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
-                                Document Type
+                                Document Type Name
                             </Label>
                             <Input
                                 id="title"
@@ -112,6 +113,7 @@ export function DocumentTypeFormSheet({
                                 onChange={(event) =>
                                     form.setData('title', event.target.value)
                                 }
+                                placeholder="e.g. Passport Copy, Sea Service Book, Medical Fitness"
                                 className="h-11 rounded-xl border-border bg-card"
                             />
                             {form.errors.title ? (
@@ -121,13 +123,14 @@ export function DocumentTypeFormSheet({
                             ) : null}
                         </div>
 
-                        <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3">
-                            <div>
-                                <div className="text-sm font-semibold">
-                                    Active
+                        <div className="flex items-center justify-between rounded-xl border border-border/80 bg-card/60 p-3.5 shadow-sm">
+                            <div className="space-y-0.5">
+                                <div className="text-sm font-semibold text-foreground">
+                                    Active status
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                    Visible in dropdowns and templates.
+                                    When inactive, this document type is hidden
+                                    from upload dropdowns and templates.
                                 </div>
                             </div>
                             <Switch
@@ -136,143 +139,163 @@ export function DocumentTypeFormSheet({
                                 onCheckedChange={(value) =>
                                     form.setData('is_active', value)
                                 }
+                                aria-label="Toggle active status"
                             />
                         </div>
                     </section>
 
-                    <section className="space-y-5">
+                    {/* Section 2: Requirement */}
+                    <section className="space-y-4 border-t border-border/60 pt-6">
                         <div>
-                            <h3 className="text-sm font-semibold tracking-tight">
-                                Employee Requirement
+                            <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                                Requirement
                             </h3>
                             <p className="mt-1 text-xs text-muted-foreground">
-                                Company-specific compliance rules. Changing an
-                                employee&apos;s department, position, rank, or
-                                project updates who must hold this document.
+                                Is this document required for employees in your
+                                company?
                             </p>
                         </div>
 
-                        <div className="space-y-2">
-                            <p className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                Requirement
-                            </p>
+                        <RadioGroup
+                            value={
+                                form.data.is_required ? 'required' : 'optional'
+                            }
+                            onValueChange={(value) =>
+                                form.setData(
+                                    'is_required',
+                                    value === 'required',
+                                )
+                            }
+                            className="grid gap-2 sm:grid-cols-2"
+                        >
+                            <RadioItem
+                                value="optional"
+                                className={cn(
+                                    'cursor-pointer rounded-xl border bg-card/70 p-3.5 text-left transition-all outline-none',
+                                    !form.data.is_required
+                                        ? 'border-primary shadow-xs ring-1 ring-primary'
+                                        : 'border-border/80 hover:border-border hover:bg-card',
+                                )}
+                            >
+                                <div className="text-sm font-semibold text-foreground">
+                                    Optional
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Document can be stored, but is not enforced
+                                    as mandatory for compliance.
+                                </p>
+                            </RadioItem>
+                            <RadioItem
+                                value="required"
+                                className={cn(
+                                    'cursor-pointer rounded-xl border bg-card/70 p-3.5 text-left transition-all outline-none',
+                                    form.data.is_required
+                                        ? 'border-primary shadow-xs ring-1 ring-primary'
+                                        : 'border-border/80 hover:border-border hover:bg-card',
+                                )}
+                            >
+                                <div className="text-sm font-semibold text-foreground">
+                                    Required document
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Targeted employees must hold an active,
+                                    valid file to stay compliant.
+                                </p>
+                            </RadioItem>
+                        </RadioGroup>
+                    </section>
+
+                    {/* Section 3: Who needs this document? (Rendered when Required) */}
+                    {form.data.is_required ? (
+                        <section className="space-y-4 border-t border-border/60 pt-6">
+                            <div>
+                                <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                                    Who needs this document?
+                                </h3>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Decide which employees are expected to hold
+                                    this document.
+                                </p>
+                            </div>
+
                             <RadioGroup
                                 value={
-                                    form.data.is_required
-                                        ? 'required'
-                                        : 'optional'
+                                    form.data.required_for_all
+                                        ? 'all'
+                                        : 'selected'
                                 }
                                 onValueChange={(value) =>
                                     form.setData(
-                                        'is_required',
-                                        value === 'required',
+                                        'required_for_all',
+                                        value === 'all',
                                     )
                                 }
                                 className="grid gap-2"
                             >
                                 <RadioItem
-                                    value="optional"
+                                    value="all"
                                     className={cn(
-                                        'rounded-xl border bg-card p-3 text-left outline-none',
-                                        !form.data.is_required
-                                            ? 'border-primary ring-1 ring-primary'
-                                            : 'border-border',
+                                        'cursor-pointer rounded-xl border bg-card/70 p-3.5 text-left transition-all outline-none',
+                                        form.data.required_for_all
+                                            ? 'border-primary shadow-xs ring-1 ring-primary'
+                                            : 'border-border/80 hover:border-border hover:bg-card',
                                     )}
                                 >
-                                    <div className="text-sm font-semibold">
-                                        Optional
+                                    <div className="text-sm font-semibold text-foreground">
+                                        All employees
                                     </div>
                                     <p className="mt-1 text-xs text-muted-foreground">
-                                        Not tracked as a required compliance
-                                        document.
+                                        Mandatory for every active employee in
+                                        this company.
                                     </p>
                                 </RadioItem>
                                 <RadioItem
-                                    value="required"
+                                    value="selected"
                                     className={cn(
-                                        'rounded-xl border bg-card p-3 text-left outline-none',
-                                        form.data.is_required
-                                            ? 'border-primary ring-1 ring-primary'
-                                            : 'border-border',
+                                        'cursor-pointer rounded-xl border bg-card/70 p-3.5 text-left transition-all outline-none',
+                                        !form.data.required_for_all
+                                            ? 'border-primary shadow-xs ring-1 ring-primary'
+                                            : 'border-border/80 hover:border-border hover:bg-card',
                                     )}
                                 >
-                                    <div className="text-sm font-semibold">
-                                        Required document
+                                    <div className="text-sm font-semibold text-foreground">
+                                        Selected groups
                                     </div>
                                     <p className="mt-1 text-xs text-muted-foreground">
-                                        Employees matching the scope below must
-                                        hold a current file.
+                                        Applies only to employees matching
+                                        specific departments, positions, ranks,
+                                        or projects.
                                     </p>
                                 </RadioItem>
                             </RadioGroup>
-                        </div>
-
-                        {form.data.is_required ? (
-                            <>
-                                <div className="space-y-2">
-                                    <p className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                        Required For
-                                    </p>
-                                    <RadioGroup
-                                        value={
-                                            form.data.required_for_all
-                                                ? 'all'
-                                                : 'selected'
-                                        }
-                                        onValueChange={(value) =>
-                                            form.setData(
-                                                'required_for_all',
-                                                value === 'all',
-                                            )
-                                        }
-                                        className="grid gap-2"
-                                    >
-                                        <RadioItem
-                                            value="all"
-                                            className={cn(
-                                                'rounded-xl border bg-card p-3 text-left outline-none',
-                                                form.data.required_for_all
-                                                    ? 'border-primary ring-1 ring-primary'
-                                                    : 'border-border',
-                                            )}
-                                        >
-                                            <div className="text-sm font-semibold">
-                                                All employees
-                                            </div>
-                                        </RadioItem>
-                                        <RadioItem
-                                            value="selected"
-                                            className={cn(
-                                                'rounded-xl border bg-card p-3 text-left outline-none',
-                                                !form.data.required_for_all
-                                                    ? 'border-primary ring-1 ring-primary'
-                                                    : 'border-border',
-                                            )}
-                                        >
-                                            <div className="text-sm font-semibold">
-                                                Selected groups
-                                            </div>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                Employees must match each
-                                                selected category. Within a
-                                                category, matching any selected
-                                                value is enough.
-                                            </p>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                Example: Crew department +
-                                                Captain/Chief Engineer rank +
-                                                ADNOC/ARAMCO project.
-                                            </p>
-                                        </RadioItem>
-                                    </RadioGroup>
-                                    {form.errors.required_for_all ? (
-                                        <div className="text-xs text-destructive">
-                                            {form.errors.required_for_all}
-                                        </div>
-                                    ) : null}
+                            {form.errors.required_for_all ? (
+                                <div className="text-xs text-destructive">
+                                    {form.errors.required_for_all}
                                 </div>
+                            ) : null}
 
-                                {!form.data.required_for_all ? (
+                            {!form.data.required_for_all ? (
+                                <div className="space-y-4 pt-1">
+                                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs text-foreground/90">
+                                        <p className="font-semibold text-primary">
+                                            Matching rule
+                                        </p>
+                                        <p className="mt-1 leading-relaxed text-muted-foreground">
+                                            Employees must match every selected
+                                            category (
+                                            <span className="font-medium text-foreground">
+                                                AND
+                                            </span>
+                                            ). Within a category, matching any
+                                            selected value is enough (
+                                            <span className="font-medium text-foreground">
+                                                OR
+                                            </span>
+                                            ). Unselected categories impose no
+                                            restriction.
+                                        </p>
+                                    </div>
+
                                     <div className="space-y-4">
                                         <DocumentRequirementMultiSelect
                                             id="requirement-departments"
@@ -339,54 +362,61 @@ export function DocumentTypeFormSheet({
                                             error={form.errors.project_ids}
                                         />
                                     </div>
-                                ) : null}
+                                </div>
+                            ) : null}
+                        </section>
+                    ) : null}
 
-                                <div className="space-y-3">
-                                    <p className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                        Policy field flags
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        Stored on this company policy only.
-                                        These flags do not currently require the
-                                        fields on upload or change valid,
-                                        missing, expired, or expiring
-                                        compliance.
-                                    </p>
-                                    <label className="flex items-center gap-2 text-sm">
-                                        <Checkbox
-                                            checked={policyFieldFlagsState(
-                                                form.data,
-                                            )}
-                                            onCheckedChange={(checked) => {
-                                                const next = checked === true;
+                    {/* Section 4: Tracked document details (Available when Required) */}
+                    {form.data.is_required ? (
+                        <section className="space-y-4 border-t border-border/60 pt-6">
+                            <div>
+                                <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                                    Tracked document details
+                                </h3>
+                                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                                    Choose which details are relevant for this
+                                    document type. These settings identify the
+                                    details normally tracked for this document
+                                    type. They do not currently make those
+                                    fields mandatory during upload.
+                                </p>
+                            </div>
 
-                                                form.setData({
-                                                    ...form.data,
-                                                    require_issue_date: next,
-                                                    require_expiry_date: next,
-                                                    require_document_number:
-                                                        next,
-                                                });
-                                            }}
-                                            aria-label="Select all policy field flags"
-                                        />
-                                        Select all
-                                    </label>
-                                    <label className="flex items-center gap-2 text-sm">
-                                        <Checkbox
-                                            checked={
-                                                form.data.require_issue_date
-                                            }
-                                            onCheckedChange={(checked) =>
-                                                form.setData(
-                                                    'require_issue_date',
-                                                    checked === true,
-                                                )
-                                            }
-                                        />
-                                        Issue date
-                                    </label>
-                                    <label className="flex items-center gap-2 text-sm">
+                            <div className="space-y-2.5 rounded-xl border border-border/80 bg-card/60 p-4">
+                                <label className="flex cursor-pointer items-center gap-2.5 border-b border-border/60 pb-2.5 text-sm font-medium">
+                                    <Checkbox
+                                        checked={policyFieldFlagsState(
+                                            form.data,
+                                        )}
+                                        onCheckedChange={(checked) => {
+                                            const next = checked === true;
+
+                                            form.setData({
+                                                ...form.data,
+                                                require_issue_date: next,
+                                                require_expiry_date: next,
+                                                require_document_number: next,
+                                            });
+                                        }}
+                                        aria-label="Select all tracked details"
+                                    />
+                                    <span>Select all</span>
+                                </label>
+                                <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+                                    <Checkbox
+                                        checked={form.data.require_issue_date}
+                                        onCheckedChange={(checked) =>
+                                            form.setData(
+                                                'require_issue_date',
+                                                checked === true,
+                                            )
+                                        }
+                                    />
+                                    <span>Issue date</span>
+                                </label>
+                                <div className="space-y-1">
+                                    <label className="flex cursor-pointer items-center gap-2.5 text-sm">
                                         <Checkbox
                                             checked={
                                                 form.data.require_expiry_date
@@ -398,29 +428,32 @@ export function DocumentTypeFormSheet({
                                                 )
                                             }
                                         />
-                                        Expiry date
+                                        <span>Expiry date</span>
                                     </label>
-                                    <label className="flex items-center gap-2 text-sm">
-                                        <Checkbox
-                                            checked={
-                                                form.data
-                                                    .require_document_number
-                                            }
-                                            onCheckedChange={(checked) =>
-                                                form.setData(
-                                                    'require_document_number',
-                                                    checked === true,
-                                                )
-                                            }
-                                        />
-                                        Document number
-                                    </label>
+                                    <p className="pl-6 text-[11px] text-muted-foreground">
+                                        Indicates that expiry date is a relevant
+                                        detail for this document type.
+                                    </p>
                                 </div>
-                            </>
-                        ) : null}
-                    </section>
+                                <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+                                    <Checkbox
+                                        checked={
+                                            form.data.require_document_number
+                                        }
+                                        onCheckedChange={(checked) =>
+                                            form.setData(
+                                                'require_document_number',
+                                                checked === true,
+                                            )
+                                        }
+                                    />
+                                    <span>Document number</span>
+                                </label>
+                            </div>
+                        </section>
+                    ) : null}
 
-                    <div className="flex items-center justify-end gap-2 pt-2">
+                    <div className="flex items-center justify-end gap-2 border-t border-border/60 pt-4">
                         <Button
                             type="button"
                             variant="outline"
@@ -429,7 +462,7 @@ export function DocumentTypeFormSheet({
                             Cancel
                         </Button>
                         <Button type="submit" disabled={form.processing}>
-                            {current ? 'Save changes' : 'Create'}
+                            {current ? 'Save changes' : 'Create document type'}
                         </Button>
                     </div>
                 </form>

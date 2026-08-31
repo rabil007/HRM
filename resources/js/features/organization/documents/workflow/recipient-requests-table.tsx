@@ -20,16 +20,6 @@ type Props = {
     canCreate?: boolean;
 };
 
-function emailIndicatorLabel(
-    delivery: RecipientRequestListItem['email_delivery'],
-): string | null {
-    if (!delivery) {
-        return null;
-    }
-
-    return delivery.status_label;
-}
-
 export function RecipientRequestsTable({
     requests,
     canRespond = false,
@@ -48,78 +38,41 @@ export function RecipientRequestsTable({
             <Table>
                 <TableHeader>
                     <TableRow>
+                        <TableHead>Employee</TableHead>
                         <TableHead>Document</TableHead>
-                        <TableHead>Subject employee</TableHead>
-                        <TableHead>Recipient</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Action</TableHead>
-                        <TableHead>Source</TableHead>
-                        <TableHead>Result</TableHead>
+                        <TableHead>Waiting for</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Email</TableHead>
                         <TableHead>Requested</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {requests.map((request) => {
-                        const emailLabel = emailIndicatorLabel(
-                            request.email_delivery,
-                        );
-
                         return (
                             <TableRow key={request.id}>
                                 <TableCell className="font-medium">
-                                    {request.document.title ?? 'Document'}
+                                    <div>{request.employee.name}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                        {request.employee.employee_no ?? ''}
+                                    </div>
                                 </TableCell>
-                                <TableCell>{request.employee.name}</TableCell>
-                                <TableCell>{request.recipient_name}</TableCell>
                                 <TableCell>
-                                    {request.signing_step_sequence &&
-                                    request.signing_step_label ? (
-                                        <div className="space-y-0.5">
-                                            <div className="font-medium">
-                                                Step{' '}
-                                                {request.signing_step_sequence}
-                                                {request.signing_preset_name
-                                                    ? ` / ${request.signing_preset_name}`
-                                                    : ''}
-                                            </div>
-                                            <div>
-                                                {request.signing_step_label}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {request.recipient_role_label}
-                                            </div>
+                                    <div className="font-medium">
+                                        {request.document.title ?? 'Document'}
+                                    </div>
+                                    {request.signing_step_label ? (
+                                        <div className="text-xs text-muted-foreground">
+                                            {request.signing_step_label}
                                         </div>
-                                    ) : (
-                                        request.recipient_role_label
-                                    )}
-                                </TableCell>
-                                <TableCell>{request.action_label}</TableCell>
-                                <TableCell>
-                                    {request.source_version.version
-                                        ? `v${request.source_version.version}`
-                                        : '—'}
+                                    ) : null}
                                 </TableCell>
                                 <TableCell>
-                                    {request.result_version?.version
-                                        ? `v${request.result_version.version}`
-                                        : '—'}
+                                    {request.waiting_for || '—'}
                                 </TableCell>
                                 <TableCell>
                                     <Badge variant="secondary">
-                                        {request.status_label}
+                                        {request.human_status}
                                     </Badge>
-                                </TableCell>
-                                <TableCell>
-                                    {emailLabel ? (
-                                        <span className="text-xs text-muted-foreground">
-                                            {emailLabel}
-                                        </span>
-                                    ) : (
-                                        '—'
-                                    )}
                                 </TableCell>
                                 <TableCell>
                                     {formatDisplayDate(request.requested_at)}

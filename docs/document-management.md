@@ -54,12 +54,41 @@ These remain valid GET bookmarks and keep their existing route names. POST/PUT/D
 
 The standalone **Bulk generate** sidebar item is removed. Favorites key `documents.bulk` now points at Generate & Send.
 
+### Documents → Activity UX
+
+Activity answers: *What document operation happened, who started it, and how did it finish?*
+
+Activity represents operational history (generation and email batch runs), separated from the employee roster and signature request workflows.
+
+- **Workspace Header**:
+  - Title: **Activity**
+  - Description: *"Review document generation and email history."*
+  - Document context switcher: Displays *"Generation and email history for {selectedTypeLabel}."* alongside a clean document selector scoped to the active document type.
+- **Suppressed Roster Controls**:
+  - Employee search, department tree picker, sponsor/visa type filter, email-status filter, generation summary cards, and employee row check-boxes are hidden in the Activity view.
+- **Desktop Table Columns**:
+  - **Operation**: Clear operation title (e.g. `Generated {Document}` or `Sent {Document}`) with category badge (`Generation` or `Email Delivery`). On email delivery rows, an interactive drill-down indicator (`ArrowUpRight`) opens the recipient delivery sheet.
+  - **Result**: Compact, plain-English summary answering "What happened?" (e.g. `38 created · 2 replaced · 1 skipped` or `34 sent · 2 no email · 1 failed · Template: {Template Name}`).
+  - **Triggered By**: Name of the user who initiated the run, falling back to `System`.
+  - **Date**: 12-hour formatted timestamp (`formatDisplayDateTime12h`).
+  - **Status**: Human status badges:
+    - **Completed** (emerald): All targeted documents were processed without error or skip.
+    - **Completed with issues** (amber): Completed with skipped records or failures.
+    - **Running** / **Queued** (amber / secondary): In-progress asynchronous jobs.
+    - **Failed** (destructive): Job or delivery failure.
+- **Mobile Card View**:
+  - Automatically renders via `MobileRecordList` and `MobileRecordCard` on mobile viewports (`< md`), hiding the desktop table.
+  - Displays operation title, timestamp subtitle, result metrics, triggered-by actor, status badge, and a direct "View details" action button for email batch rows.
+- **Email Batch Drill-Down**:
+  - Clicking any email delivery row or card opens `BulkEmailBatchSendsSheet` displaying recipient-level dispatch logs, delivery status, and error details.
+
 ### Document Templates
 
 Documents → Templates serves as the centralized company custom document template management area while preserving protected system generation templates:
 
-1. **Company Custom Templates** (`document_generation_templates`):
+1. **Company Templates** (`document_generation_templates`):
    - Scoped to the active company.
+   - User-facing terminology: "Company Templates", "Content Template", "PDF Template", "After generation".
    - **Formats**:
      - `content`: Text/content template with controlled merge fields.
      - `pdf_overlay`: Branded uploaded PDF with visual merge field placement. Format cannot be changed after creation.
@@ -92,7 +121,8 @@ Documents → Templates serves as the centralized company custom document templa
      - *System*: `{{today}}`, `{{current_year}}`
      - Sensitive fields (bank/IBAN, salary, passport number, Emirates ID, credentials) are strictly forbidden. Content with unsupported placeholders is rejected at validation.
 
-2. **System generation templates** from `BulkDocumentTypeRegistry` (Salary Declaration, Salary Certificate):
+2. **Built-in Templates** from `BulkDocumentTypeRegistry` (Salary Declaration, Salary Certificate):
+   - User-facing terminology: "Built-in Templates".
    - Protected application renderers used by Generate & Send.
    - Layout is code-owned and not editable from this UI.
 
@@ -228,7 +258,27 @@ Exit code is non-zero when a copy fails, a skipped local row still has a public 
 
 ## Document requirement policy
 
-HR configures compulsory document types under **Documents → Configuration → Document Types**. There is no separate Document Requirements menu.
+HR configures document types and requirement rules under **Documents → Configuration → Document Types**. There is no separate Document Requirements menu.
+
+### Document Types list and UX
+
+The page answers one core question: *What kind of employee document is this, and who is required to have it?*
+
+- **Purpose & description:** *"Define document categories, requirements, and who needs each document."*
+- **Table columns:**
+  - **Document Type:** Name of the document type (e.g. Passport Copy, Sea Service Book).
+  - **Requirement:** Clear status badge indicating **Required** or **Optional**.
+  - **Applies To:** Who must hold it when required (**All employees**, specific group summary like `Crew · Captain`, or `—` when optional).
+  - **Expiry:** Shows **Tracked** when expiry tracking is active, or `—`.
+  - **Status:** **Active** / **Inactive** badge with inline status switch for fast updates.
+  - **Actions:** Edit and Delete actions (permission-governed).
+- **Responsive card view:** On mobile screens (`< md`), records render as streamlined cards showing title, requirement status, applies-to scope, expiry tracking, active badge, and inline edit/delete actions.
+- **Empty state:** Clean empty state with direct **Add document type** action when the user has create permissions.
+- **Create / Edit Sheet structure:**
+  1. **Basics:** Document Type Name (`title`) and Active status switch (`is_active`).
+  2. **Requirement:** *"Is this document required for employees?"* with **Optional** vs **Required document** radio options.
+  3. **Who needs this document?** (visible when Required): Choice between **All employees** and **Selected groups**. When *Selected groups* is chosen, an explicit rule explanation clarifies: *"Employees must match every selected category (AND). Within a category, matching any selected value is enough (OR). Unselected categories impose no restriction."* Multi-selectors for Departments, Positions, Ranks, and Projects include compact badge summaries so selected items are immediately visible and dismissible.
+  4. **Tracked document details:** Clarifies which details are relevant for the document type (Issue date, Expiry date, Document number) and honestly explains: *"These settings identify the details normally tracked for this document type. They do not currently make those fields mandatory during upload."* For Expiry date, the UI notes: *"Indicates that expiry date is a relevant detail for this document type."*
 
 The previous Settings location remains a compatibility bookmark: `/settings/master-data/document-types` redirects to `/organization/documents/configuration` and preserves supported query keys such as `search`, `page`, and `edit`. Create, update, delete, and CSV import still use the existing Settings mutation routes and `settings.master-data.document-types.*` permissions.
 
@@ -632,10 +682,22 @@ Review permission does not grant approval actions. Task assignment is enforced i
 
 ### Requests workspace
 
-**Documents → Requests** is a unified workspace:
+**Documents → Requests** is a unified operational inbox that answers: what needs attention, who is responsible, what stage the document is at, and what action to take.
 
-- **Review & Approval** — Phase 5A internal workflow inbox (`tab=review`, default when permitted)
-- **Signature Requests** — existing `BulkDocumentSignatureRequest` UI (`tab=signatures`)
+Three tabs:
+
+- **Approvals** — Phase 5A internal workflow inbox (`tab=review`, default when permitted). Rows show: employee, document, waiting for (assignee names), human status (normalized from backend), requested timestamp.
+- **Employee Signing** — Phase 6A recipient sign/acknowledge requests (`tab=recipient`). Rows show: employee, document, waiting for (recipient name + role), human status, requested timestamp.
+- **Signature Requests** — Legacy `BulkDocumentSignatureRequest` UI (`tab=signatures`). Rows show employee, document, status, consistent with modern presentation.
+
+**Human-Readable Status**: Workflow and recipient presenters normalize backend states into user-friendly sentences (Waiting for Review, Waiting for Approval, Waiting for Signature, Email delivery failed, Expired, Rejected, Cancelled, Completed).
+
+**Waiting For**: Each row displays who needs to act next (assignee names for workflow, recipient name + role for signing).
+
+**Settings** (grouped as "Approval Flows", "Signing Flows", "Reminder Settings"):
+- **Approval Flows** (backend: Workflow Presets)
+- **Signing Flows** (backend: Signing Presets)  
+- **Reminder Settings** (email automation)
 
 Legacy `/organization/documents/bulk?view=signatures` continues to work unchanged and redirects signature browsing through `BulkDocumentsController`; the unified Requests tab embeds the same signature workspace via `DocumentRequestsIndexController`.
 
@@ -785,9 +847,9 @@ Phase 5 workflow stages are not extended with sign/acknowledge actions in Phase 
 
 **Documents → Requests** tabs:
 
-1. Review & Approval (Phase 5A/5B)
-2. **Signing & Acknowledgement** (Phase 6A)
-3. Bulk Signatures (legacy)
+1. **Approvals** (Phase 5A/5B, user-facing label)
+2. **Employee Signing** (Phase 6A, user-facing label)
+3. **Signature Requests** (legacy, consistent with modern presentation)
 
 ### Permissions
 

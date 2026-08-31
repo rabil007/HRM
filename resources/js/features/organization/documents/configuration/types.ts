@@ -89,6 +89,28 @@ export function documentTypeExpiryLabel(
     return 'Tracked';
 }
 
+export function documentTypeRequirementStatus(
+    requirement: DocumentRequirementPayload | undefined,
+): 'Required' | 'Optional' {
+    return requirement?.is_required ? 'Required' : 'Optional';
+}
+
+export function documentTypeAppliesToLabel(
+    requirement: DocumentRequirementPayload | undefined,
+): string {
+    if (!requirement?.is_required) {
+        return '—';
+    }
+
+    if (requirement.required_for_all) {
+        return 'All employees';
+    }
+
+    return requirement.label && requirement.label !== 'Optional'
+        ? requirement.label
+        : 'Selected groups';
+}
+
 export function requirementToFormData(
     documentType: DocumentTypeRow,
 ): DocumentTypeFormData {
