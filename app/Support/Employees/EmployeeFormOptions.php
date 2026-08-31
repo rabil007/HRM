@@ -40,6 +40,7 @@ final class EmployeeFormOptions
      *     approval_locations: Collection,
      *     sssa_options: Collection,
      *     ranks: Collection,
+     *     projects: Collection,
      *     banks: Collection,
      *     roles: Collection
      * }
@@ -59,6 +60,7 @@ final class EmployeeFormOptions
             'approval_locations' => self::approvalLocations(),
             'sssa_options' => self::sssaOptions(),
             'ranks' => self::activeRanks(),
+            'projects' => self::activeProjects(),
             'banks' => self::banks(),
             'roles' => self::roles($companyId),
         ];

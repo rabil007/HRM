@@ -86,6 +86,7 @@ final class EmployeeDirectoryQuery
             ->when($filters->visaTypeId, fn (Builder $q) => $q->where('visa_type_id', $filters->visaTypeId))
             ->when($filters->companyVisaTypeId, fn (Builder $q) => $q->where('company_visa_type_id', $filters->companyVisaTypeId))
             ->when($filters->rankId, fn (Builder $q) => $q->where('rank_id', $filters->rankId))
+            ->when($filters->projectId, fn (Builder $q) => $q->where('project_id', $filters->projectId))
             ->when($filters->approvalLocationId, function (Builder $q) use ($filters): void {
                 $ids = collect(explode(',', $filters->approvalLocationId))
                     ->map(fn (string $id): int => (int) trim($id))
