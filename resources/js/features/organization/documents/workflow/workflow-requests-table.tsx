@@ -28,6 +28,7 @@ function avatarColour(name: string | null): string {
         'bg-teal-500',
     ];
     const seed = (name ?? '').charCodeAt(0) || 0;
+
     return colours[seed % colours.length];
 }
 
@@ -44,7 +45,9 @@ export function WorkflowRequestsTable({
     if (requests.length === 0) {
         return (
             <EmptyState
-                icon={<User className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />}
+                icon={
+                    <User className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
+                }
                 title="You're all caught up"
                 description="No approval requests need attention right now."
             />
@@ -69,12 +72,11 @@ export function WorkflowRequestsTable({
                         const href = documentRoutes.requests.show.url({
                             workflowRequest: request.id,
                         });
-                        const initial = (
-                            request.employee.name ?? '?'
-                        ).charAt(0).toUpperCase();
+                        const initial = (request.employee.name ?? '?')
+                            .charAt(0)
+                            .toUpperCase();
                         const colour = avatarColour(request.employee.name);
-                        const actionKey =
-                            request.current_stage?.action ?? '';
+                        const actionKey = request.current_stage?.action ?? '';
 
                         return (
                             <TableRow
@@ -99,7 +101,10 @@ export function WorkflowRequestsTable({
                                             </div>
                                             {request.employee.employee_no && (
                                                 <div className="font-mono text-[11px] text-muted-foreground">
-                                                    {request.employee.employee_no}
+                                                    {
+                                                        request.employee
+                                                            .employee_no
+                                                    }
                                                 </div>
                                             )}
                                         </div>
@@ -114,15 +119,12 @@ export function WorkflowRequestsTable({
                                     {request.current_stage && (
                                         <span
                                             className={cn(
-                                                'mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                                                'mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase',
                                                 ACTION_COLOURS[actionKey] ??
                                                     'bg-muted text-muted-foreground',
                                             )}
                                         >
-                                            {
-                                                request.current_stage
-                                                    .action_label
-                                            }
+                                            {request.current_stage.action_label}
                                         </span>
                                     )}
                                 </TableCell>
