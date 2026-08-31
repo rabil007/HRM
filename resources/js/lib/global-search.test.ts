@@ -275,10 +275,6 @@ describe('record-search destination filtering', () => {
                 title: 'Settings · Master Data',
                 items: [
                     {
-                        title: 'Document types',
-                        url: '/settings/master-data/document-types',
-                    },
-                    {
                         title: 'Projects',
                         url: '/settings/master-data/projects',
                     },
@@ -335,7 +331,6 @@ describe('record-search destination filtering', () => {
         ];
 
         const queries: Array<[string, string]> = [
-            ['document type', 'Document types'],
             ['project', 'Projects'],
             ['projects', 'Projects'],
             ['rank', 'Ranks'],
@@ -371,7 +366,7 @@ describe('record-search destination filtering', () => {
         }
 
         assert.deepEqual(
-            filterCommandGroupsForQuery(groups, 'document type').map(
+            filterCommandGroupsForQuery(groups, 'visa type').map(
                 (group) => group.title,
             ),
             ['Settings · Master Data'],
@@ -415,8 +410,8 @@ describe('record-search destination filtering', () => {
             new Set(['/settings/security']),
         );
         assert.equal(
-            commandItemSearchValue('Settings · Master Data', 'Document types'),
-            'Settings · Master Data Document types',
+            commandItemSearchValue('Settings · Master Data', 'Projects'),
+            'Settings · Master Data Projects',
         );
     });
 });

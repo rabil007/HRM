@@ -13,6 +13,7 @@ Documents is one sidebar group with these destinations:
 | `/organization/documents/generate` | Generate & Send | Current Bulk Documents roster | `bulk_documents.view` |
 | `/organization/documents/requests` | Requests | Unified Review & Approval + legacy Signature Requests | `documents.requests.view` or `bulk_documents.view` |
 | `/organization/documents/templates` | Templates | Company custom and system generation templates | Any of `documents.templates.view`, `bulk_documents.view`, `settings.master-data.document-types.view`, or platform view |
+| `/organization/documents/configuration` | Configuration | Document Types and employee requirement policy | `settings.master-data.document-types.view` |
 | `/organization/documents/activity` | Activity | Current bulk generation history | `bulk_documents.view` |
 
 **Overview** is a lightweight operational dashboard. It shows expiry and required-document counts, needs-attention actions, and permission-aware shortcuts. It does not render the document table, folder grid, search, or Saved Views. Summary cards and attention actions open Library with the matching supported filter (`expiry=expired`, `expiry=expiring_7` / `expiring_15` / `expiring_30`, `requirement_status=missing`). Overview never applies a default Documents Saved View.
@@ -80,7 +81,7 @@ Documents → Templates serves as the centralized company custom document templa
    - Layout is code-owned and not editable from this UI.
 
 3. **Configuration shortcuts**:
-   - Link to **Settings → Master Data → Document Types** when user has `settings.master-data.document-types.view`.
+   - Link to **Documents → Configuration → Document Types** when user has `settings.master-data.document-types.view`.
    - Link to **Settings → Application → signature placement** when user has platform view.
 
 ## Routes
@@ -93,6 +94,7 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents/requests` | Unified Review & Approval + Signature Requests workspace | `documents.requests.view` \| `bulk_documents.view` |
 | `/organization/documents/requests/{workflowRequest}` | Internal review/approval request detail | `documents.requests.view` |
 | `/organization/documents/requests/{workflowRequest}/version-preview` | Stream bound canonical `DocumentInstanceVersion` PDF inline | `documents.requests.view` |
+| `/organization/documents/configuration` | Documents Configuration (Document Types) | `settings.master-data.document-types.view` |
 | `/organization/documents/templates` | Custom and System Document Templates | `documents.templates.view` \| `bulk_documents.view` \| `settings.master-data.document-types.view` \| platform view |
 | `/organization/documents/templates` (POST) | Store custom document template | `documents.templates.create` |
 | `/organization/documents/templates/preview-draft` (POST) | Render preview for unsaved draft | `documents.templates.create` \| `documents.templates.update` |
@@ -210,7 +212,11 @@ Exit code is non-zero when a copy fails, a skipped local row still has a public 
 
 ## Document requirement policy
 
-HR configures compulsory document types on the existing **Settings → Master Data → Document Types** sheet. There is no separate Document Requirements menu.
+HR configures compulsory document types under **Documents → Configuration → Document Types**. There is no separate Document Requirements menu.
+
+The previous Settings location remains a compatibility bookmark: `/settings/master-data/document-types` redirects to `/organization/documents/configuration` and preserves supported query keys such as `search`, `page`, and `edit`. Create, update, delete, and CSV import still use the existing Settings mutation routes and `settings.master-data.document-types.*` permissions.
+
+Deep-linking a specific type is supported with `?edit={documentTypeId}` on the Configuration URL. Invalid IDs are ignored and do not fail the page.
 
 `DocumentType` remains global master data (title + active). Requirement **policy** is company-scoped (`document_requirements`): one policy per company per document type.
 
@@ -358,6 +364,7 @@ Not implemented: a separate requirements page, individual exceptions/waivers, ap
 
 ## Tests
 
+- `tests/Feature/Organization/DocumentsConfigurationTest.php`
 - `tests/Feature/Settings/MasterData/DocumentRequirementTest.php`
 - `tests/Feature/Organization/DocumentRequirementComplianceTest.php`
 - `tests/Feature/Organization/UnmappedEmployeeDocumentTypeCommandTest.php`

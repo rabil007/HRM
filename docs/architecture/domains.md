@@ -862,7 +862,7 @@ Public e-sign routes use signed URLs and throttling rather than company-role per
 
 ### Purpose
 
-Manage security and appearance preferences, application/email/integration configuration, document-signature placement, message templates, and reusable master-data catalogs.
+Manage security and appearance preferences, application/email/integration configuration, document-signature placement, message templates, and reusable master-data catalogs. Document Types remain a master-data resource (`settings.master-data.document-types.*`) but are administered in **Documents → Configuration**; `/settings/master-data/document-types` redirects there.
 
 ### Main artifacts
 

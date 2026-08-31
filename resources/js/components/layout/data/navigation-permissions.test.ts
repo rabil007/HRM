@@ -324,6 +324,7 @@ describe('Documents navigation', () => {
         '/organization/documents/generate',
         '/organization/documents/requests',
         '/organization/documents/templates',
+        '/organization/documents/configuration',
         '/organization/documents/activity',
     ];
 
@@ -351,8 +352,29 @@ describe('Documents navigation', () => {
             ],
         );
         assert.equal(
+            isSidebarUrlVisible('/organization/documents/configuration', [
+                'bulk_documents.view',
+            ]),
+            false,
+        );
+        assert.equal(
             isSidebarUrlVisible('/organization/documents', [
                 'bulk_documents.view',
+            ]),
+            false,
+        );
+    });
+
+    it('shows configuration only with document-types.view', () => {
+        assert.equal(
+            isSidebarUrlVisible('/organization/documents/configuration', [
+                'settings.master-data.document-types.view',
+            ]),
+            true,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/documents/configuration', [
+                'documents.view',
             ]),
             false,
         );

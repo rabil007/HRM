@@ -39,10 +39,10 @@ function actingAsDocumentTypeManager(): array
 test('document types remain optional until a company requirement is saved', function () {
     ['passportType' => $passportType] = actingAsDocumentTypeManager();
 
-    $this->get('/settings/master-data/document-types')
+    $this->get('/organization/documents/configuration')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('settings/master-data/document-types')
+            ->component('organization/documents/configuration/document-types')
             ->has('document_types')
         );
 
@@ -57,7 +57,7 @@ test('requirement can apply to all employees', function () {
         'is_active' => true,
         'is_required' => true,
         'required_for_all' => true,
-    ])->assertRedirect('/settings/master-data/document-types');
+    ])->assertRedirect('/organization/documents/configuration');
 
     $requirement = DocumentRequirement::query()
         ->where('company_id', $company->id)
@@ -314,7 +314,7 @@ test('csv import does not erase unrelated requirement configuration', function (
 
     $this->post('/settings/master-data/document-types/import', [
         'file' => UploadedFile::fake()->createWithContent('types.csv', $csvContent),
-    ])->assertRedirect('/settings/master-data/document-types');
+    ])->assertRedirect('/organization/documents/configuration');
 
     $requirement = DocumentRequirement::query()
         ->where('company_id', $company->id)
@@ -441,7 +441,9 @@ test('users without update permission cannot mutate requirement configuration', 
     ['company' => $company, 'passportType' => $passportType] = makeDocumentFixtures();
     grantCompanyPermissions($user, $company, ['settings.master-data.document-types.view']);
 
-    $this->get('/settings/master-data/document-types')->assertOk();
+    $this->get('/organization/documents/configuration')->assertOk();
+    $this->get('/settings/master-data/document-types')
+        ->assertRedirect('/organization/documents/configuration');
 
     $this->put("/settings/master-data/document-types/{$passportType->id}", [
         'title' => $passportType->title,
@@ -499,10 +501,10 @@ test('saved project ids are returned when editing a document type', function () 
     ]);
     makeDocumentRequirement($company->id, $passportType->id, projectIds: [$project->id]);
 
-    $this->get('/settings/master-data/document-types')
+    $this->get('/organization/documents/configuration')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('settings/master-data/document-types')
+            ->component('organization/documents/configuration/document-types')
             ->where('projects', fn ($projects) => collect($projects)->contains('id', $project->id))
             ->where('document_types', function ($types) use ($passportType, $project) {
                 $match = collect($types)->firstWhere('id', $passportType->id);

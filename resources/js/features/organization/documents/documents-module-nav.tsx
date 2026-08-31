@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { documents } from '@/routes/organization';
 import {
     activity,
+    configuration,
     generate,
     library,
     requests,
@@ -23,6 +24,7 @@ const SECTION_URLS: Record<DocumentsModuleSection, () => string> = {
     generate: () => generate.url(),
     requests: () => requests.url(),
     templates: () => templates.url(),
+    configuration: () => configuration.url(),
     activity: () => activity.url(),
 };
 

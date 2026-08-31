@@ -215,6 +215,7 @@ use App\Http\Controllers\Public\PublicAnnouncementController;
 use App\Http\Controllers\RecentItemController;
 use App\Http\Controllers\SavedViewController;
 use App\Http\Controllers\ServiceWorkerController;
+use App\Http\Controllers\Settings\MasterData\DocumentTypeController;
 use App\Http\Controllers\Webhooks\HikvisionWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use App\Http\Middleware\DenyFraming;
@@ -814,6 +815,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('organization/documents/bulk/email-batches/{batch}/sends', BulkDocumentEmailBatchSendsController::class)
             ->name('organization.documents.bulk.email-batches.sends');
     });
+    Route::get('organization/documents/configuration', [DocumentTypeController::class, 'index'])
+        ->middleware('can:settings.master-data.document-types.view')
+        ->name('organization.documents.configuration');
     Route::get('organization/documents/templates', DocumentsTemplatesController::class)
         ->name('organization.documents.templates');
     Route::post('organization/documents/templates', [DocumentGenerationTemplateController::class, 'store'])

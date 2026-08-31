@@ -22,6 +22,7 @@ type Props = {
         generate: boolean;
         requests: boolean;
         templates: boolean;
+        configuration: boolean;
         activity: boolean;
     };
 };

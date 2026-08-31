@@ -4,6 +4,7 @@ export type DocumentsModuleSection =
     | 'generate'
     | 'requests'
     | 'templates'
+    | 'configuration'
     | 'activity';
 
 export const DOCUMENTS_MODULE_PATHS: Record<DocumentsModuleSection, string> = {
@@ -12,6 +13,7 @@ export const DOCUMENTS_MODULE_PATHS: Record<DocumentsModuleSection, string> = {
     generate: '/organization/documents/generate',
     requests: '/organization/documents/requests',
     templates: '/organization/documents/templates',
+    configuration: '/organization/documents/configuration',
     activity: '/organization/documents/activity',
 };
 
@@ -21,6 +23,7 @@ export const DOCUMENTS_MODULE_LABELS: Record<DocumentsModuleSection, string> = {
     generate: 'Generate & Send',
     requests: 'Requests',
     templates: 'Templates',
+    configuration: 'Configuration',
     activity: 'Activity',
 };
 
@@ -30,6 +33,7 @@ const DOCUMENTS_MODULE_ORDER: DocumentsModuleSection[] = [
     'generate',
     'requests',
     'templates',
+    'configuration',
     'activity',
 ];
 
@@ -120,6 +124,13 @@ export function documentsModuleSectionFromUrl(
         return 'templates';
     }
 
+    if (
+        path === DOCUMENTS_MODULE_PATHS.configuration ||
+        path.startsWith(`${DOCUMENTS_MODULE_PATHS.configuration}/`)
+    ) {
+        return 'configuration';
+    }
+
     if (path === DOCUMENTS_MODULE_PATHS.generate) {
         return 'generate';
     }
@@ -178,6 +189,10 @@ export function canViewDocumentsModuleSection(
         section === 'activity'
     ) {
         return permissions.includes('bulk_documents.view');
+    }
+
+    if (section === 'configuration') {
+        return permissions.includes('settings.master-data.document-types.view');
     }
 
     return (

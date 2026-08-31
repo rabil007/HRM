@@ -13,6 +13,7 @@ use App\Models\DocumentType;
 use App\Support\EmployeeDocuments\Actions\SyncDocumentRequirement;
 use App\Support\EmployeeDocuments\DocumentRequirementFormOptions;
 use App\Support\EmployeeDocuments\DocumentRequirementPresenter;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,36 +36,17 @@ class DocumentTypeController extends Controller
             $request,
             DocumentType::query()
                 ->orderBy('title')
-                ->with([
-                    'requirements' => fn ($query) => $query
-                        ->where('company_id', $companyId)
-                        ->with([
-                            'departments:id,name',
-                            'positions:id,title',
-                            'ranks:id,name',
-                            'projects:id,title',
-                        ]),
-                ])
+                ->with($this->requirementRelationsForCompany($companyId))
                 ->select(['id', 'title', 'is_active']),
             ['title'],
-            function (DocumentType $documentType) {
-                $requirement = $documentType->requirements->first();
-
-                return [
-                    'id' => $documentType->id,
-                    'title' => $documentType->title,
-                    'is_active' => (bool) $documentType->is_active,
-                    'requirement' => DocumentRequirementPresenter::toArray(
-                        $requirement instanceof DocumentRequirement ? $requirement : null,
-                    ),
-                ];
-            },
+            fn (DocumentType $documentType) => $this->toIndexArray($documentType),
         );
 
-        return Inertia::render('settings/master-data/document-types', [
+        return Inertia::render('organization/documents/configuration/document-types', [
             'document_types' => $page['items'],
             'pagination' => $page['pagination'],
             'search' => $page['search'],
+            'open_document_type' => $this->resolveOpenDocumentType($request, $companyId),
             ...DocumentRequirementFormOptions::for($companyId),
         ]);
     }
@@ -83,7 +65,7 @@ class DocumentTypeController extends Controller
                 return $this->storeRedirectOrQuickCreateJson(
                     $request,
                     $existing,
-                    redirect()->route('settings.master-data.document-types.index')->with('success', 'Document type created successfully.'),
+                    $this->indexRedirect()->with('success', 'Document type created successfully.'),
                     'title',
                 );
             }
@@ -97,7 +79,7 @@ class DocumentTypeController extends Controller
             return $this->storeRedirectOrQuickCreateJson(
                 $request,
                 $documentType,
-                redirect()->route('settings.master-data.document-types.index')->with('success', 'Document type created successfully.'),
+                $this->indexRedirect()->with('success', 'Document type created successfully.'),
                 'title',
             );
         });
@@ -119,14 +101,14 @@ class DocumentTypeController extends Controller
             }
         });
 
-        return redirect()->route('settings.master-data.document-types.index')->with('success', 'Document type updated successfully.');
+        return $this->indexRedirect()->with('success', 'Document type updated successfully.');
     }
 
     public function destroy(DocumentType $document_type): RedirectResponse
     {
         $document_type->delete();
 
-        return redirect()->route('settings.master-data.document-types.index')->with('success', 'Document type deleted successfully.');
+        return $this->indexRedirect()->with('success', 'Document type deleted successfully.');
     }
 
     public function importTemplate(): Response
@@ -146,8 +128,7 @@ class DocumentTypeController extends Controller
         $handle = fopen((string) $path, 'r');
 
         if ($handle === false) {
-            return redirect()
-                ->route('settings.master-data.document-types.index')
+            return $this->indexRedirect()
                 ->withErrors(['file' => 'Could not read the uploaded file.']);
         }
 
@@ -155,8 +136,7 @@ class DocumentTypeController extends Controller
         if (! is_array($header) || count($header) === 0) {
             fclose($handle);
 
-            return redirect()
-                ->route('settings.master-data.document-types.index')
+            return $this->indexRedirect()
                 ->withErrors(['file' => 'The CSV file is empty.']);
         }
 
@@ -174,8 +154,7 @@ class DocumentTypeController extends Controller
         if (! isset($map['title'])) {
             fclose($handle);
 
-            return redirect()
-                ->route('settings.master-data.document-types.index')
+            return $this->indexRedirect()
                 ->withErrors(['file' => 'The CSV must include a title column.']);
         }
 
@@ -214,8 +193,7 @@ class DocumentTypeController extends Controller
         fclose($handle);
 
         if ($imported === 0) {
-            return redirect()
-                ->route('settings.master-data.document-types.index')
+            return $this->indexRedirect()
                 ->withErrors([
                     'file' => $emptyTitles > 0
                         ? "No rows were imported. {$emptyTitles} row(s) had an empty title."
@@ -223,8 +201,101 @@ class DocumentTypeController extends Controller
                 ]);
         }
 
-        return redirect()
-            ->route('settings.master-data.document-types.index')
+        return $this->indexRedirect()
             ->with('success', "Imported {$imported} document type row(s).");
+    }
+
+    private function indexRedirect(): RedirectResponse
+    {
+        return redirect()->route('organization.documents.configuration');
+    }
+
+    /**
+     * @return array<string, callable(HasMany): mixed>
+     */
+    private function requirementRelationsForCompany(int $companyId): array
+    {
+        return [
+            'requirements' => fn (HasMany $query) => $query
+                ->where('company_id', $companyId)
+                ->with([
+                    'departments:id,name',
+                    'positions:id,title',
+                    'ranks:id,name',
+                    'projects:id,title',
+                ]),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     id: int,
+     *     title: string,
+     *     is_active: bool,
+     *     requirement: array{
+     *         is_required: bool,
+     *         required_for_all: bool,
+     *         department_ids: list<int>,
+     *         position_ids: list<int>,
+     *         rank_ids: list<int>,
+     *         project_ids: list<int>,
+     *         require_issue_date: bool,
+     *         require_expiry_date: bool,
+     *         require_document_number: bool,
+     *         label: string
+     *     }
+     * }|null
+     */
+    private function resolveOpenDocumentType(Request $request, int $companyId): ?array
+    {
+        $editId = (int) $request->query('edit', 0);
+
+        if ($editId <= 0) {
+            return null;
+        }
+
+        $documentType = DocumentType::query()
+            ->with($this->requirementRelationsForCompany($companyId))
+            ->select(['id', 'title', 'is_active'])
+            ->find($editId);
+
+        if (! $documentType instanceof DocumentType) {
+            return null;
+        }
+
+        return $this->toIndexArray($documentType);
+    }
+
+    /**
+     * @return array{
+     *     id: int,
+     *     title: string,
+     *     is_active: bool,
+     *     requirement: array{
+     *         is_required: bool,
+     *         required_for_all: bool,
+     *         department_ids: list<int>,
+     *         position_ids: list<int>,
+     *         rank_ids: list<int>,
+     *         project_ids: list<int>,
+     *         require_issue_date: bool,
+     *         require_expiry_date: bool,
+     *         require_document_number: bool,
+     *         label: string
+     *     }
+     * }
+     */
+    private function toIndexArray(DocumentType $documentType): array
+    {
+        $requirement = $documentType->requirements->first();
+
+        return [
+            'id' => $documentType->id,
+            'title' => $documentType->title,
+            'is_active' => (bool) $documentType->is_active,
+            'requirement' => DocumentRequirementPresenter::toArray(
+                $requirement instanceof DocumentRequirement ? $requirement : null,
+            ),
+        ];
     }
 }

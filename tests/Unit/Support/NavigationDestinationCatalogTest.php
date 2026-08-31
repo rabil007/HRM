@@ -44,6 +44,7 @@ test('documents destinations form one unified group without a standalone bulk ge
         'Generate & Send',
         'Requests',
         'Templates',
+        'Document Types',
         'Activity',
     ])
         ->and(array_column($documents, 'href'))->not->toContain('/organization/documents/bulk')

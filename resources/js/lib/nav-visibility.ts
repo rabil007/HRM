@@ -72,7 +72,6 @@ export const SETTINGS_HUB_VIEW_PERMISSIONS: readonly string[] = [
     'settings.master-data.vessels.view',
     'settings.master-data.ranks.view',
     'settings.master-data.clients.view',
-    'settings.master-data.document-types.view',
     'settings.master-data.projects.view',
 ];
 
@@ -233,6 +232,8 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
         has(permissions, 'bulk_documents.view') ||
         has(permissions, 'settings.master-data.document-types.view') ||
         platform.view,
+    '/organization/documents/configuration': (permissions) =>
+        has(permissions, 'settings.master-data.document-types.view'),
     '/organization/contracts': (permissions) =>
         has(permissions, 'contracts.view'),
     '/organization/bank-accounts': (permissions) =>

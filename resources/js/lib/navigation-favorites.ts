@@ -107,6 +107,12 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         group: 'Documents',
     },
     {
+        key: 'documents.configuration',
+        label: 'Document Types',
+        href: '/organization/documents/configuration',
+        group: 'Documents',
+    },
+    {
         key: 'documents.activity',
         label: 'Activity',
         href: '/organization/documents/activity',

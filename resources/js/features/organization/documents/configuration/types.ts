@@ -1,0 +1,110 @@
+export type DocumentRequirementPayload = {
+    is_required: boolean;
+    required_for_all: boolean;
+    department_ids: number[];
+    position_ids: number[];
+    rank_ids: number[];
+    project_ids: number[];
+    require_issue_date: boolean;
+    require_expiry_date: boolean;
+    require_document_number: boolean;
+    label: string;
+};
+
+export type DocumentTypeRow = {
+    id: number;
+    title: string;
+    is_active: boolean;
+    requirement: DocumentRequirementPayload;
+};
+
+export type DepartmentOption = {
+    id: number;
+    name: string;
+};
+
+export type PositionOption = {
+    id: number;
+    title: string;
+};
+
+export type RankOption = {
+    id: number;
+    name: string;
+};
+
+export type ProjectOption = {
+    id: number;
+    title: string;
+};
+
+export type DocumentTypeFormData = {
+    title: string;
+    is_active: boolean;
+    is_required: boolean;
+    required_for_all: boolean;
+    department_ids: number[];
+    position_ids: number[];
+    rank_ids: number[];
+    project_ids: number[];
+    require_issue_date: boolean;
+    require_expiry_date: boolean;
+    require_document_number: boolean;
+};
+
+export const emptyRequirement: DocumentRequirementPayload = {
+    is_required: false,
+    required_for_all: false,
+    department_ids: [],
+    position_ids: [],
+    rank_ids: [],
+    project_ids: [],
+    require_issue_date: false,
+    require_expiry_date: false,
+    require_document_number: false,
+    label: 'Optional',
+};
+
+export const initialDocumentTypeForm: DocumentTypeFormData = {
+    title: '',
+    is_active: true,
+    is_required: false,
+    required_for_all: false,
+    department_ids: [],
+    position_ids: [],
+    rank_ids: [],
+    project_ids: [],
+    require_issue_date: false,
+    require_expiry_date: false,
+    require_document_number: false,
+};
+
+export function documentTypeExpiryLabel(
+    requirement: DocumentRequirementPayload | undefined,
+): string {
+    if (!requirement?.is_required || !requirement.require_expiry_date) {
+        return '—';
+    }
+
+    return 'Tracked';
+}
+
+export function requirementToFormData(
+    documentType: DocumentTypeRow,
+): DocumentTypeFormData {
+    const requirement = documentType.requirement ?? emptyRequirement;
+
+    return {
+        title: documentType.title,
+        is_active: documentType.is_active,
+        is_required: requirement.is_required,
+        required_for_all: requirement.required_for_all,
+        department_ids: requirement.department_ids,
+        position_ids: requirement.position_ids,
+        rank_ids: requirement.rank_ids,
+        project_ids: requirement.project_ids,
+        require_issue_date: requirement.require_issue_date,
+        require_expiry_date: requirement.require_expiry_date,
+        require_document_number: requirement.require_document_number,
+    };
+}

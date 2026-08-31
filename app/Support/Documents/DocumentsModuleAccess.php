@@ -45,6 +45,11 @@ final class DocumentsModuleAccess
         return $user?->can('settings.master-data.document-types.view') ?? false;
     }
 
+    public static function canViewConfiguration(?User $user): bool
+    {
+        return self::canViewDocumentTypes($user);
+    }
+
     public static function canViewSignaturePlacement(?User $user): bool
     {
         return PlatformAuthorization::canView($user);
@@ -92,6 +97,7 @@ final class DocumentsModuleAccess
      *     generate: bool,
      *     requests: bool,
      *     templates: bool,
+     *     configuration: bool,
      *     activity: bool,
      *     document_types: bool,
      *     signature_placement: bool
@@ -105,6 +111,7 @@ final class DocumentsModuleAccess
             'generate' => self::canViewGenerate($user),
             'requests' => self::canViewRequests($user),
             'templates' => self::canViewTemplates($user),
+            'configuration' => self::canViewConfiguration($user),
             'activity' => self::canViewActivity($user),
             'document_types' => self::canViewDocumentTypes($user),
             'signature_placement' => self::canViewSignaturePlacement($user),

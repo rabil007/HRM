@@ -17,7 +17,8 @@ test('overview and library require documents view', function () {
     expect(DocumentsModuleAccess::canViewOverview($user))->toBeTrue()
         ->and(DocumentsModuleAccess::canViewLibrary($user))->toBeTrue()
         ->and(DocumentsModuleAccess::canViewGenerate($user))->toBeFalse()
-        ->and(DocumentsModuleAccess::canViewTemplates($user))->toBeFalse();
+        ->and(DocumentsModuleAccess::canViewTemplates($user))->toBeFalse()
+        ->and(DocumentsModuleAccess::canViewConfiguration($user))->toBeFalse();
 });
 
 test('generate requests and activity require bulk documents view', function () {
@@ -51,7 +52,10 @@ test('templates is visible for any exposed bridge resource', function (array $pe
         grantPlatformAccess($user);
     }
 
-    expect(DocumentsModuleAccess::canViewTemplates($user))->toBe($expected);
+    expect(DocumentsModuleAccess::canViewTemplates($user))->toBe($expected)
+        ->and(DocumentsModuleAccess::canViewConfiguration($user))->toBe(
+            $permissions === ['settings.master-data.document-types.view'],
+        );
 })->with([
     'documents view only' => [['documents.view'], false, false],
     'bulk documents view' => [['bulk_documents.view'], false, true],

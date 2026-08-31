@@ -3,7 +3,6 @@ import {
     Award,
     BadgeCheck,
     Camera,
-    FileText,
     FolderKanban,
     Globe2,
     GraduationCap,
@@ -178,13 +177,6 @@ export const SETTINGS_MASTER_DATA_ITEMS: SettingsNavItem[] = [
         permission: 'settings.master-data.clients.view',
         icon: Handshake,
         color: 'bg-teal-500/10 text-teal-600',
-    },
-    {
-        title: 'Document types',
-        href: '/settings/master-data/document-types',
-        permission: 'settings.master-data.document-types.view',
-        icon: FileText,
-        color: 'bg-slate-500/10 text-slate-600',
     },
     {
         title: 'Projects',

@@ -67,6 +67,18 @@ describe('documents module URL mapping', () => {
             documentsModuleSectionFromUrl('/organization/documents/templates'),
             'templates',
         );
+        assert.equal(
+            documentsModuleSectionFromUrl(
+                '/organization/documents/configuration',
+            ),
+            'configuration',
+        );
+        assert.equal(
+            documentsModuleSectionFromUrl(
+                '/organization/documents/configuration?edit=12',
+            ),
+            'configuration',
+        );
     });
 
     it('keeps saved views on the active overview or library path', () => {
@@ -176,7 +188,11 @@ describe('documents module visibility', () => {
             visibleDocumentsModuleSections([
                 'settings.master-data.document-types.view',
             ]),
-            ['templates'],
+            ['templates', 'configuration'],
+        );
+        assert.equal(
+            canViewDocumentsModuleSection('configuration', ['documents.view']),
+            false,
         );
         assert.deepEqual(visibleDocumentsModuleSections([], true), [
             'templates',

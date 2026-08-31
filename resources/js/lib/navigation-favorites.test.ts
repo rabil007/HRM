@@ -97,6 +97,7 @@ describe('unified Documents destinations', () => {
                 'Generate & Send',
                 'Requests',
                 'Templates',
+                'Document Types',
                 'Activity',
             ],
         );

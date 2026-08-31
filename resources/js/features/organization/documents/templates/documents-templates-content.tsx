@@ -47,6 +47,7 @@ import {
 } from '@/components/ui/table';
 import { DocumentsModuleNav } from '@/features/organization/documents/documents-module-nav';
 import { edit as applicationSettings } from '@/routes/application';
+import { configuration as documentsConfiguration } from '@/routes/organization/documents';
 import {
     activate as activateTemplate,
     deactivate as deactivateTemplate,
@@ -59,7 +60,6 @@ import {
     update as updateTemplate,
 } from '@/routes/organization/documents/templates';
 import { publish as publishTemplateVersion } from '@/routes/organization/documents/templates/versions';
-import { index as documentTypesIndex } from '@/routes/settings/master-data/document-types';
 import { TemplateAutomationSheet } from './components/template-automation-sheet';
 import { TemplateCreateChoiceDialog } from './components/template-create-choice-dialog';
 import { TemplateDeleteDialog } from './components/template-delete-dialog';
@@ -1205,11 +1205,11 @@ export function DocumentsTemplatesContent({
                     <Card className="border-border/60">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-sm font-semibold">
-                                Document Types & Categorization
+                                Document Types
                             </CardTitle>
                             <CardDescription className="text-xs">
-                                Associate templates with master document types
-                                for employee record tracking.
+                                Associate templates with document types for
+                                employee record tracking.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3">
@@ -1220,7 +1220,7 @@ export function DocumentsTemplatesContent({
                             </p>
                             {can.document_types && (
                                 <Button variant="outline" size="sm" asChild>
-                                    <Link href={documentTypesIndex.url()}>
+                                    <Link href={documentsConfiguration.url()}>
                                         Manage Document Types
                                     </Link>
                                 </Button>

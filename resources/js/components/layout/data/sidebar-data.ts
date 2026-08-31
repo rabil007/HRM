@@ -11,6 +11,7 @@ import {
     Users,
     Wallet,
     Settings,
+    SlidersHorizontal,
     FileText,
     FileStack,
     FileSignature,
@@ -56,6 +57,7 @@ import {
     library as documentsLibrary,
     requests as documentsRequests,
     templates as documentsTemplates,
+    configuration as documentsConfiguration,
 } from '@/routes/organization/documents';
 import { index as crewMovementHistory } from '@/routes/organization/reports/crew-movement-history';
 import type { SidebarData } from '../types';
@@ -166,6 +168,11 @@ const baseSidebarData: SidebarData = {
                             title: 'Templates',
                             url: documentsTemplates.url(),
                             icon: ClipboardList,
+                        },
+                        {
+                            title: 'Configuration',
+                            url: documentsConfiguration.url(),
+                            icon: SlidersHorizontal,
                         },
                         {
                             title: 'Activity',

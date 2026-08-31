@@ -6,6 +6,7 @@ import {
     LayoutGrid,
     PenLine,
     Send,
+    SlidersHorizontal,
 } from 'lucide-react';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
@@ -29,6 +30,7 @@ import type {
 import { documentsLibraryQuery } from '@/lib/documents-module-nav';
 import {
     activity,
+    configuration,
     generate,
     library,
     requests,
@@ -48,6 +50,7 @@ type OverviewSections = {
     generate: boolean;
     requests: boolean;
     templates: boolean;
+    configuration: boolean;
     activity: boolean;
 };
 
@@ -82,9 +85,16 @@ const SHORTCUTS: {
     {
         key: 'templates',
         label: 'Templates',
-        description: 'System generation templates and document types.',
+        description: 'System generation templates and custom layouts.',
         icon: FileStack,
         href: () => templates.url(),
+    },
+    {
+        key: 'configuration',
+        label: 'Document Types',
+        description: 'Configure labels and employee requirements.',
+        icon: SlidersHorizontal,
+        href: () => configuration.url(),
     },
     {
         key: 'activity',

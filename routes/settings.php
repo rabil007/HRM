@@ -24,6 +24,7 @@ use App\Http\Controllers\Settings\MasterData\VisaTypeController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Settings\SettingsHubController;
 use App\Http\Controllers\Settings\WhatsAppTemplateController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -414,7 +415,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('document-types/import', [DocumentTypeController::class, 'import'])
             ->middleware('can:settings.master-data.document-types.create')
             ->name('document-types.import');
-        Route::get('document-types', [DocumentTypeController::class, 'index'])
+        Route::get('document-types', function (Request $request) {
+            return redirect()->route('organization.documents.configuration', $request->query());
+        })
             ->middleware('can:settings.master-data.document-types.view')
             ->name('document-types.index');
         Route::post('document-types', [DocumentTypeController::class, 'store'])

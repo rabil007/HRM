@@ -7,8 +7,10 @@ use App\Models\DocumentType;
 use App\Models\User;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
+use Inertia\Testing\AssertableInertia as Assert;
 
-test('guests cannot access document types master data page', function () {
+test('guests cannot access document types configuration', function () {
+    $this->get('/organization/documents/configuration')->assertRedirect(route('login'));
     $this->get('/settings/master-data/document-types')->assertRedirect(route('login'));
 });
 
@@ -50,12 +52,18 @@ test('authorized users can manage document types', function () {
         'settings.master-data.document-types.delete',
     ]);
 
-    $this->get('/settings/master-data/document-types')->assertOk();
+    $this->get('/organization/documents/configuration')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/configuration/document-types'));
+
+    $this->get('/settings/master-data/document-types')
+        ->assertRedirect('/organization/documents/configuration');
 
     $this->post('/settings/master-data/document-types', [
         'title' => 'Passport Copy',
         'is_active' => true,
-    ])->assertRedirect('/settings/master-data/document-types');
+    ])->assertRedirect('/organization/documents/configuration');
 
     $docId = DocumentType::query()->where('title', 'Passport Copy')->value('id');
     expect($docId)->not->toBeNull();
@@ -63,7 +71,7 @@ test('authorized users can manage document types', function () {
     $this->put("/settings/master-data/document-types/{$docId}", [
         'title' => 'Passport Copy Updated',
         'is_active' => false,
-    ])->assertRedirect('/settings/master-data/document-types');
+    ])->assertRedirect('/organization/documents/configuration');
 
     $this->assertDatabaseHas('document_types', [
         'id' => $docId,
@@ -72,7 +80,7 @@ test('authorized users can manage document types', function () {
     ]);
 
     $this->delete("/settings/master-data/document-types/{$docId}")
-        ->assertRedirect('/settings/master-data/document-types');
+        ->assertRedirect('/organization/documents/configuration');
 
     $this->assertSoftDeleted('document_types', ['id' => $docId]);
 });
@@ -121,7 +129,7 @@ test('authorized users can download csv template and import document types', fun
 
     $this->post('/settings/master-data/document-types/import', [
         'file' => UploadedFile::fake()->createWithContent('types.csv', $csvContent),
-    ])->assertRedirect('/settings/master-data/document-types');
+    ])->assertRedirect('/organization/documents/configuration');
 
     expect(DocumentType::query()->where('title', 'Licence Card')->value('is_active'))->toBe(false);
     expect(DocumentType::query()->where('title', 'Work Permit')->value('is_active'))->toBe(true);

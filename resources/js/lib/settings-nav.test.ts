@@ -37,11 +37,6 @@ const MASTER_DATA_ITEMS = [
         permission: 'settings.master-data.clients.view',
     },
     {
-        title: 'Document types',
-        href: '/settings/master-data/document-types',
-        permission: 'settings.master-data.document-types.view',
-    },
-    {
         title: 'Projects',
         href: '/settings/master-data/projects',
         permission: 'settings.master-data.projects.view',
@@ -67,10 +62,10 @@ const SYSTEM_ITEMS = [
 ] as const;
 
 describe('settings command destinations', () => {
-    it('shows Document types only with document-types.view', () => {
+    it('shows Banks only with banks.view', () => {
         const visible = filterSettingsNavItems(
             [...MASTER_DATA_ITEMS],
-            ['settings.master-data.document-types.view'],
+            ['settings.master-data.banks.view'],
         );
         const hidden = filterSettingsNavItems(
             [...MASTER_DATA_ITEMS],
@@ -79,10 +74,10 @@ describe('settings command destinations', () => {
 
         assert.deepEqual(
             visible.map((item) => item.title),
-            ['Document types'],
+            ['Banks'],
         );
         assert.equal(
-            hidden.some((item) => item.title === 'Document types'),
+            hidden.some((item) => item.title === 'Banks'),
             false,
         );
     });
@@ -94,7 +89,7 @@ describe('settings command destinations', () => {
         );
         const hidden = filterSettingsNavItems(
             [...MASTER_DATA_ITEMS],
-            ['settings.master-data.document-types.view'],
+            ['settings.master-data.banks.view'],
         );
 
         assert.deepEqual(
@@ -185,7 +180,7 @@ describe('settings command destinations', () => {
     it('recomputes accessible commands when company permissions change', () => {
         const companyA = filterSettingsNavItems(
             [...MASTER_DATA_ITEMS],
-            ['settings.master-data.document-types.view'],
+            ['settings.master-data.banks.view'],
         );
         const companyB = filterSettingsNavItems(
             [...MASTER_DATA_ITEMS],
@@ -194,7 +189,7 @@ describe('settings command destinations', () => {
 
         assert.deepEqual(
             companyA.map((item) => item.title),
-            ['Document types'],
+            ['Banks'],
         );
         assert.deepEqual(
             companyB.map((item) => item.title),

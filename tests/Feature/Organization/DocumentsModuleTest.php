@@ -48,6 +48,7 @@ test('documents view users can open overview and library but not generate routes
     $this->get(route('organization.documents.requests'))->assertForbidden();
     $this->get(route('organization.documents.activity'))->assertForbidden();
     $this->get(route('organization.documents.templates'))->assertForbidden();
+    $this->get(route('organization.documents.configuration'))->assertForbidden();
 });
 
 test('bulk documents view users can open generate requests and activity', function () {
@@ -106,6 +107,8 @@ test('bulk documents view users can open generate requests and activity', functi
             ->has('system_templates', 2)
             ->where('can.document_types', false)
             ->where('can.signature_placement', false));
+
+    $this->get(route('organization.documents.configuration'))->assertForbidden();
 });
 
 test('legacy bulk urls still work and keep the matching module view', function () {

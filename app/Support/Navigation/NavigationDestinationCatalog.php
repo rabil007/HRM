@@ -34,6 +34,7 @@ final class NavigationDestinationCatalog
             ['key' => 'documents.bulk', 'label' => 'Generate & Send', 'href' => '/organization/documents/generate', 'group' => 'Documents', 'permissions' => ['bulk_documents.view'], 'platform' => null],
             ['key' => 'documents.requests', 'label' => 'Requests', 'href' => '/organization/documents/requests', 'group' => 'Documents', 'permissions' => ['bulk_documents.view'], 'platform' => null],
             ['key' => 'documents.templates', 'label' => 'Templates', 'href' => '/organization/documents/templates', 'group' => 'Documents', 'permissions' => ['bulk_documents.view', 'settings.master-data.document-types.view'], 'platform' => 'view'],
+            ['key' => 'documents.configuration', 'label' => 'Document Types', 'href' => '/organization/documents/configuration', 'group' => 'Documents', 'permissions' => ['settings.master-data.document-types.view'], 'platform' => null],
             ['key' => 'documents.activity', 'label' => 'Activity', 'href' => '/organization/documents/activity', 'group' => 'Documents', 'permissions' => ['bulk_documents.view'], 'platform' => null],
             ['key' => 'contracts', 'label' => 'Contracts', 'href' => '/organization/contracts', 'group' => 'Employees', 'permissions' => ['contracts.view'], 'platform' => null],
             ['key' => 'bank-accounts', 'label' => 'Bank Accounts', 'href' => '/organization/bank-accounts', 'group' => 'Employees', 'permissions' => ['bank_accounts.view'], 'platform' => null],
