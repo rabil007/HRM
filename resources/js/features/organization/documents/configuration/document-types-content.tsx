@@ -192,7 +192,7 @@ export function DocumentTypesContent({
     return (
         <Main>
             <PageHeader
-                kicker="Configuration"
+                kicker="Documents"
                 title="Document Types"
                 description="Configure document labels and employee requirements used across Library, Templates, and compliance."
                 right={
