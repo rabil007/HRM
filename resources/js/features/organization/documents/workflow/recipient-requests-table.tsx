@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { Mail, MailWarning, PenLine, User } from 'lucide-react';
+import { Mail, MailWarning, PenLine } from 'lucide-react';
 import ResendDocumentRecipientRequestEmailController from '@/actions/App/Http/Controllers/Organization/Documents/ResendDocumentRecipientRequestEmailController';
 import { EmptyState } from '@/components/empty-state';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,7 @@ function avatarColour(name: string | null): string {
         'bg-teal-500',
     ];
     const seed = (name ?? '').charCodeAt(0) || 0;
+
     return colours[seed % colours.length];
 }
 
@@ -40,10 +41,8 @@ const ACTION_COLOURS: Record<string, string> = {
 };
 
 const STATUS_COLOURS: Record<string, string> = {
-    awaiting_action:
-        'bg-amber-500/10 text-amber-700 dark:text-amber-300',
-    completed:
-        'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+    awaiting_action: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    completed: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
     expired: 'bg-red-500/10 text-red-700 dark:text-red-300',
     cancelled: 'bg-muted text-muted-foreground',
     superseded: 'bg-muted text-muted-foreground',
@@ -80,8 +79,9 @@ function isExpiringSoon(expiresAt: string | null): boolean {
     if (!expiresAt) {
         return false;
     }
-    const diff =
-        new Date(expiresAt).getTime() - Date.now();
+
+    const diff = new Date(expiresAt).getTime() - Date.now();
+
     return diff > 0 && diff < 3 * 24 * 60 * 60 * 1000;
 }
 
@@ -125,25 +125,15 @@ export function RecipientRequestsTable({
                 </TableHeader>
                 <TableBody>
                     {requests.map((request) => {
-                        const initial = (
-                            request.employee.name ?? '?'
-                        )
+                        const initial = (request.employee.name ?? '?')
                             .charAt(0)
                             .toUpperCase();
-                        const colour = avatarColour(
-                            request.employee.name,
-                        );
-                        const actionKey =
-                            request.action?.toLowerCase() ?? '';
-                        const emailMeta =
-                            request.email_delivery?.status
-                                ? EMAIL_STATUS_META[
-                                      request.email_delivery.status
-                                  ]
-                                : null;
-                        const expiringSoon = isExpiringSoon(
-                            request.expires_at,
-                        );
+                        const colour = avatarColour(request.employee.name);
+                        const actionKey = request.action?.toLowerCase() ?? '';
+                        const emailMeta = request.email_delivery?.status
+                            ? EMAIL_STATUS_META[request.email_delivery.status]
+                            : null;
+                        const expiringSoon = isExpiringSoon(request.expires_at);
 
                         return (
                             <TableRow
@@ -165,8 +155,7 @@ export function RecipientRequestsTable({
                                             <div className="font-medium text-foreground">
                                                 {request.employee.name}
                                             </div>
-                                            {request.employee
-                                                .employee_no && (
+                                            {request.employee.employee_no && (
                                                 <div className="font-mono text-[11px] text-muted-foreground">
                                                     {
                                                         request.employee
@@ -181,17 +170,14 @@ export function RecipientRequestsTable({
                                 {/* Document + signing step */}
                                 <TableCell>
                                     <div className="font-medium text-foreground">
-                                        {request.document.title ??
-                                            'Document'}
+                                        {request.document.title ?? 'Document'}
                                     </div>
                                     <div className="mt-0.5 flex items-center gap-1.5">
                                         {request.action && (
                                             <span
                                                 className={cn(
-                                                    'inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                                                    ACTION_COLOURS[
-                                                        actionKey
-                                                    ] ??
+                                                    'inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase',
+                                                    ACTION_COLOURS[actionKey] ??
                                                         'bg-muted text-muted-foreground',
                                                 )}
                                             >
@@ -200,10 +186,7 @@ export function RecipientRequestsTable({
                                         )}
                                         {request.signing_step_label && (
                                             <span className="text-[11px] text-muted-foreground">
-                                                ·{' '}
-                                                {
-                                                    request.signing_step_label
-                                                }
+                                                · {request.signing_step_label}
                                             </span>
                                         )}
                                     </div>
@@ -233,10 +216,9 @@ export function RecipientRequestsTable({
                                     <Badge
                                         variant="secondary"
                                         className={cn(
-                                            'text-[10px] font-semibold uppercase tracking-wide',
-                                            STATUS_COLOURS[
-                                                request.status
-                                            ] ?? '',
+                                            'text-[10px] font-semibold tracking-wide uppercase',
+                                            STATUS_COLOURS[request.status] ??
+                                                '',
                                         )}
                                     >
                                         {request.human_status}
@@ -273,22 +255,19 @@ export function RecipientRequestsTable({
                                 {/* Actions */}
                                 <TableCell className="text-right">
                                     <div className="flex items-center justify-end gap-1.5">
-                                        {canRespond &&
-                                            request.respond_url && (
-                                                <Button
-                                                    variant="default"
-                                                    size="sm"
-                                                    asChild
+                                        {canRespond && request.respond_url && (
+                                            <Button
+                                                variant="default"
+                                                size="sm"
+                                                asChild
+                                            >
+                                                <Link
+                                                    href={request.respond_url}
                                                 >
-                                                    <Link
-                                                        href={
-                                                            request.respond_url
-                                                        }
-                                                    >
-                                                        Sign
-                                                    </Link>
-                                                </Button>
-                                            )}
+                                                    Sign
+                                                </Link>
+                                            </Button>
+                                        )}
                                         {canCreate &&
                                             request.email_delivery
                                                 ?.can_resend && (
@@ -305,8 +284,7 @@ export function RecipientRequestsTable({
                                                             ),
                                                             {},
                                                             {
-                                                                preserveScroll:
-                                                                    true,
+                                                                preserveScroll: true,
                                                             },
                                                         )
                                                     }
@@ -314,9 +292,8 @@ export function RecipientRequestsTable({
                                                     {request.email_delivery
                                                         .status === 'failed'
                                                         ? 'Retry'
-                                                        : request
-                                                                  .email_delivery
-                                                                  .status ===
+                                                        : request.email_delivery
+                                                                .status ===
                                                             'sent'
                                                           ? 'Resend'
                                                           : 'Send'}
