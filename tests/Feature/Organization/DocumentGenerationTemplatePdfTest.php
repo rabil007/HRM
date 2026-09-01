@@ -19,6 +19,7 @@ use App\Support\Documents\PdfOverlayPlacementValidator;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use setasign\Fpdi\Fpdi;
 use Spatie\Activitylog\Models\Activity;
 
@@ -187,6 +188,7 @@ test('saving placements validates normalized coordinates and schema version', fu
     $validPlacements = [
         [
             'id' => 'placement-1',
+            'type' => 'field',
             'field' => '{{employee_name}}',
             'page' => 1,
             'x' => 0.15,
@@ -199,6 +201,7 @@ test('saving placements validates normalized coordinates and schema version', fu
         ],
         [
             'id' => 'placement-2',
+            'type' => 'field',
             'field' => '{{today}}',
             'page' => 2,
             'x' => 0.70,
@@ -228,6 +231,7 @@ test('saving placements validates normalized coordinates and schema version', fu
     $invalidPlacements = [
         [
             'id' => 'placement-invalid',
+            'type' => 'field',
             'field' => '{{employee_name}}',
             'page' => 1,
             'x' => 0.90,
@@ -404,6 +408,31 @@ test('save placements rejects when version is concurrently published', function 
     ]))->toThrow(DomainException::class, 'Published or archived template versions cannot be edited.');
 });
 
+test('save placements action rejects missing type for schema v2 writes', function () {
+    $company = createPdfTestCompany();
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 1,
+        'status' => DocumentGenerationTemplateVersionStatus::Draft,
+        'source_pdf_page_count' => 1,
+    ]);
+
+    $action = new SaveDocumentGenerationTemplatePlacements;
+
+    expect(fn () => $action->handle($version, [
+        [
+            'field' => '{{employee_name}}',
+            'page' => 1,
+            'x' => 0.1,
+            'y' => 0.1,
+            'width' => 0.2,
+            'height' => 0.05,
+        ],
+    ]))->toThrow(ValidationException::class);
+});
+
 test('replace pdf rejects when version is concurrently published and cleans up file', function () {
     $company = createPdfTestCompany();
     $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
@@ -479,6 +508,7 @@ test('manual activity events record company_id and avoid logging sensitive conte
     $saver = new SaveDocumentGenerationTemplatePlacements;
     $saver->handle($version, [
         [
+            'type' => 'field',
             'field' => '{{employee_name}}',
             'page' => 1,
             'x' => 0.1,
@@ -543,6 +573,7 @@ test('save placements validates and stores text alignment options', function () 
     $updated = $saver->handle($version, [
         [
             'id' => 'p-left',
+            'type' => 'field',
             'field' => '{{employee_name}}',
             'page' => 1,
             'x' => 0.1,
@@ -553,6 +584,7 @@ test('save placements validates and stores text alignment options', function () 
         ],
         [
             'id' => 'p-center',
+            'type' => 'field',
             'field' => '{{company_name}}',
             'page' => 1,
             'x' => 0.1,
@@ -563,6 +595,7 @@ test('save placements validates and stores text alignment options', function () 
         ],
         [
             'id' => 'p-right',
+            'type' => 'field',
             'field' => '{{today}}',
             'page' => 1,
             'x' => 0.1,
@@ -679,6 +712,7 @@ it('supports Inertia redirects for getOrCreateDraft and savePlacements', functio
             'placements' => [
                 [
                     'id' => 'p1',
+                    'type' => 'field',
                     'field' => '{{employee_name}}',
                     'page' => 1,
                     'x' => 0.1,
@@ -785,6 +819,132 @@ test('saving placements rejects text_content exceeding 500 characters', function
 
     $response->assertStatus(422);
     $response->assertJsonValidationErrors(['placements.0.text_content']);
+});
+
+test('saving placements rejects missing type for schema v2', function () {
+    $user = User::factory()->create();
+    $company = createPdfTestCompany();
+    grantCompanyPermissions($user, $company, ['documents.templates.update']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 1,
+        'status' => DocumentGenerationTemplateVersionStatus::Draft,
+        'source_pdf_page_count' => 1,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->putJson(route('organization.documents.templates.versions.placements.save', [
+            'template' => $template->id, 'version' => $version->id,
+        ]), ['placements' => [[
+            'id' => 'p1', 'field' => '{{employee_name}}',
+            'page' => 1, 'x' => 0.1, 'y' => 0.1, 'width' => 0.3, 'height' => 0.05,
+            'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
+        ]]]);
+
+    $response->assertUnprocessable();
+    $response->assertJsonValidationErrors(['placements.0.type']);
+});
+
+test('saving placements rejects unknown type for schema v2', function (string $type) {
+    $user = User::factory()->create();
+    $company = createPdfTestCompany();
+    grantCompanyPermissions($user, $company, ['documents.templates.update']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 1,
+        'status' => DocumentGenerationTemplateVersionStatus::Draft,
+        'source_pdf_page_count' => 1,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->putJson(route('organization.documents.templates.versions.placements.save', [
+            'template' => $template->id, 'version' => $version->id,
+        ]), ['placements' => [[
+            'id' => 'p1', 'type' => $type, 'field' => '{{employee_name}}',
+            'page' => 1, 'x' => 0.1, 'y' => 0.1, 'width' => 0.3, 'height' => 0.05,
+            'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
+        ]]]);
+
+    $response->assertUnprocessable();
+    $response->assertJsonValidationErrors(['placements.0.type']);
+})->with(['signature', 'abc', '']);
+
+test('saveDesign rejects missing placement type', function () {
+    $user = User::factory()->create();
+    $company = createPdfTestCompany();
+    grantCompanyPermissions($user, $company, ['documents.templates.update']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 1, 'status' => DocumentGenerationTemplateVersionStatus::Draft, 'source_pdf_page_count' => 1,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->putJson(route('organization.documents.templates.versions.design.save', [
+            'template' => $template->id, 'version' => $version->id,
+        ]), [
+            'placement_config' => [
+                'schema_version' => 2,
+                'placements' => [[
+                    'id' => 'p1', 'field' => '{{employee_name}}',
+                    'page' => 1, 'x' => 0.1, 'y' => 0.1, 'width' => 0.3, 'height' => 0.05,
+                    'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
+                ]],
+            ],
+            'signature_placement_config' => [
+                'schema_version' => 2,
+                'placements' => [],
+            ],
+        ]);
+
+    $response->assertUnprocessable();
+    $response->assertJsonValidationErrors(['placement_config.placements.0.type']);
+});
+
+test('saveDesign rejects unknown placement type', function () {
+    $user = User::factory()->create();
+    $company = createPdfTestCompany();
+    grantCompanyPermissions($user, $company, ['documents.templates.update']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 1, 'status' => DocumentGenerationTemplateVersionStatus::Draft, 'source_pdf_page_count' => 1,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->putJson(route('organization.documents.templates.versions.design.save', [
+            'template' => $template->id, 'version' => $version->id,
+        ]), [
+            'placement_config' => [
+                'schema_version' => 2,
+                'placements' => [[
+                    'id' => 'p1', 'type' => 'signature', 'field' => '{{employee_name}}',
+                    'page' => 1, 'x' => 0.1, 'y' => 0.1, 'width' => 0.3, 'height' => 0.05,
+                    'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
+                ]],
+            ],
+            'signature_placement_config' => [
+                'schema_version' => 2,
+                'placements' => [],
+            ],
+        ]);
+
+    $response->assertUnprocessable();
+    $response->assertJsonValidationErrors(['placement_config.placements.0.type']);
 });
 
 // Schema v1 backward compatibility tests
@@ -910,6 +1070,7 @@ test('saveDesign persists serif font family on placements', function () {
                 'font_size' => 20, 'font_weight' => 'normal', 'text_align' => 'center',
                 'font_family' => 'serif',
                 'font_color' => '#000000',
+                'vertical_align' => 'baseline',
             ]],
         ],
         'signature_placement_config' => [
@@ -928,7 +1089,8 @@ test('saveDesign persists serif font family on placements', function () {
     $version->refresh();
     expect($version->placement_config['placements'][0]['font_family'])->toBe('serif')
         ->and($version->placement_config['placements'][0]['font_color'])->toBe('#000000')
-        ->and($version->placement_config['placements'][0]['text_content'])->toBe('5000');
+        ->and($version->placement_config['placements'][0]['text_content'])->toBe('5000')
+        ->and($version->placement_config['placements'][0]['vertical_align'])->toBe('baseline');
 });
 
 test('saveDesign allows removing the employee signature', function () {

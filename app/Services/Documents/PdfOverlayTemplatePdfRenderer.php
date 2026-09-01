@@ -98,6 +98,7 @@ class PdfOverlayTemplatePdfRenderer
             $page = $placement['page'];
             $pageWidth = $pageSizes[$page]['width'];
             $pageHeight = $pageSizes[$page]['height'];
+            $verticalAlign = $placement['vertical_align'] ?? PdfOverlayPlacementValidator::normalizeVerticalAlign(null, $type);
 
             $resolvedPlacements[] = [
                 'id' => $placement['id'],
@@ -112,6 +113,8 @@ class PdfOverlayTemplatePdfRenderer
                 'requested_font_size' => (float) $placement['font_size'],
                 'font_weight' => $placement['font_weight'],
                 'text_align' => $placement['text_align'],
+                'vertical_align' => $verticalAlign,
+                'vertical_align_css' => PdfOverlayPlacementValidator::cssVerticalAlign($verticalAlign),
                 'font_family' => $placement['font_family'] ?? 'sans',
                 'font_family_css' => PdfOverlayPlacementValidator::cssFontFamily(
                     (string) ($placement['font_family'] ?? 'sans'),
@@ -251,7 +254,7 @@ class PdfOverlayTemplatePdfRenderer
             foreach ($candidates as $candidateIndex => $candidatePt) {
                 $boxId = "b{$index}_{$candidateIndex}";
                 if ($isStaticText) {
-                    $boxesHtml .= "<div id=\"{$boxId}\" style=\"width:{$widthMm}mm;height:{$heightMm}mm;font-size:{$candidatePt}pt;font-weight:{$fontWeightCss};font-family:{$fontFamilyCss};white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;line-height:1.2;overflow:hidden;display:flex;align-items:flex-start;box-sizing:border-box;\" dir=\"auto\"><span style=\"unicode-bidi:plaintext;\">{$escapedValue}</span></div>\n";
+                    $boxesHtml .= "<div id=\"{$boxId}\" style=\"width:{$widthMm}mm;height:{$heightMm}mm;font-size:{$candidatePt}pt;font-weight:{$fontWeightCss};font-family:{$fontFamilyCss};white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;line-height:1.2;overflow:hidden;display:flex;align-items:flex-start;box-sizing:border-box;\" dir=\"auto\"><span style=\"unicode-bidi:plaintext;display:block;width:100%;\">{$escapedValue}</span></div>\n";
                 } else {
                     $boxesHtml .= "<div id=\"{$boxId}\" style=\"width:{$widthMm}mm;height:{$heightMm}mm;font-size:{$candidatePt}pt;font-weight:{$fontWeightCss};font-family:{$fontFamilyCss};white-space:nowrap;line-height:1;overflow:hidden;display:block;\" dir=\"auto\"><span style=\"unicode-bidi:plaintext;\">{$escapedValue}</span></div>\n";
                 }

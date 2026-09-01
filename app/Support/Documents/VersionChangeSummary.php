@@ -10,6 +10,7 @@ final class VersionChangeSummary
      * Compare previous → current version. Returns null if $previous is null (first version).
      *
      * @return array{
+     *     compared_to_version: int,
      *     pdf_metadata_changed: bool,
      *     fields_added: int,
      *     fields_removed: int,
@@ -88,14 +89,18 @@ final class VersionChangeSummary
                 if ($moved) {
                     $fieldsMoved++;
                 }
-                if (($prev['field'] ?? '') !== ($curr['field'] ?? '')) {
+                if (($prev['field'] ?? '') !== ($curr['field'] ?? '')
+                    || ($prev['vertical_align'] ?? 'middle') !== ($curr['vertical_align'] ?? 'middle')
+                ) {
                     $fieldsChanged++;
                 }
             } else {
                 if ($moved) {
                     $textMoved++;
                 }
-                if (($prev['text_content'] ?? '') !== ($curr['text_content'] ?? '')) {
+                if (($prev['text_content'] ?? '') !== ($curr['text_content'] ?? '')
+                    || ($prev['vertical_align'] ?? 'top') !== ($curr['vertical_align'] ?? 'top')
+                ) {
                     $textUpdated++;
                 }
             }
@@ -124,6 +129,7 @@ final class VersionChangeSummary
         }
 
         return [
+            'compared_to_version' => (int) $previous->version,
             'pdf_metadata_changed' => $pdfChanged,
             'fields_added' => $fieldsAdded,
             'fields_removed' => $fieldsRemoved,
@@ -159,12 +165,36 @@ final class VersionChangeSummary
     {
         $indexed = [];
         foreach ($items as $item) {
-            if (isset($item['slot_key'])) {
-                $indexed[(string) $item['slot_key']] = $item;
+            $key = self::signatureComparisonKey($item);
+            if ($key !== null) {
+                $indexed[$key] = $item;
             }
         }
 
         return $indexed;
+    }
+
+    /**
+     * Comparison-only identity for signature placements.
+     *
+     * Legacy schema v1 configs may omit `slot_key`. Map the historical single
+     * placement per role onto the default v2 slots without mutating stored data.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    private static function signatureComparisonKey(array $item): ?string
+    {
+        $slotKey = trim((string) ($item['slot_key'] ?? ''));
+        if ($slotKey !== '') {
+            return $slotKey;
+        }
+
+        return match ((string) ($item['role'] ?? '')) {
+            'subject' => 'subject',
+            'manager' => 'manager_1',
+            'company_signatory' => 'company_signatory_1',
+            default => null,
+        };
     }
 
     private static function coordinatesDiffer(array $a, array $b): bool

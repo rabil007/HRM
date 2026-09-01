@@ -843,6 +843,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/documents/templates/{template}/design', [DocumentGenerationTemplateController::class, 'design'])
         ->middleware('can:documents.templates.update')
         ->name('organization.documents.templates.design');
+    Route::get('organization/documents/templates/{template}/design-employees', [DocumentGenerationTemplatePreviewController::class, 'searchEmployees'])
+        ->middleware('can:documents.templates.update')
+        ->name('organization.documents.templates.design-employees');
+    Route::get('organization/documents/templates/{template}/design-employees/{employee}', [DocumentGenerationTemplatePreviewController::class, 'employeeValues'])
+        ->middleware('can:documents.templates.update')
+        ->name('organization.documents.templates.design-employees.show');
     Route::get('organization/documents/templates/{template}/preview', [DocumentGenerationTemplatePreviewController::class, 'preview'])
         ->middleware('can:documents.templates.view')
         ->name('organization.documents.templates.preview');

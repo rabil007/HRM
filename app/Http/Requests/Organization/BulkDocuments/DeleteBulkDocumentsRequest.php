@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Organization\BulkDocuments;
 
-use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\BulkDocuments\GenerateDocumentTypeKey;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class DeleteBulkDocumentsRequest extends FormRequest
 {
@@ -18,10 +18,19 @@ class DeleteBulkDocumentsRequest extends FormRequest
      */
     public function rules(): array
     {
-        $typeKeys = collect(BulkDocumentTypeRegistry::definitions())->pluck('key')->all();
+        $companyId = (int) $this->attributes->get('current_company_id');
 
         return [
-            'document_type_key' => ['required', 'string', Rule::in($typeKeys)],
+            'document_type_key' => [
+                'required',
+                'string',
+                'max:64',
+                function (string $attribute, mixed $value, Closure $fail) use ($companyId): void {
+                    if (! is_string($value) || ! GenerateDocumentTypeKey::isAllowedForCompany($companyId, $value)) {
+                        $fail('The selected document type is invalid.');
+                    }
+                },
+            ],
             'document_ids' => ['required', 'array', 'min:1'],
             'document_ids.*' => ['integer', 'distinct'],
         ];

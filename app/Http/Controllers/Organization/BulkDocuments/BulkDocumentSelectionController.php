@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentSignatureRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\BulkDocuments\CustomDocumentRosterQuery;
+use App\Support\BulkDocuments\GenerateDocumentTypeKey;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +18,39 @@ class BulkDocumentSelectionController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         $documentTypeKey = (string) $request->query('document_type_key', 'salary_declaration');
+
+        if (GenerateDocumentTypeKey::isCustom($documentTypeKey)) {
+            $template = GenerateDocumentTypeKey::publishedTemplate($companyId, $documentTypeKey);
+            $version = $template?->publishedVersion;
+
+            if ($template === null || $version === null) {
+                return response()->json([
+                    'employee_ids' => [],
+                    'document_ids' => [],
+                    'total' => 0,
+                ]);
+            }
+
+            $filters = EmployeeDirectoryFilters::fromArray(array_merge(
+                EmployeeDirectoryFilters::fromRequest($request)->toQueryArray(),
+                ['status' => 'active'],
+            ));
+
+            $generationFilter = match ($request->query('generation_filter')) {
+                'missing' => 'missing',
+                'generated' => 'generated',
+                default => 'all',
+            };
+
+            return response()->json(
+                CustomDocumentRosterQuery::matchingSelection(
+                    $companyId,
+                    $version,
+                    $filters,
+                    $generationFilter,
+                ),
+            );
+        }
 
         try {
             BulkDocumentTypeRegistry::find($documentTypeKey);

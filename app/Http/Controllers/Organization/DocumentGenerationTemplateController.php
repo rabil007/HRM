@@ -98,27 +98,35 @@ class DocumentGenerationTemplateController extends Controller
 
         $template->load(['versions', 'documentType:id,title', 'publishedVersion', 'draftVersion', 'creator:id,name', 'updater:id,name']);
 
+        $orderedVersions = $template->versions
+            ->sortByDesc(fn (DocumentGenerationTemplateVersion $candidate): int => (int) $candidate->version)
+            ->values();
+
         $initialVersion = $template->draftVersion
             ?? $template->publishedVersion
-            ?? $template->versions()->orderByDesc('version')->first();
+            ?? $orderedVersions->first();
 
         abort_if($initialVersion === null, 404, 'No versions found for this template.');
+
+        $previousVersion = $orderedVersions->first(
+            fn (DocumentGenerationTemplateVersion $candidate): bool => (int) $candidate->version < (int) $initialVersion->version,
+        );
 
         $pageOptions = DocumentGenerationTemplatePageOptions::for($request->user());
 
         return Inertia::render('organization/documents/templates/design', [
             'template' => $template->toBrowseArray(),
             'initial_version' => $initialVersion->toArraySummary(),
-            'all_versions' => $template->versions()
-                ->orderByDesc('version')
-                ->get()
-                ->map(fn ($v) => $v->toVersionListItem())
+            'initial_change_summary' => VersionChangeSummary::compare($previousVersion, $initialVersion),
+            'all_versions' => $orderedVersions
+                ->map(fn (DocumentGenerationTemplateVersion $version) => $version->toVersionListItem())
                 ->values()
                 ->toArray(),
             ...$pageOptions,
             'can' => array_merge($pageOptions['can'], [
                 'create_draft' => DocumentsModuleAccess::canUpdateCustomTemplates($request->user()),
                 'update' => DocumentsModuleAccess::canUpdateCustomTemplates($request->user()),
+                'preview_employee' => $request->user()?->can('employees.view') ?? false,
             ]),
         ]);
     }

@@ -4,6 +4,9 @@ import {
     AlignCenter,
     AlignLeft,
     AlignRight,
+    AlignVerticalJustifyCenter,
+    AlignVerticalJustifyEnd,
+    AlignVerticalJustifyStart,
     Bold,
     ChevronLeft,
     ChevronRight,
@@ -11,11 +14,14 @@ import {
     Eye,
     EyeOff,
     Loader2,
+    Minus,
     Plus,
+    Redo2,
     Save,
     Search,
     Send,
     Trash2,
+    Undo2,
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -50,15 +56,51 @@ import {
 } from '@/routes/organization/documents/templates/versions';
 import { save as saveDesignRoute } from '@/routes/organization/documents/templates/versions/design';
 import {
+    clickToAlignedPlacement,
+    clickToCenteredPlacement,
+    cloneDesignState,
+    DesignHistory,
+    isEditableTypingTarget,
+    isRedoKey,
+    isUndoKey,
+    nudgeDeltaFromKeyboard,
+    nudgeNormalizedPlacement,
+} from '../lib/canvas-edit';
+import {
+    clamp,
+    DEFAULT_OVERLAY_PLACEMENT_HEIGHT_PX,
+    DEFAULT_OVERLAY_PLACEMENT_WIDTH_PX,
+    OVERLAY_FONT_SIZE_MAX_PT,
+    OVERLAY_FONT_SIZE_MIN_PT,
+    clampOverlayFontSizePt,
+    fabricObjectToPixelRect,
     normalizedToPixel,
+    overlayFontSizePx,
+    overlayFontSizeSelectOptionsPt,
+    overlayPlacementBoxChrome,
+    overlayPlacementChrome,
+    overlayPlacementTextFill,
     pixelToNormalized,
     placementRectInVisibleCanvas,
+    stepOverlayFontSizePt,
 } from '../lib/coordinates';
-import { normalizePlacementConfig, normalizeFontColor } from '../types';
+import {
+    estimatePlacementOverflow,
+    overflowPageBanner,
+    overflowPreviewText,
+    placementOverflowLabel,
+} from '../lib/placement-overflow';
+import type { OverflowLevel } from '../lib/placement-overflow';
+import {
+    normalizeFontColor,
+    normalizePlacementConfig,
+    normalizeVerticalAlign,
+} from '../types';
 import type {
     CustomTemplate,
     MergeField,
     PlacementFontFamily,
+    PlacementVerticalAlign,
     PdfFieldPlacement,
     PdfPlacementItem,
     PdfTextPlacement,
@@ -69,6 +111,8 @@ import type {
     VersionChangeSummary,
     VersionDetailResponse,
 } from '../types';
+import { TemplateDesignEmployeePreviewPicker } from './template-design-employee-preview';
+import type { DesignEmployeePreview } from './template-design-employee-preview';
 
 // ─── Signature helper constants ───────────────────────────────────────────────
 const SUBJECT_SLOT = 'subject';
@@ -78,6 +122,31 @@ const DEFAULT_HEIGHT = 0.08;
 const DEFAULT_X = 0.1;
 
 type SignatureRole = SignaturePlacementItem['role'];
+
+type PendingPlacement =
+    | { kind: 'field'; fieldKey: string; label: string }
+    | { kind: 'text' }
+    | { kind: 'signature'; role: SignatureRole };
+
+function pendingPlacementLabel(pending: PendingPlacement): string {
+    if (pending.kind === 'field') {
+        return pending.label;
+    }
+
+    if (pending.kind === 'text') {
+        return 'text';
+    }
+
+    if (pending.role === 'subject') {
+        return 'employee signature';
+    }
+
+    if (pending.role === 'manager') {
+        return 'manager signature';
+    }
+
+    return 'company signatory signature';
+}
 
 function placementIdForSlot(slotKey: string): string {
     if (slotKey === SUBJECT_SLOT) {
@@ -173,21 +242,21 @@ function roleColors(role: SignatureRole): {
 } {
     if (role === 'subject') {
         return {
-            fill: 'rgba(37,99,235,0.28)',
-            stroke: '#2563eb',
+            fill: 'rgba(37,99,235,0.08)',
+            stroke: '#93c5fd',
             text: '#1e3a8a',
         };
     }
 
     if (role === 'manager') {
         return {
-            fill: 'rgba(5,150,105,0.28)',
-            stroke: '#059669',
+            fill: 'rgba(5,150,105,0.08)',
+            stroke: '#6ee7b7',
             text: '#065f46',
         };
     }
 
-    return { fill: 'rgba(180,83,9,0.28)', stroke: '#b45309', text: '#78350f' };
+    return { fill: 'rgba(180,83,9,0.08)', stroke: '#fcd34d', text: '#78350f' };
 }
 
 function defaultPlacement(
@@ -328,6 +397,106 @@ function renumberRoleSlots(
 }
 
 // ─── VersionInfoPanel ─────────────────────────────────────────────────────────
+function signatureSlotLabel(slotKey: string): string {
+    if (slotKey === 'subject') {
+        return 'Employee';
+    }
+
+    const managerMatch = /^manager_(\d+)$/.exec(slotKey);
+
+    if (managerMatch?.[1]) {
+        return `Manager ${managerMatch[1]}`;
+    }
+
+    const companyMatch = /^company_signatory_(\d+)$/.exec(slotKey);
+
+    if (companyMatch?.[1]) {
+        return `Company Signatory ${companyMatch[1]}`;
+    }
+
+    return slotKey;
+}
+
+function ChangeGroup({ title, rows }: { title: string; rows: string[] }) {
+    if (rows.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="space-y-0.5">
+            <p className="font-medium text-foreground">{title}</p>
+            <ul className="space-y-0.5 text-muted-foreground">
+                {rows.map((row, index) => (
+                    <li key={`${title}-${index}`}>• {row}</li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+function VersionChangeSummarySections({
+    summary,
+}: {
+    summary: VersionChangeSummary;
+}) {
+    const fieldRows = [
+        summary.fields_added > 0 ? `${summary.fields_added} added` : null,
+        summary.fields_removed > 0 ? `${summary.fields_removed} removed` : null,
+        summary.fields_moved > 0 ? `${summary.fields_moved} moved` : null,
+        summary.fields_changed > 0 ? `${summary.fields_changed} changed` : null,
+    ].filter((row): row is string => row !== null);
+
+    const textRows = [
+        summary.static_text_added > 0
+            ? `${summary.static_text_added} added`
+            : null,
+        summary.static_text_removed > 0
+            ? `${summary.static_text_removed} removed`
+            : null,
+        summary.static_text_moved > 0
+            ? `${summary.static_text_moved} moved`
+            : null,
+        summary.static_text_updated > 0
+            ? `${summary.static_text_updated} updated`
+            : null,
+    ].filter((row): row is string => row !== null);
+
+    const signatureRows = [
+        ...summary.signatures_added.map(
+            (key) => `${signatureSlotLabel(key)} added`,
+        ),
+        ...summary.signatures_removed.map(
+            (key) => `${signatureSlotLabel(key)} removed`,
+        ),
+        ...summary.signatures_moved.map(
+            (key) => `${signatureSlotLabel(key)} moved`,
+        ),
+    ];
+
+    const workflowRows = [
+        summary.workflow_preset_changed ? 'Workflow preset changed' : null,
+        summary.signing_preset_changed ? 'Signing preset changed' : null,
+    ].filter((row): row is string => row !== null);
+
+    const heading = `Changes from v${summary.compared_to_version}`;
+
+    return (
+        <div className="space-y-2 border-t border-border/60 pt-2">
+            <p className="font-semibold text-foreground">{heading}</p>
+            {summary.pdf_metadata_changed && (
+                <ChangeGroup
+                    title="PDF"
+                    rows={['Source PDF metadata changed']}
+                />
+            )}
+            <ChangeGroup title="Fields" rows={fieldRows} />
+            <ChangeGroup title="Text" rows={textRows} />
+            <ChangeGroup title="Signatures" rows={signatureRows} />
+            <ChangeGroup title="Workflow" rows={workflowRows} />
+        </div>
+    );
+}
+
 function VersionInfoPanel({
     version,
     changeSummary,
@@ -390,50 +559,7 @@ function VersionInfoPanel({
                 </div>
             </div>
             {changeSummary ? (
-                <div className="space-y-1 border-t border-border/60 pt-2">
-                    <p className="font-semibold text-foreground">
-                        Changes from previous
-                    </p>
-                    <div className="space-y-0.5 text-muted-foreground">
-                        {changeSummary.pdf_metadata_changed && (
-                            <p>· PDF metadata changed</p>
-                        )}
-                        {(changeSummary.fields_added > 0 ||
-                            changeSummary.fields_removed > 0 ||
-                            changeSummary.fields_moved > 0) && (
-                            <p>
-                                · Fields: +{changeSummary.fields_added} -
-                                {changeSummary.fields_removed} moved:
-                                {changeSummary.fields_moved}
-                            </p>
-                        )}
-                        {(changeSummary.static_text_added > 0 ||
-                            changeSummary.static_text_removed > 0) && (
-                            <p>
-                                · Text: +{changeSummary.static_text_added} -
-                                {changeSummary.static_text_removed}
-                            </p>
-                        )}
-                        {changeSummary.signatures_added.length > 0 && (
-                            <p>
-                                · Added:{' '}
-                                {changeSummary.signatures_added.join(', ')}
-                            </p>
-                        )}
-                        {changeSummary.signatures_removed.length > 0 && (
-                            <p>
-                                · Removed:{' '}
-                                {changeSummary.signatures_removed.join(', ')}
-                            </p>
-                        )}
-                        {changeSummary.workflow_preset_changed && (
-                            <p>· Workflow preset changed</p>
-                        )}
-                        {changeSummary.signing_preset_changed && (
-                            <p>· Signing preset changed</p>
-                        )}
-                    </div>
-                </div>
+                <VersionChangeSummarySections summary={changeSummary} />
             ) : (
                 <p className="text-muted-foreground">
                     Initial version — no previous to compare.
@@ -449,14 +575,14 @@ type Props = {
     onOpenChange: (open: boolean) => void;
     template: CustomTemplate | null;
     initialVersion: TemplateVersionSummary | null;
+    initialChangeSummary?: VersionChangeSummary | null;
     allVersions: TemplateVersionListItem[];
     mergeFields: MergeField[];
-    can: { create_draft: boolean; update: boolean };
+    can: { create_draft: boolean; update: boolean; preview_employee?: boolean };
     onSaved?: () => void;
     mode?: 'dialog' | 'page';
 };
 
-const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48];
 const FONT_FAMILIES: {
     value: PlacementFontFamily;
     label: string;
@@ -465,12 +591,12 @@ const FONT_FAMILIES: {
     {
         value: 'serif',
         label: 'Times (Serif)',
-        fabric: '"Times New Roman", Times, Georgia, serif',
+        fabric: 'Times New Roman',
     },
     {
         value: 'sans',
         label: 'Arial (Sans)',
-        fabric: 'Arial, Helvetica, sans-serif',
+        fabric: 'Arial',
     },
 ];
 
@@ -484,7 +610,121 @@ const FONT_COLORS: { value: string; label: string }[] = [
 function fabricFontFamily(family: PlacementFontFamily | undefined): string {
     return (
         FONT_FAMILIES.find((item) => item.value === (family ?? 'sans'))
-            ?.fabric ?? 'Arial, Helvetica, sans-serif'
+            ?.fabric ?? 'Arial'
+    );
+}
+
+function fieldLabelLayout(
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+    align: 'left' | 'center' | 'right',
+    verticalAlign: PlacementVerticalAlign = 'middle',
+): {
+    left: number;
+    top: number;
+    originX: 'left' | 'center' | 'right';
+    originY: 'top' | 'center' | 'bottom';
+} {
+    let labelLeft = left + 4;
+    let originX: 'left' | 'center' | 'right' = 'left';
+
+    if (align === 'center') {
+        labelLeft = left + width / 2;
+        originX = 'center';
+    } else if (align === 'right') {
+        labelLeft = left + width - 4;
+        originX = 'right';
+    }
+
+    let labelTop = top + height / 2;
+    let originY: 'top' | 'center' | 'bottom' = 'center';
+
+    if (verticalAlign === 'top') {
+        labelTop = top + 2;
+        originY = 'top';
+    } else if (verticalAlign === 'baseline') {
+        labelTop = top + height - 2;
+        originY = 'bottom';
+    }
+
+    return {
+        left: labelLeft,
+        top: labelTop,
+        originX,
+        originY,
+    };
+}
+
+function textboxTopForAlign(
+    rectTop: number,
+    rectHeight: number,
+    textHeight: number,
+    verticalAlign: PlacementVerticalAlign,
+): number {
+    const height = Math.min(Math.max(1, textHeight), rectHeight);
+
+    if (verticalAlign === 'top') {
+        return rectTop;
+    }
+
+    if (verticalAlign === 'baseline') {
+        return rectTop + rectHeight - height;
+    }
+
+    return rectTop + (rectHeight - height) / 2;
+}
+
+function overflowMessage(level: OverflowLevel): string | null {
+    if (level === 'fail') {
+        return 'This box is too small for the text. Drag a corner to make it bigger.';
+    }
+
+    return null;
+}
+
+function placementOverflowLevel(
+    item: PdfPlacementItem,
+    pixel: { width: number; height: number },
+    pdfScale: number,
+    mergeFieldsMap: Map<string, MergeField>,
+    previewEmployee: DesignEmployeePreview | null,
+): OverflowLevel {
+    const requested = item.font_size || 12;
+    const text =
+        item.type === 'text'
+            ? item.text_content
+            : overflowPreviewText(
+                  item.field,
+                  mergeFieldsMap.get(item.field)?.sample ?? '',
+                  previewEmployee?.values[item.field],
+              );
+
+    return estimatePlacementOverflow({
+        text,
+        boxWidthPx: pixel.width,
+        boxHeightPx: pixel.height,
+        requestedPt: requested,
+        fontSizePx: overlayFontSizePx(requested, pdfScale),
+        fontFamily: fabricFontFamily(item.font_family),
+        fontWeight: item.font_weight || 'normal',
+        wrap: item.type === 'text',
+    });
+}
+
+function overflowLabelForPlacement(
+    item: PdfPlacementItem,
+    mergeFieldsMap: Map<string, MergeField>,
+): string {
+    if (item.type === 'text') {
+        return placementOverflowLabel('text', item.text_content);
+    }
+
+    return placementOverflowLabel(
+        'field',
+        item.field,
+        mergeFieldsMap.get(item.field)?.label,
     );
 }
 
@@ -502,6 +742,7 @@ function PlacementFontControls({
                 | 'font_size'
                 | 'font_weight'
                 | 'text_align'
+                | 'vertical_align'
                 | 'font_family'
                 | 'font_color'
             >
@@ -510,6 +751,7 @@ function PlacementFontControls({
 }) {
     const family = placement.font_family === 'serif' ? 'serif' : 'sans';
     const color = normalizeFontColor(placement.font_color);
+    const fontSize = clampOverlayFontSizePt(placement.font_size);
 
     return (
         <>
@@ -572,24 +814,66 @@ function PlacementFontControls({
                 <p className="mb-1 text-[11px] text-muted-foreground">
                     Font Size
                 </p>
-                <Select
-                    value={String(placement.font_size || 12)}
-                    onValueChange={(value) =>
-                        onChange({ font_size: Number(value) })
-                    }
-                    disabled={disabled}
-                >
-                    <SelectTrigger className="h-7 w-full text-xs">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {FONT_SIZES.map((size) => (
-                            <SelectItem key={size} value={String(size)}>
-                                {size}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                <div className="flex items-center gap-1">
+                    <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="size-7 shrink-0"
+                        disabled={
+                            disabled || fontSize <= OVERLAY_FONT_SIZE_MIN_PT
+                        }
+                        title="Smaller"
+                        onClick={() =>
+                            onChange({
+                                font_size: stepOverlayFontSizePt(fontSize, -1),
+                            })
+                        }
+                    >
+                        <Minus className="size-3.5" />
+                    </Button>
+                    <Select
+                        value={String(fontSize)}
+                        onValueChange={(value) =>
+                            onChange({
+                                font_size: clampOverlayFontSizePt(
+                                    Number(value),
+                                ),
+                            })
+                        }
+                        disabled={disabled}
+                    >
+                        <SelectTrigger className="h-7 min-w-0 flex-1 text-xs">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {overlayFontSizeSelectOptionsPt(fontSize).map(
+                                (size) => (
+                                    <SelectItem key={size} value={String(size)}>
+                                        {size} pt
+                                    </SelectItem>
+                                ),
+                            )}
+                        </SelectContent>
+                    </Select>
+                    <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="size-7 shrink-0"
+                        disabled={
+                            disabled || fontSize >= OVERLAY_FONT_SIZE_MAX_PT
+                        }
+                        title="Larger"
+                        onClick={() =>
+                            onChange({
+                                font_size: stepOverlayFontSizePt(fontSize, 1),
+                            })
+                        }
+                    >
+                        <Plus className="size-3.5" />
+                    </Button>
+                </div>
             </div>
             <div>
                 <p className="mb-1 text-[11px] text-muted-foreground">Style</p>
@@ -646,18 +930,143 @@ function PlacementFontControls({
                     })}
                 </div>
             </div>
+            <div>
+                <p className="mb-1 text-[11px] text-muted-foreground">
+                    Vertical
+                </p>
+                <div className="flex items-center gap-0.5">
+                    {(
+                        [
+                            ['top', AlignVerticalJustifyStart, 'Top'],
+                            ['middle', AlignVerticalJustifyCenter, 'Middle'],
+                            ['baseline', AlignVerticalJustifyEnd, 'Baseline'],
+                        ] as const
+                    ).map(([align, Icon, label]) => (
+                        <Button
+                            key={align}
+                            type="button"
+                            size="icon"
+                            variant={
+                                (placement.vertical_align ||
+                                    (placement.type === 'text'
+                                        ? 'top'
+                                        : 'middle')) === align
+                                    ? 'default'
+                                    : 'ghost'
+                            }
+                            className="size-7"
+                            disabled={disabled}
+                            title={label}
+                            onClick={() => onChange({ vertical_align: align })}
+                        >
+                            <Icon className="size-3.5" />
+                        </Button>
+                    ))}
+                </div>
+            </div>
         </>
     );
 }
-const DEFAULT_PLACEMENT_WIDTH = 160;
-const DEFAULT_PLACEMENT_HEIGHT = 26;
 
+function PlacementBoxControls({
+    placement,
+    disabled,
+    onChange,
+}: {
+    placement: PdfPlacementItem;
+    disabled: boolean;
+    onChange: (
+        patch: Partial<Pick<PdfPlacementItem, 'x' | 'y' | 'width' | 'height'>>,
+    ) => void;
+}) {
+    return (
+        <div className="grid grid-cols-2 gap-2">
+            <div>
+                <p className="mb-1 text-[11px] text-muted-foreground">
+                    Left (%)
+                </p>
+                <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    disabled={disabled}
+                    className="h-7 text-xs"
+                    value={Number((placement.x * 100).toFixed(1))}
+                    onChange={(event) =>
+                        onChange({
+                            x: Number(event.target.value) / 100,
+                        })
+                    }
+                />
+            </div>
+            <div>
+                <p className="mb-1 text-[11px] text-muted-foreground">
+                    Width (%)
+                </p>
+                <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    step={0.5}
+                    disabled={disabled}
+                    className="h-7 text-xs"
+                    value={Number((placement.width * 100).toFixed(1))}
+                    onChange={(event) =>
+                        onChange({
+                            width: Number(event.target.value) / 100,
+                        })
+                    }
+                />
+            </div>
+            <div>
+                <p className="mb-1 text-[11px] text-muted-foreground">
+                    Top (%)
+                </p>
+                <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    disabled={disabled}
+                    className="h-7 text-xs"
+                    value={Number((placement.y * 100).toFixed(1))}
+                    onChange={(event) =>
+                        onChange({
+                            y: Number(event.target.value) / 100,
+                        })
+                    }
+                />
+            </div>
+            <div>
+                <p className="mb-1 text-[11px] text-muted-foreground">
+                    Height (%)
+                </p>
+                <Input
+                    type="number"
+                    min={0.5}
+                    max={100}
+                    step={0.5}
+                    disabled={disabled}
+                    className="h-7 text-xs"
+                    value={Number((placement.height * 100).toFixed(1))}
+                    onChange={(event) =>
+                        onChange({
+                            height: Number(event.target.value) / 100,
+                        })
+                    }
+                />
+            </div>
+        </div>
+    );
+}
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function TemplatePdfDesignerDialog({
     open: openProp,
     onOpenChange,
     template,
     initialVersion,
+    initialChangeSummary = null,
     allVersions,
     mergeFields,
     can,
@@ -700,7 +1109,12 @@ export function TemplatePdfDesignerDialog({
         useState(false);
     const [isPublishConfirmOpen, setIsPublishConfirmOpen] = useState(false);
     const [changeSummary, setChangeSummary] =
-        useState<VersionChangeSummary | null>(null);
+        useState<VersionChangeSummary | null>(initialChangeSummary ?? null);
+    const [pendingPlacement, setPendingPlacement] =
+        useState<PendingPlacement | null>(null);
+    const [previewEmployee, setPreviewEmployee] =
+        useState<DesignEmployeePreview | null>(null);
+    const [historyTick, setHistoryTick] = useState(0);
 
     // ── Derived ────────────────────────────────────────────────────────────────
     const isEditable = selectedVersion?.status === 'draft';
@@ -710,14 +1124,40 @@ export function TemplatePdfDesignerDialog({
     const canvasHostRef = useRef<HTMLDivElement>(null);
     const fabricCanvasRef = useRef<Canvas | null>(null);
     const labelRefs = useRef<Map<string, FabricText>>(new Map());
+    const textBoxRefs = useRef<Map<string, Textbox>>(new Map());
     const placementsRef = useRef<PdfPlacementItem[]>([]);
     const signaturePlacementsRef = useRef<
         Record<string, SignaturePlacementItem>
     >({});
     const canvasSizeRef = useRef({ width: 0, height: 0 });
+    const pdfScaleRef = useRef(1);
     const isSamplePreviewRef = useRef(false);
     const isEditableRef = useRef(isEditable);
     const pdfDocRef = useRef<any>(null);
+    const currentPageRef = useRef(currentPage);
+    const pendingPlacementRef = useRef<PendingPlacement | null>(null);
+    const previewEmployeeRef = useRef<DesignEmployeePreview | null>(null);
+    const historyRef = useRef(
+        new DesignHistory<
+            PdfPlacementItem[],
+            Record<string, SignaturePlacementItem>
+        >(),
+    );
+    const dragStartRef = useRef<{
+        placements: PdfPlacementItem[];
+        signaturePlacements: Record<string, SignaturePlacementItem>;
+    } | null>(null);
+    const placePendingAtRef = useRef<(x: number, y: number) => void>(
+        () => undefined,
+    );
+    const applyNudgeRef = useRef<(dx: number, dy: number) => void>(
+        () => undefined,
+    );
+    const selectedElementIdRef = useRef<string | null>(null);
+    const selectedElementTypeRef = useRef<
+        'field' | 'text' | 'signature' | null
+    >(null);
+    const nudgeSessionRef = useRef(false);
 
     // ── Ref sync effects ────────────────────────────────────────────────────────
     useEffect(() => {
@@ -735,6 +1175,24 @@ export function TemplatePdfDesignerDialog({
     useEffect(() => {
         isEditableRef.current = Boolean(isEditable);
     }, [isEditable]);
+    useEffect(() => {
+        pendingPlacementRef.current = pendingPlacement;
+    }, [pendingPlacement]);
+    useEffect(() => {
+        previewEmployeeRef.current = previewEmployee;
+    }, [previewEmployee]);
+    useEffect(() => {
+        currentPageRef.current = currentPage;
+    }, [currentPage]);
+    useEffect(() => {
+        selectedElementIdRef.current = selectedElementId;
+    }, [selectedElementId]);
+    useEffect(() => {
+        selectedElementTypeRef.current = selectedElementType;
+    }, [selectedElementType]);
+    useEffect(() => {
+        nudgeSessionRef.current = false;
+    }, [selectedElementId]);
 
     const disposeFabricCanvas = useCallback(() => {
         if (fabricCanvasRef.current) {
@@ -742,6 +1200,8 @@ export function TemplatePdfDesignerDialog({
             fabricCanvasRef.current = null;
         }
 
+        labelRefs.current.clear();
+        textBoxRefs.current.clear();
         canvasHostRef.current?.replaceChildren();
     }, []);
 
@@ -801,8 +1261,71 @@ export function TemplatePdfDesignerDialog({
                 .find((obj) => (obj.get('data') as { id?: string })?.id === id);
 
             if (rect) {
+                const elementType = (
+                    rect.get('data') as { elementType?: string } | undefined
+                )?.elementType;
+
+                if (elementType === 'signature') {
+                    const pixel = fabricObjectToPixelRect(rect);
+                    label.set({
+                        left: pixel.left + 6,
+                        top: pixel.top + 6,
+                        originX: 'left',
+                        originY: 'top',
+                    });
+
+                    return;
+                }
+
                 const bounds = rect.getBoundingRect();
-                label.set({ left: bounds.left + 6, top: bounds.top + 4 });
+                const originX =
+                    label.originX === 'center' || label.originX === 'right'
+                        ? label.originX
+                        : 'left';
+                const placement = placementsRef.current.find(
+                    (item) => item.id === id,
+                );
+                const layout = fieldLabelLayout(
+                    bounds.left,
+                    bounds.top,
+                    bounds.width,
+                    bounds.height,
+                    originX,
+                    normalizeVerticalAlign(
+                        placement?.vertical_align,
+                        placement?.type === 'text' ? 'text' : 'field',
+                    ),
+                );
+                label.set(layout);
+            }
+        });
+        textBoxRefs.current.forEach((textbox, id) => {
+            const rect = canvas
+                .getObjects()
+                .find((obj) => (obj.get('data') as { id?: string })?.id === id);
+
+            if (rect) {
+                const bounds = rect.getBoundingRect();
+                const placement = placementsRef.current.find(
+                    (item) => item.id === id,
+                );
+                const width = Math.max(10, bounds.width);
+                textbox.set({ left: bounds.left, width });
+                const textHeight =
+                    typeof textbox.calcTextHeight === 'function'
+                        ? textbox.calcTextHeight()
+                        : (textbox.fontSize ?? 12);
+                textbox.set({
+                    top: textboxTopForAlign(
+                        bounds.top,
+                        bounds.height,
+                        textHeight,
+                        normalizeVerticalAlign(
+                            placement?.vertical_align,
+                            'text',
+                        ),
+                    ),
+                });
             }
         });
         canvas.requestRenderAll();
@@ -821,6 +1344,7 @@ export function TemplatePdfDesignerDialog({
             });
             existing.forEach((obj) => canvas.remove(obj));
             labelRefs.current.clear();
+            textBoxRefs.current.clear();
 
             const preview = isSamplePreviewRef.current;
             const width = canvasSizeRef.current.width;
@@ -834,6 +1358,29 @@ export function TemplatePdfDesignerDialog({
             const pagePlacements = placementsRef.current.filter(
                 (p) => p.page === page,
             );
+            const overflowById = new Map<string, OverflowLevel>();
+
+            pagePlacements.forEach((item) => {
+                overflowById.set(
+                    item.id,
+                    placementOverflowLevel(
+                        item,
+                        normalizedToPixel(
+                            {
+                                x: item.x,
+                                y: item.y,
+                                width: item.width,
+                                height: item.height,
+                            },
+                            width,
+                            height,
+                        ),
+                        pdfScaleRef.current,
+                        mergeFieldsMap,
+                        previewEmployeeRef.current,
+                    ),
+                );
+            });
 
             pagePlacements.forEach((item) => {
                 const pixel = normalizedToPixel(
@@ -850,20 +1397,26 @@ export function TemplatePdfDesignerDialog({
                 if (item.type === 'field') {
                     const fieldMeta = mergeFieldsMap.get(item.field);
                     const displayText = preview
-                        ? (fieldMeta?.sample ?? item.field)
+                        ? (previewEmployeeRef.current?.values[item.field] ??
+                          fieldMeta?.sample ??
+                          item.field)
                         : (fieldMeta?.label ?? item.field);
 
+                    const overflow = overflowById.get(item.id) ?? 'ok';
+                    const chrome = overlayPlacementBoxChrome(
+                        preview ? 'print' : 'edit',
+                        overflow,
+                    );
                     const rect = new Rect({
                         left: pixel.left,
                         top: pixel.top,
                         width: pixel.width,
                         height: pixel.height,
-                        fill: preview
-                            ? 'rgba(16,185,129,0.2)'
-                            : 'rgba(59,130,246,0.25)',
-                        stroke: preview ? '#059669' : '#2563eb',
-                        strokeWidth: 1.5,
-                        cornerColor: '#2563eb',
+                        fill: chrome.fill,
+                        stroke: chrome.stroke,
+                        strokeWidth: chrome.strokeWidth,
+                        cornerColor:
+                            overflow === 'fail' ? '#dc2626' : '#2563eb',
                         cornerStyle: 'circle',
                         transparentCorners: false,
                         hasRotatingPoint: false,
@@ -884,29 +1437,31 @@ export function TemplatePdfDesignerDialog({
                     }
 
                     const align = item.text_align || 'left';
-                    let labelLeft = pixel.left + 6;
-                    let originX: 'left' | 'center' | 'right' = 'left';
-
-                    if (align === 'center') {
-                        labelLeft = pixel.left + pixel.width / 2;
-                        originX = 'center';
-                    } else if (align === 'right') {
-                        labelLeft = pixel.left + pixel.width - 6;
-                        originX = 'right';
-                    }
+                    const layout = fieldLabelLayout(
+                        pixel.left,
+                        pixel.top,
+                        pixel.width,
+                        pixel.height,
+                        align,
+                        normalizeVerticalAlign(item.vertical_align, 'field'),
+                    );
 
                     const label = new FabricText(displayText, {
-                        left: labelLeft,
-                        top: pixel.top + 4,
-                        fontSize: item.font_size || 12,
+                        ...layout,
+                        fontSize: overlayFontSizePx(
+                            item.font_size,
+                            pdfScaleRef.current,
+                        ),
                         fontFamily: fabricFontFamily(item.font_family),
                         fontWeight: item.font_weight || 'normal',
-                        fill: preview
-                            ? '#065f46'
-                            : normalizeFontColor(item.font_color),
+                        lineHeight: 1,
+                        objectCaching: false,
+                        fill: overlayPlacementTextFill(
+                            preview ? 'print' : 'edit',
+                            normalizeFontColor(item.font_color),
+                        ),
                         selectable: false,
                         evented: false,
-                        originX,
                     });
                     label.set('data', {
                         parentId: item.id,
@@ -917,28 +1472,32 @@ export function TemplatePdfDesignerDialog({
                     canvas.add(label);
                     labelRefs.current.set(item.id, label);
                 } else if (item.type === 'text') {
-                    const tb = new Textbox(item.text_content || '', {
+                    const overflow = overflowById.get(item.id) ?? 'ok';
+                    const chrome = overlayPlacementBoxChrome(
+                        preview ? 'print' : 'edit',
+                        overflow,
+                    );
+                    const rect = new Rect({
                         left: pixel.left,
                         top: pixel.top,
                         width: pixel.width,
-                        fontSize: item.font_size || 12,
-                        fontFamily: fabricFontFamily(item.font_family),
-                        fontWeight: item.font_weight || 'normal',
-                        textAlign: item.text_align || 'left',
-                        fill: normalizeFontColor(item.font_color),
-                        backgroundColor: '',
-                        shadow: null,
-                        padding: 0,
+                        height: pixel.height,
+                        fill: chrome.fill,
+                        stroke: chrome.stroke,
+                        strokeWidth: chrome.strokeWidth,
+                        cornerColor:
+                            overflow === 'fail' ? '#dc2626' : '#2563eb',
+                        cornerStyle: 'circle',
+                        transparentCorners: false,
+                        hasRotatingPoint: false,
                         lockRotation: true,
-                        editable: isEditableArg && !preview,
                         selectable: !preview,
                         evented: !preview,
-                        splitByGrapheme: false,
                     });
-                    tb.set('data', { id: item.id, elementType: 'text' });
+                    rect.set('data', { id: item.id, elementType: 'text' });
 
                     if (!isEditableArg) {
-                        tb.set({
+                        rect.set({
                             lockMovementX: true,
                             lockMovementY: true,
                             lockScalingX: true,
@@ -947,7 +1506,59 @@ export function TemplatePdfDesignerDialog({
                         });
                     }
 
+                    const textVerticalAlign = normalizeVerticalAlign(
+                        item.vertical_align,
+                        'text',
+                    );
+                    const tb = new Textbox(item.text_content || '', {
+                        left: pixel.left,
+                        top: pixel.top,
+                        width: pixel.width,
+                        fontSize: overlayFontSizePx(
+                            item.font_size,
+                            pdfScaleRef.current,
+                        ),
+                        fontFamily: fabricFontFamily(item.font_family),
+                        fontWeight: item.font_weight || 'normal',
+                        textAlign: item.text_align || 'left',
+                        lineHeight: 1,
+                        objectCaching: false,
+                        fill: overlayPlacementTextFill(
+                            preview ? 'print' : 'edit',
+                            normalizeFontColor(item.font_color),
+                        ),
+                        backgroundColor: '',
+                        shadow: null,
+                        padding: 0,
+                        lockRotation: true,
+                        editable: false,
+                        selectable: false,
+                        evented: false,
+                        splitByGrapheme: false,
+                    });
+                    tb.set('data', {
+                        parentId: item.id,
+                        elementType: 'text',
+                    });
+                    const textHeight =
+                        typeof tb.calcTextHeight === 'function'
+                            ? tb.calcTextHeight()
+                            : overlayFontSizePx(
+                                  item.font_size,
+                                  pdfScaleRef.current,
+                              );
+                    tb.set({
+                        top: textboxTopForAlign(
+                            pixel.top,
+                            pixel.height,
+                            textHeight,
+                            textVerticalAlign,
+                        ),
+                    });
+
+                    canvas.add(rect);
                     canvas.add(tb);
+                    textBoxRefs.current.set(item.id, tb);
                 }
             });
 
@@ -977,9 +1588,13 @@ export function TemplatePdfDesignerDialog({
                         top: pixel.top,
                         width: pixel.width,
                         height: pixel.height,
-                        fill: colors.fill,
-                        stroke: colors.stroke,
-                        strokeWidth: 2,
+                        originX: 'left',
+                        originY: 'top',
+                        fill: preview ? 'transparent' : colors.fill,
+                        stroke: preview ? 'transparent' : colors.stroke,
+                        strokeWidth: 1,
+                        strokeUniform: true,
+                        objectCaching: false,
                         cornerColor: colors.stroke,
                         cornerStyle: 'circle',
                         transparentCorners: false,
@@ -1004,22 +1619,25 @@ export function TemplatePdfDesignerDialog({
                         });
                     }
 
-                    const label = new FabricText(slotLabel(slotKey), {
-                        left: pixel.left + 6,
-                        top: pixel.top + 6,
-                        fontSize: 12,
-                        fill: colors.text,
-                        selectable: false,
-                        evented: false,
-                    });
-                    label.set('data', {
-                        parentId: item.id,
-                        elementType: 'signature',
-                    });
-
                     canvas.add(rect);
-                    canvas.add(label);
-                    labelRefs.current.set(item.id, label);
+
+                    if (!preview) {
+                        const label = new FabricText(slotLabel(slotKey), {
+                            left: pixel.left + 6,
+                            top: pixel.top + 6,
+                            fontSize: 12,
+                            fill: colors.text,
+                            selectable: false,
+                            evented: false,
+                        });
+                        label.set('data', {
+                            parentId: item.id,
+                            elementType: 'signature',
+                        });
+
+                        canvas.add(label);
+                        labelRefs.current.set(item.id, label);
+                    }
                 },
             );
 
@@ -1031,34 +1649,77 @@ export function TemplatePdfDesignerDialog({
     // ── attachCanvasEvents ─────────────────────────────────────────────────────
     const attachCanvasEvents = useCallback(
         (canvas: Canvas) => {
+            canvas.on('mouse:down', (opt) => {
+                if (
+                    pendingPlacementRef.current &&
+                    !opt.target &&
+                    isEditableRef.current &&
+                    !isSamplePreviewRef.current
+                ) {
+                    const event = opt.e as MouseEvent | undefined;
+                    const pointer =
+                        event && typeof canvas.getScenePoint === 'function'
+                            ? canvas.getScenePoint(event)
+                            : canvas.getPointer(opt.e);
+                    placePendingAtRef.current(pointer.x, pointer.y);
+
+                    return;
+                }
+
+                if (pendingPlacementRef.current && opt.target) {
+                    setPendingPlacement(null);
+                }
+
+                if (
+                    opt.target &&
+                    isEditableRef.current &&
+                    !isSamplePreviewRef.current
+                ) {
+                    nudgeSessionRef.current = false;
+                    dragStartRef.current = cloneDesignState({
+                        placements: placementsRef.current,
+                        signaturePlacements: signaturePlacementsRef.current,
+                    });
+                }
+            });
+
             canvas.on('object:moving', (e) => {
+                if (dragStartRef.current) {
+                    historyRef.current.accept(dragStartRef.current);
+                    dragStartRef.current = null;
+                    setHistoryTick((tick) => tick + 1);
+                }
+
                 const target = e.target;
                 const data = target?.get('data') as
                     | { id?: string; elementType?: string; slotKey?: string }
                     | undefined;
 
-                if (!data?.id || !isEditableRef.current) {
+                if (!target || !data?.id || !isEditableRef.current) {
                     return;
                 }
 
                 syncLabels(canvas);
-                const bounds = target.getBoundingRect();
                 const dims = canvasSizeRef.current;
 
                 if (dims.width <= 0 || dims.height <= 0) {
                     return;
                 }
 
-                const norm = pixelToNormalized(
-                    {
-                        left: bounds.left,
-                        top: bounds.top,
-                        width: bounds.width,
-                        height: bounds.height,
-                    },
-                    dims.width,
-                    dims.height,
-                );
+                const pixel =
+                    data.elementType === 'signature'
+                        ? fabricObjectToPixelRect(target)
+                        : (() => {
+                              const bounds = target.getBoundingRect();
+
+                              return {
+                                  left: bounds.left,
+                                  top: bounds.top,
+                                  width: bounds.width,
+                                  height: bounds.height,
+                              };
+                          })();
+                const norm = pixelToNormalized(pixel, dims.width, dims.height);
 
                 if (
                     data.elementType === 'field' ||
@@ -1095,33 +1756,42 @@ export function TemplatePdfDesignerDialog({
             });
 
             canvas.on('object:scaling', (e) => {
+                if (dragStartRef.current) {
+                    historyRef.current.accept(dragStartRef.current);
+                    dragStartRef.current = null;
+                    setHistoryTick((tick) => tick + 1);
+                }
+
                 const target = e.target;
                 const data = target?.get('data') as
                     | { id?: string; elementType?: string; slotKey?: string }
                     | undefined;
 
-                if (!data?.id || !isEditableRef.current) {
+                if (!target || !data?.id || !isEditableRef.current) {
                     return;
                 }
 
                 syncLabels(canvas);
-                const bounds = target.getBoundingRect();
                 const dims = canvasSizeRef.current;
 
                 if (dims.width <= 0 || dims.height <= 0) {
                     return;
                 }
 
-                const norm = pixelToNormalized(
-                    {
-                        left: bounds.left,
-                        top: bounds.top,
-                        width: bounds.width,
-                        height: bounds.height,
-                    },
-                    dims.width,
-                    dims.height,
-                );
+                const pixel =
+                    data.elementType === 'signature'
+                        ? fabricObjectToPixelRect(target)
+                        : (() => {
+                              const bounds = target.getBoundingRect();
+
+                              return {
+                                  left: bounds.left,
+                                  top: bounds.top,
+                                  width: bounds.width,
+                                  height: bounds.height,
+                              };
+                          })();
+                const norm = pixelToNormalized(pixel, dims.width, dims.height);
 
                 if (
                     data.elementType === 'field' ||
@@ -1165,6 +1835,60 @@ export function TemplatePdfDesignerDialog({
                 setHasUnsavedChanges(true);
             });
 
+            canvas.on('object:modified', (e) => {
+                const target = e.target;
+                const data = target?.get('data') as
+                    | { id?: string; elementType?: string; slotKey?: string }
+                    | undefined;
+
+                if (
+                    !target ||
+                    data?.elementType !== 'signature' ||
+                    !data.slotKey ||
+                    !isEditableRef.current
+                ) {
+                    return;
+                }
+
+                const pixel = fabricObjectToPixelRect(target);
+                target.set({
+                    left: pixel.left,
+                    top: pixel.top,
+                    width: pixel.width,
+                    height: pixel.height,
+                    scaleX: 1,
+                    scaleY: 1,
+                });
+                target.setCoords();
+
+                const dims = canvasSizeRef.current;
+
+                if (dims.width <= 0 || dims.height <= 0) {
+                    return;
+                }
+
+                const norm = pixelToNormalized(pixel, dims.width, dims.height);
+                const slotKey = data.slotKey;
+                setSignaturePlacements((prev) => {
+                    const updated = {
+                        ...prev,
+                        [slotKey]: {
+                            ...prev[slotKey]!,
+                            x: norm.x,
+                            y: norm.y,
+                            width: norm.width,
+                            height: norm.height,
+                        },
+                    };
+                    signaturePlacementsRef.current = updated;
+
+                    return updated;
+                });
+                setHasUnsavedChanges(true);
+                syncLabels(canvas);
+                canvas.requestRenderAll();
+            });
+
             canvas.on('text:changed', (e) => {
                 if (!isEditableRef.current) {
                     return;
@@ -1172,17 +1896,18 @@ export function TemplatePdfDesignerDialog({
 
                 const target = e.target;
                 const data = target?.get('data') as
-                    | { id?: string; elementType?: string }
+                    | { id?: string; parentId?: string; elementType?: string }
                     | undefined;
+                const textId = data?.id ?? data?.parentId;
 
-                if (data?.elementType !== 'text' || !data.id) {
+                if (data?.elementType !== 'text' || !textId) {
                     return;
                 }
 
                 const newText = (target as Textbox).text || '';
                 setPlacements((prev) => {
                     const updated = prev.map((p) =>
-                        p.id === data.id && p.type === 'text'
+                        p.id === textId && p.type === 'text'
                             ? { ...p, text_content: newText }
                             : p,
                     );
@@ -1298,6 +2023,7 @@ export function TemplatePdfDesignerDialog({
                 );
                 const scale = targetWidth / unscaledViewport.width;
                 const viewport = pdfPage.getViewport({ scale });
+                pdfScaleRef.current = scale;
 
                 const offscreen = document.createElement('canvas');
                 const context = offscreen.getContext('2d');
@@ -1316,6 +2042,10 @@ export function TemplatePdfDesignerDialog({
                     viewport,
                     canvas: offscreen,
                 }).promise;
+
+                if (document.fonts?.ready) {
+                    await document.fonts.ready;
+                }
 
                 if (cancelled) {
                     return;
@@ -1399,6 +2129,7 @@ export function TemplatePdfDesignerDialog({
         }
     }, [
         isSamplePreview,
+        previewEmployee,
         currentPage,
         canvasSize,
         isLoadingPdf,
@@ -1429,6 +2160,11 @@ export function TemplatePdfDesignerDialog({
             setChangeSummary(null);
             isSamplePreviewRef.current = false;
             setIsSamplePreview(false);
+            setPreviewEmployee(null);
+            setPendingPlacement(null);
+            historyRef.current = new DesignHistory();
+            setHistoryTick(0);
+            nudgeSessionRef.current = false;
             pdfDocRef.current = null;
         }
     }, [open, initialVersion]);
@@ -1456,19 +2192,193 @@ export function TemplatePdfDesignerDialog({
         }
     };
 
-    const addRoleSlot = (role: SignatureRole) => {
+    const recordHistory = useCallback(() => {
+        historyRef.current.push({
+            placements: placementsRef.current,
+            signaturePlacements: signaturePlacementsRef.current,
+        });
+        setHistoryTick((tick) => tick + 1);
+    }, []);
+
+    const applyHistoryState = useCallback(
+        (
+            next: {
+                placements: PdfPlacementItem[];
+                signaturePlacements: Record<string, SignaturePlacementItem>;
+            } | null,
+        ) => {
+            if (!next) {
+                return;
+            }
+
+            placementsRef.current = next.placements;
+            signaturePlacementsRef.current = next.signaturePlacements;
+            setPlacements(next.placements);
+            setSignaturePlacements(next.signaturePlacements);
+            setSelectedElementId(null);
+            setSelectedElementType(null);
+            setHasUnsavedChanges(true);
+            setHistoryTick((tick) => tick + 1);
+            nudgeSessionRef.current = false;
+
+            const canvas = fabricCanvasRef.current;
+
+            if (canvas && canvasSizeRef.current.width > 0) {
+                syncAllObjects(
+                    canvas,
+                    currentPageRef.current,
+                    isEditableRef.current,
+                );
+            }
+        },
+        [syncAllObjects],
+    );
+
+    const undoDesign = useCallback(() => {
+        applyHistoryState(
+            historyRef.current.undo({
+                placements: placementsRef.current,
+                signaturePlacements: signaturePlacementsRef.current,
+            }),
+        );
+    }, [applyHistoryState]);
+
+    const redoDesign = useCallback(() => {
+        applyHistoryState(
+            historyRef.current.redo({
+                placements: placementsRef.current,
+                signaturePlacements: signaturePlacementsRef.current,
+            }),
+        );
+    }, [applyHistoryState]);
+
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (isEditableTypingTarget(event.target)) {
+                return;
+            }
+
+            if (event.key === 'Escape' && pendingPlacementRef.current) {
+                event.preventDefault();
+                setPendingPlacement(null);
+
+                return;
+            }
+
+            if (isUndoKey(event)) {
+                if (!isEditableRef.current) {
+                    return;
+                }
+
+                event.preventDefault();
+                undoDesign();
+
+                return;
+            }
+
+            if (isRedoKey(event)) {
+                if (!isEditableRef.current) {
+                    return;
+                }
+
+                event.preventDefault();
+                redoDesign();
+
+                return;
+            }
+
+            if (!isEditableRef.current || isSamplePreviewRef.current) {
+                return;
+            }
+
+            const delta = nudgeDeltaFromKeyboard(event);
+
+            if (!delta) {
+                return;
+            }
+
+            if (!selectedElementIdRef.current) {
+                return;
+            }
+
+            event.preventDefault();
+            applyNudgeRef.current(delta.dx, delta.dy);
+        };
+
+        window.addEventListener('keydown', onKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', onKeyDown);
+        };
+    }, [open, undoDesign, redoDesign]);
+
+    useEffect(() => {
+        const canvas = fabricCanvasRef.current;
+        const crosshair =
+            pendingPlacement !== null && isEditable && !isSamplePreview;
+
+        if (canvas) {
+            canvas.defaultCursor = crosshair ? 'crosshair' : 'default';
+            canvas.hoverCursor = crosshair ? 'crosshair' : 'move';
+            canvas.requestRenderAll();
+        }
+    }, [pendingPlacement, isEditable, isSamplePreview, canvasSize.width]);
+
+    const addRoleSlot = (
+        role: SignatureRole,
+        initialPixel?: {
+            left: number;
+            top: number;
+            width: number;
+            height: number;
+        },
+    ) => {
+        const page = currentPageRef.current;
+        const size = canvasSizeRef.current;
+        const withClickOrigin = (
+            item: SignaturePlacementItem,
+        ): SignaturePlacementItem => {
+            if (!initialPixel || size.width <= 0 || size.height <= 0) {
+                return item;
+            }
+
+            const norm = pixelToNormalized(
+                initialPixel,
+                size.width,
+                size.height,
+            );
+
+            return {
+                ...item,
+                x: norm.x,
+                y: norm.y,
+                width: norm.width,
+                height: norm.height,
+            };
+        };
+
         if (role === 'subject') {
             if (signaturePlacementsRef.current[SUBJECT_SLOT]) {
                 return;
             }
 
-            const newItem = defaultPlacement(SUBJECT_SLOT, currentPage);
+            recordHistory();
+            nudgeSessionRef.current = false;
+            const newItem = withClickOrigin(
+                defaultPlacement(SUBJECT_SLOT, page),
+            );
             const updated = {
                 ...signaturePlacementsRef.current,
                 [SUBJECT_SLOT]: newItem,
             };
             signaturePlacementsRef.current = updated;
             setSignaturePlacements(updated);
+            setSelectedElementId(newItem.id);
+            setSelectedElementType('signature');
             setHasUnsavedChanges(true);
             refreshCanvasObjects();
 
@@ -1481,19 +2391,28 @@ export function TemplatePdfDesignerDialog({
             return;
         }
 
+        recordHistory();
+        nudgeSessionRef.current = false;
         const slotKey = slotKeyForRole(role, occurrence);
-        const newItem = defaultPlacement(slotKey, currentPage);
+        const newItem = withClickOrigin(defaultPlacement(slotKey, page));
         const updated = {
             ...signaturePlacementsRef.current,
             [slotKey]: newItem,
         };
         signaturePlacementsRef.current = updated;
         setSignaturePlacements(updated);
+        setSelectedElementId(newItem.id);
+        setSelectedElementType('signature');
         setHasUnsavedChanges(true);
         refreshCanvasObjects();
     };
 
-    const removeSlot = (slotKey: string) => {
+    const removeSlot = (slotKey: string, skipHistory = false) => {
+        if (!skipHistory) {
+            recordHistory();
+            nudgeSessionRef.current = false;
+        }
+
         const role = roleForSlot(slotKey);
         const removedId = signaturePlacementsRef.current[slotKey]?.id;
         const rest = { ...signaturePlacementsRef.current };
@@ -1540,16 +2459,20 @@ export function TemplatePdfDesignerDialog({
         });
     };
 
-    const handleAddFieldPlacement = (fieldKey: string) => {
+    const handleAddFieldPlacement = (
+        fieldKey: string,
+        initialPixel = viewportPlacementRect(
+            DEFAULT_OVERLAY_PLACEMENT_WIDTH_PX,
+            DEFAULT_OVERLAY_PLACEMENT_HEIGHT_PX,
+        ),
+    ) => {
         if (!canvasSize.width || !canvasSize.height) {
             return;
         }
 
+        recordHistory();
+        nudgeSessionRef.current = false;
         const newId = crypto.randomUUID();
-        const initialPixel = viewportPlacementRect(
-            DEFAULT_PLACEMENT_WIDTH,
-            DEFAULT_PLACEMENT_HEIGHT,
-        );
         const norm = pixelToNormalized(
             initialPixel,
             canvasSize.width,
@@ -1559,7 +2482,7 @@ export function TemplatePdfDesignerDialog({
             id: newId,
             type: 'field',
             field: fieldKey,
-            page: currentPage,
+            page: currentPageRef.current,
             x: norm.x,
             y: norm.y,
             width: norm.width,
@@ -1569,6 +2492,7 @@ export function TemplatePdfDesignerDialog({
             font_family: 'serif',
             font_color: '#000000',
             text_align: 'left',
+            vertical_align: 'baseline',
         };
 
         setHasUnsavedChanges(true);
@@ -1583,13 +2507,14 @@ export function TemplatePdfDesignerDialog({
 
         if (canvas) {
             const fieldMeta = mergeFieldsMap.get(fieldKey);
+            const chrome = overlayPlacementChrome('edit');
             const rect = new Rect({
                 left: initialPixel.left,
                 top: initialPixel.top,
                 width: initialPixel.width,
                 height: initialPixel.height,
-                fill: 'rgba(59,130,246,0.25)',
-                stroke: '#2563eb',
+                fill: chrome.fill,
+                stroke: chrome.stroke,
                 strokeWidth: 1.5,
                 cornerColor: '#2563eb',
                 cornerStyle: 'circle',
@@ -1600,10 +2525,18 @@ export function TemplatePdfDesignerDialog({
             rect.set('data', { id: newId, elementType: 'field' });
 
             const label = new FabricText(fieldMeta?.label ?? fieldKey, {
-                left: initialPixel.left + 6,
-                top: initialPixel.top + 4,
-                fontSize: 12,
+                ...fieldLabelLayout(
+                    initialPixel.left,
+                    initialPixel.top,
+                    initialPixel.width,
+                    initialPixel.height,
+                    'left',
+                    'baseline',
+                ),
+                fontSize: overlayFontSizePx(12, pdfScaleRef.current),
                 fontFamily: fabricFontFamily('serif'),
+                lineHeight: 1,
+                objectCaching: false,
                 fill: '#000000',
                 selectable: false,
                 evented: false,
@@ -1620,13 +2553,19 @@ export function TemplatePdfDesignerDialog({
         }
     };
 
-    const handleAddTextPlacement = () => {
+    const handleAddTextPlacement = (
+        initialPixel = viewportPlacementRect(
+            DEFAULT_OVERLAY_PLACEMENT_WIDTH_PX,
+            DEFAULT_OVERLAY_PLACEMENT_HEIGHT_PX,
+        ),
+    ) => {
         if (!canvasSize.width || !canvasSize.height) {
             return;
         }
 
+        recordHistory();
+        nudgeSessionRef.current = false;
         const newId = crypto.randomUUID();
-        const initialPixel = viewportPlacementRect(200, 60);
         const norm = pixelToNormalized(
             initialPixel,
             canvasSize.width,
@@ -1636,7 +2575,7 @@ export function TemplatePdfDesignerDialog({
             id: newId,
             type: 'text',
             text_content: 'Text',
-            page: currentPage,
+            page: currentPageRef.current,
             x: norm.x,
             y: norm.y,
             width: norm.width,
@@ -1646,6 +2585,7 @@ export function TemplatePdfDesignerDialog({
             font_family: 'serif',
             font_color: '#000000',
             text_align: 'left',
+            vertical_align: 'baseline',
         };
 
         setHasUnsavedChanges(true);
@@ -1659,40 +2599,219 @@ export function TemplatePdfDesignerDialog({
         const canvas = fabricCanvasRef.current;
 
         if (canvas) {
-            const pixel = normalizedToPixel(
-                norm,
-                canvasSize.width,
-                canvasSize.height,
-            );
+            const chrome = overlayPlacementChrome('edit');
+            const rect = new Rect({
+                left: initialPixel.left,
+                top: initialPixel.top,
+                width: initialPixel.width,
+                height: initialPixel.height,
+                fill: chrome.fill,
+                stroke: chrome.stroke,
+                strokeWidth: 1.5,
+                cornerColor: '#2563eb',
+                cornerStyle: 'circle',
+                transparentCorners: false,
+                hasRotatingPoint: false,
+                lockRotation: true,
+            });
+            rect.set('data', { id: newId, elementType: 'text' });
+
             const tb = new Textbox('Text', {
-                left: pixel.left,
-                top: pixel.top,
-                width: pixel.width,
-                fontSize: 12,
+                left: initialPixel.left,
+                top: initialPixel.top,
+                width: initialPixel.width,
+                fontSize: overlayFontSizePx(12, pdfScaleRef.current),
                 fontFamily: fabricFontFamily('serif'),
                 fontWeight: 'normal',
+                lineHeight: 1,
+                objectCaching: false,
                 fill: '#000000',
                 backgroundColor: '',
                 shadow: null,
                 padding: 0,
                 lockRotation: true,
-                editable: true,
+                editable: false,
+                selectable: false,
+                evented: false,
                 splitByGrapheme: false,
             });
-            tb.set('data', { id: newId, elementType: 'text' });
+            tb.set('data', { parentId: newId, elementType: 'text' });
+            const addedTextHeight =
+                typeof tb.calcTextHeight === 'function'
+                    ? tb.calcTextHeight()
+                    : overlayFontSizePx(12, pdfScaleRef.current);
+            tb.set({
+                top: textboxTopForAlign(
+                    initialPixel.top,
+                    initialPixel.height,
+                    addedTextHeight,
+                    'baseline',
+                ),
+            });
+            canvas.add(rect);
             canvas.add(tb);
-            canvas.setActiveObject(tb);
+            textBoxRefs.current.set(newId, tb);
+            canvas.setActiveObject(rect);
             setSelectedElementId(newId);
             setSelectedElementType('text');
             canvas.requestRenderAll();
         }
     };
 
+    const placePendingAt = (x: number, y: number) => {
+        const pending = pendingPlacementRef.current;
+        const size = canvasSizeRef.current;
+
+        if (!pending || size.width <= 0 || size.height <= 0) {
+            return;
+        }
+
+        if (pending.kind === 'field') {
+            handleAddFieldPlacement(
+                pending.fieldKey,
+                clickToAlignedPlacement(
+                    x,
+                    y,
+                    DEFAULT_OVERLAY_PLACEMENT_WIDTH_PX,
+                    DEFAULT_OVERLAY_PLACEMENT_HEIGHT_PX,
+                    size.width,
+                    size.height,
+                    'baseline',
+                ),
+            );
+        } else if (pending.kind === 'text') {
+            handleAddTextPlacement(
+                clickToAlignedPlacement(
+                    x,
+                    y,
+                    DEFAULT_OVERLAY_PLACEMENT_WIDTH_PX,
+                    DEFAULT_OVERLAY_PLACEMENT_HEIGHT_PX,
+                    size.width,
+                    size.height,
+                    'baseline',
+                ),
+            );
+        } else {
+            addRoleSlot(
+                pending.role,
+                clickToCenteredPlacement(
+                    x,
+                    y,
+                    size.width * DEFAULT_WIDTH,
+                    size.height * DEFAULT_HEIGHT,
+                    size.width,
+                    size.height,
+                ),
+            );
+        }
+
+        setPendingPlacement(null);
+    };
+
+    placePendingAtRef.current = placePendingAt;
+
+    const applyNudge = (dx: number, dy: number) => {
+        const size = canvasSizeRef.current;
+        const id = selectedElementIdRef.current;
+        const type = selectedElementTypeRef.current;
+
+        if (!id || !type || size.width <= 0 || size.height <= 0) {
+            return;
+        }
+
+        if (!nudgeSessionRef.current) {
+            recordHistory();
+            nudgeSessionRef.current = true;
+        }
+
+        let nextRect: {
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+        } | null = null;
+
+        if (type === 'field' || type === 'text') {
+            const current = placementsRef.current.find(
+                (placement) => placement.id === id,
+            );
+
+            if (!current) {
+                return;
+            }
+
+            nextRect = nudgeNormalizedPlacement(
+                current,
+                dx,
+                dy,
+                size.width,
+                size.height,
+            );
+            setPlacements((prev) => {
+                const updated = prev.map((placement) =>
+                    placement.id === id
+                        ? { ...placement, ...nextRect }
+                        : placement,
+                );
+                placementsRef.current = updated;
+
+                return updated;
+            });
+        } else {
+            const slotKey = Object.keys(signaturePlacementsRef.current).find(
+                (key) => signaturePlacementsRef.current[key]?.id === id,
+            );
+            const current = slotKey
+                ? signaturePlacementsRef.current[slotKey]
+                : undefined;
+
+            if (!slotKey || !current) {
+                return;
+            }
+
+            nextRect = nudgeNormalizedPlacement(
+                current,
+                dx,
+                dy,
+                size.width,
+                size.height,
+            );
+            setSignaturePlacements((prev) => {
+                const updated = {
+                    ...prev,
+                    [slotKey]: { ...current, ...nextRect },
+                };
+                signaturePlacementsRef.current = updated;
+
+                return updated;
+            });
+        }
+
+        const canvas = fabricCanvasRef.current;
+        const pixel = normalizedToPixel(nextRect, size.width, size.height);
+        const object = canvas
+            ?.getObjects()
+            .find((item) => (item.get('data') as { id?: string })?.id === id);
+
+        if (canvas && object) {
+            object.set({ left: pixel.left, top: pixel.top });
+            object.setCoords();
+            syncLabels(canvas);
+            canvas.requestRenderAll();
+        }
+
+        setHasUnsavedChanges(true);
+    };
+
+    applyNudgeRef.current = applyNudge;
+
     const handleDuplicateTextPlacement = (source: PdfTextPlacement) => {
         if (!isEditable || !canvasSize.width || !canvasSize.height) {
             return;
         }
 
+        recordHistory();
+        nudgeSessionRef.current = false;
         const offsetX = 16 / canvasSize.width;
         const offsetY = 16 / canvasSize.height;
         let x = source.x + offsetX;
@@ -1747,6 +2866,9 @@ export function TemplatePdfDesignerDialog({
             return;
         }
 
+        recordHistory();
+        nudgeSessionRef.current = false;
+
         if (elementType === 'field' || elementType === 'text') {
             setPlacements((prev) => {
                 const updated = prev.filter((p) => p.id !== id);
@@ -1760,7 +2882,7 @@ export function TemplatePdfDesignerDialog({
             );
 
             if (slotKey) {
-                removeSlot(slotKey);
+                removeSlot(slotKey, true);
 
                 return;
             }
@@ -1785,7 +2907,14 @@ export function TemplatePdfDesignerDialog({
                 canvas.remove(lbl);
             }
 
+            const textbox = textBoxRefs.current.get(id);
+
+            if (textbox) {
+                canvas.remove(textbox);
+            }
+
             labelRefs.current.delete(id);
+            textBoxRefs.current.delete(id);
             canvas.requestRenderAll();
         }
 
@@ -1838,9 +2967,14 @@ export function TemplatePdfDesignerDialog({
             setChangeSummary(data.change_summary);
             setCurrentPage(1);
             setHasUnsavedChanges(false);
+            setPendingPlacement(null);
+            historyRef.current = new DesignHistory();
+            setHistoryTick(0);
+            nudgeSessionRef.current = false;
 
             disposeFabricCanvas();
             labelRefs.current.clear();
+            textBoxRefs.current.clear();
             pdfDocRef.current = null;
         } catch (err: unknown) {
             const message =
@@ -1945,6 +3079,10 @@ export function TemplatePdfDesignerDialog({
                             p.font_family === 'serif' ? 'serif' : 'sans',
                         font_color: normalizeFontColor(p.font_color),
                         text_align: p.text_align || 'left',
+                        vertical_align: normalizeVerticalAlign(
+                            p.vertical_align,
+                            p.type,
+                        ),
                     };
 
                     if (p.type === 'text') {
@@ -2103,20 +3241,86 @@ export function TemplatePdfDesignerDialog({
                 | 'font_size'
                 | 'font_weight'
                 | 'text_align'
+                | 'vertical_align'
                 | 'font_family'
                 | 'font_color'
+                | 'x'
+                | 'y'
+                | 'width'
+                | 'height'
             >
         >,
     ) => {
+        recordHistory();
+        nudgeSessionRef.current = false;
         setPlacements((prev) => {
-            const updated = prev.map((p) =>
-                p.id === id ? { ...p, ...patch } : p,
-            );
+            const updated = prev.map((p) => {
+                if (p.id !== id) {
+                    return p;
+                }
+
+                const next = { ...p, ...patch };
+
+                if (
+                    patch.width !== undefined ||
+                    patch.x !== undefined ||
+                    patch.height !== undefined ||
+                    patch.y !== undefined
+                ) {
+                    const width = clamp(
+                        Number.isFinite(next.width) ? next.width : p.width,
+                        0.02,
+                        1,
+                    );
+                    const height = clamp(
+                        Number.isFinite(next.height) ? next.height : p.height,
+                        0.005,
+                        1,
+                    );
+                    const x = clamp(
+                        Number.isFinite(next.x) ? next.x : p.x,
+                        0,
+                        Math.max(0, 1 - width),
+                    );
+                    const y = clamp(
+                        Number.isFinite(next.y) ? next.y : p.y,
+                        0,
+                        Math.max(0, 1 - height),
+                    );
+
+                    return { ...next, x, y, width, height };
+                }
+
+                return next;
+            });
             placementsRef.current = updated;
 
             return updated;
         });
         setHasUnsavedChanges(true);
+
+        if (
+            'x' in patch ||
+            'y' in patch ||
+            'width' in patch ||
+            'height' in patch ||
+            'vertical_align' in patch
+        ) {
+            refreshCanvasObjects();
+            const canvas = fabricCanvasRef.current;
+            const object = canvas
+                ?.getObjects()
+                .find(
+                    (item) => (item.get('data') as { id?: string })?.id === id,
+                );
+
+            if (canvas && object) {
+                canvas.setActiveObject(object);
+                canvas.requestRenderAll();
+            }
+
+            return;
+        }
 
         const canvas = fabricCanvasRef.current;
 
@@ -2128,7 +3332,10 @@ export function TemplatePdfDesignerDialog({
 
         if (label) {
             if ('font_size' in patch && patch.font_size !== undefined) {
-                label.set('fontSize', patch.font_size);
+                label.set(
+                    'fontSize',
+                    overlayFontSizePx(patch.font_size, pdfScaleRef.current),
+                );
             }
 
             if ('font_family' in patch && patch.font_family !== undefined) {
@@ -2150,35 +3357,35 @@ export function TemplatePdfDesignerDialog({
 
                 if (rect) {
                     const bounds = rect.getBoundingRect();
-                    const align = patch.text_align!;
-                    let labelLeft = bounds.left + 6;
-                    let originX: 'left' | 'center' | 'right' = 'left';
-
-                    if (align === 'center') {
-                        labelLeft = bounds.left + bounds.width / 2;
-                        originX = 'center';
-                    } else if (align === 'right') {
-                        labelLeft = bounds.left + bounds.width - 6;
-                        originX = 'right';
-                    }
-
-                    label.set({ left: labelLeft, originX });
+                    label.set(
+                        fieldLabelLayout(
+                            bounds.left,
+                            bounds.top,
+                            bounds.width,
+                            bounds.height,
+                            patch.text_align,
+                            normalizeVerticalAlign(
+                                placementsRef.current.find(
+                                    (item) => item.id === id,
+                                )?.vertical_align,
+                                'field',
+                            ),
+                        ),
+                    );
                 }
             }
 
             canvas.requestRenderAll();
         }
 
-        // For text Textbox
-        const tb = canvas
-            .getObjects()
-            .find((o) => (o.get('data') as { id?: string })?.id === id) as
-            | Textbox
-            | undefined;
+        const tb = textBoxRefs.current.get(id);
 
-        if (tb && tb.type === 'textbox') {
+        if (tb) {
             if ('font_size' in patch && patch.font_size !== undefined) {
-                tb.set('fontSize', patch.font_size);
+                tb.set(
+                    'fontSize',
+                    overlayFontSizePx(patch.font_size, pdfScaleRef.current),
+                );
             }
 
             if ('font_family' in patch && patch.font_family !== undefined) {
@@ -2201,6 +3408,54 @@ export function TemplatePdfDesignerDialog({
         }
     };
 
+    const selectedOverflow: OverflowLevel =
+        selectedPlacement && canvasSize.width > 0
+            ? placementOverflowLevel(
+                  selectedPlacement,
+                  normalizedToPixel(
+                      selectedPlacement,
+                      canvasSize.width,
+                      canvasSize.height,
+                  ),
+                  pdfScaleRef.current,
+                  mergeFieldsMap,
+                  previewEmployee,
+              )
+            : 'ok';
+    const selectedOverflowMessage = overflowMessage(selectedOverflow);
+
+    const pageOverflowBanner = (() => {
+        if (canvasSize.width <= 0) {
+            return null;
+        }
+
+        const failLabels: string[] = [];
+
+        placements
+            .filter((item) => item.page === currentPage)
+            .forEach((item) => {
+                const level = placementOverflowLevel(
+                    item,
+                    normalizedToPixel(
+                        item,
+                        canvasSize.width,
+                        canvasSize.height,
+                    ),
+                    pdfScaleRef.current,
+                    mergeFieldsMap,
+                    previewEmployee,
+                );
+
+                if (level === 'fail') {
+                    failLabels.push(
+                        overflowLabelForPlacement(item, mergeFieldsMap),
+                    );
+                }
+            });
+
+        return overflowPageBanner(failLabels);
+    })();
+
     // ─── Right Panel Inline Panels ────────────────────────────────────────────
     const fieldPanelEl =
         selectedElementId &&
@@ -2219,6 +3474,18 @@ export function TemplatePdfDesignerDialog({
                         updateFieldProperty(selectedPlacement.id, patch)
                     }
                 />
+                <PlacementBoxControls
+                    placement={selectedPlacement}
+                    disabled={!isEditable}
+                    onChange={(patch) =>
+                        updateFieldProperty(selectedPlacement.id, patch)
+                    }
+                />
+                {selectedOverflowMessage && (
+                    <p className="text-[11px] text-destructive">
+                        {selectedOverflowMessage}
+                    </p>
+                )}
                 {isEditable && (
                     <Button
                         type="button"
@@ -2267,13 +3534,9 @@ export function TemplatePdfDesignerDialog({
 
                                 return updated;
                             });
-                            const tb = fabricCanvasRef.current
-                                ?.getObjects()
-                                .find(
-                                    (o) =>
-                                        (o.get('data') as { id?: string })
-                                            ?.id === selectedPlacement.id,
-                                ) as Textbox | undefined;
+                            const tb = textBoxRefs.current.get(
+                                selectedPlacement.id,
+                            );
 
                             if (tb) {
                                 tb.set('text', val);
@@ -2291,6 +3554,18 @@ export function TemplatePdfDesignerDialog({
                         updateFieldProperty(selectedPlacement.id, patch)
                     }
                 />
+                <PlacementBoxControls
+                    placement={selectedPlacement}
+                    disabled={!isEditable}
+                    onChange={(patch) =>
+                        updateFieldProperty(selectedPlacement.id, patch)
+                    }
+                />
+                {selectedOverflowMessage && (
+                    <p className="text-[11px] text-destructive">
+                        {selectedOverflowMessage}
+                    </p>
+                )}
                 {isEditable && (
                     <>
                         <Button
@@ -2367,6 +3642,8 @@ export function TemplatePdfDesignerDialog({
                         onValueChange={(v) => {
                             const page = Number(v);
                             const slotKey = selectedSignature.slotKey;
+                            recordHistory();
+                            nudgeSessionRef.current = false;
                             setSignaturePlacements((prev) => {
                                 const updated = {
                                     ...prev,
@@ -2414,6 +3691,9 @@ export function TemplatePdfDesignerDialog({
         ) : null;
 
     // ─── Toolbar ──────────────────────────────────────────────────────────────
+    const canUndoDesign = historyTick >= 0 && historyRef.current.canUndo;
+    const canRedoDesign = historyTick >= 0 && historyRef.current.canRedo;
+
     const toolbar = (
         <div className="flex shrink-0 flex-row items-center justify-between border-b border-border/80 px-4 py-3 sm:px-6">
             <div className="flex min-w-0 items-center gap-3">
@@ -2475,6 +3755,33 @@ export function TemplatePdfDesignerDialog({
             </div>
 
             <div className="flex items-center gap-2">
+                {isEditable && !isSamplePreview && (
+                    <>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            disabled={!canUndoDesign}
+                            onClick={undoDesign}
+                            title="Undo"
+                        >
+                            <Undo2 className="size-3.5" />
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            disabled={!canRedoDesign}
+                            onClick={redoDesign}
+                            title="Redo"
+                        >
+                            <Redo2 className="size-3.5" />
+                        </Button>
+                    </>
+                )}
+
                 {/* Return to Draft / Create Draft */}
                 {!isEditable &&
                     (() => {
@@ -2522,7 +3829,15 @@ export function TemplatePdfDesignerDialog({
                     type="button"
                     variant={isSamplePreview ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => setIsSamplePreview((p) => !p)}
+                    onClick={() => {
+                        setIsSamplePreview((preview) => {
+                            if (!preview) {
+                                setPendingPlacement(null);
+                            }
+
+                            return !preview;
+                        });
+                    }}
                 >
                     {isSamplePreview ? (
                         <>
@@ -2536,6 +3851,15 @@ export function TemplatePdfDesignerDialog({
                         </>
                     )}
                 </Button>
+
+                {isSamplePreview && can.preview_employee && template && (
+                    <TemplateDesignEmployeePreviewPicker
+                        templateId={template.id}
+                        selected={previewEmployee}
+                        onSelect={setPreviewEmployee}
+                        onClear={() => setPreviewEmployee(null)}
+                    />
+                )}
 
                 {/* Page navigation */}
                 <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 px-1.5 py-0.5">
@@ -2625,6 +3949,31 @@ export function TemplatePdfDesignerDialog({
         <>
             {toolbar}
 
+            {pendingPlacement && isEditable && !isSamplePreview && (
+                <div className="flex shrink-0 items-center justify-between bg-primary/10 px-6 py-2 text-xs font-medium text-foreground">
+                    <span>
+                        Click the printed line to place{' '}
+                        {pendingPlacementLabel(pendingPlacement)} (Esc to
+                        cancel)
+                    </span>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => setPendingPlacement(null)}
+                    >
+                        Cancel
+                    </Button>
+                </div>
+            )}
+
+            {pageOverflowBanner && (
+                <div className="flex shrink-0 items-center bg-destructive/10 px-6 py-2 text-xs font-medium text-destructive">
+                    {pageOverflowBanner.message}
+                </div>
+            )}
+
             {errorMessage && (
                 <div className="flex shrink-0 items-center justify-between bg-destructive/10 px-6 py-2 text-xs font-medium text-destructive">
                     <span>{errorMessage}</span>
@@ -2644,16 +3993,26 @@ export function TemplatePdfDesignerDialog({
                 {/* Left panel — 300px */}
                 <div className="flex min-h-0 w-[300px] shrink-0 flex-col border-r border-border/80 bg-muted/20">
                     {/* TEXT section */}
-                    {isEditable && (
+                    {isEditable && !isSamplePreview && (
                         <div className="border-b border-border/60 p-3">
                             <p className="mb-2 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
                                 Text
                             </p>
                             <Button
                                 size="sm"
-                                variant="outline"
+                                variant={
+                                    pendingPlacement?.kind === 'text'
+                                        ? 'default'
+                                        : 'outline'
+                                }
                                 className="w-full"
-                                onClick={handleAddTextPlacement}
+                                onClick={() =>
+                                    setPendingPlacement((current) =>
+                                        current?.kind === 'text'
+                                            ? null
+                                            : { kind: 'text' },
+                                    )
+                                }
                                 disabled={isLoadingPdf}
                             >
                                 <Plus className="mr-1.5 size-3.5" />
@@ -2701,17 +4060,37 @@ export function TemplatePdfDesignerDialog({
                                                         <Button
                                                             type="button"
                                                             size="icon"
-                                                            variant="ghost"
+                                                            variant={
+                                                                pendingPlacement?.kind ===
+                                                                    'field' &&
+                                                                pendingPlacement.fieldKey ===
+                                                                    field.key
+                                                                    ? 'default'
+                                                                    : 'ghost'
+                                                            }
                                                             className="size-6 shrink-0 text-primary opacity-80 group-hover:opacity-100"
                                                             onClick={() =>
-                                                                handleAddFieldPlacement(
-                                                                    field.key,
+                                                                setPendingPlacement(
+                                                                    (
+                                                                        current,
+                                                                    ) =>
+                                                                        current?.kind ===
+                                                                            'field' &&
+                                                                        current.fieldKey ===
+                                                                            field.key
+                                                                            ? null
+                                                                            : {
+                                                                                  kind: 'field',
+                                                                                  fieldKey:
+                                                                                      field.key,
+                                                                                  label: field.label,
+                                                                              },
                                                                 )
                                                             }
                                                             disabled={
                                                                 isLoadingPdf
                                                             }
-                                                            title={`Add ${field.label} to page`}
+                                                            title={`Place ${field.label} on the page`}
                                                         >
                                                             <Plus className="size-3.5" />
                                                         </Button>
@@ -2742,7 +4121,7 @@ export function TemplatePdfDesignerDialog({
                                         {slotKey}
                                     </p>
                                 </div>
-                                {isEditable && (
+                                {isEditable && !isSamplePreview && (
                                     <Button
                                         type="button"
                                         size="icon"
@@ -2755,14 +4134,30 @@ export function TemplatePdfDesignerDialog({
                                 )}
                             </div>
                         ))}
-                        {isEditable && (
+                        {isEditable && !isSamplePreview && (
                             <>
                                 {canAddSubject && (
                                     <Button
                                         size="sm"
-                                        variant="outline"
+                                        variant={
+                                            pendingPlacement?.kind ===
+                                                'signature' &&
+                                            pendingPlacement.role === 'subject'
+                                                ? 'default'
+                                                : 'outline'
+                                        }
                                         className="w-full"
-                                        onClick={() => addRoleSlot('subject')}
+                                        onClick={() =>
+                                            setPendingPlacement((current) =>
+                                                current?.kind === 'signature' &&
+                                                current.role === 'subject'
+                                                    ? null
+                                                    : {
+                                                          kind: 'signature',
+                                                          role: 'subject',
+                                                      },
+                                            )
+                                        }
                                     >
                                         <Plus className="mr-1.5 size-3.5" />
                                         Add Employee Signature
@@ -2770,9 +4165,25 @@ export function TemplatePdfDesignerDialog({
                                 )}
                                 <Button
                                     size="sm"
-                                    variant="outline"
+                                    variant={
+                                        pendingPlacement?.kind ===
+                                            'signature' &&
+                                        pendingPlacement.role === 'manager'
+                                            ? 'default'
+                                            : 'outline'
+                                    }
                                     className="w-full"
-                                    onClick={() => addRoleSlot('manager')}
+                                    onClick={() =>
+                                        setPendingPlacement((current) =>
+                                            current?.kind === 'signature' &&
+                                            current.role === 'manager'
+                                                ? null
+                                                : {
+                                                      kind: 'signature',
+                                                      role: 'manager',
+                                                  },
+                                        )
+                                    }
                                     disabled={!canAddManager}
                                 >
                                     <Plus className="mr-1.5 size-3.5" />
@@ -2780,10 +4191,25 @@ export function TemplatePdfDesignerDialog({
                                 </Button>
                                 <Button
                                     size="sm"
-                                    variant="outline"
+                                    variant={
+                                        pendingPlacement?.kind ===
+                                            'signature' &&
+                                        pendingPlacement.role ===
+                                            'company_signatory'
+                                            ? 'default'
+                                            : 'outline'
+                                    }
                                     className="w-full"
                                     onClick={() =>
-                                        addRoleSlot('company_signatory')
+                                        setPendingPlacement((current) =>
+                                            current?.kind === 'signature' &&
+                                            current.role === 'company_signatory'
+                                                ? null
+                                                : {
+                                                      kind: 'signature',
+                                                      role: 'company_signatory',
+                                                  },
+                                        )
                                     }
                                     disabled={!canAddCompany}
                                 >
@@ -2798,7 +4224,13 @@ export function TemplatePdfDesignerDialog({
                 {/* Center — canvas */}
                 <div
                     ref={containerRef}
-                    className="relative flex min-h-0 flex-1 flex-col items-center overflow-y-auto overscroll-contain bg-muted/40 p-6"
+                    className={cn(
+                        'relative flex min-h-0 flex-1 flex-col items-center overflow-y-auto overscroll-contain bg-muted/40 p-6',
+                        pendingPlacement &&
+                            isEditable &&
+                            !isSamplePreview &&
+                            'cursor-crosshair',
+                    )}
                 >
                     {isLoadingVersion && (
                         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-background/70 backdrop-blur-sm">
