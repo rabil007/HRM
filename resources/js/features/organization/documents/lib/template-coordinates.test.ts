@@ -111,6 +111,22 @@ describe('fabricObjectToPixelRect', () => {
             { left: 60, top: 50, width: 40, height: 20 },
         );
     });
+
+    it('treats a numeric origin as top-left', () => {
+        assert.deepEqual(
+            fabricObjectToPixelRect({
+                left: 100,
+                top: 200,
+                width: 160,
+                height: 50,
+                scaleX: 1,
+                scaleY: 1,
+                originX: 0,
+                originY: 0,
+            }),
+            { left: 100, top: 200, width: 160, height: 50 },
+        );
+    });
 });
 
 describe('overlayFontSizePx', () => {

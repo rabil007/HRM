@@ -86,6 +86,7 @@ import {
     placementRectInVisibleCanvas,
     stepOverlayFontSizePt,
 } from '../lib/coordinates';
+import type { FabricRectLike } from '../lib/coordinates';
 import {
     estimatePlacementOverflow,
     overflowPageBanner,
@@ -683,18 +684,12 @@ function fabricFontFamily(family: PlacementFontFamily | undefined): string {
     );
 }
 
-function bakeFabricPixelRect(target: {
-    set: (options: Record<string, unknown>) => void;
-    setCoords: () => void;
-    left?: number | null;
-    top?: number | null;
-    width?: number | null;
-    height?: number | null;
-    scaleX?: number | null;
-    scaleY?: number | null;
-    originX?: string;
-    originY?: string;
-}): ReturnType<typeof fabricObjectToPixelRect> {
+function bakeFabricPixelRect(
+    target: FabricRectLike & {
+        set: (options: object) => unknown;
+        setCoords: () => unknown;
+    },
+): ReturnType<typeof fabricObjectToPixelRect> {
     const pixel = fabricObjectToPixelRect(target);
     target.set({
         left: pixel.left,

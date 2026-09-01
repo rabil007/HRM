@@ -200,8 +200,8 @@ export type FabricRectLike = {
     height?: number | null;
     scaleX?: number | null;
     scaleY?: number | null;
-    originX?: string;
-    originY?: string;
+    originX?: string | number;
+    originY?: string | number;
 };
 
 /**
