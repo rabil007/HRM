@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Canvas, FabricImage, FabricText, Rect, Textbox } from 'fabric';
+import { Canvas, FabricImage, FabricText, Line, Rect, Textbox } from 'fabric';
 import {
     AlignCenter,
     AlignLeft,
@@ -65,6 +65,8 @@ import {
     isUndoKey,
     nudgeDeltaFromKeyboard,
     nudgeNormalizedPlacement,
+    overlayFieldLabelLayout,
+    overlayTextTopForAlign,
 } from '../lib/canvas-edit';
 import {
     clamp,
@@ -91,6 +93,8 @@ import {
     placementOverflowLabel,
 } from '../lib/placement-overflow';
 import type { OverflowLevel } from '../lib/placement-overflow';
+import { snapRectToGuides } from '../lib/snap-guides';
+import type { SnapBox, SnapGuide } from '../lib/snap-guides';
 import {
     normalizeFontColor,
     normalizePlacementConfig,
@@ -100,7 +104,6 @@ import type {
     CustomTemplate,
     MergeField,
     PlacementFontFamily,
-    PlacementVerticalAlign,
     PdfFieldPlacement,
     PdfPlacementItem,
     PdfTextPlacement,
@@ -120,6 +123,72 @@ const MAX_ROLE_OCCURRENCE = 7;
 const DEFAULT_WIDTH = 0.25;
 const DEFAULT_HEIGHT = 0.08;
 const DEFAULT_X = 0.1;
+
+function isSnapGuideObject(obj: { get: (key: string) => unknown }): boolean {
+    return (
+        (obj.get('data') as { elementType?: string } | undefined)
+            ?.elementType === 'guide'
+    );
+}
+
+function clearSnapGuides(canvas: Canvas): void {
+    canvas
+        .getObjects()
+        .filter((obj) => isSnapGuideObject(obj))
+        .forEach((obj) => canvas.remove(obj));
+}
+
+function renderSnapGuides(
+    canvas: Canvas,
+    guides: SnapGuide[],
+    canvasWidth: number,
+): void {
+    clearSnapGuides(canvas);
+
+    for (const guide of guides) {
+        const line = new Line(
+            [0, guide.position, canvasWidth, guide.position],
+            {
+                stroke: '#c026d3',
+                strokeWidth: 1,
+                selectable: false,
+                evented: false,
+                hoverCursor: 'default',
+            },
+        );
+        line.set('data', { elementType: 'guide' });
+        canvas.add(line);
+    }
+}
+
+function pageSnapBoxes(
+    movingId: string,
+    page: number,
+    canvasWidth: number,
+    canvasHeight: number,
+    placements: PdfPlacementItem[],
+    signatures: Record<string, SignaturePlacementItem>,
+): SnapBox[] {
+    const boxes: SnapBox[] = [];
+
+    for (const item of placements) {
+        if (item.page !== page || item.id === movingId) {
+            continue;
+        }
+
+        boxes.push(normalizedToPixel(item, canvasWidth, canvasHeight));
+    }
+
+    for (const item of Object.values(signatures)) {
+        if (!item || item.page !== page || item.id === movingId) {
+            continue;
+        }
+
+        boxes.push(normalizedToPixel(item, canvasWidth, canvasHeight));
+    }
+
+    return boxes;
+}
 
 type SignatureRole = SignaturePlacementItem['role'];
 
@@ -614,66 +683,32 @@ function fabricFontFamily(family: PlacementFontFamily | undefined): string {
     );
 }
 
-function fieldLabelLayout(
-    left: number,
-    top: number,
-    width: number,
-    height: number,
-    align: 'left' | 'center' | 'right',
-    verticalAlign: PlacementVerticalAlign = 'middle',
-): {
-    left: number;
-    top: number;
-    originX: 'left' | 'center' | 'right';
-    originY: 'top' | 'center' | 'bottom';
-} {
-    let labelLeft = left + 4;
-    let originX: 'left' | 'center' | 'right' = 'left';
+function bakeFabricPixelRect(target: {
+    set: (options: Record<string, unknown>) => void;
+    setCoords: () => void;
+    left?: number | null;
+    top?: number | null;
+    width?: number | null;
+    height?: number | null;
+    scaleX?: number | null;
+    scaleY?: number | null;
+    originX?: string;
+    originY?: string;
+}): ReturnType<typeof fabricObjectToPixelRect> {
+    const pixel = fabricObjectToPixelRect(target);
+    target.set({
+        left: pixel.left,
+        top: pixel.top,
+        width: pixel.width,
+        height: pixel.height,
+        scaleX: 1,
+        scaleY: 1,
+        originX: 'left',
+        originY: 'top',
+    });
+    target.setCoords();
 
-    if (align === 'center') {
-        labelLeft = left + width / 2;
-        originX = 'center';
-    } else if (align === 'right') {
-        labelLeft = left + width - 4;
-        originX = 'right';
-    }
-
-    let labelTop = top + height / 2;
-    let originY: 'top' | 'center' | 'bottom' = 'center';
-
-    if (verticalAlign === 'top') {
-        labelTop = top + 2;
-        originY = 'top';
-    } else if (verticalAlign === 'baseline') {
-        labelTop = top + height - 2;
-        originY = 'bottom';
-    }
-
-    return {
-        left: labelLeft,
-        top: labelTop,
-        originX,
-        originY,
-    };
-}
-
-function textboxTopForAlign(
-    rectTop: number,
-    rectHeight: number,
-    textHeight: number,
-    verticalAlign: PlacementVerticalAlign,
-): number {
-    const height = Math.min(Math.max(1, textHeight), rectHeight);
-
-    if (verticalAlign === 'top') {
-        return rectTop;
-    }
-
-    if (verticalAlign === 'baseline') {
-        return rectTop + rectHeight - height;
-    }
-
-    return rectTop + (rectHeight - height) / 2;
+    return pixel;
 }
 
 function overflowMessage(level: OverflowLevel): string | null {
@@ -939,7 +974,11 @@ function PlacementFontControls({
                         [
                             ['top', AlignVerticalJustifyStart, 'Top'],
                             ['middle', AlignVerticalJustifyCenter, 'Middle'],
-                            ['baseline', AlignVerticalJustifyEnd, 'Baseline'],
+                            [
+                                'baseline',
+                                AlignVerticalJustifyEnd,
+                                'Baseline (box bottom)',
+                            ],
                         ] as const
                     ).map(([align, Icon, label]) => (
                         <Button
@@ -1277,7 +1316,7 @@ export function TemplatePdfDesignerDialog({
                     return;
                 }
 
-                const bounds = rect.getBoundingRect();
+                const pixel = fabricObjectToPixelRect(rect);
                 const originX =
                     label.originX === 'center' || label.originX === 'right'
                         ? label.originX
@@ -1285,16 +1324,17 @@ export function TemplatePdfDesignerDialog({
                 const placement = placementsRef.current.find(
                     (item) => item.id === id,
                 );
-                const layout = fieldLabelLayout(
-                    bounds.left,
-                    bounds.top,
-                    bounds.width,
-                    bounds.height,
+                const layout = overlayFieldLabelLayout(
+                    pixel.left,
+                    pixel.top,
+                    pixel.width,
+                    pixel.height,
                     originX,
                     normalizeVerticalAlign(
                         placement?.vertical_align,
                         placement?.type === 'text' ? 'text' : 'field',
                     ),
+                    label.fontSize ?? 12,
                 );
                 label.set(layout);
             }
@@ -1305,20 +1345,20 @@ export function TemplatePdfDesignerDialog({
                 .find((obj) => (obj.get('data') as { id?: string })?.id === id);
 
             if (rect) {
-                const bounds = rect.getBoundingRect();
+                const pixel = fabricObjectToPixelRect(rect);
                 const placement = placementsRef.current.find(
                     (item) => item.id === id,
                 );
-                const width = Math.max(10, bounds.width);
-                textbox.set({ left: bounds.left, width });
+                const width = Math.max(10, pixel.width);
+                textbox.set({ left: pixel.left, width });
                 const textHeight =
                     typeof textbox.calcTextHeight === 'function'
                         ? textbox.calcTextHeight()
                         : (textbox.fontSize ?? 12);
                 textbox.set({
-                    top: textboxTopForAlign(
-                        bounds.top,
-                        bounds.height,
+                    top: overlayTextTopForAlign(
+                        pixel.top,
+                        pixel.height,
                         textHeight,
                         normalizeVerticalAlign(
                             placement?.vertical_align,
@@ -1340,7 +1380,11 @@ export function TemplatePdfDesignerDialog({
                     | Record<string, unknown>
                     | undefined;
 
-                return Boolean(d?.id) || Boolean(d?.parentId);
+                return (
+                    Boolean(d?.id) ||
+                    Boolean(d?.parentId) ||
+                    d?.elementType === 'guide'
+                );
             });
             existing.forEach((obj) => canvas.remove(obj));
             labelRefs.current.clear();
@@ -1412,6 +1456,8 @@ export function TemplatePdfDesignerDialog({
                         top: pixel.top,
                         width: pixel.width,
                         height: pixel.height,
+                        originX: 'left',
+                        originY: 'top',
                         fill: chrome.fill,
                         stroke: chrome.stroke,
                         strokeWidth: chrome.strokeWidth,
@@ -1437,21 +1483,23 @@ export function TemplatePdfDesignerDialog({
                     }
 
                     const align = item.text_align || 'left';
-                    const layout = fieldLabelLayout(
+                    const fontSize = overlayFontSizePx(
+                        item.font_size,
+                        pdfScaleRef.current,
+                    );
+                    const layout = overlayFieldLabelLayout(
                         pixel.left,
                         pixel.top,
                         pixel.width,
                         pixel.height,
                         align,
                         normalizeVerticalAlign(item.vertical_align, 'field'),
+                        fontSize,
                     );
 
                     const label = new FabricText(displayText, {
                         ...layout,
-                        fontSize: overlayFontSizePx(
-                            item.font_size,
-                            pdfScaleRef.current,
-                        ),
+                        fontSize,
                         fontFamily: fabricFontFamily(item.font_family),
                         fontWeight: item.font_weight || 'normal',
                         lineHeight: 1,
@@ -1482,6 +1530,8 @@ export function TemplatePdfDesignerDialog({
                         top: pixel.top,
                         width: pixel.width,
                         height: pixel.height,
+                        originX: 'left',
+                        originY: 'top',
                         fill: chrome.fill,
                         stroke: chrome.stroke,
                         strokeWidth: chrome.strokeWidth,
@@ -1548,7 +1598,7 @@ export function TemplatePdfDesignerDialog({
                                   pdfScaleRef.current,
                               );
                     tb.set({
-                        top: textboxTopForAlign(
+                        top: overlayTextTopForAlign(
                             pixel.top,
                             pixel.height,
                             textHeight,
@@ -1699,26 +1749,44 @@ export function TemplatePdfDesignerDialog({
                     return;
                 }
 
-                syncLabels(canvas);
                 const dims = canvasSizeRef.current;
 
                 if (dims.width <= 0 || dims.height <= 0) {
                     return;
                 }
 
-                const pixel =
-                    data.elementType === 'signature'
-                        ? fabricObjectToPixelRect(target)
-                        : (() => {
-                              const bounds = target.getBoundingRect();
+                const moving = fabricObjectToPixelRect(target);
+                const pointerEvent = e.e as MouseEvent | undefined;
+                const disableSnap = Boolean(pointerEvent?.altKey);
+                let pixel = moving;
 
-                              return {
-                                  left: bounds.left,
-                                  top: bounds.top,
-                                  width: bounds.width,
-                                  height: bounds.height,
-                              };
-                          })();
+                if (!disableSnap && !isSamplePreviewRef.current) {
+                    const snapped = snapRectToGuides(
+                        moving,
+                        pageSnapBoxes(
+                            data.id,
+                            currentPageRef.current,
+                            dims.width,
+                            dims.height,
+                            placementsRef.current,
+                            signaturePlacementsRef.current,
+                        ),
+                        dims.width,
+                        dims.height,
+                    );
+                    pixel = {
+                        ...moving,
+                        left: snapped.left,
+                        top: snapped.top,
+                    };
+                    target.set({ left: pixel.left, top: pixel.top });
+                    target.setCoords();
+                    renderSnapGuides(canvas, snapped.guides, dims.width);
+                } else {
+                    clearSnapGuides(canvas);
+                }
+
+                syncLabels(canvas);
                 const norm = pixelToNormalized(pixel, dims.width, dims.height);
 
                 if (
@@ -1778,19 +1846,7 @@ export function TemplatePdfDesignerDialog({
                     return;
                 }
 
-                const pixel =
-                    data.elementType === 'signature'
-                        ? fabricObjectToPixelRect(target)
-                        : (() => {
-                              const bounds = target.getBoundingRect();
-
-                              return {
-                                  left: bounds.left,
-                                  top: bounds.top,
-                                  width: bounds.width,
-                                  height: bounds.height,
-                              };
-                          })();
+                const pixel = fabricObjectToPixelRect(target);
                 const norm = pixelToNormalized(pixel, dims.width, dims.height);
 
                 if (
@@ -1843,24 +1899,16 @@ export function TemplatePdfDesignerDialog({
 
                 if (
                     !target ||
-                    data?.elementType !== 'signature' ||
-                    !data.slotKey ||
-                    !isEditableRef.current
+                    !data?.id ||
+                    !isEditableRef.current ||
+                    (data.elementType !== 'field' &&
+                        data.elementType !== 'text' &&
+                        data.elementType !== 'signature')
                 ) {
                     return;
                 }
 
-                const pixel = fabricObjectToPixelRect(target);
-                target.set({
-                    left: pixel.left,
-                    top: pixel.top,
-                    width: pixel.width,
-                    height: pixel.height,
-                    scaleX: 1,
-                    scaleY: 1,
-                });
-                target.setCoords();
-
+                const pixel = bakeFabricPixelRect(target);
                 const dims = canvasSizeRef.current;
 
                 if (dims.width <= 0 || dims.height <= 0) {
@@ -1868,24 +1916,53 @@ export function TemplatePdfDesignerDialog({
                 }
 
                 const norm = pixelToNormalized(pixel, dims.width, dims.height);
-                const slotKey = data.slotKey;
-                setSignaturePlacements((prev) => {
-                    const updated = {
-                        ...prev,
-                        [slotKey]: {
-                            ...prev[slotKey]!,
-                            x: norm.x,
-                            y: norm.y,
-                            width: norm.width,
-                            height: norm.height,
-                        },
-                    };
-                    signaturePlacementsRef.current = updated;
 
-                    return updated;
-                });
+                if (
+                    data.elementType === 'field' ||
+                    data.elementType === 'text'
+                ) {
+                    setPlacements((prev) => {
+                        const updated = prev.map((p) =>
+                            p.id === data.id
+                                ? {
+                                      ...p,
+                                      x: norm.x,
+                                      y: norm.y,
+                                      width: norm.width,
+                                      height: norm.height,
+                                  }
+                                : p,
+                        );
+                        placementsRef.current = updated;
+
+                        return updated;
+                    });
+                } else if (data.elementType === 'signature' && data.slotKey) {
+                    const slotKey = data.slotKey;
+                    setSignaturePlacements((prev) => {
+                        const updated = {
+                            ...prev,
+                            [slotKey]: {
+                                ...prev[slotKey]!,
+                                x: norm.x,
+                                y: norm.y,
+                                width: norm.width,
+                                height: norm.height,
+                            },
+                        };
+                        signaturePlacementsRef.current = updated;
+
+                        return updated;
+                    });
+                }
+
                 setHasUnsavedChanges(true);
                 syncLabels(canvas);
+                canvas.requestRenderAll();
+            });
+
+            canvas.on('mouse:up', () => {
+                clearSnapGuides(canvas);
                 canvas.requestRenderAll();
             });
 
@@ -1945,6 +2022,7 @@ export function TemplatePdfDesignerDialog({
             canvas.on('selection:cleared', () => {
                 setSelectedElementId(null);
                 setSelectedElementType(null);
+                clearSnapGuides(canvas);
             });
 
             canvas.on('mouse:wheel', (opt) => {
@@ -2513,9 +2591,11 @@ export function TemplatePdfDesignerDialog({
                 top: initialPixel.top,
                 width: initialPixel.width,
                 height: initialPixel.height,
+                originX: 'left',
+                originY: 'top',
                 fill: chrome.fill,
                 stroke: chrome.stroke,
-                strokeWidth: 1.5,
+                strokeWidth: 1,
                 cornerColor: '#2563eb',
                 cornerStyle: 'circle',
                 transparentCorners: false,
@@ -2524,16 +2604,18 @@ export function TemplatePdfDesignerDialog({
             });
             rect.set('data', { id: newId, elementType: 'field' });
 
+            const fontSize = overlayFontSizePx(12, pdfScaleRef.current);
             const label = new FabricText(fieldMeta?.label ?? fieldKey, {
-                ...fieldLabelLayout(
+                ...overlayFieldLabelLayout(
                     initialPixel.left,
                     initialPixel.top,
                     initialPixel.width,
                     initialPixel.height,
                     'left',
                     'baseline',
+                    fontSize,
                 ),
-                fontSize: overlayFontSizePx(12, pdfScaleRef.current),
+                fontSize,
                 fontFamily: fabricFontFamily('serif'),
                 lineHeight: 1,
                 objectCaching: false,
@@ -2605,9 +2687,11 @@ export function TemplatePdfDesignerDialog({
                 top: initialPixel.top,
                 width: initialPixel.width,
                 height: initialPixel.height,
+                originX: 'left',
+                originY: 'top',
                 fill: chrome.fill,
                 stroke: chrome.stroke,
-                strokeWidth: 1.5,
+                strokeWidth: 1,
                 cornerColor: '#2563eb',
                 cornerStyle: 'circle',
                 transparentCorners: false,
@@ -2641,7 +2725,7 @@ export function TemplatePdfDesignerDialog({
                     ? tb.calcTextHeight()
                     : overlayFontSizePx(12, pdfScaleRef.current);
             tb.set({
-                top: textboxTopForAlign(
+                top: overlayTextTopForAlign(
                     initialPixel.top,
                     initialPixel.height,
                     addedTextHeight,
@@ -3356,13 +3440,13 @@ export function TemplatePdfDesignerDialog({
                     .find((o) => (o.get('data') as { id?: string })?.id === id);
 
                 if (rect) {
-                    const bounds = rect.getBoundingRect();
+                    const pixel = fabricObjectToPixelRect(rect);
                     label.set(
-                        fieldLabelLayout(
-                            bounds.left,
-                            bounds.top,
-                            bounds.width,
-                            bounds.height,
+                        overlayFieldLabelLayout(
+                            pixel.left,
+                            pixel.top,
+                            pixel.width,
+                            pixel.height,
                             patch.text_align,
                             normalizeVerticalAlign(
                                 placementsRef.current.find(
@@ -3370,6 +3454,7 @@ export function TemplatePdfDesignerDialog({
                                 )?.vertical_align,
                                 'field',
                             ),
+                            label.fontSize ?? 12,
                         ),
                     );
                 }

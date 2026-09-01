@@ -9,6 +9,8 @@ import {
     isUndoKey,
     nudgeDeltaFromKeyboard,
     nudgeNormalizedPlacement,
+    overlayFieldLabelLayout,
+    overlayTextTopForAlign,
 } from '../templates/lib/canvas-edit.ts';
 
 describe('clickToCenteredPlacement', () => {
@@ -58,6 +60,49 @@ describe('clickToAlignedPlacement', () => {
         );
 
         assert.equal(pixel.top, 0);
+    });
+});
+
+describe('overlayTextTopForAlign', () => {
+    it('pins baseline values to the box floor like generated flex-end', () => {
+        assert.equal(overlayTextTopForAlign(100, 40, 14, 'baseline'), 126);
+        assert.equal(overlayTextTopForAlign(100, 40, 14, 'top'), 100);
+        assert.equal(overlayTextTopForAlign(100, 40, 14, 'middle'), 113);
+    });
+});
+
+describe('overlayFieldLabelLayout', () => {
+    it('uses the geometric left edge with no inset so generate can match', () => {
+        const layout = overlayFieldLabelLayout(
+            20,
+            100,
+            200,
+            40,
+            'left',
+            'baseline',
+            14,
+        );
+
+        assert.equal(layout.left, 20);
+        assert.equal(layout.top, 126);
+        assert.equal(layout.originX, 'left');
+        assert.equal(layout.originY, 'top');
+    });
+
+    it('places right-aligned text on the box right edge', () => {
+        const layout = overlayFieldLabelLayout(
+            20,
+            100,
+            200,
+            40,
+            'right',
+            'top',
+            14,
+        );
+
+        assert.equal(layout.left, 220);
+        assert.equal(layout.originX, 'right');
+        assert.equal(layout.top, 100);
     });
 });
 

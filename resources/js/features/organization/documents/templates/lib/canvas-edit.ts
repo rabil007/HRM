@@ -94,6 +94,64 @@ export class DesignHistory<TPlacements, TSignatures> {
 
 export type ClickVerticalAlign = 'top' | 'middle' | 'baseline';
 
+export type OverlayTextAlign = 'left' | 'center' | 'right';
+
+/**
+ * Top of a nowrap overlay value inside its box. Matches generated CSS
+ * flex-start / center / flex-end (baseline sits on the box floor).
+ */
+export function overlayTextTopForAlign(
+    rectTop: number,
+    rectHeight: number,
+    textHeight: number,
+    verticalAlign: ClickVerticalAlign,
+): number {
+    const height = Math.min(Math.max(1, textHeight), rectHeight);
+
+    if (verticalAlign === 'top') {
+        return rectTop;
+    }
+
+    if (verticalAlign === 'baseline') {
+        return rectTop + rectHeight - height;
+    }
+
+    return rectTop + (rectHeight - height) / 2;
+}
+
+export function overlayFieldLabelLayout(
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+    align: OverlayTextAlign,
+    verticalAlign: ClickVerticalAlign,
+    textHeight: number,
+): {
+    left: number;
+    top: number;
+    originX: OverlayTextAlign;
+    originY: 'top';
+} {
+    let labelLeft = left;
+    let originX: OverlayTextAlign = 'left';
+
+    if (align === 'center') {
+        labelLeft = left + width / 2;
+        originX = 'center';
+    } else if (align === 'right') {
+        labelLeft = left + width;
+        originX = 'right';
+    }
+
+    return {
+        left: labelLeft,
+        top: overlayTextTopForAlign(top, height, textHeight, verticalAlign),
+        originX,
+        originY: 'top',
+    };
+}
+
 export function clickToAlignedPlacement(
     clickX: number,
     clickY: number,
