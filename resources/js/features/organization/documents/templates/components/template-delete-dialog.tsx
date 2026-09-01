@@ -12,23 +12,23 @@ export function TemplateDeleteDialog({
     template: CustomTemplate | null;
     onConfirm: () => void;
 }) {
-    if (!template) {
-        return null;
-    }
-
     return (
         <ConfirmDeleteDialog
             open={open}
             onOpenChange={onOpenChange}
             title="Delete Document Template"
             description={
-                <>
-                    Are you sure you want to delete{' '}
-                    <span className="font-semibold text-foreground">
-                        {template.name}
-                    </span>
-                    ? This action cannot be undone.
-                </>
+                template ? (
+                    <>
+                        Are you sure you want to delete{' '}
+                        <span className="font-semibold text-foreground">
+                            {template.name}
+                        </span>
+                        ? This action cannot be undone.
+                    </>
+                ) : (
+                    'This action cannot be undone.'
+                )
             }
             confirmText="Delete Template"
             onConfirm={onConfirm}

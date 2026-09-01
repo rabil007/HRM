@@ -359,7 +359,7 @@ test('deleting pdf template cleans up all source pdf files from disk', function 
         'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
     ]);
 
-    DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create([
+    $published = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create([
         'version' => 1,
         'source_pdf_path' => $path1,
     ]);
@@ -367,6 +367,11 @@ test('deleting pdf template cleans up all source pdf files from disk', function 
     DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
         'version' => 2,
         'source_pdf_path' => $path2,
+    ]);
+
+    $template->update([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'published_version_id' => $published->id,
     ]);
 
     $this->actingAs($user)
