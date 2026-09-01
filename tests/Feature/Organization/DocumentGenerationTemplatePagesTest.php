@@ -56,7 +56,7 @@ beforeEach(function () {
     $this->seed(PermissionsSeeder::class);
 });
 
-test('authorized users can view create choice, content, and pdf pages', function () {
+test('create and create content routes redirect to pdf create page for authorized users', function () {
     $user = User::factory()->create();
     $company = createTemplatePagesTestCompany();
     grantCompanyPermissions($user, $company, ['documents.templates.create']);
@@ -64,19 +64,12 @@ test('authorized users can view create choice, content, and pdf pages', function
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->get(route('organization.documents.templates.create'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents/templates/create'));
+        ->assertRedirect(route('organization.documents.templates.create.pdf'));
 
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->get(route('organization.documents.templates.create.content'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents/templates/create-content')
-            ->has('merge_fields')
-            ->has('document_types')
-            ->where('can.create_templates', true));
+        ->assertRedirect(route('organization.documents.templates.create.pdf'));
 
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
@@ -108,36 +101,32 @@ test('unauthorized users cannot open template create pages', function () {
         ->assertForbidden();
 });
 
-test('authorized users can edit a content template on a dedicated page', function () {
+test('edit route redirects to templates index for authorized users', function () {
     $user = User::factory()->create();
     $company = createTemplatePagesTestCompany();
     grantCompanyPermissions($user, $company, ['documents.templates.update']);
 
-    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
-        'name' => 'Editable Content Template',
-        'template_format' => DocumentGenerationTemplateFormat::Content,
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->content()->create([
+        'name' => 'Legacy Content Template',
     ]);
 
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->get(route('organization.documents.templates.edit', $template))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents/templates/edit')
-            ->where('template.id', $template->id)
-            ->where('template.name', 'Editable Content Template')
-            ->has('merge_fields'));
+        ->assertRedirect(route('organization.documents.templates'));
 });
 
-test('edit page rejects pdf overlay templates', function () {
+test('edit route rejects another company templates', function () {
     $user = User::factory()->create();
-    $company = createTemplatePagesTestCompany();
-    grantCompanyPermissions($user, $company, ['documents.templates.update']);
+    $companyA = createTemplatePagesTestCompany('Alpha Co');
+    $companyB = createTemplatePagesTestCompany('Beta Co');
+    grantCompanyPermissions($user, $companyA, ['documents.templates.update']);
+    grantCompanyPermissions($user, $companyB, ['documents.templates.update']);
 
-    $template = DocumentGenerationTemplate::factory()->forCompany($company)->pdfOverlay()->create();
+    $template = DocumentGenerationTemplate::factory()->forCompany($companyB)->content()->create();
 
     $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
+        ->withSession(['current_company_id' => $companyA->id])
         ->get(route('organization.documents.templates.edit', $template))
         ->assertNotFound();
 });
@@ -216,7 +205,7 @@ test('design page returns 404 for another company template', function () {
         ->assertNotFound();
 });
 
-test('content store redirects to templates index', function () {
+test('content store is prohibited and requires pdf format and file', function () {
     $user = User::factory()->create();
     $company = createTemplatePagesTestCompany();
     grantCompanyPermissions($user, $company, ['documents.templates.create']);
@@ -227,7 +216,7 @@ test('content store redirects to templates index', function () {
             'name' => 'Redirect Content Template',
             'content' => 'Hello {{employee_name}}',
         ])
-        ->assertRedirect(route('organization.documents.templates'));
+        ->assertSessionHasErrors(['template_format', 'file', 'content']);
 });
 
 test('pdf store redirects to the design page', function () {

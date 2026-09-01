@@ -38,25 +38,18 @@ use Symfony\Component\HttpFoundation\Response;
 
 class DocumentGenerationTemplateController extends Controller
 {
-    public function create(Request $request): InertiaResponse
+    public function create(Request $request): RedirectResponse
     {
         abort_unless(DocumentsModuleAccess::canCreateCustomTemplates($request->user()), 403);
 
-        return Inertia::render('organization/documents/templates/create', [
-            'can' => [
-                'create_templates' => true,
-            ],
-        ]);
+        return redirect()->route('organization.documents.templates.create.pdf');
     }
 
-    public function createContent(Request $request): InertiaResponse
+    public function createContent(Request $request): RedirectResponse
     {
         abort_unless(DocumentsModuleAccess::canCreateCustomTemplates($request->user()), 403);
 
-        return Inertia::render('organization/documents/templates/create-content', [
-            'template' => null,
-            ...DocumentGenerationTemplatePageOptions::for($request->user()),
-        ]);
+        return redirect()->route('organization.documents.templates.create.pdf');
     }
 
     public function createPdf(Request $request): InertiaResponse
@@ -68,21 +61,15 @@ class DocumentGenerationTemplateController extends Controller
         ]);
     }
 
-    public function edit(Request $request, DocumentGenerationTemplate $template): InertiaResponse
+    public function edit(Request $request, DocumentGenerationTemplate $template): RedirectResponse
     {
         abort_unless(DocumentsModuleAccess::canUpdateCustomTemplates($request->user()), 403);
 
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_if($companyId <= 0, 403);
         abort_unless((int) $template->company_id === $companyId, 404);
-        abort_unless($template->isContent(), 404);
 
-        $template->load(['documentType:id,title', 'publishedVersion', 'draftVersion', 'creator:id,name', 'updater:id,name']);
-
-        return Inertia::render('organization/documents/templates/edit', [
-            'template' => $template->toBrowseArray(),
-            ...DocumentGenerationTemplatePageOptions::for($request->user()),
-        ]);
+        return redirect()->route('organization.documents.templates');
     }
 
     public function design(
@@ -197,15 +184,9 @@ class DocumentGenerationTemplateController extends Controller
             'file' => $request->file('file'),
         ]), $request->user());
 
-        if ($template->isPdfOverlay()) {
-            return redirect()
-                ->route('organization.documents.templates.design', $template)
-                ->with('success', 'Template created. Place merge fields on the PDF.');
-        }
-
         return redirect()
-            ->route('organization.documents.templates')
-            ->with('success', 'Template created.');
+            ->route('organization.documents.templates.design', $template)
+            ->with('success', 'Template created. Place merge fields on the PDF.');
     }
 
     public function update(

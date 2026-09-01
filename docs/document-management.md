@@ -88,17 +88,18 @@ Documents → Templates serves as the centralized company custom document templa
 
 1. **Company Templates** (`document_generation_templates`):
    - Scoped to the active company.
-   - User-facing terminology: "Company Templates", "Content Template", "PDF Template", "After generation".
-   - **List → dedicated pages flow**:
-     - Templates list **New Template** opens `/organization/documents/templates/create` (choice between Content and Upload PDF).
-     - Content create/edit use dedicated pages (`/create/content`, `/{template}/edit`); Save returns to the Templates list.
-     - PDF upload uses `/create/pdf`; **Create & open designer** stores the template and redirects to `/{template}/design` (Design Template).
-     - List **Edit Content** deep-links to the content edit page. **Design Template** deep-links to the unified visual designer.
-     - Secondary actions remain dialogs/sheets on the list: Preview, Delete, After generation, Replace PDF.
+   - User-facing terminology: "Company Templates", "PDF Template", "After generation".
+   - **Company Templates are PDF-upload templates only in the user-facing product.**
+   - **Flow**: `Templates → Upload PDF → Design Template → Edit / Save Draft → Publish`.
+     - Templates list **Upload PDF** opens `/organization/documents/templates/create/pdf`.
+     - PDF upload stores the template and creates Draft v1, then redirects directly to `/{template}/design` (Design Template).
+     - `/organization/documents/templates/create` and `/create/content` redirect to `/create/pdf`.
+     - List **Design Template** deep-links to the unified visual designer.
+     - Secondary actions on the list: Replace PDF, Publish vN, After generation, Activate/Deactivate, Duplicate, Delete.
+     - Legacy `content` template records and underlying domain rendering support remain preserved in the database for historical compatibility, but are hidden from company template management and blocked from new creation or editing (`/{template}/edit` redirects to Templates).
      - **Opening the designer is side-effect free.** It does not create a draft. It displays the most relevant version (draft if present, otherwise published, otherwise latest archived). A 404 is returned if no versions exist.
    - **Formats**:
-     - `content`: Text/content template with controlled merge fields.
-     - `pdf_overlay`: Branded uploaded PDF with visual merge field placement. Format cannot be changed after creation.
+     - `pdf_overlay`: Branded uploaded PDF with visual merge field placement, static text boxes, and signature slots. (Legacy `content` templates remain in schema for backward compatibility).
    - **Template Identity & Immutability**:
      - The parent model `DocumentGenerationTemplate` manages company-level identity, metadata (`name`, `description`, `document_type_id`, `template_format`), lifecycle status (`draft`, `active`, `inactive`), and pointer to `published_version_id`.
      - Authoritative renderable data resides in `DocumentGenerationTemplateVersion` (`version`, `status`, `content`, `source_pdf_path`, `placement_config`, `published_at`).
@@ -166,14 +167,14 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents/requests/{workflowRequest}/version-preview` | Stream bound canonical `DocumentInstanceVersion` PDF inline | `documents.requests.view` |
 | `/organization/documents/configuration` | Documents Configuration (Document Types) | `settings.master-data.document-types.view` |
 | `/organization/documents/templates` | Custom and System Document Templates | `documents.templates.view` \| `bulk_documents.view` \| `settings.master-data.document-types.view` \| platform view |
-| `/organization/documents/templates/create` | Choose Content vs Upload PDF | `documents.templates.create` |
-| `/organization/documents/templates/create/content` | Content template create page | `documents.templates.create` |
+| `/organization/documents/templates/create` | Redirects to PDF upload page (`/create/pdf`) | `documents.templates.create` |
+| `/organization/documents/templates/create/content` | Redirects to PDF upload page (`/create/pdf`) | `documents.templates.create` |
 | `/organization/documents/templates/create/pdf` | PDF upload create page | `documents.templates.create` |
-| `/organization/documents/templates/{template}/edit` | Content template edit page | `documents.templates.update` |
+| `/organization/documents/templates/{template}/edit` | Redirects to Templates list | `documents.templates.update` |
 | `/organization/documents/templates/{template}/design` | Unified visual designer — side-effect free; shows draft > published > latest | `documents.templates.update` |
 | `/organization/documents/templates/{template}/design-employees` | JSON search of active company employees for canvas preview | `documents.templates.update` + `employees.view` |
 | `/organization/documents/templates/{template}/design-employees/{employee}` | Allowlisted merge-field values for one company employee | `documents.templates.update` + `employees.view` |
-| `/organization/documents/templates` (POST) | Store custom document template (PDF → design page; content → list) | `documents.templates.create` |
+| `/organization/documents/templates` (POST) | Store custom PDF document template → redirects to design page | `documents.templates.create` |
 | `/organization/documents/templates/preview-draft` (POST) | Render preview for unsaved draft | `documents.templates.create` \| `documents.templates.update` |
 | `/organization/documents/templates/{template}/preview` (GET) | Render preview for saved template | `documents.templates.view` |
 | `/organization/documents/templates/{template}` (PUT) | Update custom document template | `documents.templates.update` |

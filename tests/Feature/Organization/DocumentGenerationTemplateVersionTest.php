@@ -10,6 +10,7 @@ use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\User;
 use App\Support\Documents\Actions\BranchDocumentGenerationTemplateDraft;
+use App\Support\Documents\Actions\CreateDocumentGenerationTemplate;
 use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
 use App\Support\Documents\Actions\UpdateDocumentGenerationTemplate;
 use Database\Seeders\PermissionsSeeder;
@@ -63,7 +64,7 @@ test('published version strictly prevents modification of renderable attributes'
 
 test('draft branching enforces at most one draft per template', function () {
     $company = createVersionTestCompany();
-    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->content()->create([
         'status' => DocumentGenerationTemplateStatus::Active,
     ]);
 
@@ -262,18 +263,14 @@ test('published version protected fields cannot be modified', function () {
 test('newly created content template starts in draft with v1 draft and null published_version_id', function () {
     $user = User::factory()->create();
     $company = createVersionTestCompany();
-    grantCompanyPermissions($user, $company, ['documents.templates.create']);
 
-    $response = $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->post(route('organization.documents.templates.store'), [
-            'name' => 'Initial Draft Content Template',
-            'content' => 'Initial draft text {{employee_name}}',
-        ]);
+    $action = new CreateDocumentGenerationTemplate;
+    $template = $action->handle($company->id, [
+        'template_format' => DocumentGenerationTemplateFormat::Content->value,
+        'name' => 'Initial Draft Content Template',
+        'content' => 'Initial draft text {{employee_name}}',
+    ], $user);
 
-    $response->assertRedirect();
-
-    $template = DocumentGenerationTemplate::query()->where('name', 'Initial Draft Content Template')->firstOrFail();
     expect($template->status)->toBe(DocumentGenerationTemplateStatus::Draft);
     expect($template->published_version_id)->toBeNull();
 

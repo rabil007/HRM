@@ -1,14 +1,10 @@
 import { Link, router } from '@inertiajs/react';
 import {
     Copy,
-    Eye,
     FileStack,
-    FileText,
     Layers,
     MoreHorizontal,
-    Pencil,
     PenLine,
-    Plus,
     Power,
     PowerOff,
     Search,
@@ -18,7 +14,7 @@ import {
     UploadCloud,
     X,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
@@ -44,19 +40,16 @@ import { cn } from '@/lib/utils';
 import { edit as applicationSettings } from '@/routes/application';
 import {
     activate as activateTemplate,
-    create as createTemplate,
     deactivate as deactivateTemplate,
     design as designTemplate,
     destroy as destroyTemplate,
     draft as draftTemplate,
     duplicate as duplicateTemplate,
-    edit as editTemplate,
-    preview as previewTemplate,
 } from '@/routes/organization/documents/templates';
+import { pdf as createPdfTemplate } from '@/routes/organization/documents/templates/create';
 import { publish as publishTemplateVersion } from '@/routes/organization/documents/templates/versions';
 import { TemplateAutomationSheet } from './components/template-automation-sheet';
 import { TemplateDeleteDialog } from './components/template-delete-dialog';
-import { TemplatePreviewDialog } from './components/template-preview-dialog';
 import { TemplateReplacePdfDialog } from './components/template-replace-pdf-dialog';
 import type {
     AutomationPresetOption,
@@ -106,18 +99,6 @@ export function DocumentsTemplatesContent({
     const [deletingTemplate, setDeletingTemplate] =
         useState<CustomTemplate | null>(null);
 
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-    const [previewLoading, setPreviewLoading] = useState(false);
-    const [previewData, setPreviewData] = useState<{
-        title: string;
-        contentHtml: string;
-        unresolvedPlaceholders: string[];
-    }>({
-        title: '',
-        contentHtml: '',
-        unresolvedPlaceholders: [],
-    });
-
     const [isReplacePdfOpen, setIsReplacePdfOpen] = useState(false);
     const [replacingTemplate, setReplacingTemplate] =
         useState<CustomTemplate | null>(null);
@@ -128,8 +109,6 @@ export function DocumentsTemplatesContent({
     const [automationTemplate, setAutomationTemplate] =
         useState<CustomTemplate | null>(null);
 
-    const [pendingReplacePdfTemplateId, setPendingReplacePdfTemplateId] =
-        useState<number | null>(null);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
 
@@ -138,25 +117,6 @@ export function DocumentsTemplatesContent({
     const [statusFilter, setStatusFilter] = useState<
         'all' | 'active' | 'draft' | 'inactive'
     >('all');
-    const [formatFilter, setFormatFilter] = useState<
-        'all' | 'content' | 'pdf_overlay'
-    >('all');
-
-    useEffect(() => {
-        if (pendingReplacePdfTemplateId !== null) {
-            const matched = customTemplates.find(
-                (t) => t.id === pendingReplacePdfTemplateId,
-            );
-
-            if (matched?.draft_version) {
-                setReplacingTemplate(matched);
-                setReplacingVersion(matched.draft_version);
-                setIsReplacePdfOpen(true);
-                setPendingReplacePdfTemplateId(null);
-                setIsActionLoading(false);
-            }
-        }
-    }, [customTemplates, pendingReplacePdfTemplateId]);
 
     const handleOpenReplacePdf = (template: CustomTemplate) => {
         setActionError(null);
@@ -170,15 +130,29 @@ export function DocumentsTemplatesContent({
         }
 
         setIsActionLoading(true);
-        setPendingReplacePdfTemplateId(template.id);
         router.post(
             draftTemplate.url({ template: template.id }),
             {},
             {
                 preserveScroll: true,
+                onSuccess: (page) => {
+                    setIsActionLoading(false);
+                    const updatedTemplates =
+                        (page.props.custom_templates as
+                            | CustomTemplate[]
+                            | undefined) ?? [];
+                    const matched = updatedTemplates.find(
+                        (t) => t.id === template.id,
+                    );
+
+                    if (matched?.draft_version) {
+                        setReplacingTemplate(matched);
+                        setReplacingVersion(matched.draft_version);
+                        setIsReplacePdfOpen(true);
+                    }
+                },
                 onError: (err) => {
                     setIsActionLoading(false);
-                    setPendingReplacePdfTemplateId(null);
                     const msg =
                         (Object.values(err)[0] as string) ||
                         'Failed to prepare template draft for replacement.';
@@ -250,48 +224,6 @@ export function DocumentsTemplatesContent({
         });
     };
 
-    const handlePreviewStored = async (template: CustomTemplate) => {
-        setIsPreviewOpen(true);
-        setPreviewLoading(true);
-        setPreviewData({
-            title: template.name,
-            contentHtml: '',
-            unresolvedPlaceholders: [],
-        });
-
-        try {
-            const res = await fetch(
-                previewTemplate.url({ template: template.id }),
-                {
-                    headers: {
-                        Accept: 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                },
-            );
-
-            if (!res.ok) {
-                throw new Error('Failed to load preview');
-            }
-
-            const data = await res.json();
-            setPreviewData({
-                title: data.name,
-                contentHtml: data.content_html,
-                unresolvedPlaceholders: data.unresolved_placeholders || [],
-            });
-        } catch {
-            setPreviewData({
-                title: template.name,
-                contentHtml:
-                    '<p class="text-destructive">Failed to generate preview.</p>',
-                unresolvedPlaceholders: [],
-            });
-        } finally {
-            setPreviewLoading(false);
-        }
-    };
-
     // Derived / filtered values
     const activeCount = customTemplates.filter(
         (t) => t.status === 'active',
@@ -308,10 +240,8 @@ export function DocumentsTemplatesContent({
                 false);
         const matchesStatus =
             statusFilter === 'all' || t.status === statusFilter;
-        const matchesFormat =
-            formatFilter === 'all' || t.template_format === formatFilter;
 
-        return matchesSearch && matchesStatus && matchesFormat;
+        return matchesSearch && matchesStatus;
     });
 
     return (
@@ -322,9 +252,9 @@ export function DocumentsTemplatesContent({
                 right={
                     can.create_templates ? (
                         <Button asChild className="gap-1.5">
-                            <Link href={createTemplate.url()}>
-                                <Plus className="h-4 w-4" />
-                                <span>New Template</span>
+                            <Link href={createPdfTemplate.url()}>
+                                <UploadCloud className="h-4 w-4" />
+                                <span>Upload PDF</span>
                             </Link>
                         </Button>
                     ) : null
@@ -445,44 +375,6 @@ export function DocumentsTemplatesContent({
                                                 {label}
                                             </button>
                                         ))}
-                                        <div className="mx-0.5 h-5 w-px bg-border" />
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                setFormatFilter(
-                                                    formatFilter === 'content'
-                                                        ? 'all'
-                                                        : 'content',
-                                                )
-                                            }
-                                            className={cn(
-                                                'h-9 rounded-lg px-3 text-xs font-medium transition-colors',
-                                                formatFilter === 'content'
-                                                    ? 'bg-blue-500 text-white'
-                                                    : 'border border-border bg-background text-muted-foreground hover:bg-muted',
-                                            )}
-                                        >
-                                            Content
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                setFormatFilter(
-                                                    formatFilter ===
-                                                        'pdf_overlay'
-                                                        ? 'all'
-                                                        : 'pdf_overlay',
-                                                )
-                                            }
-                                            className={cn(
-                                                'h-9 rounded-lg px-3 text-xs font-medium transition-colors',
-                                                formatFilter === 'pdf_overlay'
-                                                    ? 'bg-purple-500 text-white'
-                                                    : 'border border-border bg-background text-muted-foreground hover:bg-muted',
-                                            )}
-                                        >
-                                            PDF
-                                        </button>
                                     </div>
                                 </div>
 
@@ -490,9 +382,6 @@ export function DocumentsTemplatesContent({
                                 {filteredTemplates.length > 0 ? (
                                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                         {filteredTemplates.map((template) => {
-                                            const isPdf =
-                                                template.template_format ===
-                                                'pdf_overlay';
                                             const hasDraft =
                                                 template.draft_version !== null;
                                             const hasPublished =
@@ -505,32 +394,14 @@ export function DocumentsTemplatesContent({
                                                     className="group relative flex flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-xs transition-all hover:border-border hover:shadow-md"
                                                 >
                                                     {/* Top colour accent bar */}
-                                                    <div
-                                                        className={cn(
-                                                            'h-0.5 w-full shrink-0',
-                                                            isPdf
-                                                                ? 'bg-purple-500'
-                                                                : 'bg-blue-500',
-                                                        )}
-                                                    />
+                                                    <div className="h-0.5 w-full shrink-0 bg-purple-500" />
 
                                                     {/* Card body */}
                                                     <div className="flex flex-1 flex-col p-4">
                                                         <div className="flex items-start justify-between gap-2">
                                                             <div className="flex min-w-0 items-start gap-3">
-                                                                <div
-                                                                    className={cn(
-                                                                        'flex size-9 shrink-0 items-center justify-center rounded-lg',
-                                                                        isPdf
-                                                                            ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
-                                                                            : 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-                                                                    )}
-                                                                >
-                                                                    {isPdf ? (
-                                                                        <Layers className="size-4" />
-                                                                    ) : (
-                                                                        <FileText className="size-4" />
-                                                                    )}
+                                                                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                                                                    <Layers className="size-4" />
                                                                 </div>
                                                                 <div className="min-w-0">
                                                                     <div className="truncate text-sm leading-tight font-semibold text-foreground">
@@ -578,71 +449,43 @@ export function DocumentsTemplatesContent({
                                                                     >
                                                                         {can.update_templates && (
                                                                             <>
-                                                                                {/* Content template edit */}
-                                                                                {!isPdf && (
-                                                                                    <DropdownMenuItem
-                                                                                        asChild
-                                                                                        className="gap-2"
+                                                                                <DropdownMenuItem
+                                                                                    asChild
+                                                                                    className="gap-2"
+                                                                                >
+                                                                                    <Link
+                                                                                        href={designTemplate.url(
+                                                                                            {
+                                                                                                template:
+                                                                                                    template.id,
+                                                                                            },
+                                                                                        )}
                                                                                     >
-                                                                                        <Link
-                                                                                            href={editTemplate.url(
-                                                                                                {
-                                                                                                    template:
-                                                                                                        template.id,
-                                                                                                },
-                                                                                            )}
-                                                                                        >
-                                                                                            <Pencil className="h-3.5 w-3.5" />
-                                                                                            <span>
-                                                                                                Edit
-                                                                                                Content
-                                                                                            </span>
-                                                                                        </Link>
-                                                                                    </DropdownMenuItem>
-                                                                                )}
-
-                                                                                {/* PDF template actions */}
-                                                                                {isPdf && (
-                                                                                    <>
-                                                                                        <DropdownMenuItem
-                                                                                            asChild
-                                                                                            className="gap-2"
-                                                                                        >
-                                                                                            <Link
-                                                                                                href={designTemplate.url(
-                                                                                                    {
-                                                                                                        template:
-                                                                                                            template.id,
-                                                                                                    },
-                                                                                                )}
-                                                                                            >
-                                                                                                <Layers className="h-3.5 w-3.5" />
-                                                                                                <span>
-                                                                                                    Design
-                                                                                                    Template
-                                                                                                </span>
-                                                                                            </Link>
-                                                                                        </DropdownMenuItem>
-                                                                                        <DropdownMenuSeparator />
-                                                                                        <DropdownMenuItem
-                                                                                            disabled={
-                                                                                                isActionLoading
-                                                                                            }
-                                                                                            onClick={() =>
-                                                                                                handleOpenReplacePdf(
-                                                                                                    template,
-                                                                                                )
-                                                                                            }
-                                                                                            className="gap-2"
-                                                                                        >
-                                                                                            <UploadCloud className="h-3.5 w-3.5" />
-                                                                                            <span>
-                                                                                                Replace
-                                                                                                PDF
-                                                                                            </span>
-                                                                                        </DropdownMenuItem>
-                                                                                    </>
-                                                                                )}
+                                                                                        <Layers className="h-3.5 w-3.5" />
+                                                                                        <span>
+                                                                                            Design
+                                                                                            Template
+                                                                                        </span>
+                                                                                    </Link>
+                                                                                </DropdownMenuItem>
+                                                                                <DropdownMenuSeparator />
+                                                                                <DropdownMenuItem
+                                                                                    disabled={
+                                                                                        isActionLoading
+                                                                                    }
+                                                                                    onClick={() =>
+                                                                                        handleOpenReplacePdf(
+                                                                                            template,
+                                                                                        )
+                                                                                    }
+                                                                                    className="gap-2"
+                                                                                >
+                                                                                    <UploadCloud className="h-3.5 w-3.5" />
+                                                                                    <span>
+                                                                                        Replace
+                                                                                        PDF
+                                                                                    </span>
+                                                                                </DropdownMenuItem>
 
                                                                                 {/* Publish draft */}
                                                                                 {hasDraft && (
@@ -776,21 +619,12 @@ export function DocumentsTemplatesContent({
                                                                     template.status_label
                                                                 }
                                                             </Badge>
-                                                            {isPdf ? (
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className="border-purple-500/30 bg-purple-500/10 text-[11px] font-medium text-purple-700 dark:text-purple-400"
-                                                                >
-                                                                    PDF
-                                                                </Badge>
-                                                            ) : (
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className="border-blue-500/30 bg-blue-500/10 text-[11px] font-medium text-blue-700 dark:text-blue-400"
-                                                                >
-                                                                    Content
-                                                                </Badge>
-                                                            )}
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="border-purple-500/30 bg-purple-500/10 text-[11px] font-medium text-purple-700 dark:text-purple-400"
+                                                            >
+                                                                PDF Template
+                                                            </Badge>
                                                             {template.document_type_title && (
                                                                 <Badge
                                                                     variant="outline"
@@ -859,50 +693,28 @@ export function DocumentsTemplatesContent({
 
                                                         <div className="flex items-center gap-0.5">
                                                             {/* Design button for PDF */}
-                                                            {isPdf &&
-                                                                can.update_templates && (
-                                                                    <Button
-                                                                        asChild
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-7 w-7 text-primary"
-                                                                        title="Design Merge Fields"
-                                                                    >
-                                                                        <Link
-                                                                            href={designTemplate.url(
-                                                                                {
-                                                                                    template:
-                                                                                        template.id,
-                                                                                },
-                                                                            )}
-                                                                        >
-                                                                            <Layers className="h-3.5 w-3.5" />
-                                                                            <span className="sr-only">
-                                                                                Design
-                                                                                Fields
-                                                                            </span>
-                                                                        </Link>
-                                                                    </Button>
-                                                                )}
-
-                                                            {/* Preview for content templates */}
-                                                            {!isPdf && (
+                                                            {can.update_templates && (
                                                                 <Button
-                                                                    type="button"
+                                                                    asChild
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    className="h-7 w-7"
-                                                                    title="Preview"
-                                                                    onClick={() =>
-                                                                        handlePreviewStored(
-                                                                            template,
-                                                                        )
-                                                                    }
+                                                                    className="h-7 w-7 text-primary"
+                                                                    title="Design Template"
                                                                 >
-                                                                    <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                                                                    <span className="sr-only">
-                                                                        Preview
-                                                                    </span>
+                                                                    <Link
+                                                                        href={designTemplate.url(
+                                                                            {
+                                                                                template:
+                                                                                    template.id,
+                                                                            },
+                                                                        )}
+                                                                    >
+                                                                        <Layers className="h-3.5 w-3.5" />
+                                                                        <span className="sr-only">
+                                                                            Design
+                                                                            Template
+                                                                        </span>
+                                                                    </Link>
                                                                 </Button>
                                                             )}
 
@@ -953,7 +765,6 @@ export function DocumentsTemplatesContent({
                                             onClick={() => {
                                                 setSearchQuery('');
                                                 setStatusFilter('all');
-                                                setFormatFilter('all');
                                             }}
                                             className="mt-4 text-xs font-medium text-primary underline-offset-2 hover:underline"
                                         >
@@ -965,18 +776,18 @@ export function DocumentsTemplatesContent({
                         ) : (
                             <EmptyState
                                 icon={
-                                    <FileText className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
+                                    <FileStack className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
                                 }
                                 title="No company templates yet."
-                                description="Create a reusable document template for Generate & Send."
+                                description="Upload a PDF template for Generate & Send."
                                 action={
                                     can.create_templates ? (
                                         <Button asChild size="sm">
-                                            <Link href={createTemplate.url()}>
-                                                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                                                <span>
-                                                    Create First Template
-                                                </span>
+                                            <Link
+                                                href={createPdfTemplate.url()}
+                                            >
+                                                <UploadCloud className="mr-1.5 h-3.5 w-3.5" />
+                                                <span>Upload PDF</span>
                                             </Link>
                                         </Button>
                                     ) : null
@@ -1102,16 +913,6 @@ export function DocumentsTemplatesContent({
                 template={automationTemplate}
                 workflowPresets={workflowPresets}
                 signingPresets={signingPresets}
-            />
-
-            {/* Sample-Only Preview Modal */}
-            <TemplatePreviewDialog
-                open={isPreviewOpen}
-                onOpenChange={setIsPreviewOpen}
-                title={previewData.title}
-                contentHtml={previewData.contentHtml}
-                unresolvedPlaceholders={previewData.unresolvedPlaceholders}
-                isLoading={previewLoading}
             />
 
             {/* Delete Confirmation Modal */}

@@ -2,6 +2,7 @@
 
 namespace App\Support\Documents\Queries;
 
+use App\Enums\DocumentGenerationTemplateFormat;
 use App\Models\DocumentGenerationTemplate;
 
 final class DocumentGenerationTemplateQuery
@@ -28,6 +29,7 @@ final class DocumentGenerationTemplateQuery
     {
         return DocumentGenerationTemplate::query()
             ->forCompany($companyId)
+            ->where('template_format', DocumentGenerationTemplateFormat::PdfOverlay)
             ->with(['documentType', 'creator', 'updater', 'publishedVersion', 'draftVersion'])
             ->orderBy('name')
             ->get()
