@@ -168,6 +168,7 @@ test('overlay blade applies serif font family for matching letter templates', fu
 
     expect($html)
         ->toContain('5000')
+        ->toContain('Times New Roman')
         ->toContain('DejaVu Serif')
         ->toContain('color: #000000');
 });
@@ -224,6 +225,31 @@ test('overlay blade skips empty merge values', function () {
     expect($html)->not->toContain('dir="auto"');
 });
 
+test('overlay blade applies baseline as flex-end vertical alignment', function () {
+    $html = view('documents.pdf-overlay-page', [
+        'page_width_mm' => 210.0,
+        'page_height_mm' => 297.0,
+        'embedded_font_styles' => '',
+        'placements' => [
+            [
+                'id' => 'p1',
+                'field' => '{{employee_name}}',
+                'value' => 'Jane Smith',
+                'left_mm' => 10.0,
+                'top_mm' => 10.0,
+                'width_mm' => 100.0,
+                'height_mm' => 10.0,
+                'effective_font_size' => 12.0,
+                'font_weight' => 'normal',
+                'text_align' => 'left',
+                'vertical_align_css' => 'flex-end',
+            ],
+        ],
+    ])->render();
+
+    expect($html)->toContain('align-items: flex-end');
+});
+
 test('overlay blade keeps left and right as physical alignment values', function (string $align, string $justify) {
     $html = view('documents.pdf-overlay-page', [
         'page_width_mm' => 210.0,
@@ -253,6 +279,66 @@ test('overlay blade keeps left and right as physical alignment values', function
     'left' => ['left', 'flex-start'],
     'right' => ['right', 'flex-end'],
 ]);
+
+test('overlay blade stretches static text so left center and right alignment fill the box', function (string $align) {
+    $html = view('documents.pdf-overlay-page', [
+        'page_width_mm' => 210.0,
+        'page_height_mm' => 297.0,
+        'embedded_font_styles' => '',
+        'placements' => [
+            [
+                'id' => 'static-1',
+                'is_static_text' => true,
+                'value' => 'Static label',
+                'left_mm' => 10.0,
+                'top_mm' => 10.0,
+                'width_mm' => 100.0,
+                'height_mm' => 10.0,
+                'effective_font_size' => 12.0,
+                'font_weight' => 'normal',
+                'text_align' => $align,
+            ],
+        ],
+    ])->render();
+
+    expect($html)
+        ->toContain("text-align: {$align}")
+        ->toContain('display: block')
+        ->toContain('width: 100%')
+        ->toContain('white-space: pre-wrap')
+        ->toContain('overflow-wrap: break-word')
+        ->toContain('line-height: 1.2')
+        ->toContain('overflow: hidden')
+        ->toContain('align-items: flex-start')
+        ->toContain('Static label');
+})->with(['left', 'center', 'right']);
+
+test('overlay blade keeps multiline static text wrapping', function () {
+    $html = view('documents.pdf-overlay-page', [
+        'page_width_mm' => 210.0,
+        'page_height_mm' => 297.0,
+        'embedded_font_styles' => '',
+        'placements' => [
+            [
+                'id' => 'static-multi',
+                'is_static_text' => true,
+                'value' => "First line\nSecond line",
+                'left_mm' => 10.0,
+                'top_mm' => 10.0,
+                'width_mm' => 100.0,
+                'height_mm' => 20.0,
+                'effective_font_size' => 12.0,
+                'font_weight' => 'normal',
+                'text_align' => 'left',
+            ],
+        ],
+    ])->render();
+
+    expect($html)
+        ->toContain('white-space: pre-wrap')
+        ->toContain('width: 100%')
+        ->toContain("First line\nSecond line");
+});
 
 test('placement validator treats null config as zero placements', function () {
     $result = PdfOverlayPlacementValidator::validate(null, 1);
@@ -318,6 +404,11 @@ test('placement validator rejects a salary field key', function () {
         ->toThrow(InvalidArgumentException::class, 'unsupported merge field');
 });
 
+test('placement validator rejects passport number as an unsupported merge field', function () {
+    expect(fn () => PdfOverlayPlacementValidator::validate(overlayPlacementConfig(['field' => '{{passport_number}}']), 1))
+        ->toThrow(InvalidArgumentException::class, 'unsupported merge field');
+});
+
 test('placement validator rejects coordinates and sizes outside the page', function (array $overrides, string $message) {
     expect(fn () => PdfOverlayPlacementValidator::validate(overlayPlacementConfig($overrides), 1))
         ->toThrow(InvalidArgumentException::class, $message);
@@ -329,6 +420,7 @@ test('placement validator rejects coordinates and sizes outside the page', funct
     'invalid page' => [['page' => 5], 'page number'],
     'invalid weight' => [['font_weight' => 'ultra-bold'], 'font weight'],
     'invalid family' => [['font_family' => 'comic-sans'], 'font family'],
+    'invalid vertical align' => [['vertical_align' => 'justify'], 'vertical alignment'],
     'invalid color' => [['font_color' => 'red'], 'font color'],
     'invalid color css' => [['font_color' => 'rgb(0,0,0)'], 'font color'],
 ]);
@@ -337,11 +429,94 @@ test('placement validator accepts a valid schema v1 config', function () {
     $result = PdfOverlayPlacementValidator::validate(overlayPlacementConfig(), 1);
 
     expect($result)->toHaveCount(1)
+        ->and($result[0]['type'])->toBe('field')
         ->and($result[0]['field'])->toBe('{{employee_name}}')
         ->and($result[0]['font_size'])->toBe(14)
         ->and($result[0]['text_align'])->toBe('left')
+        ->and($result[0]['vertical_align'])->toBe('middle')
         ->and($result[0]['font_family'])->toBe('sans')
         ->and($result[0]['font_color'])->toBe('#000000');
+});
+
+test('placement validator accepts schema v2 field and text types', function () {
+    $field = PdfOverlayPlacementValidator::validate([
+        'schema_version' => 2,
+        'placements' => [
+            array_merge(overlayPlacementConfig()['placements'][0], ['type' => 'field']),
+        ],
+    ], 1);
+
+    $text = PdfOverlayPlacementValidator::validate([
+        'schema_version' => 2,
+        'placements' => [
+            [
+                'id' => 'text-1',
+                'type' => 'text',
+                'text_content' => 'Hello',
+                'page' => 1,
+                'x' => 0.1,
+                'y' => 0.1,
+                'width' => 0.8,
+                'height' => 0.05,
+                'font_size' => 14,
+                'font_weight' => 'normal',
+                'text_align' => 'left',
+            ],
+        ],
+    ], 1);
+
+    expect($field[0]['type'])->toBe('field')
+        ->and($field[0]['vertical_align'])->toBe('middle')
+        ->and($text[0]['type'])->toBe('text')
+        ->and($text[0]['text_content'])->toBe('Hello')
+        ->and($text[0]['vertical_align'])->toBe('top');
+});
+
+test('placement validator rejects schema v2 missing type', function () {
+    expect(fn () => PdfOverlayPlacementValidator::validate([
+        'schema_version' => 2,
+        'placements' => overlayPlacementConfig()['placements'],
+    ], 1))->toThrow(InvalidArgumentException::class, 'missing a required type');
+});
+
+test('placement validator rejects schema v2 unknown type', function (string $type) {
+    expect(fn () => PdfOverlayPlacementValidator::validate([
+        'schema_version' => 2,
+        'placements' => [
+            array_merge(overlayPlacementConfig()['placements'][0], ['type' => $type]),
+        ],
+    ], 1))->toThrow(InvalidArgumentException::class, 'invalid type');
+})->with(['signature', 'abc']);
+
+test('placement validator rejects schema v2 empty type', function () {
+    expect(fn () => PdfOverlayPlacementValidator::validate([
+        'schema_version' => 2,
+        'placements' => [
+            array_merge(overlayPlacementConfig()['placements'][0], ['type' => '']),
+        ],
+    ], 1))->toThrow(InvalidArgumentException::class, 'missing a required type');
+});
+
+test('validateVersion rejects persisted corrupt v2 config with unknown type', function () {
+    $template = DocumentGenerationTemplate::factory()->create([
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+        'status' => DocumentGenerationTemplateStatus::Active,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 1,
+        'status' => DocumentGenerationTemplateVersionStatus::Published,
+        'source_pdf_page_count' => 1,
+        'published_at' => now(),
+        'placement_config' => [
+            'schema_version' => 2,
+            'placements' => [
+                array_merge(overlayPlacementConfig()['placements'][0], ['type' => 'signature']),
+            ],
+        ],
+    ]);
+
+    expect(fn () => PdfOverlayPlacementValidator::validateVersion($version))
+        ->toThrow(InvalidArgumentException::class, 'invalid type');
 });
 
 test('placement validator defaults missing font family to sans and accepts serif', function () {
@@ -349,8 +524,17 @@ test('placement validator defaults missing font family to sans and accepts serif
     $serif = PdfOverlayPlacementValidator::validate(overlayPlacementConfig(['font_family' => 'serif']), 1);
 
     expect($sans[0]['font_family'])->toBe('sans')
-        ->and($serif[0]['font_family'])->toBe('serif')
-        ->and(PdfOverlayPlacementValidator::cssFontFamily('serif'))->toContain('DejaVu Serif');
+        ->and($serif[0]['font_family'])->toBe('serif');
+
+    $serifCss = PdfOverlayPlacementValidator::cssFontFamily('serif');
+    $sansCss = PdfOverlayPlacementValidator::cssFontFamily('sans');
+
+    expect($serifCss)->toContain('Times New Roman')
+        ->and($serifCss)->toContain('DejaVu Serif')
+        ->and(strpos($serifCss, 'Times New Roman'))->toBeLessThan((int) strpos($serifCss, 'DejaVu Serif'))
+        ->and($sansCss)->toContain('Arial')
+        ->and($sansCss)->toContain('DejaVu Sans')
+        ->and(strpos($sansCss, 'Arial'))->toBeLessThan((int) strpos($sansCss, 'DejaVu Sans'));
 });
 
 test('placement validator accepts and normalizes hex font colors', function () {

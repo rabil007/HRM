@@ -43,6 +43,8 @@ export type CustomTemplate = {
 
 export type PlacementFontFamily = 'sans' | 'serif';
 
+export type PlacementVerticalAlign = 'top' | 'middle' | 'baseline';
+
 // Base shape shared by all PDF placement items
 type BasePdfPlacement = {
     id: string;
@@ -56,6 +58,7 @@ type BasePdfPlacement = {
     font_family?: PlacementFontFamily;
     font_color?: string;
     text_align?: 'left' | 'center' | 'right';
+    vertical_align?: PlacementVerticalAlign;
 };
 
 export type PdfFieldPlacement = BasePdfPlacement & {
@@ -80,6 +83,17 @@ export type PlacementConfig = {
  * Normalize a raw persisted placement (which may lack `type` in schema v1)
  * to the discriminated union. Runs only on load — never writes to the DB.
  */
+export function normalizeVerticalAlign(
+    raw: unknown,
+    placementType: 'field' | 'text' = 'field',
+): PlacementVerticalAlign {
+    if (raw === 'top' || raw === 'middle' || raw === 'baseline') {
+        return raw;
+    }
+
+    return placementType === 'text' ? 'top' : 'middle';
+}
+
 export function normalizeFontColor(raw: unknown): string {
     if (typeof raw === 'string' && /^#[0-9a-fA-F]{6}$/.test(raw)) {
         return raw.toLowerCase();
@@ -105,6 +119,10 @@ export function normalizePlacementItem(
             | 'serif',
         font_color: normalizeFontColor(raw.font_color),
         text_align: raw.text_align as 'left' | 'center' | 'right' | undefined,
+        vertical_align: normalizeVerticalAlign(
+            raw.vertical_align,
+            raw.type === 'text' ? 'text' : 'field',
+        ),
     };
 
     if (raw.type === 'text') {
@@ -203,6 +221,7 @@ export type TemplateVersionListItem = {
 
 // Change summary returned by showVersion endpoint
 export type VersionChangeSummary = {
+    compared_to_version: number;
     pdf_metadata_changed: boolean;
     fields_added: number;
     fields_removed: number;

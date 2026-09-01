@@ -56,7 +56,6 @@ test('allowed keys contain expected core fields', function () {
         '{{gender}}',
         '{{joining_date}}',
         '{{nationality}}',
-        '{{passport_number}}',
         '{{position_name}}',
         '{{rank_name}}',
         '{{manager_name}}',
@@ -66,13 +65,14 @@ test('allowed keys contain expected core fields', function () {
         '{{today}}',
         '{{current_year}}',
     );
+    expect($keys)->not->toContain('{{passport_number}}');
 });
 
 test('find unsupported detects invalid or forbidden placeholders', function () {
-    $content = 'Hello {{employee_name}}, your bank account is {{bank_account}} and salary is {{salary}}.';
+    $content = 'Hello {{employee_name}}, your bank account is {{bank_account}} and salary is {{salary}}. Passport {{passport_number}}.';
     $unsupported = DocumentTemplateMergeFields::findUnsupported($content);
 
-    expect($unsupported)->toEqualCanonicalizing(['{{bank_account}}', '{{salary}}']);
+    expect($unsupported)->toEqualCanonicalizing(['{{bank_account}}', '{{salary}}', '{{passport_number}}']);
 });
 
 test('find unsupported returns empty array when all placeholders are valid', function () {
@@ -123,7 +123,7 @@ test('values for employee maps employee attributes to placeholders', function ()
     expect($values['{{position_name}}'])->toBe('First Officer');
     expect($values['{{rank_name}}'])->toBe('Captain');
     expect($values['{{nationality}}'])->toBe('Philippines');
-    expect($values['{{passport_number}}'])->toBe('P99887766');
+    expect($values)->not->toHaveKey('{{passport_number}}');
     expect($values['{{joining_date}}'])->toBe('10 May 2023');
     expect($values['{{manager_name}}'])->toBe('');
 });

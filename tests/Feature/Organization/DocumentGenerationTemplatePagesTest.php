@@ -292,8 +292,10 @@ test('design page renders with initial_version prop and does NOT auto-create a d
         ->has('all_versions')
         ->has('can')
         ->where('initial_version.status', 'published')
+        ->where('initial_change_summary', null)
         ->where('can.create_draft', true)
         ->where('can.update', true)
+        ->where('can.preview_employee', false)
     );
 
     $versionCountAfter = DocumentGenerationTemplateVersion::query()
@@ -330,7 +332,70 @@ test('design page selects draft as initial_version when draft exists', function 
     $response->assertInertia(fn (Assert $page) => $page
         ->where('initial_version.id', $draftVersion->id)
         ->where('initial_version.status', 'draft')
+        ->where('initial_change_summary.compared_to_version', 1)
     );
+});
+
+test('design page includes the initial change summary for v2 against the previous version', function () {
+    $user = User::factory()->create();
+    $company = createTemplatePagesTestCompany();
+    grantCompanyPermissions($user, $company, ['documents.templates.update']);
+
+    Storage::fake(DocumentTemplateStorage::DISK);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+    ]);
+
+    DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 1,
+        'status' => DocumentGenerationTemplateVersionStatus::Archived,
+        'source_pdf_page_count' => 1,
+        'published_at' => now()->subDay(),
+        'source_pdf_original_name' => 'old.pdf',
+        'placement_config' => [
+            'schema_version' => 1,
+            'placements' => [[
+                'id' => 'p1', 'field' => '{{employee_name}}',
+                'page' => 1, 'x' => 0.1, 'y' => 0.1, 'width' => 0.3, 'height' => 0.05,
+                'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
+            ]],
+        ],
+    ]);
+
+    $draftVersion = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 2,
+        'status' => DocumentGenerationTemplateVersionStatus::Draft,
+        'source_pdf_page_count' => 1,
+        'source_pdf_original_name' => 'new.pdf',
+        'placement_config' => [
+            'schema_version' => 2,
+            'placements' => [
+                [
+                    'id' => 'p1', 'type' => 'field', 'field' => '{{employee_name}}',
+                    'page' => 1, 'x' => 0.2, 'y' => 0.1, 'width' => 0.3, 'height' => 0.05,
+                    'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
+                ],
+                [
+                    'id' => 'p2', 'type' => 'field', 'field' => '{{today}}',
+                    'page' => 1, 'x' => 0.5, 'y' => 0.1, 'width' => 0.2, 'height' => 0.05,
+                    'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
+                ],
+            ],
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents.templates.design', $template))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('initial_version.id', $draftVersion->id)
+            ->where('initial_change_summary.compared_to_version', 1)
+            ->where('initial_change_summary.fields_added', 1)
+            ->where('initial_change_summary.fields_moved', 1)
+            ->where('initial_change_summary.pdf_metadata_changed', true)
+        );
 });
 
 test('design page returns 404 when template has no versions', function () {

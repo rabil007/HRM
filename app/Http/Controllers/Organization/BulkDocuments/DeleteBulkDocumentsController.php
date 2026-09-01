@@ -4,8 +4,7 @@ namespace App\Http\Controllers\Organization\BulkDocuments;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\BulkDocuments\DeleteBulkDocumentsRequest;
-use App\Models\EmployeeDocument;
-use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\BulkDocuments\BulkDocumentsDeletionQuery;
 use App\Support\EmployeeDocuments\DocumentDeletionService;
 use Illuminate\Http\RedirectResponse;
 
@@ -16,15 +15,11 @@ class DeleteBulkDocumentsController extends Controller
         DocumentDeletionService $deletion,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $documentType = BulkDocumentTypeRegistry::resolveDocumentType(
+        $documents = BulkDocumentsDeletionQuery::forType(
+            $companyId,
             (string) $request->input('document_type_key'),
+            $request->documentIds(),
         );
-
-        $documents = EmployeeDocument::query()
-            ->where('company_id', $companyId)
-            ->where('document_type_id', $documentType->id)
-            ->whereIn('id', $request->documentIds())
-            ->get();
 
         $deleted = 0;
 

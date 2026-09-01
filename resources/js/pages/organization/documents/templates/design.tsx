@@ -6,20 +6,23 @@ import type {
     MergeField,
     TemplateVersionListItem,
     TemplateVersionSummary,
+    VersionChangeSummary,
 } from '@/features/organization/documents/templates/types';
 import { templates } from '@/routes/organization/documents';
 
 type Props = {
     template: CustomTemplate;
     initial_version: TemplateVersionSummary;
+    initial_change_summary: VersionChangeSummary | null;
     all_versions: TemplateVersionListItem[];
     merge_fields: MergeField[];
-    can: { create_draft: boolean; update: boolean };
+    can: { create_draft: boolean; update: boolean; preview_employee?: boolean };
 };
 
 export default function DocumentTemplateDesignPage({
     template,
     initial_version,
+    initial_change_summary = null,
     all_versions = [],
     merge_fields = [],
     can,
@@ -38,6 +41,7 @@ export default function DocumentTemplateDesignPage({
                     }}
                     template={template}
                     initialVersion={initial_version}
+                    initialChangeSummary={initial_change_summary}
                     allVersions={all_versions}
                     mergeFields={merge_fields}
                     can={can}

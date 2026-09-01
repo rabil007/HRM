@@ -10,6 +10,7 @@ use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use Spatie\Activitylog\Models\Activity;
 
 final class SaveDocumentGenerationTemplatePlacements
@@ -67,7 +68,13 @@ final class SaveDocumentGenerationTemplatePlacements
                 }
                 $seenIds[$id] = true;
 
-                $type = ($item['type'] ?? 'field') === 'text' ? 'text' : 'field';
+                try {
+                    $type = PdfOverlayPlacementValidator::parsePlacementType($item, 2, $index);
+                } catch (InvalidArgumentException $e) {
+                    throw ValidationException::withMessages([
+                        "placements.{$index}.type" => $e->getMessage(),
+                    ]);
+                }
 
                 $page = (int) ($item['page'] ?? 1);
                 if ($page < 1 || $page > $pageCount) {
@@ -108,6 +115,10 @@ final class SaveDocumentGenerationTemplatePlacements
                 $fontWeight = ($item['font_weight'] ?? 'normal') === 'bold' ? 'bold' : 'normal';
                 $rawTextAlign = $item['text_align'] ?? 'left';
                 $textAlign = in_array($rawTextAlign, ['left', 'center', 'right'], true) ? $rawTextAlign : 'left';
+                $verticalAlign = PdfOverlayPlacementValidator::normalizeVerticalAlign(
+                    $item['vertical_align'] ?? null,
+                    $type,
+                );
                 $fontFamily = PdfOverlayPlacementValidator::normalizeFontFamily($item['font_family'] ?? 'sans');
                 $fontColor = PdfOverlayPlacementValidator::normalizeFontColor($item['font_color'] ?? PdfOverlayPlacementValidator::DEFAULT_FONT_COLOR);
                 if ($fontColor === null) {
@@ -140,6 +151,7 @@ final class SaveDocumentGenerationTemplatePlacements
                         'font_size' => $fontSize,
                         'font_weight' => $fontWeight,
                         'text_align' => $textAlign,
+                        'vertical_align' => $verticalAlign,
                         'font_family' => $fontFamily,
                         'font_color' => $fontColor,
                     ];
@@ -162,6 +174,7 @@ final class SaveDocumentGenerationTemplatePlacements
                         'font_size' => $fontSize,
                         'font_weight' => $fontWeight,
                         'text_align' => $textAlign,
+                        'vertical_align' => $verticalAlign,
                         'font_family' => $fontFamily,
                         'font_color' => $fontColor,
                     ];

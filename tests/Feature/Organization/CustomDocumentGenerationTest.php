@@ -354,7 +354,25 @@ test('re-running generation without explicit selection skips employees who alrea
     $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
     $template->update(['published_version_id' => $version->id]);
 
-    // Pre-create existing instance
+    $libraryPath = "employee-documents/{$company->id}/{$employee->id}/library.pdf";
+    Storage::disk('local')->put($libraryPath, minimalPdfBytes());
+
+    $libraryDoc = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'type' => 'other',
+        'document_type' => 'other',
+        'title' => $template->name,
+        'file_path' => $libraryPath,
+        'original_filename' => 'library.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 100,
+        'checksum' => 'checksum',
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    // Pre-create existing instance with a live library PDF
     DocumentInstance::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
@@ -365,6 +383,7 @@ test('re-running generation without explicit selection skips employees who alrea
         'template_version_number' => $version->version,
         'title_snapshot' => $template->name,
         'status' => 'generated',
+        'employee_document_id' => $libraryDoc->id,
         'generated_at' => now(),
     ]);
 
@@ -398,6 +417,51 @@ test('re-running generation without explicit selection skips employees who alrea
         ->and($run->generated_count)->toBe(0)
         ->and($run->skipped_count)->toBe(1)
         ->and($item->status)->toBe('skipped');
+});
+
+test('generate missing after library delete targets the employee again', function () {
+    Queue::fake();
+
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    grantCompanyPermissions($user, $company, ['bulk_documents.generate']);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'name' => 'Offer letter',
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    DocumentInstance::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_name_snapshot' => $employee->name,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'template_name_snapshot' => $template->name,
+        'template_version_number' => $version->version,
+        'title_snapshot' => $template->name,
+        'status' => 'generated',
+        'employee_document_id' => null,
+        'generated_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.custom.generate'), [
+            'document_generation_template_id' => $template->id,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $run = DocumentGenerationRun::query()->where('company_id', $company->id)->first();
+    expect($run)->not->toBeNull()
+        ->and($run->total_targeted)->toBe(1);
+
+    expect(DocumentGenerationRunItem::query()->where('document_generation_run_id', $run->id)->pluck('employee_id')->all())
+        ->toBe([$employee->id]);
 });
 
 test('template with generated instances cannot be deleted and returns validation exception', function () {
@@ -2600,4 +2664,257 @@ test('corrupt duplicate placement ids in published config cannot generate offici
         ->and($item->error_code)->toBe('GENERATION_FAILED')
         ->and(DocumentInstance::query()->count())->toBe(0)
         ->and(EmployeeDocument::query()->count())->toBe(0);
+});
+
+test('generate page can delete custom template library documents', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    grantCompanyPermissions($user, $company, ['bulk_documents.view', 'bulk_documents.delete']);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    $canonicalPath = "document-instances/{$company->id}/canonical.pdf";
+    $libraryPath = "employee-documents/{$company->id}/{$employee->id}/library.pdf";
+    Storage::disk('local')->put($canonicalPath, minimalPdfBytes());
+    Storage::disk('local')->put($libraryPath, minimalPdfBytes());
+
+    $libraryDoc = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'type' => 'other',
+        'document_type' => 'other',
+        'title' => $template->name,
+        'file_path' => $libraryPath,
+        'original_filename' => 'library.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 100,
+        'checksum' => 'checksum',
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    $instance = DocumentInstance::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_name_snapshot' => (string) $employee->name,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'template_name_snapshot' => $template->name,
+        'template_version_number' => $version->version,
+        'title_snapshot' => $template->name,
+        'status' => 'generated',
+        'employee_document_id' => $libraryDoc->id,
+        'generated_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from(route('organization.documents.generate', ['document_type_key' => "custom_{$template->id}"]))
+        ->delete(route('organization.documents.bulk.documents.destroy'), [
+            'document_type_key' => "custom_{$template->id}",
+            'document_ids' => [$libraryDoc->id],
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(EmployeeDocument::query()->find($libraryDoc->id))->toBeNull()
+        ->and($instance->fresh()->employee_document_id)->toBeNull()
+        ->and(Storage::disk('local')->exists($canonicalPath))->toBeTrue()
+        ->and(Storage::disk('local')->exists($libraryPath))->toBeFalse();
+
+    $filters = EmployeeDirectoryFilters::fromArray(['status' => 'active']);
+    $counts = CustomDocumentRosterQuery::counts($company->id, $template, $version, $filters);
+    $generatedPage = CustomDocumentRosterQuery::paginate(
+        $company->id,
+        $template,
+        $version,
+        $filters,
+        20,
+        'generated',
+    );
+    $missingPage = CustomDocumentRosterQuery::paginate(
+        $company->id,
+        $template,
+        $version,
+        $filters,
+        20,
+        'missing',
+    );
+
+    expect($counts['generated'])->toBe(0)
+        ->and($counts['not_generated'])->toBe(1)
+        ->and($generatedPage->total())->toBe(0)
+        ->and($missingPage->total())->toBe(1)
+        ->and($missingPage->items()[0]['id'])->toBe($employee->id)
+        ->and($missingPage->items()[0]['document'])->toBeNull();
+});
+
+test('generate page delete rejects another companys custom template key', function () {
+    $user = User::factory()->create();
+    $companyA = createCustomGenTestCompany('Company A');
+    $companyB = createCustomGenTestCompany('Company B');
+    grantCompanyPermissions($user, $companyA, ['bulk_documents.view', 'bulk_documents.delete']);
+
+    $templateB = DocumentGenerationTemplate::factory()->forCompany($companyB)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+    ]);
+    $versionB = DocumentGenerationTemplateVersion::factory()->forTemplate($templateB)->published()->create();
+    $templateB->update(['published_version_id' => $versionB->id]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $companyA->id])
+        ->delete(route('organization.documents.bulk.documents.destroy'), [
+            'document_type_key' => "custom_{$templateB->id}",
+            'document_ids' => [1],
+        ])
+        ->assertSessionHasErrors(['document_type_key']);
+});
+
+test('generate page delete does not remove another templates library document', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    grantCompanyPermissions($user, $company, ['bulk_documents.view', 'bulk_documents.delete']);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $templateA = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'name' => 'Template A',
+    ]);
+    $versionA = DocumentGenerationTemplateVersion::factory()->forTemplate($templateA)->published()->create();
+    $templateA->update(['published_version_id' => $versionA->id]);
+
+    $templateB = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'name' => 'Template B',
+    ]);
+    $versionB = DocumentGenerationTemplateVersion::factory()->forTemplate($templateB)->published()->create();
+    $templateB->update(['published_version_id' => $versionB->id]);
+
+    $libraryPath = "employee-documents/{$company->id}/{$employee->id}/library-b.pdf";
+    Storage::disk('local')->put($libraryPath, minimalPdfBytes());
+
+    $libraryDoc = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'type' => 'other',
+        'document_type' => 'other',
+        'title' => $templateB->name,
+        'file_path' => $libraryPath,
+        'original_filename' => 'library-b.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 100,
+        'checksum' => 'checksum',
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    DocumentInstance::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_name_snapshot' => (string) $employee->name,
+        'document_generation_template_id' => $templateB->id,
+        'document_generation_template_version_id' => $versionB->id,
+        'template_name_snapshot' => $templateB->name,
+        'template_version_number' => $versionB->version,
+        'title_snapshot' => $templateB->name,
+        'status' => 'generated',
+        'employee_document_id' => $libraryDoc->id,
+        'generated_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from(route('organization.documents.generate', ['document_type_key' => "custom_{$templateA->id}"]))
+        ->delete(route('organization.documents.bulk.documents.destroy'), [
+            'document_type_key' => "custom_{$templateA->id}",
+            'document_ids' => [$libraryDoc->id],
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success', 'No documents were removed.');
+
+    expect(EmployeeDocument::query()->find($libraryDoc->id))->not->toBeNull()
+        ->and(Storage::disk('local')->exists($libraryPath))->toBeTrue();
+});
+
+test('users without bulk_documents.delete cannot delete custom generated documents', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    grantCompanyPermissions($user, $company, ['bulk_documents.view']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->delete(route('organization.documents.bulk.documents.destroy'), [
+            'document_type_key' => "custom_{$template->id}",
+            'document_ids' => [1],
+        ])
+        ->assertForbidden();
+});
+
+test('custom template selection returns matching generated library document ids', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    grantCompanyPermissions($user, $company, ['bulk_documents.view']);
+
+    $generated = Employee::factory()->forCompany($company)->create(['status' => 'active', 'name' => 'Generated Emp']);
+    Employee::factory()->forCompany($company)->create(['status' => 'active', 'name' => 'Missing Emp']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    $libraryPath = "employee-documents/{$company->id}/{$generated->id}/library.pdf";
+    Storage::disk('local')->put($libraryPath, minimalPdfBytes());
+
+    $libraryDoc = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $generated->id,
+        'type' => 'other',
+        'document_type' => 'other',
+        'title' => $template->name,
+        'file_path' => $libraryPath,
+        'original_filename' => 'library.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 100,
+        'checksum' => 'checksum',
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    DocumentInstance::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $generated->id,
+        'employee_name_snapshot' => (string) $generated->name,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'template_name_snapshot' => $template->name,
+        'template_version_number' => $version->version,
+        'title_snapshot' => $template->name,
+        'status' => 'generated',
+        'employee_document_id' => $libraryDoc->id,
+        'generated_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents.bulk.selection', [
+            'document_type_key' => "custom_{$template->id}",
+            'generation_filter' => 'generated',
+        ]))
+        ->assertOk()
+        ->assertJsonPath('total', 1)
+        ->assertJsonPath('employee_ids.0', $generated->id)
+        ->assertJsonPath('document_ids.0', $libraryDoc->id);
 });

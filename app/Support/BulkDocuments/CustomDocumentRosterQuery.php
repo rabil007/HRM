@@ -28,7 +28,8 @@ final class CustomDocumentRosterQuery
 
         $generated = (clone $query)->whereHas('documentInstances', function (Builder $instanceQuery) use ($companyId, $version): void {
             $instanceQuery->where('company_id', $companyId)
-                ->where('document_generation_template_version_id', $version->id);
+                ->where('document_generation_template_version_id', $version->id)
+                ->withLibraryDocument();
         })->count();
 
         $notGenerated = max(0, $targeted - $generated);
@@ -43,6 +44,47 @@ final class CustomDocumentRosterQuery
         ];
     }
 
+    /**
+     * @return array{
+     *     employee_ids: list<int>,
+     *     document_ids: list<int>,
+     *     total: int
+     * }
+     */
+    public static function matchingSelection(
+        int $companyId,
+        DocumentGenerationTemplateVersion $version,
+        EmployeeDirectoryFilters $filters,
+        string $generationFilter = 'all',
+    ): array {
+        $employeeIds = self::filteredEmployeeQuery($companyId, $version, $filters, $generationFilter)
+            ->orderBy('name')
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
+
+        $documentIds = DocumentInstance::query()
+            ->where('company_id', $companyId)
+            ->where('document_generation_template_version_id', $version->id)
+            ->whereIn('employee_id', $employeeIds)
+            ->withLibraryDocument()
+            ->orderByDesc('id')
+            ->get(['id', 'employee_id', 'employee_document_id'])
+            ->unique('employee_id')
+            ->pluck('employee_document_id')
+            ->filter()
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
+
+        return [
+            'employee_ids' => $employeeIds,
+            'document_ids' => $documentIds,
+            'total' => count($employeeIds),
+        ];
+    }
+
     public static function paginate(
         int $companyId,
         DocumentGenerationTemplate $template,
@@ -51,25 +93,11 @@ final class CustomDocumentRosterQuery
         int $perPage,
         string $generationFilter = 'all',
     ): LengthAwarePaginator {
-        $query = BulkDocumentRosterQuery::employeeQuery($companyId, $filters)
+        $paginator = self::filteredEmployeeQuery($companyId, $version, $filters, $generationFilter)
             ->with([
                 'department:id,name',
                 'position:id,title',
-            ]);
-
-        if ($generationFilter === 'missing') {
-            $query->whereDoesntHave('documentInstances', function (Builder $instanceQuery) use ($companyId, $version): void {
-                $instanceQuery->where('company_id', $companyId)
-                    ->where('document_generation_template_version_id', $version->id);
-            });
-        } elseif ($generationFilter === 'generated') {
-            $query->whereHas('documentInstances', function (Builder $instanceQuery) use ($companyId, $version): void {
-                $instanceQuery->where('company_id', $companyId)
-                    ->where('document_generation_template_version_id', $version->id);
-            });
-        }
-
-        $paginator = $query
+            ])
             ->orderBy('name')
             ->paginate($perPage)
             ->withQueryString();
@@ -80,6 +108,7 @@ final class CustomDocumentRosterQuery
             ->where('company_id', $companyId)
             ->where('document_generation_template_version_id', $version->id)
             ->whereIn('employee_id', $employeeIdList)
+            ->withLibraryDocument()
             ->with('employeeDocument')
             ->orderByDesc('id')
             ->get()
@@ -109,5 +138,33 @@ final class CustomDocumentRosterQuery
                 'signature_request' => null,
             ];
         });
+    }
+
+    /**
+     * @return Builder<Employee>
+     */
+    private static function filteredEmployeeQuery(
+        int $companyId,
+        DocumentGenerationTemplateVersion $version,
+        EmployeeDirectoryFilters $filters,
+        string $generationFilter,
+    ): Builder {
+        $query = BulkDocumentRosterQuery::employeeQuery($companyId, $filters);
+
+        if ($generationFilter === 'missing') {
+            $query->whereDoesntHave('documentInstances', function (Builder $instanceQuery) use ($companyId, $version): void {
+                $instanceQuery->where('company_id', $companyId)
+                    ->where('document_generation_template_version_id', $version->id)
+                    ->withLibraryDocument();
+            });
+        } elseif ($generationFilter === 'generated') {
+            $query->whereHas('documentInstances', function (Builder $instanceQuery) use ($companyId, $version): void {
+                $instanceQuery->where('company_id', $companyId)
+                    ->where('document_generation_template_version_id', $version->id)
+                    ->withLibraryDocument();
+            });
+        }
+
+        return $query;
     }
 }

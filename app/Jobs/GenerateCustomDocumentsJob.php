@@ -128,11 +128,12 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                 continue;
             }
 
-            // Check if already generated for this exact template version
+            // Check if a library PDF still exists for this exact template version
             $hasExistingInstance = DocumentInstance::query()
                 ->forCompany($this->companyId)
                 ->where('employee_id', $employee->id)
                 ->where('document_generation_template_version_id', $version->id)
+                ->withLibraryDocument()
                 ->exists();
 
             if (! $this->allowRepeatGeneration && $hasExistingInstance) {
@@ -198,6 +199,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                             ->forCompany($this->companyId)
                             ->where('employee_id', $employee->id)
                             ->where('document_generation_template_version_id', $version->id)
+                            ->withLibraryDocument()
                             ->exists();
 
                         if ($alreadyGenerated) {
@@ -389,12 +391,12 @@ class GenerateCustomDocumentsJob implements ShouldQueue
         $counts = DocumentGenerationRunItem::query()
             ->where('company_id', $this->companyId)
             ->where('document_generation_run_id', $run->id)
-            ->selectRaw("
-                COUNT(CASE WHEN status = 'completed' THEN 1 END) as generated,
-                COUNT(CASE WHEN status = 'skipped' THEN 1 END) as skipped,
-                COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed,
-                COUNT(CASE WHEN status IN ('pending', 'processing') THEN 1 END) as remaining
-            ")
+            ->selectRaw('
+                COUNT(CASE WHEN status = ? THEN 1 END) as `generated`,
+                COUNT(CASE WHEN status = ? THEN 1 END) as `skipped`,
+                COUNT(CASE WHEN status = ? THEN 1 END) as `failed`,
+                COUNT(CASE WHEN status IN (?, ?) THEN 1 END) as `remaining`
+            ', ['completed', 'skipped', 'failed', 'pending', 'processing'])
             ->first();
 
         $totalGenerated = (int) ($counts->generated ?? 0);

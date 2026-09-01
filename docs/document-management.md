@@ -109,17 +109,25 @@ Documents → Templates serves as the centralized company custom document templa
      - **`placement_config`** and **`signature_placement_config`** remain separate persisted domain structures with independent validation and audit trails.
      - `isEditable = (version.status === 'draft')` gates all add/delete/drag controls and the Save Design / Publish buttons. Historical versions are selectable for inspection but fully read-only.
      - Normalized coordinates `[0.0, 1.0]` ensure resolution-independent placement across any viewer or print scale.
-     - **Schema versioning**: `schema_version: 1` (legacy, field-only; never auto-migrated on read); `schema_version: 2` (field + static text). All saves write v2.
-     - **Static text boxes**: `type: 'text'` placements with `text_content` (1–500 chars). No `field` key stored. Rendered with `white-space: pre-wrap` for multiline wrapping; Browsershot DOM measurement (`scrollHeight > clientHeight`) used for font-size preflight.
+     - **Schema versioning**: `schema_version: 1` remains readable for compatibility (missing `type` continues to mean `field`; never auto-migrated on read). `schema_version: 2` requires an explicit placement `type` of `field` or `text`; missing, empty, or unknown types are rejected at save and at render-time validation. All saves write v2. Published and archived versions remain immutable.
+     - **Static text boxes**: `type: 'text'` placements with `text_content` (1–500 chars). No `field` key stored. The designer uses the same default box (160×26 CSS px) and the same edit/preview chrome as merge fields. Generated overlays still use `white-space: pre-wrap`, `overflow-wrap: break-word`, `line-height: 1.2`, and a full-width inner span so left/center/right `text-align` matches. Browsershot DOM measurement (`scrollWidth > clientWidth + 1` or `scrollHeight > clientHeight + 1`) is used for font-size preflight.
      - **Explicit draft creation**: Users with update permission see a "Create Draft" button when no draft exists. Clicking it branches a draft from the current published version using `BranchDocumentGenerationTemplateDraft` (at-most-one-draft invariant preserved). Opening the designer never creates a draft automatically.
-     - **Version switcher**: Toolbar dropdown lists all versions newest → oldest. Switching from an unsaved draft prompts "Stay on Draft / Discard changes and switch". Historical versions show a Version Info panel (PDF metadata, placement counts, change summary from `VersionChangeSummary`).
+     - **Version switcher**: Toolbar dropdown lists all versions newest → oldest. Switching from an unsaved draft prompts "Stay on Draft / Discard changes and switch". Historical versions show a Version Info panel (PDF metadata, placement counts, change summary from `VersionChangeSummary`). Summaries compare against the immediately previous version. The design page provides `initial_change_summary` for the initially selected version so v2+ shows that diff on first render without an extra request.
      - **Save Design**: Single atomic endpoint (`PUT .../versions/{version}/design`). Validates both `placement_config` and `signature_placement_config` and writes them in a single DB transaction with one `$version->save()`. If either validation fails, neither config is persisted (full rollback).
-     - **Historical immutability**: Fetching a historical version via `showVersion` performs no DB writes, creates no activity log entries, and never migrates schema v1 configs.
-     - In-place sample preview toggle previews dynamic fields directly on the canvas without querying real employees.
+     - **Historical immutability**: Published and archived versions cannot be edited. Fetching a historical version via `showVersion` performs no DB writes, creates no activity log entries, and never migrates schema v1 configs. Version summaries compare against the immediately previous version and never rewrite stored configs.
+     - **Click-to-place**: Adding a merge field, static text box, or signature slot arms a placement. The next click on empty canvas hangs a new field/text box so its **baseline** sits on the click (the printed underline). Signature slots still center on the click. Esc or a second click on the same add control cancels.
+     - **Vertical alignment**: Each field/text placement stores `vertical_align` (`top` / `middle` / `baseline`). New boxes default to `baseline`. Existing placements without the key keep the previous look (`middle` for merge fields, `top` for static text). The designer paints merge text on the same box edges as generation (`align-items: flex-start|center|flex-end`). Baseline is the **bottom of the box**, not the surrounding PDF line. Click-to-place hangs the box above the click so that floor sits on the printed underline. Switching Top/Middle → Baseline on an existing box moves the value to the floor without moving the box.
+     - **Font size**: Properties has a preset selector (8–48pt) plus − / + buttons that change size by 1pt. Save still rejects sizes outside 8–48.
+     - **Overflow warning**: The drawn box is the max size. Generation may shrink the font (down to 8pt) to stay inside it — the designer does **not** warn for that. It only warns when text still cannot fit at 8pt (red outline + “too small for the text”). Name-like fields use a long probe when no employee is selected; employee Preview uses the real value. Values are never clipped.
+     - **Nudge / undo**: Arrow keys move the selected box 1 CSS px (Shift = 10). ⌘/Ctrl+Z undoes; ⌘/Ctrl+Shift+Z or Ctrl+Y redoes. History covers add, delete, duplicate, drag, resize, font, and nudge.
+     - **Alignment guides**: Dragging a field, text, or signature box shows a magenta **horizontal** snap line (Y axis: top / middle / baseline) against other boxes on the page and the page vertical center. Left/right is not snapped. Hold Alt/Option to move freely. Arrow-key nudge does not snap.
+     - **Print preview**: The in-canvas Preview toggle hides placement chrome (boxes, signature slot labels) and shows overlay text in the saved color. Sample Jane Smith values are the default. Designers who also have `employees.view` can search active company employees and overlay allowlisted merge values (`GET .../design-employees`, `GET .../design-employees/{employee}`). Search returns `id`, `name`, and `employee_no` only; values are restricted to `DocumentTemplateMergeFields::allowedKeys()`.
+     - Opening Preview cancels an armed placement. Preview does not persist and does not write placements.
    - **Employee Signature Placement**:
      - Managed in the unified designer's Signatures section (left panel) and right properties panel.
      - Stored as version-owned `signature_placement_config` (separate from `placement_config`). Independent validation and audit trail.
      - Subject slot cannot be deleted; manager and company signatory slots can be added (up to 7 each) and removed with automatic renumbering.
+     - Drag/resize persists the geometric box (`left`/`top`/`width`/`height` with scale baked in), not Fabric `getBoundingRect()`, so the outline stroke does not shift saved coordinates. Field, text, and signature boxes all use that geometric rect.
      - Published/Archived versions remain immutable; viewing them in the designer is read-only.
      - Required for Phase 6A **Request Signature** eligibility on generated custom PDF Overlay documents.
    - **PDF Storage & Compensation**:
@@ -131,11 +139,11 @@ Documents → Templates serves as the centralized company custom document templa
      - `Deactivate`: Changes parent template to `inactive` without modifying version history.
      - `Activate`: Re-enables an inactive template that has a published version.
    - **Allowed Merge Fields**: Strict allowlist catalog (`App\Support\Documents\DocumentTemplateMergeFields`) covering:
-     - *Employee*: `{{employee_name}}`, `{{employee_no}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{phone}}`, `{{gender}}`, `{{joining_date}}`, `{{nationality}}`, `{{passport_number}}`, `{{position_name}}`, `{{rank_name}}`
+     - *Employee*: `{{employee_name}}`, `{{employee_no}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{phone}}`, `{{gender}}`, `{{joining_date}}`, `{{nationality}}`, `{{position_name}}`, `{{rank_name}}`
      - *Manager*: `{{manager_name}}` (employee's department effective manager)
      - *Organization*: `{{company_name}}`, `{{department_name}}`, `{{branch_name}}`
      - *System*: `{{today}}`, `{{current_year}}`
-     - Sensitive fields (bank/IBAN, salary, Emirates ID, credentials) are strictly forbidden. Content with unsupported placeholders is rejected at validation.
+     - Sensitive and restricted fields are not unrestricted merge fields. This includes passport number, salary, bank/IBAN, Emirates ID, credentials, and similar identifiers. Content or placements that use unsupported placeholders such as `{{passport_number}}` are rejected at validation.
 
 2. **Built-in Templates** from `BulkDocumentTypeRegistry` (Salary Declaration, Salary Certificate):
    - User-facing terminology: "Built-in Templates".
@@ -163,6 +171,8 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents/templates/create/pdf` | PDF upload create page | `documents.templates.create` |
 | `/organization/documents/templates/{template}/edit` | Content template edit page | `documents.templates.update` |
 | `/organization/documents/templates/{template}/design` | Unified visual designer — side-effect free; shows draft > published > latest | `documents.templates.update` |
+| `/organization/documents/templates/{template}/design-employees` | JSON search of active company employees for canvas preview | `documents.templates.update` + `employees.view` |
+| `/organization/documents/templates/{template}/design-employees/{employee}` | Allowlisted merge-field values for one company employee | `documents.templates.update` + `employees.view` |
 | `/organization/documents/templates` (POST) | Store custom document template (PDF → design page; content → list) | `documents.templates.create` |
 | `/organization/documents/templates/preview-draft` (POST) | Render preview for unsaved draft | `documents.templates.create` \| `documents.templates.update` |
 | `/organization/documents/templates/{template}/preview` (GET) | Render preview for saved template | `documents.templates.view` |
@@ -507,7 +517,9 @@ Custom document templates allow companies to author custom HR documents in two f
 ### Visual Placement & Normalized Coordinates
 
 - Placements use normalized percentages (`0.0` to `1.0`) for `x`, `y`, `width`, and `height` relative to page dimensions, guaranteeing crisp rendering across arbitrary display DPIs and print paper sizes.
-- Supported text alignment options: `left`, `center`, `right`. Alignment is stored in the placement configuration and rendered visually in both Fabric.js canvas placement boxes and sample data preview.
+- Placement `font_size` is stored in PDF points (8–48). The Fabric.js designer multiplies that size by the PDF.js viewport scale so 12pt on the canvas matches 12pt on the source page and in generated overlays. Merge fields and static text share the same default box size and edit/preview chrome.
+- Supported text alignment options: `left`, `center`, `right`. Alignment is stored in the placement configuration and rendered visually in both Fabric.js canvas placement boxes and sample or employee preview.
+- Designer canvas edits are click-to-place (new field/text boxes hang from the click baseline), arrow-key nudge, undo/redo, vertical align, numeric left/top/width/height, and drag alignment guides that snap on the Y axis (same row / baseline as other boxes or the page center). Preview text uses the same box edges as generation. Print preview hides chrome; optional employee preview uses company-scoped JSON endpoints and never accepts a submitted `company_id`. The designer only warns when a value cannot fit at 8pt; automatic shrink-to-fit stays silent.
 
 ---
 
@@ -536,7 +548,7 @@ EmployeeDocument (Documents Library representation)
 1. **Canonical Artifact vs. Library Separation**:
    - Canonical artifacts are stored in `storage/app/private/document-instances/{companyId}/{uuid}.pdf`.
    - Library copies are created in `storage/app/private/employee-documents/{companyId}/{employeeId}/...`.
-   - **Library Deletion Safety**: Deleting an `EmployeeDocument` via `DocumentDeletionService` purges the Library file copy, but leaves the canonical artifact in `document-instances/` untouched. The `document_instances.employee_document_id` pointer is set to `null`. Historical provenance is never destroyed.
+   - **Library Deletion Safety**: Deleting an `EmployeeDocument` via `DocumentDeletionService` purges the Library file copy, but leaves the canonical artifact in `document-instances/` untouched. The `document_instances.employee_document_id` pointer is set to `null`. Historical provenance is never destroyed. Generate & Send **Generated / Missing** counts follow the live Library PDF: an unlinked instance is **Missing**, and **Generate missing** may create a new instance for that published version.
 2. **Template & Version Provenance Protection**:
    - Once any `DocumentInstance` or `DocumentGenerationRun` exists for a `DocumentGenerationTemplate`, deleting that template or its versions is strictly blocked with a user-friendly `ValidationException`, directing the user to deactivate the template instead.
    - Deletion is blocked even if a run failed or completed with zero instances, preventing database-level foreign key constraint violations.
@@ -558,7 +570,7 @@ EmployeeDocument (Documents Library representation)
    - Explicit `employee_ids` submitted to `GenerateCustomDocumentsRequest` are validated against `current_company_id` using `Rule::exists('employees', 'id')->where('company_id', $companyId)`. Cross-company employee submissions are rejected with validation errors before any Run or queue dispatch occurs.
    - Filter-based bulk generation relies strictly on server-side `current_company_id`.
 7. **Repeat Generation & Cross-Run Deduplication**:
-   - Non-repeat generation (`allowRepeatGeneration = false`) is strictly deduplicated across concurrent runs. Workers lock the targeted Employee row `FOR UPDATE` inside the final database transaction and perform an authoritative existence re-check against the exact template version. If an instance was already created by another run, the run item is marked `skipped` and any newly rendered canonical or library PDF files are immediately purged.
+   - Non-repeat generation (`allowRepeatGeneration = false`) is strictly deduplicated across concurrent runs. Workers lock the targeted Employee row `FOR UPDATE` inside the final database transaction and perform an authoritative existence re-check against the exact template version **with a live Library `EmployeeDocument`**. If that library PDF still exists, the run item is marked `skipped` and any newly rendered canonical or library PDF files are immediately purged. An instance whose library pointer was cleared by delete is not treated as current.
    - Explicit employee selection (`allowRepeatGeneration = true`) bypasses this deduplication, intentionally generating a new `DocumentInstance` (force new copy) while preserving all prior historical instances.
 8. **Content Template Rendering & Multilingual Bidi Safety**:
    - Server-side trusted merge fields are resolved via `DocumentTemplateMergeFields::valuesForEmployee()`.
@@ -571,6 +583,7 @@ EmployeeDocument (Documents Library representation)
 10. **Wayfinder-Driven Generate & Send UI**:
     - Frontend dispatches generation via Wayfinder route action `GenerateCustomDocumentsController.url()`.
     - Document Show page renders a "Document Provenance" card displaying template name, version, generation timestamp, and generator.
+    - Generate & Send **Delete** removes the Library `EmployeeDocument` for the selected custom template’s published version. Canonical `DocumentInstance` artifacts remain. After delete, the employee appears under **Missing** for that version.
 
 ### Template Format Availability
 
@@ -609,7 +622,7 @@ At generation time, zero placements reproduce the original source PDF through th
 
 ### Coordinate mapping
 
-Published `placement_config` uses schema version 1 or 2 with normalized coordinates (`0.0`–`1.0`). At render time:
+Published `placement_config` uses schema version 1 or 2 with normalized coordinates (`0.0`–`1.0`). Schema v1 remains readable: a missing placement `type` still means `field`. Schema v2 requires an explicit `field` or `text` type. At render time:
 
 - `x_mm = placement.x * page_width_mm`
 - `y_mm = placement.y * page_height_mm`
@@ -620,11 +633,11 @@ Published placement configuration is not rewritten during generation.
 
 ### Unicode, Arabic, and single-line schema v1
 
-Overlay HTML uses embedded DejaVu fonts, `dir="auto"`, and `unicode-bidi: plaintext` on the text node. Physical `text_align` (`left` / `center` / `right`) is the HR-saved layout choice and is not flipped for Arabic. Schema v1 placements are single-line (`white-space: nowrap`). Merge values are Blade-escaped; employee HTML is never executed.
+Overlay HTML prefers Times New Roman (serif) or Arial (sans) so merge text matches typical Word letters, then falls back to embedded DejaVu for Arabic and hosts without those system fonts. Text uses `dir="auto"` and `unicode-bidi: plaintext`. Physical `text_align` (`left` / `center` / `right`) is the HR-saved layout choice and is not flipped for Arabic. Schema v1 placements are single-line (`white-space: nowrap`). Merge values are Blade-escaped; employee HTML is never executed.
 
 ### Font fit and overflow
 
-Every non-empty placement is measured in Chromium after `document.fonts.ready`. If the requested size does not fit, the renderer shrinks by `0.25pt` down to `8pt`. If the value still overflows at `8pt`, generation is blocked with `DocumentTemplateLayoutException`. Values are not clipped, truncated, or ellipsized. Empty merge values render nothing.
+Every non-empty placement is measured in Chromium after `document.fonts.ready`. Overflow is detected when `scrollWidth > clientWidth + 1` or `scrollHeight > clientHeight + 1`. If the requested size does not fit, the renderer shrinks by `0.25pt` down to `8pt` so the value stays inside the drawn box. If the value still overflows at `8pt`, generation is blocked with `DocumentTemplateLayoutException`. Values are not clipped, truncated, or ellipsized. Empty merge values render nothing. The designer treats the drawn box as the max size and only warns when a value cannot fit at 8pt. Name fields use a long probe when no employee is selected.
 
 Preflight runs for all placements before any overlay PDF or canonical/Library file is written. Layout failure logs only `run_id`, `item_id`, `placement_id`, `field_key`, and `page`.
 

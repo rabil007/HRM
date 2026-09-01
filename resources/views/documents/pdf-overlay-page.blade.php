@@ -53,10 +53,10 @@
                         word-break: normal;
                         line-height: 1.2;
                         overflow: hidden;
-                        align-items: flex-start;
+                        align-items: {{ $placement['vertical_align_css'] ?? 'flex-start' }};
                     "
                 >
-                    <span dir="auto" style="unicode-bidi: plaintext;">{{ $placement['value'] }}</span>
+                    <span dir="auto" style="unicode-bidi: plaintext; display: block; width: 100%;">{{ $placement['value'] }}</span>
                 </div>
             @else
                 <div
@@ -72,6 +72,7 @@
                         color: {{ $placement['font_color'] ?? '#000000' }};
                         text-align: {{ $placement['text_align'] }};
                         justify-content: {{ $placement['text_align'] === 'center' ? 'center' : ($placement['text_align'] === 'right' ? 'flex-end' : 'flex-start') }};
+                        align-items: {{ $placement['vertical_align_css'] ?? 'center' }};
                     "
                 >
                     <span dir="auto" style="unicode-bidi: plaintext;">{{ $placement['value'] }}</span>

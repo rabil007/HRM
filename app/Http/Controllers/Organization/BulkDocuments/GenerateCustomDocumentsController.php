@@ -73,10 +73,10 @@ class GenerateCustomDocumentsController extends Controller
         );
 
         if (! $isExplicitSelection) {
-            // Filter out employees who already have an instance for this exact version
             $alreadyGeneratedIds = DocumentInstance::query()
                 ->forCompany($companyId)
                 ->where('document_generation_template_version_id', $version->id)
+                ->withLibraryDocument()
                 ->pluck('employee_id')
                 ->filter()
                 ->all();

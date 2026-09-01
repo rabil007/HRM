@@ -172,4 +172,11 @@ class DocumentInstance extends Model
     {
         return $query->where('document_generation_template_version_id', $versionId);
     }
+
+    public function scopeWithLibraryDocument(Builder $query): Builder
+    {
+        return $query
+            ->whereNotNull('employee_document_id')
+            ->whereHas('employeeDocument');
+    }
 }
