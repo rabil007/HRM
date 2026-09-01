@@ -97,7 +97,7 @@ export type ClickVerticalAlign = 'top' | 'middle' | 'baseline';
 export type OverlayTextAlign = 'left' | 'center' | 'right';
 
 /**
- * Top of a nowrap overlay value inside its box. Matches generated CSS
+ * Top of a wrapping overlay value inside its box. Matches generated CSS
  * flex-start / center / flex-end (baseline sits on the box floor).
  */
 export function overlayTextTopForAlign(
@@ -228,6 +228,33 @@ export function nudgeNormalizedPlacement(
         y: Number(y.toFixed(6)),
         width: placement.width,
         height: placement.height,
+    };
+}
+
+export function offsetDuplicatedNormalizedRect(
+    source: NormalizedRect,
+    canvasWidth: number,
+    canvasHeight: number,
+    offsetPx = 16,
+): Pick<NormalizedRect, 'x' | 'y'> {
+    if (canvasWidth <= 0 || canvasHeight <= 0) {
+        return { x: source.x, y: source.y };
+    }
+
+    let x = source.x + offsetPx / canvasWidth;
+    let y = source.y + offsetPx / canvasHeight;
+
+    if (x + source.width > 1) {
+        x = Math.max(0, 1 - source.width);
+    }
+
+    if (y + source.height > 1) {
+        y = Math.max(0, 1 - source.height);
+    }
+
+    return {
+        x: Number(x.toFixed(6)),
+        y: Number(y.toFixed(6)),
     };
 }
 

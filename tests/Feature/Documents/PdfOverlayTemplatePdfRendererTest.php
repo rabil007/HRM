@@ -135,10 +135,13 @@ test('overlay blade renders escaped values and physical alignment', function () 
         ->toContain('font-size: 14pt')
         ->toContain('font-weight: normal')
         ->toContain('text-align: center')
-        ->toContain('justify-content: center')
         ->toContain('dir="auto"')
         ->toContain('unicode-bidi: plaintext')
-        ->toContain('white-space: nowrap')
+        ->toContain('white-space: pre-wrap')
+        ->toContain('overflow-wrap: break-word')
+        ->toContain('line-height: 1.2')
+        ->toContain('display: block')
+        ->toContain('width: 100%')
         ->toContain('direction: ltr');
 });
 
@@ -250,7 +253,7 @@ test('overlay blade applies baseline as flex-end vertical alignment', function (
     expect($html)->toContain('align-items: flex-end');
 });
 
-test('overlay blade keeps left and right as physical alignment values', function (string $align, string $justify) {
+test('overlay blade keeps left and right as physical alignment values', function (string $align) {
     $html = view('documents.pdf-overlay-page', [
         'page_width_mm' => 210.0,
         'page_height_mm' => 297.0,
@@ -273,12 +276,10 @@ test('overlay blade keeps left and right as physical alignment values', function
 
     expect($html)
         ->toContain("text-align: {$align}")
-        ->toContain("justify-content: {$justify}")
+        ->toContain('width: 100%')
+        ->toContain('white-space: pre-wrap')
         ->toContain('محمد رابيل');
-})->with([
-    'left' => ['left', 'flex-start'],
-    'right' => ['right', 'flex-end'],
-]);
+})->with(['left', 'right']);
 
 test('overlay blade stretches static text so left center and right alignment fill the box', function (string $align) {
     $html = view('documents.pdf-overlay-page', [
@@ -312,6 +313,39 @@ test('overlay blade stretches static text so left center and right alignment fil
         ->toContain('align-items: flex-start')
         ->toContain('Static label');
 })->with(['left', 'center', 'right']);
+
+test('overlay blade wraps merge field values inside the placement box', function () {
+    $html = view('documents.pdf-overlay-page', [
+        'page_width_mm' => 210.0,
+        'page_height_mm' => 297.0,
+        'embedded_font_styles' => '',
+        'placements' => [
+            [
+                'id' => 'p1',
+                'field' => '{{employee_name}}',
+                'value' => 'AGINPRABHU MARIAJOHN BOSCO',
+                'left_mm' => 10.0,
+                'top_mm' => 10.0,
+                'width_mm' => 40.0,
+                'height_mm' => 20.0,
+                'effective_font_size' => 12.0,
+                'font_weight' => 'normal',
+                'text_align' => 'left',
+            ],
+        ],
+    ])->render();
+
+    expect($html)
+        ->toContain('white-space: pre-wrap')
+        ->toContain('overflow-wrap: break-word')
+        ->toContain('line-height: 1.2')
+        ->toContain('overflow: hidden')
+        ->toContain('display: block')
+        ->toContain('width: 100%')
+        ->toContain('AGINPRABHU MARIAJOHN BOSCO')
+        ->not->toContain('white-space: nowrap')
+        ->not->toContain('justify-content:');
+});
 
 test('overlay blade keeps multiline static text wrapping', function () {
     $html = view('documents.pdf-overlay-page', [

@@ -503,6 +503,8 @@ test('template without generated instances can be deleted normally', function ()
     $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
         'status' => DocumentGenerationTemplateStatus::Active,
     ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
 
     $response = $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])

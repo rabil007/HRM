@@ -36,6 +36,8 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { firstValidationError } from '@/lib/first-validation-error';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { edit as applicationSettings } from '@/routes/application';
 import {
@@ -207,7 +209,9 @@ export function DocumentsTemplatesContent({
 
     const handleOpenDelete = (template: CustomTemplate) => {
         setDeletingTemplate(template);
-        setIsDeleteOpen(true);
+        setTimeout(() => {
+            setIsDeleteOpen(true);
+        }, 0);
     };
 
     const handleConfirmDelete = () => {
@@ -217,9 +221,18 @@ export function DocumentsTemplatesContent({
 
         router.delete(destroyTemplate.url({ template: deletingTemplate.id }), {
             preserveScroll: true,
-            onSuccess: () => {
+            onFinish: () => {
                 setIsDeleteOpen(false);
                 setDeletingTemplate(null);
+            },
+            onError: (errors) => {
+                toast.error(
+                    firstValidationError(
+                        errors,
+                        'template',
+                        'This template could not be deleted.',
+                    ),
+                );
             },
         });
     };
@@ -435,7 +448,7 @@ export function DocumentsTemplatesContent({
                                                                             type="button"
                                                                             variant="ghost"
                                                                             size="icon"
-                                                                            className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                                                                            className="h-7 w-7 shrink-0"
                                                                         >
                                                                             <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                                                                             <span className="sr-only">
@@ -583,11 +596,14 @@ export function DocumentsTemplatesContent({
 
                                                                         {can.delete_templates && (
                                                                             <DropdownMenuItem
-                                                                                onClick={() =>
+                                                                                onSelect={(
+                                                                                    event,
+                                                                                ) => {
+                                                                                    event.preventDefault();
                                                                                     handleOpenDelete(
                                                                                         template,
-                                                                                    )
-                                                                                }
+                                                                                    );
+                                                                                }}
                                                                                 className="gap-2 text-destructive focus:text-destructive"
                                                                             >
                                                                                 <Trash2 className="h-3.5 w-3.5" />

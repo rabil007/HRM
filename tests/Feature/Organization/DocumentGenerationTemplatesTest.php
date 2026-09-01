@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\DocumentGenerationTemplate;
+use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
@@ -407,6 +408,53 @@ test('destroy deletes template belonging to company', function () {
         ->assertSessionHas('success', 'Template deleted.');
 
     $this->assertDatabaseMissing('document_generation_templates', [
+        'id' => $template->id,
+    ]);
+});
+
+test('destroy deletes a published template that still points at its published version', function () {
+    $user = User::factory()->create();
+    $company = createDocTemplatesTestCompany();
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->pdfOverlay()->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+    ]);
+    $published = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create([
+        'version' => 1,
+    ]);
+    DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 2,
+    ]);
+    $template->update(['published_version_id' => $published->id]);
+
+    grantCompanyPermissions($user, $company, ['documents.templates.delete']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->delete(route('organization.documents.templates.destroy', $template))
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Template deleted.');
+
+    $this->assertDatabaseMissing('document_generation_templates', [
+        'id' => $template->id,
+    ]);
+    $this->assertDatabaseMissing('document_generation_template_versions', [
+        'document_generation_template_id' => $template->id,
+    ]);
+});
+
+test('destroy requires documents templates delete permission', function () {
+    $user = User::factory()->create();
+    $company = createDocTemplatesTestCompany();
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create();
+
+    grantCompanyPermissions($user, $company, ['documents.templates.view']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->delete(route('organization.documents.templates.destroy', $template))
+        ->assertForbidden();
+
+    $this->assertDatabaseHas('document_generation_templates', [
         'id' => $template->id,
     ]);
 });

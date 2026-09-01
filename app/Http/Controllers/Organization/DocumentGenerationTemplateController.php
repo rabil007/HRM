@@ -15,6 +15,7 @@ use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Support\Documents\Actions\BranchDocumentGenerationTemplateDraft;
 use App\Support\Documents\Actions\CreateDocumentGenerationTemplate;
+use App\Support\Documents\Actions\DeleteDocumentGenerationTemplate;
 use App\Support\Documents\Actions\DuplicateDocumentGenerationTemplate;
 use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
 use App\Support\Documents\Actions\ReplaceDocumentGenerationTemplatePdf;
@@ -30,8 +31,6 @@ use App\Support\Documents\VersionChangeSummary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -417,6 +416,7 @@ class DocumentGenerationTemplateController extends Controller
     public function destroy(
         Request $request,
         DocumentGenerationTemplate $template,
+        DeleteDocumentGenerationTemplate $action,
     ): RedirectResponse {
         abort_unless($request->user()?->can('documents.templates.delete') ?? false, 403);
 
@@ -424,36 +424,7 @@ class DocumentGenerationTemplateController extends Controller
         abort_if($companyId <= 0, 403);
         abort_unless((int) $template->company_id === $companyId, 404);
 
-        if ($template->instances()->exists() || $template->generationRuns()->exists()) {
-            throw ValidationException::withMessages([
-                'template' => 'This template cannot be deleted because document generation history exists. Deactivate the template instead.',
-            ]);
-        }
-
-        // 1. Collect company-safe private PDF paths before DB deletion
-        $pdfPaths = [];
-        $expectedPrefix = DocumentTemplateStorage::directory($companyId).'/';
-        foreach ($template->versions as $version) {
-            if ($version->source_pdf_path && str_starts_with($version->source_pdf_path, $expectedPrefix)) {
-                $pdfPaths[] = $version->source_pdf_path;
-            }
-        }
-
-        // 2. Perform DB deletion first
-        $template->delete();
-
-        // 3. After successful DB deletion, clean up physical files
-        foreach ($pdfPaths as $path) {
-            try {
-                DocumentTemplateStorage::deletePdf($path, $companyId);
-            } catch (\Throwable $e) {
-                Log::error('Failed to clean up orphaned template PDF after deletion', [
-                    'path' => $path,
-                    'company_id' => $companyId,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
+        $action->handle($template);
 
         return back()->with('success', 'Template deleted.');
     }
