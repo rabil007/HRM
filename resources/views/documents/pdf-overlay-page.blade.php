@@ -26,8 +26,11 @@
             align-items: center;
             direction: ltr;
             box-sizing: border-box;
-            white-space: nowrap;
-            line-height: 1;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+            word-break: normal;
+            line-height: 1.2;
+            overflow: hidden;
             font-family: 'DejaVu Sans', sans-serif;
         }
     </style>
@@ -35,49 +38,23 @@
 <body>
     @foreach ($placements as $placement)
         @if ($placement['value'] !== '')
-            @if (!empty($placement['is_static_text']))
-                <div
-                    class="overlay-placement"
-                    style="
-                        left: {{ $placement['left_mm'] }}mm;
-                        top: {{ $placement['top_mm'] }}mm;
-                        width: {{ $placement['width_mm'] }}mm;
-                        height: {{ $placement['height_mm'] }}mm;
-                        font-size: {{ $placement['effective_font_size'] }}pt;
-                        font-weight: {{ $placement['font_weight'] }};
-                        font-family: {{ $placement['font_family_css'] ?? "'DejaVu Sans', sans-serif" }};
-                        color: {{ $placement['font_color'] ?? '#000000' }};
-                        text-align: {{ $placement['text_align'] }};
-                        white-space: pre-wrap;
-                        overflow-wrap: break-word;
-                        word-break: normal;
-                        line-height: 1.2;
-                        overflow: hidden;
-                        align-items: {{ $placement['vertical_align_css'] ?? 'flex-start' }};
-                    "
-                >
-                    <span dir="auto" style="unicode-bidi: plaintext; display: block; width: 100%;">{{ $placement['value'] }}</span>
-                </div>
-            @else
-                <div
-                    class="overlay-placement"
-                    style="
-                        left: {{ $placement['left_mm'] }}mm;
-                        top: {{ $placement['top_mm'] }}mm;
-                        width: {{ $placement['width_mm'] }}mm;
-                        height: {{ $placement['height_mm'] }}mm;
-                        font-size: {{ $placement['effective_font_size'] }}pt;
-                        font-weight: {{ $placement['font_weight'] }};
-                        font-family: {{ $placement['font_family_css'] ?? "'DejaVu Sans', sans-serif" }};
-                        color: {{ $placement['font_color'] ?? '#000000' }};
-                        text-align: {{ $placement['text_align'] }};
-                        justify-content: {{ $placement['text_align'] === 'center' ? 'center' : ($placement['text_align'] === 'right' ? 'flex-end' : 'flex-start') }};
-                        align-items: {{ $placement['vertical_align_css'] ?? 'center' }};
-                    "
-                >
-                    <span dir="auto" style="unicode-bidi: plaintext;">{{ $placement['value'] }}</span>
-                </div>
-            @endif
+            <div
+                class="overlay-placement"
+                style="
+                    left: {{ $placement['left_mm'] }}mm;
+                    top: {{ $placement['top_mm'] }}mm;
+                    width: {{ $placement['width_mm'] }}mm;
+                    height: {{ $placement['height_mm'] }}mm;
+                    font-size: {{ $placement['effective_font_size'] }}pt;
+                    font-weight: {{ $placement['font_weight'] }};
+                    font-family: {{ $placement['font_family_css'] ?? "'DejaVu Sans', sans-serif" }};
+                    color: {{ $placement['font_color'] ?? '#000000' }};
+                    text-align: {{ $placement['text_align'] }};
+                    align-items: {{ $placement['vertical_align_css'] ?? (!empty($placement['is_static_text']) ? 'flex-start' : 'center') }};
+                "
+            >
+                <span dir="auto" style="unicode-bidi: plaintext; display: block; width: 100%;">{{ $placement['value'] }}</span>
+            </div>
         @endif
     @endforeach
 </body>

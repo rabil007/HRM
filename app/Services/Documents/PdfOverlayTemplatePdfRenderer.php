@@ -240,7 +240,6 @@ class PdfOverlayTemplatePdfRenderer
 
         foreach ($placements as $index => $placement) {
             $candidates = $this->fontSizeCandidates((float) $placement['requested_font_size']);
-            $isStaticText = (bool) ($placement['is_static_text'] ?? false);
             $escapedValue = htmlspecialchars((string) $placement['value'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
             $fontWeightCss = $placement['font_weight'] === 'bold' ? 'bold' : 'normal';
             $fontFamilyCss = htmlspecialchars(
@@ -253,11 +252,7 @@ class PdfOverlayTemplatePdfRenderer
 
             foreach ($candidates as $candidateIndex => $candidatePt) {
                 $boxId = "b{$index}_{$candidateIndex}";
-                if ($isStaticText) {
-                    $boxesHtml .= "<div id=\"{$boxId}\" style=\"width:{$widthMm}mm;height:{$heightMm}mm;font-size:{$candidatePt}pt;font-weight:{$fontWeightCss};font-family:{$fontFamilyCss};white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;line-height:1.2;overflow:hidden;display:flex;align-items:flex-start;box-sizing:border-box;\" dir=\"auto\"><span style=\"unicode-bidi:plaintext;display:block;width:100%;\">{$escapedValue}</span></div>\n";
-                } else {
-                    $boxesHtml .= "<div id=\"{$boxId}\" style=\"width:{$widthMm}mm;height:{$heightMm}mm;font-size:{$candidatePt}pt;font-weight:{$fontWeightCss};font-family:{$fontFamilyCss};white-space:nowrap;line-height:1;overflow:hidden;display:block;\" dir=\"auto\"><span style=\"unicode-bidi:plaintext;\">{$escapedValue}</span></div>\n";
-                }
+                $boxesHtml .= "<div id=\"{$boxId}\" style=\"width:{$widthMm}mm;height:{$heightMm}mm;font-size:{$candidatePt}pt;font-weight:{$fontWeightCss};font-family:{$fontFamilyCss};white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;line-height:1.2;overflow:hidden;display:flex;align-items:flex-start;box-sizing:border-box;\" dir=\"auto\"><span style=\"unicode-bidi:plaintext;display:block;width:100%;\">{$escapedValue}</span></div>\n";
                 $measureJs .= "var el{$index}_{$candidateIndex}=document.getElementById('{$boxId}'); results.push({id:{$index},size:{$candidatePt},overflow:el{$index}_{$candidateIndex}.scrollWidth>el{$index}_{$candidateIndex}.clientWidth+1||el{$index}_{$candidateIndex}.scrollHeight>el{$index}_{$candidateIndex}.clientHeight+1});\n";
             }
         }

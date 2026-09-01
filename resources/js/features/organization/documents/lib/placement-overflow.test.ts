@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     LONG_NAME_OVERFLOW_SAMPLE,
+    estimatePlacementOverflow,
     overflowLevelFromWidth,
     overflowLevelFromWrappedBox,
     overflowPageBanner,
@@ -31,6 +32,40 @@ describe('overflowLevelFromWrappedBox', () => {
 
     it('is fail when a wrapped value cannot fit at 8pt', () => {
         assert.equal(overflowLevelFromWrappedBox(800, 40, 16, 12, 16), 'fail');
+    });
+});
+
+describe('estimatePlacementOverflow', () => {
+    it('lets a long name wrap inside a tall narrow box', () => {
+        assert.equal(
+            estimatePlacementOverflow({
+                text: LONG_NAME_OVERFLOW_SAMPLE,
+                boxWidthPx: 80,
+                boxHeightPx: 80,
+                requestedPt: 12,
+                fontSizePx: 16,
+                fontFamily: 'Times New Roman',
+                fontWeight: 'normal',
+                wrap: true,
+            }),
+            'ok',
+        );
+    });
+
+    it('fails a long name that cannot wrap into a short box even at 8pt', () => {
+        assert.equal(
+            estimatePlacementOverflow({
+                text: LONG_NAME_OVERFLOW_SAMPLE,
+                boxWidthPx: 80,
+                boxHeightPx: 16,
+                requestedPt: 12,
+                fontSizePx: 16,
+                fontFamily: 'Times New Roman',
+                fontWeight: 'normal',
+                wrap: true,
+            }),
+            'fail',
+        );
     });
 });
 

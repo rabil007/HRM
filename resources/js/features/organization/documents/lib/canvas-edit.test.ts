@@ -9,6 +9,7 @@ import {
     isUndoKey,
     nudgeDeltaFromKeyboard,
     nudgeNormalizedPlacement,
+    offsetDuplicatedNormalizedRect,
     overlayFieldLabelLayout,
     overlayTextTopForAlign,
 } from '../templates/lib/canvas-edit.ts';
@@ -133,6 +134,30 @@ describe('nudgeNormalizedPlacement', () => {
 
         assert.equal(next.x, 0.9);
         assert.equal(next.y, 0);
+    });
+});
+
+describe('offsetDuplicatedNormalizedRect', () => {
+    it('nudges a copy 16px down and right', () => {
+        const next = offsetDuplicatedNormalizedRect(
+            { x: 0.2, y: 0.3, width: 0.2, height: 0.05 },
+            800,
+            1000,
+        );
+
+        assert.equal(next.x, 0.22);
+        assert.equal(next.y, 0.316);
+    });
+
+    it('keeps the copy on the page near the bottom-right edge', () => {
+        const next = offsetDuplicatedNormalizedRect(
+            { x: 0.85, y: 0.96, width: 0.2, height: 0.05 },
+            800,
+            1000,
+        );
+
+        assert.equal(next.x, 0.8);
+        assert.equal(next.y, 0.95);
     });
 });
 

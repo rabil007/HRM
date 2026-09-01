@@ -65,6 +65,7 @@ import {
     isUndoKey,
     nudgeDeltaFromKeyboard,
     nudgeNormalizedPlacement,
+    offsetDuplicatedNormalizedRect,
     overlayFieldLabelLayout,
     overlayTextTopForAlign,
 } from '../lib/canvas-edit';
@@ -739,8 +740,74 @@ function placementOverflowLevel(
         fontSizePx: overlayFontSizePx(requested, pdfScale),
         fontFamily: fabricFontFamily(item.font_family),
         fontWeight: item.font_weight || 'normal',
-        wrap: item.type === 'text',
+        wrap: true,
     });
+}
+
+const OVERLAY_WRAP_LINE_HEIGHT = 1.2;
+
+function createOverlayWrapTextbox({
+    text,
+    left,
+    top,
+    width,
+    height,
+    fontSize,
+    fontFamily,
+    fontWeight,
+    textAlign,
+    fill,
+    verticalAlign,
+    parentId,
+    elementType,
+}: {
+    text: string;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    fontSize: number;
+    fontFamily: string;
+    fontWeight: string;
+    textAlign: string;
+    fill: string;
+    verticalAlign: 'top' | 'middle' | 'baseline';
+    parentId: string;
+    elementType: 'field' | 'text';
+}): Textbox {
+    const textbox = new Textbox(text, {
+        left,
+        top,
+        width,
+        fontSize,
+        fontFamily,
+        fontWeight,
+        textAlign,
+        lineHeight: OVERLAY_WRAP_LINE_HEIGHT,
+        objectCaching: false,
+        fill,
+        backgroundColor: '',
+        shadow: null,
+        padding: 0,
+        lockRotation: true,
+        editable: false,
+        selectable: false,
+        evented: false,
+        splitByGrapheme: false,
+    });
+    textbox.set('data', {
+        parentId,
+        elementType,
+    });
+    const textHeight =
+        typeof textbox.calcTextHeight === 'function'
+            ? textbox.calcTextHeight()
+            : fontSize;
+    textbox.set({
+        top: overlayTextTopForAlign(top, height, textHeight, verticalAlign),
+    });
+
+    return textbox;
 }
 
 function overflowLabelForPlacement(
@@ -932,32 +999,35 @@ function PlacementFontControls({
                     Alignment
                 </p>
                 <div className="flex items-center gap-0.5">
-                    {(['left', 'center', 'right'] as const).map((align) => {
-                        const Icon =
-                            align === 'left'
-                                ? AlignLeft
-                                : align === 'center'
-                                  ? AlignCenter
-                                  : AlignRight;
-
-                        return (
-                            <Button
-                                key={align}
-                                type="button"
-                                size="icon"
-                                variant={
-                                    (placement.text_align || 'left') === align
-                                        ? 'default'
-                                        : 'ghost'
-                                }
-                                className="size-7"
-                                disabled={disabled}
-                                onClick={() => onChange({ text_align: align })}
-                            >
-                                <Icon className="size-3.5" />
-                            </Button>
-                        );
-                    })}
+                    {(
+                        [
+                            ['left', AlignLeft, 'Left'],
+                            ['center', AlignCenter, 'Center'],
+                            ['right', AlignRight, 'Right'],
+                        ] as const
+                    ).map(([align, Icon, label]) => (
+                        <Button
+                            key={align}
+                            type="button"
+                            size="sm"
+                            variant={
+                                (placement.text_align || 'left') === align
+                                    ? 'default'
+                                    : 'ghost'
+                            }
+                            className="h-7 flex-1 gap-1 px-1.5 text-[11px]"
+                            disabled={disabled}
+                            title={label}
+                            aria-label={label}
+                            aria-pressed={
+                                (placement.text_align || 'left') === align
+                            }
+                            onClick={() => onChange({ text_align: align })}
+                        >
+                            <Icon className="size-3.5" />
+                            <span>{label}</span>
+                        </Button>
+                    ))}
                 </div>
             </div>
             <div>
@@ -1357,7 +1427,7 @@ export function TemplatePdfDesignerDialog({
                         textHeight,
                         normalizeVerticalAlign(
                             placement?.vertical_align,
-                            'text',
+                            placement?.type === 'text' ? 'text' : 'field',
                         ),
                     ),
                 });
@@ -1477,43 +1547,34 @@ export function TemplatePdfDesignerDialog({
                         });
                     }
 
-                    const align = item.text_align || 'left';
-                    const fontSize = overlayFontSizePx(
-                        item.font_size,
-                        pdfScaleRef.current,
-                    );
-                    const layout = overlayFieldLabelLayout(
-                        pixel.left,
-                        pixel.top,
-                        pixel.width,
-                        pixel.height,
-                        align,
-                        normalizeVerticalAlign(item.vertical_align, 'field'),
-                        fontSize,
-                    );
-
-                    const label = new FabricText(displayText, {
-                        ...layout,
-                        fontSize,
+                    const tb = createOverlayWrapTextbox({
+                        text: displayText,
+                        left: pixel.left,
+                        top: pixel.top,
+                        width: pixel.width,
+                        height: pixel.height,
+                        fontSize: overlayFontSizePx(
+                            item.font_size,
+                            pdfScaleRef.current,
+                        ),
                         fontFamily: fabricFontFamily(item.font_family),
                         fontWeight: item.font_weight || 'normal',
-                        lineHeight: 1,
-                        objectCaching: false,
+                        textAlign: item.text_align || 'left',
                         fill: overlayPlacementTextFill(
                             preview ? 'print' : 'edit',
                             normalizeFontColor(item.font_color),
                         ),
-                        selectable: false,
-                        evented: false,
-                    });
-                    label.set('data', {
+                        verticalAlign: normalizeVerticalAlign(
+                            item.vertical_align,
+                            'field',
+                        ),
                         parentId: item.id,
                         elementType: 'field',
                     });
 
                     canvas.add(rect);
-                    canvas.add(label);
-                    labelRefs.current.set(item.id, label);
+                    canvas.add(tb);
+                    textBoxRefs.current.set(item.id, tb);
                 } else if (item.type === 'text') {
                     const overflow = overflowById.get(item.id) ?? 'ok';
                     const chrome = overlayPlacementBoxChrome(
@@ -1551,14 +1612,12 @@ export function TemplatePdfDesignerDialog({
                         });
                     }
 
-                    const textVerticalAlign = normalizeVerticalAlign(
-                        item.vertical_align,
-                        'text',
-                    );
-                    const tb = new Textbox(item.text_content || '', {
+                    const tb = createOverlayWrapTextbox({
+                        text: item.text_content || '',
                         left: pixel.left,
                         top: pixel.top,
                         width: pixel.width,
+                        height: pixel.height,
                         fontSize: overlayFontSizePx(
                             item.font_size,
                             pdfScaleRef.current,
@@ -1566,39 +1625,16 @@ export function TemplatePdfDesignerDialog({
                         fontFamily: fabricFontFamily(item.font_family),
                         fontWeight: item.font_weight || 'normal',
                         textAlign: item.text_align || 'left',
-                        lineHeight: 1,
-                        objectCaching: false,
                         fill: overlayPlacementTextFill(
                             preview ? 'print' : 'edit',
                             normalizeFontColor(item.font_color),
                         ),
-                        backgroundColor: '',
-                        shadow: null,
-                        padding: 0,
-                        lockRotation: true,
-                        editable: false,
-                        selectable: false,
-                        evented: false,
-                        splitByGrapheme: false,
-                    });
-                    tb.set('data', {
+                        verticalAlign: normalizeVerticalAlign(
+                            item.vertical_align,
+                            'text',
+                        ),
                         parentId: item.id,
                         elementType: 'text',
-                    });
-                    const textHeight =
-                        typeof tb.calcTextHeight === 'function'
-                            ? tb.calcTextHeight()
-                            : overlayFontSizePx(
-                                  item.font_size,
-                                  pdfScaleRef.current,
-                              );
-                    tb.set({
-                        top: overlayTextTopForAlign(
-                            pixel.top,
-                            pixel.height,
-                            textHeight,
-                            textVerticalAlign,
-                        ),
                     });
 
                     canvas.add(rect);
@@ -2599,30 +2635,25 @@ export function TemplatePdfDesignerDialog({
             });
             rect.set('data', { id: newId, elementType: 'field' });
 
-            const fontSize = overlayFontSizePx(12, pdfScaleRef.current);
-            const label = new FabricText(fieldMeta?.label ?? fieldKey, {
-                ...overlayFieldLabelLayout(
-                    initialPixel.left,
-                    initialPixel.top,
-                    initialPixel.width,
-                    initialPixel.height,
-                    'left',
-                    'baseline',
-                    fontSize,
-                ),
-                fontSize,
+            const tb = createOverlayWrapTextbox({
+                text: fieldMeta?.label ?? fieldKey,
+                left: initialPixel.left,
+                top: initialPixel.top,
+                width: initialPixel.width,
+                height: initialPixel.height,
+                fontSize: overlayFontSizePx(12, pdfScaleRef.current),
                 fontFamily: fabricFontFamily('serif'),
-                lineHeight: 1,
-                objectCaching: false,
+                fontWeight: 'normal',
+                textAlign: 'left',
                 fill: '#000000',
-                selectable: false,
-                evented: false,
+                verticalAlign: 'baseline',
+                parentId: newId,
+                elementType: 'field',
             });
-            label.set('data', { parentId: newId, elementType: 'field' });
 
             canvas.add(rect);
-            canvas.add(label);
-            labelRefs.current.set(newId, label);
+            canvas.add(tb);
+            textBoxRefs.current.set(newId, tb);
             canvas.setActiveObject(rect);
             setSelectedElementId(newId);
             setSelectedElementType('field');
@@ -2695,37 +2726,20 @@ export function TemplatePdfDesignerDialog({
             });
             rect.set('data', { id: newId, elementType: 'text' });
 
-            const tb = new Textbox('Text', {
+            const tb = createOverlayWrapTextbox({
+                text: 'Text',
                 left: initialPixel.left,
                 top: initialPixel.top,
                 width: initialPixel.width,
+                height: initialPixel.height,
                 fontSize: overlayFontSizePx(12, pdfScaleRef.current),
                 fontFamily: fabricFontFamily('serif'),
                 fontWeight: 'normal',
-                lineHeight: 1,
-                objectCaching: false,
+                textAlign: 'left',
                 fill: '#000000',
-                backgroundColor: '',
-                shadow: null,
-                padding: 0,
-                lockRotation: true,
-                editable: false,
-                selectable: false,
-                evented: false,
-                splitByGrapheme: false,
-            });
-            tb.set('data', { parentId: newId, elementType: 'text' });
-            const addedTextHeight =
-                typeof tb.calcTextHeight === 'function'
-                    ? tb.calcTextHeight()
-                    : overlayFontSizePx(12, pdfScaleRef.current);
-            tb.set({
-                top: overlayTextTopForAlign(
-                    initialPixel.top,
-                    initialPixel.height,
-                    addedTextHeight,
-                    'baseline',
-                ),
+                verticalAlign: 'baseline',
+                parentId: newId,
+                elementType: 'text',
             });
             canvas.add(rect);
             canvas.add(tb);
@@ -2884,28 +2898,20 @@ export function TemplatePdfDesignerDialog({
 
     applyNudgeRef.current = applyNudge;
 
-    const handleDuplicateTextPlacement = (source: PdfTextPlacement) => {
+    const handleDuplicatePlacement = (source: PdfPlacementItem) => {
         if (!isEditable || !canvasSize.width || !canvasSize.height) {
             return;
         }
 
         recordHistory();
         nudgeSessionRef.current = false;
-        const offsetX = 16 / canvasSize.width;
-        const offsetY = 16 / canvasSize.height;
-        let x = source.x + offsetX;
-        let y = source.y + offsetY;
-
-        if (x + source.width > 1) {
-            x = Math.max(0, 1 - source.width);
-        }
-
-        if (y + source.height > 1) {
-            y = Math.max(0, 1 - source.height);
-        }
-
+        const { x, y } = offsetDuplicatedNormalizedRect(
+            source,
+            canvasSize.width,
+            canvasSize.height,
+        );
         const newId = crypto.randomUUID();
-        const duplicate: PdfTextPlacement = {
+        const duplicate: PdfPlacementItem = {
             ...source,
             id: newId,
             x,
@@ -2920,7 +2926,7 @@ export function TemplatePdfDesignerDialog({
         });
         setHasUnsavedChanges(true);
         setSelectedElementId(newId);
-        setSelectedElementType('text');
+        setSelectedElementType(source.type);
         refreshCanvasObjects();
 
         const canvas = fabricCanvasRef.current;
@@ -3484,6 +3490,39 @@ export function TemplatePdfDesignerDialog({
                 tb.set('textAlign', patch.text_align);
             }
 
+            if (
+                'font_size' in patch ||
+                'font_family' in patch ||
+                'font_weight' in patch ||
+                'text_align' in patch
+            ) {
+                const rect = canvas
+                    .getObjects()
+                    .find((o) => (o.get('data') as { id?: string })?.id === id);
+
+                if (rect) {
+                    const pixel = fabricObjectToPixelRect(rect);
+                    const placement = placementsRef.current.find(
+                        (item) => item.id === id,
+                    );
+                    const textHeight =
+                        typeof tb.calcTextHeight === 'function'
+                            ? tb.calcTextHeight()
+                            : (tb.fontSize ?? 12);
+                    tb.set({
+                        top: overlayTextTopForAlign(
+                            pixel.top,
+                            pixel.height,
+                            textHeight,
+                            normalizeVerticalAlign(
+                                placement?.vertical_align,
+                                placement?.type === 'text' ? 'text' : 'field',
+                            ),
+                        ),
+                    });
+                }
+            }
+
             canvas.requestRenderAll();
         }
     };
@@ -3567,17 +3606,33 @@ export function TemplatePdfDesignerDialog({
                     </p>
                 )}
                 {isEditable && (
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() =>
-                            handleDeleteSelected(selectedPlacement.id, 'field')
-                        }
-                    >
-                        <Trash2 className="mr-1.5 size-3.5" /> Delete
-                    </Button>
+                    <>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() =>
+                                handleDuplicatePlacement(selectedPlacement)
+                            }
+                        >
+                            <Copy className="mr-1.5 size-3.5" /> Duplicate
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() =>
+                                handleDeleteSelected(
+                                    selectedPlacement.id,
+                                    'field',
+                                )
+                            }
+                        >
+                            <Trash2 className="mr-1.5 size-3.5" /> Delete
+                        </Button>
+                    </>
                 )}
             </div>
         ) : null;
@@ -3654,9 +3709,7 @@ export function TemplatePdfDesignerDialog({
                             variant="outline"
                             className="w-full"
                             onClick={() =>
-                                handleDuplicateTextPlacement(
-                                    selectedPlacement as PdfTextPlacement,
-                                )
+                                handleDuplicatePlacement(selectedPlacement)
                             }
                         >
                             <Copy className="mr-1.5 size-3.5" /> Duplicate
