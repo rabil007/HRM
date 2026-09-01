@@ -130,7 +130,7 @@ export function TemplatePdfUploadFormPage({
             <DetailsHeader
                 kicker="Documents"
                 title="Upload PDF Template"
-                description="Upload an existing company PDF. You will place merge fields visually on the next page."
+                description="Upload a company PDF and configure fields, text, signatures, and workflow in the designer."
                 backHref={templates.url()}
                 backLabel="Back to Templates"
             />
@@ -290,7 +290,7 @@ export function TemplatePdfUploadFormPage({
                                         Uploading...
                                     </>
                                 ) : (
-                                    'Create & open designer'
+                                    'Upload & Open Designer'
                                 )}
                             </Button>
                         </div>

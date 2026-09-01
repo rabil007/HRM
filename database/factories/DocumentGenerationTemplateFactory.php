@@ -62,6 +62,7 @@ class DocumentGenerationTemplateFactory extends Factory
     {
         return $this->state(fn () => [
             'template_format' => DocumentGenerationTemplateFormat::Content,
+            'content' => "To Whom It May Concern,\n\nThis is to certify that {{employee_name}} (Employee No: {{employee_no}}) is employed with {{company_name}} as {{position_name}} in the {{department_name}} department.\n\nDate: {{today}}\n\nSincerely,\nHR Department",
         ]);
     }
 

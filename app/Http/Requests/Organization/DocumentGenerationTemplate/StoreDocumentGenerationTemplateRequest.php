@@ -3,8 +3,6 @@
 namespace App\Http\Requests\Organization\DocumentGenerationTemplate;
 
 use App\Enums\DocumentGenerationTemplateFormat;
-use App\Support\Documents\DocumentTemplateMergeFields;
-use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -21,11 +19,12 @@ class StoreDocumentGenerationTemplateRequest extends FormRequest
     public function rules(): array
     {
         $companyId = (int) $this->attributes->get('current_company_id');
-        $format = $this->input('template_format', DocumentGenerationTemplateFormat::Content->value);
-        $isPdf = $format === DocumentGenerationTemplateFormat::PdfOverlay->value;
 
         return [
-            'template_format' => ['nullable', Rule::enum(DocumentGenerationTemplateFormat::class)],
+            'template_format' => [
+                'required',
+                Rule::in([DocumentGenerationTemplateFormat::PdfOverlay->value]),
+            ],
             'name' => [
                 'required',
                 'string',
@@ -41,24 +40,11 @@ class StoreDocumentGenerationTemplateRequest extends FormRequest
                     ->where('is_active', true)
                     ->whereNull('deleted_at'),
             ],
-            'content' => [
-                $isPdf ? 'nullable' : 'required',
-                'string',
-                function (string $attribute, mixed $value, Closure $fail) use ($isPdf): void {
-                    if ($isPdf || ! is_string($value)) {
-                        return;
-                    }
-
-                    $unsupported = DocumentTemplateMergeFields::findUnsupported($value);
-                    if ($unsupported !== []) {
-                        $fail('The content contains unsupported merge fields: '.implode(', ', $unsupported).'.');
-                    }
-                },
-            ],
             'file' => [
-                $isPdf ? 'required' : 'prohibited',
+                'required',
                 'file',
             ],
+            'content' => ['prohibited'],
             'status' => ['prohibited'],
             'company_id' => ['prohibited'],
             'created_by' => ['prohibited'],

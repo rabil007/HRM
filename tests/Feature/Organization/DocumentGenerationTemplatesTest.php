@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\DocumentGenerationTemplateFormat;
 use App\Enums\DocumentGenerationTemplateStatus;
 use App\Models\Company;
 use App\Models\Country;
@@ -9,9 +10,25 @@ use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Support\Documents\DocumentTemplateStorage;
 use Database\Seeders\PermissionsSeeder;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+use setasign\Fpdi\Fpdi;
 use Spatie\Activitylog\Models\Activity;
+
+function createDocTemplatesSamplePdf(int $pages = 1): string
+{
+    $fpdi = new Fpdi;
+    for ($i = 1; $i <= $pages; $i++) {
+        $fpdi->AddPage();
+        $fpdi->SetFont('Helvetica', '', 12);
+        $fpdi->Write(10, "Page {$i}");
+    }
+
+    return (string) $fpdi->Output('S');
+}
 
 function createDocTemplatesTestCompany(string $name = 'Test Co'): Company
 {
@@ -49,10 +66,10 @@ test('templates index lists custom templates for the active company', function (
     grantCompanyPermissions($user, $companyA, ['documents.templates.view']);
     grantCompanyPermissions($user, $companyB, ['documents.templates.view']);
 
-    DocumentGenerationTemplate::factory()->forCompany($companyA)->create([
+    DocumentGenerationTemplate::factory()->forCompany($companyA)->pdfOverlay()->create([
         'name' => 'Alpha Welcome Letter',
     ]);
-    DocumentGenerationTemplate::factory()->forCompany($companyB)->create([
+    DocumentGenerationTemplate::factory()->forCompany($companyB)->pdfOverlay()->create([
         'name' => 'Beta Welcome Letter',
     ]);
 
@@ -97,33 +114,67 @@ test('user with only document types view sees empty custom templates without per
             ->where('can.create_templates', false));
 });
 
-test('store creates custom template with valid allowed merge fields', function () {
+test('templates index excludes legacy content templates and only lists pdf overlay templates', function () {
+    $user = User::factory()->create();
+    $company = createDocTemplatesTestCompany();
+    grantCompanyPermissions($user, $company, ['documents.templates.view']);
+
+    // Legacy content template (should be excluded from index)
+    DocumentGenerationTemplate::factory()->forCompany($company)->content()->create([
+        'name' => 'Legacy Content Template',
+    ]);
+
+    // PDF template (should be included)
+    DocumentGenerationTemplate::factory()->forCompany($company)->pdfOverlay()->create([
+        'name' => 'Active PDF Template',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents.templates'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/templates')
+            ->has('custom_templates', 1)
+            ->where('custom_templates.0.name', 'Active PDF Template'));
+});
+
+test('store creates custom template with pdf upload and opens designer', function () {
     $user = User::factory()->create();
     $company = createDocTemplatesTestCompany();
     $docType = DocumentType::query()->create(['title' => 'General Notice', 'is_active' => true]);
+    Storage::fake(DocumentTemplateStorage::DISK);
 
     grantCompanyPermissions($user, $company, [
         'documents.templates.view',
         'documents.templates.create',
     ]);
 
-    $content = "To {{employee_name}} ({{employee_no}}),\nWelcome to {{company_name}} in {{department_name}} on {{today}}.";
-
     $response = $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->post(route('organization.documents.templates.store'), [
+            'template_format' => DocumentGenerationTemplateFormat::PdfOverlay->value,
             'name' => 'General Welcome Letter',
             'description' => 'Issued to new joiners',
             'document_type_id' => $docType->id,
-            'content' => $content,
+            'file' => UploadedFile::fake()->createWithContent(
+                'welcome.pdf',
+                createDocTemplatesSamplePdf(1),
+            ),
         ]);
 
-    $response->assertRedirect(route('organization.documents.templates'));
-    $response->assertSessionHas('success', 'Template created.');
+    $template = DocumentGenerationTemplate::query()
+        ->where('company_id', $company->id)
+        ->where('name', 'General Welcome Letter')
+        ->firstOrFail();
+
+    $response->assertRedirect(route('organization.documents.templates.design', $template));
+    $response->assertSessionHas('success', 'Template created. Place merge fields on the PDF.');
 
     $this->assertDatabaseHas('document_generation_templates', [
         'company_id' => $company->id,
         'name' => 'General Welcome Letter',
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay->value,
         'document_type_id' => $docType->id,
         'status' => 'draft',
         'created_by' => $user->id,
@@ -131,15 +182,11 @@ test('store creates custom template with valid allowed merge fields', function (
     ]);
 
     // Verify activity logging
-    $template = DocumentGenerationTemplate::query()->where('name', 'General Welcome Letter')->firstOrFail();
     $activity = Activity::forSubject($template)->first();
-
     expect($activity)->not->toBeNull();
-    // Verify document content is NOT logged to activity properties
-    expect($activity->properties->toArray())->not->toHaveKey('attributes.content');
 });
 
-test('store rejects content with unsupported or forbidden merge fields', function () {
+test('store rejects content format, raw content, and missing file', function () {
     $user = User::factory()->create();
     $company = createDocTemplatesTestCompany();
 
@@ -156,7 +203,7 @@ test('store rejects content with unsupported or forbidden merge fields', functio
             'content' => $badContent,
         ]);
 
-    $response->assertSessionHasErrors(['content']);
+    $response->assertSessionHasErrors(['template_format', 'file', 'content']);
     $this->assertDatabaseMissing('document_generation_templates', [
         'name' => 'Financial Statement',
     ]);
@@ -165,14 +212,16 @@ test('store rejects content with unsupported or forbidden merge fields', functio
 test('store rejects status field in payload', function () {
     $user = User::factory()->create();
     $company = createDocTemplatesTestCompany();
+    Storage::fake(DocumentTemplateStorage::DISK);
 
     grantCompanyPermissions($user, $company, ['documents.templates.create']);
 
     $response = $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->post(route('organization.documents.templates.store'), [
+            'template_format' => DocumentGenerationTemplateFormat::PdfOverlay->value,
             'name' => 'Draft Letter',
-            'content' => 'Hello {{employee_name}}',
+            'file' => UploadedFile::fake()->createWithContent('letter.pdf', createDocTemplatesSamplePdf(1)),
             'status' => 'draft',
         ]);
 
@@ -183,11 +232,12 @@ test('store rejects duplicate template name in same company but allows in differ
     $user = User::factory()->create();
     $companyA = createDocTemplatesTestCompany('Company A');
     $companyB = createDocTemplatesTestCompany('Company B');
+    Storage::fake(DocumentTemplateStorage::DISK);
 
     grantCompanyPermissions($user, $companyA, ['documents.templates.create']);
     grantCompanyPermissions($user, $companyB, ['documents.templates.create']);
 
-    DocumentGenerationTemplate::factory()->forCompany($companyA)->create([
+    DocumentGenerationTemplate::factory()->forCompany($companyA)->pdfOverlay()->create([
         'name' => 'Verification Letter',
     ]);
 
@@ -195,8 +245,9 @@ test('store rejects duplicate template name in same company but allows in differ
     $responseA = $this->actingAs($user)
         ->withSession(['current_company_id' => $companyA->id])
         ->post(route('organization.documents.templates.store'), [
+            'template_format' => DocumentGenerationTemplateFormat::PdfOverlay->value,
             'name' => 'Verification Letter',
-            'content' => 'Hello {{employee_name}}',
+            'file' => UploadedFile::fake()->createWithContent('v1.pdf', createDocTemplatesSamplePdf(1)),
         ]);
 
     $responseA->assertSessionHasErrors(['name']);
@@ -205,8 +256,9 @@ test('store rejects duplicate template name in same company but allows in differ
     $responseB = $this->actingAs($user)
         ->withSession(['current_company_id' => $companyB->id])
         ->post(route('organization.documents.templates.store'), [
+            'template_format' => DocumentGenerationTemplateFormat::PdfOverlay->value,
             'name' => 'Verification Letter',
-            'content' => 'Hello {{employee_name}}',
+            'file' => UploadedFile::fake()->createWithContent('v2.pdf', createDocTemplatesSamplePdf(1)),
         ]);
 
     $responseB->assertSessionHasNoErrors();
@@ -219,7 +271,7 @@ test('store rejects duplicate template name in same company but allows in differ
 test('update modifies template attributes and ignores unique rule for self', function () {
     $user = User::factory()->create();
     $company = createDocTemplatesTestCompany();
-    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->content()->create([
         'name' => 'Old Title',
         'status' => DocumentGenerationTemplateStatus::Draft,
     ]);
@@ -283,7 +335,7 @@ test('duplicate copies template within company as draft with copy name and logs 
     $user = User::factory()->create();
     $company = createDocTemplatesTestCompany();
 
-    $original = DocumentGenerationTemplate::factory()->forCompany($company)->active()->create([
+    $original = DocumentGenerationTemplate::factory()->forCompany($company)->content()->active()->create([
         'name' => 'Travel Authorization',
         'description' => 'Authorizes business travel',
         'content' => 'Dear {{employee_name}}, your travel is approved.',
