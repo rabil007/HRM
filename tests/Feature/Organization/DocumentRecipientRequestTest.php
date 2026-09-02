@@ -11,12 +11,14 @@ use App\Models\User;
 use App\Support\Documents\RecipientRequests\Actions\CreateDocumentRecipientRequest;
 use App\Support\Documents\RecipientRequests\Actions\SubmitDocumentRecipientAcknowledgement;
 use App\Support\Documents\RecipientRequests\Actions\SubmitDocumentRecipientSignature;
+use App\Support\Documents\RecipientRequests\DocumentRecipientRequestPresenter;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestToken;
 use App\Support\Documents\RecipientRequests\DocumentRecipientSigningTransactionProbe;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Activitylog\Models\Activity;
 
 require_once __DIR__.'/../../Support/document-recipient-request-fixtures.php';
@@ -223,6 +225,55 @@ test('signing creates new immutable signed version and updates current version',
         ->and($instance->current_version_id)->toBe($result['request']->result_document_instance_version_id)
         ->and($version->checksum)->toBe($sourceChecksum)
         ->and($instance->versions()->count())->toBe(2);
+});
+
+test('signing accepts browser consent values', function (mixed $consent) {
+    ['company' => $company, 'document' => $document] = makeRecipientFixturesWithSignaturePlacement(
+        defaultSignaturePlacementConfig(),
+    );
+
+    $requester = User::factory()->create();
+    $result = app(CreateDocumentRecipientRequest::class)->handle(
+        $document,
+        DocumentRecipientAction::Sign,
+        $requester,
+        $company->id,
+    );
+
+    app(SubmitDocumentRecipientSignature::class)->handle(
+        $result['request'],
+        [
+            'signed_name' => 'Employee Name',
+            'signature_data' => validSignatureDataUri(),
+            'consent' => $consent,
+        ],
+        Request::create('/document-action/test', 'POST'),
+    );
+
+    expect($result['request']->fresh()->status)->toBe(DocumentRecipientRequestStatus::Completed);
+})->with(['1', 'on', 'true', true]);
+
+test('public signing post accepts string consent from the form', function () {
+    ['company' => $company, 'document' => $document] = makeRecipientFixturesWithSignaturePlacement(
+        defaultSignaturePlacementConfig(),
+    );
+
+    $requester = User::factory()->create();
+    $created = app(CreateDocumentRecipientRequest::class)->handle(
+        $document,
+        DocumentRecipientAction::Sign,
+        $requester,
+        $company->id,
+    );
+
+    $this->post(route('public.document-action.sign', ['token' => $created['raw_token']]), [
+        'signed_name' => 'Employee Name',
+        'signature_data' => validSignatureDataUri(),
+        'consent' => '1',
+    ])->assertRedirect(route('public.document-action.show', ['token' => $created['raw_token']]))
+        ->assertSessionHasNoErrors();
+
+    expect($created['request']->fresh()->status)->toBe(DocumentRecipientRequestStatus::Completed);
 });
 
 function countRecipientEvents(DocumentRecipientRequest $request, DocumentRecipientRequestEventType $event): int
@@ -581,3 +632,45 @@ test('public document-action cannot be accessed by guessing request ids and does
     $this->get(route('public.document-action.show', ['token' => $created['raw_token']]))
         ->assertOk();
 });
+
+test('recipient requests inbox presents every stored status', function (DocumentRecipientRequestStatus $status) {
+    ['company' => $company, 'document' => $document] = makeRecipientFixturesWithSignaturePlacement(
+        defaultSignaturePlacementConfig(),
+    );
+
+    $requester = User::factory()->create();
+    grantCompanyPermissions($requester, $company, [
+        'documents.recipient-requests.create',
+        'documents.recipient-requests.view',
+    ]);
+
+    $created = app(CreateDocumentRecipientRequest::class)->handle(
+        $document,
+        DocumentRecipientAction::Sign,
+        $requester,
+        $company->id,
+    );
+
+    $created['request']->update(['status' => $status]);
+
+    $item = app(DocumentRecipientRequestPresenter::class)->listItem($created['request']->fresh());
+
+    expect($item['status'])->toBe($status->value)
+        ->and($item['human_status'])->toBe(match ($status) {
+            DocumentRecipientRequestStatus::Completed => 'Completed',
+            DocumentRecipientRequestStatus::Expired => 'Expired',
+            DocumentRecipientRequestStatus::Cancelled => 'Cancelled',
+            DocumentRecipientRequestStatus::Superseded => 'Superseded',
+            DocumentRecipientRequestStatus::AwaitingAction => 'Waiting for Sign',
+        });
+
+    $this->actingAs($requester)
+        ->get(route('organization.documents.requests', ['tab' => 'recipient']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/requests/index')
+            ->where('tab', 'recipient')
+            ->has('recipient_requests', 1)
+            ->where('recipient_requests.0.status', $status->value)
+            ->where('recipient_requests.0.human_status', $item['human_status']));
+})->with(DocumentRecipientRequestStatus::cases());

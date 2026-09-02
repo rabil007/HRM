@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { pdfEmbedUrl } from '@/features/organization/documents/lib/pdf-embed-url';
 
 export type DocumentPreviewSource = {
     title: string | null;
@@ -66,7 +67,7 @@ export function DocumentPreviewPanel({
                     />
                 ) : (
                     <iframe
-                        src={document.file_url}
+                        src={pdfEmbedUrl(document.file_url)}
                         title={document.title ?? 'Document preview'}
                         className="h-full w-full"
                     />

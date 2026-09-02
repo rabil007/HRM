@@ -21,4 +21,11 @@ class SubmitDocumentActionAcknowledgeRequest extends FormRequest
             'acknowledgement' => ['accepted'],
         ];
     }
+
+    protected function passedValidation(): void
+    {
+        $this->merge([
+            'acknowledgement' => $this->boolean('acknowledgement'),
+        ]);
+    }
 }

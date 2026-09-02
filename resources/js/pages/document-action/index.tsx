@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SignatureCapture } from '@/features/esign/signature-capture';
+import { pdfEmbedUrl } from '@/features/organization/documents/lib/pdf-embed-url';
 
 type Props = {
     companyName: string;
@@ -138,8 +139,8 @@ export default function DocumentActionPage({
                         </div>
                         <iframe
                             title="Document preview"
-                            src={documentUrl}
-                            className="h-[60vh] w-full border-0 bg-white"
+                            src={pdfEmbedUrl(documentUrl)}
+                            className="h-[60vh] w-full border-0 bg-muted/40"
                         />
                     </section>
 

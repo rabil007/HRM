@@ -7,6 +7,7 @@ use App\Enums\DocumentRecipientRequestStatus;
 use App\Models\DocumentInstance;
 use App\Models\DocumentInstanceVersion;
 use App\Models\DocumentRecipientRequest;
+use App\Support\Documents\RecipientRequests\DocumentRecipientAcceptedFlag;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestSourceGuard;
 use Illuminate\Http\Request;
@@ -49,7 +50,7 @@ final class SubmitDocumentRecipientAcknowledgement
             ]);
         }
 
-        if ($data['acknowledgement'] !== true) {
+        if (! DocumentRecipientAcceptedFlag::isAccepted($data['acknowledgement'] ?? false)) {
             throw ValidationException::withMessages([
                 'acknowledgement' => 'Acknowledgement confirmation is required.',
             ]);

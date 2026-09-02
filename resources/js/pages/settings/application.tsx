@@ -918,11 +918,17 @@ export default function ApplicationSettings({
                                                 }
                                                 placeholder={
                                                     smtp.has_password
-                                                        ? '•••••••• (configured)'
+                                                        ? 'Leave blank to keep the saved password'
                                                         : 'SMTP password'
                                                 }
                                                 autoComplete="new-password"
                                             />
+                                            <p className="text-xs text-muted-foreground">
+                                                Saved passwords are never shown.
+                                                Type a new password to replace
+                                                it, then use the eye icon to
+                                                check what you typed.
+                                            </p>
                                             {smtpForm.errors.password ? (
                                                 <p className="text-xs text-destructive">
                                                     {smtpForm.errors.password}

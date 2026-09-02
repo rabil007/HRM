@@ -22,4 +22,11 @@ class SubmitDocumentActionSignRequest extends FormRequest
             'consent' => ['accepted'],
         ];
     }
+
+    protected function passedValidation(): void
+    {
+        $this->merge([
+            'consent' => $this->boolean('consent'),
+        ]);
+    }
 }
