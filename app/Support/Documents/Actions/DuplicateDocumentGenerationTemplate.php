@@ -7,6 +7,7 @@ use App\Enums\DocumentGenerationTemplateVersionStatus;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\User;
+use App\Support\Documents\DocumentTemplateAutomationBindings;
 use App\Support\Documents\DocumentTemplateStorage;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;
@@ -46,6 +47,13 @@ final class DuplicateDocumentGenerationTemplate
                     'updated_by' => $actor?->id,
                 ]);
 
+                $copiedWorkflow = $sourceVersion !== null
+                    ? DocumentTemplateAutomationBindings::fromVersionWorkflow($sourceVersion)
+                    : ['mode' => null, 'preset_id' => null];
+                $copiedSigning = $template->isPdfOverlay() && $sourceVersion !== null
+                    ? DocumentTemplateAutomationBindings::fromVersionSigning($sourceVersion)
+                    : ['mode' => null, 'preset_id' => null];
+
                 DocumentGenerationTemplateVersion::query()->create([
                     'company_id' => $copy->company_id,
                     'document_generation_template_id' => $copy->id,
@@ -58,10 +66,10 @@ final class DuplicateDocumentGenerationTemplate
                     'source_pdf_page_count' => $sourceVersion?->source_pdf_page_count,
                     'placement_config' => $sourceVersion?->placement_config,
                     'signature_placement_config' => $sourceVersion?->signature_placement_config,
-                    'document_workflow_preset_id' => $sourceVersion?->document_workflow_preset_id,
-                    'document_signing_preset_id' => $template->isPdfOverlay()
-                        ? $sourceVersion?->document_signing_preset_id
-                        : null,
+                    'document_workflow_mode' => $copiedWorkflow['mode'],
+                    'document_workflow_preset_id' => $copiedWorkflow['preset_id'],
+                    'document_signing_mode' => $copiedSigning['mode'],
+                    'document_signing_preset_id' => $copiedSigning['preset_id'],
                     'published_at' => null,
                     'created_by' => $actor?->id,
                     'updated_by' => $actor?->id,

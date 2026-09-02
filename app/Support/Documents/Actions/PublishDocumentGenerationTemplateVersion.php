@@ -6,6 +6,7 @@ use App\Enums\DocumentGenerationTemplateStatus;
 use App\Enums\DocumentGenerationTemplateVersionStatus;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
+use App\Support\Documents\DocumentGenerationTemplateReadiness;
 use App\Support\Documents\Lifecycle\DocumentLifecycleAutomationPolicy;
 use App\Support\Documents\PdfOverlayPlacementValidator;
 use DomainException;
@@ -51,6 +52,8 @@ final class PublishDocumentGenerationTemplateVersion
                 } catch (InvalidArgumentException $exception) {
                     throw new DomainException($exception->getMessage(), 0, $exception);
                 }
+
+                app(DocumentGenerationTemplateReadiness::class)->evaluateForPublish($lockedVersion, $template);
             }
 
             app(DocumentLifecycleAutomationPolicy::class)->assertPublishable($lockedVersion, $template);

@@ -74,11 +74,15 @@ export function WorkflowPresetFormDialog({
     onOpenChange,
     preset,
     formOptions,
+    preserveDesignerState = false,
+    onCreated,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     preset: WorkflowPresetSummary | null;
     formOptions: WorkflowPresetFormOptions;
+    preserveDesignerState?: boolean;
+    onCreated?: (name: string) => void;
 }) {
     if (!open) {
         return null;
@@ -91,6 +95,8 @@ export function WorkflowPresetFormDialog({
             onOpenChange={onOpenChange}
             preset={preset}
             formOptions={formOptions}
+            preserveDesignerState={preserveDesignerState}
+            onCreated={onCreated}
         />
     );
 }
@@ -100,11 +106,15 @@ function WorkflowPresetFormDialogBody({
     onOpenChange,
     preset,
     formOptions,
+    preserveDesignerState = false,
+    onCreated,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     preset: WorkflowPresetSummary | null;
     formOptions: WorkflowPresetFormOptions;
+    preserveDesignerState?: boolean;
+    onCreated?: (name: string) => void;
 }) {
     const [stages, setStages] = useState<StageForm[]>(() =>
         stagesFromPreset(preset),
@@ -229,6 +239,7 @@ function WorkflowPresetFormDialogBody({
         if (preset) {
             form.put(updatePreset.url(preset.id), {
                 preserveScroll: true,
+                preserveState: preserveDesignerState,
                 onSuccess: () => onOpenChange(false),
             });
 
@@ -237,7 +248,11 @@ function WorkflowPresetFormDialogBody({
 
         form.post(storePreset.url(), {
             preserveScroll: true,
-            onSuccess: () => onOpenChange(false),
+            preserveState: preserveDesignerState,
+            onSuccess: () => {
+                onCreated?.(form.data.name);
+                onOpenChange(false);
+            },
         });
     }
 

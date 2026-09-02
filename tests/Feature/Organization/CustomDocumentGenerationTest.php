@@ -2,6 +2,7 @@
 
 use App\Enums\DocumentGenerationTemplateFormat;
 use App\Enums\DocumentGenerationTemplateStatus;
+use App\Enums\DocumentTemplateAutomationMode;
 use App\Jobs\GenerateCustomDocumentsJob;
 use App\Models\Company;
 use App\Models\Country;
@@ -2263,7 +2264,7 @@ test('pdf overlay archived version run uses the snapshotted source rather than t
         'status' => 'pending',
     ]);
 
-    $version2 = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->draft()->create([
+    $version2 = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->draft()->automationNone()->create([
         'version' => 2,
         'source_pdf_path' => $v2Path,
         'source_pdf_page_count' => 1,
@@ -2420,6 +2421,11 @@ test('pdf overlay create publish and generate with zero placements succeeds thro
             'placements' => [],
         ]);
 
+    $draft->update([
+        'document_workflow_mode' => DocumentTemplateAutomationMode::None,
+        'document_signing_mode' => DocumentTemplateAutomationMode::None,
+    ]);
+
     app(PublishDocumentGenerationTemplateVersion::class)->handle($draft, $user->id);
 
     $published = $template->fresh()->publishedVersion;
@@ -2517,6 +2523,11 @@ test('pdf overlay replace pdf publish and generate with zero placements succeeds
         'placements' => [],
     ])
         ->and($draft->source_pdf_page_count)->toBe(2);
+
+    $draft->update([
+        'document_workflow_mode' => DocumentTemplateAutomationMode::None,
+        'document_signing_mode' => DocumentTemplateAutomationMode::None,
+    ]);
 
     app(PublishDocumentGenerationTemplateVersion::class)->handle($draft, $user->id);
 

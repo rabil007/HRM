@@ -46,6 +46,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SigningPresetFormDialog } from '@/features/organization/documents/signing/signing-preset-form-dialog';
+import type { SigningPresetFormOptions } from '@/features/organization/documents/signing/types';
+import type { WorkflowPresetFormOptions } from '@/features/organization/documents/workflow/types';
+import { WorkflowPresetFormDialog } from '@/features/organization/documents/workflow/workflow-preset-form-dialog';
 import { getPdfJs } from '@/lib/pdfjs';
 import { cn } from '@/lib/utils';
 import { draft as draftTemplate } from '@/routes/organization/documents/templates';
@@ -98,12 +103,22 @@ import type { OverflowLevel } from '../lib/placement-overflow';
 import { snapRectToGuides } from '../lib/snap-guides';
 import type { SnapBox, SnapGuide } from '../lib/snap-guides';
 import {
+    designerUiCopy,
+    displayedAutomationMode,
+    localWorkflowIssues,
+    mergeReadinessBlockingCount,
+    nextSignatureSlotToPlace,
+    signingStepPlacementStatuses,
+} from '../lib/template-workflow';
+import {
     normalizeFontColor,
     normalizePlacementConfig,
     normalizeVerticalAlign,
 } from '../types';
 import type {
     CustomTemplate,
+    DesignerSigningPreset,
+    DesignerWorkflowPreset,
     MergeField,
     PlacementFontFamily,
     PdfFieldPlacement,
@@ -111,6 +126,8 @@ import type {
     PdfTextPlacement,
     SignaturePlacementConfig,
     SignaturePlacementItem,
+    TemplateAutomationMode,
+    TemplateReadiness,
     TemplateVersionListItem,
     TemplateVersionSummary,
     VersionChangeSummary,
@@ -118,6 +135,8 @@ import type {
 } from '../types';
 import { TemplateDesignEmployeePreviewPicker } from './template-design-employee-preview';
 import type { DesignEmployeePreview } from './template-design-employee-preview';
+import { TemplateDesignerWorkflowPanel } from './template-designer-workflow-panel';
+import { TemplateReadinessIndicator } from './template-readiness-indicator';
 
 // ─── Signature helper constants ───────────────────────────────────────────────
 const SUBJECT_SLOT = 'subject';
@@ -404,6 +423,26 @@ function loadPlacementsFromConfig(
     return placements;
 }
 
+function automationStateFromVersion(version: TemplateVersionSummary | null): {
+    workflowMode: TemplateAutomationMode;
+    workflowPresetId: number | null;
+    signingMode: TemplateAutomationMode;
+    signingPresetId: number | null;
+} {
+    return {
+        workflowMode: displayedAutomationMode(
+            version?.document_workflow_mode ?? null,
+            version?.document_workflow_preset_id ?? null,
+        ),
+        workflowPresetId: version?.document_workflow_preset_id ?? null,
+        signingMode: displayedAutomationMode(
+            version?.document_signing_mode ?? null,
+            version?.document_signing_preset_id ?? null,
+        ),
+        signingPresetId: version?.document_signing_preset_id ?? null,
+    };
+}
+
 function sortedSlotKeys(
     placements: Record<string, SignaturePlacementItem>,
 ): string[] {
@@ -649,7 +688,18 @@ type Props = {
     initialChangeSummary?: VersionChangeSummary | null;
     allVersions: TemplateVersionListItem[];
     mergeFields: MergeField[];
-    can: { create_draft: boolean; update: boolean; preview_employee?: boolean };
+    workflowPresets?: DesignerWorkflowPreset[];
+    signingPresets?: DesignerSigningPreset[];
+    workflowFormOptions?: WorkflowPresetFormOptions | null;
+    signingFormOptions?: SigningPresetFormOptions | null;
+    readiness?: TemplateReadiness | null;
+    can: {
+        create_draft: boolean;
+        update: boolean;
+        preview_employee?: boolean;
+        create_workflow_presets?: boolean;
+        create_signing_presets?: boolean;
+    };
     onSaved?: () => void;
     mode?: 'dialog' | 'page';
 };
@@ -1173,11 +1223,17 @@ export function TemplatePdfDesignerDialog({
     initialChangeSummary = null,
     allVersions,
     mergeFields,
+    workflowPresets = [],
+    signingPresets = [],
+    workflowFormOptions = null,
+    signingFormOptions = null,
+    readiness: initialReadiness = null,
     can,
     onSaved,
     mode = 'dialog',
 }: Props) {
     const open = mode === 'page' ? true : Boolean(openProp);
+    const initialAutomation = automationStateFromVersion(initialVersion);
 
     // ── State ──────────────────────────────────────────────────────────────────
     const [selectedVersion, setSelectedVersion] =
@@ -1196,6 +1252,28 @@ export function TemplatePdfDesignerDialog({
     >(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [rightPanelTab, setRightPanelTab] = useState<
+        'properties' | 'workflow'
+    >('properties');
+    const [workflowMode, setWorkflowMode] = useState<TemplateAutomationMode>(
+        initialAutomation.workflowMode,
+    );
+    const [workflowPresetId, setWorkflowPresetId] = useState<number | null>(
+        initialAutomation.workflowPresetId,
+    );
+    const [signingMode, setSigningMode] = useState<TemplateAutomationMode>(
+        initialAutomation.signingMode,
+    );
+    const [signingPresetId, setSigningPresetId] = useState<number | null>(
+        initialAutomation.signingPresetId,
+    );
+    const [readiness, setReadiness] = useState<TemplateReadiness | null>(
+        initialReadiness,
+    );
+    const [isCreateWorkflowPresetOpen, setIsCreateWorkflowPresetOpen] =
+        useState(false);
+    const [isCreateSigningPresetOpen, setIsCreateSigningPresetOpen] =
+        useState(false);
     const [isLoadingVersion, setIsLoadingVersion] = useState(false);
     const [isLoadingPdf, setIsLoadingPdf] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -1237,6 +1315,8 @@ export function TemplatePdfDesignerDialog({
     const pdfScaleRef = useRef(1);
     const isSamplePreviewRef = useRef(false);
     const isEditableRef = useRef(isEditable);
+    const pendingWorkflowPresetNameRef = useRef<string | null>(null);
+    const pendingSigningPresetNameRef = useRef<string | null>(null);
     const pdfDocRef = useRef<any>(null);
     const currentPageRef = useRef(currentPage);
     const pendingPlacementRef = useRef<PendingPlacement | null>(null);
@@ -1721,6 +1801,22 @@ export function TemplatePdfDesignerDialog({
                     }
                 },
             );
+
+            const selectedId = selectedElementIdRef.current;
+
+            if (selectedId) {
+                const selectedObject = canvas
+                    .getObjects()
+                    .find(
+                        (item) =>
+                            (item.get('data') as { id?: string })?.id ===
+                            selectedId,
+                    );
+
+                if (selectedObject) {
+                    canvas.setActiveObject(selectedObject);
+                }
+            }
 
             canvas.requestRenderAll();
         },
@@ -2266,7 +2362,13 @@ export function TemplatePdfDesignerDialog({
             setSelectedElementId(null);
             setSelectedElementType(null);
             setHasUnsavedChanges(false);
-            setChangeSummary(null);
+            setChangeSummary(initialChangeSummary ?? null);
+            const automation = automationStateFromVersion(initialVersion);
+            setWorkflowMode(automation.workflowMode);
+            setWorkflowPresetId(automation.workflowPresetId);
+            setSigningMode(automation.signingMode);
+            setSigningPresetId(automation.signingPresetId);
+            setReadiness(initialReadiness);
             isSamplePreviewRef.current = false;
             setIsSamplePreview(false);
             setPreviewEmployee(null);
@@ -2276,7 +2378,48 @@ export function TemplatePdfDesignerDialog({
             nudgeSessionRef.current = false;
             pdfDocRef.current = null;
         }
-    }, [open, initialVersion]);
+        // Re-initialize only when the selected version identity changes so
+        // Inertia prop refreshes (preset create) do not wipe unsaved canvas work.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, initialVersion?.id]);
+
+    useEffect(() => {
+        const name = pendingWorkflowPresetNameRef.current;
+
+        if (!name) {
+            return;
+        }
+
+        const match = workflowPresets.find((preset) => preset.name === name);
+
+        if (!match) {
+            return;
+        }
+
+        pendingWorkflowPresetNameRef.current = null;
+        setWorkflowMode('preset');
+        setWorkflowPresetId(match.id);
+        setHasUnsavedChanges(true);
+    }, [workflowPresets]);
+
+    useEffect(() => {
+        const name = pendingSigningPresetNameRef.current;
+
+        if (!name) {
+            return;
+        }
+
+        const match = signingPresets.find((preset) => preset.name === name);
+
+        if (!match) {
+            return;
+        }
+
+        pendingSigningPresetNameRef.current = null;
+        setSigningMode('preset');
+        setSigningPresetId(match.id);
+        setHasUnsavedChanges(true);
+    }, [signingPresets]);
 
     // ── Cleanup on unmount ────────────────────────────────────────────────────
     useEffect(() => disposeFabricCanvas, [disposeFabricCanvas]);
@@ -2537,6 +2680,92 @@ export function TemplatePdfDesignerDialog({
 
         setHasUnsavedChanges(true);
         refreshCanvasObjects();
+    };
+
+    const selectCanvasObjectById = (id: string) => {
+        const canvas = fabricCanvasRef.current;
+        const object = canvas
+            ?.getObjects()
+            .find((item) => (item.get('data') as { id?: string })?.id === id);
+
+        if (canvas && object) {
+            canvas.setActiveObject(object);
+            canvas.requestRenderAll();
+        }
+    };
+
+    const placeSlotOnPdf = (slotKey: string) => {
+        const next = nextSignatureSlotToPlace(
+            slotKey,
+            Object.keys(signaturePlacementsRef.current),
+        );
+
+        if (next.action === 'select') {
+            const existing = signaturePlacementsRef.current[next.slotKey];
+
+            if (!existing) {
+                return;
+            }
+
+            if (existing.page !== currentPageRef.current) {
+                setCurrentPage(existing.page);
+            }
+
+            selectedElementIdRef.current = existing.id;
+            setSelectedElementId(existing.id);
+            setSelectedElementType('signature');
+            setRightPanelTab('properties');
+            window.setTimeout(() => selectCanvasObjectById(existing.id), 50);
+
+            return;
+        }
+
+        addRoleSlot(next.role as SignatureRole);
+        setRightPanelTab('properties');
+        const added = signaturePlacementsRef.current[next.slotKey];
+
+        if (added) {
+            window.setTimeout(() => selectCanvasObjectById(added.id), 50);
+        }
+    };
+
+    const removeAllSignaturePlacements = () => {
+        if (Object.keys(signaturePlacementsRef.current).length === 0) {
+            return;
+        }
+
+        recordHistory();
+        nudgeSessionRef.current = false;
+        signaturePlacementsRef.current = {};
+        setSignaturePlacements({});
+        setSelectedElementId(null);
+        setSelectedElementType(null);
+        setHasUnsavedChanges(true);
+        refreshCanvasObjects();
+    };
+
+    const markWorkflowDirty = () => {
+        setHasUnsavedChanges(true);
+    };
+
+    const handleWorkflowModeChange = (mode: TemplateAutomationMode) => {
+        setWorkflowMode(mode);
+
+        if (mode !== 'preset') {
+            setWorkflowPresetId(null);
+        }
+
+        markWorkflowDirty();
+    };
+
+    const handleSigningModeChange = (mode: TemplateAutomationMode) => {
+        setSigningMode(mode);
+
+        if (mode !== 'preset') {
+            setSigningPresetId(null);
+        }
+
+        markWorkflowDirty();
     };
 
     // ── Handlers ───────────────────────────────────────────────────────────────
@@ -3053,6 +3282,12 @@ export function TemplatePdfDesignerDialog({
             setCurrentPage(1);
             setHasUnsavedChanges(false);
             setPendingPlacement(null);
+            const automation = automationStateFromVersion(data.version);
+            setWorkflowMode(automation.workflowMode);
+            setWorkflowPresetId(automation.workflowPresetId);
+            setSigningMode(automation.signingMode);
+            setSigningPresetId(automation.signingPresetId);
+            setReadiness(data.readiness ?? null);
             historyRef.current = new DesignHistory();
             setHistoryTick(0);
             nudgeSessionRef.current = false;
@@ -3181,6 +3416,12 @@ export function TemplatePdfDesignerDialog({
                 schema_version: 2,
                 placements: sigPlacements,
             },
+            document_workflow_mode: workflowMode,
+            document_workflow_preset_id:
+                workflowMode === 'preset' ? workflowPresetId : null,
+            document_signing_mode: signingMode,
+            document_signing_preset_id:
+                signingMode === 'preset' ? signingPresetId : null,
         };
 
         try {
@@ -3216,8 +3457,8 @@ export function TemplatePdfDesignerDialog({
                 const firstValue =
                     keys.length > 0 ? errors[keys[0]!] : body.message;
                 const firstMsg = Array.isArray(firstValue)
-                    ? (firstValue[0] ?? 'Failed to save design.')
-                    : firstValue || 'Failed to save design.';
+                    ? (firstValue[0] ?? 'Failed to save draft.')
+                    : firstValue || 'Failed to save draft.';
                 const hasSigError = keys.some((k) => k.includes('signature'));
                 const hasPlacementError = keys.some(
                     (k) => k.includes('placement') || k.includes('placements'),
@@ -3235,15 +3476,20 @@ export function TemplatePdfDesignerDialog({
             }
 
             if (!response.ok) {
-                throw new Error('Failed to save design.');
+                throw new Error('Failed to save draft.');
             }
 
             const data = (await response.json()) as {
                 version?: TemplateVersionSummary;
+                readiness?: TemplateReadiness;
             };
 
             if (data.version) {
                 setSelectedVersion(data.version);
+            }
+
+            if (data.readiness) {
+                setReadiness(data.readiness);
             }
 
             setHasUnsavedChanges(false);
@@ -3255,7 +3501,7 @@ export function TemplatePdfDesignerDialog({
             return true;
         } catch (err: unknown) {
             const message =
-                err instanceof Error ? err.message : 'Failed to save design.';
+                err instanceof Error ? err.message : 'Failed to save draft.';
             setErrorMessage(message);
 
             return false;
@@ -3272,14 +3518,10 @@ export function TemplatePdfDesignerDialog({
         setErrorMessage(null);
 
         if (hasUnsavedChanges) {
-            setIsPublishing(true);
-            const saved = await handleSaveDesign();
+            setErrorMessage('Save the draft before publishing.');
+            setRightPanelTab('workflow');
 
-            if (!saved) {
-                setIsPublishing(false);
-
-                return;
-            }
+            return;
         }
 
         setIsPublishing(true);
@@ -3827,6 +4069,78 @@ export function TemplatePdfDesignerDialog({
     const canUndoDesign = historyTick >= 0 && historyRef.current.canUndo;
     const canRedoDesign = historyTick >= 0 && historyRef.current.canRedo;
 
+    const placedSlotKeys = Object.keys(signaturePlacements);
+    const selectedSigningPreset = signingPresets.find(
+        (preset) => preset.id === signingPresetId,
+    );
+    const slotPages = Object.fromEntries(
+        placedSlotKeys.map((slotKey) => [
+            slotKey,
+            signaturePlacements[slotKey]?.page ?? 1,
+        ]),
+    );
+    const missingSigningSlotKeys = selectedSigningPreset
+        ? signingStepPlacementStatuses(
+              selectedSigningPreset.steps,
+              placedSlotKeys,
+              slotPages,
+          )
+              .filter((step) => !step.placed)
+              .map((step) => step.slotKey)
+        : [];
+    const localIssues = localWorkflowIssues({
+        workflowMode,
+        workflowPresetId,
+        signingMode,
+        signingPresetId,
+        hasUnsavedChanges,
+        hasSignaturePlacements: placedSlotKeys.length > 0,
+        missingSigningSlotKeys,
+    });
+    const blockingCount = mergeReadinessBlockingCount(
+        readiness?.blocking_count ?? 0,
+        localIssues,
+        hasUnsavedChanges,
+    );
+    const publishBlocked =
+        hasUnsavedChanges || blockingCount > 0 || isPublishing || isSaving;
+
+    const handleReadinessFix = (
+        issue:
+            | (typeof localIssues)[number]
+            | { code: string; meta: Record<string, unknown> },
+    ) => {
+        const fix = String(issue.meta.fix ?? '');
+
+        if (fix === 'save_draft') {
+            void handleSaveDesign();
+
+            return;
+        }
+
+        if (fix === 'configure_workflow' || fix === 'configure_signing') {
+            setRightPanelTab('workflow');
+
+            return;
+        }
+
+        if (fix === 'place_on_pdf') {
+            const slotKey = String(issue.meta.slot_key ?? '');
+
+            if (slotKey !== '') {
+                placeSlotOnPdf(slotKey);
+            } else {
+                setRightPanelTab('workflow');
+            }
+
+            return;
+        }
+
+        if (fix === 'remove_signature_placements') {
+            removeAllSignaturePlacements();
+        }
+    };
+
     const toolbar = (
         <div className="flex shrink-0 flex-row items-center justify-between border-b border-border/80 px-4 py-3 sm:px-6">
             <div className="flex min-w-0 items-center gap-3">
@@ -4028,6 +4342,13 @@ export function TemplatePdfDesignerDialog({
                 {/* Save / Publish — only when editable */}
                 {isEditable && (
                     <>
+                        <TemplateReadinessIndicator
+                            readiness={readiness}
+                            localIssues={localIssues}
+                            hasUnsavedChanges={hasUnsavedChanges}
+                            blockingCount={blockingCount}
+                            onFix={handleReadinessFix}
+                        />
                         <Button
                             type="button"
                             size="sm"
@@ -4043,7 +4364,7 @@ export function TemplatePdfDesignerDialog({
                             ) : (
                                 <>
                                     <Save className="mr-1.5 size-3.5" />
-                                    Save Design
+                                    {designerUiCopy.saveDraft}
                                     {hasUnsavedChanges && (
                                         <span className="ml-1.5 inline-block size-1.5 rounded-full bg-amber-400" />
                                     )}
@@ -4054,15 +4375,13 @@ export function TemplatePdfDesignerDialog({
                             type="button"
                             size="sm"
                             onClick={() => setIsPublishConfirmOpen(true)}
-                            disabled={isPublishing || isSaving}
+                            disabled={publishBlocked}
                             className="bg-primary hover:bg-primary/90"
                         >
                             {isPublishing ? (
                                 <>
                                     <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                                    {hasUnsavedChanges
-                                        ? 'Saving & Publishing...'
-                                        : 'Publishing...'}
+                                    Publishing...
                                 </>
                             ) : (
                                 <>
@@ -4422,29 +4741,106 @@ export function TemplatePdfDesignerDialog({
                     )}
                 </div>
 
-                {/* Right panel — 260px */}
-                <div className="flex w-[260px] shrink-0 flex-col border-l border-border/80 bg-background">
-                    <div className="border-b border-border/60 px-3 py-2">
-                        <p className="text-xs font-semibold text-foreground">
-                            Properties
-                        </p>
-                    </div>
-                    <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                        {!selectedElementId && isEditable && (
-                            <p className="text-xs text-muted-foreground">
-                                Select an element to edit its properties.
-                            </p>
-                        )}
-                        {!selectedElementId && !isEditable && (
-                            <VersionInfoPanel
-                                version={selectedVersion}
-                                changeSummary={changeSummary}
+                {/* Right panel — properties + workflow */}
+                <div className="flex w-[280px] shrink-0 flex-col border-l border-border/80 bg-background">
+                    <Tabs
+                        value={rightPanelTab}
+                        onValueChange={(value) =>
+                            setRightPanelTab(
+                                value === 'workflow'
+                                    ? 'workflow'
+                                    : 'properties',
+                            )
+                        }
+                        className="flex min-h-0 flex-1 flex-col gap-0"
+                    >
+                        <div className="border-b border-border/60 px-3 py-2">
+                            <TabsList className="grid h-8 w-full grid-cols-2">
+                                <TabsTrigger
+                                    value="properties"
+                                    className="text-xs"
+                                >
+                                    {designerUiCopy.propertiesTab}
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="workflow"
+                                    className="text-xs"
+                                >
+                                    {designerUiCopy.workflowTab}
+                                </TabsTrigger>
+                            </TabsList>
+                        </div>
+                        <TabsContent
+                            value="properties"
+                            className="min-h-0 flex-1 overflow-y-auto p-3"
+                        >
+                            {!selectedElementId && isEditable && (
+                                <p className="text-xs text-muted-foreground">
+                                    Select an element to edit its properties.
+                                </p>
+                            )}
+                            {!selectedElementId && !isEditable && (
+                                <VersionInfoPanel
+                                    version={selectedVersion}
+                                    changeSummary={changeSummary}
+                                />
+                            )}
+                            {fieldPanelEl}
+                            {textPanelEl}
+                            {signaturePanelEl}
+                        </TabsContent>
+                        <TabsContent
+                            value="workflow"
+                            className="min-h-0 flex-1 overflow-y-auto p-3"
+                        >
+                            <TemplateDesignerWorkflowPanel
+                                readOnly={!isEditable}
+                                workflowMode={workflowMode}
+                                workflowPresetId={workflowPresetId}
+                                signingMode={signingMode}
+                                signingPresetId={signingPresetId}
+                                workflowPresets={workflowPresets}
+                                signingPresets={signingPresets}
+                                placedSlotKeys={placedSlotKeys}
+                                slotPages={slotPages}
+                                canCreateWorkflowPresets={Boolean(
+                                    can.create_workflow_presets &&
+                                    workflowFormOptions,
+                                )}
+                                canCreateSigningPresets={Boolean(
+                                    can.create_signing_presets &&
+                                    signingFormOptions,
+                                )}
+                                onWorkflowModeChange={handleWorkflowModeChange}
+                                onWorkflowPresetChange={(id) => {
+                                    setWorkflowPresetId(id);
+                                    markWorkflowDirty();
+                                }}
+                                onSigningModeChange={handleSigningModeChange}
+                                onSigningPresetChange={(id) => {
+                                    setSigningPresetId(id);
+                                    markWorkflowDirty();
+                                }}
+                                onCreateWorkflowPreset={() =>
+                                    setIsCreateWorkflowPresetOpen(true)
+                                }
+                                onCreateSigningPreset={() =>
+                                    setIsCreateSigningPresetOpen(true)
+                                }
+                                onPlaceSlot={placeSlotOnPdf}
+                                onRemoveSignaturePlacements={
+                                    removeAllSignaturePlacements
+                                }
+                                isLegacy={
+                                    !isEditable &&
+                                    (selectedVersion?.document_workflow_mode ==
+                                        null ||
+                                        selectedVersion?.document_signing_mode ==
+                                            null)
+                                }
                             />
-                        )}
-                        {fieldPanelEl}
-                        {textPanelEl}
-                        {signaturePanelEl}
-                    </div>
+                        </TabsContent>
+                    </Tabs>
                 </div>
             </div>
         </>
@@ -4459,11 +4855,11 @@ export function TemplatePdfDesignerDialog({
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>
-                        You have unsaved design changes.
+                        You have unsaved changes.
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                        Switching versions will discard unsaved changes to both
-                        placements and signature positions.
+                        Switching versions will discard unsaved changes to the
+                        design and workflow configuration.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -4535,7 +4931,7 @@ export function TemplatePdfDesignerDialog({
                     <AlertDialogTitle>Publish this draft?</AlertDialogTitle>
                     <AlertDialogDescription>
                         {hasUnsavedChanges
-                            ? 'Your unsaved changes will be saved first. Publishing makes this design the live template for new documents. Are you sure you want to publish?'
+                            ? 'Save the draft before publishing. Publishing uses the last saved design and workflow configuration.'
                             : 'Publishing makes this design the live template for new documents. Previous published versions are archived. Are you sure you want to publish?'}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -4561,10 +4957,10 @@ export function TemplatePdfDesignerDialog({
         >
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Unsaved Design Changes</AlertDialogTitle>
+                    <AlertDialogTitle>Unsaved changes</AlertDialogTitle>
                     <AlertDialogDescription>
-                        You have unsaved changes. Are you sure you want to
-                        discard them?
+                        You have unsaved design or workflow changes. Are you
+                        sure you want to discard them?
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -4588,6 +4984,43 @@ export function TemplatePdfDesignerDialog({
         </AlertDialog>
     );
 
+    const presetDialogs = (
+        <>
+            {workflowFormOptions ? (
+                <WorkflowPresetFormDialog
+                    open={isCreateWorkflowPresetOpen}
+                    onOpenChange={setIsCreateWorkflowPresetOpen}
+                    preset={null}
+                    formOptions={workflowFormOptions}
+                    preserveDesignerState
+                    onCreated={(name) => {
+                        pendingWorkflowPresetNameRef.current = name;
+                        setRightPanelTab('workflow');
+                        router.reload({
+                            only: ['workflow_presets'],
+                        });
+                    }}
+                />
+            ) : null}
+            {signingFormOptions ? (
+                <SigningPresetFormDialog
+                    open={isCreateSigningPresetOpen}
+                    onOpenChange={setIsCreateSigningPresetOpen}
+                    preset={null}
+                    formOptions={signingFormOptions}
+                    preserveDesignerState
+                    onCreated={(name) => {
+                        pendingSigningPresetNameRef.current = name;
+                        setRightPanelTab('workflow');
+                        router.reload({
+                            only: ['signing_presets'],
+                        });
+                    }}
+                />
+            ) : null}
+        </>
+    );
+
     if (mode === 'page') {
         return (
             <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden border border-border/60 bg-background">
@@ -4596,6 +5029,7 @@ export function TemplatePdfDesignerDialog({
                 {createDraftConfirmDialog}
                 {publishConfirmDialog}
                 {closeDiscardDialog}
+                {presetDialogs}
             </div>
         );
     }
@@ -4609,6 +5043,7 @@ export function TemplatePdfDesignerDialog({
             {createDraftConfirmDialog}
             {publishConfirmDialog}
             {closeDiscardDialog}
+            {presetDialogs}
         </Dialog>
     );
 }

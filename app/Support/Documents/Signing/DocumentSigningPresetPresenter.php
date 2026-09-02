@@ -41,6 +41,7 @@ final class DocumentSigningPresetPresenter
                 'recipient_role_label' => $roleLabel,
                 'step_label' => $customLabel,
                 'display_label' => $displayLabel,
+                'slot_key' => DocumentSignatureSlot::forRoleOccurrence($step->recipient_role, $occurrence),
                 'target_type' => $step->target_type->value,
                 'target_user_id' => $step->target_user_id,
                 'target_user' => $step->targetUser !== null ? [

@@ -2,6 +2,7 @@
 
 use App\Enums\DocumentGenerationTemplateStatus;
 use App\Enums\DocumentGenerationTemplateVersionStatus;
+use App\Enums\DocumentTemplateAutomationMode;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
@@ -14,8 +15,10 @@ use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
 use App\Support\Documents\Actions\SaveDocumentGenerationTemplateSignaturePlacement;
+use App\Support\Documents\DocumentTemplateStorage;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEligibility;
 use App\Support\Documents\RecipientRequests\ResolveDocumentSignaturePlacement;
+use App\Support\Documents\Signing\Actions\StoreDocumentSigningPreset;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -120,6 +123,22 @@ test('authorized company user can save subject signature placement on draft pdf 
 test('published version retains configured signature placement', function () {
     ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makePdfOverlayDraftWithPages(1);
     $payload = validSubjectSignaturePlacement();
+
+    $pdfPath = DocumentTemplateStorage::directory($company->id).'/source.pdf';
+    Storage::disk('local')->put($pdfPath, '%PDF-1.4 test');
+    $signingPreset = app(StoreDocumentSigningPreset::class)->handle(
+        $user,
+        $company->id,
+        'Subject signing',
+        null,
+        [['recipient_role' => 'subject']],
+    );
+    $version->update([
+        'source_pdf_path' => $pdfPath,
+        'document_workflow_mode' => DocumentTemplateAutomationMode::None,
+        'document_signing_mode' => DocumentTemplateAutomationMode::Preset,
+        'document_signing_preset_id' => $signingPreset->id,
+    ]);
 
     app(SaveDocumentGenerationTemplateSignaturePlacement::class)->handle($version, $payload, $user->id);
 

@@ -12,6 +12,8 @@ export type TemplateVersionSummary = {
     placement_config?: PlacementConfig | null;
     has_signature_placement?: boolean;
     signature_placement_config?: SignaturePlacementConfig | null;
+    document_workflow_mode?: TemplateAutomationMode;
+    document_signing_mode?: TemplateAutomationMode;
     document_workflow_preset_id?: number | null;
     document_signing_preset_id?: number | null;
     published_at: string | null;
@@ -188,6 +190,54 @@ export type SystemTemplate = {
     supports_esignature: boolean;
 };
 
+export type TemplateAutomationMode = 'none' | 'preset' | null;
+
+export type DesignerWorkflowPreset = {
+    id: number;
+    name: string;
+    status: string;
+    is_active: boolean;
+    stages: Array<{ sequence: number; action_label: string }>;
+};
+
+export type DesignerSigningPresetStep = {
+    sequence: number;
+    recipient_role: 'subject' | 'manager' | 'company_signatory';
+    display_label: string;
+    slot_key: string;
+};
+
+export type DesignerSigningPreset = {
+    id: number;
+    name: string;
+    status: string;
+    is_active: boolean;
+    steps: DesignerSigningPresetStep[];
+};
+
+export type TemplateReadinessIssue = {
+    code: string;
+    section: 'design' | 'workflow' | 'signing' | 'version';
+    severity: 'error' | 'warning' | 'info';
+    blocking: boolean;
+    message: string;
+    meta: Record<string, unknown>;
+};
+
+export type TemplateReadiness = {
+    ready: boolean;
+    blocking_count: number;
+    warning_count: number;
+    historical: boolean;
+    sections: {
+        design: TemplateReadinessIssue[];
+        workflow: TemplateReadinessIssue[];
+        signing: TemplateReadinessIssue[];
+        version: TemplateReadinessIssue[];
+    };
+    issues: TemplateReadinessIssue[];
+};
+
 export type AutomationPresetOption = {
     id: number;
     name: string;
@@ -212,6 +262,8 @@ export type TemplateVersionListItem = {
     source_pdf_page_count: number | null;
     placement_count: number;
     has_signature_placement: boolean;
+    document_workflow_mode: TemplateAutomationMode;
+    document_signing_mode: TemplateAutomationMode;
     document_workflow_preset_id: number | null;
     document_signing_preset_id: number | null;
     published_at: string | null;
@@ -241,4 +293,5 @@ export type VersionChangeSummary = {
 export type VersionDetailResponse = {
     version: TemplateVersionSummary;
     change_summary: VersionChangeSummary | null;
+    readiness?: TemplateReadiness;
 };

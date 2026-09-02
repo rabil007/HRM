@@ -1,11 +1,15 @@
 <?php
 
 use App\Enums\DocumentGenerationTemplateStatus;
+use App\Enums\DocumentSigningPresetStatus;
+use App\Enums\DocumentWorkflowPresetStatus;
 use App\Models\Company;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentInstance;
 use App\Models\DocumentInstanceVersion;
+use App\Models\DocumentSigningPreset;
+use App\Models\DocumentWorkflowPreset;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
@@ -107,4 +111,37 @@ function makeGeneratedDocumentWorkflowFixtures(?Company $company = null): array
     $instance->update(['current_version_id' => $version->id]);
 
     return compact('company', 'employee', 'document', 'instance', 'version', 'template');
+}
+
+function createDocumentWorkflowPresetForCompany(
+    Company $company,
+    ?User $actor = null,
+    string $name = 'Review flow',
+    bool $active = true,
+): DocumentWorkflowPreset {
+    $actor ??= User::factory()->create();
+
+    return DocumentWorkflowPreset::query()->create([
+        'company_id' => $company->id,
+        'name' => $name.' '.fake()->unique()->numerify('####'),
+        'status' => $active
+            ? DocumentWorkflowPresetStatus::Active
+            : DocumentWorkflowPresetStatus::Inactive,
+        'created_by' => $actor->id,
+    ]);
+}
+
+function createDocumentSigningPresetForCompany(
+    Company $company,
+    ?User $actor = null,
+    string $name = 'Signing flow',
+): DocumentSigningPreset {
+    $actor ??= User::factory()->create();
+
+    return DocumentSigningPreset::query()->create([
+        'company_id' => $company->id,
+        'name' => $name.' '.fake()->unique()->numerify('####'),
+        'status' => DocumentSigningPresetStatus::Active,
+        'created_by' => $actor->id,
+    ]);
 }
