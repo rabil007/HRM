@@ -207,8 +207,7 @@ export function DocumentWorkflowPresetsContent({
                                             {
                                                 label: `Edit ${preset.name}`,
                                                 icon: Pencil,
-                                                onClick: () =>
-                                                    openEdit(preset),
+                                                onClick: () => openEdit(preset),
                                                 hidden: !can.update,
                                             },
                                             {
