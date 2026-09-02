@@ -80,6 +80,12 @@ const TAB_ICONS = {
     signatures: FilePenLine,
 };
 
+function filterSelectValue(value: string | boolean | undefined): string {
+    const raw = String(value ?? '');
+
+    return raw === '' || raw === 'false' ? '__all__' : raw;
+}
+
 function RequestsTabSwitcher({
     tab,
     canViewReview,
@@ -185,11 +191,53 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
         pagination,
     });
 
+    const reviewStatusValue = filterSelectValue(filters.status);
+    const reviewActionValue = filterSelectValue(filters.action);
+
+    const hasHeaderActions =
+        (tab === 'review' && preset_can.view) ||
+        (tab === 'recipient' &&
+            (signing_preset_can.view ||
+                Boolean(recipient_automation?.can_view)));
+
+    const headerActions = hasHeaderActions ? (
+        <>
+            {tab === 'review' && preset_can.view ? (
+                <Button asChild variant="outline" className="gap-1.5">
+                    <Link href={documentRoutes.workflowPresets.url()}>
+                        <Settings2 className="size-4" />
+                        Approval Flows
+                    </Link>
+                </Button>
+            ) : null}
+            {tab === 'recipient' && signing_preset_can.view ? (
+                <Button asChild variant="outline" className="gap-1.5">
+                    <Link href={documentRoutes.signingPresets.url()}>
+                        <Settings2 className="size-4" />
+                        Signing Flows
+                    </Link>
+                </Button>
+            ) : null}
+            {tab === 'recipient' && recipient_automation?.can_view ? (
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() => setReminderSettingsOpen(true)}
+                >
+                    <Bell className="size-4" />
+                    Reminder Settings
+                </Button>
+            ) : null}
+        </>
+    ) : null;
+
     return (
         <Main>
             <PageHeader
                 title="Requests"
                 description="Manage documents waiting for review, approval, signature or acknowledgement."
+                right={headerActions}
             />
 
             {/* Tab switcher — underline style full width */}
@@ -207,98 +255,101 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                 {/* ── Approvals tab ─────────────────────────────────────── */}
                 {tab === 'review' && can.view ? (
                     <div className="space-y-4">
-                        {/* Unified filter bar */}
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            {/* Left: search */}
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                             <SearchBar
                                 value={list.searchInput}
                                 onChange={list.onSearchChange}
-                                placeholder="Search employee, document, requester"
-                                className="max-w-sm"
+                                placeholder="Search employee, document, or requester"
+                                className="mb-0 min-w-0 flex-1"
+                                inputClassName="h-11 py-0 text-sm"
                             />
 
-                            {/* Right: filters + settings */}
-                            <div className="flex flex-wrap items-center gap-2">
-                                {/* Status select */}
-                                <AppSelect
-                                    value={String(filters.status ?? '')}
-                                    onValueChange={(value) =>
-                                        router.get(
-                                            documentRoutes.requests.url(),
-                                            {
-                                                tab: 'review',
-                                                search: list.searchInput,
-                                                status:
-                                                    value === '__all__'
-                                                        ? ''
-                                                        : value,
-                                                action: String(
-                                                    filters.action ?? '',
-                                                ),
-                                                assigned_to_me:
-                                                    filters.assigned_to_me
-                                                        ? '1'
-                                                        : '',
-                                            },
-                                        )
-                                    }
-                                >
-                                    <AppSelectItem value="__all__">
-                                        All statuses
-                                    </AppSelectItem>
-                                    <AppSelectItem value="pending">
-                                        Pending
-                                    </AppSelectItem>
-                                    <AppSelectItem value="approved">
-                                        Approved
-                                    </AppSelectItem>
-                                    <AppSelectItem value="rejected">
-                                        Rejected
-                                    </AppSelectItem>
-                                    <AppSelectItem value="cancelled">
-                                        Cancelled
-                                    </AppSelectItem>
-                                </AppSelect>
+                            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                                <div className="w-[10.5rem]">
+                                    <AppSelect
+                                        value={reviewStatusValue}
+                                        size="sm"
+                                        className="h-11 rounded-xl"
+                                        onValueChange={(value) =>
+                                            router.get(
+                                                documentRoutes.requests.url(),
+                                                {
+                                                    tab: 'review',
+                                                    search: list.searchInput,
+                                                    status:
+                                                        value === '__all__'
+                                                            ? ''
+                                                            : value,
+                                                    action: String(
+                                                        filters.action ?? '',
+                                                    ),
+                                                    assigned_to_me:
+                                                        filters.assigned_to_me
+                                                            ? '1'
+                                                            : '',
+                                                },
+                                            )
+                                        }
+                                    >
+                                        <AppSelectItem value="__all__">
+                                            All statuses
+                                        </AppSelectItem>
+                                        <AppSelectItem value="pending">
+                                            Pending
+                                        </AppSelectItem>
+                                        <AppSelectItem value="approved">
+                                            Approved
+                                        </AppSelectItem>
+                                        <AppSelectItem value="rejected">
+                                            Rejected
+                                        </AppSelectItem>
+                                        <AppSelectItem value="cancelled">
+                                            Cancelled
+                                        </AppSelectItem>
+                                    </AppSelect>
+                                </div>
 
-                                {/* Stage action select */}
-                                <AppSelect
-                                    value={String(filters.action ?? '')}
-                                    onValueChange={(value) =>
-                                        router.get(
-                                            documentRoutes.requests.url(),
-                                            {
-                                                tab: 'review',
-                                                search: list.searchInput,
-                                                status: String(
-                                                    filters.status ?? '',
-                                                ),
-                                                action:
-                                                    value === '__all__'
-                                                        ? ''
-                                                        : value,
-                                                assigned_to_me:
-                                                    filters.assigned_to_me
-                                                        ? '1'
-                                                        : '',
-                                            },
-                                        )
-                                    }
-                                >
-                                    <AppSelectItem value="__all__">
-                                        All stages
-                                    </AppSelectItem>
-                                    <AppSelectItem value="review">
-                                        Review
-                                    </AppSelectItem>
-                                    <AppSelectItem value="approve">
-                                        Approve
-                                    </AppSelectItem>
-                                </AppSelect>
+                                <div className="w-[10.5rem]">
+                                    <AppSelect
+                                        value={reviewActionValue}
+                                        size="sm"
+                                        className="h-11 rounded-xl"
+                                        onValueChange={(value) =>
+                                            router.get(
+                                                documentRoutes.requests.url(),
+                                                {
+                                                    tab: 'review',
+                                                    search: list.searchInput,
+                                                    status: String(
+                                                        filters.status ?? '',
+                                                    ),
+                                                    action:
+                                                        value === '__all__'
+                                                            ? ''
+                                                            : value,
+                                                    assigned_to_me:
+                                                        filters.assigned_to_me
+                                                            ? '1'
+                                                            : '',
+                                                },
+                                            )
+                                        }
+                                    >
+                                        <AppSelectItem value="__all__">
+                                            All stages
+                                        </AppSelectItem>
+                                        <AppSelectItem value="review">
+                                            Review
+                                        </AppSelectItem>
+                                        <AppSelectItem value="approve">
+                                            Approve
+                                        </AppSelectItem>
+                                    </AppSelect>
+                                </div>
 
-                                {/* Assigned to me toggle */}
                                 <label
                                     className={cn(
-                                        'flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm transition-colors',
+                                        'flex h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm transition-colors',
                                         filters.assigned_to_me
                                             ? 'border-primary bg-primary/5 font-medium text-foreground'
                                             : 'border-border bg-background text-muted-foreground hover:bg-muted',
@@ -329,30 +380,23 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                                     />
                                     Assigned to me
                                 </label>
-
-                                {/* Separator */}
-                                {preset_can.view && (
-                                    <>
-                                        <div className="h-5 w-px bg-border" />
-                                        <Button
-                                            asChild
-                                            variant="ghost"
-                                            size="sm"
-                                            className="gap-1.5 text-muted-foreground hover:text-foreground"
-                                        >
-                                            <Link
-                                                href={documentRoutes.workflowPresets.url()}
-                                            >
-                                                <Settings2 className="h-3.5 w-3.5" />
-                                                Approval Flows
-                                            </Link>
-                                        </Button>
-                                    </>
-                                )}
                             </div>
                         </div>
 
-                        <WorkflowRequestsTable requests={workflow_requests} />
+                        <WorkflowRequestsTable
+                            requests={workflow_requests}
+                            emptyAction={
+                                preset_can.view ? (
+                                    <Button asChild variant="outline">
+                                        <Link
+                                            href={documentRoutes.workflowPresets.url()}
+                                        >
+                                            Configure approval flows
+                                        </Link>
+                                    </Button>
+                                ) : undefined
+                            }
+                        />
 
                         <Pagination {...list.paginationProps} />
                     </div>
@@ -363,96 +407,67 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                 (can.view_recipient_requests ||
                     can.respond_recipient_requests) ? (
                     <div className="space-y-4">
-                        {/* Unified filter bar */}
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                             <SearchBar
                                 value={list.searchInput}
                                 onChange={list.onSearchChange}
                                 placeholder="Search employee, signatory, or document"
-                                className="max-w-sm"
+                                className="mb-0 min-w-0 flex-1"
+                                inputClassName="h-11 py-0 text-sm"
                             />
 
-                            <div className="flex flex-wrap items-center gap-2">
-                                {can.respond_recipient_requests && (
-                                    <label
-                                        className={cn(
-                                            'flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm transition-colors',
-                                            filters.assigned_to_me
-                                                ? 'border-primary bg-primary/5 font-medium text-foreground'
-                                                : 'border-border bg-background text-muted-foreground hover:bg-muted',
+                            {can.respond_recipient_requests ? (
+                                <label
+                                    className={cn(
+                                        'flex h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm transition-colors',
+                                        filters.assigned_to_me
+                                            ? 'border-primary bg-primary/5 font-medium text-foreground'
+                                            : 'border-border bg-background text-muted-foreground hover:bg-muted',
+                                    )}
+                                >
+                                    <Checkbox
+                                        checked={Boolean(
+                                            filters.assigned_to_me,
                                         )}
-                                    >
-                                        <Checkbox
-                                            checked={Boolean(
-                                                filters.assigned_to_me,
-                                            )}
-                                            onCheckedChange={(checked) =>
-                                                router.get(
-                                                    documentRoutes.requests.url(),
-                                                    {
-                                                        tab: 'recipient',
-                                                        search: list.searchInput,
-                                                        status: String(
-                                                            filters.status ??
-                                                                '',
-                                                        ),
-                                                        action: String(
-                                                            filters.action ??
-                                                                '',
-                                                        ),
-                                                        assigned_to_me: checked
-                                                            ? '1'
-                                                            : '',
-                                                    },
-                                                )
-                                            }
-                                        />
-                                        Assigned to me
-                                    </label>
-                                )}
-
-                                {(signing_preset_can.view ||
-                                    recipient_automation?.can_view) && (
-                                    <div className="h-5 w-px bg-border" />
-                                )}
-
-                                {signing_preset_can.view && (
-                                    <Button
-                                        asChild
-                                        variant="ghost"
-                                        size="sm"
-                                        className="gap-1.5 text-muted-foreground hover:text-foreground"
-                                    >
-                                        <Link
-                                            href={documentRoutes.signingPresets.url()}
-                                        >
-                                            <Settings2 className="h-3.5 w-3.5" />
-                                            Signing Flows
-                                        </Link>
-                                    </Button>
-                                )}
-
-                                {recipient_automation?.can_view && (
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="gap-1.5 text-muted-foreground hover:text-foreground"
-                                        onClick={() =>
-                                            setReminderSettingsOpen(true)
+                                        onCheckedChange={(checked) =>
+                                            router.get(
+                                                documentRoutes.requests.url(),
+                                                {
+                                                    tab: 'recipient',
+                                                    search: list.searchInput,
+                                                    status: String(
+                                                        filters.status ?? '',
+                                                    ),
+                                                    action: String(
+                                                        filters.action ?? '',
+                                                    ),
+                                                    assigned_to_me: checked
+                                                        ? '1'
+                                                        : '',
+                                                },
+                                            )
                                         }
-                                    >
-                                        <Bell className="h-3.5 w-3.5" />
-                                        Reminder Settings
-                                    </Button>
-                                )}
-                            </div>
+                                    />
+                                    Assigned to me
+                                </label>
+                            ) : null}
                         </div>
 
                         <RecipientRequestsTable
                             requests={recipient_requests}
                             canRespond={can.respond_recipient_requests}
                             canCreate={can.create_recipient_requests}
+                            emptyAction={
+                                signing_preset_can.view ? (
+                                    <Button asChild variant="outline">
+                                        <Link
+                                            href={documentRoutes.signingPresets.url()}
+                                        >
+                                            Configure signing flows
+                                        </Link>
+                                    </Button>
+                                ) : undefined
+                            }
                         />
 
                         <Pagination {...list.paginationProps} />

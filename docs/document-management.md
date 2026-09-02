@@ -745,10 +745,11 @@ Three tabs:
 
 **Waiting For**: Each row displays who needs to act next (assignee names for workflow, recipient name + role for signing).
 
-**Settings** (grouped as "Approval Flows", "Signing Flows", "Reminder Settings"):
-- **Approval Flows** (backend: Workflow Presets)
-- **Signing Flows** (backend: Signing Presets)  
-- **Reminder Settings** (email automation)
+**Settings** live in the Requests page header for the active tab (not in the filter row):
+- Approvals tab: **Approval Flows** (backend: Workflow Presets)
+- Employee Signing tab: **Signing Flows** (backend: Signing Presets) and **Reminder Settings**
+- Status and stage filters use an explicit “all” value so the dropdown always shows a label.
+- Approval Flows list routing as ordered stage chips so the summary cannot overflow the Updated column.
 
 Legacy `/organization/documents/bulk?view=signatures` continues to work unchanged and redirects signature browsing through `BulkDocumentsController`; the unified Requests tab embeds the same signature workspace via `DocumentRequestsIndexController`.
 
