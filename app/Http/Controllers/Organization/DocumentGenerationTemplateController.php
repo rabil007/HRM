@@ -24,7 +24,9 @@ use App\Support\Documents\Actions\SaveDocumentGenerationTemplatePlacements;
 use App\Support\Documents\Actions\SaveDocumentGenerationTemplateSignaturePlacement;
 use App\Support\Documents\Actions\UpdateDocumentGenerationTemplate;
 use App\Support\Documents\Actions\UpdateDocumentGenerationTemplateAutomation;
+use App\Support\Documents\DocumentGenerationTemplateDesignerOptions;
 use App\Support\Documents\DocumentGenerationTemplatePageOptions;
+use App\Support\Documents\DocumentGenerationTemplateReadiness;
 use App\Support\Documents\DocumentsModuleAccess;
 use App\Support\Documents\DocumentTemplateStorage;
 use App\Support\Documents\VersionChangeSummary;
@@ -74,6 +76,7 @@ class DocumentGenerationTemplateController extends Controller
     public function design(
         Request $request,
         DocumentGenerationTemplate $template,
+        DocumentGenerationTemplateDesignerOptions $designerOptions,
     ): InertiaResponse {
         abort_unless(DocumentsModuleAccess::canUpdateCustomTemplates($request->user()), 403);
 
@@ -99,6 +102,7 @@ class DocumentGenerationTemplateController extends Controller
         );
 
         $pageOptions = DocumentGenerationTemplatePageOptions::for($request->user());
+        $designer = $designerOptions->for($request->user(), $companyId, $template, $initialVersion);
 
         return Inertia::render('organization/documents/templates/design', [
             'template' => $template->toBrowseArray(),
@@ -108,11 +112,18 @@ class DocumentGenerationTemplateController extends Controller
                 ->map(fn (DocumentGenerationTemplateVersion $version) => $version->toVersionListItem())
                 ->values()
                 ->toArray(),
+            'workflow_presets' => $designer['workflow_presets'],
+            'signing_presets' => $designer['signing_presets'],
+            'workflow_form_options' => $designer['workflow_form_options'],
+            'signing_form_options' => $designer['signing_form_options'],
+            'readiness' => $designer['readiness'],
             ...$pageOptions,
             'can' => array_merge($pageOptions['can'], [
                 'create_draft' => DocumentsModuleAccess::canUpdateCustomTemplates($request->user()),
                 'update' => DocumentsModuleAccess::canUpdateCustomTemplates($request->user()),
                 'preview_employee' => $request->user()?->can('employees.view') ?? false,
+                'create_workflow_presets' => $designer['can']['create_workflow_presets'],
+                'create_signing_presets' => $designer['can']['create_signing_presets'],
             ]),
         ]);
     }
@@ -121,6 +132,7 @@ class DocumentGenerationTemplateController extends Controller
         Request $request,
         DocumentGenerationTemplate $template,
         DocumentGenerationTemplateVersion $version,
+        DocumentGenerationTemplateReadiness $readiness,
     ): JsonResponse {
         abort_unless($request->user()?->can('documents.templates.view') ?? false, 403);
 
@@ -143,6 +155,7 @@ class DocumentGenerationTemplateController extends Controller
         return response()->json([
             'version' => $summary,
             'change_summary' => $changeSummary,
+            'readiness' => $readiness->evaluate($version, $template),
         ]);
     }
 
@@ -151,6 +164,7 @@ class DocumentGenerationTemplateController extends Controller
         DocumentGenerationTemplate $template,
         DocumentGenerationTemplateVersion $version,
         SaveDocumentGenerationTemplateDesign $action,
+        DocumentGenerationTemplateReadiness $readiness,
     ): JsonResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_if($companyId <= 0, 403);
@@ -163,12 +177,16 @@ class DocumentGenerationTemplateController extends Controller
             $request->placements(),
             $request->signaturePlacementConfig(),
             $request->user()?->id,
+            $request->automationBindings(),
         );
+
+        $fresh = $updated->fresh() ?? $updated;
 
         return response()->json([
             'success' => true,
-            'message' => 'Design saved.',
-            'version' => $updated->fresh()->toArraySummary(),
+            'message' => 'Draft saved.',
+            'version' => $fresh->toArraySummary(),
+            'readiness' => $readiness->evaluate($fresh, $template),
         ]);
     }
 

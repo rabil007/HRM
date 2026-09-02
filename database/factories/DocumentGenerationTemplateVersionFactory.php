@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\DocumentGenerationTemplateVersionStatus;
+use App\Enums\DocumentTemplateAutomationMode;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -51,6 +52,16 @@ class DocumentGenerationTemplateVersionFactory extends Factory
         return $this->state(fn () => [
             'status' => DocumentGenerationTemplateVersionStatus::Draft,
             'published_at' => null,
+        ]);
+    }
+
+    public function automationNone(): static
+    {
+        return $this->state(fn () => [
+            'document_workflow_mode' => DocumentTemplateAutomationMode::None,
+            'document_signing_mode' => DocumentTemplateAutomationMode::None,
+            'document_workflow_preset_id' => null,
+            'document_signing_preset_id' => null,
         ]);
     }
 

@@ -169,6 +169,8 @@ test('authorized users can open the design page which no longer auto-creates a d
             ->where('template.name', 'Designable PDF')
             ->has('initial_version')
             ->has('all_versions')
+            ->has('workflow_presets')
+            ->has('readiness')
             ->has('can'));
 
     expect(DocumentGenerationTemplateVersion::query()
@@ -279,6 +281,9 @@ test('design page renders with initial_version prop and does NOT auto-create a d
         ->has('template')
         ->has('initial_version')
         ->has('all_versions')
+        ->has('workflow_presets')
+        ->has('signing_presets')
+        ->has('readiness')
         ->has('can')
         ->where('initial_version.status', 'published')
         ->where('initial_change_summary', null)

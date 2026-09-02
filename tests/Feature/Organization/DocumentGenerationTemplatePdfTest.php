@@ -502,7 +502,7 @@ test('manual activity events record company_id and avoid logging sensitive conte
     $pdfPath = DocumentTemplateStorage::directory($company->id).'/test.pdf';
     Storage::disk(DocumentTemplateStorage::DISK)->put($pdfPath, createSamplePdfContent(1));
 
-    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->automationNone()->create([
         'version' => 1,
         'status' => DocumentGenerationTemplateVersionStatus::Draft,
         'source_pdf_path' => $pdfPath,

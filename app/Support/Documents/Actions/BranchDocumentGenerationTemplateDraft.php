@@ -5,6 +5,7 @@ namespace App\Support\Documents\Actions;
 use App\Enums\DocumentGenerationTemplateVersionStatus;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
+use App\Support\Documents\DocumentTemplateAutomationBindings;
 use App\Support\Documents\DocumentTemplateStorage;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;
@@ -53,10 +54,16 @@ final class BranchDocumentGenerationTemplateDraft
                 $signaturePlacementConfig = null;
                 $workflowPresetId = null;
                 $signingPresetId = null;
+                $workflowMode = null;
+                $signingMode = null;
 
                 if ($locked->isContent()) {
                     $content = $sourceVersion?->content ?? (string) $locked->content;
-                    $workflowPresetId = $sourceVersion?->document_workflow_preset_id;
+                    $copiedWorkflow = $sourceVersion !== null
+                        ? DocumentTemplateAutomationBindings::fromVersionWorkflow($sourceVersion)
+                        : ['mode' => null, 'preset_id' => null];
+                    $workflowPresetId = $copiedWorkflow['preset_id'];
+                    $workflowMode = $copiedWorkflow['mode'];
                 } elseif ($locked->isPdfOverlay() && $sourceVersion?->source_pdf_path) {
                     // Physically copy source PDF to ensure complete immutability of published file
                     $newPdfPath = DocumentTemplateStorage::copyPdf(
@@ -69,8 +76,12 @@ final class BranchDocumentGenerationTemplateDraft
                     $pageCount = $sourceVersion->source_pdf_page_count;
                     $placementConfig = $sourceVersion->placement_config;
                     $signaturePlacementConfig = $sourceVersion->signature_placement_config;
-                    $workflowPresetId = $sourceVersion->document_workflow_preset_id;
-                    $signingPresetId = $sourceVersion->document_signing_preset_id;
+                    $copiedWorkflow = DocumentTemplateAutomationBindings::fromVersionWorkflow($sourceVersion);
+                    $copiedSigning = DocumentTemplateAutomationBindings::fromVersionSigning($sourceVersion);
+                    $workflowPresetId = $copiedWorkflow['preset_id'];
+                    $workflowMode = $copiedWorkflow['mode'];
+                    $signingPresetId = $copiedSigning['preset_id'];
+                    $signingMode = $copiedSigning['mode'];
                 }
 
                 $draft = DocumentGenerationTemplateVersion::query()->create([
@@ -85,7 +96,9 @@ final class BranchDocumentGenerationTemplateDraft
                     'source_pdf_page_count' => $pageCount,
                     'placement_config' => $placementConfig,
                     'signature_placement_config' => $signaturePlacementConfig,
+                    'document_workflow_mode' => $workflowMode,
                     'document_workflow_preset_id' => $workflowPresetId,
+                    'document_signing_mode' => $signingMode,
                     'document_signing_preset_id' => $signingPresetId,
                     'published_at' => null,
                     'created_by' => $userId,

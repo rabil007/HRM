@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\DocumentGenerationTemplateVersionStatus;
+use App\Enums\DocumentTemplateAutomationMode;
+use App\Support\Documents\DocumentTemplateAutomationBindings;
 use DomainException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -25,7 +27,9 @@ class DocumentGenerationTemplateVersion extends Model
         'source_pdf_page_count',
         'placement_config',
         'signature_placement_config',
+        'document_workflow_mode',
         'document_workflow_preset_id',
+        'document_signing_mode',
         'document_signing_preset_id',
         'published_at',
         'created_by',
@@ -44,6 +48,8 @@ class DocumentGenerationTemplateVersion extends Model
             'source_pdf_page_count' => 'integer',
             'placement_config' => 'array',
             'signature_placement_config' => 'array',
+            'document_workflow_mode' => DocumentTemplateAutomationMode::class,
+            'document_signing_mode' => DocumentTemplateAutomationMode::class,
             'published_at' => 'datetime',
         ];
     }
@@ -89,7 +95,9 @@ class DocumentGenerationTemplateVersion extends Model
                     'source_pdf_page_count',
                     'placement_config',
                     'signature_placement_config',
+                    'document_workflow_mode',
                     'document_workflow_preset_id',
+                    'document_signing_mode',
                     'document_signing_preset_id',
                     'version',
                     'published_at',
@@ -168,6 +176,22 @@ class DocumentGenerationTemplateVersion extends Model
         }
     }
 
+    public function effectiveWorkflowMode(): ?DocumentTemplateAutomationMode
+    {
+        return DocumentTemplateAutomationBindings::effectiveMode(
+            $this->document_workflow_mode,
+            $this->document_workflow_preset_id !== null ? (int) $this->document_workflow_preset_id : null,
+        );
+    }
+
+    public function effectiveSigningMode(): ?DocumentTemplateAutomationMode
+    {
+        return DocumentTemplateAutomationBindings::effectiveMode(
+            $this->document_signing_mode,
+            $this->document_signing_preset_id !== null ? (int) $this->document_signing_preset_id : null,
+        );
+    }
+
     /**
      * @return array{
      *     id: int,
@@ -178,6 +202,8 @@ class DocumentGenerationTemplateVersion extends Model
      *     source_pdf_page_count: ?int,
      *     placement_count: int,
      *     has_signature_placement: bool,
+     *     document_workflow_mode: string|null,
+     *     document_signing_mode: string|null,
      *     document_workflow_preset_id: int|null,
      *     document_signing_preset_id: int|null,
      *     published_at: ?string,
@@ -201,6 +227,8 @@ class DocumentGenerationTemplateVersion extends Model
             'source_pdf_page_count' => $this->source_pdf_page_count,
             'placement_count' => count($placements),
             'has_signature_placement' => count($signatures) > 0,
+            'document_workflow_mode' => $this->document_workflow_mode?->value,
+            'document_signing_mode' => $this->document_signing_mode?->value,
             'document_workflow_preset_id' => $this->document_workflow_preset_id !== null
                 ? (int) $this->document_workflow_preset_id : null,
             'document_signing_preset_id' => $this->document_signing_preset_id !== null
@@ -226,6 +254,8 @@ class DocumentGenerationTemplateVersion extends Model
      *     placement_config: ?array,
      *     has_signature_placement: bool,
      *     signature_placement_config: ?array,
+     *     document_workflow_mode: string|null,
+     *     document_signing_mode: string|null,
      *     document_workflow_preset_id: int|null,
      *     document_signing_preset_id: int|null,
      *     published_at: ?string,
@@ -257,6 +287,8 @@ class DocumentGenerationTemplateVersion extends Model
             'placement_config' => $this->placement_config,
             'has_signature_placement' => count($signaturePlacements) > 0,
             'signature_placement_config' => $this->signature_placement_config,
+            'document_workflow_mode' => $this->document_workflow_mode?->value,
+            'document_signing_mode' => $this->document_signing_mode?->value,
             'document_workflow_preset_id' => $this->document_workflow_preset_id !== null
                 ? (int) $this->document_workflow_preset_id
                 : null,

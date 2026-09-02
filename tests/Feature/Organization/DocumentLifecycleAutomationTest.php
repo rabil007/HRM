@@ -8,6 +8,7 @@ use App\Enums\DocumentRecipientAction;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Enums\DocumentRecipientRole;
 use App\Enums\DocumentSigningFlowStatus;
+use App\Enums\DocumentTemplateAutomationMode;
 use App\Enums\DocumentWorkflowPresetStatus;
 use App\Enums\DocumentWorkflowRequestStatus;
 use App\Jobs\GenerateCustomDocumentsJob;
@@ -706,11 +707,13 @@ test('publish requires signature placement for signing automation', function () 
         'source_pdf_page_count' => 1,
         'placement_config' => ['schema_version' => 1, 'placements' => []],
         'signature_placement_config' => null,
+        'document_workflow_mode' => DocumentTemplateAutomationMode::None,
+        'document_signing_mode' => DocumentTemplateAutomationMode::Preset,
         'document_signing_preset_id' => $signingPreset->id,
     ]);
 
     expect(fn () => app(PublishDocumentGenerationTemplateVersion::class)->handle($draft, $actor->id))
-        ->toThrow(DomainException::class);
+        ->toThrow(ValidationException::class);
 });
 
 test('create lifecycle after generation succeeds when template has automation', function () {

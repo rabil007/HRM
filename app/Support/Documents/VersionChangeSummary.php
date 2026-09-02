@@ -142,8 +142,8 @@ final class VersionChangeSummary
             'signatures_added' => $sigsAdded,
             'signatures_removed' => $sigsRemoved,
             'signatures_moved' => $sigsMoved,
-            'workflow_preset_changed' => (int) ($previous->document_workflow_preset_id ?? 0) !== (int) ($current->document_workflow_preset_id ?? 0),
-            'signing_preset_changed' => (int) ($previous->document_signing_preset_id ?? 0) !== (int) ($current->document_signing_preset_id ?? 0),
+            'workflow_preset_changed' => self::automationChanged($previous, $current, 'workflow'),
+            'signing_preset_changed' => self::automationChanged($previous, $current, 'signing'),
         ];
     }
 
@@ -206,5 +206,22 @@ final class VersionChangeSummary
         }
 
         return false;
+    }
+
+    private static function automationChanged(
+        DocumentGenerationTemplateVersion $previous,
+        DocumentGenerationTemplateVersion $current,
+        string $kind,
+    ): bool {
+        if ($kind === 'signing') {
+            $previousCopy = DocumentTemplateAutomationBindings::fromVersionSigning($previous);
+            $currentCopy = DocumentTemplateAutomationBindings::fromVersionSigning($current);
+        } else {
+            $previousCopy = DocumentTemplateAutomationBindings::fromVersionWorkflow($previous);
+            $currentCopy = DocumentTemplateAutomationBindings::fromVersionWorkflow($current);
+        }
+
+        return ($previousCopy['mode']?->value ?? null) !== ($currentCopy['mode']?->value ?? null)
+            || $previousCopy['preset_id'] !== $currentCopy['preset_id'];
     }
 }

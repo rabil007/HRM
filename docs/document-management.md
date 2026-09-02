@@ -88,34 +88,44 @@ Documents → Templates serves as the centralized company custom document templa
 
 1. **Company Templates** (`document_generation_templates`):
    - Scoped to the active company.
-   - User-facing terminology: "Company Templates", "PDF Template", "After generation".
+   - User-facing terminology: "Company Templates", "PDF Template".
    - **Company Templates are PDF-upload templates only in the user-facing product.**
-   - **Flow**: `Templates → Upload PDF → Design Template → Edit / Save Draft → Publish`.
+   - **Flow**: `Templates → Upload PDF → Design → Workflow → Readiness → Save Draft → Publish`.
      - Templates list **Upload PDF** opens `/organization/documents/templates/create/pdf`.
      - PDF upload stores the template and creates Draft v1, then redirects directly to `/{template}/design` (Design Template).
      - `/organization/documents/templates/create` and `/create/content` redirect to `/create/pdf`.
-     - List **Design Template** deep-links to the unified visual designer.
-     - Secondary actions on the list: Replace PDF, Publish vN, After generation, Activate/Deactivate, Duplicate, Delete.
+     - List **Design Template** / **Open Template** deep-links to the unified visual designer, which is the place to configure design, review, signing, readiness, and publishing for that version.
+     - Secondary actions on the list: Replace PDF, Activate/Deactivate, Duplicate, Delete. Publish and After generation are not list actions; publish stays on the Designer, and After generation is removed from the normal Templates UX. The backend publish and legacy automation endpoints remain.
+     - Dedicated company **workflow preset** and **signing preset** management pages remain for reusable administration. The Designer selects (and, with existing preset-create permission, can create) those presets for the current template version.
      - Legacy `content` template records and underlying domain rendering support remain preserved in the database for historical compatibility, but are hidden from company template management and blocked from new creation or editing (`/{template}/edit` redirects to Templates).
      - **Opening the designer is side-effect free.** It does not create a draft. It displays the most relevant version (draft if present, otherwise published, otherwise latest archived). A 404 is returned if no versions exist.
    - **Formats**:
      - `pdf_overlay`: Branded uploaded PDF with visual merge field placement, static text boxes, and signature slots. (Legacy `content` templates remain in schema for backward compatibility).
    - **Template Identity & Immutability**:
      - The parent model `DocumentGenerationTemplate` manages company-level identity, metadata (`name`, `description`, `document_type_id`, `template_format`), lifecycle status (`draft`, `active`, `inactive`), and pointer to `published_version_id`.
-     - Authoritative renderable data resides in `DocumentGenerationTemplateVersion` (`version`, `status`, `content`, `source_pdf_path`, `placement_config`, `published_at`).
+     - Authoritative renderable data resides in `DocumentGenerationTemplateVersion` (`version`, `status`, `content`, `source_pdf_path`, `placement_config`, `signature_placement_config`, `document_workflow_mode`, `document_workflow_preset_id`, `document_signing_mode`, `document_signing_preset_id`, `published_at`).
+     - **Workflow is version-owned.** Review and signing require explicit decisions on each draft:
+       - `null` mode = not explicitly configured (blocks publish).
+       - `none` = intentionally disabled for that stage (`preset_id` must be null).
+       - `preset` = configured using a company workflow or signing preset.
+       - Legacy rows with a preset id and null mode **read** as `preset`. Null id + null mode stays unconfigured. Historical published/archived versions are never rewritten. New Draft v1 starts unconfigured. Branching a draft from a legacy configured version normalizes **only the new draft** to `preset`.
      - **Strict Immutability**: Published and archived versions cannot be altered. Editing an active template branches a new single `draft` version (`version = max + 1`), preserving historical published versions and source files indefinitely.
      - Concurrency-safe draft branching (`BranchDocumentGenerationTemplateDraft`) guarantees at most one draft per template.
    - **Unified PDF Designer** (`/{template}/design`):
      - Single visual workspace combining merge field placements, static text boxes, and signature slot placements on one Fabric.js canvas.
      - **`placement_config`** and **`signature_placement_config`** remain separate persisted domain structures with independent validation and audit trails.
-     - `isEditable = (version.status === 'draft')` gates all add/delete/drag controls and the Save Design / Publish buttons. Historical versions are selectable for inspection but fully read-only.
+     - `isEditable = (version.status === 'draft')` gates all add/delete/drag controls, Workflow edits, Save Draft, and Publish. Historical versions remain selectable and fully read-only, including the Workflow tab (it shows the stored configuration for that version).
+     - Right panel tabs: **Properties** (selected-element controls) and **Workflow** (review/approval, signing, execution-order summary, placement status). Workflow stays visible with no Fabric selection.
+     - **Template readiness** is evaluated server-side (`DocumentGenerationTemplateReadiness`). The Designer shows a readiness indicator; Publish is disabled for unsaved or blocking issues. Backend publish still calls the evaluator — a disabled button is not enforcement.
+     - Switching versions reloads that version's placements, signature slots, workflow/signing modes and presets, and readiness. Unsaved-change confirmation covers Workflow edits as well as canvas edits.
      - Normalized coordinates `[0.0, 1.0]` ensure resolution-independent placement across any viewer or print scale.
      - **Schema versioning**: `schema_version: 1` remains readable for compatibility (missing `type` continues to mean `field`; never auto-migrated on read). `schema_version: 2` requires an explicit placement `type` of `field` or `text`; missing, empty, or unknown types are rejected at save and at render-time validation. All saves write v2. Published and archived versions remain immutable.
      - **Static text boxes**: `type: 'text'` placements with `text_content` (1–500 chars). No `field` key stored. The designer uses the same default box (160×26 CSS px) and the same edit/preview chrome as merge fields.
      - **Text wrapping**: Merge fields and static text both wrap inside the drawn box (`white-space: pre-wrap`, `overflow-wrap: break-word`, `line-height: 1.2`, full-width inner span so left/center/right `text-align` still applies). Keep the box width inside its column and increase **height** for extra lines. Browsershot DOM measurement (`scrollWidth > clientWidth + 1` or `scrollHeight > clientHeight + 1`) is used for font-size preflight.
      - **Explicit draft creation**: Users with update permission see a "Create Draft" button when no draft exists. Clicking it branches a draft from the current published version using `BranchDocumentGenerationTemplateDraft` (at-most-one-draft invariant preserved). Opening the designer never creates a draft automatically.
      - **Version switcher**: Toolbar dropdown lists all versions newest → oldest. Switching from an unsaved draft prompts "Stay on Draft / Discard changes and switch". Historical versions show a Version Info panel (PDF metadata, placement counts, change summary from `VersionChangeSummary`). Summaries compare against the immediately previous version. The design page provides `initial_change_summary` for the initially selected version so v2+ shows that diff on first render without an extra request.
-     - **Save Design**: Single atomic endpoint (`PUT .../versions/{version}/design`). Validates both `placement_config` and `signature_placement_config` and writes them in a single DB transaction with one `$version->save()`. If either validation fails, neither config is persisted (full rollback).
+     - **Save Draft**: Single atomic endpoint (`PUT .../versions/{version}/design`). Persists `placement_config`, `signature_placement_config`, `document_workflow_mode`, `document_workflow_preset_id`, `document_signing_mode`, and `document_signing_preset_id` in one DB transaction. If any validation fails, nothing is persisted. Preset ids are resolved against `current_company_id`.
+     - **Publish**: Server-gated by readiness plus existing lifecycle/signature validation. Unsaved Designer changes must be saved first; Save Draft and Publish stay explicit.
      - **Historical immutability**: Published and archived versions cannot be edited. Fetching a historical version via `showVersion` performs no DB writes, creates no activity log entries, and never migrates schema v1 configs. Version summaries compare against the immediately previous version and never rewrite stored configs.
      - **Click-to-place**: Adding a merge field, static text box, or signature slot arms a placement. The next click on empty canvas hangs a new field/text box so its **baseline** sits on the click (the printed underline). Signature slots still center on the click. Esc or a second click on the same add control cancels.
      - **Vertical alignment**: Each field/text placement stores `vertical_align` (`top` / `middle` / `baseline`). New boxes default to `baseline`. Existing placements without the key keep the previous look (`middle` for merge fields, `top` for static text). The designer paints merge text on the same box edges as generation (`align-items: flex-start|center|flex-end`). Baseline is the **bottom of the box**, not the surrounding PDF line. Click-to-place hangs the box above the click so that floor sits on the printed underline. Switching Top/Middle → Baseline on an existing box moves the value to the floor without moving the box.

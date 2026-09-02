@@ -177,3 +177,64 @@ test('does NOT report moved from count changes alone', function () {
     expect($result['fields_removed'])->toBe(1);
     expect($result['fields_moved'])->toBe(0);
 });
+
+test('legacy null mode with the same preset id is not a false automation change', function () {
+    $company = makeDocumentFixtures()['company'];
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create(['template_format' => 'pdf_overlay', 'status' => 'draft']);
+    $workflowPreset = createDocumentWorkflowPresetForCompany($company);
+    $signingPreset = createDocumentSigningPresetForCompany($company);
+
+    $v1 = makeVersionWithConfig($template, 1, 'archived', overrides: [
+        'document_workflow_mode' => null,
+        'document_workflow_preset_id' => $workflowPreset->id,
+        'document_signing_mode' => null,
+        'document_signing_preset_id' => $signingPreset->id,
+    ]);
+    $v2 = makeVersionWithConfig($template, 2, 'published', overrides: [
+        'document_workflow_mode' => 'preset',
+        'document_workflow_preset_id' => $workflowPreset->id,
+        'document_signing_mode' => 'preset',
+        'document_signing_preset_id' => $signingPreset->id,
+    ]);
+
+    $result = VersionChangeSummary::compare($v1, $v2);
+    expect($result['workflow_preset_changed'])->toBeFalse()
+        ->and($result['signing_preset_changed'])->toBeFalse();
+});
+
+test('workflow mode none to preset is reported as a review change', function () {
+    $company = makeDocumentFixtures()['company'];
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create(['template_format' => 'pdf_overlay', 'status' => 'draft']);
+    $workflowPreset = createDocumentWorkflowPresetForCompany($company);
+
+    $v1 = makeVersionWithConfig($template, 1, 'archived', overrides: [
+        'document_workflow_mode' => 'none',
+        'document_workflow_preset_id' => null,
+    ]);
+    $v2 = makeVersionWithConfig($template, 2, 'published', overrides: [
+        'document_workflow_mode' => 'preset',
+        'document_workflow_preset_id' => $workflowPreset->id,
+    ]);
+
+    $result = VersionChangeSummary::compare($v1, $v2);
+    expect($result['workflow_preset_changed'])->toBeTrue();
+});
+
+test('signing preset id change is reported', function () {
+    $company = makeDocumentFixtures()['company'];
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create(['template_format' => 'pdf_overlay', 'status' => 'draft']);
+    $signingA = createDocumentSigningPresetForCompany($company, null, 'Signing A');
+    $signingB = createDocumentSigningPresetForCompany($company, null, 'Signing B');
+
+    $v1 = makeVersionWithConfig($template, 1, 'archived', overrides: [
+        'document_signing_mode' => 'preset',
+        'document_signing_preset_id' => $signingA->id,
+    ]);
+    $v2 = makeVersionWithConfig($template, 2, 'published', overrides: [
+        'document_signing_mode' => 'preset',
+        'document_signing_preset_id' => $signingB->id,
+    ]);
+
+    $result = VersionChangeSummary::compare($v1, $v2);
+    expect($result['signing_preset_changed'])->toBeTrue();
+});
