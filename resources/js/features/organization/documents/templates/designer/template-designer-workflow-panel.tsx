@@ -1,20 +1,35 @@
-import {
-    Root as RadioGroup,
-    Item as RadioItem,
-} from '@radix-ui/react-radio-group';
-import { AlertTriangle, Plus } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import {
     executionOrderSteps,
+    reviewSectionStatus,
+    signingSectionStatus,
     signingStepPlacementStatuses,
+    workflowFocusKey,
+} from '../lib/template-workflow';
+import type {
+    WorkflowFocusTarget,
+    WorkflowSectionStatus,
 } from '../lib/template-workflow';
 import type {
     DesignerSigningPreset,
     DesignerWorkflowPreset,
     TemplateAutomationMode,
 } from '../types';
+import { TemplateApprovalFlowSteps } from './template-approval-flow-steps';
+import { TemplateExecutionOrder } from './template-execution-order';
+import { TemplateSigningFlowSteps } from './template-signing-flow-steps';
+import { TemplateWorkflowDecisionCards } from './template-workflow-decision-cards';
 
 type Props = {
     readOnly: boolean;
@@ -26,15 +41,20 @@ type Props = {
     signingPresets: DesignerSigningPreset[];
     placedSlotKeys: string[];
     slotPages: Record<string, number>;
+    selectedSlotKey: string | null;
+    pendingSlotKey: string | null;
     canCreateWorkflowPresets: boolean;
     canCreateSigningPresets: boolean;
+    focusTarget: WorkflowFocusTarget | null;
+    onFocusHandled: () => void;
     onWorkflowModeChange: (mode: TemplateAutomationMode) => void;
     onWorkflowPresetChange: (id: number | null) => void;
     onSigningModeChange: (mode: TemplateAutomationMode) => void;
     onSigningPresetChange: (id: number | null) => void;
     onCreateWorkflowPreset: () => void;
     onCreateSigningPreset: () => void;
-    onPlaceSlot: (slotKey: string) => void;
+    onLocateSlot: (slotKey: string) => void;
+    onPlaceSlot: (slotKey: string, label: string) => void;
     onRemoveSignaturePlacements: () => void;
     isLegacy: boolean;
 };
@@ -49,18 +69,28 @@ export function TemplateDesignerWorkflowPanel({
     signingPresets,
     placedSlotKeys,
     slotPages,
+    selectedSlotKey,
+    pendingSlotKey,
     canCreateWorkflowPresets,
     canCreateSigningPresets,
+    focusTarget,
+    onFocusHandled,
     onWorkflowModeChange,
     onWorkflowPresetChange,
     onSigningModeChange,
     onSigningPresetChange,
     onCreateWorkflowPreset,
     onCreateSigningPreset,
+    onLocateSlot,
     onPlaceSlot,
     onRemoveSignaturePlacements,
     isLegacy,
 }: Props) {
+    const panelRef = useRef<HTMLDivElement>(null);
+    const [reviewOpen, setReviewOpen] = useState(true);
+    const [signingOpen, setSigningOpen] = useState(true);
+    const [orderOpen, setOrderOpen] = useState(false);
+
     const selectedWorkflow = workflowPresets.find(
         (preset) => preset.id === workflowPresetId,
     );
@@ -74,6 +104,21 @@ export function TemplateDesignerWorkflowPanel({
               slotPages,
           )
         : [];
+    const missingPlacementCount = signingStatuses.filter(
+        (step) => !step.placed,
+    ).length;
+    const reviewStatus = reviewSectionStatus({
+        readOnly,
+        mode: workflowMode,
+        presetId: workflowPresetId,
+    });
+    const signingStatus = signingSectionStatus({
+        readOnly,
+        mode: signingMode,
+        presetId: signingPresetId,
+        missingPlacementCount,
+        hasLeftoverPlacements: placedSlotKeys.length > 0,
+    });
     const order = executionOrderSteps(
         workflowMode === 'preset'
             ? 'preset'
@@ -86,48 +131,85 @@ export function TemplateDesignerWorkflowPanel({
               ? 'none'
               : null,
     );
+    const highlightedSlotKey = pendingSlotKey ?? selectedSlotKey;
+    const focusedSlotKey =
+        focusTarget?.section === 'signing-step' ? focusTarget.slotKey : null;
+    const highlightKey = focusTarget ? workflowFocusKey(focusTarget) : null;
+    const reviewForcedOpen =
+        focusTarget?.section === 'review' ||
+        focusTarget?.section === 'review-preset';
+    const signingForcedOpen =
+        focusTarget?.section === 'signing' ||
+        focusTarget?.section === 'signing-preset' ||
+        focusTarget?.section === 'signing-step';
+
+    useEffect(() => {
+        if (!focusTarget) {
+            return;
+        }
+
+        const key = workflowFocusKey(focusTarget);
+        const frame = window.requestAnimationFrame(() => {
+            panelRef.current
+                ?.querySelector(`[data-workflow-focus="${key}"]`)
+                ?.scrollIntoView({ block: 'nearest' });
+        });
+
+        const reduced = window.matchMedia(
+            '(prefers-reduced-motion: reduce)',
+        ).matches;
+        const timeout = window.setTimeout(
+            () => {
+                onFocusHandled();
+            },
+            reduced ? 50 : 1600,
+        );
+
+        return () => {
+            window.cancelAnimationFrame(frame);
+            window.clearTimeout(timeout);
+        };
+    }, [focusTarget, onFocusHandled]);
 
     return (
-        <div className="space-y-5 text-xs">
+        <div ref={panelRef} className="space-y-3 text-xs">
             {isLegacy ? (
                 <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100">
                     Legacy version. No explicit workflow decision was recorded.
                 </p>
             ) : null}
 
-            <section className="space-y-2">
-                <p className="text-[11px] font-semibold tracking-wide text-foreground uppercase">
-                    Review & Approval
-                </p>
-                {workflowMode == null && !readOnly ? (
-                    <p className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400">
-                        <AlertTriangle className="size-3" />
-                        Decision required
-                    </p>
-                ) : null}
-                <RadioGroup
-                    value={workflowMode ?? ''}
-                    onValueChange={(value) =>
-                        onWorkflowModeChange(value as 'none' | 'preset')
-                    }
-                    disabled={readOnly}
-                    className="grid gap-2"
+            <WorkflowSection
+                title="Review & Approval"
+                status={reviewStatus}
+                open={reviewOpen || reviewForcedOpen}
+                onOpenChange={setReviewOpen}
+                highlighted={highlightKey === 'review'}
+            >
+                <div
+                    data-workflow-focus="review"
+                    className={cn(
+                        'rounded-lg',
+                        highlightKey === 'review' &&
+                            'motion-safe:ring-2 motion-safe:ring-primary/35',
+                    )}
                 >
-                    <DecisionOption
-                        value="none"
-                        selected={workflowMode === 'none'}
+                    <TemplateWorkflowDecisionCards
+                        name="Review and approval"
+                        value={workflowMode}
                         disabled={readOnly}
-                        title="No review required"
+                        noneTitle="No review required"
+                        presetTitle="Use approval flow"
+                        presetDescription={selectedWorkflow?.name}
+                        highlighted={highlightKey === 'review'}
+                        onChange={onWorkflowModeChange}
                     />
-                    <DecisionOption
-                        value="preset"
-                        selected={workflowMode === 'preset'}
-                        disabled={readOnly}
-                        title="Use approval flow"
-                    />
-                </RadioGroup>
+                </div>
                 {workflowMode === 'preset' ? (
-                    <div className="space-y-2">
+                    <div
+                        className="space-y-2"
+                        data-workflow-focus="review-preset"
+                    >
                         <AppSelect
                             value={
                                 workflowPresetId !== null
@@ -139,6 +221,11 @@ export function TemplateDesignerWorkflowPanel({
                             }
                             disabled={readOnly}
                             placeholder="Approval flow"
+                            size="sm"
+                            className={cn(
+                                highlightKey === 'review-preset' &&
+                                    'motion-safe:ring-2 motion-safe:ring-primary/35',
+                            )}
                         >
                             {workflowPresets.map((preset) => (
                                 <AppSelectItem
@@ -163,177 +250,186 @@ export function TemplateDesignerWorkflowPanel({
                             </Button>
                         ) : null}
                         {selectedWorkflow ? (
-                            <ol className="space-y-1 text-[11px] text-muted-foreground">
-                                {selectedWorkflow.stages.map((stage, index) => (
-                                    <li key={stage.sequence}>
-                                        {stage.action_label}
-                                        {index <
-                                        selectedWorkflow.stages.length - 1
-                                            ? ' ↓'
-                                            : ''}
-                                    </li>
-                                ))}
-                            </ol>
+                            <TemplateApprovalFlowSteps
+                                presetName={selectedWorkflow.name}
+                                stages={selectedWorkflow.stages}
+                            />
                         ) : null}
                     </div>
                 ) : null}
-            </section>
+            </WorkflowSection>
 
-            <section className="space-y-2">
-                <p className="text-[11px] font-semibold tracking-wide text-foreground uppercase">
-                    Signing
-                </p>
-                {signingMode == null && !readOnly ? (
-                    <p className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400">
-                        <AlertTriangle className="size-3" />
-                        Decision required
-                    </p>
-                ) : null}
-                <RadioGroup
-                    value={signingMode ?? ''}
-                    onValueChange={(value) =>
-                        onSigningModeChange(value as 'none' | 'preset')
-                    }
-                    disabled={readOnly}
-                    className="grid gap-2"
+            <WorkflowSection
+                title="Signing"
+                status={signingStatus}
+                open={signingOpen || signingForcedOpen}
+                onOpenChange={setSigningOpen}
+                highlighted={highlightKey === 'signing'}
+            >
+                <div
+                    data-workflow-focus="signing"
+                    className={cn(
+                        'space-y-2 rounded-lg',
+                        highlightKey === 'signing' &&
+                            'motion-safe:ring-2 motion-safe:ring-primary/35',
+                    )}
                 >
-                    <DecisionOption
-                        value="none"
-                        selected={signingMode === 'none'}
+                    <TemplateWorkflowDecisionCards
+                        name="Signing"
+                        value={signingMode}
                         disabled={readOnly}
-                        title="No signatures required"
+                        noneTitle="No signatures required"
+                        presetTitle="Use signing flow"
+                        presetDescription={selectedSigning?.name}
+                        highlighted={highlightKey === 'signing'}
+                        onChange={onSigningModeChange}
                     />
-                    <DecisionOption
-                        value="preset"
-                        selected={signingMode === 'preset'}
-                        disabled={readOnly}
-                        title="Use signing flow"
-                    />
-                </RadioGroup>
-                {signingMode === 'none' &&
-                placedSlotKeys.length > 0 &&
-                !readOnly ? (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-[11px]"
-                        onClick={onRemoveSignaturePlacements}
-                    >
-                        Remove signature placements
-                    </Button>
-                ) : null}
-                {signingMode === 'preset' ? (
-                    <div className="space-y-2">
-                        <AppSelect
-                            value={
-                                signingPresetId !== null
-                                    ? String(signingPresetId)
-                                    : ''
-                            }
-                            onValueChange={(value) =>
-                                onSigningPresetChange(Number(value))
-                            }
-                            disabled={readOnly}
-                            placeholder="Signing flow"
+                    {signingMode === 'none' &&
+                    placedSlotKeys.length > 0 &&
+                    !readOnly ? (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-[11px]"
+                            onClick={onRemoveSignaturePlacements}
                         >
-                            {signingPresets.map((preset) => (
-                                <AppSelectItem
-                                    key={preset.id}
-                                    value={String(preset.id)}
-                                >
-                                    {preset.name}
-                                    {!preset.is_active ? ' (inactive)' : ''}
-                                </AppSelectItem>
-                            ))}
-                        </AppSelect>
-                        {canCreateSigningPresets && !readOnly ? (
-                            <Button
-                                type="button"
-                                variant="ghost"
+                            Remove signature placements
+                        </Button>
+                    ) : null}
+                    {signingMode === 'preset' ? (
+                        <div
+                            className="space-y-2"
+                            data-workflow-focus="signing-preset"
+                        >
+                            <AppSelect
+                                value={
+                                    signingPresetId !== null
+                                        ? String(signingPresetId)
+                                        : ''
+                                }
+                                onValueChange={(value) =>
+                                    onSigningPresetChange(Number(value))
+                                }
+                                disabled={readOnly}
+                                placeholder="Signing flow"
                                 size="sm"
-                                className="h-7 px-2 text-[11px]"
-                                onClick={onCreateSigningPreset}
+                                className={cn(
+                                    highlightKey === 'signing-preset' &&
+                                        'motion-safe:ring-2 motion-safe:ring-primary/35',
+                                )}
                             >
-                                <Plus className="mr-1 size-3" />
-                                Create signing flow
-                            </Button>
-                        ) : null}
-                        {signingStatuses.length > 0 ? (
-                            <ol className="space-y-2">
-                                {signingStatuses.map((step) => (
-                                    <li
-                                        key={step.slotKey}
-                                        className="rounded-md border border-border/70 px-2 py-1.5"
+                                {signingPresets.map((preset) => (
+                                    <AppSelectItem
+                                        key={preset.id}
+                                        value={String(preset.id)}
                                     >
-                                        <div className="flex items-start justify-between gap-2">
-                                            <span>
-                                                {step.placed ? '✓' : '⚠'}{' '}
-                                                {step.sequence} {step.label}
-                                            </span>
-                                        </div>
-                                        {!step.placed && !readOnly ? (
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                className="mt-1.5 h-6 px-2 text-[11px]"
-                                                onClick={() =>
-                                                    onPlaceSlot(step.slotKey)
-                                                }
-                                            >
-                                                Place on PDF
-                                            </Button>
-                                        ) : null}
-                                    </li>
+                                        {preset.name}
+                                        {!preset.is_active ? ' (inactive)' : ''}
+                                    </AppSelectItem>
                                 ))}
-                            </ol>
-                        ) : null}
-                    </div>
-                ) : null}
-            </section>
+                            </AppSelect>
+                            {canCreateSigningPresets && !readOnly ? (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-[11px]"
+                                    onClick={onCreateSigningPreset}
+                                >
+                                    <Plus className="mr-1 size-3" />
+                                    Create signing flow
+                                </Button>
+                            ) : null}
+                            {signingStatuses.length > 0 ? (
+                                <TemplateSigningFlowSteps
+                                    presetName={selectedSigning?.name ?? ''}
+                                    steps={signingStatuses}
+                                    readOnly={readOnly}
+                                    highlightedSlotKey={highlightedSlotKey}
+                                    focusedSlotKey={focusedSlotKey}
+                                    onLocateSlot={onLocateSlot}
+                                    onPlaceSlot={onPlaceSlot}
+                                />
+                            ) : null}
+                        </div>
+                    ) : null}
+                </div>
+            </WorkflowSection>
 
-            <section className="space-y-2">
-                <p className="text-[11px] font-semibold tracking-wide text-foreground uppercase">
-                    Execution order
-                </p>
-                <ol className="space-y-1 text-[11px] text-muted-foreground">
-                    {order.map((step, index) => (
-                        <li key={step}>
-                            {step}
-                            {index < order.length - 1 ? ' ↓' : ''}
-                        </li>
-                    ))}
-                </ol>
-            </section>
+            <WorkflowSection
+                title="Execution order"
+                status={null}
+                open={orderOpen}
+                onOpenChange={setOrderOpen}
+                highlighted={false}
+            >
+                <TemplateExecutionOrder steps={order} />
+            </WorkflowSection>
         </div>
     );
 }
 
-function DecisionOption({
-    value,
-    selected,
-    disabled,
+function WorkflowSection({
     title,
+    status,
+    open,
+    onOpenChange,
+    highlighted,
+    children,
 }: {
-    value: string;
-    selected: boolean;
-    disabled: boolean;
     title: string;
+    status: WorkflowSectionStatus | null;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    highlighted: boolean;
+    children: ReactNode;
 }) {
     return (
-        <RadioItem
-            value={value}
-            disabled={disabled}
-            className={cn(
-                'rounded-lg border bg-card/70 p-2.5 text-left text-xs outline-none',
-                disabled ? 'cursor-default opacity-80' : 'cursor-pointer',
-                selected
-                    ? 'border-primary shadow-xs ring-1 ring-primary'
-                    : 'border-border/80 hover:border-border hover:bg-card',
-            )}
-        >
-            <div className="font-medium text-foreground">{title}</div>
-        </RadioItem>
+        <Collapsible open={open} onOpenChange={onOpenChange}>
+            <section className={cn('space-y-2', highlighted && 'rounded-lg')}>
+                <CollapsibleTrigger asChild>
+                    <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded-md py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                        aria-expanded={open}
+                    >
+                        <ChevronDown
+                            className={cn(
+                                'size-3.5 shrink-0 text-muted-foreground motion-safe:transition-transform',
+                                !open && '-rotate-90',
+                            )}
+                            aria-hidden
+                        />
+                        <span className="min-w-0 flex-1 text-[11px] font-semibold tracking-wide text-foreground uppercase">
+                            {title}
+                        </span>
+                        {status ? <SectionStatusBadge status={status} /> : null}
+                    </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-2">
+                    {children}
+                </CollapsibleContent>
+            </section>
+        </Collapsible>
+    );
+}
+
+function SectionStatusBadge({ status }: { status: WorkflowSectionStatus }) {
+    const variant =
+        status.kind === 'configured'
+            ? 'success'
+            : status.kind === 'read_only'
+              ? 'outline'
+              : 'warning';
+
+    return (
+        <Badge variant={variant} className="h-5 px-1.5 text-[10px]">
+            {status.kind === 'configured' ? '✓ ' : null}
+            {status.kind === 'decision_required' || status.kind === 'issues'
+                ? '⚠ '
+                : null}
+            {status.label}
+        </Badge>
     );
 }

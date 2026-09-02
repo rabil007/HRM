@@ -10,8 +10,13 @@ import {
     mergeReadinessBlockingCount,
     nextSignatureSlotToPlace,
     READINESS_CODES,
+    readinessDisplayState,
+    readinessFixAction,
+    reviewSectionStatus,
     roleFromSlotKey,
     SAVE_DRAFT_LABEL,
+    signingSectionStatus,
+    signingStepPlacementCopy,
     signingStepPlacementStatuses,
     designerUiCopy,
 } from '../templates/lib/template-workflow.ts';
@@ -76,6 +81,16 @@ describe('signingStepPlacementStatuses', () => {
         assert.equal(statuses[0]?.placed, true);
         assert.equal(statuses[1]?.placed, false);
         assert.equal(statuses[1]?.slotKey, 'company_signatory_1');
+        assert.equal(signingStepPlacementCopy(true), 'Placement configured');
+        assert.equal(
+            signingStepPlacementCopy(false),
+            'Signature placement missing',
+        );
+        assert.equal(
+            statuses[0]?.label.includes(String(statuses[0].sequence)),
+            false,
+        );
+        assert.equal(/^\d+$/.test(statuses[0]?.label ?? ''), false);
     });
 });
 
@@ -96,6 +111,132 @@ describe('nextSignatureSlotToPlace', () => {
         assert.equal(next.action, 'add');
         assert.equal(next.role, 'company_signatory');
         assert.equal(roleFromSlotKey('manager_2'), 'manager');
+    });
+});
+
+describe('readinessFixAction', () => {
+    it('maps stable issue codes rather than English messages', () => {
+        const review = readinessFixAction({
+            code: READINESS_CODES.workflowDecisionMissing,
+            meta: { fix: 'configure_workflow' },
+        });
+        const signing = readinessFixAction({
+            code: READINESS_CODES.signingDecisionMissing,
+            meta: { fix: 'configure_signing' },
+        });
+        const reviewPreset = readinessFixAction({
+            code: READINESS_CODES.workflowPresetMissing,
+        });
+        const signingPreset = readinessFixAction({
+            code: READINESS_CODES.signingPresetMissing,
+        });
+        const placement = readinessFixAction({
+            code: READINESS_CODES.signingPlacementMissing,
+            meta: { slot_key: 'company_signatory_1' },
+        });
+        const unsaved = readinessFixAction({
+            code: READINESS_CODES.unsavedChanges,
+        });
+
+        assert.equal(review?.kind, 'configure_review');
+        assert.equal(review?.label, 'Configure');
+        assert.deepEqual(review?.focus, { section: 'review' });
+        assert.equal(signing?.kind, 'configure_signing');
+        assert.deepEqual(signing?.focus, { section: 'signing' });
+        assert.equal(reviewPreset?.label, 'Choose flow');
+        assert.deepEqual(reviewPreset?.focus, { section: 'review-preset' });
+        assert.equal(signingPreset?.label, 'Choose flow');
+        assert.deepEqual(signingPreset?.focus, { section: 'signing-preset' });
+        assert.equal(placement?.kind, 'place_on_pdf');
+        assert.equal(placement?.slotKey, 'company_signatory_1');
+        assert.equal(unsaved?.kind, 'save_draft');
+        assert.equal(unsaved?.label, 'Save Draft');
+    });
+});
+
+describe('reviewSectionStatus and signingSectionStatus', () => {
+    it('shows selected none and preset states', () => {
+        assert.equal(
+            reviewSectionStatus({
+                readOnly: false,
+                mode: 'none',
+                presetId: null,
+            }).kind,
+            'configured',
+        );
+        assert.equal(
+            reviewSectionStatus({
+                readOnly: false,
+                mode: 'preset',
+                presetId: 4,
+            }).kind,
+            'configured',
+        );
+        assert.equal(
+            reviewSectionStatus({
+                readOnly: false,
+                mode: null,
+                presetId: null,
+            }).kind,
+            'decision_required',
+        );
+        assert.equal(
+            reviewSectionStatus({
+                readOnly: true,
+                mode: 'preset',
+                presetId: 4,
+            }).kind,
+            'read_only',
+        );
+        assert.equal(
+            signingSectionStatus({
+                readOnly: false,
+                mode: 'none',
+                presetId: null,
+                missingPlacementCount: 0,
+                hasLeftoverPlacements: false,
+            }).kind,
+            'configured',
+        );
+        assert.equal(
+            signingSectionStatus({
+                readOnly: false,
+                mode: 'preset',
+                presetId: 2,
+                missingPlacementCount: 1,
+                hasLeftoverPlacements: false,
+            }).label,
+            '1 issue',
+        );
+    });
+});
+
+describe('readinessDisplayState', () => {
+    it('keeps unsaved drafts from looking ready to publish', () => {
+        assert.equal(
+            readinessDisplayState({
+                configurationBlockingCount: 0,
+                hasUnsavedChanges: true,
+                serverReady: false,
+            }).kind,
+            'complete_unsaved',
+        );
+        assert.equal(
+            readinessDisplayState({
+                configurationBlockingCount: 0,
+                hasUnsavedChanges: false,
+                serverReady: true,
+            }).label,
+            'Ready to publish',
+        );
+        assert.equal(
+            readinessDisplayState({
+                configurationBlockingCount: 2,
+                hasUnsavedChanges: true,
+                serverReady: false,
+            }).label,
+            '2 issues',
+        );
     });
 });
 
@@ -148,6 +289,31 @@ describe('localWorkflowIssues', () => {
             issues.some(
                 (issue) =>
                     issue.code === READINESS_CODES.signingPlacementsConflict,
+            ),
+            true,
+        );
+    });
+
+    it('flags missing presets after an explicit use-flow choice', () => {
+        const issues = localWorkflowIssues({
+            workflowMode: 'preset',
+            workflowPresetId: null,
+            signingMode: 'preset',
+            signingPresetId: null,
+            hasUnsavedChanges: true,
+            hasSignaturePlacements: false,
+            missingSigningSlotKeys: [],
+        });
+
+        assert.equal(
+            issues.some(
+                (issue) => issue.code === READINESS_CODES.workflowPresetMissing,
+            ),
+            true,
+        );
+        assert.equal(
+            issues.some(
+                (issue) => issue.code === READINESS_CODES.signingPresetMissing,
             ),
             true,
         );
@@ -205,6 +371,75 @@ describe('designer and templates list copy', () => {
         assert.equal(designer.includes('markWorkflowDirty'), true);
         assert.equal(designer.includes('publishBlocked'), true);
         assert.equal(designer.includes('placeSlotOnPdf'), true);
+        assert.equal(designer.includes('locateSignatureSlot'), true);
+        assert.equal(designer.includes('setPendingPlacement'), true);
+        assert.equal(designer.includes('readinessFixAction'), true);
+        assert.equal(designer.includes('pendingPlacementInstruction'), true);
+        assert.equal(designer.includes('Click on the PDF to place'), true);
+        assert.equal(designer.includes('addRoleSlot(next.role'), false);
+        assert.equal(designer.includes('removeSlot(slotKey)'), true);
+    });
+
+    it('keeps workflow decision, step, and readiness copy in focused components', () => {
+        const here = path.dirname(fileURLToPath(import.meta.url));
+        const panel = readFileSync(
+            path.join(
+                here,
+                '../templates/designer/template-designer-workflow-panel.tsx',
+            ),
+            'utf8',
+        );
+        const decisions = readFileSync(
+            path.join(
+                here,
+                '../templates/designer/template-workflow-decision-cards.tsx',
+            ),
+            'utf8',
+        );
+        const signingSteps = readFileSync(
+            path.join(
+                here,
+                '../templates/designer/template-signing-flow-steps.tsx',
+            ),
+            'utf8',
+        );
+        const approvalSteps = readFileSync(
+            path.join(
+                here,
+                '../templates/designer/template-approval-flow-steps.tsx',
+            ),
+            'utf8',
+        );
+        const readiness = readFileSync(
+            path.join(
+                here,
+                '../templates/designer/template-readiness-indicator.tsx',
+            ),
+            'utf8',
+        );
+
+        assert.equal(panel.includes('No review required'), true);
+        assert.equal(panel.includes('Use approval flow'), true);
+        assert.equal(panel.includes('No signatures required'), true);
+        assert.equal(panel.includes('Use signing flow'), true);
+        assert.equal(panel.includes('TemplateWorkflowDecisionCards'), true);
+        assert.equal(panel.includes('TemplateApprovalFlowSteps'), true);
+        assert.equal(panel.includes('TemplateSigningFlowSteps'), true);
+        assert.equal(panel.includes('readOnly'), true);
+        assert.equal(decisions.includes('data-selected'), true);
+        assert.equal(decisions.includes('RadioItem'), true);
+        assert.equal(approvalSteps.includes('action_label'), true);
+        assert.equal(signingSteps.includes('signingStepPlacementCopy'), true);
+        assert.equal(signingSteps.includes('Place on PDF'), true);
+        assert.equal(signingSteps.includes('!readOnly'), true);
+        assert.equal(signingSteps.includes('onLocateSlot'), true);
+        assert.equal(signingSteps.includes('onPlaceSlot'), true);
+        assert.equal(readiness.includes('readinessFixAction'), true);
+        assert.equal(readiness.includes('readinessDisplayState'), true);
+        assert.equal(readiness.includes('canMutate'), true);
+        assert.equal(panel.includes('preset.id'), true);
+        assert.equal(panel.includes('stage.id'), false);
+        assert.equal(signingSteps.includes('step.id'), false);
     });
 
     it('removes After generation and list Publish from Templates', () => {

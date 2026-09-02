@@ -103,13 +103,17 @@ import type { OverflowLevel } from '../lib/placement-overflow';
 import { snapRectToGuides } from '../lib/snap-guides';
 import type { SnapBox, SnapGuide } from '../lib/snap-guides';
 import {
+    configurationBlockingCount,
     designerUiCopy,
     displayedAutomationMode,
     localWorkflowIssues,
     mergeReadinessBlockingCount,
     nextSignatureSlotToPlace,
+    readinessFixAction,
     signingStepPlacementStatuses,
+    visibleReadinessIssues,
 } from '../lib/template-workflow';
+import type { WorkflowFocusTarget } from '../lib/template-workflow';
 import {
     normalizeFontColor,
     normalizePlacementConfig,
@@ -216,7 +220,12 @@ type SignatureRole = SignaturePlacementItem['role'];
 type PendingPlacement =
     | { kind: 'field'; fieldKey: string; label: string }
     | { kind: 'text' }
-    | { kind: 'signature'; role: SignatureRole };
+    | {
+          kind: 'signature';
+          role: SignatureRole;
+          slotKey?: string;
+          promptLabel?: string;
+      };
 
 function pendingPlacementLabel(pending: PendingPlacement): string {
     if (pending.kind === 'field') {
@@ -227,15 +236,27 @@ function pendingPlacementLabel(pending: PendingPlacement): string {
         return 'text';
     }
 
+    if (pending.promptLabel) {
+        return pending.promptLabel;
+    }
+
     if (pending.role === 'subject') {
-        return 'employee signature';
+        return 'Employee Signature';
     }
 
     if (pending.role === 'manager') {
-        return 'manager signature';
+        return 'Department Manager';
     }
 
-    return 'company signatory signature';
+    return 'Company Signatory';
+}
+
+function pendingPlacementInstruction(pending: PendingPlacement): string {
+    if (pending.kind === 'signature') {
+        return `Click on the PDF to place ${pendingPlacementLabel(pending)}`;
+    }
+
+    return `Click the printed line to place ${pendingPlacementLabel(pending)}`;
 }
 
 function placementIdForSlot(slotKey: string): string {
@@ -1294,6 +1315,8 @@ export function TemplatePdfDesignerDialog({
         useState<VersionChangeSummary | null>(initialChangeSummary ?? null);
     const [pendingPlacement, setPendingPlacement] =
         useState<PendingPlacement | null>(null);
+    const [workflowFocus, setWorkflowFocus] =
+        useState<WorkflowFocusTarget | null>(null);
     const [previewEmployee, setPreviewEmployee] =
         useState<DesignEmployeePreview | null>(null);
     const [historyTick, setHistoryTick] = useState(0);
@@ -2694,39 +2717,51 @@ export function TemplatePdfDesignerDialog({
         }
     };
 
-    const placeSlotOnPdf = (slotKey: string) => {
+    const locateSignatureSlot = (slotKey: string): boolean => {
+        const existing = signaturePlacementsRef.current[slotKey];
+
+        if (!existing) {
+            return false;
+        }
+
+        if (existing.page !== currentPageRef.current) {
+            setCurrentPage(existing.page);
+        }
+
+        selectedElementIdRef.current = existing.id;
+        setSelectedElementId(existing.id);
+        setSelectedElementType('signature');
+        setRightPanelTab('properties');
+        window.setTimeout(() => {
+            selectCanvasObjectById(existing.id);
+            canvasHostRef.current?.scrollIntoView({ block: 'nearest' });
+        }, 50);
+
+        return true;
+    };
+
+    const placeSlotOnPdf = (slotKey: string, promptLabel?: string) => {
         const next = nextSignatureSlotToPlace(
             slotKey,
             Object.keys(signaturePlacementsRef.current),
         );
 
         if (next.action === 'select') {
-            const existing = signaturePlacementsRef.current[next.slotKey];
-
-            if (!existing) {
-                return;
-            }
-
-            if (existing.page !== currentPageRef.current) {
-                setCurrentPage(existing.page);
-            }
-
-            selectedElementIdRef.current = existing.id;
-            setSelectedElementId(existing.id);
-            setSelectedElementType('signature');
-            setRightPanelTab('properties');
-            window.setTimeout(() => selectCanvasObjectById(existing.id), 50);
+            locateSignatureSlot(next.slotKey);
 
             return;
         }
 
-        addRoleSlot(next.role as SignatureRole);
-        setRightPanelTab('properties');
-        const added = signaturePlacementsRef.current[next.slotKey];
-
-        if (added) {
-            window.setTimeout(() => selectCanvasObjectById(added.id), 50);
+        if (!isEditable || isSamplePreview) {
+            return;
         }
+
+        setPendingPlacement({
+            kind: 'signature',
+            role: next.role as SignatureRole,
+            slotKey: next.slotKey,
+            promptLabel: promptLabel || undefined,
+        });
     };
 
     const removeAllSignaturePlacements = () => {
@@ -2747,6 +2782,10 @@ export function TemplatePdfDesignerDialog({
     const markWorkflowDirty = () => {
         setHasUnsavedChanges(true);
     };
+
+    const handleWorkflowFocusHandled = useCallback(() => {
+        setWorkflowFocus(null);
+    }, []);
 
     const handleWorkflowModeChange = (mode: TemplateAutomationMode) => {
         setWorkflowMode(mode);
@@ -4097,11 +4136,19 @@ export function TemplatePdfDesignerDialog({
         hasSignaturePlacements: placedSlotKeys.length > 0,
         missingSigningSlotKeys,
     });
+    const visibleIssues = visibleReadinessIssues({
+        persistedIssues: readiness?.issues ?? [],
+        localIssues,
+        hasUnsavedChanges,
+    });
     const blockingCount = mergeReadinessBlockingCount(
         readiness?.blocking_count ?? 0,
         localIssues,
         hasUnsavedChanges,
     );
+    const configurationIssueCount = hasUnsavedChanges
+        ? configurationBlockingCount(visibleIssues)
+        : (readiness?.blocking_count ?? 0);
     const publishBlocked =
         hasUnsavedChanges || blockingCount > 0 || isPublishing || isSaving;
 
@@ -4110,34 +4157,39 @@ export function TemplatePdfDesignerDialog({
             | (typeof localIssues)[number]
             | { code: string; meta: Record<string, unknown> },
     ) => {
-        const fix = String(issue.meta.fix ?? '');
+        const action = readinessFixAction(issue);
 
-        if (fix === 'save_draft') {
+        if (!action) {
+            return;
+        }
+
+        if (action.kind === 'save_draft') {
             void handleSaveDesign();
 
             return;
         }
 
-        if (fix === 'configure_workflow' || fix === 'configure_signing') {
-            setRightPanelTab('workflow');
-
-            return;
-        }
-
-        if (fix === 'place_on_pdf') {
-            const slotKey = String(issue.meta.slot_key ?? '');
-
-            if (slotKey !== '') {
-                placeSlotOnPdf(slotKey);
-            } else {
-                setRightPanelTab('workflow');
-            }
-
-            return;
-        }
-
-        if (fix === 'remove_signature_placements') {
+        if (action.kind === 'remove_signature_placements') {
             removeAllSignaturePlacements();
+            setRightPanelTab('workflow');
+            setWorkflowFocus({ section: 'signing' });
+
+            return;
+        }
+
+        setRightPanelTab('workflow');
+
+        if (action.focus) {
+            setWorkflowFocus(action.focus);
+        }
+
+        if (action.kind === 'place_on_pdf' && action.slotKey) {
+            placeSlotOnPdf(
+                action.slotKey,
+                typeof issue.meta.label === 'string'
+                    ? issue.meta.label
+                    : undefined,
+            );
         }
     };
 
@@ -4344,9 +4396,11 @@ export function TemplatePdfDesignerDialog({
                     <>
                         <TemplateReadinessIndicator
                             readiness={readiness}
-                            localIssues={localIssues}
+                            issues={visibleIssues}
                             hasUnsavedChanges={hasUnsavedChanges}
-                            blockingCount={blockingCount}
+                            configurationBlockingCount={configurationIssueCount}
+                            publishBlocked={publishBlocked}
+                            canMutate={isEditable}
                             onFix={handleReadinessFix}
                         />
                         <Button
@@ -4404,8 +4458,7 @@ export function TemplatePdfDesignerDialog({
             {pendingPlacement && isEditable && !isSamplePreview && (
                 <div className="flex shrink-0 items-center justify-between bg-primary/10 px-6 py-2 text-xs font-medium text-foreground">
                     <span>
-                        Click the printed line to place{' '}
-                        {pendingPlacementLabel(pendingPlacement)} (Esc to
+                        {pendingPlacementInstruction(pendingPlacement)} (Esc to
                         cancel)
                     </span>
                     <Button
@@ -4803,6 +4856,14 @@ export function TemplatePdfDesignerDialog({
                                 signingPresets={signingPresets}
                                 placedSlotKeys={placedSlotKeys}
                                 slotPages={slotPages}
+                                selectedSlotKey={
+                                    selectedSignature?.slotKey ?? null
+                                }
+                                pendingSlotKey={
+                                    pendingPlacement?.kind === 'signature'
+                                        ? (pendingPlacement.slotKey ?? null)
+                                        : null
+                                }
                                 canCreateWorkflowPresets={Boolean(
                                     can.create_workflow_presets &&
                                     workflowFormOptions,
@@ -4811,6 +4872,8 @@ export function TemplatePdfDesignerDialog({
                                     can.create_signing_presets &&
                                     signingFormOptions,
                                 )}
+                                focusTarget={workflowFocus}
+                                onFocusHandled={handleWorkflowFocusHandled}
                                 onWorkflowModeChange={handleWorkflowModeChange}
                                 onWorkflowPresetChange={(id) => {
                                     setWorkflowPresetId(id);
@@ -4827,6 +4890,7 @@ export function TemplatePdfDesignerDialog({
                                 onCreateSigningPreset={() =>
                                     setIsCreateSigningPresetOpen(true)
                                 }
+                                onLocateSlot={locateSignatureSlot}
                                 onPlaceSlot={placeSlotOnPdf}
                                 onRemoveSignaturePlacements={
                                     removeAllSignaturePlacements
