@@ -1,5 +1,6 @@
 import { Link, router } from '@inertiajs/react';
 import { Mail, MailWarning, PenLine } from 'lucide-react';
+import type { ReactNode } from 'react';
 import ResendDocumentRecipientRequestEmailController from '@/actions/App/Http/Controllers/Organization/Documents/ResendDocumentRecipientRequestEmailController';
 import { EmptyState } from '@/components/empty-state';
 import { Badge } from '@/components/ui/badge';
@@ -89,12 +90,14 @@ type Props = {
     requests: RecipientRequestListItem[];
     canRespond?: boolean;
     canCreate?: boolean;
+    emptyAction?: ReactNode;
 };
 
 export function RecipientRequestsTable({
     requests,
     canRespond = false,
     canCreate = false,
+    emptyAction,
 }: Props) {
     if (requests.length === 0) {
         return (
@@ -104,6 +107,7 @@ export function RecipientRequestsTable({
                 }
                 title="No signing requests yet"
                 description="Signing and acknowledgement requests will appear here."
+                action={emptyAction}
             />
         );
     }

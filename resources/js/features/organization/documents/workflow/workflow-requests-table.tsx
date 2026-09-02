@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
 import { ArrowRight, User } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import {
     Table,
@@ -39,8 +40,10 @@ const ACTION_COLOURS: Record<string, string> = {
 
 export function WorkflowRequestsTable({
     requests,
+    emptyAction,
 }: {
     requests: WorkflowRequestListItem[];
+    emptyAction?: ReactNode;
 }) {
     if (requests.length === 0) {
         return (
@@ -50,6 +53,7 @@ export function WorkflowRequestsTable({
                 }
                 title="You're all caught up"
                 description="No approval requests need attention right now."
+                action={emptyAction}
             />
         );
     }
