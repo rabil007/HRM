@@ -103,22 +103,27 @@ final class DocumentRecipientRequestPresenter
         $recipientName = $request->recipient_name_snapshot;
         $roleLabel = $request->recipient_role->label();
 
-        if ($request->status === DocumentRecipientRequestStatus::Completed) {
-            return ['Completed', ''];
-        }
+        return match ($request->status) {
+            DocumentRecipientRequestStatus::Completed => ['Completed', ''],
+            DocumentRecipientRequestStatus::Expired => ['Expired', ''],
+            DocumentRecipientRequestStatus::Cancelled => ['Cancelled', ''],
+            DocumentRecipientRequestStatus::Superseded => ['Superseded', ''],
+            DocumentRecipientRequestStatus::AwaitingAction => $this->awaitingHumanStatusAndWaitingFor(
+                $request,
+                $recipientName,
+                $roleLabel,
+            ),
+        };
+    }
 
-        if ($request->status === DocumentRecipientRequestStatus::Expired) {
-            return ['Expired', ''];
-        }
-
-        if ($request->status === DocumentRecipientRequestStatus::Cancelled) {
-            return ['Cancelled', ''];
-        }
-
-        if ($request->status === DocumentRecipientRequestStatus::Rejected) {
-            return ['Rejected', ''];
-        }
-
+    /**
+     * @return array{string, string}
+     */
+    private function awaitingHumanStatusAndWaitingFor(
+        DocumentRecipientRequest $request,
+        string $recipientName,
+        string $roleLabel,
+    ): array {
         $emailDelivery = $this->emailDeliverySummary($request);
         if ($emailDelivery && in_array($emailDelivery['status'], ['failed', 'permanent_bounce'], true)) {
             return ['Email delivery failed', "{$recipientName} · {$roleLabel}"];

@@ -11,6 +11,7 @@ use App\Models\DocumentRecipientRequest;
 use App\Models\DocumentSigningFlow;
 use App\Models\User;
 use App\Support\Documents\DocumentInstanceStorage;
+use App\Support\Documents\RecipientRequests\DocumentRecipientAcceptedFlag;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestAccess;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestSourceGuard;
@@ -81,7 +82,7 @@ final class SubmitDocumentRecipientSignature
             ]);
         }
 
-        if ($data['consent'] !== true) {
+        if (! DocumentRecipientAcceptedFlag::isAccepted($data['consent'] ?? false)) {
             throw ValidationException::withMessages([
                 'consent' => 'Electronic signing consent is required.',
             ]);

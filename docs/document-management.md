@@ -741,7 +741,7 @@ Three tabs:
 - **Employee Signing** — Phase 6A recipient sign/acknowledge requests (`tab=recipient`). Rows show: employee, document, waiting for (recipient name + role), human status, requested timestamp.
 - **Signature Requests** — Legacy `BulkDocumentSignatureRequest` UI (`tab=signatures`). Rows show employee, document, status, consistent with modern presentation.
 
-**Human-Readable Status**: Workflow and recipient presenters normalize backend states into user-friendly sentences (Waiting for Review, Waiting for Approval, Waiting for Signature, Email delivery failed, Expired, Rejected, Cancelled, Completed).
+**Human-Readable Status**: Presenters normalize backend states into user-friendly sentences. Approvals use Waiting for Review/Approval plus Approved, Rejected, Cancelled. Employee Signing uses Waiting for Sign/Acknowledge plus Email delivery failed, Expired, Cancelled, Superseded, Completed. Recipient requests have no `rejected` status.
 
 **Waiting For**: Each row displays who needs to act next (assignee names for workflow, recipient name + role for signing).
 
