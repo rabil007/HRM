@@ -55,7 +55,7 @@ class DocumentsTemplatesController extends Controller
                 'update_templates' => $canUpdateTemplates,
                 'delete_templates' => DocumentsModuleAccess::canDeleteCustomTemplates($user),
                 'document_types' => DocumentsModuleAccess::canViewDocumentTypes($user),
-                'signature_placement' => DocumentsModuleAccess::canViewSignaturePlacement($user),
+                'generate' => $user?->can('bulk_documents.generate') ?? false,
             ],
         ]);
     }

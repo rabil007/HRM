@@ -15,9 +15,6 @@ use App\Services\AiProviderConnectionTester;
 use App\Services\Settings\AiSettingsService;
 use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
-use App\Support\BulkDocuments\BulkDocumentSignaturePlacementService;
-use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
-use App\Support\BulkDocuments\SalaryDeclarationSignaturePlacements;
 use App\Support\Platform\PlatformAuthorization;
 use App\Support\Settings\SettingKey;
 use Illuminate\Http\JsonResponse;
@@ -70,13 +67,6 @@ class ApplicationSettingsController extends Controller
             'smtp' => $this->mailSettings->forSettingsPage(),
             'ai' => $this->aiSettings->forSettingsPage(),
             'whatsapp' => WhatsAppIntegrationController::pageProps($user),
-            'esign_placement' => [
-                'document_type' => SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY,
-                'label' => BulkDocumentTypeRegistry::find(SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY)['label'],
-                'placement' => app(BulkDocumentSignaturePlacementService::class)->resolve(
-                    SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY,
-                ),
-            ],
             'can' => [
                 'platform_view' => $canPlatformView,
                 'platform_update' => PlatformAuthorization::canManage($user),

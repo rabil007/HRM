@@ -2,10 +2,8 @@
 
 namespace App\Support\Documents;
 
-use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Enums\DocumentWorkflowRequestStatus;
-use App\Models\BulkDocumentSignatureRequest;
 use App\Models\User;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestRosterQuery;
 use App\Support\Documents\Workflow\DocumentWorkflowPagePermissions;
@@ -56,7 +54,6 @@ final class DocumentsOverviewQuery
      * @param  array{required: int, valid: int, expiring: int, expired: int, missing: int}  $requirementSummary
      * @param  array{
      *     view: bool,
-     *     view_signatures: bool,
      *     view_recipient_requests: bool,
      *     respond_recipient_requests: bool
      * }  $permissions
@@ -154,7 +151,6 @@ final class DocumentsOverviewQuery
 
     /**
      * @param  array{
-     *     view_signatures: bool,
      *     view_recipient_requests: bool,
      *     respond_recipient_requests: bool
      * }  $permissions
@@ -169,41 +165,21 @@ final class DocumentsOverviewQuery
      */
     private function awaitingSignature(int $companyId, ?User $user, array $permissions): ?array
     {
-        $recipientCount = 0;
         $canViewRecipients = $permissions['view_recipient_requests']
             || $permissions['respond_recipient_requests'];
 
-        if ($canViewRecipients && $user !== null) {
-            $recipientCount = $this->recipientRoster->count($companyId, [
-                'status' => DocumentRecipientRequestStatus::AwaitingAction->value,
-                'assigned_to_me' => ! $permissions['view_recipient_requests'],
-            ], $user);
+        if (! $canViewRecipients || $user === null) {
+            return null;
         }
 
-        $bulkCount = 0;
-
-        if ($permissions['view_signatures']) {
-            $bulkCount = (int) BulkDocumentSignatureRequest::query()
-                ->forCompany($companyId)
-                ->where('status', BulkDocumentSignatureRequestStatus::AwaitingSignature)
-                ->count();
-        }
-
-        $count = $recipientCount + $bulkCount;
+        $count = $this->recipientRoster->count($companyId, [
+            'status' => DocumentRecipientRequestStatus::AwaitingAction->value,
+            'assigned_to_me' => ! $permissions['view_recipient_requests'],
+        ], $user);
 
         if ($count === 0) {
             return null;
         }
-
-        $query = $recipientCount > 0
-            ? [
-                'tab' => 'recipient',
-                'status' => DocumentRecipientRequestStatus::AwaitingAction->value,
-            ]
-            : [
-                'tab' => 'signatures',
-                'signature_filter' => 'awaiting_signature',
-            ];
 
         return [
             'key' => 'awaiting_signature',
@@ -211,7 +187,10 @@ final class DocumentsOverviewQuery
             'count' => $count,
             'action' => 'Follow up',
             'destination' => 'requests',
-            'query' => $query,
+            'query' => [
+                'tab' => 'recipient',
+                'status' => DocumentRecipientRequestStatus::AwaitingAction->value,
+            ],
         ];
     }
 }

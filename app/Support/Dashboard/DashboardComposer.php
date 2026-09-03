@@ -133,7 +133,6 @@ final class DashboardComposer
             'payroll_periods_approve' => $user->can('payroll.periods.approve'),
             'crew_planning_create' => $user->can('crew_operations.planning.create'),
             'announcements_publish' => $user->can('announcements.publish'),
-            'signatures_review' => $user->can('bulk_documents.signatures.review'),
             'view_audit' => $user->can('audit.view'),
         ];
     }

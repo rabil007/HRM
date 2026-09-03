@@ -6,14 +6,12 @@ use App\Enums\DocumentGenerationTemplateStatus;
 use App\Http\Controllers\Controller;
 use App\Models\BulkDocumentEmailBatch;
 use App\Models\BulkDocumentGenerationRun;
-use App\Models\BulkDocumentSignatureRepairRun;
 use App\Models\Company;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Support\BulkDocuments\BulkDocumentActivityQuery;
 use App\Support\BulkDocuments\BulkDocumentPagePermissions;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
-use App\Support\BulkDocuments\BulkDocumentSignatureRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\BulkDocuments\CustomDocumentRosterQuery;
 use App\Support\Documents\DocumentsModuleAccess;
@@ -32,7 +30,7 @@ class BulkDocumentsController extends Controller
     public function __invoke(Request $request)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $documentTypeKey = (string) $request->query('document_type_key', 'salary_declaration');
+        $requestedTypeKey = trim((string) $request->query('document_type_key', ''));
 
         $customTemplates = DocumentGenerationTemplate::query()
             ->forCompany($companyId)
@@ -61,26 +59,11 @@ class BulkDocumentsController extends Controller
             })
             ->values();
 
-        $isCustom = str_starts_with($documentTypeKey, 'custom_');
-        $customTemplate = null;
-        $customVersion = null;
-
-        if ($isCustom) {
-            $customTemplateId = (int) substr($documentTypeKey, strlen('custom_'));
-            $customTemplate = $customTemplates->firstWhere('id', $customTemplateId);
-            $customVersion = $customTemplate?->publishedVersion;
-
-            if ($customTemplate === null || $customVersion === null) {
-                $documentTypeKey = 'salary_declaration';
-                $isCustom = false;
-            }
-        } else {
-            try {
-                BulkDocumentTypeRegistry::find($documentTypeKey);
-            } catch (\InvalidArgumentException) {
-                $documentTypeKey = 'salary_declaration';
-            }
-        }
+        $resolvedType = $this->resolveGenerationType($requestedTypeKey, $customTemplates);
+        $documentTypeKey = $resolvedType['key'];
+        $isCustom = $resolvedType['custom'] !== null;
+        $customTemplate = $resolvedType['custom'];
+        $customVersion = $resolvedType['version'];
 
         $filters = $this->resolveFilters($request);
         $perPage = $this->resolvePerPage($request);
@@ -88,12 +71,6 @@ class BulkDocumentsController extends Controller
         $generationFilter = match ($request->query('generation_filter')) {
             'missing' => 'missing',
             'generated' => 'generated',
-            default => 'all',
-        };
-        $signatureFilter = match ($request->query('signature_filter')) {
-            'submitted', 'pending_review' => 'submitted',
-            'awaiting_signature' => 'awaiting_signature',
-            'approved' => 'approved',
             default => 'all',
         };
         $emailFilter = match ($request->query('email_filter')) {
@@ -137,13 +114,36 @@ class BulkDocumentsController extends Controller
                 'employees' => $paginator->items(),
                 'pagination' => $this->paginationMeta($paginator),
                 'generation_filter' => $generationFilter,
-                'signature_filter' => 'all',
                 'email_filter' => 'all',
-                'signature_requests' => [],
             ]);
         }
 
         if ($view === 'history') {
+            if ($documentTypeKey === '') {
+                return Inertia::render('organization/documents/bulk/index', $this->sharedPayload(
+                    $request,
+                    $companyId,
+                    $documentTypeKey,
+                    $filters,
+                    $formOptions,
+                    $customTemplates,
+                    $moduleViewLocked,
+                ) + [
+                    'view' => 'history',
+                    'activity' => [],
+                    'employees' => [],
+                    'counts' => [
+                        'total' => 0,
+                        'generated' => 0,
+                        'missing' => 0,
+                        'emailed' => 0,
+                        'not_emailed' => 0,
+                    ],
+                    'pagination' => $this->emptyPagination($perPage),
+                    'generation_filter' => $generationFilter,
+                    'email_filter' => $emailFilter,
+                ]);
+            }
             $activityPaginator = BulkDocumentActivityQuery::paginate(
                 $companyId,
                 $documentTypeKey,
@@ -167,23 +167,11 @@ class BulkDocumentsController extends Controller
                 'counts' => BulkDocumentRosterQuery::counts($companyId, $documentTypeKey, $filters, null, $emailFilter),
                 'pagination' => $this->paginationMeta($activityPaginator),
                 'generation_filter' => $generationFilter,
-                'signature_filter' => $signatureFilter,
                 'email_filter' => $emailFilter,
-                'signature_requests' => [],
             ]);
         }
 
-        if ($view === 'signatures') {
-            $signaturesPaginator = BulkDocumentSignatureRosterQuery::paginate(
-                $companyId,
-                $documentTypeKey,
-                $filters,
-                $perPage,
-                $page,
-                $signatureFilter === 'all' ? null : $signatureFilter,
-                $emailFilter,
-            );
-
+        if ($documentTypeKey === '') {
             return Inertia::render('organization/documents/bulk/index', $this->sharedPayload(
                 $request,
                 $companyId,
@@ -193,14 +181,18 @@ class BulkDocumentsController extends Controller
                 $customTemplates,
                 $moduleViewLocked,
             ) + [
-                'view' => 'signatures',
-                'signature_requests' => $signaturesPaginator->items(),
+                'view' => 'roster',
                 'activity' => [],
                 'employees' => [],
-                'counts' => BulkDocumentRosterQuery::counts($companyId, $documentTypeKey, $filters, null, $emailFilter),
-                'pagination' => $this->paginationMeta($signaturesPaginator),
+                'counts' => [
+                    'total' => 0,
+                    'generated' => 0,
+                    'missing' => 0,
+                    'emailed' => 0,
+                    'not_emailed' => 0,
+                ],
+                'pagination' => $this->emptyPagination($perPage),
                 'generation_filter' => $generationFilter,
-                'signature_filter' => $signatureFilter,
                 'email_filter' => $emailFilter,
             ]);
         }
@@ -229,9 +221,7 @@ class BulkDocumentsController extends Controller
             'employees' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
             'generation_filter' => $generationFilter,
-            'signature_filter' => $signatureFilter,
             'email_filter' => $emailFilter,
-            'signature_requests' => [],
         ]);
     }
 
@@ -250,10 +240,10 @@ class BulkDocumentsController extends Controller
         ?DocumentGenerationTemplate $customTemplate = null,
         ?DocumentGenerationTemplateVersion $customVersion = null,
     ): array {
-        $systemOptions = BulkDocumentTypeRegistry::options()->map(fn (array $def): array => [
+        $systemOptions = BulkDocumentTypeRegistry::availableGenerationOptions()->map(fn (array $def): array => [
             'value' => $def['value'],
             'label' => $def['label'],
-            'category' => 'System Templates',
+            'category' => 'Built-in Documents',
             'is_custom' => false,
         ])->all();
 
@@ -266,7 +256,7 @@ class BulkDocumentsController extends Controller
             'template_format' => $t->template_format->value,
         ])->values()->all();
 
-        $documentTypeOptions = array_merge($systemOptions, $customOptions);
+        $documentTypeOptions = array_merge($customOptions, $systemOptions);
         $isCustom = $customTemplate !== null;
 
         return [
@@ -289,12 +279,80 @@ class BulkDocumentsController extends Controller
             'department_tree_selected_id' => $filters->departmentId !== '' ? (int) $filters->departmentId : null,
             'department_tree_selected_position_id' => $filters->positionId !== '' ? (int) $filters->positionId : null,
             'company_name' => (string) Company::query()->whereKey($companyId)->value('name'),
-            'email_template' => $isCustom ? null : $this->emailTemplatePayload($documentTypeKey),
-            'reminder_email_template' => $isCustom ? null : $this->emailTemplatePayload($documentTypeKey, 'reminder'),
-            'latest_run' => $isCustom ? null : $this->latestRunPayload($companyId, $documentTypeKey),
-            'latest_email_batch' => $isCustom ? null : $this->latestEmailBatchPayload($companyId, $documentTypeKey),
-            'latest_signature_repair_run' => $isCustom ? null : $this->latestSignatureRepairRunPayload($companyId, $documentTypeKey),
+            'email_template' => $isCustom || $documentTypeKey === '' ? null : $this->emailTemplatePayload($documentTypeKey),
+            'reminder_email_template' => $isCustom || $documentTypeKey === '' ? null : $this->emailTemplatePayload($documentTypeKey, 'reminder'),
+            'latest_run' => $isCustom || $documentTypeKey === '' ? null : $this->latestRunPayload($companyId, $documentTypeKey),
+            'latest_email_batch' => $isCustom || $documentTypeKey === '' ? null : $this->latestEmailBatchPayload($companyId, $documentTypeKey),
             'can' => BulkDocumentPagePermissions::for($request->user()),
+            'can_view_templates' => DocumentsModuleAccess::canViewTemplates($request->user()),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, DocumentGenerationTemplate>  $customTemplates
+     * @return array{key: string, custom: ?DocumentGenerationTemplate, version: ?DocumentGenerationTemplateVersion}
+     */
+    private function resolveGenerationType(string $requestedTypeKey, Collection $customTemplates): array
+    {
+        if (str_starts_with($requestedTypeKey, 'custom_')) {
+            $customTemplateId = (int) substr($requestedTypeKey, strlen('custom_'));
+            $customTemplate = $customTemplates->firstWhere('id', $customTemplateId);
+            $customVersion = $customTemplate?->publishedVersion;
+
+            if ($customTemplate !== null && $customVersion !== null) {
+                return [
+                    'key' => $requestedTypeKey,
+                    'custom' => $customTemplate,
+                    'version' => $customVersion,
+                ];
+            }
+        } elseif ($requestedTypeKey !== '' && BulkDocumentTypeRegistry::availableForNewGeneration($requestedTypeKey)) {
+            return [
+                'key' => $requestedTypeKey,
+                'custom' => null,
+                'version' => null,
+            ];
+        }
+
+        $firstCustom = $customTemplates->first();
+
+        if ($firstCustom !== null && $firstCustom->publishedVersion !== null) {
+            return [
+                'key' => "custom_{$firstCustom->id}",
+                'custom' => $firstCustom,
+                'version' => $firstCustom->publishedVersion,
+            ];
+        }
+
+        $firstBuiltIn = BulkDocumentTypeRegistry::availableGenerationDefinitions()[0] ?? null;
+
+        if ($firstBuiltIn !== null) {
+            return [
+                'key' => $firstBuiltIn['key'],
+                'custom' => null,
+                'version' => null,
+            ];
+        }
+
+        return [
+            'key' => '',
+            'custom' => null,
+            'version' => null,
+        ];
+    }
+
+    /**
+     * @return array{current_page: int, last_page: int, per_page: int, total: int, from: int|null, to: int|null}
+     */
+    private function emptyPagination(int $perPage): array
+    {
+        return [
+            'current_page' => 1,
+            'last_page' => 1,
+            'per_page' => $perPage,
+            'total' => 0,
+            'from' => null,
+            'to' => null,
         ];
     }
 
@@ -380,36 +438,6 @@ class BulkDocumentsController extends Controller
             'started_at' => $batch->started_at?->toIso8601String(),
             'finished_at' => $batch->finished_at?->toIso8601String(),
             'triggered_by' => $batch->triggeredBy?->name,
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function latestSignatureRepairRunPayload(int $companyId, string $documentTypeKey): ?array
-    {
-        $run = BulkDocumentSignatureRepairRun::query()
-            ->where('company_id', $companyId)
-            ->where('document_type_key', $documentTypeKey)
-            ->latest('id')
-            ->with('initiatedBy:id,name')
-            ->first();
-
-        if ($run === null) {
-            return null;
-        }
-
-        return [
-            'id' => $run->id,
-            'status' => $run->status,
-            'document_type_key' => $run->document_type_key,
-            'total_count' => $run->total_count,
-            'repaired_count' => $run->repaired_count,
-            'skipped_count' => $run->skipped_count,
-            'failed_count' => $run->failed_count,
-            'started_at' => $run->started_at?->toIso8601String(),
-            'finished_at' => $run->finished_at?->toIso8601String(),
-            'initiated_by' => $run->initiatedBy?->name,
         ];
     }
 

@@ -81,7 +81,33 @@ final class BulkDocumentTypeRegistry
 
     public static function availableForNewGeneration(string $key): bool
     {
-        return (bool) self::find($key)['available_for_new_generation'];
+        try {
+            return (bool) self::find($key)['available_for_new_generation'];
+        } catch (InvalidArgumentException) {
+            return false;
+        }
+    }
+
+    /**
+     * @return list<array{key: string, label: string, document_type_title: string, email_template_slug: string, reminder_email_template_slug: ?string, supports_esignature: bool, available_for_new_generation: bool, legacy_signing_retired: bool, renderer: class-string<RendersEmployeeDocumentPdf>}>
+     */
+    public static function availableGenerationDefinitions(): array
+    {
+        return array_values(array_filter(
+            self::definitions(),
+            fn (array $definition): bool => $definition['available_for_new_generation'] === true,
+        ));
+    }
+
+    /**
+     * @return Collection<int, array{value: string, label: string}>
+     */
+    public static function availableGenerationOptions(): Collection
+    {
+        return collect(self::availableGenerationDefinitions())->map(fn (array $definition): array => [
+            'value' => $definition['key'],
+            'label' => $definition['label'],
+        ]);
     }
 
     public static function legacySigningRetired(string $key): bool

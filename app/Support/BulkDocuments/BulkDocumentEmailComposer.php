@@ -16,11 +16,6 @@ use Throwable;
 
 final class BulkDocumentEmailComposer
 {
-    public function __construct(
-        private CreateBulkDocumentSignatureRequest $createSignatureRequest,
-        private BulkDocumentSignatureLinkService $signatureLinks,
-    ) {}
-
     /**
      * @param  list<string>  $ccRecipients
      * @return array{sent: int, failed: int, skipped: int}
@@ -90,21 +85,8 @@ final class BulkDocumentEmailComposer
             return ['sent' => 0, 'failed' => 1, 'skipped' => 0];
         }
 
-        $signatureUrl = '';
-
-        if (BulkDocumentTypeRegistry::supportsEsignature($documentTypeKey)) {
-            $signatureRequest = $this->createSignatureRequest->handle(
-                $companyId,
-                $employee->id,
-                $document,
-                $documentTypeKey,
-                $batchId,
-            );
-            $signatureUrl = $this->signatureLinks->signUrl($signatureRequest);
-        }
-
-        $subject = $this->substitute($template->subject, $employee, $company, $documentTypeLabel, $signatureUrl);
-        $body = $this->substitute($template->body_html, $employee, $company, $documentTypeLabel, $signatureUrl);
+        $subject = $this->substitute($template->subject, $employee, $company, $documentTypeLabel);
+        $body = $this->substitute($template->body_html, $employee, $company, $documentTypeLabel);
         $filename = $this->attachmentFilename($documentTypeKey, $employee);
         $cc = $this->normalizeCcRecipients($ccRecipients, $recipient);
 

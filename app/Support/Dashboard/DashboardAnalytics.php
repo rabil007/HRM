@@ -3,12 +3,10 @@
 namespace App\Support\Dashboard;
 
 use App\Enums\AnnouncementStatus;
-use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Models\Announcement;
 use App\Models\AnnouncementRecipient;
 use App\Models\AttendanceRecord;
 use App\Models\Branch;
-use App\Models\BulkDocumentSignatureRequest;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
@@ -790,27 +788,6 @@ final class DashboardAnalytics
                         'severity' => 'critical',
                         'href' => route('organization.crew-assignments.index', ['filter' => 'needs_update']),
                         'action_label' => 'Update Crew',
-                    ];
-                }
-            }
-
-            // Bulk documents signature reviews
-            if ($user->can('bulk_documents.signatures.review')) {
-                $pendingSignatures = (int) BulkDocumentSignatureRequest::query()
-                    ->where('company_id', $companyId)
-                    ->where('status', BulkDocumentSignatureRequestStatus::Submitted)
-                    ->count();
-
-                if ($pendingSignatures > 0) {
-                    $items[] = [
-                        'key' => 'pending_signatures_review',
-                        'module' => 'Bulk Documents',
-                        'title' => 'Document Signatures Needing Review',
-                        'description' => sprintf('%d signature review(s) are pending approval.', $pendingSignatures),
-                        'count' => $pendingSignatures,
-                        'severity' => 'warning',
-                        'href' => route('organization.documents'),
-                        'action_label' => 'Review Signatures',
                     ];
                 }
             }

@@ -24,10 +24,20 @@ final class DocumentsModuleAccess
         return $user?->can('bulk_documents.view') ?? false;
     }
 
+    public static function canViewApprovals(?User $user): bool
+    {
+        return $user?->can('documents.requests.view') ?? false;
+    }
+
+    public static function canViewSigning(?User $user): bool
+    {
+        return ($user?->can('documents.recipient-requests.view') ?? false)
+            || ($user?->can('documents.recipient-requests.respond') ?? false);
+    }
+
     public static function canViewRequests(?User $user): bool
     {
-        return ($user?->can('documents.requests.view') ?? false)
-            || self::canViewGenerate($user);
+        return self::canViewApprovals($user) || self::canViewSigning($user);
     }
 
     public static function canViewActivity(?User $user): bool
@@ -87,6 +97,7 @@ final class DocumentsModuleAccess
     {
         return self::canViewOverview($user)
             || self::canViewGenerate($user)
+            || self::canViewRequests($user)
             || self::canViewTemplates($user);
     }
 
@@ -119,28 +130,20 @@ final class DocumentsModuleAccess
     }
 
     /**
-     * Resolve Generate / Requests / Activity for explicit module routes first,
+     * Resolve Generate / Activity for explicit module routes first,
      * then fall back to the legacy bulk `view` query string.
      *
-     * @return 'roster'|'signatures'|'history'
+     * @return 'roster'|'history'
      */
     public static function resolveBulkView(Request $request): string
     {
         $moduleView = $request->route('module_view');
 
         if (is_string($moduleView) && $moduleView !== '') {
-            return match ($moduleView) {
-                'signatures' => 'signatures',
-                'history' => 'history',
-                default => 'roster',
-            };
+            return $moduleView === 'history' ? 'history' : 'roster';
         }
 
-        return match ($request->query('view')) {
-            'history' => 'history',
-            'signatures' => 'signatures',
-            default => 'roster',
-        };
+        return $request->query('view') === 'history' ? 'history' : 'roster';
     }
 
     /**
@@ -152,7 +155,7 @@ final class DocumentsModuleAccess
             return [];
         }
 
-        return collect(BulkDocumentTypeRegistry::definitions())
+        return collect(BulkDocumentTypeRegistry::availableGenerationDefinitions())
             ->map(fn (array $definition): array => [
                 'key' => $definition['key'],
                 'label' => $definition['label'],
