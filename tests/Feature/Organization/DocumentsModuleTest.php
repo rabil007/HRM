@@ -52,7 +52,7 @@ test('documents view users can open overview and library but not generate routes
     $this->get(route('organization.documents.configuration'))->assertForbidden();
 });
 
-test('bulk documents view users can open generate requests and activity', function () {
+test('bulk documents view users can open generate templates and activity but not requests', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -69,31 +69,11 @@ test('bulk documents view users can open generate requests and activity', functi
             ->where('view', 'roster')
             ->has('employees', 1));
 
-    $this->get(route('organization.documents.requests'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents/requests/index')
-            ->where('tab', 'signatures'));
+    $this->get(route('organization.documents.requests'))->assertForbidden();
 
     $this->get(route('organization.documents.requests', [
         'tab' => 'signatures',
-        'page' => 2,
-        'document_type_key' => 'salary_declaration',
-        'signature_filter' => 'submitted',
-    ]))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents/requests/index')
-            ->where('tab', 'signatures')
-            ->where('signature_payload.document_type_key', 'salary_declaration')
-            ->where('signature_payload.signature_filter', 'submitted')
-            ->where('pagination.current_page', 2));
-
-    $this->get(route('organization.documents.bulk', ['view' => 'signatures']))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents/bulk/index')
-            ->where('view', 'signatures'));
+    ]))->assertForbidden();
 
     $this->get(route('organization.documents.activity'))
         ->assertOk()
@@ -105,14 +85,15 @@ test('bulk documents view users can open generate requests and activity', functi
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/documents/templates')
-            ->has('system_templates', 2)
+            ->has('system_templates', 1)
+            ->where('system_templates.0.key', 'salary_certificate')
             ->where('can.document_types', false)
-            ->where('can.signature_placement', false));
+            ->where('can.generate', false));
 
     $this->get(route('organization.documents.configuration'))->assertForbidden();
 });
 
-test('legacy bulk urls still work and keep the matching module view', function () {
+test('legacy bulk urls redirect to current documents destinations', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -120,22 +101,27 @@ test('legacy bulk urls still work and keep the matching module view', function (
     Employee::factory()->forCompany($company)->create(['status' => 'active']);
 
     $this->get(route('organization.documents.bulk'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents/bulk/index')
-            ->where('view', 'roster'));
+        ->assertRedirect(route('organization.documents.generate'));
 
     $this->get(route('organization.documents.bulk', ['view' => 'signatures']))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents/bulk/index')
-            ->where('view', 'signatures'));
+        ->assertRedirect(route('organization.documents.generate'));
 
-    $this->get(route('organization.documents.activity'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents/bulk/index')
-            ->where('view', 'history'));
+    $this->get(route('organization.documents.bulk', ['view' => 'history']))
+        ->assertRedirect(route('organization.documents.activity'));
+});
+
+test('legacy bulk signatures url redirects to requests when current signing access exists', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, [
+        'bulk_documents.view',
+        'documents.recipient-requests.view',
+    ]);
+    Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $this->get(route('organization.documents.bulk', ['view' => 'signatures']))
+        ->assertRedirect(route('organization.documents.requests', ['tab' => 'recipient']));
 });
 
 test('explicit generate route ignores a conflicting legacy view query', function () {
@@ -185,10 +171,33 @@ test('respond-only users can open the recipient requests tab', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/documents/requests/index')
-            ->where('tab', 'recipient'));
+            ->where('tab', 'recipient')
+            ->missing('signature_payload')
+            ->missing('can.view_signatures')
+            ->missing('can.review_signatures'));
 
     $this->get(route('organization.documents.requests', ['tab' => 'review']))->assertForbidden();
-    $this->get(route('organization.documents.requests', ['tab' => 'signatures']))->assertForbidden();
+    $this->get(route('organization.documents.requests', ['tab' => 'signatures']))
+        ->assertRedirect(route('organization.documents.requests', ['tab' => 'recipient']));
+});
+
+test('approval viewers can open requests without recipient permissions', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.requests.view']);
+
+    $this->get(route('organization.documents.requests'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/requests/index')
+            ->where('tab', 'review')
+            ->missing('signature_payload'));
+
+    $this->get(route('organization.documents.requests', ['tab' => 'recipient']))->assertForbidden();
+    $this->get(route('organization.documents.requests', ['tab' => 'signatures']))
+        ->assertRedirect(route('organization.documents.requests', ['tab' => 'review']));
 });
 
 test('template bridge only exposes links the user can access', function () {
@@ -204,10 +213,10 @@ test('template bridge only exposes links the user can access', function () {
             ->component('organization/documents/templates')
             ->where('system_templates', [])
             ->where('can.document_types', true)
-            ->where('can.signature_placement', false));
+            ->where('can.generate', false));
 });
 
-test('platform viewers can open the template bridge for signature placement', function () {
+test('platform viewers can open the template bridge', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -222,7 +231,7 @@ test('platform viewers can open the template bridge for signature placement', fu
             ->component('organization/documents/templates')
             ->where('system_templates', [])
             ->where('can.document_types', false)
-            ->where('can.signature_placement', true));
+            ->where('can.generate', false));
 });
 
 test('library stays scoped to the active company', function () {

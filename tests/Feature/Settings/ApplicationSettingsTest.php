@@ -8,6 +8,7 @@ use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -28,7 +29,7 @@ test('user with platform view access can open application settings in view mode'
             ->has('general')
             ->has('branding')
             ->has('preferences')
-            ->has('esign_placement')
+            ->missing('esign_placement')
             ->has('smtp')
             ->has('ai')
             ->where('can.platform_view', true)
@@ -143,22 +144,6 @@ test('tenant user without platform manage access receives 403 on every global se
 
     $this->actingAs($user)
         ->postJson(route('application.ai.test'))
-        ->assertForbidden();
-
-    $this->actingAs($user)
-        ->put(route('application.esign-placement.update', ['documentType' => 'salary_declaration']), [
-            'signature' => [
-                'page' => 1,
-                'x' => 10,
-                'y' => 10,
-                'width' => 100,
-                'height' => 40,
-            ],
-        ])
-        ->assertForbidden();
-
-    $this->actingAs($user)
-        ->delete(route('application.esign-placement.destroy', ['documentType' => 'salary_declaration']))
         ->assertForbidden();
 });
 
@@ -298,4 +283,10 @@ test('decrypted smtp password is never exposed in application settings props', f
             ->where('smtp.has_password', true)
             ->where('smtp.password', ''),
         );
+});
+
+test('legacy e-signature placement settings routes are absent', function () {
+    $uris = collect(Route::getRoutes())->map(fn ($route): string => $route->uri());
+
+    expect($uris->contains(fn (string $uri): bool => str_contains($uri, 'esign-placement') || str_contains($uri, 'esign-preview')))->toBeFalse();
 });

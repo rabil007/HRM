@@ -37,24 +37,16 @@ use App\Http\Controllers\Organization\BankAccountsImportController;
 use App\Http\Controllers\Organization\BankAccountsIndexController;
 use App\Http\Controllers\Organization\BankAccountsNoAccountController;
 use App\Http\Controllers\Organization\BranchController;
-use App\Http\Controllers\Organization\BulkDocuments\ApproveBulkDocumentSignatureController;
-use App\Http\Controllers\Organization\BulkDocuments\ApproveBulkDocumentSignaturesController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentEmailBatchSendsController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentEmployeeSearchController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentSelectionController;
 use App\Http\Controllers\Organization\BulkDocuments\DeleteBulkDocumentsController;
-use App\Http\Controllers\Organization\BulkDocuments\DownloadApprovedBulkDocumentSignaturesPdfController;
-use App\Http\Controllers\Organization\BulkDocuments\DownloadApprovedBulkDocumentSignaturesZipController;
 use App\Http\Controllers\Organization\BulkDocuments\DownloadBulkDocumentsController;
-use App\Http\Controllers\Organization\BulkDocuments\DownloadSignedBulkDocumentController;
 use App\Http\Controllers\Organization\BulkDocuments\EmailBulkDocumentsController;
-use App\Http\Controllers\Organization\BulkDocuments\ExportBulkDocumentSignatureEmployeesController;
 use App\Http\Controllers\Organization\BulkDocuments\GenerateBulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\GenerateCustomDocumentsController;
-use App\Http\Controllers\Organization\BulkDocuments\RegenerateAlignedBulkDocumentSignaturesController;
-use App\Http\Controllers\Organization\BulkDocuments\RejectBulkDocumentSignatureController;
-use App\Http\Controllers\Organization\BulkDocuments\UploadBulkDocumentSignatureController;
+use App\Http\Controllers\Organization\BulkDocuments\RedirectLegacyBulkDocumentsController;
 use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\CompanyDocumentBulkStoreController;
 use App\Http\Controllers\Organization\CompanyDocumentController;
@@ -203,9 +195,6 @@ use App\Http\Controllers\Public\DocumentAction\DownloadDocumentActionDocumentCon
 use App\Http\Controllers\Public\DocumentAction\ShowDocumentActionController;
 use App\Http\Controllers\Public\DocumentAction\SubmitDocumentActionAcknowledgeController;
 use App\Http\Controllers\Public\DocumentAction\SubmitDocumentActionSignController;
-use App\Http\Controllers\Public\DocumentEsign\DownloadDocumentEsignController;
-use App\Http\Controllers\Public\DocumentEsign\ShowDocumentEsignController;
-use App\Http\Controllers\Public\DocumentEsign\SubmitDocumentEsignController;
 use App\Http\Controllers\Public\DocumentShare\DownloadSharedDocumentController;
 use App\Http\Controllers\Public\DocumentShare\PreviewSharedDocumentController;
 use App\Http\Controllers\Public\DocumentShare\ShowDocumentShareController;
@@ -258,16 +247,6 @@ Route::middleware(['throttle:30,1'])->prefix('document-action')->group(function 
     Route::post('{token}/acknowledge', SubmitDocumentActionAcknowledgeController::class)
         ->middleware('throttle:10,1')
         ->name('public.document-action.acknowledge');
-});
-
-Route::middleware(['signed', 'throttle:30,1'])->prefix('esign')->group(function () {
-    Route::get('{token}', ShowDocumentEsignController::class)
-        ->name('public.esign.show');
-    Route::post('{token}', SubmitDocumentEsignController::class)
-        ->middleware('throttle:10,1')
-        ->name('public.esign.submit');
-    Route::get('{token}/download', DownloadDocumentEsignController::class)
-        ->name('public.esign.download');
 });
 
 Route::middleware(['throttle:60,1', DenyFraming::class])->prefix('announcements/public')->group(function () {
@@ -802,7 +781,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('organization.documents.requests.cancel');
     });
     Route::middleware('can:bulk_documents.view')->group(function () {
-        Route::get('organization/documents/bulk', BulkDocumentsController::class)
+        Route::get('organization/documents/bulk', RedirectLegacyBulkDocumentsController::class)
             ->name('organization.documents.bulk');
         Route::get('organization/documents/generate', BulkDocumentsController::class)
             ->defaults('module_view', 'roster')
@@ -906,35 +885,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/documents/bulk/download', [DownloadBulkDocumentsController::class, 'store'])
         ->middleware('can:documents.download')
         ->name('organization.documents.bulk.download');
-    Route::post('organization/documents/bulk/signatures/download-zip', DownloadApprovedBulkDocumentSignaturesZipController::class)
-        ->middleware('can:documents.download')
-        ->name('organization.documents.bulk.signatures.download-zip');
-    Route::post('organization/documents/bulk/signatures/download-pdf', DownloadApprovedBulkDocumentSignaturesPdfController::class)
-        ->middleware('can:documents.download')
-        ->name('organization.documents.bulk.signatures.download-pdf');
-    Route::post('organization/documents/bulk/signatures/export-employees', ExportBulkDocumentSignatureEmployeesController::class)
-        ->middleware('can:bulk_documents.view')
-        ->name('organization.documents.bulk.signatures.export-employees');
     Route::post('organization/documents/bulk/email', [EmailBulkDocumentsController::class, 'store'])
         ->middleware('can:bulk_documents.email')
         ->name('organization.documents.bulk.email');
     Route::get('organization/documents/bulk/recipients-search', BulkDocumentEmployeeSearchController::class)
         ->middleware('can:bulk_documents.email')
         ->name('organization.documents.bulk.recipients-search');
-    Route::middleware('can:bulk_documents.signatures.review')->group(function () {
-        Route::post('organization/documents/bulk/signatures/regenerate-alignment', RegenerateAlignedBulkDocumentSignaturesController::class)
-            ->name('organization.documents.bulk.signatures.regenerate-alignment');
-        Route::post('organization/documents/bulk/signatures/approve', ApproveBulkDocumentSignaturesController::class)
-            ->name('organization.documents.bulk.signatures.approve-many');
-        Route::post('organization/documents/bulk/signatures/{signatureRequest}/approve', ApproveBulkDocumentSignatureController::class)
-            ->name('organization.documents.bulk.signatures.approve');
-        Route::post('organization/documents/bulk/signatures/{signatureRequest}/reject', RejectBulkDocumentSignatureController::class)
-            ->name('organization.documents.bulk.signatures.reject');
-        Route::post('organization/documents/bulk/signatures/{signatureRequest}/upload', UploadBulkDocumentSignatureController::class)
-            ->name('organization.documents.bulk.signatures.upload');
-        Route::get('organization/documents/bulk/signatures/{signatureRequest}/download', DownloadSignedBulkDocumentController::class)
-            ->name('organization.documents.bulk.signatures.download');
-    });
     Route::middleware('can:documents.share')->group(function () {
         Route::post('organization/documents/employees/{employee}/files/share-links', DocumentBulkShareLinksController::class)
             ->name('organization.documents.employee.files.share-links');

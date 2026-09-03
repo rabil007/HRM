@@ -276,3 +276,29 @@ test('library accepts a document type drill-down from overview', function () {
                 return collect($rows)->every(fn ($row) => $row['document_type_id'] === $visaType->id);
             }));
 });
+
+test('overview awaiting signature ignores historical bulk signature requests', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'documents.view',
+        'documents.recipient-requests.view',
+    ]);
+
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+    $document = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $documentType->id,
+        "employee-documents/{$company->id}/{$employee->id}/legacy-declaration.pdf",
+        'declaration.pdf',
+    );
+    createLegacyBulkDocumentSignatureRequest($company, $employee, $document);
+
+    $payload = app(DocumentsOverviewQuery::class)->forCompany($company->id, $user);
+    $attention = collect($payload['attention'])->keyBy('key');
+
+    expect($attention->has('awaiting_signature'))->toBeFalse();
+});

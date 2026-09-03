@@ -851,7 +851,7 @@ test('bulk documents index presents custom active templates with published versi
 
     $response = $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
-        ->get(route('organization.documents.bulk'));
+        ->get(route('organization.documents.generate'));
 
     $response->assertOk();
     $options = $response->viewData('page')['props']['document_type_options'] ?? [];
@@ -909,7 +909,7 @@ test('pdf overlay template appears in bulk documents dropdown', function () {
 
     $response = $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
-        ->get(route('organization.documents.bulk'));
+        ->get(route('organization.documents.generate'));
 
     $response->assertOk();
     $options = $response->viewData('page')['props']['document_type_options'] ?? [];
@@ -939,7 +939,7 @@ test('pdf overlay template without a source pdf is excluded from bulk documents 
 
     $response = $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
-        ->get(route('organization.documents.bulk'));
+        ->get(route('organization.documents.generate'));
 
     $response->assertOk();
     $options = $response->viewData('page')['props']['document_type_options'] ?? [];

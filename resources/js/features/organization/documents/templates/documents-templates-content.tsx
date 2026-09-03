@@ -4,7 +4,6 @@ import {
     FileStack,
     Layers,
     MoreHorizontal,
-    PenLine,
     Power,
     PowerOff,
     Search,
@@ -38,7 +37,7 @@ import {
 import { firstValidationError } from '@/lib/first-validation-error';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { edit as applicationSettings } from '@/routes/application';
+import { generate as documentsGenerate } from '@/routes/organization/documents';
 import {
     activate as activateTemplate,
     deactivate as deactivateTemplate,
@@ -230,7 +229,7 @@ export function DocumentsTemplatesContent({
         <Main>
             <PageHeader
                 title="Templates"
-                description="Create reusable documents for Generate & Send."
+                description="Design, publish, and manage reusable company PDF templates."
                 right={
                     can.create_templates ? (
                         <Button asChild className="gap-1.5">
@@ -432,26 +431,6 @@ export function DocumentsTemplatesContent({
                                                                         {can.update_templates && (
                                                                             <>
                                                                                 <DropdownMenuItem
-                                                                                    asChild
-                                                                                    className="gap-2"
-                                                                                >
-                                                                                    <Link
-                                                                                        href={designTemplate.url(
-                                                                                            {
-                                                                                                template:
-                                                                                                    template.id,
-                                                                                            },
-                                                                                        )}
-                                                                                    >
-                                                                                        <Layers className="h-3.5 w-3.5" />
-                                                                                        <span>
-                                                                                            Design
-                                                                                            Template
-                                                                                        </span>
-                                                                                    </Link>
-                                                                                </DropdownMenuItem>
-                                                                                <DropdownMenuSeparator />
-                                                                                <DropdownMenuItem
                                                                                     disabled={
                                                                                         isActionLoading
                                                                                     }
@@ -635,15 +614,12 @@ export function DocumentsTemplatesContent({
                                                             )}
                                                         </div>
 
-                                                        <div className="flex items-center gap-0.5">
-                                                            {/* Design button for PDF */}
-                                                            {can.update_templates && (
+                                                        <div className="flex items-center gap-2">
+                                                            {can.update_templates ? (
                                                                 <Button
                                                                     asChild
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-7 w-7 text-primary"
-                                                                    title="Design Template"
+                                                                    size="sm"
+                                                                    className="h-8"
                                                                 >
                                                                     <Link
                                                                         href={designTemplate.url(
@@ -653,14 +629,35 @@ export function DocumentsTemplatesContent({
                                                                             },
                                                                         )}
                                                                     >
-                                                                        <Layers className="h-3.5 w-3.5" />
-                                                                        <span className="sr-only">
-                                                                            Design
-                                                                            Template
-                                                                        </span>
+                                                                        {hasDraft
+                                                                            ? 'Continue Editing'
+                                                                            : 'Open Designer'}
                                                                     </Link>
                                                                 </Button>
-                                                            )}
+                                                            ) : null}
+                                                            {can.generate &&
+                                                            template.status ===
+                                                                'active' &&
+                                                            hasPublished ? (
+                                                                <Button
+                                                                    asChild
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="h-8"
+                                                                >
+                                                                    <Link
+                                                                        href={documentsGenerate.url(
+                                                                            {
+                                                                                query: {
+                                                                                    document_type_key: `custom_${template.id}`,
+                                                                                },
+                                                                            },
+                                                                        )}
+                                                                    >
+                                                                        Generate
+                                                                    </Link>
+                                                                </Button>
+                                                            ) : null}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -726,10 +723,11 @@ export function DocumentsTemplatesContent({
                 <div className="space-y-4">
                     <div>
                         <h2 className="text-base font-semibold tracking-tight text-foreground">
-                            Built-in Templates
+                            Built-in Documents
                         </h2>
                         <p className="text-xs text-muted-foreground">
-                            Ready-to-use templates provided by the system.
+                            Current system documents available for Generate &
+                            Send.
                         </p>
                     </div>
 
@@ -740,11 +738,8 @@ export function DocumentsTemplatesContent({
                                     <TableHead className="w-[50%]">
                                         Template
                                     </TableHead>
-                                    <TableHead className="w-[25%]">
+                                    <TableHead className="w-[50%]">
                                         Type
-                                    </TableHead>
-                                    <TableHead className="w-[25%] text-right">
-                                        Settings & E-Sign
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -773,35 +768,6 @@ export function DocumentsTemplatesContent({
                                             >
                                                 Protected System
                                             </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                {item.supports_esignature &&
-                                                can.signature_placement ? (
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        asChild
-                                                    >
-                                                        <Link
-                                                            href={applicationSettings.url(
-                                                                {
-                                                                    query: {
-                                                                        tab: 'esign',
-                                                                    },
-                                                                },
-                                                            )}
-                                                        >
-                                                            <PenLine className="mr-1.5 size-3.5" />
-                                                            Configure E-Sign
-                                                        </Link>
-                                                    </Button>
-                                                ) : (
-                                                    <span className="text-xs text-muted-foreground">
-                                                        Built-in formatting
-                                                    </span>
-                                                )}
-                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}

@@ -20,7 +20,7 @@ beforeEach(function () {
 
 test('regenerate signed bulk document pdf skips requests without signature image', function () {
     $user = User::factory()->create();
-    $company = setupBulkDocumentsCompany($user, ['bulk_documents.signatures.review']);
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
 
     $documentType = DocumentType::query()->firstOrCreate(
@@ -61,7 +61,7 @@ test('regenerate signed bulk document pdf skips requests without signature image
 
 test('regenerate signed bulk document pdf repairs via forced template render', function () {
     $user = User::factory()->create();
-    $company = setupBulkDocumentsCompany($user, ['bulk_documents.signatures.review']);
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
 
     $documentType = DocumentType::query()->firstOrCreate(

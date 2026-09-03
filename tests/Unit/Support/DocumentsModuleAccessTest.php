@@ -21,7 +21,7 @@ test('overview and library require documents view', function () {
         ->and(DocumentsModuleAccess::canViewConfiguration($user))->toBeFalse();
 });
 
-test('generate requests and activity require bulk documents view', function () {
+test('generate requests and activity require separate permissions', function () {
     $user = User::factory()->create();
     ['company' => $company] = makeDocumentFixtures();
 
@@ -34,10 +34,23 @@ test('generate requests and activity require bulk documents view', function () {
     grantCompanyPermissions($user, $company, ['bulk_documents.view']);
 
     expect(DocumentsModuleAccess::canViewGenerate($user))->toBeTrue()
-        ->and(DocumentsModuleAccess::canViewRequests($user))->toBeTrue()
+        ->and(DocumentsModuleAccess::canViewRequests($user))->toBeFalse()
         ->and(DocumentsModuleAccess::canViewActivity($user))->toBeTrue()
         ->and(DocumentsModuleAccess::canViewOverview($user))->toBeFalse()
         ->and(DocumentsModuleAccess::canViewTemplates($user))->toBeTrue();
+});
+
+test('requests access follows current document request permissions', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.requests.view']);
+    expect(DocumentsModuleAccess::canViewRequests($user))->toBeTrue()
+        ->and(DocumentsModuleAccess::canViewGenerate($user))->toBeFalse();
+
+    $responder = User::factory()->create();
+    grantCompanyPermissions($responder, $company, ['documents.recipient-requests.respond']);
+    expect(DocumentsModuleAccess::canViewRequests($responder))->toBeTrue();
 });
 
 test('templates is visible for any exposed bridge resource', function (array $permissions, bool $platform, bool $expected) {

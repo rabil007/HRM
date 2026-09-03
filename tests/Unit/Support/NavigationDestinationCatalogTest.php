@@ -41,9 +41,9 @@ test('documents destinations form one unified group without a standalone bulk ge
     expect(array_column($documents, 'label'))->toBe([
         'Overview',
         'Library',
+        'Templates',
         'Generate & Send',
         'Requests',
-        'Templates',
         'Document Types',
         'Activity',
     ])

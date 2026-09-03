@@ -30,9 +30,9 @@ export const DOCUMENTS_MODULE_LABELS: Record<DocumentsModuleSection, string> = {
 const DOCUMENTS_MODULE_ORDER: DocumentsModuleSection[] = [
     'overview',
     'library',
+    'templates',
     'generate',
     'requests',
-    'templates',
     'configuration',
     'activity',
 ];
@@ -179,10 +179,6 @@ export function documentsModuleSectionFromUrl(
         path === '/organization/documents/bulk' ||
         path.startsWith('/organization/documents/bulk/')
     ) {
-        if (view === 'signatures') {
-            return 'requests';
-        }
-
         if (view === 'history') {
             return 'activity';
         }
@@ -215,12 +211,16 @@ export function canViewDocumentsModuleSection(
         return permissions.includes('documents.view');
     }
 
-    if (
-        section === 'generate' ||
-        section === 'requests' ||
-        section === 'activity'
-    ) {
+    if (section === 'generate' || section === 'activity') {
         return permissions.includes('bulk_documents.view');
+    }
+
+    if (section === 'requests') {
+        return (
+            permissions.includes('documents.requests.view') ||
+            permissions.includes('documents.recipient-requests.view') ||
+            permissions.includes('documents.recipient-requests.respond')
+        );
     }
 
     if (section === 'configuration') {

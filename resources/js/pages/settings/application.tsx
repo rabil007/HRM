@@ -7,7 +7,6 @@ import {
     Mail,
     MessageCircle,
     Palette,
-    PenLine,
     Send,
     Settings2,
     Sparkles,
@@ -33,8 +32,6 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { AiSettingsPanel } from '@/features/settings/ai-settings-panel';
 import type { AiSettings } from '@/features/settings/ai-settings-panel';
-import type { SignaturePlacementConfig } from '@/features/settings/esign-placement/esign-placement-coordinates';
-import { EsignPlacementPanel } from '@/features/settings/esign-placement/esign-placement-panel';
 import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
 import { WhatsAppSettingsPanel } from '@/features/settings/whatsapp-settings-panel';
 import type { WhatsAppSettingsPanelProps } from '@/features/settings/whatsapp-settings-panel';
@@ -84,11 +81,6 @@ type Props = {
     } | null;
     ai: AiSettings | null;
     whatsapp: WhatsAppSettingsPanelProps | null;
-    esign_placement: {
-        document_type: string;
-        label: string;
-        placement: SignaturePlacementConfig;
-    } | null;
     can: {
         platform_view: boolean;
         platform_update: boolean;
@@ -131,13 +123,6 @@ const ALL_NAV_ITEMS = [
         icon: MessageCircle,
         description: 'Business messaging',
         permission: 'settings.integrations.whatsapp.view',
-    },
-    {
-        id: 'esign',
-        label: 'E-Signature',
-        icon: PenLine,
-        description: 'Signature placement',
-        permission: 'settings.application.view',
     },
     {
         id: 'preferences',
@@ -266,7 +251,6 @@ export default function ApplicationSettings({
     smtp,
     ai,
     whatsapp,
-    esign_placement,
     can,
 }: Props) {
     const auth = usePage().props.auth;
@@ -304,10 +288,6 @@ export default function ApplicationSettings({
     const [tab, setTab] = useState<NavId>(() =>
         resolveInitialTab(navItems, requestedTab),
     );
-    const [esignPlacement, setEsignPlacement] =
-        useState<SignaturePlacementConfig | null>(
-            esign_placement?.placement ?? null,
-        );
     const [testRecipient, setTestRecipient] = useState('');
     const [testSubject, setTestSubject] = useState(
         () => `${general?.app_name || 'HRM'} — SMTP test`,
@@ -1210,25 +1190,6 @@ export default function ApplicationSettings({
                     {/* ══ WHATSAPP ══ */}
                     {tab === 'whatsapp' && whatsapp ? (
                         <WhatsAppSettingsPanel {...whatsapp} />
-                    ) : null}
-
-                    {/* ══ E-SIGNATURE ══ */}
-                    {tab === 'esign' && esign_placement && esignPlacement ? (
-                        <SettingsCard>
-                            <SectionHeading
-                                icon={PenLine}
-                                title="E-Signature placement"
-                                description="Calibrate English and Arabic signature overlay and stamped date positions on salary declaration PDFs."
-                                color="bg-blue-500/10 border-blue-500/20 text-blue-600"
-                            />
-                            <EsignPlacementPanel
-                                documentType={esign_placement.document_type}
-                                label={esign_placement.label}
-                                placement={esignPlacement}
-                                canEdit={canUpdateApplication}
-                                onPlacementChange={setEsignPlacement}
-                            />
-                        </SettingsCard>
                     ) : null}
 
                     {/* ══ PREFERENCES ══ */}

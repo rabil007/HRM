@@ -7,7 +7,6 @@ import {
     Calculator,
     Anchor,
     Megaphone,
-    FileCheck,
     Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -31,8 +30,7 @@ export function QuickActions({ can }: QuickActionsProps) {
         can.attendance_leave_approve ||
         can.payroll_periods_create ||
         can.crew_planning_create ||
-        can.announcements_publish ||
-        can.signatures_review;
+        can.announcements_publish;
 
     if (!hasAnyAction) {
         return null;
@@ -159,20 +157,6 @@ export function QuickActions({ can }: QuickActionsProps) {
                         <Link href={createAnnouncement.url()}>
                             <Megaphone className="h-3.5 w-3.5 text-amber-500" />
                             New Announcement
-                        </Link>
-                    </Button>
-                )}
-
-                {can.signatures_review && (
-                    <Button
-                        asChild
-                        size="sm"
-                        variant="outline"
-                        className="h-9 shrink-0 gap-1.5 rounded-xl bg-background/70 px-3 text-xs"
-                    >
-                        <Link href={documents.url()}>
-                            <FileCheck className="h-3.5 w-3.5 text-emerald-600" />
-                            Review Signatures
                         </Link>
                     </Button>
                 )}

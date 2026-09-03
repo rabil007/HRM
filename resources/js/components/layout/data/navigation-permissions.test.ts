@@ -321,9 +321,9 @@ describe('Documents navigation', () => {
     const documentsUrls = [
         '/organization/documents',
         '/organization/documents/library',
+        '/organization/documents/templates',
         '/organization/documents/generate',
         '/organization/documents/requests',
-        '/organization/documents/templates',
         '/organization/documents/configuration',
         '/organization/documents/activity',
     ];
@@ -341,13 +341,12 @@ describe('Documents navigation', () => {
         );
     });
 
-    it('shows generate requests and activity for bulk_documents.view', () => {
+    it('shows generate templates and activity for bulk_documents.view', () => {
         assert.deepEqual(
             visibleGroupUrls(documentsUrls, ['bulk_documents.view']),
             [
-                '/organization/documents/generate',
-                '/organization/documents/requests',
                 '/organization/documents/templates',
+                '/organization/documents/generate',
                 '/organization/documents/activity',
             ],
         );

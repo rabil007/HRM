@@ -53,7 +53,7 @@ describe('documents module URL mapping', () => {
             documentsModuleSectionFromUrl(
                 '/organization/documents/bulk?view=signatures',
             ),
-            'requests',
+            'generate',
         );
         assert.equal(
             documentsModuleSectionFromUrl('/organization/documents/requests'),
@@ -173,7 +173,7 @@ describe('documents module URL mapping', () => {
         assert.equal(
             isDocumentsModuleNavUrlActive(
                 '/organization/documents/bulk?view=signatures',
-                '/organization/documents/requests',
+                '/organization/documents/generate',
             ),
             true,
         );
@@ -213,10 +213,23 @@ describe('documents module visibility', () => {
         );
     });
 
-    it('shows generate requests and activity with bulk_documents.view', () => {
+    it('shows generate templates and activity with bulk_documents.view', () => {
         assert.deepEqual(
             visibleDocumentsModuleSections(['bulk_documents.view']),
-            ['generate', 'requests', 'templates', 'activity'],
+            ['templates', 'generate', 'activity'],
+        );
+    });
+
+    it('shows requests only with current document request permissions', () => {
+        assert.deepEqual(
+            visibleDocumentsModuleSections(['documents.requests.view']),
+            ['requests'],
+        );
+        assert.deepEqual(
+            visibleDocumentsModuleSections([
+                'documents.recipient-requests.respond',
+            ]),
+            ['requests'],
         );
     });
 

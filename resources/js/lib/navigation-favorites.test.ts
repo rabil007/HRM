@@ -72,7 +72,7 @@ describe('pathname matching', () => {
             destinationKeyFromPageUrl(
                 '/organization/documents/bulk?view=signatures',
             ),
-            'documents.requests',
+            'documents.bulk',
         );
         assert.equal(
             destinationKeyFromPageUrl(
@@ -94,9 +94,9 @@ describe('unified Documents destinations', () => {
             [
                 'Overview',
                 'Library',
+                'Templates',
                 'Generate & Send',
                 'Requests',
-                'Templates',
                 'Document Types',
                 'Activity',
             ],

@@ -360,7 +360,6 @@ test('dashboard composes every module section and attention item links for a ful
         'payroll.overview.view',
         'announcements.view',
         'audit.view',
-        'bulk_documents.signatures.review',
     ]);
 
     foreach (['expired' => now()->subDay(), 'expiring' => now()->addDays(3)] as $key => $expiry) {

@@ -452,6 +452,6 @@ describe('designer and templates list copy', () => {
         assert.equal(templates.includes('After generation'), false);
         assert.equal(templates.includes('TemplateAutomationSheet'), false);
         assert.equal(templates.includes('handlePublishDraft'), false);
-        assert.equal(templates.includes('Design Template'), true);
+        assert.equal(templates.includes('Open Designer'), true);
     });
 });

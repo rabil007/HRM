@@ -37,6 +37,7 @@ test('permissions seeder creates expected permissions and is idempotent', functi
     expect(Permission::query()->where('name', 'platform.settings.update')->exists())->toBeFalse();
     expect(Permission::query()->where('name', 'crew_operations.rank_policies.view')->exists())->toBeFalse();
     expect(Permission::query()->where('name', 'crew_operations.rank_policies.update')->exists())->toBeFalse();
+    expect(Permission::query()->where('name', 'bulk_documents.signatures.review')->exists())->toBeFalse();
 });
 
 test('roles page does not expose a platform or rank policies permission group after seeding', function () {

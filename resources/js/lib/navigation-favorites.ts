@@ -89,6 +89,12 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         group: 'Documents',
     },
     {
+        key: 'documents.templates',
+        label: 'Templates',
+        href: '/organization/documents/templates',
+        group: 'Documents',
+    },
+    {
         key: 'documents.bulk',
         label: 'Generate & Send',
         href: '/organization/documents/generate',
@@ -98,12 +104,6 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         key: 'documents.requests',
         label: 'Requests',
         href: '/organization/documents/requests',
-        group: 'Documents',
-    },
-    {
-        key: 'documents.templates',
-        label: 'Templates',
-        href: '/organization/documents/templates',
         group: 'Documents',
     },
     {
@@ -312,10 +312,6 @@ export function destinationKeyFromPageUrl(url: string): string | null {
         normalized.startsWith('/organization/documents/bulk/')
     ) {
         const view = new URLSearchParams(search).get('view');
-
-        if (view === 'signatures') {
-            return 'documents.requests';
-        }
 
         if (view === 'history') {
             return 'documents.activity';

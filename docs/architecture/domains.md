@@ -218,7 +218,7 @@ Examples (full list in seeder):
 | Crew | `crew_operations.overview.view`, `crew_operations.vessels.*`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*`, `crew_operations.assignments.*` |
 | Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` (incl. `view_all`), `attendance.leave-approval-policies.*`, `attendance.leave-approval-settings.*` |
 | Payroll | `payroll.overview.view`, `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, payslip and WPS actions |
-| Bulk documents | `bulk_documents.view`, `.generate`, `.delete`, `.email`, `.signatures.review` |
+| Bulk documents | `bulk_documents.view`, `.generate`, `.delete`, `.email` |
 | Hikvision | `hikvision.persons.*`, `hikvision.devices.*`, `hikvision.events.*`, `hikvision.webhook.manage` |
 | Users / roles | `users.*`, `roles.*` |
 | Audit | `audit.view` |
@@ -838,23 +838,24 @@ Integrate Hikvision people, devices, and access events with employees and attend
 
 ---
 
-## Bulk Documents and E-signing
+## Bulk Documents (Generate & Send)
 
 ### Purpose
 
-Generate and email document batches, collect public signatures through signed links, review submitted signatures, and download approved outputs.
+Generate and email document batches for **current** types: Company Templates and built-in Salary Certificate. Historical Salary Declaration bulk e-sign has no user-facing runtime; `BulkDocumentSignatureRequest` rows and files remain for audit.
 
 ### Main artifacts
 
 - Models prefixed with `BulkDocument*`
-- Controllers under `app/Http/Controllers/Organization/BulkDocuments/` and `app/Http/Controllers/Public/DocumentEsign/`
-- `features/organization/documents/bulk/bulk-documents-content.tsx` and `pages/esign/index.tsx`
+- Controllers under `app/Http/Controllers/Organization/BulkDocuments/`
+- `features/organization/documents/bulk/bulk-documents-content.tsx`
+- Current signing UI: `/document-action/*` and Requests → Signing (`DocumentRecipientRequest`)
 
 ### Permissions involved
 
-`bulk_documents.view`, `bulk_documents.generate`, `bulk_documents.delete`, `bulk_documents.email`, `bulk_documents.signatures.review`
+`bulk_documents.view`, `bulk_documents.generate`, `bulk_documents.delete`, `bulk_documents.email`
 
-Public e-sign routes use signed URLs and throttling rather than company-role permissions. Administrative generation, email, review, and download flows remain company-scoped.
+Public signing uses `/document-action/{token}` (token-bound). Administrative generation, email, and download flows remain company-scoped.
 
 ---
 
@@ -862,7 +863,7 @@ Public e-sign routes use signed URLs and throttling rather than company-role per
 
 ### Purpose
 
-Manage security and appearance preferences, application/email/integration configuration, document-signature placement, message templates, and reusable master-data catalogs. Document Types remain a master-data resource (`settings.master-data.document-types.*`) but are administered in **Documents → Configuration**; `/settings/master-data/document-types` redirects there.
+Manage security and appearance preferences, application/email/integration configuration, message templates, and reusable master-data catalogs. Document Types remain a master-data resource (`settings.master-data.document-types.*`) but are administered in **Documents → Configuration**; `/settings/master-data/document-types` redirects there.
 
 ### Main artifacts
 
@@ -1101,7 +1102,7 @@ flowchart TB
 | Branches | `/organization/branches` | `branches.tsx`, `branch.tsx` |
 | Employees | `/organization/employees` | `employees.tsx`, `employee.tsx` |
 | Documents | `/organization/documents` | `documents/index`, `employee`, `show` |
-| Bulk documents / e-sign | `/organization/documents/bulk`, `/esign/{token}` | document bulk screen, `esign/index.tsx` |
+| Generate & Send / Requests | `/organization/documents/generate`, `/organization/documents/requests` | bulk generate screen, requests inbox, `document-action` |
 | Contracts | `/organization/contracts` | `contracts/index`, `employee`, `no-contract` |
 | Bank accounts | `/organization/bank-accounts` | `bank-accounts/index`, `employee`, `no-account` |
 | Training | `/organization/training` | `training/index`, `employee`, `show` |

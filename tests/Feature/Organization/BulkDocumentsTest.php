@@ -43,10 +43,11 @@ test('bulk documents permissions are registered and legacy permission removed', 
         'bulk_documents.generate',
         'bulk_documents.delete',
         'bulk_documents.email',
-        'bulk_documents.signatures.review',
     ] as $permission) {
         expect(Permission::query()->where('name', $permission)->exists())->toBeTrue();
     }
+
+    expect(Permission::query()->where('name', 'bulk_documents.signatures.review')->exists())->toBeFalse();
 });
 
 test('users with view permission can open bulk documents page', function () {
@@ -59,11 +60,12 @@ test('users with view permission can open bulk documents page', function () {
         'status' => 'active',
     ]);
 
-    $this->get(route('organization.documents.bulk'))
+    $this->get(route('organization.documents.generate'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('organization/documents/bulk/index')
-            ->has('document_type_options', 2)
+            ->has('document_type_options', 1)
+            ->where('document_type_key', 'salary_certificate')
             ->has('employees', 1)
             ->has('pagination')
             ->where('pagination.total', 1)
@@ -200,7 +202,7 @@ test('modern activity route ignores conflicting legacy view query params', funct
             ->where('module_view_locked', true));
 });
 
-test('legacy bulk route defaults to roster without module_view_locked', function () {
+test('legacy bulk route redirects to generate', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -209,32 +211,22 @@ test('legacy bulk route defaults to roster without module_view_locked', function
     Employee::factory()->forCompany($company)->create(['status' => 'active']);
 
     $this->get(route('organization.documents.bulk'))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('organization/documents/bulk/index')
-            ->where('view', 'roster')
-            ->where('module_view_locked', false));
+        ->assertRedirect(route('organization.documents.generate'));
 });
 
-test('legacy bulk route with view query param resolves correctly without module_view_locked', function () {
+test('legacy bulk query views redirect to current module destinations', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view', 'bulk_documents.signatures.review']);
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
 
     Employee::factory()->forCompany($company)->create(['status' => 'active']);
 
     $this->get(route('organization.documents.bulk').'?view=signatures')
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('view', 'signatures')
-            ->where('module_view_locked', false));
+        ->assertRedirect(route('organization.documents.generate'));
 
     $this->get(route('organization.documents.bulk').'?view=history')
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('view', 'history')
-            ->where('module_view_locked', false));
+        ->assertRedirect(route('organization.documents.activity'));
 });
 
 test('bulk documents page exposes wired email template for active document type', function () {
@@ -247,18 +239,20 @@ test('bulk documents page exposes wired email template for active document type'
 
     setupBulkDocumentsCompany($user, ['bulk_documents.view']);
 
-    $this->get(route('organization.documents.bulk', ['document_type_key' => 'salary_certificate']))
+    $this->get(route('organization.documents.generate', ['document_type_key' => 'salary_certificate']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('email_template.slug', 'bulk_salary_certificate')
             ->where('reminder_email_template', null)
             ->where('company_name', 'Bulk Docs Co'));
 
-    $this->get(route('organization.documents.bulk', ['document_type_key' => 'salary_declaration']))
+    $this->get(route('organization.documents.generate', ['document_type_key' => 'salary_declaration']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('email_template.slug', 'bulk_salary_declaration')
-            ->where('reminder_email_template.slug', 'bulk_salary_declaration_sign_reminder'));
+            ->where('document_type_key', 'salary_certificate')
+            ->where('email_template.slug', 'bulk_salary_certificate')
+            ->where('reminder_email_template', null)
+            ->where('document_type_options', fn ($options): bool => collect($options)->pluck('value')->doesntContain('salary_declaration')));
 });
 
 test('bulk documents page paginates employee roster', function () {
@@ -272,7 +266,7 @@ test('bulk documents page paginates employee roster', function () {
         ->forCompany($company)
         ->create(['status' => 'active']);
 
-    $this->get(route('organization.documents.bulk', ['per_page' => 10]))
+    $this->get(route('organization.documents.generate', ['per_page' => 10]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->has('employees', 10)
@@ -281,7 +275,7 @@ test('bulk documents page paginates employee roster', function () {
             ->where('pagination.last_page', 3)
             ->where('counts.targeted', 25));
 
-    $this->get(route('organization.documents.bulk', ['per_page' => 10, 'page' => 2]))
+    $this->get(route('organization.documents.generate', ['per_page' => 10, 'page' => 2]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->has('employees', 10)
@@ -316,7 +310,7 @@ test('bulk documents roster includes employee department and position', function
         'position_id' => $position->id,
     ]);
 
-    $this->get(route('organization.documents.bulk'))
+    $this->get(route('organization.documents.generate'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->has('employees', 1)
@@ -335,7 +329,7 @@ test('missing generation filter paginates only employees without documents', fun
     $withDoc = Employee::factory()->forCompany($company)->create(['status' => 'active']);
     Employee::factory()->count(14)->forCompany($company)->create(['status' => 'active']);
 
-    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Certificate'], ['is_active' => true]);
 
     createEmployeePdfDocument(
         $company->id,
@@ -345,7 +339,7 @@ test('missing generation filter paginates only employees without documents', fun
         'existing.pdf',
     );
 
-    $this->get(route('organization.documents.bulk', [
+    $this->get(route('organization.documents.generate', [
         'generation_filter' => 'missing',
         'per_page' => 10,
     ]))
@@ -367,7 +361,7 @@ test('generated generation filter paginates only employees with documents', func
     $withDoc = Employee::factory()->forCompany($company)->create(['status' => 'active']);
     Employee::factory()->count(5)->forCompany($company)->create(['status' => 'active']);
 
-    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Certificate'], ['is_active' => true]);
 
     createEmployeePdfDocument(
         $company->id,
@@ -377,7 +371,7 @@ test('generated generation filter paginates only employees with documents', func
         'existing.pdf',
     );
 
-    $this->get(route('organization.documents.bulk', [
+    $this->get(route('organization.documents.generate', [
         'generation_filter' => 'generated',
         'per_page' => 10,
     ]))
@@ -408,8 +402,8 @@ test('emailed filter paginates only employees with sent bulk document emails', f
 
     $batch = BulkDocumentEmailBatch::query()->create([
         'company_id' => $company->id,
-        'document_type_key' => 'salary_declaration',
-        'subject' => 'Salary declaration',
+        'document_type_key' => 'salary_certificate',
+        'subject' => 'Salary certificate',
         'total_selected' => 1,
         'sent_count' => 1,
         'failed_count' => 0,
@@ -425,7 +419,7 @@ test('emailed filter paginates only employees with sent bulk document emails', f
         'sent_at' => now(),
     ]);
 
-    $this->get(route('organization.documents.bulk', [
+    $this->get(route('organization.documents.generate', [
         'email_filter' => 'emailed',
     ]))
         ->assertOk()
@@ -434,7 +428,7 @@ test('emailed filter paginates only employees with sent bulk document emails', f
             ->where('employees.0.name', 'Emailed Employee')
             ->where('email_filter', 'emailed'));
 
-    $this->get(route('organization.documents.bulk', [
+    $this->get(route('organization.documents.generate', [
         'email_filter' => 'not_emailed',
     ]))
         ->assertOk()
@@ -472,7 +466,7 @@ test('sponsor filter paginates only employees with matching company visa type', 
         'company_visa_type_id' => $highLand->id,
     ]);
 
-    $this->get(route('organization.documents.bulk', [
+    $this->get(route('organization.documents.generate', [
         'company_visa_type_id' => $experts->id,
     ]))
         ->assertOk()
@@ -516,8 +510,8 @@ test('bulk document counts respect department and emailed filters', function () 
 
     $batch = BulkDocumentEmailBatch::query()->create([
         'company_id' => $company->id,
-        'document_type_key' => 'salary_declaration',
-        'subject' => 'Salary declaration',
+        'document_type_key' => 'salary_certificate',
+        'subject' => 'Salary certificate',
         'total_selected' => 1,
         'sent_count' => 1,
         'failed_count' => 0,
@@ -533,7 +527,7 @@ test('bulk document counts respect department and emailed filters', function () 
         'sent_at' => now(),
     ]);
 
-    $this->get(route('organization.documents.bulk', [
+    $this->get(route('organization.documents.generate', [
         'department_id' => $operationsDepartment->id,
         'email_filter' => 'emailed',
     ]))
@@ -543,7 +537,7 @@ test('bulk document counts respect department and emailed filters', function () 
             ->where('counts.generated', 0)
             ->where('counts.not_generated', 1));
 
-    $this->get(route('organization.documents.bulk', [
+    $this->get(route('organization.documents.generate', [
         'department_id' => $hrDepartment->id,
     ]))
         ->assertOk()
@@ -560,7 +554,7 @@ test('bulk documents history view returns paginated activity', function () {
 
     BulkDocumentGenerationRun::query()->create([
         'company_id' => $company->id,
-        'document_type_key' => 'salary_declaration',
+        'document_type_key' => 'salary_certificate',
         'filters' => ['status' => 'active'],
         'status' => 'completed',
         'total_targeted' => 5,
@@ -571,7 +565,7 @@ test('bulk documents history view returns paginated activity', function () {
         'triggered_by' => $user->id,
     ]);
 
-    $this->get(route('organization.documents.bulk', ['view' => 'history']))
+    $this->get(route('organization.documents.activity'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('organization/documents/bulk/index')
@@ -582,134 +576,24 @@ test('bulk documents history view returns paginated activity', function () {
             ->has('pagination'));
 });
 
-test('bulk documents signatures view respects employee filters', function () {
+test('legacy bulk signatures urls never render a signature roster', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
-
-    $operationsDepartment = Department::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Operations',
-        'code' => 'OPS',
-        'status' => 'active',
-    ]);
-
-    $hrDepartment = Department::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Human Resources',
-        'code' => 'HR',
-        'status' => 'active',
-    ]);
-
-    $operationsEmployee = Employee::factory()->forCompany($company)->create([
-        'status' => 'active',
-        'name' => 'Alice Operations',
-        'department_id' => $operationsDepartment->id,
-    ]);
-
-    $hrEmployee = Employee::factory()->forCompany($company)->create([
-        'status' => 'active',
-        'name' => 'Bob Human Resources',
-        'department_id' => $hrDepartment->id,
-    ]);
-
-    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
-
-    foreach ([$operationsEmployee, $hrEmployee] as $employee) {
-        $document = createEmployeePdfDocument(
-            $company->id,
-            $employee->id,
-            $documentType->id,
-            "employee-documents/{$company->id}/{$employee->id}/declaration.pdf",
-            'declaration.pdf',
-        );
-
-        BulkDocumentSignatureRequest::query()->create([
-            'company_id' => $company->id,
-            'employee_id' => $employee->id,
-            'employee_document_id' => $document->id,
-            'document_type_key' => 'salary_declaration',
-            'token' => str_repeat((string) $employee->id, 48),
-            'status' => 'awaiting_signature',
-            'expires_at' => now()->addDays(14),
-        ]);
-    }
-
-    $this->get(route('organization.documents.bulk', [
-        'view' => 'signatures',
-        'department_id' => $operationsDepartment->id,
-    ]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('view', 'signatures')
-            ->has('signature_requests', 1)
-            ->where('signature_requests.0.employee.name', 'Alice Operations')
-            ->where('signature_requests.0.employee.department', 'Operations'));
-
-    $this->get(route('organization.documents.bulk', [
-        'view' => 'signatures',
-        'search' => 'Bob',
-    ]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->has('signature_requests', 1)
-            ->where('signature_requests.0.employee.name', 'Bob Human Resources')
-            ->where('signature_requests.0.employee.department', 'Human Resources'));
-});
-
-test('bulk documents signatures view orders submitted requests by signed date descending', function () {
-    $user = User::factory()->create();
-    $this->actingAs($user);
-
-    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
-
-    $olderEmployee = Employee::factory()->forCompany($company)->create([
-        'status' => 'active',
-        'name' => 'Older Submission',
-    ]);
-
-    $newerEmployee = Employee::factory()->forCompany($company)->create([
-        'status' => 'active',
-        'name' => 'Newer Submission',
-    ]);
-
-    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
-
-    foreach ([
-        [$olderEmployee, now()->subDays(2)],
-        [$newerEmployee, now()->subDay()],
-    ] as [$employee, $signedAt]) {
-        $document = createEmployeePdfDocument(
-            $company->id,
-            $employee->id,
-            $documentType->id,
-            "employee-documents/{$company->id}/{$employee->id}/declaration-{$employee->id}.pdf",
-            'declaration.pdf',
-        );
-
-        BulkDocumentSignatureRequest::query()->create([
-            'company_id' => $company->id,
-            'employee_id' => $employee->id,
-            'employee_document_id' => $document->id,
-            'document_type_key' => 'salary_declaration',
-            'token' => str_repeat((string) $employee->id, 48),
-            'status' => BulkDocumentSignatureRequestStatus::Submitted,
-            'signed_at' => $signedAt,
-            'expires_at' => now()->addDays(14),
-        ]);
-    }
+    setupBulkDocumentsCompany($user, ['bulk_documents.view']);
 
     $this->get(route('organization.documents.bulk', [
         'view' => 'signatures',
         'signature_filter' => 'submitted',
+    ]))->assertRedirect(route('organization.documents.generate'));
+
+    $this->get(route('organization.documents.generate', [
+        'view' => 'signatures',
     ]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('view', 'signatures')
-            ->has('signature_requests', 2)
-            ->where('signature_requests.0.employee.name', 'Newer Submission')
-            ->where('signature_requests.1.employee.name', 'Older Submission'));
+            ->where('view', 'roster')
+            ->missing('signature_requests'));
 });
 
 test('bulk documents history view respects employee filters for email batches', function () {
@@ -746,8 +630,8 @@ test('bulk documents history view respects employee filters for email batches', 
 
     $batch = BulkDocumentEmailBatch::query()->create([
         'company_id' => $company->id,
-        'document_type_key' => 'salary_declaration',
-        'subject' => 'Salary declaration',
+        'document_type_key' => 'salary_certificate',
+        'subject' => 'Salary certificate',
         'total_selected' => 2,
         'sent_count' => 2,
         'failed_count' => 0,
@@ -767,7 +651,7 @@ test('bulk documents history view respects employee filters for email batches', 
 
     BulkDocumentGenerationRun::query()->create([
         'company_id' => $company->id,
-        'document_type_key' => 'salary_declaration',
+        'document_type_key' => 'salary_certificate',
         'filters' => ['department_id' => (string) $hrDepartment->id],
         'status' => 'completed',
         'total_targeted' => 1,
@@ -778,8 +662,7 @@ test('bulk documents history view respects employee filters for email batches', 
         'triggered_by' => $user->id,
     ]);
 
-    $this->get(route('organization.documents.bulk', [
-        'view' => 'history',
+    $this->get(route('organization.documents.activity', [
         'department_id' => $operationsDepartment->id,
     ]))
         ->assertOk()
@@ -789,8 +672,7 @@ test('bulk documents history view respects employee filters for email batches', 
             ->where('activity.0.kind', 'email')
             ->where('activity.0.id', $batch->id));
 
-    $this->get(route('organization.documents.bulk', [
-        'view' => 'history',
+    $this->get(route('organization.documents.activity', [
         'department_id' => $hrDepartment->id,
     ]))
         ->assertOk()
@@ -901,7 +783,7 @@ test('bulk documents page excludes inactive employees even when status filter is
         'status' => 'inactive',
     ]);
 
-    $this->get(route('organization.documents.bulk', ['status' => 'inactive']))
+    $this->get(route('organization.documents.generate', ['status' => 'inactive']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->has('employees', 1)
@@ -1069,31 +951,6 @@ test('bulk document counts include pending review awaiting and approved totals',
         'awaiting_signature' => 1,
         'approved' => 1,
     ]);
-
-    $this->actingAs($user)
-        ->get(route('organization.documents.bulk', [
-            'view' => 'signatures',
-            'signature_filter' => 'awaiting_signature',
-        ]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('counts.awaiting_signature', 1)
-            ->where('counts.pending_review', 1)
-            ->where('counts.approved', 1)
-            ->has('signature_requests', 1)
-            ->where('signature_requests.0.status', 'awaiting_signature'));
-
-    $this->actingAs($user)
-        ->get(route('organization.documents.bulk', [
-            'view' => 'signatures',
-            'signature_filter' => 'approved',
-        ]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('signature_filter', 'approved')
-            ->has('signature_requests', 1)
-            ->where('signature_requests.0.status', 'approved')
-            ->where('signature_requests.0.employee.id', $approvedEmployee->id));
 });
 
 test('bulk generation job skips existing documents in fill gaps mode', function () {

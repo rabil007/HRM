@@ -155,6 +155,11 @@ const baseSidebarData: SidebarData = {
                             icon: Folder,
                         },
                         {
+                            title: 'Templates',
+                            url: documentsTemplates.url(),
+                            icon: ClipboardList,
+                        },
+                        {
                             title: 'Generate & Send',
                             url: documentsGenerate.url(),
                             icon: FileStack,
@@ -163,11 +168,6 @@ const baseSidebarData: SidebarData = {
                             title: 'Requests',
                             url: documentsRequests.url(),
                             icon: FilePenLine,
-                        },
-                        {
-                            title: 'Templates',
-                            url: documentsTemplates.url(),
-                            icon: ClipboardList,
                         },
                         {
                             title: 'Document Types',

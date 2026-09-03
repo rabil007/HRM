@@ -249,7 +249,7 @@ export type TemplatesPermissions = {
     update_templates: boolean;
     delete_templates: boolean;
     document_types: boolean;
-    signature_placement: boolean;
+    generate: boolean;
 };
 
 // Lightweight version list item — no heavy config arrays

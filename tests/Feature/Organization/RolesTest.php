@@ -4,6 +4,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use Database\Seeders\PermissionsSeeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -295,4 +296,44 @@ test('authenticated users can export roles as csv, excel, and pdf', function () 
     $pdf = $this->get('/organization/roles/export?format=pdf&search=export-role');
     $pdf->assertOk();
     expect($pdf->headers->get('content-type'))->toContain('application/pdf');
+});
+
+test('roles page does not list retired bulk signature review permission', function () {
+    $this->seed(PermissionsSeeder::class);
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'RLS',
+        'name' => 'Roles Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+    $currency = Currency::query()->create([
+        'code' => 'RLS',
+        'name' => 'Roles Currency',
+        'symbol' => 'R$',
+        'is_active' => true,
+    ]);
+    $company = Company::query()->create([
+        'name' => 'Roles Co',
+        'slug' => 'roles-co-legacy-sign',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['roles.view']);
+
+    $this->get('/organization/roles')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('permissions', fn ($permissions): bool => collect($permissions)
+                ->pluck('name')
+                ->doesntContain('bulk_documents.signatures.review')
+                && collect($permissions)->pluck('name')->contains('bulk_documents.view')));
 });

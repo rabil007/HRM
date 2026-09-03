@@ -200,7 +200,7 @@ Additionally, named routes `log`, `log.*`, `jobs.*`, and `mysql.*` receive `no-s
 |-------|--------|----------------|
 | Authenticated app | `/organization/*`, platform, settings | Full policy |
 | Public signed shares | `/documents/shared/{token}`, legacy `/organization/documents/share/{document}` | Same CSP/framing; downloads keep `Content-Disposition` + `nosniff` |
-| Public e-sign | `/esign/{token}` | Same; `form-action 'self'` |
+| Public document action | `/document-action/{token}` | Same; `form-action 'self'` |
 | Public announcements | `/announcements/public/{token}` | Same + `DenyFraming` |
 | Auth | Fortify login / 2FA challenge / security | Same |
 | WhatsApp webhooks | `whatsapp/webhook`, `webhooks/whatsapp` | No `web` middleware / no these headers |

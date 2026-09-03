@@ -1,13 +1,4 @@
-import type { BulkSignatureRequest } from '@/features/organization/documents/bulk/types';
-import type {
-    BulkDocumentCounts,
-    BulkDocumentTypeOption,
-    BulkGenerationRun,
-    LatestEmailBatch,
-    LatestSignatureRepairRun,
-} from '@/features/organization/documents/bulk/types';
 import type { SigningPresetPermissions } from '@/features/organization/documents/signing/types';
-import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import type { PaginationMeta } from '@/types/pagination';
 
 export type DocumentWorkflowPermissions = {
@@ -16,8 +7,6 @@ export type DocumentWorkflowPermissions = {
     review: boolean;
     approve: boolean;
     cancel: boolean;
-    view_signatures: boolean;
-    review_signatures: boolean;
     view_recipient_requests: boolean;
     create_recipient_requests: boolean;
     cancel_recipient_requests: boolean;
@@ -211,34 +200,8 @@ export type DocumentWorkflowPresetsIndexProps = {
     form_options: WorkflowPresetFormOptions;
 };
 
-export type DocumentRequestsSignaturePayload = {
-    document_type_key: string;
-    document_type_options: BulkDocumentTypeOption[];
-    signature_requests: BulkSignatureRequest[];
-    signature_filter: string;
-    email_filter: string;
-    counts: BulkDocumentCounts;
-    departments: { id: number; name: string }[];
-    positions: { id: number; title: string }[];
-    company_visa_types: { id: number; name: string }[];
-    department_tree: DepartmentTreeNode[];
-    department_tree_selected_id: number | null;
-    department_tree_selected_position_id: number | null;
-    company_name: string;
-    latest_run: BulkGenerationRun | null;
-    latest_email_batch: LatestEmailBatch | null;
-    latest_signature_repair_run: LatestSignatureRepairRun | null;
-    can: {
-        generate: boolean;
-        download: boolean;
-        delete: boolean;
-        email: boolean;
-        review_signatures: boolean;
-    };
-};
-
 export type DocumentRequestsIndexProps = {
-    tab: 'review' | 'signatures' | 'recipient';
+    tab: 'review' | 'recipient';
     can: DocumentWorkflowPermissions;
     preset_can: WorkflowPresetPermissions;
     signing_preset_can: SigningPresetPermissions;
@@ -248,7 +211,6 @@ export type DocumentRequestsIndexProps = {
     recipient_requests: RecipientRequestListItem[];
     recipient_automation?: RecipientAutomationSettings | null;
     pagination: PaginationMeta;
-    signature_payload: DocumentRequestsSignaturePayload | null;
 };
 
 export type RecipientRequestPermissions = {

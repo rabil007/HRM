@@ -40,31 +40,6 @@ export type BulkRosterEmployee = {
     signature_status: string | null;
 };
 
-export type BulkSignatureRequest = {
-    id: number;
-    employee: {
-        id: number;
-        name: string;
-        employee_no: string | null;
-        image: string | null;
-        department: string | null;
-        position: string | null;
-    };
-    status: string;
-    status_label: string;
-    signed_name: string | null;
-    signed_at: string | null;
-    created_at: string | null;
-    reviewed_at: string | null;
-    reviewed_by: string | null;
-    rejection_reason: string | null;
-    unsigned_document_id: number;
-    unsigned_file_path: string | null;
-    signed_pdf_path: string | null;
-    signature_image_path: string | null;
-    expires_at: string | null;
-};
-
 export type BulkDocumentCounts = {
     targeted: number;
     generated: number;
@@ -162,12 +137,6 @@ export type BulkGenerationFilter = 'all' | 'missing' | 'generated';
 
 export type BulkEmailFilter = 'all' | 'emailed' | 'not_emailed';
 
-export type BulkSignatureFilter =
-    | 'all'
-    | 'submitted'
-    | 'awaiting_signature'
-    | 'approved';
-
 export type LatestEmailBatch = {
     id: number;
     status: 'queued' | 'running' | 'completed' | 'failed';
@@ -180,19 +149,6 @@ export type LatestEmailBatch = {
     triggered_by: string | null;
 };
 
-export type LatestSignatureRepairRun = {
-    id: number;
-    status: 'queued' | 'running' | 'completed' | 'failed';
-    document_type_key: string;
-    total_count: number;
-    repaired_count: number;
-    skipped_count: number;
-    failed_count: number;
-    started_at: string | null;
-    finished_at: string | null;
-    initiated_by: string | null;
-};
-
 export type BulkDocumentsPageProps = {
     document_type_key: string;
     document_type_options: BulkDocumentTypeOption[];
@@ -203,8 +159,8 @@ export type BulkDocumentsPageProps = {
         version: number;
         template_format: string;
     } | null;
-    view: 'roster' | 'signatures' | 'history';
-    embedded_in_requests?: boolean;
+    view: 'roster' | 'history';
+    can_view_templates?: boolean;
     module_view_locked?: boolean;
     filters: {
         department_id: string;
@@ -215,12 +171,10 @@ export type BulkDocumentsPageProps = {
     search: string;
     counts: BulkDocumentCounts;
     employees: BulkRosterEmployee[];
-    signature_requests: BulkSignatureRequest[];
     activity: BulkActivityItem[];
     pagination: PaginationMeta;
     generation_filter: BulkGenerationFilter;
     email_filter: BulkEmailFilter;
-    signature_filter: BulkSignatureFilter;
     departments: { id: number; name: string }[];
     positions: { id: number; title: string }[];
     company_visa_types: { id: number; name: string }[];
@@ -232,12 +186,10 @@ export type BulkDocumentsPageProps = {
     reminder_email_template: WiredEmailTemplate | null;
     latest_run: BulkGenerationRun | null;
     latest_email_batch: LatestEmailBatch | null;
-    latest_signature_repair_run: LatestSignatureRepairRun | null;
     can: {
         generate: boolean;
         download: boolean;
         delete: boolean;
         email: boolean;
-        review_signatures: boolean;
     };
 };

@@ -14,7 +14,6 @@ export type DashboardCan = {
     payroll_periods_approve: boolean;
     crew_planning_create: boolean;
     announcements_publish: boolean;
-    signatures_review: boolean;
     view_audit: boolean;
 };
 

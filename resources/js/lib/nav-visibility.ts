@@ -224,7 +224,9 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
     '/organization/documents/generate': (permissions) =>
         has(permissions, 'bulk_documents.view'),
     '/organization/documents/requests': (permissions) =>
-        has(permissions, 'bulk_documents.view'),
+        has(permissions, 'documents.requests.view') ||
+        has(permissions, 'documents.recipient-requests.view') ||
+        has(permissions, 'documents.recipient-requests.respond'),
     '/organization/documents/activity': (permissions) =>
         has(permissions, 'bulk_documents.view'),
     '/organization/documents/templates': (permissions, platform) =>

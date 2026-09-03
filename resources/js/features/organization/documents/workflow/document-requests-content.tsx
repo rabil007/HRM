@@ -3,7 +3,6 @@ import {
     Bell,
     CheckCircle2,
     ClipboardCheck,
-    FilePenLine,
     FileSignature,
     Settings2,
 } from 'lucide-react';
@@ -13,16 +12,8 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { BulkDocumentsContent } from '@/features/organization/documents/bulk/bulk-documents-content';
-import type {
-    BulkDocumentCounts,
-    BulkDocumentsPageProps,
-    BulkEmailFilter,
-    BulkSignatureFilter,
-} from '@/features/organization/documents/bulk/types';
 import { RecipientReminderSettingsSheet } from '@/features/organization/documents/workflow/recipient-reminder-settings-sheet';
 import { RecipientRequestsTable } from '@/features/organization/documents/workflow/recipient-requests-table';
 import type { DocumentRequestsIndexProps } from '@/features/organization/documents/workflow/types';
@@ -31,54 +22,9 @@ import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filter
 import { cn } from '@/lib/utils';
 import documentRoutes from '@/routes/organization/documents';
 
-function mapSignaturePayloadToBulkProps(
-    props: DocumentRequestsIndexProps,
-): BulkDocumentsPageProps {
-    const payload = props.signature_payload!;
-
-    return {
-        document_type_key: payload.document_type_key,
-        document_type_options: payload.document_type_options,
-        view: 'signatures',
-        embedded_in_requests: true,
-        filters: {
-            department_id: String(props.filters.department_id ?? ''),
-            position_id: String(props.filters.position_id ?? ''),
-            company_visa_type_id: String(
-                props.filters.company_visa_type_id ?? '',
-            ),
-            search: props.search,
-        },
-        search: props.search,
-        counts: payload.counts as BulkDocumentCounts,
-        employees: [],
-        signature_requests: payload.signature_requests,
-        activity: [],
-        pagination: props.pagination,
-        generation_filter: 'all',
-        email_filter: payload.email_filter as BulkEmailFilter,
-        signature_filter: payload.signature_filter as BulkSignatureFilter,
-        departments: payload.departments,
-        positions: payload.positions,
-        company_visa_types: payload.company_visa_types,
-        department_tree: payload.department_tree,
-        department_tree_selected_id: payload.department_tree_selected_id,
-        department_tree_selected_position_id:
-            payload.department_tree_selected_position_id,
-        company_name: payload.company_name,
-        email_template: null,
-        reminder_email_template: null,
-        latest_run: payload.latest_run,
-        latest_email_batch: payload.latest_email_batch,
-        latest_signature_repair_run: payload.latest_signature_repair_run,
-        can: payload.can,
-    };
-}
-
 const TAB_ICONS = {
     review: ClipboardCheck,
     recipient: FileSignature,
-    signatures: FilePenLine,
 };
 
 function filterSelectValue(value: string | boolean | undefined): string {
@@ -91,12 +37,10 @@ function RequestsTabSwitcher({
     tab,
     canViewReview,
     canViewRecipient,
-    canViewSignatures,
 }: {
-    tab: 'review' | 'recipient' | 'signatures';
+    tab: 'review' | 'recipient';
     canViewReview: boolean;
     canViewRecipient: boolean;
-    canViewSignatures: boolean;
 }) {
     const tabs = [
         {
@@ -106,13 +50,8 @@ function RequestsTabSwitcher({
         },
         {
             key: 'recipient' as const,
-            label: 'Employee Signing',
+            label: 'Signing',
             visible: canViewRecipient,
-        },
-        {
-            key: 'signatures' as const,
-            label: 'Legacy Signature Requests',
-            visible: canViewSignatures,
         },
     ].filter((t) => t.visible);
 
@@ -152,14 +91,6 @@ function RequestsTabSwitcher({
                                 )}
                             />
                             {label}
-                            {key === 'signatures' ? (
-                                <Badge
-                                    variant="secondary"
-                                    className="ml-1 text-[10px] font-medium"
-                                >
-                                    Legacy
-                                </Badge>
-                            ) : null}
                             {isActive && (
                                 <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary" />
                             )}
@@ -183,7 +114,6 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
         recipient_requests,
         recipient_automation = null,
         pagination,
-        signature_payload,
     } = props;
 
     const [reminderSettingsOpen, setReminderSettingsOpen] = useState(false);
@@ -245,7 +175,7 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
         <Main>
             <PageHeader
                 title="Requests"
-                description="Manage documents waiting for review, approval, signature or acknowledgement."
+                description="Review, approve, sign, and track document requests."
                 right={headerActions}
             />
 
@@ -257,7 +187,6 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                     can.view_recipient_requests ||
                     can.respond_recipient_requests
                 }
-                canViewSignatures={can.view_signatures}
             />
 
             <div className="pt-6">
@@ -411,7 +340,7 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                     </div>
                 ) : null}
 
-                {/* ── Employee Signing tab ───────────────────────────────── */}
+                {/* ── Signing tab ───────────────────────────────────────── */}
                 {tab === 'recipient' &&
                 (can.view_recipient_requests ||
                     can.respond_recipient_requests) ? (
@@ -425,20 +354,60 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                                 inputClassName="h-11 py-0 text-sm"
                             />
 
-                            {can.respond_recipient_requests ? (
-                                <label
-                                    className={cn(
-                                        'flex h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm transition-colors',
-                                        filters.assigned_to_me
-                                            ? 'border-primary bg-primary/5 font-medium text-foreground'
-                                            : 'border-border bg-background text-muted-foreground hover:bg-muted',
-                                    )}
-                                >
-                                    <Checkbox
-                                        checked={Boolean(
-                                            filters.assigned_to_me,
-                                        )}
-                                        onCheckedChange={(checked) =>
+                            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                                <div className="w-[10.5rem]">
+                                    <AppSelect
+                                        value={reviewStatusValue}
+                                        size="sm"
+                                        className="h-11 rounded-xl"
+                                        onValueChange={(value) =>
+                                            router.get(
+                                                documentRoutes.requests.url(),
+                                                {
+                                                    tab: 'recipient',
+                                                    search: list.searchInput,
+                                                    status:
+                                                        value === '__all__'
+                                                            ? ''
+                                                            : value,
+                                                    action: String(
+                                                        filters.action ?? '',
+                                                    ),
+                                                    assigned_to_me:
+                                                        filters.assigned_to_me
+                                                            ? '1'
+                                                            : '',
+                                                },
+                                            )
+                                        }
+                                    >
+                                        <AppSelectItem value="__all__">
+                                            All statuses
+                                        </AppSelectItem>
+                                        <AppSelectItem value="awaiting_action">
+                                            Awaiting action
+                                        </AppSelectItem>
+                                        <AppSelectItem value="completed">
+                                            Completed
+                                        </AppSelectItem>
+                                        <AppSelectItem value="expired">
+                                            Expired
+                                        </AppSelectItem>
+                                        <AppSelectItem value="cancelled">
+                                            Cancelled
+                                        </AppSelectItem>
+                                        <AppSelectItem value="superseded">
+                                            Superseded
+                                        </AppSelectItem>
+                                    </AppSelect>
+                                </div>
+
+                                <div className="w-[10.5rem]">
+                                    <AppSelect
+                                        value={reviewActionValue}
+                                        size="sm"
+                                        className="h-11 rounded-xl"
+                                        onValueChange={(value) =>
                                             router.get(
                                                 documentRoutes.requests.url(),
                                                 {
@@ -447,19 +416,68 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                                                     status: String(
                                                         filters.status ?? '',
                                                     ),
-                                                    action: String(
-                                                        filters.action ?? '',
-                                                    ),
-                                                    assigned_to_me: checked
-                                                        ? '1'
-                                                        : '',
+                                                    action:
+                                                        value === '__all__'
+                                                            ? ''
+                                                            : value,
+                                                    assigned_to_me:
+                                                        filters.assigned_to_me
+                                                            ? '1'
+                                                            : '',
                                                 },
                                             )
                                         }
-                                    />
-                                    Assigned to me
-                                </label>
-                            ) : null}
+                                    >
+                                        <AppSelectItem value="__all__">
+                                            All actions
+                                        </AppSelectItem>
+                                        <AppSelectItem value="sign">
+                                            Sign
+                                        </AppSelectItem>
+                                        <AppSelectItem value="acknowledge">
+                                            Acknowledge
+                                        </AppSelectItem>
+                                    </AppSelect>
+                                </div>
+
+                                {can.respond_recipient_requests ? (
+                                    <label
+                                        className={cn(
+                                            'flex h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm transition-colors',
+                                            filters.assigned_to_me
+                                                ? 'border-primary bg-primary/5 font-medium text-foreground'
+                                                : 'border-border bg-background text-muted-foreground hover:bg-muted',
+                                        )}
+                                    >
+                                        <Checkbox
+                                            checked={Boolean(
+                                                filters.assigned_to_me,
+                                            )}
+                                            onCheckedChange={(checked) =>
+                                                router.get(
+                                                    documentRoutes.requests.url(),
+                                                    {
+                                                        tab: 'recipient',
+                                                        search: list.searchInput,
+                                                        status: String(
+                                                            filters.status ??
+                                                                '',
+                                                        ),
+                                                        action: String(
+                                                            filters.action ??
+                                                                '',
+                                                        ),
+                                                        assigned_to_me: checked
+                                                            ? '1'
+                                                            : '',
+                                                    },
+                                                )
+                                            }
+                                        />
+                                        Assigned to me
+                                    </label>
+                                ) : null}
+                            </div>
                         </div>
 
                         <RecipientRequestsTable
@@ -489,15 +507,6 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
                             />
                         ) : null}
                     </div>
-                ) : null}
-
-                {/* ── Signature Requests tab ────────────────────────────── */}
-                {tab === 'signatures' &&
-                can.view_signatures &&
-                signature_payload ? (
-                    <BulkDocumentsContent
-                        {...mapSignaturePayloadToBulkProps(props)}
-                    />
                 ) : null}
 
                 {/* ── No-permission fallback ────────────────────────────── */}
