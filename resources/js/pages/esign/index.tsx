@@ -17,6 +17,7 @@ type Props = {
     status: string;
     alreadySubmitted: boolean;
     unavailable?: boolean;
+    unavailableMessage?: string | null;
     submitUrl: string;
     downloadUrl: string;
     placement: SignaturePlacementConfig;
@@ -53,6 +54,7 @@ export default function DocumentEsignPage({
     expiresAt,
     alreadySubmitted,
     unavailable = false,
+    unavailableMessage = null,
     submitUrl,
     downloadUrl,
     placement,
@@ -125,8 +127,8 @@ export default function DocumentEsignPage({
                             This signing link is no longer available
                         </h1>
                         <p className="mt-2 text-sm text-muted-foreground">
-                            The request was cancelled, expired, or already
-                            closed. Contact HR if you still need to sign.
+                            {unavailableMessage ??
+                                'The request was cancelled, expired, or already closed. Contact HR if you still need to sign.'}
                         </p>
                     </div>
                 </div>

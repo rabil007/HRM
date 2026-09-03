@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Support\BulkDocuments\BulkDocumentSignatureLinkService;
 use App\Support\BulkDocuments\BulkDocumentSignatureRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\BulkDocuments\LegacySalaryDeclarationSigning;
 use App\Support\BulkDocuments\SalaryDeclarationSignaturePlacements;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -25,7 +26,15 @@ class ShowDocumentEsignController extends Controller
             abort(404);
         }
 
-        if ($signatureRequest->isExpired() && $signatureRequest->status === BulkDocumentSignatureRequestStatus::AwaitingSignature) {
+        $legacySigningRetired = BulkDocumentTypeRegistry::legacySigningRetired(
+            $signatureRequest->document_type_key,
+        );
+
+        if (
+            ! $legacySigningRetired
+            && $signatureRequest->isExpired()
+            && $signatureRequest->status === BulkDocumentSignatureRequestStatus::AwaitingSignature
+        ) {
             $signatureRequest->update(['status' => BulkDocumentSignatureRequestStatus::Expired]);
             $signatureRequest->refresh();
         }
@@ -36,6 +45,9 @@ class ShowDocumentEsignController extends Controller
         ], true);
 
         $unavailable = ! $alreadySubmitted && ! $signatureRequest->isSignable();
+        $unavailableMessage = $legacySigningRetired && $signatureRequest->status === BulkDocumentSignatureRequestStatus::AwaitingSignature
+            ? LegacySalaryDeclarationSigning::PUBLIC_SIGNING_UNAVAILABLE_MESSAGE
+            : null;
 
         $placements = BulkDocumentTypeRegistry::resolveSignaturePlacements(
             $signatureRequest->document_type_key,
@@ -52,6 +64,7 @@ class ShowDocumentEsignController extends Controller
             'status' => $signatureRequest->status->value,
             'alreadySubmitted' => $alreadySubmitted,
             'unavailable' => $unavailable,
+            'unavailableMessage' => $unavailableMessage,
             'submitUrl' => $links->submitUrl($signatureRequest),
             'downloadUrl' => $links->downloadUnsignedUrl($signatureRequest),
             'placement' => $placements ?? SalaryDeclarationSignaturePlacements::config(),

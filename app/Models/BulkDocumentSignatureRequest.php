@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BulkDocumentSignatureRequestStatus;
+use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -64,6 +65,7 @@ class BulkDocumentSignatureRequest extends Model
     public function isSignable(): bool
     {
         return $this->status === BulkDocumentSignatureRequestStatus::AwaitingSignature
-            && ! $this->isExpired();
+            && ! $this->isExpired()
+            && ! BulkDocumentTypeRegistry::legacySigningRetired($this->document_type_key);
     }
 }

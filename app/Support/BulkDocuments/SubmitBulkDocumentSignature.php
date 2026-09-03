@@ -50,6 +50,12 @@ final class SubmitBulkDocumentSignature
 
     private function assertSignable(BulkDocumentSignatureRequest $request): void
     {
+        if (BulkDocumentTypeRegistry::legacySigningRetired($request->document_type_key)) {
+            throw ValidationException::withMessages([
+                'token' => LegacySalaryDeclarationSigning::PUBLIC_SIGNING_RETIREMENT_MESSAGE,
+            ]);
+        }
+
         if ($request->status !== BulkDocumentSignatureRequestStatus::AwaitingSignature) {
             throw ValidationException::withMessages([
                 'token' => 'This signing request is no longer available.',

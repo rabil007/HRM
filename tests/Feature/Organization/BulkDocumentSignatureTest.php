@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\BulkDocumentSignatureRequestStatus;
-use App\Jobs\RegenerateAlignedSignedBulkDocumentPdfsJob;
 use App\Models\BulkDocumentSignatureRepairRun;
 use App\Models\BulkDocumentSignatureRequest;
 use App\Models\Company;
@@ -90,14 +89,11 @@ test('guest can open valid signed signing page', function () {
             ->component('esign/index')
             ->where('employeeName', $employee->name)
             ->where('alreadySubmitted', false)
-            ->where('unavailable', false)
+            ->where('unavailable', true)
+            ->where('unavailableMessage', 'This signing link is no longer available. HR will send you a new document signing request.')
             ->where('documentLabel', 'Salary Declaration')
             ->has('downloadUrl')
-            ->has('submitUrl')
-            ->has('placement')
-            ->where('placement.page', 1)
-            ->has('placement.overlay')
-            ->has('placement.stamps'));
+            ->has('submitUrl'));
 });
 
 test('guest cannot open signing page with invalid signature', function () {
@@ -178,16 +174,16 @@ test('guest can submit electronic signature without replacing employee document'
         'signed_name' => 'Signer Person',
         'signature_data' => minimalSignatureDataUrl(),
         'consent' => '1',
-    ])->assertRedirect();
+    ])->assertSessionHasErrors('token');
 
     $request->refresh();
     $document->refresh();
 
-    expect($request->status)->toBe(BulkDocumentSignatureRequestStatus::Submitted)
-        ->and($request->signed_pdf_path)->not->toBeNull()
-        ->and($document->file_path)->toBe($originalPath)
-        ->and(Storage::disk('local')->exists((string) $request->signed_pdf_path))->toBeTrue()
-        ->and(Storage::disk('public')->exists((string) $request->signed_pdf_path))->toBeFalse();
+    expect($request->status)->toBe(BulkDocumentSignatureRequestStatus::AwaitingSignature)
+        ->and($request->signed_pdf_path)->toBeNull()
+        ->and($request->signature_image_path)->toBeNull()
+        ->and($request->signed_at)->toBeNull()
+        ->and($document->file_path)->toBe($originalPath);
 });
 
 test('guest e-sign submit queues alignment regeneration for the signed request', function () {
@@ -224,27 +220,14 @@ test('guest e-sign submit queues alignment regeneration for the signed request',
         'signed_name' => 'Aligned Signer',
         'signature_data' => minimalSignatureDataUrl(),
         'consent' => '1',
-    ])->assertRedirect();
+    ])->assertSessionHasErrors('token');
 
     $request->refresh();
 
-    $run = BulkDocumentSignatureRepairRun::query()->first();
+    expect($request->status)->toBe(BulkDocumentSignatureRequestStatus::AwaitingSignature)
+        ->and(BulkDocumentSignatureRepairRun::query()->count())->toBe(0);
 
-    expect($run)->not->toBeNull()
-        ->and($run->company_id)->toBe($company->id)
-        ->and($run->document_type_key)->toBe('salary_declaration')
-        ->and($run->status)->toBe('queued')
-        ->and($run->total_count)->toBe(1)
-        ->and($run->initiated_by)->toBeNull();
-
-    Queue::assertPushed(RegenerateAlignedSignedBulkDocumentPdfsJob::class, function (
-        RegenerateAlignedSignedBulkDocumentPdfsJob $job,
-    ) use ($company, $request, $run): bool {
-        return $job->companyId === $company->id
-            && $job->userId === null
-            && $job->repairRunId === $run->id
-            && $job->requestIds === [$request->id];
-    });
+    Queue::assertNothingPushed();
 });
 
 test('guest can submit uploaded signature image data url', function () {
@@ -279,13 +262,13 @@ test('guest can submit uploaded signature image data url', function () {
         'signed_name' => 'Upload Signer',
         'signature_data' => minimalSignatureDataUrl(),
         'consent' => '1',
-    ])->assertRedirect();
+    ])->assertSessionHasErrors('token');
 
     $request->refresh();
 
-    expect($request->status)->toBe(BulkDocumentSignatureRequestStatus::Submitted)
-        ->and($request->signature_image_path)->not->toBeNull()
-        ->and($request->signed_pdf_path)->not->toBeNull();
+    expect($request->status)->toBe(BulkDocumentSignatureRequestStatus::AwaitingSignature)
+        ->and($request->signature_image_path)->toBeNull()
+        ->and($request->signed_pdf_path)->toBeNull();
 });
 
 test('hr can approve submitted signature and replace employee document', function () {

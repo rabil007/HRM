@@ -149,3 +149,174 @@ test('cancelled and submitted public esign links cannot accept a new signature',
 
     expect($submitted->fresh()->status)->toBe(BulkDocumentSignatureRequestStatus::Submitted);
 });
+
+test('awaiting salary declaration esign page is retired and does not mutate the request', function () {
+    $user = User::factory()->create();
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+    $path = "employee-documents/{$company->id}/{$employee->id}/declaration.pdf";
+    Storage::disk('local')->put($path, minimalPdfBytes());
+    $document = createEmployeePdfDocument($company->id, $employee->id, $documentType->id, $path, 'declaration.pdf');
+    $request = createLegacyBulkDocumentSignatureRequest($company, $employee, $document);
+    $updatedAt = $request->updated_at?->toJSON();
+
+    $showUrl = URL::temporarySignedRoute(
+        'public.esign.show',
+        now()->addDay(),
+        ['token' => $request->token],
+    );
+
+    $this->get($showUrl)
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('esign/index')
+            ->where('unavailable', true)
+            ->where('alreadySubmitted', false)
+            ->where('status', 'awaiting_signature')
+            ->where('unavailableMessage', LegacySalaryDeclarationSigning::PUBLIC_SIGNING_UNAVAILABLE_MESSAGE));
+
+    $request->refresh();
+
+    expect($request->status)->toBe(BulkDocumentSignatureRequestStatus::AwaitingSignature)
+        ->and($request->updated_at?->toJSON())->toBe($updatedAt)
+        ->and($request->signed_at)->toBeNull()
+        ->and($request->signed_pdf_path)->toBeNull()
+        ->and($request->signature_image_path)->toBeNull();
+});
+
+test('awaiting salary declaration esign submit is rejected without writing signature artifacts', function () {
+    $user = User::factory()->create();
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Retired Signer',
+    ]);
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+    $path = "employee-documents/{$company->id}/{$employee->id}/declaration.pdf";
+    $document = createEmployeePdfDocument($company->id, $employee->id, $documentType->id, $path, 'declaration.pdf');
+    $originalPdf = Storage::disk('public')->get($path);
+    $request = createLegacyBulkDocumentSignatureRequest($company, $employee, $document);
+    $updatedAt = $request->updated_at?->toJSON();
+    $documentUpdatedAt = $document->fresh()->updated_at?->toJSON();
+
+    $submitUrl = URL::temporarySignedRoute(
+        'public.esign.submit',
+        now()->addDay(),
+        ['token' => $request->token],
+    );
+
+    $this->post($submitUrl, [
+        'signed_name' => 'Retired Signer',
+        'signature_data' => minimalSignatureDataUrl(),
+        'consent' => '1',
+    ])->assertSessionHasErrors([
+        'token' => LegacySalaryDeclarationSigning::PUBLIC_SIGNING_RETIREMENT_MESSAGE,
+    ]);
+
+    $request->refresh();
+    $document->refresh();
+
+    expect($request->status)->toBe(BulkDocumentSignatureRequestStatus::AwaitingSignature)
+        ->and($request->updated_at?->toJSON())->toBe($updatedAt)
+        ->and($request->signed_at)->toBeNull()
+        ->and($request->signed_pdf_path)->toBeNull()
+        ->and($request->signature_image_path)->toBeNull()
+        ->and($document->file_path)->toBe($path)
+        ->and($document->updated_at?->toJSON())->toBe($documentUpdatedAt)
+        ->and(Storage::disk('public')->get($path))->toBe($originalPdf);
+});
+
+test('expired awaiting salary declaration esign get does not expire the row', function () {
+    $user = User::factory()->create();
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+    $path = "employee-documents/{$company->id}/{$employee->id}/declaration.pdf";
+    $document = createEmployeePdfDocument($company->id, $employee->id, $documentType->id, $path, 'declaration.pdf');
+    $request = createLegacyBulkDocumentSignatureRequest(
+        $company,
+        $employee,
+        $document,
+        BulkDocumentSignatureRequestStatus::AwaitingSignature,
+        ['expires_at' => now()->subDay()],
+    );
+
+    $showUrl = URL::temporarySignedRoute(
+        'public.esign.show',
+        now()->addDay(),
+        ['token' => $request->token],
+    );
+
+    $this->get($showUrl)
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('unavailable', true)
+            ->where('status', 'awaiting_signature'));
+
+    expect($request->fresh()->status)->toBe(BulkDocumentSignatureRequestStatus::AwaitingSignature);
+});
+
+test('submitted salary declaration remains submitted after public esign get', function () {
+    $user = User::factory()->create();
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+    $path = "employee-documents/{$company->id}/{$employee->id}/declaration.pdf";
+    $document = createEmployeePdfDocument($company->id, $employee->id, $documentType->id, $path, 'declaration.pdf');
+    $request = createLegacyBulkDocumentSignatureRequest(
+        $company,
+        $employee,
+        $document,
+        BulkDocumentSignatureRequestStatus::Submitted,
+        ['signed_at' => now()],
+    );
+
+    $showUrl = URL::temporarySignedRoute(
+        'public.esign.show',
+        now()->addDay(),
+        ['token' => $request->token],
+    );
+
+    $this->get($showUrl)
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('alreadySubmitted', true)
+            ->where('unavailable', false)
+            ->where('status', 'submitted'));
+
+    expect($request->fresh()->status)->toBe(BulkDocumentSignatureRequestStatus::Submitted)
+        ->and($request->fresh()->signed_at)->not->toBeNull();
+});
+
+test('salary certificate awaiting esign page is not retired', function () {
+    $user = User::factory()->create();
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Certificate'], ['is_active' => true]);
+    $path = "employee-documents/{$company->id}/{$employee->id}/certificate.pdf";
+    $document = createEmployeePdfDocument($company->id, $employee->id, $documentType->id, $path, 'certificate.pdf');
+    $request = createLegacyBulkDocumentSignatureRequest(
+        $company,
+        $employee,
+        $document,
+        BulkDocumentSignatureRequestStatus::AwaitingSignature,
+        ['document_type_key' => 'salary_certificate'],
+    );
+
+    $showUrl = URL::temporarySignedRoute(
+        'public.esign.show',
+        now()->addDay(),
+        ['token' => $request->token],
+    );
+
+    $this->get($showUrl)
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('unavailable', false)
+            ->where('alreadySubmitted', false)
+            ->where('documentLabel', 'Salary Certificate')
+            ->where('unavailableMessage', null));
+
+    expect($request->fresh()->status)->toBe(BulkDocumentSignatureRequestStatus::AwaitingSignature);
+});

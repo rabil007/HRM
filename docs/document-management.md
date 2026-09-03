@@ -40,7 +40,7 @@ Opening a document from Library uses `from=library` so **Back to Library** resto
 
 Old filtered Overview bookmarks such as `/organization/documents?search=`, `?expiry=`, `?requirement_status=`, `?department_id=`, `?document_type_id=`, and `?page=` redirect to the equivalent Library URL with those supported keys preserved. Unknown parameters are not redirected and are not copied. Plain `/organization/documents` stays Overview.
 
-Generate & Send and Activity are served by `BulkDocumentsController` (`/organization/documents/generate`, `/organization/documents/activity`, and legacy `/organization/documents/bulk`). **Requests** is served by `DocumentRequestsIndexController` at `/organization/documents/requests` (Approvals, Employee Signing, and Legacy Signature Requests). Legacy `/organization/documents/bulk?view=signatures` remains a valid bookmark into the historical signature roster via `BulkDocumentsController`. Explicit module routes for Generate and Activity set a `module_view` route default (`roster` / `history`) resolved before the legacy `view` query string. Templates bridge now supports company-owned content and visual PDF overlay templates with controlled merge fields and Fabric.js visual placement; system templates bridge remains available. Salary Certificate bulk generation remains. **New** Salary Declaration signing uses Company Templates + `DocumentRecipientRequest` + `/document-action/*`. Legacy `/esign/*` stays for historical links until active unsigned work is cancelled and later retired.
+Generate & Send and Activity are served by `BulkDocumentsController` (`/organization/documents/generate`, `/organization/documents/activity`, and legacy `/organization/documents/bulk`). **Requests** is served by `DocumentRequestsIndexController` at `/organization/documents/requests` (Approvals, Employee Signing, and Legacy Signature Requests). Legacy `/organization/documents/bulk?view=signatures` remains a valid bookmark into the historical signature roster via `BulkDocumentsController`. Explicit module routes for Generate and Activity set a `module_view` route default (`roster` / `history`) resolved before the legacy `view` query string. Templates bridge now supports company-owned content and visual PDF overlay templates with controlled merge fields and Fabric.js visual placement; system templates bridge remains available. Salary Certificate bulk generation remains. **New** Salary Declaration signing uses Company Templates + `DocumentRecipientRequest` + `/document-action/*`. Legacy `/esign/*` remains for historical submitted/review links; Salary Declaration `awaiting_signature` links are retired (view-only) and cannot accept a signature.
 
 ### Legacy Bulk URLs
 
@@ -64,7 +64,7 @@ Legacy rows stay exactly as stored. The command is a report/export only.
 
 | Status | Meaning |
 |--------|---------|
-| `awaiting_signature` | Employee had not completed the old signing flow. Retained as historical/pending-migration tracking. Export these employees, then generate a new Company Template for them. Do **not** change this status because a new `DocumentRecipientRequest` may later exist. |
+| `awaiting_signature` | Employee had not completed the old signing flow. Retained as historical/pending-migration tracking. Public `/esign` links for these rows are view-only (retired) and cannot accept a signature. Export these employees, then generate a new Company Template for them. Do **not** change this status because a new `DocumentRecipientRequest` may later exist. |
 | `submitted` | Already signed. Do not reissue. Internal legacy review may finish. |
 | `approved` / `rejected` / `expired` / `cancelled` | Historical only. Untouched. |
 
@@ -84,15 +84,16 @@ There is no `--execute` mode. `--export` requires `--company` and writes a CSV o
 1. Deploy the legacy retirement changes (no new Salary Declaration `BulkDocumentSignatureRequest` / `/esign` emails / bulk generate-and-sign).
 2. Run the read-only legacy report.
 3. Export awaiting employees.
-4. Keep all legacy rows and files untouched.
-5. Generate the already-tested new Company Template for those employees.
-6. Verify new `/document-action/*` recipient requests.
-7. Continue all future Salary Declaration generation/signing through Company Templates.
-8. Retire remaining `/esign` runtime later when intentionally cleaning leftover legacy functionality.
+4. Keep all legacy rows, files, and statuses untouched.
+5. Legacy Salary Declaration `/esign` signing is disabled (GET shows a retired message; POST rejects; status stays `awaiting_signature`).
+6. Generate the already-tested new Company Template for those employees.
+7. Verify new `/document-action/*` recipient requests.
+8. Use Employee Signing / the new document lifecycle for all future tracking.
+9. Remove remaining `/esign` runtime later when intentionally cleaning leftover legacy functionality.
 
 ### New requests blocked
 
-`CreateBulkDocumentSignatureRequest` and bulk email/generate HTTP actions reject Salary Declaration with a domain validation error. Salary Certificate generation/email is unchanged. Unsigned legacy `/esign` links for cancelled (or otherwise non-signable) requests cannot submit a signature.
+`CreateBulkDocumentSignatureRequest` and bulk email/generate HTTP actions reject Salary Declaration with a domain validation error. Salary Certificate generation/email is unchanged. Legacy Salary Declaration `/esign/{token}` links cannot submit a signature, including `awaiting_signature` rows. Submitted/approved/rejected/cancelled/expired historical review and downloads remain available. New signing uses `/document-action/*`.
 
 ### Follow-up (after active legacy work is zero)
 
@@ -915,7 +916,7 @@ If `DocumentInstance.current_version_id` changes while a request is still `await
 - Browser receives a raw URL-safe token once after internal creation/regeneration
 - Database stores only `SHA-256` hash in `token_hash` (unique)
 - Public routes: `/document-action/{token}`, `/document-action/{token}/document`, `/document-action/{token}/sign`, `/document-action/{token}/acknowledge`
-- Legacy `/esign/*` and plain-text bulk tokens are unchanged
+- Legacy `/esign/*` and plain-text bulk tokens remain for historical access; Salary Declaration public signing is retired
 
 Regenerating a link replaces `token_hash`, invalidates the prior URL immediately, and records a `token_rotated` evidence event.
 
