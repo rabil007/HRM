@@ -12,13 +12,15 @@ final class DocumentSignaturePlacementValidator
 
     public const SCHEMA_V2 = 2;
 
+    public const SCHEMA_V3 = 3;
+
     /**
      * @return array{schema_version: int, placements: list<array<string, mixed>>}
      */
     public static function emptyConfig(): array
     {
         return [
-            'schema_version' => self::SCHEMA_V2,
+            'schema_version' => self::SCHEMA_V3,
             'placements' => [],
         ];
     }
@@ -70,7 +72,62 @@ final class DocumentSignaturePlacementValidator
             return self::validateSchemaV2Config($config, $sourcePageCount);
         }
 
+        if ($schemaVersion === self::SCHEMA_V3) {
+            return self::validateSchemaV3Config($config, $sourcePageCount);
+        }
+
         throw new InvalidArgumentException('Unsupported signature placement schema version.');
+    }
+
+    /**
+     * Validate any readable schema, then normalize to v3 for Unified Designer saves.
+     *
+     * @param  array<string, mixed>|null  $config
+     * @return array{
+     *     schema_version: int,
+     *     placements: list<array{id: string, type: string, role: string, slot_key: string, page: int, x: float, y: float, width: float, height: float, required: bool}>
+     * }
+     */
+    public static function normalizeForDraftSave(?array $config, int $sourcePageCount): array
+    {
+        return self::toSchemaV3(self::validateSignaturePlacementConfig($config, $sourcePageCount));
+    }
+
+    /**
+     * @param  array{
+     *     schema_version: int,
+     *     placements: list<array{id: string, type: string, role: string, slot_key?: string, page: int, x: float, y: float, width: float, height: float, required: bool}>
+     * }  $validated
+     * @return array{
+     *     schema_version: int,
+     *     placements: list<array{id: string, type: string, role: string, slot_key: string, page: int, x: float, y: float, width: float, height: float, required: bool}>
+     * }
+     */
+    public static function toSchemaV3(array $validated): array
+    {
+        $placements = [];
+
+        foreach ($validated['placements'] as $placement) {
+            $slotKey = trim((string) ($placement['slot_key'] ?? ''));
+
+            if ($slotKey === '') {
+                $role = DocumentRecipientRole::tryFrom((string) $placement['role']);
+
+                if ($role === null) {
+                    throw new InvalidArgumentException('Signature placement role is required.');
+                }
+
+                $slotKey = DocumentSignatureSlot::defaultForRole($role);
+            }
+
+            $placement['slot_key'] = $slotKey;
+            $placements[] = $placement;
+        }
+
+        return [
+            'schema_version' => self::SCHEMA_V3,
+            'placements' => $placements,
+        ];
     }
 
     /**
@@ -110,10 +167,35 @@ final class DocumentSignaturePlacementValidator
             throw new InvalidArgumentException('Unsupported signature slot key.');
         }
 
+        $matched = self::validateSignaturesForSlot($config, $sourcePageCount, $slotKey);
+
+        return $matched[0];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $config
+     * @return list<array{id: string, type: string, role: string, slot_key?: string, page: int, x: float, y: float, width: float, height: float, required: bool}>
+     *
+     * @throws InvalidArgumentException
+     */
+    public static function validateSignaturesForSlot(
+        ?array $config,
+        int $sourcePageCount,
+        string $slotKey,
+    ): array {
+        if ($config === null || $config === []) {
+            throw new InvalidArgumentException('Signature placement configuration is required.');
+        }
+
+        if (! DocumentSignatureSlot::isValid($slotKey)) {
+            throw new InvalidArgumentException('Unsupported signature slot key.');
+        }
+
         $schemaVersion = (int) ($config['schema_version'] ?? 0);
         $validatedConfig = self::validateSignaturePlacementConfig($config, $sourcePageCount);
         $role = DocumentSignatureSlot::roleFor($slotKey);
         $defaultSlot = DocumentSignatureSlot::defaultForRole($role);
+        $matched = [];
 
         if ($schemaVersion === self::SCHEMA_V1) {
             if ($slotKey !== $defaultSlot) {
@@ -124,24 +206,78 @@ final class DocumentSignaturePlacementValidator
 
             foreach ($validatedConfig['placements'] as $placement) {
                 if ($placement['role'] === $role->value) {
-                    return $placement + ['slot_key' => $slotKey];
+                    $matched[] = $placement + ['slot_key' => $slotKey];
                 }
             }
+        } else {
+            foreach ($validatedConfig['placements'] as $placement) {
+                if (($placement['slot_key'] ?? null) === $slotKey) {
+                    $matched[] = $placement;
+                }
+            }
+        }
 
+        if ($matched === []) {
             throw new InvalidArgumentException(
                 "Signature placement `{$slotKey}` is not configured for this document template version.",
             );
         }
 
-        foreach ($validatedConfig['placements'] as $placement) {
-            if (($placement['slot_key'] ?? null) === $slotKey) {
-                return $placement;
+        return array_values($matched);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $config
+     * @return list<string>
+     */
+    public static function placementIdsForSlot(?array $config, string $slotKey): array
+    {
+        if (! is_array($config) || ! DocumentSignatureSlot::isValid($slotKey)) {
+            return [];
+        }
+
+        $placements = $config['placements'] ?? [];
+
+        if (! is_array($placements)) {
+            return [];
+        }
+
+        $schemaVersion = (int) ($config['schema_version'] ?? 0);
+        $role = DocumentSignatureSlot::roleFor($slotKey);
+        $defaultSlot = DocumentSignatureSlot::defaultForRole($role);
+        $ids = [];
+
+        foreach ($placements as $placement) {
+            if (! is_array($placement)) {
+                continue;
+            }
+
+            $id = trim((string) ($placement['id'] ?? ''));
+
+            if ($id === '') {
+                continue;
+            }
+
+            if ($schemaVersion === self::SCHEMA_V1) {
+                if ($slotKey === $defaultSlot && ($placement['role'] ?? null) === $role->value) {
+                    $ids[] = $id;
+                }
+
+                continue;
+            }
+
+            $placementSlot = trim((string) ($placement['slot_key'] ?? ''));
+
+            if ($placementSlot === '' && ($placement['role'] ?? null) === $role->value) {
+                $placementSlot = $defaultSlot;
+            }
+
+            if ($placementSlot === $slotKey) {
+                $ids[] = $id;
             }
         }
 
-        throw new InvalidArgumentException(
-            "Signature placement `{$slotKey}` is not configured for this document template version.",
-        );
+        return $ids;
     }
 
     /**
@@ -201,6 +337,28 @@ final class DocumentSignaturePlacementValidator
      */
     private static function validateSchemaV2Config(array $config, int $sourcePageCount): array
     {
+        return self::validateSlotKeyedConfig($config, $sourcePageCount, self::SCHEMA_V2, allowDuplicateSlots: false);
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     * @return array{schema_version: int, placements: list<array{id: string, type: string, role: string, slot_key: string, page: int, x: float, y: float, width: float, height: float, required: bool}>}
+     */
+    private static function validateSchemaV3Config(array $config, int $sourcePageCount): array
+    {
+        return self::validateSlotKeyedConfig($config, $sourcePageCount, self::SCHEMA_V3, allowDuplicateSlots: true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     * @return array{schema_version: int, placements: list<array{id: string, type: string, role: string, slot_key: string, page: int, x: float, y: float, width: float, height: float, required: bool}>}
+     */
+    private static function validateSlotKeyedConfig(
+        array $config,
+        int $sourcePageCount,
+        int $schemaVersion,
+        bool $allowDuplicateSlots,
+    ): array {
         $placements = $config['placements'] ?? [];
 
         if (! is_array($placements)) {
@@ -240,7 +398,7 @@ final class DocumentSignaturePlacementValidator
                 throw new InvalidArgumentException('Duplicate signature placement ids are not allowed.');
             }
 
-            if (isset($slotsSeen[$slotKey])) {
+            if (! $allowDuplicateSlots && isset($slotsSeen[$slotKey])) {
                 throw new InvalidArgumentException('Duplicate signature slot keys are not allowed.');
             }
 
@@ -250,11 +408,11 @@ final class DocumentSignaturePlacementValidator
                 throw new InvalidArgumentException('Subject signature slot must be `subject`.');
             }
 
-            if ($role === DocumentRecipientRole::Manager) {
+            if ($role === DocumentRecipientRole::Manager && ! isset($slotsSeen[$slotKey])) {
                 $managerOccurrences[] = $occurrence;
             }
 
-            if ($role === DocumentRecipientRole::CompanySignatory) {
+            if ($role === DocumentRecipientRole::CompanySignatory && ! isset($slotsSeen[$slotKey])) {
                 $companyOccurrences[] = $occurrence;
             }
 
@@ -267,7 +425,7 @@ final class DocumentSignaturePlacementValidator
         self::assertContiguousOccurrences($companyOccurrences, 'company_signatory');
 
         return [
-            'schema_version' => self::SCHEMA_V2,
+            'schema_version' => $schemaVersion,
             'placements' => $validated,
         ];
     }

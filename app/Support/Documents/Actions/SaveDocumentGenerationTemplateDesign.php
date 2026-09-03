@@ -197,7 +197,7 @@ final class SaveDocumentGenerationTemplateDesign
 
             // --- Validate signature placements ---
             try {
-                $validatedSigConfig = DocumentSignaturePlacementValidator::validateSignaturePlacementConfig(
+                $validatedSigConfig = DocumentSignaturePlacementValidator::normalizeForDraftSave(
                     $rawSignatureConfig,
                     $pageCount,
                 );
@@ -220,9 +220,7 @@ final class SaveDocumentGenerationTemplateDesign
                         'height' => round($placement['height'], 6),
                         'required' => $placement['required'],
                     ];
-                    if (isset($placement['slot_key'])) {
-                        $normalized['slot_key'] = $placement['slot_key'];
-                    }
+                    $normalized['slot_key'] = $placement['slot_key'];
 
                     return $normalized;
                 },

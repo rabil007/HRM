@@ -2,7 +2,9 @@
 
 namespace App\Support\Documents;
 
+use App\Enums\DocumentRecipientRole;
 use App\Models\DocumentGenerationTemplateVersion;
+use App\Support\Documents\Signing\DocumentSignatureSlot;
 
 final class VersionChangeSummary
 {
@@ -106,11 +108,11 @@ final class VersionChangeSummary
             }
         }
 
-        $prevSigs = self::indexBySlotKey(
+        $prevSigs = self::indexById(
             is_array($previous->signature_placement_config['placements'] ?? null)
                 ? $previous->signature_placement_config['placements'] : [],
         );
-        $currSigs = self::indexBySlotKey(
+        $currSigs = self::indexById(
             is_array($current->signature_placement_config['placements'] ?? null)
                 ? $current->signature_placement_config['placements'] : [],
         );
@@ -118,13 +120,21 @@ final class VersionChangeSummary
         $sigPrevKeys = array_keys($prevSigs);
         $sigCurrKeys = array_keys($currSigs);
 
-        $sigsAdded = array_values(array_diff($sigCurrKeys, $sigPrevKeys));
-        $sigsRemoved = array_values(array_diff($sigPrevKeys, $sigCurrKeys));
+        $sigsAdded = [];
+        foreach (array_diff($sigCurrKeys, $sigPrevKeys) as $id) {
+            $sigsAdded[] = self::signatureChangeLabel($currSigs[$id]);
+        }
+
+        $sigsRemoved = [];
+        foreach (array_diff($sigPrevKeys, $sigCurrKeys) as $id) {
+            $sigsRemoved[] = self::signatureChangeLabel($prevSigs[$id]);
+        }
+
         $sigsMoved = [];
 
-        foreach (array_intersect($sigPrevKeys, $sigCurrKeys) as $key) {
-            if (self::coordinatesDiffer($prevSigs[$key], $currSigs[$key])) {
-                $sigsMoved[] = $key;
+        foreach (array_intersect($sigPrevKeys, $sigCurrKeys) as $id) {
+            if (self::coordinatesDiffer($prevSigs[$id], $currSigs[$id])) {
+                $sigsMoved[] = self::signatureChangeLabel($currSigs[$id]);
             }
         }
 
@@ -160,29 +170,31 @@ final class VersionChangeSummary
         return $indexed;
     }
 
-    /** @param list<array<string, mixed>> $items */
-    private static function indexBySlotKey(array $items): array
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    private static function signatureChangeLabel(array $item): string
     {
-        $indexed = [];
-        foreach ($items as $item) {
-            $key = self::signatureComparisonKey($item);
-            if ($key !== null) {
-                $indexed[$key] = $item;
-            }
+        $id = trim((string) ($item['id'] ?? ''));
+        $slotKey = self::signatureSlotKey($item);
+        $label = $id;
+
+        if ($slotKey !== null && DocumentSignatureSlot::isValid($slotKey)) {
+            $parsed = DocumentSignatureSlot::parse($slotKey);
+            $label = DocumentSignatureSlot::defaultLabel($parsed['role'], $parsed['occurrence']);
         }
 
-        return $indexed;
+        if ($id === '') {
+            return $label;
+        }
+
+        return "{$label} · {$id}";
     }
 
     /**
-     * Comparison-only identity for signature placements.
-     *
-     * Legacy schema v1 configs may omit `slot_key`. Map the historical single
-     * placement per role onto the default v2 slots without mutating stored data.
-     *
      * @param  array<string, mixed>  $item
      */
-    private static function signatureComparisonKey(array $item): ?string
+    private static function signatureSlotKey(array $item): ?string
     {
         $slotKey = trim((string) ($item['slot_key'] ?? ''));
         if ($slotKey !== '') {
@@ -190,9 +202,9 @@ final class VersionChangeSummary
         }
 
         return match ((string) ($item['role'] ?? '')) {
-            'subject' => 'subject',
-            'manager' => 'manager_1',
-            'company_signatory' => 'company_signatory_1',
+            'subject' => DocumentSignatureSlot::SUBJECT,
+            'manager' => DocumentSignatureSlot::defaultForRole(DocumentRecipientRole::Manager),
+            'company_signatory' => DocumentSignatureSlot::defaultForRole(DocumentRecipientRole::CompanySignatory),
             default => null,
         };
     }

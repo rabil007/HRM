@@ -101,6 +101,28 @@ import {
     placementOverflowLabel,
 } from '../lib/placement-overflow';
 import type { OverflowLevel } from '../lib/placement-overflow';
+import {
+    SUBJECT_SLOT,
+    canvasSignatureLabel,
+    defaultSignaturePlacement,
+    distinctSlotKeys,
+    groupSignatureSlots,
+    loadSignaturePlacements,
+    nextSignerOccurrence,
+    offsetNewPlacement,
+    placementIndexInSlot,
+    removeSignaturePlacement,
+    serializeSignaturePlacements,
+    signerKindLabel,
+    signerLabel,
+    slotKeyForRole,
+    slotPagesFromPlacements,
+    uniquePlacementId,
+    updateSignaturePlacement,
+    DEFAULT_SIGNATURE_WIDTH,
+    DEFAULT_SIGNATURE_HEIGHT,
+} from '../lib/signature-placements';
+import type { SignatureRole } from '../lib/signature-placements';
 import { snapRectToGuides } from '../lib/snap-guides';
 import type { SnapBox, SnapGuide } from '../lib/snap-guides';
 import {
@@ -129,7 +151,6 @@ import type {
     PdfFieldPlacement,
     PdfPlacementItem,
     PdfTextPlacement,
-    SignaturePlacementConfig,
     SignaturePlacementItem,
     TemplateAutomationMode,
     TemplateReadiness,
@@ -142,13 +163,6 @@ import { TemplateDesignEmployeePreviewPicker } from './template-design-employee-
 import type { DesignEmployeePreview } from './template-design-employee-preview';
 import { TemplateDesignerWorkflowPanel } from './template-designer-workflow-panel';
 import { TemplateReadinessIndicator } from './template-readiness-indicator';
-
-// ─── Signature helper constants ───────────────────────────────────────────────
-const SUBJECT_SLOT = 'subject';
-const MAX_ROLE_OCCURRENCE = 7;
-const DEFAULT_WIDTH = 0.25;
-const DEFAULT_HEIGHT = 0.08;
-const DEFAULT_X = 0.1;
 
 function isSnapGuideObject(obj: { get: (key: string) => unknown }): boolean {
     return (
@@ -193,7 +207,7 @@ function pageSnapBoxes(
     canvasWidth: number,
     canvasHeight: number,
     placements: PdfPlacementItem[],
-    signatures: Record<string, SignaturePlacementItem>,
+    signatures: SignaturePlacementItem[],
 ): SnapBox[] {
     const boxes: SnapBox[] = [];
 
@@ -205,8 +219,8 @@ function pageSnapBoxes(
         boxes.push(normalizedToPixel(item, canvasWidth, canvasHeight));
     }
 
-    for (const item of Object.values(signatures)) {
-        if (!item || item.page !== page || item.id === movingId) {
+    for (const item of signatures) {
+        if (item.page !== page || item.id === movingId) {
             continue;
         }
 
@@ -216,8 +230,6 @@ function pageSnapBoxes(
     return boxes;
 }
 
-type SignatureRole = SignaturePlacementItem['role'];
-
 type PendingPlacement =
     | { kind: 'field'; fieldKey: string; label: string }
     | { kind: 'text' }
@@ -226,6 +238,7 @@ type PendingPlacement =
           role: SignatureRole;
           slotKey?: string;
           promptLabel?: string;
+          mode?: 'signer' | 'placement';
       };
 
 function pendingPlacementLabel(pending: PendingPlacement): string {
@@ -260,93 +273,6 @@ function pendingPlacementInstruction(pending: PendingPlacement): string {
     return `Click the printed line to place ${pendingPlacementLabel(pending)}`;
 }
 
-function placementIdForSlot(slotKey: string): string {
-    if (slotKey === SUBJECT_SLOT) {
-        return 'subject_signature';
-    }
-
-    const managerMatch = /^manager_(\d+)$/.exec(slotKey);
-
-    if (managerMatch) {
-        const occ = Number(managerMatch[1]);
-
-        return occ === 1 ? 'manager_signature' : `manager_signature_${occ}`;
-    }
-
-    const companyMatch = /^company_signatory_(\d+)$/.exec(slotKey);
-
-    if (companyMatch) {
-        const occ = Number(companyMatch[1]);
-
-        return occ === 1
-            ? 'company_signatory_signature'
-            : `company_signatory_signature_${occ}`;
-    }
-
-    return `${slotKey}_signature`;
-}
-
-function roleForSlot(slotKey: string): SignatureRole {
-    if (slotKey === SUBJECT_SLOT) {
-        return 'subject';
-    }
-
-    if (slotKey.startsWith('manager_')) {
-        return 'manager';
-    }
-
-    return 'company_signatory';
-}
-
-function occurrenceForSlot(slotKey: string): number {
-    if (slotKey === SUBJECT_SLOT) {
-        return 1;
-    }
-
-    const match = /_(\d+)$/.exec(slotKey);
-
-    return match ? Number(match[1]) : 1;
-}
-
-function slotKeyForRole(role: SignatureRole, occurrence: number): string {
-    if (role === 'subject') {
-        return SUBJECT_SLOT;
-    }
-
-    return role === 'manager'
-        ? `manager_${occurrence}`
-        : `company_signatory_${occurrence}`;
-}
-
-function defaultYForRole(role: SignatureRole, occurrence: number): number {
-    if (role === 'subject') {
-        return 0.75;
-    }
-
-    if (role === 'manager') {
-        return Math.max(0.2, 0.62 - (occurrence - 1) * 0.1);
-    }
-
-    return Math.max(0.15, 0.5 - (occurrence - 1) * 0.1);
-}
-
-function slotLabel(slotKey: string): string {
-    const role = roleForSlot(slotKey);
-    const occ = occurrenceForSlot(slotKey);
-
-    if (role === 'subject') {
-        return 'Employee Signature';
-    }
-
-    if (role === 'manager') {
-        return occ === 1 ? 'Manager Signature' : `Manager Signature ${occ}`;
-    }
-
-    return occ === 1
-        ? 'Company Signatory Signature'
-        : `Company Signatory Signature ${occ}`;
-}
-
 function roleColors(role: SignatureRole): {
     fill: string;
     stroke: string;
@@ -371,80 +297,6 @@ function roleColors(role: SignatureRole): {
     return { fill: 'rgba(180,83,9,0.08)', stroke: '#fcd34d', text: '#78350f' };
 }
 
-function defaultPlacement(
-    slotKey: string,
-    page: number,
-): SignaturePlacementItem {
-    const role = roleForSlot(slotKey);
-    const occ = occurrenceForSlot(slotKey);
-
-    return {
-        id: placementIdForSlot(slotKey),
-        type: 'signature',
-        role,
-        slot_key: slotKey,
-        page,
-        x: DEFAULT_X,
-        y: defaultYForRole(role, occ),
-        width: DEFAULT_WIDTH,
-        height: DEFAULT_HEIGHT,
-        required: true,
-    };
-}
-
-function normalizeLoadedPlacement(
-    item: SignaturePlacementItem,
-    slotKey: string,
-): SignaturePlacementItem {
-    return {
-        id: item.id || placementIdForSlot(slotKey),
-        type: 'signature',
-        role: roleForSlot(slotKey),
-        slot_key: slotKey,
-        page: item.page || 1,
-        x: item.x,
-        y: item.y,
-        width: item.width,
-        height: item.height,
-        required: item.required ?? true,
-    };
-}
-
-function loadPlacementsFromConfig(
-    initialConfig: SignaturePlacementConfig | null,
-): Record<string, SignaturePlacementItem> {
-    const placements: Record<string, SignaturePlacementItem> = {};
-    const source = initialConfig?.placements ?? [];
-
-    if (source.length === 0) {
-        // Seed a default employee box only when the version has never stored
-        // signature placements. An explicit empty config stays empty.
-        if (initialConfig == null) {
-            placements[SUBJECT_SLOT] = defaultPlacement(SUBJECT_SLOT, 1);
-        }
-
-        return placements;
-    }
-
-    const isV2 =
-        initialConfig?.schema_version === 2 ||
-        source.some((item) => typeof item.slot_key === 'string');
-
-    if (isV2) {
-        for (const item of source) {
-            const slotKey = item.slot_key ?? slotKeyForRole(item.role, 1);
-            placements[slotKey] = normalizeLoadedPlacement(item, slotKey);
-        }
-    } else {
-        for (const item of source) {
-            const slotKey = slotKeyForRole(item.role, 1);
-            placements[slotKey] = normalizeLoadedPlacement(item, slotKey);
-        }
-    }
-
-    return placements;
-}
-
 function automationStateFromVersion(version: TemplateVersionSummary | null): {
     workflowMode: TemplateAutomationMode;
     workflowPresetId: number | null;
@@ -465,71 +317,12 @@ function automationStateFromVersion(version: TemplateVersionSummary | null): {
     };
 }
 
-function sortedSlotKeys(
-    placements: Record<string, SignaturePlacementItem>,
-): string[] {
-    return Object.keys(placements).sort((a, b) => {
-        const roleOrder = (slot: string): number => {
-            const r = roleForSlot(slot);
-
-            return r === 'subject' ? 0 : r === 'manager' ? 1 : 2;
-        };
-        const diff = roleOrder(a) - roleOrder(b);
-
-        return diff !== 0 ? diff : occurrenceForSlot(a) - occurrenceForSlot(b);
-    });
-}
-
-function nextOccurrence(
-    placements: Record<string, SignaturePlacementItem>,
-    role: Exclude<SignatureRole, 'subject'>,
-): number | null {
-    const existing = Object.keys(placements)
-        .filter((slot) => roleForSlot(slot) === role)
-        .map(occurrenceForSlot)
-        .sort((a, b) => a - b);
-    const next = existing.length + 1;
-
-    return next > MAX_ROLE_OCCURRENCE ? null : next;
-}
-
-function renumberRoleSlots(
-    placements: Record<string, SignaturePlacementItem>,
-    role: Exclude<SignatureRole, 'subject'>,
-): Record<string, SignaturePlacementItem> {
-    const roleSlots = sortedSlotKeys(placements).filter(
-        (slot) => roleForSlot(slot) === role,
-    );
-    const next: Record<string, SignaturePlacementItem> = {};
-
-    for (const [slotKey, item] of Object.entries(placements)) {
-        if (roleForSlot(slotKey) !== role) {
-            next[slotKey] = item;
-        }
-    }
-
-    roleSlots.forEach((oldSlot, index) => {
-        const occ = index + 1;
-        const newSlot = slotKeyForRole(role, occ);
-        const item = placements[oldSlot];
-
-        if (!item) {
-            return;
-        }
-
-        next[newSlot] = {
-            ...item,
-            id: placementIdForSlot(newSlot),
-            role,
-            slot_key: newSlot,
-        };
-    });
-
-    return next;
-}
-
 // ─── VersionInfoPanel ─────────────────────────────────────────────────────────
 function signatureSlotLabel(slotKey: string): string {
+    if (slotKey.includes(' · ')) {
+        return slotKey;
+    }
+
     if (slotKey === 'subject') {
         return 'Employee';
     }
@@ -1300,8 +1093,8 @@ export function TemplatePdfDesignerDialog({
     const [totalPages, setTotalPages] = useState(1);
     const [placements, setPlacements] = useState<PdfPlacementItem[]>([]);
     const [signaturePlacements, setSignaturePlacements] = useState<
-        Record<string, SignaturePlacementItem>
-    >({});
+        SignaturePlacementItem[]
+    >([]);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(
         null,
     );
@@ -1368,9 +1161,7 @@ export function TemplatePdfDesignerDialog({
     const labelRefs = useRef<Map<string, FabricText>>(new Map());
     const textBoxRefs = useRef<Map<string, Textbox>>(new Map());
     const placementsRef = useRef<PdfPlacementItem[]>([]);
-    const signaturePlacementsRef = useRef<
-        Record<string, SignaturePlacementItem>
-    >({});
+    const signaturePlacementsRef = useRef<SignaturePlacementItem[]>([]);
     const canvasSizeRef = useRef({ width: 0, height: 0 });
     const pdfScaleRef = useRef(1);
     const isSamplePreviewRef = useRef(false);
@@ -1382,14 +1173,11 @@ export function TemplatePdfDesignerDialog({
     const pendingPlacementRef = useRef<PendingPlacement | null>(null);
     const previewEmployeeRef = useRef<DesignEmployeePreview | null>(null);
     const historyRef = useRef(
-        new DesignHistory<
-            PdfPlacementItem[],
-            Record<string, SignaturePlacementItem>
-        >(),
+        new DesignHistory<PdfPlacementItem[], SignaturePlacementItem[]>(),
     );
     const dragStartRef = useRef<{
         placements: PdfPlacementItem[];
-        signaturePlacements: Record<string, SignaturePlacementItem>;
+        signaturePlacements: SignaturePlacementItem[];
     } | null>(null);
     const placePendingAtRef = useRef<(x: number, y: number) => void>(
         () => undefined,
@@ -1491,11 +1279,10 @@ export function TemplatePdfDesignerDialog({
             return null;
         }
 
-        const key = Object.keys(signaturePlacements).find(
-            (k) => signaturePlacements[k]?.id === selectedElementId,
+        return (
+            signaturePlacements.find((item) => item.id === selectedElementId) ??
+            null
         );
-
-        return key ? { slotKey: key, item: signaturePlacements[key]! } : null;
     }, [signaturePlacements, selectedElementId]);
 
     // ── syncLabels ────────────────────────────────────────────────────────────
@@ -1788,83 +1575,84 @@ export function TemplatePdfDesignerDialog({
                 });
 
                 // ── Signature placements ─────────────────────────────────────────
-                sortedSlotKeys(signaturePlacementsRef.current).forEach(
-                    (slotKey) => {
-                        const item = signaturePlacementsRef.current[slotKey];
+                signaturePlacementsRef.current.forEach((item) => {
+                    if (item.page !== page) {
+                        return;
+                    }
 
-                        if (!item || item.page !== page) {
-                            return;
-                        }
+                    const pixel = normalizedToPixel(
+                        {
+                            x: item.x,
+                            y: item.y,
+                            width: item.width,
+                            height: item.height,
+                        },
+                        width,
+                        height,
+                    );
+                    const colors = roleColors(item.role);
 
-                        const pixel = normalizedToPixel(
+                    const rect = new Rect({
+                        left: pixel.left,
+                        top: pixel.top,
+                        width: pixel.width,
+                        height: pixel.height,
+                        originX: 'left',
+                        originY: 'top',
+                        fill: preview ? 'transparent' : colors.fill,
+                        stroke: preview ? 'transparent' : colors.stroke,
+                        strokeWidth: 1,
+                        strokeUniform: true,
+                        objectCaching: false,
+                        cornerColor: colors.stroke,
+                        cornerStyle: 'circle',
+                        transparentCorners: false,
+                        hasRotatingPoint: false,
+                        lockRotation: true,
+                        selectable: !preview,
+                        evented: !preview,
+                    });
+                    rect.set('data', {
+                        id: item.id,
+                        elementType: 'signature',
+                    });
+
+                    if (!isEditableArg) {
+                        rect.set({
+                            lockMovementX: true,
+                            lockMovementY: true,
+                            lockScalingX: true,
+                            lockScalingY: true,
+                            hasControls: false,
+                        });
+                    }
+
+                    canvas.add(rect);
+
+                    if (!preview) {
+                        const label = new FabricText(
+                            canvasSignatureLabel(
+                                item,
+                                signaturePlacementsRef.current,
+                            ),
                             {
-                                x: item.x,
-                                y: item.y,
-                                width: item.width,
-                                height: item.height,
-                            },
-                            width,
-                            height,
-                        );
-                        const colors = roleColors(item.role);
-
-                        const rect = new Rect({
-                            left: pixel.left,
-                            top: pixel.top,
-                            width: pixel.width,
-                            height: pixel.height,
-                            originX: 'left',
-                            originY: 'top',
-                            fill: preview ? 'transparent' : colors.fill,
-                            stroke: preview ? 'transparent' : colors.stroke,
-                            strokeWidth: 1,
-                            strokeUniform: true,
-                            objectCaching: false,
-                            cornerColor: colors.stroke,
-                            cornerStyle: 'circle',
-                            transparentCorners: false,
-                            hasRotatingPoint: false,
-                            lockRotation: true,
-                            selectable: !preview,
-                            evented: !preview,
-                        });
-                        rect.set('data', {
-                            id: item.id,
-                            elementType: 'signature',
-                            slotKey,
-                        });
-
-                        if (!isEditableArg) {
-                            rect.set({
-                                lockMovementX: true,
-                                lockMovementY: true,
-                                lockScalingX: true,
-                                lockScalingY: true,
-                                hasControls: false,
-                            });
-                        }
-
-                        canvas.add(rect);
-
-                        if (!preview) {
-                            const label = new FabricText(slotLabel(slotKey), {
                                 left: pixel.left + 6,
                                 top: pixel.top + 6,
                                 fontSize: 12,
                                 fill: colors.text,
                                 selectable: false,
                                 evented: false,
-                            });
-                            label.set('data', {
-                                parentId: item.id,
-                                elementType: 'signature',
-                            });
+                            },
+                        );
+                        label.set('data', {
+                            parentId: item.id,
+                            elementType: 'signature',
+                        });
 
-                            canvas.add(label);
-                            labelRefs.current.set(item.id, label);
-                        }
-                    },
-                );
+                        canvas.add(label);
+                        labelRefs.current.set(item.id, label);
+                    }
+                });
 
                 const selectedId = selectedElementIdRef.current;
 
@@ -1931,6 +1719,7 @@ export function TemplatePdfDesignerDialog({
                 if (isSyncingCanvasRef.current) {
                     return;
                 }
+
                 if (dragStartRef.current) {
                     historyRef.current.accept(dragStartRef.current);
                     dragStartRef.current = null;
@@ -1939,7 +1728,7 @@ export function TemplatePdfDesignerDialog({
 
                 const target = e.target;
                 const data = target?.get('data') as
-                    | { id?: string; elementType?: string; slotKey?: string }
+                    | { id?: string; elementType?: string }
                     | undefined;
 
                 if (!target || !data?.id || !isEditableRef.current) {
@@ -2000,17 +1789,17 @@ export function TemplatePdfDesignerDialog({
 
                         return updated;
                     });
-                } else if (data.elementType === 'signature' && data.slotKey) {
-                    const slotKey = data.slotKey;
+                } else if (data.elementType === 'signature' && data.id) {
+                    const placementId = data.id;
                     setSignaturePlacements((prev) => {
-                        const updated = {
-                            ...prev,
-                            [slotKey]: {
-                                ...prev[slotKey]!,
+                        const updated = updateSignaturePlacement(
+                            prev,
+                            placementId,
+                            {
                                 x: norm.x,
                                 y: norm.y,
                             },
-                        };
+                        );
                         signaturePlacementsRef.current = updated;
 
                         return updated;
@@ -2024,6 +1813,7 @@ export function TemplatePdfDesignerDialog({
                 if (isSyncingCanvasRef.current) {
                     return;
                 }
+
                 if (dragStartRef.current) {
                     historyRef.current.accept(dragStartRef.current);
                     dragStartRef.current = null;
@@ -2032,7 +1822,7 @@ export function TemplatePdfDesignerDialog({
 
                 const target = e.target;
                 const data = target?.get('data') as
-                    | { id?: string; elementType?: string; slotKey?: string }
+                    | { id?: string; elementType?: string }
                     | undefined;
 
                 if (!target || !data?.id || !isEditableRef.current) {
@@ -2069,19 +1859,19 @@ export function TemplatePdfDesignerDialog({
 
                         return updated;
                     });
-                } else if (data.elementType === 'signature' && data.slotKey) {
-                    const slotKey = data.slotKey;
+                } else if (data.elementType === 'signature' && data.id) {
+                    const placementId = data.id;
                     setSignaturePlacements((prev) => {
-                        const updated = {
-                            ...prev,
-                            [slotKey]: {
-                                ...prev[slotKey]!,
+                        const updated = updateSignaturePlacement(
+                            prev,
+                            placementId,
+                            {
                                 x: norm.x,
                                 y: norm.y,
                                 width: norm.width,
                                 height: norm.height,
                             },
-                        };
+                        );
                         signaturePlacementsRef.current = updated;
 
                         return updated;
@@ -2095,9 +1885,10 @@ export function TemplatePdfDesignerDialog({
                 if (isSyncingCanvasRef.current) {
                     return;
                 }
+
                 const target = e.target;
                 const data = target?.get('data') as
-                    | { id?: string; elementType?: string; slotKey?: string }
+                    | { id?: string; elementType?: string }
                     | undefined;
 
                 if (
@@ -2140,19 +1931,19 @@ export function TemplatePdfDesignerDialog({
 
                         return updated;
                     });
-                } else if (data.elementType === 'signature' && data.slotKey) {
-                    const slotKey = data.slotKey;
+                } else if (data.elementType === 'signature' && data.id) {
+                    const placementId = data.id;
                     setSignaturePlacements((prev) => {
-                        const updated = {
-                            ...prev,
-                            [slotKey]: {
-                                ...prev[slotKey]!,
+                        const updated = updateSignaturePlacement(
+                            prev,
+                            placementId,
+                            {
                                 x: norm.x,
                                 y: norm.y,
                                 width: norm.width,
                                 height: norm.height,
                             },
-                        };
+                        );
                         signaturePlacementsRef.current = updated;
 
                         return updated;
@@ -2428,7 +2219,7 @@ export function TemplatePdfDesignerDialog({
             const normalizedConfig = normalizePlacementConfig(
                 initialVersion.placement_config,
             );
-            const normalizedSigs = loadPlacementsFromConfig(
+            const normalizedSigs = loadSignaturePlacements(
                 initialVersion.signature_placement_config ?? null,
             );
 
@@ -2505,11 +2296,17 @@ export function TemplatePdfDesignerDialog({
     useEffect(() => disposeFabricCanvas, [disposeFabricCanvas]);
 
     // ── Signature slot helpers ─────────────────────────────────────────────────
-    const canAddSubject = signaturePlacements[SUBJECT_SLOT] == null;
+    const signatureSlotGroups = useMemo(
+        () => groupSignatureSlots(signaturePlacements),
+        [signaturePlacements],
+    );
+    const canAddSubject = !signatureSlotGroups.some(
+        (group) => group.slotKey === SUBJECT_SLOT,
+    );
     const canAddManager =
-        nextOccurrence(signaturePlacements, 'manager') !== null;
+        nextSignerOccurrence(signaturePlacements, 'manager') !== null;
     const canAddCompany =
-        nextOccurrence(signaturePlacements, 'company_signatory') !== null;
+        nextSignerOccurrence(signaturePlacements, 'company_signatory') !== null;
 
     const refreshCanvasObjects = () => {
         const canvas = fabricCanvasRef.current;
@@ -2536,7 +2333,7 @@ export function TemplatePdfDesignerDialog({
         (
             next: {
                 placements: PdfPlacementItem[];
-                signaturePlacements: Record<string, SignaturePlacementItem>;
+                signaturePlacements: SignaturePlacementItem[];
             } | null,
         ) => {
             if (!next) {
@@ -2668,9 +2465,13 @@ export function TemplatePdfDesignerDialog({
             width: number;
             height: number;
         },
+        options?: { slotKey?: string; mode?: 'signer' | 'placement' },
     ) => {
         const page = currentPageRef.current;
         const size = canvasSizeRef.current;
+        const mode = options?.mode ?? 'signer';
+        const existing = signaturePlacementsRef.current;
+        const existingIds = existing.map((item) => item.id);
         const withClickOrigin = (
             item: SignaturePlacementItem,
         ): SignaturePlacementItem => {
@@ -2686,6 +2487,7 @@ export function TemplatePdfDesignerDialog({
 
             return {
                 ...item,
+                page,
                 x: norm.x,
                 y: norm.y,
                 width: norm.width,
@@ -2693,67 +2495,97 @@ export function TemplatePdfDesignerDialog({
             };
         };
 
-        if (role === 'subject') {
-            if (signaturePlacementsRef.current[SUBJECT_SLOT]) {
-                return;
-            }
-
+        const commitNewItem = (newItem: SignaturePlacementItem) => {
             recordHistory();
             nudgeSessionRef.current = false;
-            const newItem = withClickOrigin(
-                defaultPlacement(SUBJECT_SLOT, page),
-            );
-            const updated = {
-                ...signaturePlacementsRef.current,
-                [SUBJECT_SLOT]: newItem,
-            };
+            const updated = [...existing, newItem];
             signaturePlacementsRef.current = updated;
             setSignaturePlacements(updated);
             setSelectedElementId(newItem.id);
             setSelectedElementType('signature');
             setHasUnsavedChanges(true);
             refreshCanvasObjects();
+        };
+
+        if (mode === 'placement') {
+            const slotKey = options?.slotKey;
+
+            if (!slotKey) {
+                return;
+            }
+
+            const siblings = existing.filter(
+                (item) =>
+                    (item.slot_key ?? slotKeyForRole(item.role, 1)) === slotKey,
+            );
+            const source = siblings[siblings.length - 1];
+            const base = source
+                ? offsetNewPlacement(source)
+                : defaultSignaturePlacement(slotKey, page, existingIds);
+
+            commitNewItem(
+                withClickOrigin({
+                    ...base,
+                    id: uniquePlacementId(existingIds, slotKey),
+                    type: 'signature',
+                    role,
+                    slot_key: slotKey,
+                    required: true,
+                }),
+            );
 
             return;
         }
 
-        const occurrence = nextOccurrence(signaturePlacementsRef.current, role);
+        if (role === 'subject') {
+            const hasSubject = existing.some(
+                (item) =>
+                    (item.slot_key ?? slotKeyForRole(item.role, 1)) ===
+                    SUBJECT_SLOT,
+            );
+
+            if (hasSubject) {
+                return;
+            }
+
+            commitNewItem(
+                withClickOrigin(
+                    defaultSignaturePlacement(SUBJECT_SLOT, page, existingIds),
+                ),
+            );
+
+            return;
+        }
+
+        const occurrence = nextSignerOccurrence(existing, role);
 
         if (occurrence === null) {
             return;
         }
 
-        recordHistory();
-        nudgeSessionRef.current = false;
         const slotKey = slotKeyForRole(role, occurrence);
-        const newItem = withClickOrigin(defaultPlacement(slotKey, page));
-        const updated = {
-            ...signaturePlacementsRef.current,
-            [slotKey]: newItem,
-        };
-        signaturePlacementsRef.current = updated;
-        setSignaturePlacements(updated);
-        setSelectedElementId(newItem.id);
-        setSelectedElementType('signature');
-        setHasUnsavedChanges(true);
-        refreshCanvasObjects();
+
+        commitNewItem(
+            withClickOrigin(
+                defaultSignaturePlacement(slotKey, page, existingIds),
+            ),
+        );
     };
 
-    const removeSlot = (slotKey: string, skipHistory = false) => {
+    const removePlacement = (placementId: string, skipHistory = false) => {
         if (!skipHistory) {
             recordHistory();
             nudgeSessionRef.current = false;
         }
 
-        const role = roleForSlot(slotKey);
-        const removedId = signaturePlacementsRef.current[slotKey]?.id;
-        const rest = { ...signaturePlacementsRef.current };
-        delete rest[slotKey];
-        const next = role === 'subject' ? rest : renumberRoleSlots(rest, role);
+        const next = removeSignaturePlacement(
+            signaturePlacementsRef.current,
+            placementId,
+        );
         signaturePlacementsRef.current = next;
         setSignaturePlacements(next);
 
-        if (selectedElementId === removedId) {
+        if (selectedElementId === placementId) {
             setSelectedElementId(null);
             setSelectedElementType(null);
         }
@@ -2775,7 +2607,10 @@ export function TemplatePdfDesignerDialog({
     };
 
     const locateSignatureSlot = (slotKey: string): boolean => {
-        const existing = signaturePlacementsRef.current[slotKey];
+        const existing = signaturePlacementsRef.current.find(
+            (item) =>
+                (item.slot_key ?? slotKeyForRole(item.role, 1)) === slotKey,
+        );
 
         if (!existing) {
             return false;
@@ -2800,7 +2635,7 @@ export function TemplatePdfDesignerDialog({
     const placeSlotOnPdf = (slotKey: string, promptLabel?: string) => {
         const next = nextSignatureSlotToPlace(
             slotKey,
-            Object.keys(signaturePlacementsRef.current),
+            distinctSlotKeys(signaturePlacementsRef.current),
         );
 
         if (next.action === 'select') {
@@ -2818,18 +2653,19 @@ export function TemplatePdfDesignerDialog({
             role: next.role as SignatureRole,
             slotKey: next.slotKey,
             promptLabel: promptLabel || undefined,
+            mode: 'signer',
         });
     };
 
     const removeAllSignaturePlacements = () => {
-        if (Object.keys(signaturePlacementsRef.current).length === 0) {
+        if (signaturePlacementsRef.current.length === 0) {
             return;
         }
 
         recordHistory();
         nudgeSessionRef.current = false;
-        signaturePlacementsRef.current = {};
-        setSignaturePlacements({});
+        signaturePlacementsRef.current = [];
+        setSignaturePlacements([]);
         setSelectedElementId(null);
         setSelectedElementType(null);
         setHasUnsavedChanges(true);
@@ -3115,11 +2951,15 @@ export function TemplatePdfDesignerDialog({
                 clickToCenteredPlacement(
                     x,
                     y,
-                    size.width * DEFAULT_WIDTH,
-                    size.height * DEFAULT_HEIGHT,
+                    size.width * DEFAULT_SIGNATURE_WIDTH,
+                    size.height * DEFAULT_SIGNATURE_HEIGHT,
                     size.width,
                     size.height,
                 ),
+                {
+                    slotKey: pending.slotKey,
+                    mode: pending.mode ?? 'signer',
+                },
             );
         }
 
@@ -3176,14 +3016,11 @@ export function TemplatePdfDesignerDialog({
                 return updated;
             });
         } else {
-            const slotKey = Object.keys(signaturePlacementsRef.current).find(
-                (key) => signaturePlacementsRef.current[key]?.id === id,
+            const current = signaturePlacementsRef.current.find(
+                (item) => item.id === id,
             );
-            const current = slotKey
-                ? signaturePlacementsRef.current[slotKey]
-                : undefined;
 
-            if (!slotKey || !current) {
+            if (!current) {
                 return;
             }
 
@@ -3195,10 +3032,7 @@ export function TemplatePdfDesignerDialog({
                 size.height,
             );
             setSignaturePlacements((prev) => {
-                const updated = {
-                    ...prev,
-                    [slotKey]: { ...current, ...nextRect },
-                };
+                const updated = updateSignaturePlacement(prev, id, nextRect!);
                 signaturePlacementsRef.current = updated;
 
                 return updated;
@@ -3284,15 +3118,9 @@ export function TemplatePdfDesignerDialog({
                 return updated;
             });
         } else if (elementType === 'signature') {
-            const slotKey = Object.keys(signaturePlacementsRef.current).find(
-                (k) => signaturePlacementsRef.current[k]?.id === id,
-            );
+            removePlacement(id, true);
 
-            if (slotKey) {
-                removeSlot(slotKey, true);
-
-                return;
-            }
+            return;
         }
 
         setSelectedElementId(null);
@@ -3362,7 +3190,7 @@ export function TemplatePdfDesignerDialog({
             const normalizedConfig = normalizePlacementConfig(
                 data.version.placement_config,
             );
-            const normalizedSigs = loadPlacementsFromConfig(
+            const normalizedSigs = loadSignaturePlacements(
                 data.version.signature_placement_config ?? null,
             );
 
@@ -3457,23 +3285,6 @@ export function TemplatePdfDesignerDialog({
         setPlacementError(null);
         setSignatureError(null);
 
-        const sigPlacements: SignaturePlacementItem[] = sortedSlotKeys(
-            signaturePlacementsRef.current,
-        ).map((slotKey) => {
-            const item =
-                signaturePlacementsRef.current[slotKey] ??
-                defaultPlacement(slotKey, 1);
-
-            return {
-                ...item,
-                id: placementIdForSlot(slotKey),
-                type: 'signature' as const,
-                role: roleForSlot(slotKey),
-                slot_key: slotKey,
-                required: true,
-            };
-        });
-
         const payload = {
             placement_config: {
                 schema_version: 2,
@@ -3505,10 +3316,9 @@ export function TemplatePdfDesignerDialog({
                     return { ...base, field: p.field };
                 }),
             },
-            signature_placement_config: {
-                schema_version: 2,
-                placements: sigPlacements,
-            },
+            signature_placement_config: serializeSignaturePlacements(
+                signaturePlacementsRef.current,
+            ),
             document_workflow_mode: workflowMode,
             document_workflow_preset_id:
                 workflowMode === 'preset' ? workflowPresetId : null,
@@ -4079,45 +3889,63 @@ export function TemplatePdfDesignerDialog({
                 </p>
                 <div>
                     <p className="mb-0.5 text-[11px] text-muted-foreground">
-                        Slot
-                    </p>
-                    <p className="font-mono text-xs text-foreground">
-                        {selectedSignature.slotKey}
-                    </p>
-                </div>
-                <div>
-                    <p className="mb-1 text-[11px] text-muted-foreground">
-                        Role
+                        Signer
                     </p>
                     <Badge
                         variant="secondary"
-                        className="text-xs capitalize"
+                        className="text-xs"
                         style={{
-                            color: roleColors(selectedSignature.item.role).text,
-                            borderColor: roleColors(selectedSignature.item.role)
+                            color: roleColors(selectedSignature.role).text,
+                            borderColor: roleColors(selectedSignature.role)
                                 .stroke,
                         }}
                     >
-                        {selectedSignature.item.role.replace('_', ' ')}
+                        {signerKindLabel(selectedSignature.role)}
                     </Badge>
+                </div>
+                <div>
+                    <p className="mb-0.5 text-[11px] text-muted-foreground">
+                        Signing slot
+                    </p>
+                    <p className="text-xs text-foreground">
+                        {signerLabel(
+                            selectedSignature.slot_key ??
+                                slotKeyForRole(selectedSignature.role, 1),
+                        )}
+                    </p>
+                </div>
+                <div>
+                    <p className="mb-0.5 text-[11px] text-muted-foreground">
+                        Placement
+                    </p>
+                    <p className="text-xs text-foreground">
+                        {(() => {
+                            const { index, total } = placementIndexInSlot(
+                                selectedSignature,
+                                signaturePlacements,
+                            );
+
+                            return `${index} of ${total}`;
+                        })()}
+                    </p>
                 </div>
                 <div>
                     <p className="mb-1 text-[11px] text-muted-foreground">
                         Page
                     </p>
                     <Select
-                        value={String(selectedSignature.item.page)}
+                        value={String(selectedSignature.page)}
                         disabled={!isEditable}
                         onValueChange={(v) => {
                             const page = Number(v);
-                            const slotKey = selectedSignature.slotKey;
                             recordHistory();
                             nudgeSessionRef.current = false;
                             setSignaturePlacements((prev) => {
-                                const updated = {
-                                    ...prev,
-                                    [slotKey]: { ...prev[slotKey]!, page },
-                                };
+                                const updated = updateSignaturePlacement(
+                                    prev,
+                                    selectedSignature.id,
+                                    { page },
+                                );
                                 signaturePlacementsRef.current = updated;
 
                                 return updated;
@@ -4148,7 +3976,7 @@ export function TemplatePdfDesignerDialog({
                         className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
                         onClick={() =>
                             handleDeleteSelected(
-                                selectedSignature.item.id,
+                                selectedSignature.id,
                                 'signature',
                             )
                         }
@@ -4163,16 +3991,11 @@ export function TemplatePdfDesignerDialog({
     const canUndoDesign = historyTick >= 0 && historyRef.current.canUndo;
     const canRedoDesign = historyTick >= 0 && historyRef.current.canRedo;
 
-    const placedSlotKeys = Object.keys(signaturePlacements);
+    const placedSlotKeys = distinctSlotKeys(signaturePlacements);
     const selectedSigningPreset = signingPresets.find(
         (preset) => preset.id === signingPresetId,
     );
-    const slotPages = Object.fromEntries(
-        placedSlotKeys.map((slotKey) => [
-            slotKey,
-            signaturePlacements[slotKey]?.page ?? 1,
-        ]),
-    );
+    const slotPages = slotPagesFromPlacements(signaturePlacements);
     const missingSigningSlotKeys = selectedSigningPreset
         ? signingStepPlacementStatuses(
               selectedSigningPreset.steps,
@@ -4668,32 +4491,71 @@ export function TemplatePdfDesignerDialog({
                         <p className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
                             Signatures
                         </p>
-                        {sortedSlotKeys(signaturePlacements).map((slotKey) => (
-                            <div
-                                key={slotKey}
-                                className="flex items-center justify-between rounded border border-border/60 bg-background p-2"
-                            >
-                                <div>
-                                    <p className="text-xs font-medium">
-                                        {slotLabel(slotKey)}
-                                    </p>
-                                    <p className="font-mono text-[10px] text-muted-foreground">
-                                        {slotKey}
-                                    </p>
-                                </div>
-                                {isEditable && !isSamplePreview && (
-                                    <Button
+                        {signatureSlotGroups.map((group) => {
+                            const count = group.placements.length;
+                            const isAddingPlacement =
+                                pendingPlacement?.kind === 'signature' &&
+                                pendingPlacement.mode === 'placement' &&
+                                pendingPlacement.slotKey === group.slotKey;
+
+                            return (
+                                <div
+                                    key={group.slotKey}
+                                    className="space-y-1.5 rounded border border-border/60 bg-background p-2"
+                                >
+                                    <button
                                         type="button"
-                                        size="icon"
-                                        variant="ghost"
-                                        className="size-6 text-destructive"
-                                        onClick={() => removeSlot(slotKey)}
+                                        className="w-full text-left"
+                                        onClick={() =>
+                                            locateSignatureSlot(group.slotKey)
+                                        }
                                     >
-                                        <Trash2 className="size-3" />
-                                    </Button>
-                                )}
-                            </div>
-                        ))}
+                                        <p className="text-xs font-medium">
+                                            {group.label}
+                                        </p>
+                                        <p className="text-[10px] text-muted-foreground">
+                                            {count} placement
+                                            {count === 1 ? '' : 's'}
+                                        </p>
+                                    </button>
+                                    {isEditable && !isSamplePreview && (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant={
+                                                isAddingPlacement
+                                                    ? 'default'
+                                                    : 'outline'
+                                            }
+                                            className="w-full"
+                                            onClick={() =>
+                                                setPendingPlacement(
+                                                    (current) =>
+                                                        current?.kind ===
+                                                            'signature' &&
+                                                        current.mode ===
+                                                            'placement' &&
+                                                        current.slotKey ===
+                                                            group.slotKey
+                                                            ? null
+                                                            : {
+                                                                  kind: 'signature',
+                                                                  role: group.role,
+                                                                  slotKey:
+                                                                      group.slotKey,
+                                                                  mode: 'placement',
+                                                                  promptLabel: `another ${group.label}`,
+                                                              },
+                                                )
+                                            }
+                                        >
+                                            <Plus className="mr-1.5 size-3.5" />
+                                            Add placement
+                                        </Button>
+                                    )}
+                                </div>
+                            );
+                        })}
                         {isEditable && !isSamplePreview && (
                             <>
                                 {canAddSubject && (
@@ -4702,7 +4564,10 @@ export function TemplatePdfDesignerDialog({
                                         variant={
                                             pendingPlacement?.kind ===
                                                 'signature' &&
-                                            pendingPlacement.role === 'subject'
+                                            pendingPlacement.role ===
+                                                'subject' &&
+                                            pendingPlacement.mode !==
+                                                'placement'
                                                 ? 'default'
                                                 : 'outline'
                                         }
@@ -4710,11 +4575,13 @@ export function TemplatePdfDesignerDialog({
                                         onClick={() =>
                                             setPendingPlacement((current) =>
                                                 current?.kind === 'signature' &&
-                                                current.role === 'subject'
+                                                current.role === 'subject' &&
+                                                current.mode !== 'placement'
                                                     ? null
                                                     : {
                                                           kind: 'signature',
                                                           role: 'subject',
+                                                          mode: 'signer',
                                                       },
                                             )
                                         }
@@ -4728,7 +4595,8 @@ export function TemplatePdfDesignerDialog({
                                     variant={
                                         pendingPlacement?.kind ===
                                             'signature' &&
-                                        pendingPlacement.role === 'manager'
+                                        pendingPlacement.role === 'manager' &&
+                                        pendingPlacement.mode !== 'placement'
                                             ? 'default'
                                             : 'outline'
                                     }
@@ -4736,11 +4604,13 @@ export function TemplatePdfDesignerDialog({
                                     onClick={() =>
                                         setPendingPlacement((current) =>
                                             current?.kind === 'signature' &&
-                                            current.role === 'manager'
+                                            current.role === 'manager' &&
+                                            current.mode !== 'placement'
                                                 ? null
                                                 : {
                                                       kind: 'signature',
                                                       role: 'manager',
+                                                      mode: 'signer',
                                                   },
                                         )
                                     }
@@ -4755,7 +4625,8 @@ export function TemplatePdfDesignerDialog({
                                         pendingPlacement?.kind ===
                                             'signature' &&
                                         pendingPlacement.role ===
-                                            'company_signatory'
+                                            'company_signatory' &&
+                                        pendingPlacement.mode !== 'placement'
                                             ? 'default'
                                             : 'outline'
                                     }
@@ -4763,11 +4634,14 @@ export function TemplatePdfDesignerDialog({
                                     onClick={() =>
                                         setPendingPlacement((current) =>
                                             current?.kind === 'signature' &&
-                                            current.role === 'company_signatory'
+                                            current.role ===
+                                                'company_signatory' &&
+                                            current.mode !== 'placement'
                                                 ? null
                                                 : {
                                                       kind: 'signature',
                                                       role: 'company_signatory',
+                                                      mode: 'signer',
                                                   },
                                         )
                                     }
@@ -4912,7 +4786,7 @@ export function TemplatePdfDesignerDialog({
                                 placedSlotKeys={placedSlotKeys}
                                 slotPages={slotPages}
                                 selectedSlotKey={
-                                    selectedSignature?.slotKey ?? null
+                                    selectedSignature?.slot_key ?? null
                                 }
                                 pendingSlotKey={
                                     pendingPlacement?.kind === 'signature'

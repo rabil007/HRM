@@ -9,6 +9,7 @@ use App\Models\DocumentRecipientRequest;
 use App\Support\Documents\RecipientRequests\Actions\ExpireDocumentRecipientRequest;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestAccess;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
+use App\Support\Documents\RecipientRequests\DocumentSignaturePlacementValidator;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -44,7 +45,11 @@ class RespondDocumentRecipientRequestController extends Controller
             );
         }
 
-        $recipientRequest->loadMissing(['documentInstance.employeeDocument.employee', 'sourceVersion']);
+        $recipientRequest->loadMissing(['documentInstance.employeeDocument.employee', 'sourceVersion', 'documentInstance.templateVersion']);
+
+        $slotKey = filled($recipientRequest->signature_slot_key)
+            ? (string) $recipientRequest->signature_slot_key
+            : 'subject';
 
         return Inertia::render('organization/documents/recipient-requests/respond', [
             'request' => [
@@ -56,6 +61,10 @@ class RespondDocumentRecipientRequestController extends Controller
                 'source_version' => $recipientRequest->sourceVersion?->version,
                 'expires_at' => $recipientRequest->expires_at?->toIso8601String(),
                 'already_completed' => $recipientRequest->status === DocumentRecipientRequestStatus::Completed,
+                'signature_placement_count' => count(DocumentSignaturePlacementValidator::placementIdsForSlot(
+                    $recipientRequest->documentInstance?->templateVersion?->signature_placement_config,
+                    $slotKey,
+                )),
             ],
             'document_url' => route('organization.documents.recipient-requests.document', [
                 'recipientRequest' => $recipientRequest->id,

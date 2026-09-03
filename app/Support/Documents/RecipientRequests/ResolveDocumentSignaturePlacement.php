@@ -23,18 +23,30 @@ final class ResolveDocumentSignaturePlacement
         DocumentInstanceVersion $version,
         DocumentRecipientRole $role = DocumentRecipientRole::Subject,
     ): array {
-        return $this->forInstanceVersionSlot(
+        return $this->forInstanceVersionSlotPlacements(
             $instance,
             $version,
             $role,
             DocumentSignatureSlot::defaultForRole($role),
-        );
+        )[0];
     }
 
     /**
      * @return array{id: string, type: string, role: string, slot_key?: string, page: int, x: float, y: float, width: float, height: float, required: bool}
      */
     public function forInstanceVersionSlot(
+        DocumentInstance $instance,
+        DocumentInstanceVersion $version,
+        DocumentRecipientRole $role,
+        string $slotKey,
+    ): array {
+        return $this->forInstanceVersionSlotPlacements($instance, $version, $role, $slotKey)[0];
+    }
+
+    /**
+     * @return list<array{id: string, type: string, role: string, slot_key?: string, page: int, x: float, y: float, width: float, height: float, required: bool}>
+     */
+    public function forInstanceVersionSlotPlacements(
         DocumentInstance $instance,
         DocumentInstanceVersion $version,
         DocumentRecipientRole $role,
@@ -54,7 +66,7 @@ final class ResolveDocumentSignaturePlacement
             $pageCount = $this->resolvePageCount($version);
 
             try {
-                return DocumentSignaturePlacementValidator::validateSignatureForSlot(
+                return DocumentSignaturePlacementValidator::validateSignaturesForSlot(
                     $templateVersion->signature_placement_config,
                     $pageCount,
                     $slotKey,
@@ -92,7 +104,7 @@ final class ResolveDocumentSignaturePlacement
         $systemPlacement = $this->resolveSystemRendererPlacement($instance);
 
         if ($systemPlacement !== null) {
-            return $systemPlacement;
+            return [$systemPlacement];
         }
 
         throw ValidationException::withMessages([

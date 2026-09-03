@@ -13,6 +13,7 @@ use App\Models\DocumentInstanceVersion;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Support\Documents\Actions\BranchDocumentGenerationTemplateDraft;
 use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
 use App\Support\Documents\Actions\SaveDocumentGenerationTemplateSignaturePlacement;
 use App\Support\Documents\DocumentTemplateStorage;
@@ -132,11 +133,57 @@ test('authorized company user can save subject signature placement on draft pdf 
         ->assertJsonPath('version.has_signature_placement', true);
 
     $version->refresh();
-    expect($version->signature_placement_config['schema_version'])->toBe(1)
+    expect($version->signature_placement_config['schema_version'])->toBe(3)
         ->and($version->signature_placement_config['placements'])->toHaveCount(1)
         ->and($version->signature_placement_config['placements'][0]['x'])->toBe(0.12)
         ->and($version->signature_placement_config['placements'][0]['role'])->toBe('subject')
+        ->and($version->signature_placement_config['placements'][0]['slot_key'])->toBe('subject')
         ->and($version->toArraySummary()['has_signature_placement'])->toBeTrue();
+});
+
+test('unified designer can persist two subject placements as schema v3', function () {
+    ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makePdfOverlayDraftWithPages(1);
+
+    $payload = [
+        'schema_version' => 3,
+        'placements' => [
+            [
+                'id' => 'employee_signature_en',
+                'type' => 'signature',
+                'role' => 'subject',
+                'slot_key' => 'subject',
+                'page' => 1,
+                'x' => 0.1,
+                'y' => 0.72,
+                'width' => 0.25,
+                'height' => 0.08,
+                'required' => true,
+            ],
+            [
+                'id' => 'employee_signature_ar',
+                'type' => 'signature',
+                'role' => 'subject',
+                'slot_key' => 'subject',
+                'page' => 1,
+                'x' => 0.5,
+                'y' => 0.72,
+                'width' => 0.25,
+                'height' => 0.08,
+                'required' => true,
+            ],
+        ],
+    ];
+
+    putUnifiedDesignerDraft($user, $company, $template, $version, $payload)
+        ->assertOk();
+
+    $version->refresh();
+    expect($version->signature_placement_config['schema_version'])->toBe(3)
+        ->and($version->signature_placement_config['placements'])->toHaveCount(2)
+        ->and(collect($version->signature_placement_config['placements'])->pluck('id')->all())
+        ->toBe(['employee_signature_en', 'employee_signature_ar'])
+        ->and(collect($version->signature_placement_config['placements'])->pluck('slot_key')->unique()->all())
+        ->toBe(['subject']);
 });
 
 test('published version retains configured signature placement', function () {
@@ -164,8 +211,70 @@ test('published version retains configured signature placement', function () {
     $published = app(PublishDocumentGenerationTemplateVersion::class)->handle($version->fresh(), $user->id);
 
     expect($published->isPublished())->toBeTrue()
-        ->and($published->signature_placement_config)->toBe($payload)
+        ->and($published->signature_placement_config['schema_version'])->toBe(3)
+        ->and($published->signature_placement_config['placements'][0]['slot_key'])->toBe('subject')
         ->and($published->toArraySummary()['has_signature_placement'])->toBeTrue();
+});
+
+test('create draft copies published v3 placements and leaves the published version immutable', function () {
+    ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makePdfOverlayDraftWithPages(1);
+    $payload = [
+        'schema_version' => 3,
+        'placements' => [
+            [
+                'id' => 'employee_signature_en',
+                'type' => 'signature',
+                'role' => 'subject',
+                'slot_key' => 'subject',
+                'page' => 1,
+                'x' => 0.1,
+                'y' => 0.72,
+                'width' => 0.25,
+                'height' => 0.08,
+                'required' => true,
+            ],
+            [
+                'id' => 'employee_signature_ar',
+                'type' => 'signature',
+                'role' => 'subject',
+                'slot_key' => 'subject',
+                'page' => 1,
+                'x' => 0.5,
+                'y' => 0.72,
+                'width' => 0.25,
+                'height' => 0.08,
+                'required' => true,
+            ],
+        ],
+    ];
+
+    $pdfPath = DocumentTemplateStorage::directory($company->id).'/source.pdf';
+    Storage::disk('local')->put($pdfPath, minimalPdfBytes());
+    $signingPreset = app(StoreDocumentSigningPreset::class)->handle(
+        $user,
+        $company->id,
+        'Subject signing',
+        null,
+        [['recipient_role' => 'subject']],
+    );
+    $version->update([
+        'source_pdf_path' => $pdfPath,
+        'document_workflow_mode' => DocumentTemplateAutomationMode::None,
+        'document_signing_mode' => DocumentTemplateAutomationMode::Preset,
+        'document_signing_preset_id' => $signingPreset->id,
+    ]);
+
+    app(SaveDocumentGenerationTemplateSignaturePlacement::class)->handle($version, $payload, $user->id);
+    $published = app(PublishDocumentGenerationTemplateVersion::class)->handle($version->fresh(), $user->id);
+    $publishedChecksum = $published->signature_placement_config;
+
+    $draft = app(BranchDocumentGenerationTemplateDraft::class)->handle($template->fresh(), $user->id);
+
+    expect($draft->isDraft())->toBeTrue()
+        ->and($draft->id)->not->toBe($published->id)
+        ->and($draft->signature_placement_config['schema_version'])->toBe(3)
+        ->and($draft->signature_placement_config['placements'])->toHaveCount(2)
+        ->and($published->fresh()->signature_placement_config)->toBe($publishedChecksum);
 });
 
 test('unsupported signature placement schema is rejected', function () {

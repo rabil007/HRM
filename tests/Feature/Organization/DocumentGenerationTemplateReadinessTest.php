@@ -198,6 +198,56 @@ test('signing preset with complete required placements is valid', function () {
     expect($result['ready'])->toBeTrue();
 });
 
+test('multiple physical placements for one slot satisfy one signing obligation', function () {
+    ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makeReadinessOverlayDraft();
+    $preset = app(StoreDocumentSigningPreset::class)->handle(
+        $user,
+        $company->id,
+        'Employee signing',
+        null,
+        [['recipient_role' => 'subject']],
+    );
+    $version->update([
+        'document_workflow_mode' => DocumentTemplateAutomationMode::None,
+        'document_signing_mode' => DocumentTemplateAutomationMode::Preset,
+        'document_signing_preset_id' => $preset->id,
+        'signature_placement_config' => [
+            'schema_version' => 3,
+            'placements' => [
+                [
+                    'id' => 'employee_signature_en',
+                    'type' => 'signature',
+                    'role' => 'subject',
+                    'slot_key' => 'subject',
+                    'page' => 1,
+                    'x' => 0.1,
+                    'y' => 0.75,
+                    'width' => 0.25,
+                    'height' => 0.08,
+                    'required' => true,
+                ],
+                [
+                    'id' => 'employee_signature_ar',
+                    'type' => 'signature',
+                    'role' => 'subject',
+                    'slot_key' => 'subject',
+                    'page' => 1,
+                    'x' => 0.5,
+                    'y' => 0.75,
+                    'width' => 0.25,
+                    'height' => 0.08,
+                    'required' => true,
+                ],
+            ],
+        ],
+    ]);
+
+    $result = app(DocumentGenerationTemplateReadiness::class)->evaluate($version->fresh(), $template);
+
+    expect($result['ready'])->toBeTrue()
+        ->and(readinessCodes($result))->not->toContain(DocumentGenerationTemplateReadiness::CODE_SIGNING_PLACEMENT_MISSING);
+});
+
 test('cross-company workflow preset is invalid', function () {
     ['template' => $template, 'version' => $version] = makeReadinessOverlayDraft();
     $foreign = createDocumentWorkflowPresetForCompany(makeDocumentFixtures()['company']);

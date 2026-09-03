@@ -14,13 +14,17 @@ use setasign\Fpdi\PdfParser\PdfParserException;
 final class StampSignedDocumentInstancePdf
 {
     /**
-     * @param  array{id: string, type: string, role: string, page: int, x: float, y: float, width: float, height: float, required: bool}  $placement
+     * Stamp the same signature image into every trusted physical placement.
+     *
+     * Opens the source PDF once and writes one output artifact.
+     *
+     * @param  list<array{id?: string, type?: string, role?: string, slot_key?: string, page: int, x: float, y: float, width: float, height: float, required?: bool}>  $placements
      */
     public function handle(
         DocumentInstanceVersion $sourceVersion,
         string $signatureAbsolutePath,
         string $imageType,
-        array $placement,
+        array $placements,
     ): string {
         $path = DocumentInstanceStorage::validatedRelativePath($sourceVersion->file_path, (int) $sourceVersion->company_id);
 
@@ -38,8 +42,14 @@ final class StampSignedDocumentInstancePdf
             ]);
         }
 
+        if ($placements === []) {
+            throw ValidationException::withMessages([
+                'signature_data' => 'Unable to apply signature placement.',
+            ]);
+        }
+
         try {
-            return $this->compose($sourceAbsolute, $signatureAbsolutePath, $imageType, $placement);
+            return $this->compose($sourceAbsolute, $signatureAbsolutePath, $imageType, $placements);
         } catch (CrossReferenceException|PdfParserException|FpdiException $exception) {
             report($exception);
 
@@ -50,22 +60,28 @@ final class StampSignedDocumentInstancePdf
     }
 
     /**
-     * @param  array{id: string, type: string, role: string, page: int, x: float, y: float, width: float, height: float, required: bool}  $placement
+     * @param  list<array{page: int, x: float, y: float, width: float, height: float}>  $placements
      */
     private function compose(
         string $sourcePath,
         string $signaturePath,
         string $imageType,
-        array $placement,
+        array $placements,
     ): string {
         $pdf = new Fpdi;
         $pageCount = $pdf->setSourceFile($sourcePath);
-        $targetPage = (int) $placement['page'];
+        $byPage = [];
 
-        if ($targetPage < 1 || $targetPage > $pageCount) {
-            throw ValidationException::withMessages([
-                'signature_data' => 'Unable to apply signature placement.',
-            ]);
+        foreach ($placements as $placement) {
+            $targetPage = (int) $placement['page'];
+
+            if ($targetPage < 1 || $targetPage > $pageCount) {
+                throw ValidationException::withMessages([
+                    'signature_data' => 'Unable to apply signature placement.',
+                ]);
+            }
+
+            $byPage[$targetPage][] = $placement;
         }
 
         for ($pageNumber = 1; $pageNumber <= $pageCount; $pageNumber++) {
@@ -78,7 +94,7 @@ final class StampSignedDocumentInstancePdf
             $pdf->AddPage($orientation, [$width, $height]);
             $pdf->useTemplate($templateId);
 
-            if ($pageNumber === $targetPage) {
+            foreach ($byPage[$pageNumber] ?? [] as $placement) {
                 $boxX = $placement['x'] * $width;
                 $boxY = $placement['y'] * $height;
                 $boxW = $placement['width'] * $width;

@@ -113,8 +113,39 @@ test('detects signatures_added and signatures_removed by slot_key', function () 
     $v2 = makeVersionWithConfig($template, 2, 'published', [], $v2SigConfig);
 
     $result = VersionChangeSummary::compare($v1, $v2);
-    expect($result['signatures_added'])->toContain('company_signatory_1');
-    expect($result['signatures_removed'])->toContain('manager_1');
+    expect($result['signatures_added'])->toContain('Company Signatory · company_signatory_signature');
+    expect($result['signatures_removed'])->toContain('Department Manager · manager_signature');
+});
+
+test('v3 signature diffs compare physical placement ids not slot keys', function () {
+    $template = DocumentGenerationTemplate::factory()->create(['template_format' => 'pdf_overlay', 'status' => 'draft']);
+
+    $shared = [
+        'type' => 'signature',
+        'role' => 'subject',
+        'slot_key' => 'subject',
+        'page' => 1,
+        'width' => 0.25,
+        'height' => 0.08,
+        'required' => true,
+    ];
+    $v1SigConfig = ['schema_version' => 3, 'placements' => [
+        array_merge($shared, ['id' => 'employee_signature_en', 'x' => 0.1, 'y' => 0.75]),
+        array_merge($shared, ['id' => 'employee_signature_ar', 'x' => 0.5, 'y' => 0.75]),
+    ]];
+    $v2SigConfig = ['schema_version' => 3, 'placements' => [
+        array_merge($shared, ['id' => 'employee_signature_en', 'x' => 0.1, 'y' => 0.75]),
+        array_merge($shared, ['id' => 'employee_signature_ar', 'x' => 0.55, 'y' => 0.7]),
+        array_merge($shared, ['id' => 'employee_signature_footer', 'x' => 0.1, 'y' => 0.9]),
+    ]];
+
+    $v1 = makeVersionWithConfig($template, 1, 'archived', [], $v1SigConfig);
+    $v2 = makeVersionWithConfig($template, 2, 'published', [], $v2SigConfig);
+
+    $result = VersionChangeSummary::compare($v1, $v2);
+    expect($result['signatures_added'])->toContain('Employee · employee_signature_footer')
+        ->and($result['signatures_removed'])->toBe([])
+        ->and($result['signatures_moved'])->toContain('Employee · employee_signature_ar');
 });
 
 test('compares legacy v1 signature configs against v2 slot keys without false add or remove', function () {
@@ -156,7 +187,7 @@ test('reports moved when a legacy v1 signature slot changes coordinates in v2', 
     $result = VersionChangeSummary::compare($v1, $v2);
     expect($result['signatures_added'])->toBe([])
         ->and($result['signatures_removed'])->toBe([])
-        ->and($result['signatures_moved'])->toBe(['manager_1']);
+        ->and($result['signatures_moved'])->toBe(['Department Manager · manager_signature']);
 });
 
 test('does NOT report moved from count changes alone', function () {

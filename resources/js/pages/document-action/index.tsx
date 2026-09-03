@@ -20,6 +20,7 @@ type Props = {
     submitSignUrl: string | null;
     submitAcknowledgeUrl: string | null;
     acknowledgementStatement: string;
+    signaturePlacementCount?: number;
 };
 
 export default function DocumentActionPage({
@@ -33,6 +34,7 @@ export default function DocumentActionPage({
     submitSignUrl,
     submitAcknowledgeUrl,
     acknowledgementStatement,
+    signaturePlacementCount = 1,
 }: Props) {
     const { errors } = usePage().props;
     const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -184,6 +186,18 @@ export default function DocumentActionPage({
 
                                             {action === 'sign' ? (
                                                 <>
+                                                    {signaturePlacementCount >
+                                                    1 ? (
+                                                        <p className="text-sm text-muted-foreground">
+                                                            Your signature will
+                                                            be applied to{' '}
+                                                            {
+                                                                signaturePlacementCount
+                                                            }{' '}
+                                                            places in this
+                                                            document.
+                                                        </p>
+                                                    ) : null}
                                                     <SignatureCapture
                                                         clearToken={
                                                             signatureClearToken

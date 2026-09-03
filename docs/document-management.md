@@ -1133,19 +1133,26 @@ Automatic template→preset assignment, auto-start after generation/approval, em
 
 Phase 6B-2B2 extends sequential signing flows with repeated manager and company-signatory stages, while keeping the same broad recipient roles (`subject`, `manager`, `company_signatory`). Organization-specific titles such as Director or CEO are **step labels**, not new enum roles.
 
-### Signature slots
+### Signature slots vs signature placements
 
-Recipient role answers “what kind of signer?”. Signature slot answers “which exact signature box?”.
+A **signing slot** is one logical signing obligation (one signer action, one `DocumentRecipientRequest`, one flow step). A **signature placement** is one physical box on a PDF page.
 
-Examples: `subject`, `manager_1`, `manager_2`, `company_signatory_1`, `company_signatory_2`.
+One slot may own many placements. The signer completes the slot once; the captured signature is stamped into every placement for that slot.
 
-Slots are derived server-side from step order. Clients never submit `signature_slot_key` on presets.
+Example: bilingual salary declaration — `subject` maps to an English box and an Arabic box. The employee signs once.
+
+Examples of slots: `subject`, `manager_1`, `manager_2`, `company_signatory_1`, `company_signatory_2`.
+
+`manager_1` and `manager_2` remain two separate signers even if each has multiple physical boxes.
+
+Slots are derived server-side from step order. Clients never submit `signature_slot_key` on presets. Recipient requests store the logical slot, not a physical placement id.
 
 ### Placement schema
 
 - Schema **v1** remains readable forever: one placement per role, interpreted as default slots (`subject`, `manager_1`, `company_signatory_1`).
-- Schema **v2** stores explicit `slot_key` values, unique ids/slots, contiguous occurrences, and supports repeated roles.
-- Saving a draft through the placement editor normalizes to schema v2. Published/archived v1 configs stay immutable.
+- Schema **v2** remains readable: explicit `slot_key`, unique ids, **one placement per slot**, contiguous logical occurrences, repeated roles.
+- Schema **v3** allows multiple physical placements to share a `slot_key`. Placement `id` values stay unique. Contiguous manager/company occurrence rules apply to **distinct slot keys**, not box count.
+- Saving a draft through the Unified Designer normalizes to schema **v3**. Published/archived historical versions are not rewritten merely to bump the schema number.
 
 ### Supported preset shape
 

@@ -23,7 +23,7 @@ class SaveDocumentGenerationTemplateDesignRequest extends FormRequest
             'placement_config.placements' => ['present', 'array'],
             'placement_config.placements.*.type' => ['required', 'string', 'in:field,text'],
             'signature_placement_config' => ['required', 'array'],
-            'signature_placement_config.schema_version' => ['required', 'integer'],
+            'signature_placement_config.schema_version' => ['required', 'integer', 'in:1,2,3'],
             'signature_placement_config.placements' => ['present', 'array'],
         ];
 

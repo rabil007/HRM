@@ -368,7 +368,7 @@ test('saving draft placement through editor normalizes schema v2', function () {
         ],
     );
 
-    expect($saved->signature_placement_config['schema_version'])->toBe(2)
+    expect($saved->signature_placement_config['schema_version'])->toBe(3)
         ->and($saved->signature_placement_config['placements'][1]['slot_key'])->toBe('manager_1');
 });
 

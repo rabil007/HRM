@@ -12,6 +12,7 @@ use App\Support\Documents\RecipientRequests\DocumentRecipientRequestAccess;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorder;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestLinkService;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestToken;
+use App\Support\Documents\RecipientRequests\DocumentSignaturePlacementValidator;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -50,7 +51,15 @@ class ShowDocumentActionController extends Controller
 
         $alreadyCompleted = $recipientRequest->status === DocumentRecipientRequestStatus::Completed;
 
-        $recipientRequest->loadMissing(['company', 'documentInstance']);
+        $recipientRequest->loadMissing(['company', 'documentInstance.templateVersion']);
+
+        $slotKey = filled($recipientRequest->signature_slot_key)
+            ? (string) $recipientRequest->signature_slot_key
+            : 'subject';
+        $signaturePlacementCount = count(DocumentSignaturePlacementValidator::placementIdsForSlot(
+            $recipientRequest->documentInstance?->templateVersion?->signature_placement_config,
+            $slotKey,
+        ));
 
         return Inertia::render('document-action/index', [
             'companyName' => (string) ($recipientRequest->company?->name ?? ''),
@@ -68,6 +77,7 @@ class ShowDocumentActionController extends Controller
                 ? $links->acknowledgeUrl($token)
                 : null,
             'acknowledgementStatement' => SubmitDocumentRecipientAcknowledgement::ACKNOWLEDGEMENT_STATEMENT,
+            'signaturePlacementCount' => $signaturePlacementCount,
         ]);
     }
 }

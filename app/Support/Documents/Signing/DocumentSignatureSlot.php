@@ -6,9 +6,13 @@ use App\Enums\DocumentRecipientRole;
 use InvalidArgumentException;
 
 /**
- * Signature slot keys bind a signing step to an exact template placement box.
+ * A signature slot identifies one logical signing obligation.
  *
- * Recipient role answers "what kind of signer?"; slot answers "which box?".
+ * Recipient role answers "what kind of signer?". Slot answers "which signing
+ * action?". One slot may own one or more physical template signature placements.
+ *
+ * Persisted request keys (subject, manager_1, company_signatory_1, …) are
+ * unchanged; they do not identify a single PDF box.
  */
 final class DocumentSignatureSlot
 {

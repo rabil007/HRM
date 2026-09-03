@@ -18,6 +18,7 @@ type Props = {
         source_version: number | null;
         expires_at: string | null;
         already_completed: boolean;
+        signature_placement_count?: number;
     };
     document_url: string;
     submit_sign_url: string;
@@ -162,6 +163,14 @@ export default function RecipientRequestRespondPage({
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Draw signature</Label>
+                                    {(request.signature_placement_count ?? 1) >
+                                    1 ? (
+                                        <p className="text-sm text-muted-foreground">
+                                            Your signature will be applied to{' '}
+                                            {request.signature_placement_count}{' '}
+                                            places in this document.
+                                        </p>
+                                    ) : null}
                                     <SignatureCapture
                                         clearToken={signatureClearToken}
                                         onChange={setSignatureData}

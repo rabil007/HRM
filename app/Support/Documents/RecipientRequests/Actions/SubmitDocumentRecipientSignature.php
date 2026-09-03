@@ -163,12 +163,16 @@ final class SubmitDocumentRecipientSignature
                 $slotKey = filled($locked->signature_slot_key)
                     ? (string) $locked->signature_slot_key
                     : DocumentSignatureSlot::defaultForRole($placementRole);
-                $placement = $this->resolvePlacement->forInstanceVersionSlot(
+                $placements = $this->resolvePlacement->forInstanceVersionSlotPlacements(
                     $instance,
                     $sourceVersion,
                     $placementRole,
                     $slotKey,
                 );
+                $placementIds = array_values(array_map(
+                    fn (array $placement): string => (string) $placement['id'],
+                    $placements,
+                ));
 
                 $signaturePath = DocumentRecipientSignatureStorage::storeFromDataUri(
                     $data['signature_data'],
@@ -180,7 +184,7 @@ final class SubmitDocumentRecipientSignature
                 $imageType = $extension === 'jpg' ? 'JPEG' : 'PNG';
                 $signatureAbsolute = Storage::disk(DocumentRecipientSignatureStorage::DISK)->path($signaturePath);
 
-                $signedPdf = $this->stamper->handle($sourceVersion, $signatureAbsolute, $imageType, $placement);
+                $signedPdf = $this->stamper->handle($sourceVersion, $signatureAbsolute, $imageType, $placements);
 
                 $tempSignedPath = tempnam(sys_get_temp_dir(), 'signed_doc_');
 
@@ -254,6 +258,11 @@ final class SubmitDocumentRecipientSignature
                     $actor,
                     ipAddress: $httpRequest->ip(),
                     userAgent: Str::limit((string) $httpRequest->userAgent(), 1000, ''),
+                    metadata: [
+                        'signature_slot_key' => $slotKey,
+                        'placement_count' => count($placements),
+                        'placement_ids' => $placementIds,
+                    ],
                 );
 
                 $this->eventRecorder->record(
@@ -262,6 +271,9 @@ final class SubmitDocumentRecipientSignature
                     $actor,
                     metadata: [
                         'result_document_instance_version_id' => $resultVersion->id,
+                        'signature_slot_key' => $slotKey,
+                        'placement_count' => count($placements),
+                        'placement_ids' => $placementIds,
                     ],
                 );
 

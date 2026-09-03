@@ -377,7 +377,9 @@ describe('designer and templates list copy', () => {
         assert.equal(designer.includes('pendingPlacementInstruction'), true);
         assert.equal(designer.includes('Click on the PDF to place'), true);
         assert.equal(designer.includes('addRoleSlot(next.role'), false);
-        assert.equal(designer.includes('removeSlot(slotKey)'), true);
+        assert.equal(designer.includes('removeSignaturePlacement'), true);
+        assert.equal(designer.includes('groupSignatureSlots'), true);
+        assert.equal(designer.includes('serializeSignaturePlacements'), true);
     });
 
     it('keeps workflow decision, step, and readiness copy in focused components', () => {
