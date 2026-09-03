@@ -10,6 +10,7 @@ import {
     nudgeDeltaFromKeyboard,
     nudgeNormalizedPlacement,
     offsetDuplicatedNormalizedRect,
+    shouldCommitPercentInput,
     overlayFieldLabelLayout,
     overlayTextTopForAlign,
 } from '../templates/lib/canvas-edit.ts';
@@ -158,6 +159,19 @@ describe('offsetDuplicatedNormalizedRect', () => {
 
         assert.equal(next.x, 0.8);
         assert.equal(next.y, 0.95);
+    });
+});
+
+describe('shouldCommitPercentInput', () => {
+    it('ignores empty or invalid values so blurring an input does not rewrite the box', () => {
+        assert.equal(shouldCommitPercentInput(0.123, ''), false);
+        assert.equal(shouldCommitPercentInput(0.123, '  '), false);
+        assert.equal(shouldCommitPercentInput(0.123, 'abc'), false);
+    });
+
+    it('ignores the rounded displayed percent so clicking Duplicate after focusing Left % does not re-render', () => {
+        assert.equal(shouldCommitPercentInput(0.123456, '12.3'), false);
+        assert.equal(shouldCommitPercentInput(0.123456, '12.4'), true);
     });
 });
 

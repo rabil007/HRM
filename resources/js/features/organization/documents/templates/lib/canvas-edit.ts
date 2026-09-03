@@ -258,6 +258,28 @@ export function offsetDuplicatedNormalizedRect(
     };
 }
 
+export function shouldCommitPercentInput(
+    currentNormalized: number,
+    rawInput: string,
+): boolean {
+    const trimmed = rawInput.trim();
+
+    if (trimmed === '') {
+        return false;
+    }
+
+    const nextPercent = Number(trimmed);
+
+    if (!Number.isFinite(nextPercent)) {
+        return false;
+    }
+
+    return (
+        Number((currentNormalized * 100).toFixed(1)) !==
+        Number(nextPercent.toFixed(1))
+    );
+}
+
 export function nudgeDeltaFromKeyboard(event: KeyboardEvent): {
     dx: number;
     dy: number;

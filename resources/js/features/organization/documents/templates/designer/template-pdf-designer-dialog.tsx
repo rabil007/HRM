@@ -73,6 +73,7 @@ import {
     offsetDuplicatedNormalizedRect,
     overlayFieldLabelLayout,
     overlayTextTopForAlign,
+    shouldCommitPercentInput,
 } from '../lib/canvas-edit';
 import {
     clamp,
@@ -1168,11 +1169,20 @@ function PlacementBoxControls({
                     disabled={disabled}
                     className="h-7 text-xs"
                     value={Number((placement.x * 100).toFixed(1))}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                        if (
+                            !shouldCommitPercentInput(
+                                placement.x,
+                                event.target.value,
+                            )
+                        ) {
+                            return;
+                        }
+
                         onChange({
                             x: Number(event.target.value) / 100,
-                        })
-                    }
+                        });
+                    }}
                 />
             </div>
             <div>
@@ -1187,11 +1197,20 @@ function PlacementBoxControls({
                     disabled={disabled}
                     className="h-7 text-xs"
                     value={Number((placement.width * 100).toFixed(1))}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                        if (
+                            !shouldCommitPercentInput(
+                                placement.width,
+                                event.target.value,
+                            )
+                        ) {
+                            return;
+                        }
+
                         onChange({
                             width: Number(event.target.value) / 100,
-                        })
-                    }
+                        });
+                    }}
                 />
             </div>
             <div>
@@ -1206,11 +1225,20 @@ function PlacementBoxControls({
                     disabled={disabled}
                     className="h-7 text-xs"
                     value={Number((placement.y * 100).toFixed(1))}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                        if (
+                            !shouldCommitPercentInput(
+                                placement.y,
+                                event.target.value,
+                            )
+                        ) {
+                            return;
+                        }
+
                         onChange({
                             y: Number(event.target.value) / 100,
-                        })
-                    }
+                        });
+                    }}
                 />
             </div>
             <div>
@@ -1225,11 +1253,20 @@ function PlacementBoxControls({
                     disabled={disabled}
                     className="h-7 text-xs"
                     value={Number((placement.height * 100).toFixed(1))}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                        if (
+                            !shouldCommitPercentInput(
+                                placement.height,
+                                event.target.value,
+                            )
+                        ) {
+                            return;
+                        }
+
                         onChange({
                             height: Number(event.target.value) / 100,
-                        })
-                    }
+                        });
+                    }}
                 />
             </div>
         </div>
@@ -1365,6 +1402,7 @@ export function TemplatePdfDesignerDialog({
         'field' | 'text' | 'signature' | null
     >(null);
     const nudgeSessionRef = useRef(false);
+    const isSyncingCanvasRef = useRef(false);
 
     // ── Ref sync effects ────────────────────────────────────────────────────────
     useEffect(() => {
@@ -1542,219 +1580,62 @@ export function TemplatePdfDesignerDialog({
     // ── syncAllObjects ─────────────────────────────────────────────────────────
     const syncAllObjects = useCallback(
         (canvas: Canvas, page: number, isEditableArg: boolean) => {
-            // Remove all managed objects
-            const existing = canvas.getObjects().filter((obj) => {
-                const d = obj.get('data') as
-                    | Record<string, unknown>
-                    | undefined;
+            isSyncingCanvasRef.current = true;
 
-                return (
-                    Boolean(d?.id) ||
-                    Boolean(d?.parentId) ||
-                    d?.elementType === 'guide'
-                );
-            });
-            existing.forEach((obj) => canvas.remove(obj));
-            labelRefs.current.clear();
-            textBoxRefs.current.clear();
+            try {
+                const preview = isSamplePreviewRef.current;
+                const width = canvasSizeRef.current.width;
+                const height = canvasSizeRef.current.height;
 
-            const preview = isSamplePreviewRef.current;
-            const width = canvasSizeRef.current.width;
-            const height = canvasSizeRef.current.height;
-
-            if (width <= 0 || height <= 0) {
-                return;
-            }
-
-            // ── Field + Text placements ──────────────────────────────────────
-            const pagePlacements = placementsRef.current.filter(
-                (p) => p.page === page,
-            );
-            const overflowById = new Map<string, OverflowLevel>();
-
-            pagePlacements.forEach((item) => {
-                overflowById.set(
-                    item.id,
-                    placementOverflowLevel(
-                        item,
-                        normalizedToPixel(
-                            {
-                                x: item.x,
-                                y: item.y,
-                                width: item.width,
-                                height: item.height,
-                            },
-                            width,
-                            height,
-                        ),
-                        pdfScaleRef.current,
-                        mergeFieldsMap,
-                        previewEmployeeRef.current,
-                    ),
-                );
-            });
-
-            pagePlacements.forEach((item) => {
-                const pixel = normalizedToPixel(
-                    {
-                        x: item.x,
-                        y: item.y,
-                        width: item.width,
-                        height: item.height,
-                    },
-                    width,
-                    height,
-                );
-
-                if (item.type === 'field') {
-                    const fieldMeta = mergeFieldsMap.get(item.field);
-                    const displayText = preview
-                        ? (previewEmployeeRef.current?.values[item.field] ??
-                          fieldMeta?.sample ??
-                          item.field)
-                        : (fieldMeta?.label ?? item.field);
-
-                    const overflow = overflowById.get(item.id) ?? 'ok';
-                    const chrome = overlayPlacementBoxChrome(
-                        preview ? 'print' : 'edit',
-                        overflow,
-                    );
-                    const rect = new Rect({
-                        left: pixel.left,
-                        top: pixel.top,
-                        width: pixel.width,
-                        height: pixel.height,
-                        originX: 'left',
-                        originY: 'top',
-                        fill: chrome.fill,
-                        stroke: chrome.stroke,
-                        strokeWidth: chrome.strokeWidth,
-                        cornerColor:
-                            overflow === 'fail' ? '#dc2626' : '#2563eb',
-                        cornerStyle: 'circle',
-                        transparentCorners: false,
-                        hasRotatingPoint: false,
-                        lockRotation: true,
-                        selectable: !preview,
-                        evented: !preview,
-                    });
-                    rect.set('data', { id: item.id, elementType: 'field' });
-
-                    if (!isEditableArg) {
-                        rect.set({
-                            lockMovementX: true,
-                            lockMovementY: true,
-                            lockScalingX: true,
-                            lockScalingY: true,
-                            hasControls: false,
-                        });
-                    }
-
-                    const tb = createOverlayWrapTextbox({
-                        text: displayText,
-                        left: pixel.left,
-                        top: pixel.top,
-                        width: pixel.width,
-                        height: pixel.height,
-                        fontSize: overlayFontSizePx(
-                            item.font_size,
-                            pdfScaleRef.current,
-                        ),
-                        fontFamily: fabricFontFamily(item.font_family),
-                        fontWeight: item.font_weight || 'normal',
-                        textAlign: item.text_align || 'left',
-                        fill: overlayPlacementTextFill(
-                            preview ? 'print' : 'edit',
-                            normalizeFontColor(item.font_color),
-                        ),
-                        verticalAlign: normalizeVerticalAlign(
-                            item.vertical_align,
-                            'field',
-                        ),
-                        parentId: item.id,
-                        elementType: 'field',
-                    });
-
-                    canvas.add(rect);
-                    canvas.add(tb);
-                    textBoxRefs.current.set(item.id, tb);
-                } else if (item.type === 'text') {
-                    const overflow = overflowById.get(item.id) ?? 'ok';
-                    const chrome = overlayPlacementBoxChrome(
-                        preview ? 'print' : 'edit',
-                        overflow,
-                    );
-                    const rect = new Rect({
-                        left: pixel.left,
-                        top: pixel.top,
-                        width: pixel.width,
-                        height: pixel.height,
-                        originX: 'left',
-                        originY: 'top',
-                        fill: chrome.fill,
-                        stroke: chrome.stroke,
-                        strokeWidth: chrome.strokeWidth,
-                        cornerColor:
-                            overflow === 'fail' ? '#dc2626' : '#2563eb',
-                        cornerStyle: 'circle',
-                        transparentCorners: false,
-                        hasRotatingPoint: false,
-                        lockRotation: true,
-                        selectable: !preview,
-                        evented: !preview,
-                    });
-                    rect.set('data', { id: item.id, elementType: 'text' });
-
-                    if (!isEditableArg) {
-                        rect.set({
-                            lockMovementX: true,
-                            lockMovementY: true,
-                            lockScalingX: true,
-                            lockScalingY: true,
-                            hasControls: false,
-                        });
-                    }
-
-                    const tb = createOverlayWrapTextbox({
-                        text: item.text_content || '',
-                        left: pixel.left,
-                        top: pixel.top,
-                        width: pixel.width,
-                        height: pixel.height,
-                        fontSize: overlayFontSizePx(
-                            item.font_size,
-                            pdfScaleRef.current,
-                        ),
-                        fontFamily: fabricFontFamily(item.font_family),
-                        fontWeight: item.font_weight || 'normal',
-                        textAlign: item.text_align || 'left',
-                        fill: overlayPlacementTextFill(
-                            preview ? 'print' : 'edit',
-                            normalizeFontColor(item.font_color),
-                        ),
-                        verticalAlign: normalizeVerticalAlign(
-                            item.vertical_align,
-                            'text',
-                        ),
-                        parentId: item.id,
-                        elementType: 'text',
-                    });
-
-                    canvas.add(rect);
-                    canvas.add(tb);
-                    textBoxRefs.current.set(item.id, tb);
+                if (width <= 0 || height <= 0) {
+                    return;
                 }
-            });
 
-            // ── Signature placements ─────────────────────────────────────────
-            sortedSlotKeys(signaturePlacementsRef.current).forEach(
-                (slotKey) => {
-                    const item = signaturePlacementsRef.current[slotKey];
+                // Remove all managed objects
+                const existing = canvas.getObjects().filter((obj) => {
+                    const d = obj.get('data') as
+                        | Record<string, unknown>
+                        | undefined;
 
-                    if (!item || item.page !== page) {
-                        return;
-                    }
+                    return (
+                        Boolean(d?.id) ||
+                        Boolean(d?.parentId) ||
+                        d?.elementType === 'guide'
+                    );
+                });
+                existing.forEach((obj) => canvas.remove(obj));
+                labelRefs.current.clear();
+                textBoxRefs.current.clear();
 
+                // ── Field + Text placements ──────────────────────────────────────
+                const pagePlacements = placementsRef.current.filter(
+                    (p) => p.page === page,
+                );
+                const overflowById = new Map<string, OverflowLevel>();
+
+                pagePlacements.forEach((item) => {
+                    overflowById.set(
+                        item.id,
+                        placementOverflowLevel(
+                            item,
+                            normalizedToPixel(
+                                {
+                                    x: item.x,
+                                    y: item.y,
+                                    width: item.width,
+                                    height: item.height,
+                                },
+                                width,
+                                height,
+                            ),
+                            pdfScaleRef.current,
+                            mergeFieldsMap,
+                            previewEmployeeRef.current,
+                        ),
+                    );
+                });
+
+                pagePlacements.forEach((item) => {
                     const pixel = normalizedToPixel(
                         {
                             x: item.x,
@@ -1765,83 +1646,246 @@ export function TemplatePdfDesignerDialog({
                         width,
                         height,
                     );
-                    const colors = roleColors(item.role);
 
-                    const rect = new Rect({
-                        left: pixel.left,
-                        top: pixel.top,
-                        width: pixel.width,
-                        height: pixel.height,
-                        originX: 'left',
-                        originY: 'top',
-                        fill: preview ? 'transparent' : colors.fill,
-                        stroke: preview ? 'transparent' : colors.stroke,
-                        strokeWidth: 1,
-                        strokeUniform: true,
-                        objectCaching: false,
-                        cornerColor: colors.stroke,
-                        cornerStyle: 'circle',
-                        transparentCorners: false,
-                        hasRotatingPoint: false,
-                        lockRotation: true,
-                        selectable: !preview,
-                        evented: !preview,
-                    });
-                    rect.set('data', {
-                        id: item.id,
-                        elementType: 'signature',
-                        slotKey,
-                    });
+                    if (item.type === 'field') {
+                        const fieldMeta = mergeFieldsMap.get(item.field);
+                        const displayText = preview
+                            ? (previewEmployeeRef.current?.values[item.field] ??
+                              fieldMeta?.sample ??
+                              item.field)
+                            : (fieldMeta?.label ?? item.field);
 
-                    if (!isEditableArg) {
-                        rect.set({
-                            lockMovementX: true,
-                            lockMovementY: true,
-                            lockScalingX: true,
-                            lockScalingY: true,
-                            hasControls: false,
+                        const overflow = overflowById.get(item.id) ?? 'ok';
+                        const chrome = overlayPlacementBoxChrome(
+                            preview ? 'print' : 'edit',
+                            overflow,
+                        );
+                        const rect = new Rect({
+                            left: pixel.left,
+                            top: pixel.top,
+                            width: pixel.width,
+                            height: pixel.height,
+                            originX: 'left',
+                            originY: 'top',
+                            fill: chrome.fill,
+                            stroke: chrome.stroke,
+                            strokeWidth: chrome.strokeWidth,
+                            cornerColor:
+                                overflow === 'fail' ? '#dc2626' : '#2563eb',
+                            cornerStyle: 'circle',
+                            transparentCorners: false,
+                            hasRotatingPoint: false,
+                            lockRotation: true,
+                            selectable: !preview,
+                            evented: !preview,
                         });
-                    }
+                        rect.set('data', { id: item.id, elementType: 'field' });
 
-                    canvas.add(rect);
+                        if (!isEditableArg) {
+                            rect.set({
+                                lockMovementX: true,
+                                lockMovementY: true,
+                                lockScalingX: true,
+                                lockScalingY: true,
+                                hasControls: false,
+                            });
+                        }
 
-                    if (!preview) {
-                        const label = new FabricText(slotLabel(slotKey), {
-                            left: pixel.left + 6,
-                            top: pixel.top + 6,
-                            fontSize: 12,
-                            fill: colors.text,
-                            selectable: false,
-                            evented: false,
-                        });
-                        label.set('data', {
+                        const tb = createOverlayWrapTextbox({
+                            text: displayText,
+                            left: pixel.left,
+                            top: pixel.top,
+                            width: pixel.width,
+                            height: pixel.height,
+                            fontSize: overlayFontSizePx(
+                                item.font_size,
+                                pdfScaleRef.current,
+                            ),
+                            fontFamily: fabricFontFamily(item.font_family),
+                            fontWeight: item.font_weight || 'normal',
+                            textAlign: item.text_align || 'left',
+                            fill: overlayPlacementTextFill(
+                                preview ? 'print' : 'edit',
+                                normalizeFontColor(item.font_color),
+                            ),
+                            verticalAlign: normalizeVerticalAlign(
+                                item.vertical_align,
+                                'field',
+                            ),
                             parentId: item.id,
-                            elementType: 'signature',
+                            elementType: 'field',
                         });
 
-                        canvas.add(label);
-                        labelRefs.current.set(item.id, label);
+                        canvas.add(rect);
+                        canvas.add(tb);
+                        textBoxRefs.current.set(item.id, tb);
+                    } else if (item.type === 'text') {
+                        const overflow = overflowById.get(item.id) ?? 'ok';
+                        const chrome = overlayPlacementBoxChrome(
+                            preview ? 'print' : 'edit',
+                            overflow,
+                        );
+                        const rect = new Rect({
+                            left: pixel.left,
+                            top: pixel.top,
+                            width: pixel.width,
+                            height: pixel.height,
+                            originX: 'left',
+                            originY: 'top',
+                            fill: chrome.fill,
+                            stroke: chrome.stroke,
+                            strokeWidth: chrome.strokeWidth,
+                            cornerColor:
+                                overflow === 'fail' ? '#dc2626' : '#2563eb',
+                            cornerStyle: 'circle',
+                            transparentCorners: false,
+                            hasRotatingPoint: false,
+                            lockRotation: true,
+                            selectable: !preview,
+                            evented: !preview,
+                        });
+                        rect.set('data', { id: item.id, elementType: 'text' });
+
+                        if (!isEditableArg) {
+                            rect.set({
+                                lockMovementX: true,
+                                lockMovementY: true,
+                                lockScalingX: true,
+                                lockScalingY: true,
+                                hasControls: false,
+                            });
+                        }
+
+                        const tb = createOverlayWrapTextbox({
+                            text: item.text_content || '',
+                            left: pixel.left,
+                            top: pixel.top,
+                            width: pixel.width,
+                            height: pixel.height,
+                            fontSize: overlayFontSizePx(
+                                item.font_size,
+                                pdfScaleRef.current,
+                            ),
+                            fontFamily: fabricFontFamily(item.font_family),
+                            fontWeight: item.font_weight || 'normal',
+                            textAlign: item.text_align || 'left',
+                            fill: overlayPlacementTextFill(
+                                preview ? 'print' : 'edit',
+                                normalizeFontColor(item.font_color),
+                            ),
+                            verticalAlign: normalizeVerticalAlign(
+                                item.vertical_align,
+                                'text',
+                            ),
+                            parentId: item.id,
+                            elementType: 'text',
+                        });
+
+                        canvas.add(rect);
+                        canvas.add(tb);
+                        textBoxRefs.current.set(item.id, tb);
                     }
-                },
-            );
+                });
 
-            const selectedId = selectedElementIdRef.current;
+                // ── Signature placements ─────────────────────────────────────────
+                sortedSlotKeys(signaturePlacementsRef.current).forEach(
+                    (slotKey) => {
+                        const item = signaturePlacementsRef.current[slotKey];
 
-            if (selectedId) {
-                const selectedObject = canvas
-                    .getObjects()
-                    .find(
-                        (item) =>
-                            (item.get('data') as { id?: string })?.id ===
-                            selectedId,
-                    );
+                        if (!item || item.page !== page) {
+                            return;
+                        }
 
-                if (selectedObject) {
-                    canvas.setActiveObject(selectedObject);
+                        const pixel = normalizedToPixel(
+                            {
+                                x: item.x,
+                                y: item.y,
+                                width: item.width,
+                                height: item.height,
+                            },
+                            width,
+                            height,
+                        );
+                        const colors = roleColors(item.role);
+
+                        const rect = new Rect({
+                            left: pixel.left,
+                            top: pixel.top,
+                            width: pixel.width,
+                            height: pixel.height,
+                            originX: 'left',
+                            originY: 'top',
+                            fill: preview ? 'transparent' : colors.fill,
+                            stroke: preview ? 'transparent' : colors.stroke,
+                            strokeWidth: 1,
+                            strokeUniform: true,
+                            objectCaching: false,
+                            cornerColor: colors.stroke,
+                            cornerStyle: 'circle',
+                            transparentCorners: false,
+                            hasRotatingPoint: false,
+                            lockRotation: true,
+                            selectable: !preview,
+                            evented: !preview,
+                        });
+                        rect.set('data', {
+                            id: item.id,
+                            elementType: 'signature',
+                            slotKey,
+                        });
+
+                        if (!isEditableArg) {
+                            rect.set({
+                                lockMovementX: true,
+                                lockMovementY: true,
+                                lockScalingX: true,
+                                lockScalingY: true,
+                                hasControls: false,
+                            });
+                        }
+
+                        canvas.add(rect);
+
+                        if (!preview) {
+                            const label = new FabricText(slotLabel(slotKey), {
+                                left: pixel.left + 6,
+                                top: pixel.top + 6,
+                                fontSize: 12,
+                                fill: colors.text,
+                                selectable: false,
+                                evented: false,
+                            });
+                            label.set('data', {
+                                parentId: item.id,
+                                elementType: 'signature',
+                            });
+
+                            canvas.add(label);
+                            labelRefs.current.set(item.id, label);
+                        }
+                    },
+                );
+
+                const selectedId = selectedElementIdRef.current;
+
+                if (selectedId) {
+                    const selectedObject = canvas
+                        .getObjects()
+                        .find(
+                            (item) =>
+                                (item.get('data') as { id?: string })?.id ===
+                                selectedId,
+                        );
+
+                    if (selectedObject) {
+                        canvas.setActiveObject(selectedObject);
+                    }
                 }
-            }
 
-            canvas.requestRenderAll();
+                canvas.requestRenderAll();
+            } finally {
+                isSyncingCanvasRef.current = false;
+            }
         },
         [mergeFieldsMap],
     );
@@ -1884,6 +1928,9 @@ export function TemplatePdfDesignerDialog({
             });
 
             canvas.on('object:moving', (e) => {
+                if (isSyncingCanvasRef.current) {
+                    return;
+                }
                 if (dragStartRef.current) {
                     historyRef.current.accept(dragStartRef.current);
                     dragStartRef.current = null;
@@ -1974,6 +2021,9 @@ export function TemplatePdfDesignerDialog({
             });
 
             canvas.on('object:scaling', (e) => {
+                if (isSyncingCanvasRef.current) {
+                    return;
+                }
                 if (dragStartRef.current) {
                     historyRef.current.accept(dragStartRef.current);
                     dragStartRef.current = null;
@@ -2042,6 +2092,9 @@ export function TemplatePdfDesignerDialog({
             });
 
             canvas.on('object:modified', (e) => {
+                if (isSyncingCanvasRef.current) {
+                    return;
+                }
                 const target = e.target;
                 const data = target?.get('data') as
                     | { id?: string; elementType?: string; slotKey?: string }
@@ -2170,6 +2223,10 @@ export function TemplatePdfDesignerDialog({
             });
 
             canvas.on('selection:cleared', () => {
+                if (isSyncingCanvasRef.current) {
+                    return;
+                }
+
                 setSelectedElementId(null);
                 setSelectedElementType(null);
                 clearSnapGuides(canvas);
@@ -3185,14 +3242,11 @@ export function TemplatePdfDesignerDialog({
             x,
             y,
         };
-
-        setPlacements((prev) => {
-            const updated = [...prev, duplicate];
-            placementsRef.current = updated;
-
-            return updated;
-        });
+        const updated = [...placementsRef.current, duplicate];
+        placementsRef.current = updated;
+        setPlacements(updated);
         setHasUnsavedChanges(true);
+        selectedElementIdRef.current = newId;
         setSelectedElementId(newId);
         setSelectedElementType(source.type);
         refreshCanvasObjects();
@@ -3619,50 +3673,47 @@ export function TemplatePdfDesignerDialog({
     ) => {
         recordHistory();
         nudgeSessionRef.current = false;
-        setPlacements((prev) => {
-            const updated = prev.map((p) => {
-                if (p.id !== id) {
-                    return p;
-                }
+        const updated = placementsRef.current.map((p) => {
+            if (p.id !== id) {
+                return p;
+            }
 
-                const next = { ...p, ...patch };
+            const next = { ...p, ...patch };
 
-                if (
-                    patch.width !== undefined ||
-                    patch.x !== undefined ||
-                    patch.height !== undefined ||
-                    patch.y !== undefined
-                ) {
-                    const width = clamp(
-                        Number.isFinite(next.width) ? next.width : p.width,
-                        0.02,
-                        1,
-                    );
-                    const height = clamp(
-                        Number.isFinite(next.height) ? next.height : p.height,
-                        0.005,
-                        1,
-                    );
-                    const x = clamp(
-                        Number.isFinite(next.x) ? next.x : p.x,
-                        0,
-                        Math.max(0, 1 - width),
-                    );
-                    const y = clamp(
-                        Number.isFinite(next.y) ? next.y : p.y,
-                        0,
-                        Math.max(0, 1 - height),
-                    );
+            if (
+                patch.width !== undefined ||
+                patch.x !== undefined ||
+                patch.height !== undefined ||
+                patch.y !== undefined
+            ) {
+                const width = clamp(
+                    Number.isFinite(next.width) ? next.width : p.width,
+                    0.02,
+                    1,
+                );
+                const height = clamp(
+                    Number.isFinite(next.height) ? next.height : p.height,
+                    0.005,
+                    1,
+                );
+                const x = clamp(
+                    Number.isFinite(next.x) ? next.x : p.x,
+                    0,
+                    Math.max(0, 1 - width),
+                );
+                const y = clamp(
+                    Number.isFinite(next.y) ? next.y : p.y,
+                    0,
+                    Math.max(0, 1 - height),
+                );
 
-                    return { ...next, x, y, width, height };
-                }
+                return { ...next, x, y, width, height };
+            }
 
-                return next;
-            });
-            placementsRef.current = updated;
-
-            return updated;
+            return next;
         });
+        placementsRef.current = updated;
+        setPlacements(updated);
         setHasUnsavedChanges(true);
 
         if (
@@ -3893,6 +3944,7 @@ export function TemplatePdfDesignerDialog({
                             size="sm"
                             variant="outline"
                             className="w-full"
+                            onMouseDown={(event) => event.preventDefault()}
                             onClick={() =>
                                 handleDuplicatePlacement(selectedPlacement)
                             }
@@ -3904,6 +3956,7 @@ export function TemplatePdfDesignerDialog({
                             size="sm"
                             variant="ghost"
                             className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onMouseDown={(event) => event.preventDefault()}
                             onClick={() =>
                                 handleDeleteSelected(
                                     selectedPlacement.id,
@@ -3989,6 +4042,7 @@ export function TemplatePdfDesignerDialog({
                             size="sm"
                             variant="outline"
                             className="w-full"
+                            onMouseDown={(event) => event.preventDefault()}
                             onClick={() =>
                                 handleDuplicatePlacement(selectedPlacement)
                             }
@@ -4000,6 +4054,7 @@ export function TemplatePdfDesignerDialog({
                             size="sm"
                             variant="ghost"
                             className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onMouseDown={(event) => event.preventDefault()}
                             onClick={() =>
                                 handleDeleteSelected(
                                     selectedPlacement.id,
