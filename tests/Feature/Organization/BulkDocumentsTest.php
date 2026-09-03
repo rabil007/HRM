@@ -20,7 +20,6 @@ use App\Services\BulkDocuments\RendersEmployeeDocumentPdf;
 use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
-use App\Support\BulkDocuments\CreateBulkDocumentSignatureRequest;
 use App\Support\BulkDocuments\SendBulkDocumentEmails;
 use App\Support\EmployeeDocuments\DocumentDeletionService;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
@@ -821,7 +820,7 @@ test('bulk email batch sends endpoint returns recipient rows for history drill-d
         'work_email' => 'work@example.com',
     ]);
 
-    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Certificate'], ['is_active' => true]);
 
     createEmployeePdfDocument(
         $company->id,
@@ -841,7 +840,7 @@ test('bulk email batch sends endpoint returns recipient rows for history drill-d
     $batchId = app(SendBulkDocumentEmails::class)->handle(
         $company->id,
         $user->id,
-        'salary_declaration',
+        'salary_certificate',
         collect([$employee]),
         $template,
     )['batch_id'];
@@ -944,7 +943,7 @@ test('generate dispatches bulk documents job and creates run row', function () {
     Employee::factory()->forCompany($company)->create(['status' => 'active']);
 
     $this->post(route('organization.documents.bulk.generate'), [
-        'document_type_key' => 'salary_declaration',
+        'document_type_key' => 'salary_certificate',
         'status' => 'active',
     ])->assertRedirect()
         ->assertSessionHas('success');
@@ -954,9 +953,27 @@ test('generate dispatches bulk documents job and creates run row', function () {
     Queue::assertPushed(GenerateBulkDocumentsJob::class, function (GenerateBulkDocumentsJob $job) use ($company, $user) {
         return $job->companyId === $company->id
             && $job->userId === $user->id
-            && $job->documentTypeKey === 'salary_declaration'
+            && $job->documentTypeKey === 'salary_certificate'
             && $job->replaceExisting === false;
     });
+});
+
+test('legacy salary declaration generate is rejected', function () {
+    Queue::fake();
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view', 'bulk_documents.generate']);
+    Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $this->post(route('organization.documents.bulk.generate'), [
+        'document_type_key' => 'salary_declaration',
+        'status' => 'active',
+    ])->assertSessionHasErrors('document_type_key');
+
+    expect(BulkDocumentGenerationRun::query()->count())->toBe(0);
+    Queue::assertNothingPushed();
 });
 
 test('selected generate uses replace existing mode', function () {
@@ -969,7 +986,7 @@ test('selected generate uses replace existing mode', function () {
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
 
     $this->post(route('organization.documents.bulk.generate'), [
-        'document_type_key' => 'salary_declaration',
+        'document_type_key' => 'salary_certificate',
         'employee_ids' => [$employee->id],
     ])->assertRedirect();
 
@@ -1226,11 +1243,10 @@ test('deleting bulk documents cancels pending signature requests', function () {
         'awaiting.pdf',
     );
 
-    $awaitingRequest = app(CreateBulkDocumentSignatureRequest::class)->handle(
-        $company->id,
-        $employee->id,
+    $awaitingRequest = createLegacyBulkDocumentSignatureRequest(
+        $company,
+        $employee,
         $document,
-        'salary_declaration',
     );
 
     $submittedDocument = createEmployeePdfDocument(
@@ -1285,7 +1301,7 @@ test('bulk email uses work email with personal fallback and records history', fu
         'personal_email' => null,
     ]);
 
-    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Certificate'], ['is_active' => true]);
 
     foreach ([$withWorkEmail, $withPersonalOnly] as $employee) {
         createEmployeePdfDocument(
@@ -1309,7 +1325,7 @@ test('bulk email uses work email with personal fallback and records history', fu
     $result = $sender->handle(
         $company->id,
         $user->id,
-        'salary_declaration',
+        'salary_certificate',
         collect([$withWorkEmail, $withPersonalOnly, $withoutEmail]),
         $template,
     );
@@ -1332,7 +1348,7 @@ test('bulk email applies cc recipients and excludes recipient duplicates', funct
         'work_email' => 'work@example.com',
     ]);
 
-    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Certificate'], ['is_active' => true]);
 
     createEmployeePdfDocument(
         $company->id,
@@ -1342,9 +1358,9 @@ test('bulk email applies cc recipients and excludes recipient duplicates', funct
         'doc.pdf',
     );
 
-    $template = EmailTemplate::query()->where('slug', 'bulk_salary_declaration')->first()
+    $template = EmailTemplate::query()->where('slug', 'bulk_salary_certificate')->first()
         ?? EmailTemplate::factory()->create([
-            'slug' => 'bulk_salary_declaration_test',
+            'slug' => 'bulk_salary_certificate_test',
             'subject' => 'Hello {{employee_name}}',
             'body_html' => '<p>{{document_type}}</p>',
             'enabled' => true,
@@ -1356,7 +1372,7 @@ test('bulk email applies cc recipients and excludes recipient duplicates', funct
     $sender->handle(
         $company->id,
         $user->id,
-        'salary_declaration',
+        'salary_certificate',
         collect([$employee]),
         $template,
         ['hr@example.com', 'work@example.com', 'hr@example.com'],
@@ -1375,14 +1391,14 @@ test('bulk email send resolves template from registry and accepts cc', function 
 
     $company = setupBulkDocumentsCompany($user, ['bulk_documents.email']);
 
-    EmailTemplatesSeeder::seedBulkSalaryDeclarationTemplate();
+    EmailTemplatesSeeder::seedBulkSalaryCertificateTemplate();
 
     $employee = Employee::factory()->forCompany($company)->create([
         'status' => 'active',
         'work_email' => 'employee@example.com',
     ]);
 
-    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Certificate'], ['is_active' => true]);
 
     createEmployeePdfDocument(
         $company->id,
@@ -1393,7 +1409,7 @@ test('bulk email send resolves template from registry and accepts cc', function 
     );
 
     $this->post(route('organization.documents.bulk.email'), [
-        'document_type_key' => 'salary_declaration',
+        'document_type_key' => 'salary_certificate',
         'employee_ids' => [$employee->id],
         'cc' => ['hr@example.com'],
     ])->assertRedirect()
@@ -1402,16 +1418,15 @@ test('bulk email send resolves template from registry and accepts cc', function 
     $batch = BulkDocumentEmailBatch::query()->latest('id')->first();
 
     expect($batch?->email_template_id)->toBe(
-        EmailTemplate::query()->where('slug', 'bulk_salary_declaration')->value('id'),
+        EmailTemplate::query()->where('slug', 'bulk_salary_certificate')->value('id'),
     );
 
     Mail::assertQueued(BulkDocumentMail::class, function (BulkDocumentMail $mail) {
-        return $mail->ccRecipients === ['hr@example.com']
-            && str_contains($mail->subjectLine, 'Your Salary Declaration');
+        return $mail->ccRecipients === ['hr@example.com'];
     });
 });
 
-test('bulk email reminder intent stores and sends reminder template', function () {
+test('legacy salary declaration email is rejected', function () {
     Mail::fake();
 
     $user = User::factory()->create();
@@ -1420,7 +1435,6 @@ test('bulk email reminder intent stores and sends reminder template', function (
     $company = setupBulkDocumentsCompany($user, ['bulk_documents.email']);
 
     EmailTemplatesSeeder::seedBulkSalaryDeclarationTemplate();
-    $reminder = EmailTemplatesSeeder::seedBulkSalaryDeclarationSignReminderTemplate();
 
     $employee = Employee::factory()->forCompany($company)->create([
         'status' => 'active',
@@ -1441,18 +1455,11 @@ test('bulk email reminder intent stores and sends reminder template', function (
         'document_type_key' => 'salary_declaration',
         'employee_ids' => [$employee->id],
         'email_intent' => 'reminder',
-    ])->assertRedirect()
-        ->assertSessionHas('success');
+    ])->assertSessionHasErrors('document_type_key');
 
-    $batch = BulkDocumentEmailBatch::query()->latest('id')->first();
-
-    expect($batch?->email_template_id)->toBe($reminder->id)
-        ->and($batch?->subject)->toContain('Reminder: please sign');
-
-    Mail::assertQueued(BulkDocumentMail::class, function (BulkDocumentMail $mail) {
-        return str_contains($mail->subjectLine, 'Reminder: please sign')
-            && str_contains($mail->bodyMessage, 'still awaiting your signature');
-    });
+    expect(BulkDocumentEmailBatch::query()->count())->toBe(0)
+        ->and(BulkDocumentSignatureRequest::query()->count())->toBe(0);
+    Mail::assertNothingQueued();
 });
 
 test('bulk document email template slugs include reminder template', function () {

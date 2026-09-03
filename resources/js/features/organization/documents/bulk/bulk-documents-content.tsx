@@ -44,6 +44,7 @@ import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { SelectionToolbar } from '@/components/selection/selection-toolbar';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -561,6 +562,8 @@ export function BulkDocumentsContent({
     const isHistoryView = view === 'history';
     const showEmployeeFilters = isRosterView || isSignaturesView;
     const supportsEsignature = document_type_key === 'salary_declaration';
+    const legacySalaryDeclarationRetired =
+        document_type_key === 'salary_declaration';
     const [searchInput, setSearchInput] = useState(initialSearch);
     const [filters, setFilters] = useState<BulkDocumentFilters>({
         department_id: initialFilters.department_id,
@@ -1501,7 +1504,7 @@ export function BulkDocumentsContent({
     ]);
 
     const handleGenerate = () => {
-        if (!can.generate || isGenerating) {
+        if (!can.generate || isGenerating || legacySalaryDeclarationRetired) {
             return;
         }
 
@@ -1670,14 +1673,14 @@ export function BulkDocumentsContent({
                     <PageHeader
                         title={
                             isSignaturesView
-                                ? 'Signature Requests'
+                                ? 'Legacy Signature Requests'
                                 : isHistoryView
                                   ? 'Activity'
                                   : 'Generate & Send'
                         }
                         description={
                             isSignaturesView
-                                ? `Review and approve employee signature submissions for ${selectedTypeLabel}.`
+                                ? `Review remaining submitted signatures and historical Salary Declaration requests for ${selectedTypeLabel}. New signing uses Company Templates.`
                                 : isHistoryView
                                   ? 'Review document generation and email history.'
                                   : `Create ${selectedTypeLabel} documents for multiple employees at once, then email or download them.`
@@ -1761,6 +1764,18 @@ export function BulkDocumentsContent({
                     </AppSelect>
                 </div>
             )}
+
+            {isRosterView && legacySalaryDeclarationRetired ? (
+                <Alert className="mb-6">
+                    <AlertTitle>Legacy Salary Declaration</AlertTitle>
+                    <AlertDescription>
+                        New Salary Declaration generation and signing use
+                        Documents → Templates (Company PDF Template). This
+                        roster is historical only — generate and email are
+                        disabled here.
+                    </AlertDescription>
+                </Alert>
+            ) : null}
 
             {/* Summary cards */}
             {isRosterView && supportsEsignature ? (
@@ -2082,7 +2097,8 @@ export function BulkDocumentsContent({
                                         Export
                                     </Button>
                                 ) : null}
-                                {can.generate ? (
+                                {can.generate &&
+                                !legacySalaryDeclarationRetired ? (
                                     <Button
                                         type="button"
                                         size="sm"
@@ -2107,7 +2123,9 @@ export function BulkDocumentsContent({
                                         Download
                                     </Button>
                                 ) : null}
-                                {can.email && !isCustomTemplate ? (
+                                {can.email &&
+                                !isCustomTemplate &&
+                                !legacySalaryDeclarationRetired ? (
                                     <Button
                                         type="button"
                                         size="sm"

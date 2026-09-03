@@ -11,7 +11,7 @@ Documents is one sidebar group with these destinations. Pages do not repeat that
 | `/organization/documents` | Overview | Operational attention dashboard | `documents.view` |
 | `/organization/documents/library` | Library | Canonical browse / search / compliance workspace | `documents.view` |
 | `/organization/documents/generate` | Generate & Send | Current Bulk Documents roster | `bulk_documents.view` |
-| `/organization/documents/requests` | Requests | Unified Review & Approval + legacy Signature Requests | `documents.requests.view` or `bulk_documents.view` |
+| `/organization/documents/requests` | Requests | Unified Review & Approval + Legacy Signature Requests | `documents.requests.view` or `bulk_documents.view` |
 | `/organization/documents/templates` | Templates | Company custom and system generation templates | Any of `documents.templates.view`, `bulk_documents.view`, `settings.master-data.document-types.view`, or platform view |
 | `/organization/documents/configuration` | Configuration | Document Types and employee requirement policy | `settings.master-data.document-types.view` |
 | `/organization/documents/activity` | Activity | Current bulk generation history | `bulk_documents.view` |
@@ -40,7 +40,7 @@ Opening a document from Library uses `from=library` so **Back to Library** resto
 
 Old filtered Overview bookmarks such as `/organization/documents?search=`, `?expiry=`, `?requirement_status=`, `?department_id=`, `?document_type_id=`, and `?page=` redirect to the equivalent Library URL with those supported keys preserved. Unknown parameters are not redirected and are not copied. Plain `/organization/documents` stays Overview.
 
-Generate & Send and Activity are served by `BulkDocumentsController` (`/organization/documents/generate`, `/organization/documents/activity`, and legacy `/organization/documents/bulk`). **Requests** is served by `DocumentRequestsIndexController` at `/organization/documents/requests` (Review & Approval and Signature Requests tabs). Legacy `/organization/documents/bulk?view=signatures` remains a valid bookmark into the signature roster via `BulkDocumentsController`. Explicit module routes for Generate and Activity set a `module_view` route default (`roster` / `history`) resolved before the legacy `view` query string. Templates bridge now supports company-owned content and visual PDF overlay templates with controlled merge fields and Fabric.js visual placement; system templates bridge remains available. Protected Salary Declaration / Salary Certificate PDF layout, Browsershot, Puppeteer, FPDI stamping, and the public e-sign workflow are unchanged.
+Generate & Send and Activity are served by `BulkDocumentsController` (`/organization/documents/generate`, `/organization/documents/activity`, and legacy `/organization/documents/bulk`). **Requests** is served by `DocumentRequestsIndexController` at `/organization/documents/requests` (Approvals, Employee Signing, and Legacy Signature Requests). Legacy `/organization/documents/bulk?view=signatures` remains a valid bookmark into the historical signature roster via `BulkDocumentsController`. Explicit module routes for Generate and Activity set a `module_view` route default (`roster` / `history`) resolved before the legacy `view` query string. Templates bridge now supports company-owned content and visual PDF overlay templates with controlled merge fields and Fabric.js visual placement; system templates bridge remains available. Salary Certificate bulk generation remains. **New** Salary Declaration signing uses Company Templates + `DocumentRecipientRequest` + `/document-action/*`. Legacy `/esign/*` stays for historical links until active unsigned work is cancelled and later retired.
 
 ### Legacy Bulk URLs
 
@@ -53,6 +53,50 @@ These remain valid GET bookmarks and keep their existing route names. POST/PUT/D
 | `/organization/documents/bulk?view=history` | Activity |
 
 The standalone **Bulk generate** sidebar item is removed. Favorites key `documents.bulk` now points at Generate & Send.
+
+## Legacy Salary Declaration e-sign cutover
+
+New Salary Declaration signing is **retired** on the bulk `/esign/*` path. Historical `BulkDocumentSignatureRequest` rows and generated/signed PDFs are **preserved and never rewritten** by the cutover command. There is no row-to-row migration into `DocumentRecipientRequest`.
+
+### Status handling
+
+Legacy rows stay exactly as stored. The command is a report/export only.
+
+| Status | Meaning |
+|--------|---------|
+| `awaiting_signature` | Employee had not completed the old signing flow. Retained as historical/pending-migration tracking. Export these employees, then generate a new Company Template for them. Do **not** change this status because a new `DocumentRecipientRequest` may later exist. |
+| `submitted` | Already signed. Do not reissue. Internal legacy review may finish. |
+| `approved` / `rejected` / `expired` / `cancelled` | Historical only. Untouched. |
+
+The command never deletes `EmployeeDocument` rows, generated PDFs, signed PDFs, request rows, review fields, tokens, or audit history. Generating a Company Template for the same employee creates a **new** document alongside the old one.
+
+### Command (read-only)
+
+```bash
+php artisan documents:legacy-signatures-cutover --company=1
+php artisan documents:legacy-signatures-cutover --company=1 --export=/tmp/salary-declaration-reissue.csv
+```
+
+There is no `--execute` mode. `--export` requires `--company` and writes a CSV of current `awaiting_signature` Salary Declaration employees (`employee_id`, `employee_no`, `employee_name`, `legacy_request_id`, `employee_document_id`). Tokens are never printed. Export does not write to the database.
+
+### Operator flow
+
+1. Deploy the legacy retirement changes (no new Salary Declaration `BulkDocumentSignatureRequest` / `/esign` emails / bulk generate-and-sign).
+2. Run the read-only legacy report.
+3. Export awaiting employees.
+4. Keep all legacy rows and files untouched.
+5. Generate the already-tested new Company Template for those employees.
+6. Verify new `/document-action/*` recipient requests.
+7. Continue all future Salary Declaration generation/signing through Company Templates.
+8. Retire remaining `/esign` runtime later when intentionally cleaning leftover legacy functionality.
+
+### New requests blocked
+
+`CreateBulkDocumentSignatureRequest` and bulk email/generate HTTP actions reject Salary Declaration with a domain validation error. Salary Certificate generation/email is unchanged. Unsigned legacy `/esign` links for cancelled (or otherwise non-signable) requests cannot submit a signature.
+
+### Follow-up (after active legacy work is zero)
+
+Remove `/esign/*` runtime, legacy Signature Requests UI, and unused placement/automation endpoints only when submitted review has drained. Do not delete historical tables or files as part of that later cleanup.
 
 ### Documents → Activity UX
 
@@ -739,7 +783,7 @@ Three tabs:
 
 - **Approvals** — Phase 5A internal workflow inbox (`tab=review`, default when permitted). Rows show: employee, document, waiting for (assignee names), human status (normalized from backend), requested timestamp.
 - **Employee Signing** — Phase 6A recipient sign/acknowledge requests (`tab=recipient`). Rows show: employee, document, waiting for (recipient name + role), human status, requested timestamp.
-- **Signature Requests** — Legacy `BulkDocumentSignatureRequest` UI (`tab=signatures`). Rows show employee, document, status, consistent with modern presentation.
+- **Legacy Signature Requests** — Historical `BulkDocumentSignatureRequest` UI (`tab=signatures`). Remaining submitted review can finish; new Salary Declaration signing is not created here.
 
 **Human-Readable Status**: Presenters normalize backend states into user-friendly sentences. Approvals use Waiting for Review/Approval plus Approved, Rejected, Cancelled. Employee Signing uses Waiting for Sign/Acknowledge plus Email delivery failed, Expired, Cancelled, Superseded, Completed. Recipient requests have no `rejected` status.
 
@@ -837,7 +881,7 @@ No signing, acknowledgement, email/reminders, automatic template→preset assign
 
 ## Phase 6A: Unified Signing & Acknowledgement Foundation
 
-Phase 6A adds a new unified recipient-request path for generated documents. It is separate from legacy `BulkDocumentSignatureRequest` and public `/esign/*` routes, which remain unchanged.
+Phase 6A adds a new unified recipient-request path for generated documents. Legacy `BulkDocumentSignatureRequest` / `/esign/*` remain for historical signed/review work; **new** Salary Declaration signing is not created on that path (see [Legacy Salary Declaration e-sign cutover](#legacy-salary-declaration-e-sign-cutover)).
 
 ### Recipient requests
 
@@ -901,7 +945,7 @@ Phase 5 workflow stages are not extended with sign/acknowledge actions in Phase 
 
 1. **Approvals** (Phase 5A/5B, user-facing label)
 2. **Employee Signing** (Phase 6A, user-facing label)
-3. **Signature Requests** (legacy, consistent with modern presentation)
+3. **Legacy Signature Requests** (historical bulk signing / remaining submitted review)
 
 ### Permissions
 
@@ -913,7 +957,7 @@ Phase 5 workflow stages are not extended with sign/acknowledge actions in Phase 
 
 ### Explicitly not in Phase 6A
 
-No manager/countersigning, external recipients, email/reminders/WhatsApp/push, automatic workflow sign stages, candidate signing, or automatic template→preset routing. Legacy bulk signature requests remain the protected production path for Salary Declaration and related bulk flows.
+No manager/countersigning, external recipients, email/reminders/WhatsApp/push, automatic workflow sign stages, candidate signing, or automatic template→preset routing. New Salary Declaration signing uses Company Templates and this unified recipient path, not new bulk `/esign` requests.
 
 ## Phase 6B-1: Internal Company Countersigning
 
@@ -1362,4 +1406,4 @@ There is no HR browser repair console. Integrity audit is CLI/backend operationa
 
 ### Explicitly not in Phase 8A
 
-Legacy `BulkDocumentSignatureRequest` / `/esign/{token}` migration, Salary Declaration / Salary Certificate cutover, WhatsApp/SMS/Web Push recipient delivery, parallel/quorum signing, expiry extension, automatic expired-step reissue, Recruitment/Payroll/Crew/Attendance/Leave changes, and new REST APIs.
+WhatsApp/SMS/Web Push recipient delivery, parallel/quorum signing, expiry extension, automatic expired-step reissue, Recruitment/Payroll/Crew/Attendance/Leave changes, and new REST APIs. Full removal of `/esign/*` and unused legacy bulk-signing runtime waits until active submitted legacy review is zero (historical rows/files stay).

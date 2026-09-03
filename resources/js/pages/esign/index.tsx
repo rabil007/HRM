@@ -16,6 +16,7 @@ type Props = {
     expiresAt: string | null;
     status: string;
     alreadySubmitted: boolean;
+    unavailable?: boolean;
     submitUrl: string;
     downloadUrl: string;
     placement: SignaturePlacementConfig;
@@ -51,6 +52,7 @@ export default function DocumentEsignPage({
     documentLabel,
     expiresAt,
     alreadySubmitted,
+    unavailable = false,
     submitUrl,
     downloadUrl,
     placement,
@@ -112,6 +114,25 @@ export default function DocumentEsignPage({
             setStep(2);
         }
     };
+
+    if (unavailable) {
+        return (
+            <>
+                <Head title={`${documentLabel} unavailable`} />
+                <div className="flex min-h-svh items-center justify-center bg-muted/40 px-4 py-10">
+                    <div className="w-full max-w-md rounded-2xl border bg-background p-8 text-center shadow-sm">
+                        <h1 className="text-xl font-semibold">
+                            This signing link is no longer available
+                        </h1>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                            The request was cancelled, expired, or already
+                            closed. Contact HR if you still need to sign.
+                        </p>
+                    </div>
+                </div>
+            </>
+        );
+    }
 
     if (alreadySubmitted) {
         return (

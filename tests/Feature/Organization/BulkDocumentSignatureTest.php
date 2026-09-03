@@ -2,7 +2,6 @@
 
 use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Jobs\RegenerateAlignedSignedBulkDocumentPdfsJob;
-use App\Mail\BulkDocumentMail;
 use App\Models\BulkDocumentSignatureRepairRun;
 use App\Models\BulkDocumentSignatureRequest;
 use App\Models\Company;
@@ -12,8 +11,6 @@ use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\BulkDocuments\RendersEmployeeDocumentPdf;
 use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
-use App\Support\BulkDocuments\BulkDocumentSignatureLinkService;
-use App\Support\BulkDocuments\CreateBulkDocumentSignatureRequest;
 use Database\Seeders\EmailTemplatesSeeder;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
@@ -46,25 +43,10 @@ function createAwaitingSignatureRequest(Company $company, Employee $employee, ?E
 {
     $document ??= createSalaryDeclarationDocument($company, $employee);
 
-    return app(CreateBulkDocumentSignatureRequest::class)->handle(
-        $company->id,
-        $employee->id,
-        $document,
-        'salary_declaration',
-    );
+    return createLegacyBulkDocumentSignatureRequest($company, $employee, $document);
 }
 
-function minimalSignatureDataUrl(): string
-{
-    $png = base64_decode(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-        true,
-    );
-
-    return 'data:image/png;base64,'.base64_encode($png ?: '');
-}
-
-test('bulk email send creates signature request and substitutes signing url', function () {
+test('bulk salary declaration email cannot create a new legacy signing request', function () {
     Mail::fake();
 
     $user = User::factory()->create();
@@ -79,32 +61,13 @@ test('bulk email send creates signature request and substitutes signing url', fu
 
     createSalaryDeclarationDocument($company, $employee);
 
-    $renderer = new class implements RendersEmployeeDocumentPdf
-    {
-        public function render(Employee $employee, int $companyId, ?array $signature = null): string
-        {
-            return minimalPdfBytes();
-        }
-    };
-
-    app()->instance(SalaryDeclarationPdfRenderer::class, $renderer);
-
     $this->post(route('organization.documents.bulk.email'), [
         'document_type_key' => 'salary_declaration',
         'employee_ids' => [$employee->id],
-    ])->assertRedirect()
-        ->assertSessionHas('success');
+    ])->assertSessionHasErrors('document_type_key');
 
-    expect(BulkDocumentSignatureRequest::query()->count())->toBe(1);
-
-    $request = BulkDocumentSignatureRequest::query()->first();
-    $signUrl = app(BulkDocumentSignatureLinkService::class)->signUrl($request);
-
-    Mail::assertQueued(BulkDocumentMail::class, function ($mail) use ($signUrl) {
-        return str_contains($mail->bodyMessage, $signUrl)
-            && str_contains($mail->bodyMessage, 'Sign declaration')
-            && str_contains($mail->bodyMessage, '/esign/');
-    });
+    expect(BulkDocumentSignatureRequest::query()->count())->toBe(0);
+    Mail::assertNothingQueued();
 });
 
 test('guest can open valid signed signing page', function () {
@@ -127,6 +90,7 @@ test('guest can open valid signed signing page', function () {
             ->component('esign/index')
             ->where('employeeName', $employee->name)
             ->where('alreadySubmitted', false)
+            ->where('unavailable', false)
             ->where('documentLabel', 'Salary Declaration')
             ->has('downloadUrl')
             ->has('submitUrl')
@@ -145,6 +109,40 @@ test('guest cannot open signing page with invalid signature', function () {
 
     $this->get('/esign/'.$request->token)
         ->assertForbidden();
+});
+
+test('cancelled legacy signing request cannot be submitted', function () {
+    $user = User::factory()->create();
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Cancelled Signer',
+    ]);
+    $document = createSalaryDeclarationDocument($company, $employee);
+    $request = createAwaitingSignatureRequest($company, $employee, $document);
+    $originalPath = $document->file_path;
+
+    $request->update(['status' => BulkDocumentSignatureRequestStatus::Cancelled]);
+
+    $submitUrl = URL::temporarySignedRoute(
+        'public.esign.submit',
+        now()->addDay(),
+        ['token' => $request->token],
+    );
+
+    $this->post($submitUrl, [
+        'signed_name' => 'Cancelled Signer',
+        'signature_data' => minimalSignatureDataUrl(),
+        'consent' => '1',
+    ])->assertSessionHasErrors('token');
+
+    $request->refresh();
+    $document->refresh();
+
+    expect($request->status)->toBe(BulkDocumentSignatureRequestStatus::Cancelled)
+        ->and($request->signed_pdf_path)->toBeNull()
+        ->and($document->file_path)->toBe($originalPath);
 });
 
 test('guest can submit electronic signature without replacing employee document', function () {

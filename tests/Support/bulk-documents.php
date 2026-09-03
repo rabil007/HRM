@@ -1,9 +1,14 @@
 <?php
 
+use App\Enums\BulkDocumentSignatureRequestStatus;
+use App\Models\BulkDocumentSignatureRequest;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Employee;
+use App\Models\EmployeeDocument;
 use App\Models\User;
+use Illuminate\Support\Str;
 
 function setupBulkDocumentsCompany(User $user, array $permissions = []): Company
 {
@@ -37,4 +42,32 @@ function setupBulkDocumentsCompany(User $user, array $permissions = []): Company
     session(['current_company_id' => $company->id]);
 
     return $company;
+}
+
+function createLegacyBulkDocumentSignatureRequest(
+    Company $company,
+    Employee $employee,
+    EmployeeDocument $document,
+    BulkDocumentSignatureRequestStatus $status = BulkDocumentSignatureRequestStatus::AwaitingSignature,
+    array $overrides = [],
+): BulkDocumentSignatureRequest {
+    return BulkDocumentSignatureRequest::query()->create(array_merge([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_document_id' => $document->id,
+        'document_type_key' => 'salary_declaration',
+        'token' => Str::random(48),
+        'status' => $status,
+        'expires_at' => now()->addDays(14),
+    ], $overrides));
+}
+
+function minimalSignatureDataUrl(): string
+{
+    $png = base64_decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        true,
+    );
+
+    return 'data:image/png;base64,'.base64_encode($png ?: '');
 }

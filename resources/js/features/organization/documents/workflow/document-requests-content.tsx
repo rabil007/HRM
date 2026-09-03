@@ -13,6 +13,7 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BulkDocumentsContent } from '@/features/organization/documents/bulk/bulk-documents-content';
@@ -110,7 +111,7 @@ function RequestsTabSwitcher({
         },
         {
             key: 'signatures' as const,
-            label: 'Signature Requests',
+            label: 'Legacy Signature Requests',
             visible: canViewSignatures,
         },
     ].filter((t) => t.visible);
@@ -151,6 +152,14 @@ function RequestsTabSwitcher({
                                 )}
                             />
                             {label}
+                            {key === 'signatures' ? (
+                                <Badge
+                                    variant="secondary"
+                                    className="ml-1 text-[10px] font-medium"
+                                >
+                                    Legacy
+                                </Badge>
+                            ) : null}
                             {isActive && (
                                 <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary" />
                             )}

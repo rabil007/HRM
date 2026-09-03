@@ -6,6 +6,7 @@ use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Models\BulkDocumentSignatureRequest;
 use App\Models\EmployeeDocument;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 final class CreateBulkDocumentSignatureRequest
 {
@@ -16,6 +17,12 @@ final class CreateBulkDocumentSignatureRequest
         string $documentTypeKey,
         ?int $batchId = null,
     ): BulkDocumentSignatureRequest {
+        if (BulkDocumentTypeRegistry::legacySigningRetired($documentTypeKey)) {
+            throw ValidationException::withMessages([
+                'document_type_key' => LegacySalaryDeclarationSigning::SIGNING_RETIREMENT_MESSAGE,
+            ]);
+        }
+
         BulkDocumentSignatureRequest::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employeeId)

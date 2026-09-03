@@ -3,8 +3,10 @@
 namespace App\Http\Requests\Organization\BulkDocuments;
 
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\BulkDocuments\LegacySalaryDeclarationSigning;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class GenerateBulkDocumentsRequest extends FormRequest
 {
@@ -39,6 +41,25 @@ class GenerateBulkDocumentsRequest extends FormRequest
             'sssa_option_id' => ['nullable', 'string'],
             'crew_status' => ['nullable', 'string'],
             'role_id' => ['nullable', 'string'],
+        ];
+    }
+
+    /**
+     * @return list<callable>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $key = $this->input('document_type_key');
+
+                if (is_string($key) && BulkDocumentTypeRegistry::legacySigningRetired($key)) {
+                    $validator->errors()->add(
+                        'document_type_key',
+                        LegacySalaryDeclarationSigning::GENERATION_RETIREMENT_MESSAGE,
+                    );
+                }
+            },
         ];
     }
 

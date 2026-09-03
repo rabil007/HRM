@@ -77,6 +77,19 @@ final class BulkDocumentEmailComposer
             return ['sent' => 0, 'failed' => 1, 'skipped' => 0];
         }
 
+        if (BulkDocumentTypeRegistry::legacySigningRetired($documentTypeKey)) {
+            BulkDocumentEmailSend::query()->create([
+                'batch_id' => $batchId,
+                'employee_id' => $employee->id,
+                'employee_document_id' => $document->id,
+                'recipient_email' => $recipient,
+                'status' => 'failed',
+                'error' => LegacySalaryDeclarationSigning::SIGNING_RETIREMENT_MESSAGE,
+            ]);
+
+            return ['sent' => 0, 'failed' => 1, 'skipped' => 0];
+        }
+
         $signatureUrl = '';
 
         if (BulkDocumentTypeRegistry::supportsEsignature($documentTypeKey)) {

@@ -13,7 +13,7 @@ use InvalidArgumentException;
 final class BulkDocumentTypeRegistry
 {
     /**
-     * @return list<array{key: string, label: string, document_type_title: string, email_template_slug: string, reminder_email_template_slug: ?string, supports_esignature: bool, renderer: class-string<RendersEmployeeDocumentPdf>}>
+     * @return list<array{key: string, label: string, document_type_title: string, email_template_slug: string, reminder_email_template_slug: ?string, supports_esignature: bool, available_for_new_generation: bool, legacy_signing_retired: bool, renderer: class-string<RendersEmployeeDocumentPdf>}>
      */
     public static function definitions(): array
     {
@@ -25,6 +25,8 @@ final class BulkDocumentTypeRegistry
                 'email_template_slug' => 'bulk_salary_declaration',
                 'reminder_email_template_slug' => 'bulk_salary_declaration_sign_reminder',
                 'supports_esignature' => true,
+                'available_for_new_generation' => false,
+                'legacy_signing_retired' => true,
                 'renderer' => SalaryDeclarationPdfRenderer::class,
             ],
             [
@@ -34,13 +36,15 @@ final class BulkDocumentTypeRegistry
                 'email_template_slug' => 'bulk_salary_certificate',
                 'reminder_email_template_slug' => null,
                 'supports_esignature' => false,
+                'available_for_new_generation' => true,
+                'legacy_signing_retired' => false,
                 'renderer' => SalaryCertificatePdfRenderer::class,
             ],
         ];
     }
 
     /**
-     * @return array{key: string, label: string, document_type_title: string, email_template_slug: string, reminder_email_template_slug: ?string, supports_esignature: bool, renderer: class-string<RendersEmployeeDocumentPdf>}
+     * @return array{key: string, label: string, document_type_title: string, email_template_slug: string, reminder_email_template_slug: ?string, supports_esignature: bool, available_for_new_generation: bool, legacy_signing_retired: bool, renderer: class-string<RendersEmployeeDocumentPdf>}
      */
     public static function find(string $key): array
     {
@@ -73,6 +77,16 @@ final class BulkDocumentTypeRegistry
     public static function supportsEsignature(string $key): bool
     {
         return (bool) self::find($key)['supports_esignature'];
+    }
+
+    public static function availableForNewGeneration(string $key): bool
+    {
+        return (bool) self::find($key)['available_for_new_generation'];
+    }
+
+    public static function legacySigningRetired(string $key): bool
+    {
+        return (bool) self::find($key)['legacy_signing_retired'];
     }
 
     /**

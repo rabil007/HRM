@@ -35,6 +35,8 @@ class ShowDocumentEsignController extends Controller
             BulkDocumentSignatureRequestStatus::Approved,
         ], true);
 
+        $unavailable = ! $alreadySubmitted && ! $signatureRequest->isSignable();
+
         $placements = BulkDocumentTypeRegistry::resolveSignaturePlacements(
             $signatureRequest->document_type_key,
         );
@@ -49,6 +51,7 @@ class ShowDocumentEsignController extends Controller
             'expiresAt' => $signatureRequest->expires_at?->toIso8601String(),
             'status' => $signatureRequest->status->value,
             'alreadySubmitted' => $alreadySubmitted,
+            'unavailable' => $unavailable,
             'submitUrl' => $links->submitUrl($signatureRequest),
             'downloadUrl' => $links->downloadUnsignedUrl($signatureRequest),
             'placement' => $placements ?? SalaryDeclarationSignaturePlacements::config(),

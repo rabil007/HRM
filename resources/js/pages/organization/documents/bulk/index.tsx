@@ -5,7 +5,7 @@ import type { BulkDocumentsPageProps } from '@/features/organization/documents/b
 export default function BulkDocumentsIndex(props: BulkDocumentsPageProps) {
     const title =
         props.view === 'signatures'
-            ? 'Signature Requests'
+            ? 'Legacy Signature Requests'
             : props.view === 'history'
               ? 'Activity'
               : 'Generate & Send';
