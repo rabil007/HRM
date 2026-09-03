@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Organization\DocumentGenerationTemplate;
 
 use App\Models\DocumentGenerationTemplate;
-use App\Support\Documents\DocumentTemplateMergeFields;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -40,20 +39,7 @@ class UpdateDocumentGenerationTemplateRequest extends FormRequest
                     ->where('is_active', true)
                     ->whereNull('deleted_at'),
             ],
-            'content' => [
-                'required',
-                'string',
-                function (string $attribute, mixed $value, \Closure $fail): void {
-                    if (! is_string($value)) {
-                        return;
-                    }
-
-                    $unsupported = DocumentTemplateMergeFields::findUnsupported($value);
-                    if ($unsupported !== []) {
-                        $fail('The content contains unsupported merge fields: '.implode(', ', $unsupported).'.');
-                    }
-                },
-            ],
+            'content' => ['prohibited'],
             'status' => ['prohibited'],
             'company_id' => ['prohibited'],
             'created_by' => ['prohibited'],

@@ -63,6 +63,15 @@ test('templates destination is accessible through any current templates-bridge p
         ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'documents.bulk'))->toBeFalse();
 });
 
+test('platform view does not unlock the templates destination', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantPlatformAccess($user);
+
+    expect(NavigationDestinationCatalog::isAccessibleKey($user, 'documents.templates'))->toBeFalse();
+});
+
 test('vessels.view cannot unlock the vessel manning destination', function () {
     $user = User::factory()->create();
     ['company' => $company] = makeDocumentFixtures();

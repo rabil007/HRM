@@ -6,11 +6,8 @@ use App\Enums\DocumentGenerationTemplateStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\ReplaceDocumentGenerationTemplatePdfRequest;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\SaveDocumentGenerationTemplateDesignRequest;
-use App\Http\Requests\Organization\DocumentGenerationTemplate\SaveDocumentGenerationTemplatePlacementsRequest;
-use App\Http\Requests\Organization\DocumentGenerationTemplate\SaveDocumentGenerationTemplateSignaturePlacementRequest;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\StoreDocumentGenerationTemplateRequest;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\UpdateDocumentGenerationTemplateRequest;
-use App\Http\Requests\Organization\Documents\UpdateDocumentGenerationTemplateAutomationRequest;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Support\Documents\Actions\BranchDocumentGenerationTemplateDraft;
@@ -20,10 +17,7 @@ use App\Support\Documents\Actions\DuplicateDocumentGenerationTemplate;
 use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
 use App\Support\Documents\Actions\ReplaceDocumentGenerationTemplatePdf;
 use App\Support\Documents\Actions\SaveDocumentGenerationTemplateDesign;
-use App\Support\Documents\Actions\SaveDocumentGenerationTemplatePlacements;
-use App\Support\Documents\Actions\SaveDocumentGenerationTemplateSignaturePlacement;
 use App\Support\Documents\Actions\UpdateDocumentGenerationTemplate;
-use App\Support\Documents\Actions\UpdateDocumentGenerationTemplateAutomation;
 use App\Support\Documents\DocumentGenerationTemplateDesignerOptions;
 use App\Support\Documents\DocumentGenerationTemplatePageOptions;
 use App\Support\Documents\DocumentGenerationTemplateReadiness;
@@ -40,13 +34,6 @@ use Symfony\Component\HttpFoundation\Response;
 class DocumentGenerationTemplateController extends Controller
 {
     public function create(Request $request): RedirectResponse
-    {
-        abort_unless(DocumentsModuleAccess::canCreateCustomTemplates($request->user()), 403);
-
-        return redirect()->route('organization.documents.templates.create.pdf');
-    }
-
-    public function createContent(Request $request): RedirectResponse
     {
         abort_unless(DocumentsModuleAccess::canCreateCustomTemplates($request->user()), 403);
 
@@ -222,20 +209,6 @@ class DocumentGenerationTemplateController extends Controller
             ->with('success', 'Template updated.');
     }
 
-    public function updateAutomation(
-        UpdateDocumentGenerationTemplateAutomationRequest $request,
-        DocumentGenerationTemplate $template,
-        UpdateDocumentGenerationTemplateAutomation $action,
-    ): RedirectResponse {
-        $companyId = (int) $request->attributes->get('current_company_id');
-        abort_if($companyId <= 0, 403);
-        abort_unless((int) $template->company_id === $companyId, 404);
-
-        $action->handle($template, $request->validated(), $request->user());
-
-        return back()->with('success', 'Template automation updated.');
-    }
-
     public function duplicate(
         Request $request,
         DocumentGenerationTemplate $template,
@@ -292,61 +265,6 @@ class DocumentGenerationTemplateController extends Controller
         abort_unless($template->isPdfOverlay(), 404);
 
         return DocumentTemplateStorage::response($version, $companyId);
-    }
-
-    public function savePlacements(
-        SaveDocumentGenerationTemplatePlacementsRequest $request,
-        DocumentGenerationTemplate $template,
-        DocumentGenerationTemplateVersion $version,
-        SaveDocumentGenerationTemplatePlacements $action,
-    ): JsonResponse|RedirectResponse {
-        $companyId = (int) $request->attributes->get('current_company_id');
-        abort_if($companyId <= 0, 403);
-        abort_unless((int) $template->company_id === $companyId, 404);
-        abort_unless((int) $version->document_generation_template_id === (int) $template->id, 404);
-        abort_unless((int) $version->company_id === $companyId, 404);
-
-        $action->handle($version, $request->validated()['placements'], $request->user()?->id);
-
-        if ($request->wantsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Placements saved.',
-                'placement_config' => $version->fresh()->placement_config,
-            ]);
-        }
-
-        return back()->with('success', 'Placements saved.');
-    }
-
-    public function saveSignaturePlacement(
-        SaveDocumentGenerationTemplateSignaturePlacementRequest $request,
-        DocumentGenerationTemplate $template,
-        DocumentGenerationTemplateVersion $version,
-        SaveDocumentGenerationTemplateSignaturePlacement $action,
-    ): JsonResponse|RedirectResponse {
-        $companyId = (int) $request->attributes->get('current_company_id');
-        abort_if($companyId <= 0, 403);
-        abort_unless((int) $template->company_id === $companyId, 404);
-        abort_unless((int) $version->document_generation_template_id === (int) $template->id, 404);
-        abort_unless((int) $version->company_id === $companyId, 404);
-
-        $updated = $action->handle(
-            $version,
-            $request->signaturePlacementConfig(),
-            $request->user()?->id,
-        );
-
-        if ($request->wantsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Signature placement saved.',
-                'signature_placement_config' => $updated->signature_placement_config,
-                'draft' => $updated->toArraySummary(),
-            ]);
-        }
-
-        return back()->with('success', 'Signature placement saved.');
     }
 
     public function replacePdf(

@@ -233,7 +233,7 @@ describe('documents module visibility', () => {
         );
     });
 
-    it('shows templates for document types, custom templates view, or platform access', () => {
+    it('shows templates for document types or custom templates view', () => {
         assert.deepEqual(
             visibleDocumentsModuleSections(['documents.templates.view']),
             ['templates'],
@@ -248,9 +248,7 @@ describe('documents module visibility', () => {
             canViewDocumentsModuleSection('configuration', ['documents.view']),
             false,
         );
-        assert.deepEqual(visibleDocumentsModuleSections([], true), [
-            'templates',
-        ]);
+        assert.deepEqual(visibleDocumentsModuleSections([]), []);
     });
 
     it('does not treat bulk generate as bulk view', () => {

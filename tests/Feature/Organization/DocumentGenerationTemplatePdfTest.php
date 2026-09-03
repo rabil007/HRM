@@ -23,6 +23,32 @@ use Illuminate\Validation\ValidationException;
 use setasign\Fpdi\Fpdi;
 use Spatie\Activitylog\Models\Activity;
 
+/**
+ * @param  list<array<string, mixed>>  $placements
+ */
+function putPdfDesignerDraft(
+    User $user,
+    Company $company,
+    DocumentGenerationTemplate $template,
+    DocumentGenerationTemplateVersion $version,
+    array $placements,
+) {
+    return test()->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->putJson(route('organization.documents.templates.versions.design.save', [
+            'template' => $template->id,
+            'version' => $version->id,
+        ]), [
+            'placement_config' => [
+                'schema_version' => 2,
+                'placements' => $placements,
+            ],
+            'signature_placement_config' => [
+                'schema_version' => 2,
+                'placements' => [],
+            ],
+        ]);
+}
 function createPdfTestCompany(string $name = 'PDF Test Co'): Company
 {
     $code = strtoupper((string) fake()->unique()->lexify('??'));
@@ -214,12 +240,7 @@ test('saving placements validates normalized coordinates and schema version', fu
         ],
     ];
 
-    $response = $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.placements.save', [
-            'template' => $template->id,
-            'version' => $version->id,
-        ]), ['placements' => $validPlacements]);
+    $response = putPdfDesignerDraft($user, $company, $template, $version, $validPlacements);
 
     $response->assertOk();
 
@@ -241,12 +262,7 @@ test('saving placements validates normalized coordinates and schema version', fu
         ],
     ];
 
-    $invalidResponse = $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.placements.save', [
-            'template' => $template->id,
-            'version' => $version->id,
-        ]), ['placements' => $invalidPlacements]);
+    $invalidResponse = putPdfDesignerDraft($user, $company, $template, $version, $invalidPlacements);
 
     $invalidResponse->assertUnprocessable();
 });
@@ -668,7 +684,7 @@ it('returns safe error message when uploaded PDF is corrupt', function () {
         || $error === 'Unable to read the PDF. The file may be corrupt, damaged, or password-protected.')->toBeTrue();
 });
 
-it('supports Inertia redirects for getOrCreateDraft and savePlacements', function () {
+it('supports Inertia redirects for getOrCreateDraft and JSON save for design drafts', function () {
     $user = User::factory()->create();
     $company = createPdfTestCompany('Inertia Draft Co');
     grantCompanyPermissions($user, $company, ['documents.templates.update', 'documents.templates.view']);
@@ -706,30 +722,18 @@ it('supports Inertia redirects for getOrCreateDraft and savePlacements', functio
     $response->assertRedirect(route('organization.documents.templates'))
         ->assertSessionHas('success', 'Draft prepared.');
 
-    // savePlacements via Inertia
-    $saveResponse = $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->from(route('organization.documents.templates'))
-        ->put(route('organization.documents.templates.versions.placements.save', [
-            'template' => $template->id,
-            'version' => $draft->id,
-        ]), [
-            'placements' => [
-                [
-                    'id' => 'p1',
-                    'type' => 'field',
-                    'field' => '{{employee_name}}',
-                    'page' => 1,
-                    'x' => 0.1,
-                    'y' => 0.1,
-                    'width' => 0.2,
-                    'height' => 0.05,
-                ],
-            ],
-        ]);
-
-    $saveResponse->assertRedirect(route('organization.documents.templates'))
-        ->assertSessionHas('success', 'Placements saved.');
+    putPdfDesignerDraft($user, $company, $template, $draft, [
+        [
+            'id' => 'p1',
+            'type' => 'field',
+            'field' => '{{employee_name}}',
+            'page' => 1,
+            'x' => 0.1,
+            'y' => 0.1,
+            'width' => 0.2,
+            'height' => 0.05,
+        ],
+    ])->assertOk()->assertJsonPath('success', true);
 });
 
 // Schema v2 static text tests
@@ -759,11 +763,7 @@ test('saving placements with type=text succeeds and stores text_content without 
         ],
     ];
 
-    $response = $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.placements.save', [
-            'template' => $template->id, 'version' => $version->id,
-        ]), ['placements' => $placements]);
+    $response = putPdfDesignerDraft($user, $company, $template, $version, $placements);
 
     $response->assertOk();
     $version->refresh();
@@ -786,15 +786,11 @@ test('saving placements rejects empty text_content', function () {
         'version' => 1, 'status' => DocumentGenerationTemplateVersionStatus::Draft, 'source_pdf_page_count' => 1,
     ]);
 
-    $response = $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.placements.save', [
-            'template' => $template->id, 'version' => $version->id,
-        ]), ['placements' => [[
-            'id' => 'text-1', 'type' => 'text', 'text_content' => '',
-            'page' => 1, 'x' => 0.1, 'y' => 0.1, 'width' => 0.3, 'height' => 0.05,
-            'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
-        ]]]);
+    $response = putPdfDesignerDraft($user, $company, $template, $version, [[
+        'id' => 'text-1', 'type' => 'text', 'text_content' => '',
+        'page' => 1, 'x' => 0.1, 'y' => 0.1, 'width' => 0.3, 'height' => 0.05,
+        'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
+    ]]);
 
     $response->assertStatus(422);
     $response->assertJsonValidationErrors(['placements.0.text_content']);
@@ -812,15 +808,11 @@ test('saving placements rejects text_content exceeding 500 characters', function
         'version' => 1, 'status' => DocumentGenerationTemplateVersionStatus::Draft, 'source_pdf_page_count' => 1,
     ]);
 
-    $response = $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.placements.save', [
-            'template' => $template->id, 'version' => $version->id,
-        ]), ['placements' => [[
-            'id' => 'text-1', 'type' => 'text', 'text_content' => str_repeat('a', 501),
-            'page' => 1, 'x' => 0.1, 'y' => 0.1, 'width' => 0.3, 'height' => 0.05,
-            'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
-        ]]]);
+    $response = putPdfDesignerDraft($user, $company, $template, $version, [[
+        'id' => 'text-1', 'type' => 'text', 'text_content' => str_repeat('a', 501),
+        'page' => 1, 'x' => 0.1, 'y' => 0.1, 'width' => 0.3, 'height' => 0.05,
+        'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
+    ]]);
 
     $response->assertStatus(422);
     $response->assertJsonValidationErrors(['placements.0.text_content']);
@@ -840,18 +832,14 @@ test('saving placements rejects missing type for schema v2', function () {
         'source_pdf_page_count' => 1,
     ]);
 
-    $response = $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.placements.save', [
-            'template' => $template->id, 'version' => $version->id,
-        ]), ['placements' => [[
-            'id' => 'p1', 'field' => '{{employee_name}}',
-            'page' => 1, 'x' => 0.1, 'y' => 0.1, 'width' => 0.3, 'height' => 0.05,
-            'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
-        ]]]);
+    $response = putPdfDesignerDraft($user, $company, $template, $version, [[
+        'id' => 'p1', 'field' => '{{employee_name}}',
+        'page' => 1, 'x' => 0.1, 'y' => 0.1, 'width' => 0.3, 'height' => 0.05,
+        'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
+    ]]);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors(['placements.0.type']);
+    $response->assertJsonValidationErrors(['placement_config.placements.0.type']);
 });
 
 test('saving placements rejects unknown type for schema v2', function (string $type) {
@@ -868,18 +856,14 @@ test('saving placements rejects unknown type for schema v2', function (string $t
         'source_pdf_page_count' => 1,
     ]);
 
-    $response = $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.placements.save', [
-            'template' => $template->id, 'version' => $version->id,
-        ]), ['placements' => [[
-            'id' => 'p1', 'type' => $type, 'field' => '{{employee_name}}',
-            'page' => 1, 'x' => 0.1, 'y' => 0.1, 'width' => 0.3, 'height' => 0.05,
-            'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
-        ]]]);
+    $response = putPdfDesignerDraft($user, $company, $template, $version, [[
+        'id' => 'p1', 'type' => $type, 'field' => '{{employee_name}}',
+        'page' => 1, 'x' => 0.1, 'y' => 0.1, 'width' => 0.3, 'height' => 0.05,
+        'font_size' => 12, 'font_weight' => 'normal', 'text_align' => 'left',
+    ]]);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors(['placements.0.type']);
+    $response->assertJsonValidationErrors(['placement_config.placements.0.type']);
 })->with(['signature', 'abc', '']);
 
 test('saveDesign rejects missing placement type', function () {

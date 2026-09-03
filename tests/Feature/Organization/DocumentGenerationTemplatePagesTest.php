@@ -56,7 +56,7 @@ beforeEach(function () {
     $this->seed(PermissionsSeeder::class);
 });
 
-test('create and create content routes redirect to pdf create page for authorized users', function () {
+test('create route redirects to pdf create page for authorized users', function () {
     $user = User::factory()->create();
     $company = createTemplatePagesTestCompany();
     grantCompanyPermissions($user, $company, ['documents.templates.create']);
@@ -64,11 +64,6 @@ test('create and create content routes redirect to pdf create page for authorize
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->get(route('organization.documents.templates.create'))
-        ->assertRedirect(route('organization.documents.templates.create.pdf'));
-
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->get(route('organization.documents.templates.create.content'))
         ->assertRedirect(route('organization.documents.templates.create.pdf'));
 
     $this->actingAs($user)
@@ -88,11 +83,6 @@ test('unauthorized users cannot open template create pages', function () {
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->get(route('organization.documents.templates.create'))
-        ->assertForbidden();
-
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->get(route('organization.documents.templates.create.content'))
         ->assertForbidden();
 
     $this->actingAs($user)

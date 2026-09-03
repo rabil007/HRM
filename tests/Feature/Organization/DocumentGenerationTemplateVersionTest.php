@@ -281,10 +281,9 @@ test('newly created content template starts in draft with v1 draft and null publ
     expect($draft->content)->toBe('Initial draft text {{employee_name}}');
 });
 
-test('editing draft content does not change parent content when a published version exists', function () {
+test('updating template metadata does not mutate historical published content', function () {
     $user = User::factory()->create();
     $company = createVersionTestCompany();
-    grantCompanyPermissions($user, $company, ['documents.templates.update']);
 
     $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
         'name' => 'Published Template',
@@ -300,21 +299,16 @@ test('editing draft content does not change parent content when a published vers
     $template->published_version_id = $v1->id;
     $template->save();
 
-    // HR edits the template
     $updater = new UpdateDocumentGenerationTemplate;
     $updater->handle($template, [
-        'content' => 'V2 Unapproved Draft Text {{employee_name}}',
+        'name' => 'Published Template',
+        'description' => 'Metadata only',
     ], $user);
 
     $template->refresh();
-    // Parent content MUST remain pointing to V1 published content!
-    expect($template->content)->toBe('V1 Published Text {{employee_name}}');
-
-    // But the draft version has the new text
-    $draft = $template->draftVersion;
-    expect($draft)->not->toBeNull();
-    expect($draft->version)->toBe(2);
-    expect($draft->content)->toBe('V2 Unapproved Draft Text {{employee_name}}');
+    expect($template->content)->toBe('V1 Published Text {{employee_name}}')
+        ->and($template->description)->toBe('Metadata only')
+        ->and($template->draftVersion)->toBeNull();
 });
 
 test('activate rejects template when published_version_id is invalid or inconsistent', function () {

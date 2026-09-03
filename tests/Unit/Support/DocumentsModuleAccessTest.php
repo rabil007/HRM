@@ -73,7 +73,8 @@ test('templates is visible for any exposed bridge resource', function (array $pe
     'documents view only' => [['documents.view'], false, false],
     'bulk documents view' => [['bulk_documents.view'], false, true],
     'document types view' => [['settings.master-data.document-types.view'], false, true],
-    'platform view' => [[], true, true],
+    'templates view' => [['documents.templates.view'], false, true],
+    'platform view' => [[], true, false],
 ]);
 
 test('bulk generate does not imply bulk view', function () {

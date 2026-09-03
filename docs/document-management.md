@@ -12,7 +12,7 @@ Documents is one sidebar group with these destinations. Pages do not repeat that
 | `/organization/documents/library` | Library | Canonical browse / search / compliance workspace | `documents.view` |
 | `/organization/documents/generate` | Generate & Send | Current Bulk Documents roster | `bulk_documents.view` |
 | `/organization/documents/requests` | Requests | Approvals + Signing (new document lifecycle only) | `documents.requests.view` **or** `documents.recipient-requests.view` **or** `documents.recipient-requests.respond` |
-| `/organization/documents/templates` | Templates | Company custom and system generation templates | Any of `documents.templates.view`, `bulk_documents.view`, `settings.master-data.document-types.view`, or platform view |
+| `/organization/documents/templates` | Templates | Company custom and system generation templates | Any of `documents.templates.view`, `bulk_documents.view`, or `settings.master-data.document-types.view` |
 | `/organization/documents/configuration` | Configuration | Document Types and employee requirement policy | `settings.master-data.document-types.view` |
 | `/organization/documents/activity` | Activity | Current bulk generation history | `bulk_documents.view` |
 
@@ -143,9 +143,9 @@ Documents → Templates serves as the centralized company custom document templa
    - **Flow**: `Templates → Upload PDF → Design → Workflow → Readiness → Save Draft → Publish`.
      - Templates list **Upload PDF** opens `/organization/documents/templates/create/pdf`.
      - PDF upload stores the template and creates Draft v1, then redirects directly to `/{template}/design` (Design Template).
-     - `/organization/documents/templates/create` and `/create/content` redirect to `/create/pdf`.
+     - `/organization/documents/templates/create` redirects to `/create/pdf`.
      - List **Design Template** / **Open Template** deep-links to the unified visual designer, which is the place to configure design, review, signing, readiness, and publishing for that version.
-     - Secondary actions on the list: Replace PDF, Activate/Deactivate, Duplicate, Delete. Publish and After generation are not list actions; publish stays on the Designer, and After generation is removed from the normal Templates UX. The backend publish and legacy automation endpoints remain.
+     - Secondary actions on the list: Replace PDF, Activate/Deactivate, Duplicate, Delete. Publish and After generation are not list actions; publish stays on the Designer. The Unified PDF Designer is the sole current template editing surface. Legacy content-template and standalone placement/automation mutation endpoints have been removed. Historical template data remains preserved.
      - Dedicated company **workflow preset** and **signing preset** management pages remain for reusable administration. The Designer selects (and, with existing preset-create permission, can create) those presets for the current template version.
      - Legacy `content` template records and underlying domain rendering support remain preserved in the database for historical compatibility, but are hidden from company template management and blocked from new creation or editing (`/{template}/edit` redirects to Templates).
      - **Opening the designer is side-effect free.** It does not create a draft. It displays the most relevant version (draft if present, otherwise published, otherwise latest archived). A 404 is returned if no versions exist.
@@ -208,14 +208,13 @@ Documents → Templates serves as the centralized company custom document templa
      - *System*: `{{today}}`, `{{current_year}}`
      - Sensitive and restricted fields are not unrestricted merge fields. This includes passport number, salary, bank/IBAN, Emirates ID, credentials, and similar identifiers. Content or placements that use unsupported placeholders such as `{{passport_number}}` are rejected at validation.
 
-2. **Built-in Templates** from `BulkDocumentTypeRegistry` (Salary Declaration, Salary Certificate):
+2. **Built-in Templates** from `BulkDocumentTypeRegistry` (Salary Certificate is the current built-in; Salary Declaration is not offered for new generation):
    - User-facing terminology: "Built-in Templates".
    - Protected application renderers used by Generate & Send.
    - Layout is code-owned and not editable from this UI.
 
 3. **Configuration shortcuts**:
    - Link to **Documents → Configuration → Document Types** when user has `settings.master-data.document-types.view`.
-   - Link to **Settings → Application → signature placement** when user has platform view.
 
 ## Routes
 
@@ -224,29 +223,25 @@ Documents → Templates serves as the centralized company custom document templa
 | `/organization/documents` | Documents Overview (summary dashboard) | `documents.view` |
 | `/organization/documents/library` | Documents Library (browse / search / compliance) | `documents.view` |
 | `/organization/documents/generate` | Generate & Send (bulk roster) | `bulk_documents.view` |
-| `/organization/documents/requests` | Unified Review & Approval + Signature Requests workspace | `documents.requests.view` \| `bulk_documents.view` |
+| `/organization/documents/requests` | Unified Review & Approval + Signature Requests workspace | `documents.requests.view` \| `documents.recipient-requests.view` \| `documents.recipient-requests.respond` |
 | `/organization/documents/requests/{workflowRequest}` | Internal review/approval request detail | `documents.requests.view` |
 | `/organization/documents/requests/{workflowRequest}/version-preview` | Stream bound canonical `DocumentInstanceVersion` PDF inline | `documents.requests.view` |
 | `/organization/documents/configuration` | Documents Configuration (Document Types) | `settings.master-data.document-types.view` |
-| `/organization/documents/templates` | Custom and System Document Templates | `documents.templates.view` \| `bulk_documents.view` \| `settings.master-data.document-types.view` \| platform view |
+| `/organization/documents/templates` | Custom and System Document Templates | `documents.templates.view` \| `bulk_documents.view` \| `settings.master-data.document-types.view` |
 | `/organization/documents/templates/create` | Redirects to PDF upload page (`/create/pdf`) | `documents.templates.create` |
-| `/organization/documents/templates/create/content` | Redirects to PDF upload page (`/create/pdf`) | `documents.templates.create` |
 | `/organization/documents/templates/create/pdf` | PDF upload create page | `documents.templates.create` |
 | `/organization/documents/templates/{template}/edit` | Redirects to Templates list | `documents.templates.update` |
 | `/organization/documents/templates/{template}/design` | Unified visual designer — side-effect free; shows draft > published > latest | `documents.templates.update` |
 | `/organization/documents/templates/{template}/design-employees` | JSON search of active company employees for canvas preview | `documents.templates.update` + `employees.view` |
 | `/organization/documents/templates/{template}/design-employees/{employee}` | Allowlisted merge-field values for one company employee | `documents.templates.update` + `employees.view` |
 | `/organization/documents/templates` (POST) | Store custom PDF document template → redirects to design page | `documents.templates.create` |
-| `/organization/documents/templates/preview-draft` (POST) | Render preview for unsaved draft | `documents.templates.create` \| `documents.templates.update` |
-| `/organization/documents/templates/{template}/preview` (GET) | Render preview for saved template | `documents.templates.view` |
+| `/organization/documents/templates/{template}/preview` (GET) | Render preview for a stored template, including historical content templates | `documents.templates.view` |
 | `/organization/documents/templates/{template}` (PUT) | Update custom document template | `documents.templates.update` |
 | `/organization/documents/templates/{template}/duplicate` (POST) | Duplicate custom template in company | `documents.templates.update` |
 | `/organization/documents/templates/{template}` (DELETE) | Delete custom template | `documents.templates.delete` |
 | `/organization/documents/templates/{template}/draft` (POST) | Get or branch editable draft version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/versions/{version}/source-pdf` (GET) | Stream private source PDF | `documents.templates.view` |
-| `/organization/documents/templates/{template}/versions/{version}/placements` (PUT) | Save visual placements to draft (merge fields + static text; schema v2) | `documents.templates.update` |
-| `/organization/documents/templates/{template}/versions/{version}/signature-placement` (PUT) | Save signature placements to draft (backward-compat endpoint) | `documents.templates.update` |
-| `/organization/documents/templates/{template}/versions/{version}/design` (PUT) | Atomic save — both `placement_config` + `signature_placement_config` in one transaction | `documents.templates.update` |
+| `/organization/documents/templates/{template}/versions/{version}/design` (PUT) | Atomic Save Draft — `placement_config`, `signature_placement_config`, and workflow/signing automation in one transaction | `documents.templates.update` |
 | `/organization/documents/templates/{template}/versions/{version}` (GET) | Side-effect-free version detail + `change_summary` for version switcher | `documents.templates.view` |
 | `/organization/documents/templates/{template}/versions/{version}/replace-pdf` (POST) | Replace PDF on draft version | `documents.templates.update` |
 | `/organization/documents/templates/{template}/versions/{version}/publish` (POST) | Publish draft version | `documents.templates.update` |
@@ -930,7 +925,7 @@ Regenerating a link replaces `token_hash`, invalidates the prior URL immediately
 
 `DocumentGenerationTemplateVersion.signature_placement_config` (schema v1) stores normalized subject signature placement for PDF Overlay templates. Draft versions are editable; published/archived versions remain immutable.
 
-**Templates UI (Phase 6A usability):** Documents → Templates exposes **Signature placement** for company custom `pdf_overlay` templates. HR opens the editable Draft (branching a draft when needed), places a single **Employee Signature** box on the private source PDF via the visual editor (Fabric.js / PDF.js), and saves normalized coordinates to that draft version only. Publishing promotes the exact configured `signature_placement_config` with the version. Content templates do not offer this editor.
+**Templates UI:** The Unified PDF Designer is the sole current template editing surface. HR opens the editable Draft (branching a draft when needed), places merge fields, static text, and signature slots on the private source PDF, and saves atomically to that draft version. Publishing promotes the exact configured `placement_config` and `signature_placement_config` with the version. Historical content templates remain readable where currently supported and are not offered for new creation.
 
 Phase 6A supports exactly one subject-employee signature (`type: signature`, `role: subject`). Manager/countersigning and multiple signers remain Phase 6B.
 

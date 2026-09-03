@@ -205,7 +205,6 @@ export function isDocumentsModuleNavUrlActive(
 export function canViewDocumentsModuleSection(
     section: DocumentsModuleSection,
     permissions: string[],
-    platformView = false,
 ): boolean {
     if (section === 'overview' || section === 'library') {
         return permissions.includes('documents.view');
@@ -230,16 +229,14 @@ export function canViewDocumentsModuleSection(
     return (
         permissions.includes('documents.templates.view') ||
         permissions.includes('bulk_documents.view') ||
-        permissions.includes('settings.master-data.document-types.view') ||
-        platformView
+        permissions.includes('settings.master-data.document-types.view')
     );
 }
 
 export function visibleDocumentsModuleSections(
     permissions: string[],
-    platformView = false,
 ): DocumentsModuleSection[] {
     return DOCUMENTS_MODULE_ORDER.filter((section) =>
-        canViewDocumentsModuleSection(section, permissions, platformView),
+        canViewDocumentsModuleSection(section, permissions),
     );
 }

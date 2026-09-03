@@ -805,17 +805,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/documents/templates/create', [DocumentGenerationTemplateController::class, 'create'])
         ->middleware('can:documents.templates.create')
         ->name('organization.documents.templates.create');
-    Route::get('organization/documents/templates/create/content', [DocumentGenerationTemplateController::class, 'createContent'])
-        ->middleware('can:documents.templates.create')
-        ->name('organization.documents.templates.create.content');
     Route::get('organization/documents/templates/create/pdf', [DocumentGenerationTemplateController::class, 'createPdf'])
         ->middleware('can:documents.templates.create')
         ->name('organization.documents.templates.create.pdf');
     Route::post('organization/documents/templates', [DocumentGenerationTemplateController::class, 'store'])
         ->middleware('can:documents.templates.create')
         ->name('organization.documents.templates.store');
-    Route::post('organization/documents/templates/preview-draft', [DocumentGenerationTemplatePreviewController::class, 'previewDraft'])
-        ->name('organization.documents.templates.preview-draft');
     Route::get('organization/documents/templates/{template}/edit', [DocumentGenerationTemplateController::class, 'edit'])
         ->middleware('can:documents.templates.update')
         ->name('organization.documents.templates.edit');
@@ -834,9 +829,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/documents/templates/{template}', [DocumentGenerationTemplateController::class, 'update'])
         ->middleware('can:documents.templates.update')
         ->name('organization.documents.templates.update');
-    Route::put('organization/documents/templates/{template}/automation', [DocumentGenerationTemplateController::class, 'updateAutomation'])
-        ->middleware('can:documents.templates.update')
-        ->name('organization.documents.templates.automation.update');
     Route::post('organization/documents/templates/{template}/duplicate', [DocumentGenerationTemplateController::class, 'duplicate'])
         ->middleware('can:documents.templates.update')
         ->name('organization.documents.templates.duplicate');
@@ -849,12 +841,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/documents/templates/{template}/versions/{version}/source-pdf', [DocumentGenerationTemplateController::class, 'sourcePdf'])
         ->middleware('can:documents.templates.view')
         ->name('organization.documents.templates.versions.source-pdf');
-    Route::put('organization/documents/templates/{template}/versions/{version}/placements', [DocumentGenerationTemplateController::class, 'savePlacements'])
-        ->middleware('can:documents.templates.update')
-        ->name('organization.documents.templates.versions.placements.save');
-    Route::put('organization/documents/templates/{template}/versions/{version}/signature-placement', [DocumentGenerationTemplateController::class, 'saveSignaturePlacement'])
-        ->middleware('can:documents.templates.update')
-        ->name('organization.documents.templates.versions.signature-placement.save');
     Route::get('organization/documents/templates/{template}/versions/{version}', [DocumentGenerationTemplateController::class, 'showVersion'])
         ->middleware('can:documents.templates.view')
         ->name('organization.documents.templates.versions.show');

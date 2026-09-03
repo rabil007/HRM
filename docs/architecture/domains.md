@@ -422,6 +422,8 @@ flowchart LR
 
 Employee file management: upload, version, expiry tracking, compliance views, bulk download/share/merge/email/WhatsApp, and a dedicated document detail page with inline preview and audit.
 
+The Unified PDF Designer is the sole current company-template editing surface. Legacy content-template and standalone placement/automation mutation endpoints have been removed. Historical template data remains preserved.
+
 ### Main models
 
 | Model | Purpose |

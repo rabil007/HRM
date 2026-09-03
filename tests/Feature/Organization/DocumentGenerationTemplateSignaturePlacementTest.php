@@ -78,6 +78,32 @@ function validSubjectSignaturePlacement(int $page = 1): array
 /**
  * @return array{user: User, company: Company, template: DocumentGenerationTemplate, version: DocumentGenerationTemplateVersion}
  */
+
+/**
+ * @param  array{schema_version: int, placements: list<array<string, mixed>>}  $signaturePlacementConfig
+ * @param  list<array<string, mixed>>  $placements
+ */
+function putUnifiedDesignerDraft(
+    User $user,
+    Company $company,
+    DocumentGenerationTemplate $template,
+    DocumentGenerationTemplateVersion $version,
+    array $signaturePlacementConfig,
+    array $placements = [],
+) {
+    return test()->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->putJson(route('organization.documents.templates.versions.design.save', [
+            'template' => $template->id,
+            'version' => $version->id,
+        ]), [
+            'placement_config' => [
+                'schema_version' => 2,
+                'placements' => $placements,
+            ],
+            'signature_placement_config' => $signaturePlacementConfig,
+        ]);
+}
 function makePdfOverlayDraftWithPages(int $pageCount = 2): array
 {
     $user = User::factory()->create();
@@ -100,17 +126,10 @@ test('authorized company user can save subject signature placement on draft pdf 
     ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makePdfOverlayDraftWithPages(2);
     $payload = validSubjectSignaturePlacement(2);
 
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.signature-placement.save', [
-            'template' => $template->id,
-            'version' => $version->id,
-        ]), $payload)
+    putUnifiedDesignerDraft($user, $company, $template, $version, $payload)
         ->assertOk()
         ->assertJsonPath('success', true)
-        ->assertJsonPath('signature_placement_config.schema_version', 1)
-        ->assertJsonPath('signature_placement_config.placements.0.id', 'subject_signature')
-        ->assertJsonPath('signature_placement_config.placements.0.page', 2);
+        ->assertJsonPath('version.has_signature_placement', true);
 
     $version->refresh();
     expect($version->signature_placement_config['schema_version'])->toBe(1)
@@ -149,30 +168,20 @@ test('published version retains configured signature placement', function () {
         ->and($published->toArraySummary()['has_signature_placement'])->toBeTrue();
 });
 
-test('invalid signature placement schema is rejected', function () {
+test('unsupported signature placement schema is rejected', function () {
     ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makePdfOverlayDraftWithPages();
 
     $payload = validSubjectSignaturePlacement();
-    $payload['schema_version'] = 2;
+    $payload['schema_version'] = 99;
 
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.signature-placement.save', [
-            'template' => $template->id,
-            'version' => $version->id,
-        ]), $payload)
+    putUnifiedDesignerDraft($user, $company, $template, $version, $payload)
         ->assertUnprocessable();
 });
 
 test('invalid page is rejected', function () {
     ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makePdfOverlayDraftWithPages(1);
 
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.signature-placement.save', [
-            'template' => $template->id,
-            'version' => $version->id,
-        ]), validSubjectSignaturePlacement(3))
+    putUnifiedDesignerDraft($user, $company, $template, $version, validSubjectSignaturePlacement(3))
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['signature_placement_config']);
 });
@@ -184,12 +193,7 @@ test('out of bounds coordinates are rejected', function () {
     $payload['placements'][0]['x'] = 0.9;
     $payload['placements'][0]['width'] = 0.2;
 
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.signature-placement.save', [
-            'template' => $template->id,
-            'version' => $version->id,
-        ]), $payload)
+    putUnifiedDesignerDraft($user, $company, $template, $version, $payload)
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['signature_placement_config']);
 });
@@ -200,23 +204,13 @@ test('unsupported role and type are rejected', function () {
     $directorPayload = validSubjectSignaturePlacement();
     $directorPayload['placements'][0]['role'] = 'director';
 
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.signature-placement.save', [
-            'template' => $template->id,
-            'version' => $version->id,
-        ]), $directorPayload)
+    putUnifiedDesignerDraft($user, $company, $template, $version, $directorPayload)
         ->assertUnprocessable();
 
     $initialPayload = validSubjectSignaturePlacement();
     $initialPayload['placements'][0]['type'] = 'initial';
 
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.signature-placement.save', [
-            'template' => $template->id,
-            'version' => $version->id,
-        ]), $initialPayload)
+    putUnifiedDesignerDraft($user, $company, $template, $version, $initialPayload)
         ->assertUnprocessable();
 });
 
@@ -236,12 +230,7 @@ test('multiple subject placements are rejected', function () {
         'required' => true,
     ];
 
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.signature-placement.save', [
-            'template' => $template->id,
-            'version' => $version->id,
-        ]), $payload)
+    putUnifiedDesignerDraft($user, $company, $template, $version, $payload)
         ->assertUnprocessable();
 });
 
@@ -252,24 +241,14 @@ test('published and archived versions cannot be edited', function () {
     $version->published_at = now();
     $version->saveQuietly();
 
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.signature-placement.save', [
-            'template' => $template->id,
-            'version' => $version->id,
-        ]), validSubjectSignaturePlacement())
+    putUnifiedDesignerDraft($user, $company, $template, $version, validSubjectSignaturePlacement())
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['version']);
 
     $version->status = DocumentGenerationTemplateVersionStatus::Archived;
     $version->saveQuietly();
 
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.signature-placement.save', [
-            'template' => $template->id,
-            'version' => $version->id,
-        ]), validSubjectSignaturePlacement())
+    putUnifiedDesignerDraft($user, $company, $template, $version, validSubjectSignaturePlacement())
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['version']);
 });
@@ -279,12 +258,7 @@ test('user without templates update permission is forbidden', function () {
     $viewer = User::factory()->create();
     grantCompanyPermissions($viewer, $company, ['documents.templates.view']);
 
-    $this->actingAs($viewer)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.signature-placement.save', [
-            'template' => $template->id,
-            'version' => $version->id,
-        ]), validSubjectSignaturePlacement())
+    putUnifiedDesignerDraft($viewer, $company, $template, $version, validSubjectSignaturePlacement())
         ->assertForbidden();
 });
 
@@ -292,12 +266,7 @@ test('company a cannot edit company b template version', function () {
     ['user' => $userA, 'company' => $companyA] = makePdfOverlayDraftWithPages();
     ['template' => $templateB, 'version' => $versionB] = makePdfOverlayDraftWithPages();
 
-    $this->actingAs($userA)
-        ->withSession(['current_company_id' => $companyA->id])
-        ->putJson(route('organization.documents.templates.versions.signature-placement.save', [
-            'template' => $templateB->id,
-            'version' => $versionB->id,
-        ]), validSubjectSignaturePlacement())
+    putUnifiedDesignerDraft($userA, $companyA, $templateB, $versionB, validSubjectSignaturePlacement())
         ->assertNotFound();
 });
 
@@ -311,46 +280,33 @@ test('version cannot be submitted under another template', function () {
         'source_pdf_page_count' => 1,
     ]);
 
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.signature-placement.save', [
-            'template' => $templateB->id,
-            'version' => $versionA->id,
-        ]), validSubjectSignaturePlacement())
+    putUnifiedDesignerDraft($user, $company, $templateB, $versionA, validSubjectSignaturePlacement())
         ->assertNotFound();
 });
 
-test('merge field placements remain unchanged when saving signature placement', function () {
+test('atomic save persists merge field placements together with signature placement', function () {
     ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makePdfOverlayDraftWithPages();
 
-    $mergeConfig = [
-        'schema_version' => 1,
-        'placements' => [[
-            'id' => 'name-1',
-            'field' => '{{employee_name}}',
-            'page' => 1,
-            'x' => 0.1,
-            'y' => 0.1,
-            'width' => 0.3,
-            'height' => 0.04,
-            'font_size' => 12,
-            'font_weight' => 'normal',
-            'text_align' => 'left',
-        ]],
-    ];
-    $version->placement_config = $mergeConfig;
-    $version->save();
+    $mergePlacements = [[
+        'id' => 'name-1',
+        'type' => 'field',
+        'field' => '{{employee_name}}',
+        'page' => 1,
+        'x' => 0.1,
+        'y' => 0.1,
+        'width' => 0.3,
+        'height' => 0.04,
+        'font_size' => 12,
+        'font_weight' => 'normal',
+        'text_align' => 'left',
+    ]];
 
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->putJson(route('organization.documents.templates.versions.signature-placement.save', [
-            'template' => $template->id,
-            'version' => $version->id,
-        ]), validSubjectSignaturePlacement())
+    putUnifiedDesignerDraft($user, $company, $template, $version, validSubjectSignaturePlacement(), $mergePlacements)
         ->assertOk();
 
     $version->refresh();
-    expect($version->placement_config)->toBe($mergeConfig)
+    expect($version->placement_config['schema_version'])->toBe(2)
+        ->and($version->placement_config['placements'][0]['id'])->toBe('name-1')
         ->and($version->signature_placement_config['placements'])->toHaveCount(1);
 });
 

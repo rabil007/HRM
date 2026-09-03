@@ -20,7 +20,7 @@ class SaveDocumentGenerationTemplateDesignRequest extends FormRequest
         $rules = [
             'placement_config' => ['required', 'array'],
             'placement_config.schema_version' => ['required', 'integer', 'in:2'],
-            'placement_config.placements' => ['required', 'array'],
+            'placement_config.placements' => ['present', 'array'],
             'placement_config.placements.*.type' => ['required', 'string', 'in:field,text'],
             'signature_placement_config' => ['required', 'array'],
             'signature_placement_config.schema_version' => ['required', 'integer'],

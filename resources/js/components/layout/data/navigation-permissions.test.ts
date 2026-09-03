@@ -379,7 +379,7 @@ describe('Documents navigation', () => {
         );
     });
 
-    it('shows templates for document types or platform access', () => {
+    it('shows templates for document types or custom templates view, not platform access', () => {
         assert.equal(
             isSidebarUrlVisible('/organization/documents/templates', [
                 'settings.master-data.document-types.view',
@@ -392,7 +392,7 @@ describe('Documents navigation', () => {
                 manage: false,
                 database: false,
             }),
-            true,
+            false,
         );
         assert.equal(
             isSidebarUrlVisible('/organization/documents/templates', [

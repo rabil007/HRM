@@ -216,7 +216,7 @@ test('template bridge only exposes links the user can access', function () {
             ->where('can.generate', false));
 });
 
-test('platform viewers can open the template bridge', function () {
+test('platform-view-only users cannot open the template bridge', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -226,12 +226,7 @@ test('platform viewers can open the template bridge', function () {
     session(['current_company_id' => $company->id]);
 
     $this->get(route('organization.documents.templates'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents/templates')
-            ->where('system_templates', [])
-            ->where('can.document_types', false)
-            ->where('can.generate', false));
+        ->assertForbidden();
 });
 
 test('library stays scoped to the active company', function () {

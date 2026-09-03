@@ -4,7 +4,6 @@ namespace App\Support\Documents;
 
 use App\Models\User;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
-use App\Support\Platform\PlatformAuthorization;
 use Illuminate\Http\Request;
 
 final class DocumentsModuleAccess
@@ -60,11 +59,6 @@ final class DocumentsModuleAccess
         return self::canViewDocumentTypes($user);
     }
 
-    public static function canViewSignaturePlacement(?User $user): bool
-    {
-        return PlatformAuthorization::canView($user);
-    }
-
     public static function canViewCustomTemplates(?User $user): bool
     {
         return $user?->can('documents.templates.view') ?? false;
@@ -89,8 +83,7 @@ final class DocumentsModuleAccess
     {
         return self::canViewCustomTemplates($user)
             || self::canViewSystemTemplates($user)
-            || self::canViewDocumentTypes($user)
-            || self::canViewSignaturePlacement($user);
+            || self::canViewDocumentTypes($user);
     }
 
     public static function canEnter(?User $user): bool
@@ -110,8 +103,7 @@ final class DocumentsModuleAccess
      *     templates: bool,
      *     configuration: bool,
      *     activity: bool,
-     *     document_types: bool,
-     *     signature_placement: bool
+     *     document_types: bool
      * }
      */
     public static function sections(?User $user): array
@@ -125,7 +117,6 @@ final class DocumentsModuleAccess
             'configuration' => self::canViewConfiguration($user),
             'activity' => self::canViewActivity($user),
             'document_types' => self::canViewDocumentTypes($user),
-            'signature_placement' => self::canViewSignaturePlacement($user),
         ];
     }
 

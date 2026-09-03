@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Organization\DocumentGenerationTemplate\PreviewDocumentGenerationTemplateRequest;
 use App\Http\Requests\Organization\DocumentGenerationTemplate\SearchDesignEmployeesRequest;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\Employee;
@@ -26,24 +25,6 @@ class DocumentGenerationTemplatePreviewController extends Controller
         abort_unless((int) $template->company_id === $companyId, 404);
 
         $result = $previewer->renderTemplate($template, $companyId);
-
-        return response()->json($result);
-    }
-
-    public function previewDraft(
-        PreviewDocumentGenerationTemplateRequest $request,
-        DocumentTemplatePreview $previewer,
-    ): JsonResponse {
-        $companyId = (int) $request->attributes->get('current_company_id');
-        abort_if($companyId <= 0, 403);
-
-        $validated = $request->validated();
-
-        $result = $previewer->render(
-            name: $validated['name'] ?? 'Template Preview',
-            content: $validated['content'],
-            companyId: $companyId,
-        );
 
         return response()->json($result);
     }

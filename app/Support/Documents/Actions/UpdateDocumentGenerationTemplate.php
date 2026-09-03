@@ -12,8 +12,7 @@ final class UpdateDocumentGenerationTemplate
      * @param  array{
      *     name?: string,
      *     description?: ?string,
-     *     document_type_id?: ?int,
-     *     content?: string
+     *     document_type_id?: ?int
      * }  $data
      */
     public function handle(DocumentGenerationTemplate $template, array $data, ?User $actor = null): DocumentGenerationTemplate
@@ -33,19 +32,6 @@ final class UpdateDocumentGenerationTemplate
 
             if (array_key_exists('document_type_id', $data)) {
                 $payload['document_type_id'] = ! empty($data['document_type_id']) ? (int) $data['document_type_id'] : null;
-            }
-
-            if (array_key_exists('content', $data) && $template->isContent()) {
-                // Authoritative content read/write moves to the Version model
-                $draft = (new BranchDocumentGenerationTemplateDraft)->handle($template, $actor?->id);
-                $draft->content = (string) $data['content'];
-                $draft->updated_by = $actor?->id;
-                $draft->save();
-
-                // Keep parent content in sync for legacy compatibility ONLY IF never published
-                if ($template->published_version_id === null) {
-                    $payload['content'] = (string) $data['content'];
-                }
             }
 
             $template->update($payload);
