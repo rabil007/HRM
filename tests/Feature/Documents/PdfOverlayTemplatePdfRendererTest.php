@@ -443,6 +443,16 @@ test('placement validator rejects passport number as an unsupported merge field'
         ->toThrow(InvalidArgumentException::class, 'unsupported merge field');
 });
 
+test('placement validator accepts emirates id as a merge field', function () {
+    $result = PdfOverlayPlacementValidator::validate(
+        overlayPlacementConfig(['field' => '{{emirates_id}}']),
+        1,
+    );
+
+    expect($result)->toHaveCount(1)
+        ->and($result[0]['field'])->toBe('{{emirates_id}}');
+});
+
 test('placement validator rejects coordinates and sizes outside the page', function (array $overrides, string $message) {
     expect(fn () => PdfOverlayPlacementValidator::validate(overlayPlacementConfig($overrides), 1))
         ->toThrow(InvalidArgumentException::class, $message);

@@ -69,6 +69,12 @@ final class DocumentTemplateMergeFields
                 'sample' => 'Filipino',
             ],
             [
+                'key' => '{{emirates_id}}',
+                'label' => 'Emirates ID',
+                'category' => 'Employee',
+                'sample' => '784-2000-1234567-1',
+            ],
+            [
                 'key' => '{{position_name}}',
                 'label' => 'Position Title',
                 'category' => 'Employee',
@@ -191,6 +197,7 @@ final class DocumentTemplateMergeFields
             '{{gender}}' => (string) ($employee->genderRef?->name ?? $employee->genderRef?->title ?? ''),
             '{{joining_date}}' => $joiningDate,
             '{{nationality}}' => (string) ($employee->nationalityRef?->name ?? ''),
+            '{{emirates_id}}' => (string) ($employee->emirates_id ?? ''),
             '{{position_name}}' => (string) ($employee->position?->title ?? $employee->position?->name ?? ''),
             '{{rank_name}}' => (string) ($employee->rank?->name ?? ''),
             '{{manager_name}}' => (string) ($manager?->name ?? ''),

@@ -202,11 +202,11 @@ Documents → Templates serves as the centralized company custom document templa
      - `Deactivate`: Changes parent template to `inactive` without modifying version history.
      - `Activate`: Re-enables an inactive template that has a published version.
    - **Allowed Merge Fields**: Strict allowlist catalog (`App\Support\Documents\DocumentTemplateMergeFields`) covering:
-     - *Employee*: `{{employee_name}}`, `{{employee_no}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{phone}}`, `{{gender}}`, `{{joining_date}}`, `{{nationality}}`, `{{position_name}}`, `{{rank_name}}`
+     - *Employee*: `{{employee_name}}`, `{{employee_no}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{phone}}`, `{{gender}}`, `{{joining_date}}`, `{{nationality}}`, `{{emirates_id}}`, `{{position_name}}`, `{{rank_name}}`
      - *Manager*: `{{manager_name}}` (employee's department effective manager)
      - *Organization*: `{{company_name}}`, `{{department_name}}`, `{{branch_name}}`
      - *System*: `{{today}}`, `{{current_year}}`
-     - Sensitive and restricted fields are not unrestricted merge fields. This includes passport number, salary, bank/IBAN, Emirates ID, credentials, and similar identifiers. Content or placements that use unsupported placeholders such as `{{passport_number}}` are rejected at validation.
+     - Sensitive and restricted fields are not unrestricted merge fields. This includes passport number, salary, bank/IBAN, credentials, and similar identifiers. Content or placements that use unsupported placeholders such as `{{passport_number}}` are rejected at validation.
 
 2. **Built-in Templates** from `BulkDocumentTypeRegistry` (Salary Certificate is the current built-in; Salary Declaration is not offered for new generation):
    - User-facing terminology: "Built-in Templates".

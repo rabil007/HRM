@@ -56,6 +56,7 @@ test('allowed keys contain expected core fields', function () {
         '{{gender}}',
         '{{joining_date}}',
         '{{nationality}}',
+        '{{emirates_id}}',
         '{{position_name}}',
         '{{rank_name}}',
         '{{manager_name}}',
@@ -76,7 +77,7 @@ test('find unsupported detects invalid or forbidden placeholders', function () {
 });
 
 test('find unsupported returns empty array when all placeholders are valid', function () {
-    $content = 'To {{employee_name}} ({{employee_no}}) at {{company_name}} on {{today}}.';
+    $content = 'To {{employee_name}} ({{employee_no}}) Emirates ID {{emirates_id}} at {{company_name}} on {{today}}.';
     $unsupported = DocumentTemplateMergeFields::findUnsupported($content);
 
     expect($unsupported)->toBeEmpty();
@@ -107,6 +108,7 @@ test('values for employee maps employee attributes to placeholders', function ()
         'rank_id' => $rank->id,
         'nationality_id' => $nationality->id,
         'passport_number' => 'P99887766',
+        'emirates_id' => '784-2000-1234567-1',
         'name' => 'Johnathan Doe',
         'employee_no' => 'EMP-999',
         'work_email' => 'john.doe@atlantic.com',
@@ -123,6 +125,7 @@ test('values for employee maps employee attributes to placeholders', function ()
     expect($values['{{position_name}}'])->toBe('First Officer');
     expect($values['{{rank_name}}'])->toBe('Captain');
     expect($values['{{nationality}}'])->toBe('Philippines');
+    expect($values['{{emirates_id}}'])->toBe('784-2000-1234567-1');
     expect($values)->not->toHaveKey('{{passport_number}}');
     expect($values['{{joining_date}}'])->toBe('10 May 2023');
     expect($values['{{manager_name}}'])->toBe('');
