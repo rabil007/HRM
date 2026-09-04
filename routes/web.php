@@ -83,6 +83,7 @@ use App\Http\Controllers\Organization\DocumentBulkFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentBulkPdfMergeController;
 use App\Http\Controllers\Organization\DocumentBulkShareLinksController;
 use App\Http\Controllers\Organization\DocumentBulkWhatsAppController;
+use App\Http\Controllers\Organization\DocumentExportController;
 use App\Http\Controllers\Organization\DocumentFileDownloadController;
 use App\Http\Controllers\Organization\DocumentFilePreviewController;
 use App\Http\Controllers\Organization\DocumentFolderDownloadController;
@@ -681,6 +682,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('can:documents.view')->group(function () {
         Route::get('organization/documents', DocumentsOverviewController::class)->name('organization.documents');
         Route::get('organization/documents/library', DocumentsFolderIndexController::class)->name('organization.documents.library');
+        Route::get('organization/documents/export', [DocumentExportController::class, 'export'])->name('organization.documents.export');
         Route::get('organization/documents/employees/{employee}', EmployeeDocumentsBrowseController::class)->name('organization.documents.employee');
         Route::get('organization/documents/employees/{employee}/files/{document}', EmployeeDocumentShowController::class)->name('organization.documents.employee.files.show');
         Route::post('organization/documents/employees/{employee}/files/email', DocumentBulkEmailController::class)->name('organization.documents.employee.files.email');

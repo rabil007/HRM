@@ -1,6 +1,7 @@
 import { router, usePage } from '@inertiajs/react';
 import {
     Download,
+    FileSpreadsheet,
     FileStack,
     Loader2,
     Mail,
@@ -25,6 +26,7 @@ import { ShareLinksModal } from '@/features/organization/documents/whatsapp-shar
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import { resolveDefaultWhatsAppTemplate } from '@/features/organization/documents/whatsapp-template/types';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
+import { buildListExportUrl } from '@/lib/build-list-export-url';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { toast } from '@/lib/toast';
 import documentRoutes from '@/routes/organization/documents';
@@ -285,6 +287,19 @@ export function DocumentsIndexDocumentBulkActions({
         });
     };
 
+    const handleExportExcel = () => {
+        if (selectedDocumentIds.length === 0) {
+            return;
+        }
+
+        window.location.assign(
+            buildListExportUrl(documentRoutes.export.url(), {
+                ids: selectedDocumentIds.join(','),
+                format: 'xlsx',
+            }),
+        );
+    };
+
     return (
         <>
             <DocumentsBulkToolbar
@@ -319,6 +334,16 @@ export function DocumentsIndexDocumentBulkActions({
                                 >
                                     <FileStack className="mr-2 h-4 w-4" />
                                     Merge PDFs
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-lg"
+                                    onClick={handleExportExcel}
+                                >
+                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                    Export Excel
                                 </Button>
                             </>
                         ) : null}

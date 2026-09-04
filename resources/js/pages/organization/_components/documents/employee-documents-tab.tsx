@@ -1,5 +1,5 @@
-import { router, Link } from '@inertiajs/react';
-import { FolderOpen } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { FileSpreadsheet, FolderOpen } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
@@ -17,6 +17,7 @@ import type {
     DocumentTypeOption,
 } from '@/features/organization/documents/shared/types';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
+import { buildListExportUrl } from '@/lib/build-list-export-url';
 import { cn } from '@/lib/utils';
 import { EditDocumentDialog } from '@/pages/organization/_components/documents/edit-document-dialog';
 import { ReplaceDocumentDialog } from '@/pages/organization/_components/documents/replace-document-dialog';
@@ -129,16 +130,43 @@ export function EmployeeDocumentsTab({
                     itemLabel="files"
                     onClear={clearDocumentSelection}
                     actions={
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            className="h-8 gap-1.5 text-xs"
-                            disabled={isBulkDeleting}
-                            onClick={() => setBulkDeleteOpen(true)}
-                        >
-                            Delete selected
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            {can.documents_download ? (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 gap-1.5 border-border bg-muted/50 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                                    onClick={() => {
+                                        window.location.assign(
+                                            buildListExportUrl(
+                                                documentRoutes.export.url(),
+                                                {
+                                                    employee_id: employeeId,
+                                                    ids: selectedDocumentIds.join(
+                                                        ',',
+                                                    ),
+                                                    format: 'xlsx',
+                                                },
+                                            ),
+                                        );
+                                    }}
+                                >
+                                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                                    Export selected
+                                </Button>
+                            ) : null}
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                className="h-8 gap-1.5 text-xs"
+                                disabled={isBulkDeleting}
+                                onClick={() => setBulkDeleteOpen(true)}
+                            >
+                                Delete selected
+                            </Button>
+                        </div>
                     }
                 />
             ) : null}
@@ -150,6 +178,30 @@ export function EmployeeDocumentsTab({
                 emptyMessage="No documents uploaded."
                 actions={
                     <div className="flex shrink-0 items-center gap-2">
+                        {hasEmployeeId &&
+                        can.documents_download &&
+                        documents.length > 0 ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 border-border bg-muted/50 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                                onClick={() => {
+                                    window.location.assign(
+                                        buildListExportUrl(
+                                            documentRoutes.export.url(),
+                                            {
+                                                employee_id: employeeId,
+                                                format: 'xlsx',
+                                            },
+                                        ),
+                                    );
+                                }}
+                            >
+                                <FileSpreadsheet className="h-3.5 w-3.5" />
+                                Export Excel
+                            </Button>
+                        ) : null}
                         {hasEmployeeId ? (
                             <Button
                                 asChild

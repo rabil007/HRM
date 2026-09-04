@@ -110,23 +110,23 @@ class DocumentBrowseQuery
     }
 
     /**
-     * @return LengthAwarePaginator<int, array<string, mixed>>
+     * @return Builder<EmployeeDocument>
      */
-    public function documentsForCompliance(
+    public function complianceExportQuery(
         int $companyId,
         string $expiryFilter,
         ?string $search = null,
-        int $perPage = 25,
         string $departmentId = '',
         ?int $documentTypeId = null,
-    ): LengthAwarePaginator {
+    ): Builder {
         $search = $search !== null ? trim($search) : '';
         $today = now()->toDateString();
 
         $query = EmployeeDocument::query()
             ->forCompany($companyId)
             ->with([
-                'employee:id,name,employee_no,company_id,work_email,personal_email,phone',
+                'employee:id,name,employee_no,company_id,department_id,work_email,personal_email,phone',
+                'employee.department:id,name',
                 'documentType:id,title',
                 'uploader:id,name',
             ])
@@ -144,6 +144,57 @@ class DocumentBrowseQuery
             ->orderByRaw('CASE WHEN expiry_date < ? THEN 0 ELSE 1 END', [$today])
             ->orderBy('expiry_date');
 
+        return $query;
+    }
+
+    /**
+     * @return Builder<EmployeeDocument>
+     */
+    public function browseExportQuery(
+        int $companyId,
+        ?string $search = null,
+        string $departmentId = '',
+    ): Builder {
+        $search = $search !== null ? trim($search) : '';
+
+        $query = EmployeeDocument::query()
+            ->forCompany($companyId)
+            ->with([
+                'employee:id,name,employee_no,company_id,department_id,work_email,personal_email,phone',
+                'employee.department:id,name',
+                'documentType:id,title',
+                'uploader:id,name',
+            ])
+            ->withCount('versions');
+
+        if ($search !== '') {
+            $this->applyBrowseSearch($query, $search);
+        }
+
+        $this->applyOperationalEmployeeFilter($query, $companyId, $departmentId);
+
+        return $query->latestUpload();
+    }
+
+    /**
+     * @return LengthAwarePaginator<int, array<string, mixed>>
+     */
+    public function documentsForCompliance(
+        int $companyId,
+        string $expiryFilter,
+        ?string $search = null,
+        int $perPage = 25,
+        string $departmentId = '',
+        ?int $documentTypeId = null,
+    ): LengthAwarePaginator {
+        $query = $this->complianceExportQuery(
+            $companyId,
+            $expiryFilter,
+            $search,
+            $departmentId,
+            $documentTypeId,
+        );
+
         return $this->paginateBrowseDocuments($query, $perPage);
     }
 
@@ -156,22 +207,14 @@ class DocumentBrowseQuery
         int $perPage = 25,
         string $departmentId = '',
     ): LengthAwarePaginator {
-        $search = trim($search);
-
-        $query = EmployeeDocument::query()
-            ->forCompany($companyId)
-            ->with([
-                'employee:id,name,employee_no,company_id,work_email,personal_email,phone',
-                'documentType:id,title',
-                'uploader:id,name',
-            ])
-            ->withCount('versions');
-
-        $this->applyBrowseSearch($query, $search);
-        $this->applyOperationalEmployeeFilter($query, $companyId, $departmentId);
+        $query = $this->browseExportQuery(
+            $companyId,
+            $search,
+            $departmentId,
+        );
 
         return $this->paginateBrowseDocuments(
-            $query->latestUpload(),
+            $query,
             $perPage,
         );
     }

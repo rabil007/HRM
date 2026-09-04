@@ -1,6 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import { Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { SavedViewsControl } from '@/components/saved-views-control';
 import { SearchBar } from '@/components/search-bar';
@@ -38,6 +39,7 @@ import { FolderShareLinksModal } from '@/features/organization/documents/whatsap
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
+import { buildListExportUrl } from '@/lib/build-list-export-url';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import type { SavedView } from '@/lib/saved-views';
 import { toast } from '@/lib/toast';
@@ -307,6 +309,20 @@ export default function DocumentsIndex({
         onDelete: handleDeleteDocument,
     };
 
+    const getExportUrl = (
+        format: 'xlsx' | 'csv' | 'pdf',
+        selectedIds: number[] = [],
+    ) =>
+        buildListExportUrl(documentRoutes.export.url(), {
+            format,
+            search: initialSearch,
+            expiry: initialExpiry !== 'all' ? initialExpiry : undefined,
+            requirement_status: initialRequirementStatus || undefined,
+            department_id: initialDepartmentId || undefined,
+            document_type_id: initialDocumentTypeId || undefined,
+            ids: selectedIds.length > 0 ? selectedIds.join(',') : undefined,
+        });
+
     return (
         <Main>
             <Head title="Library" />
@@ -371,6 +387,19 @@ export default function DocumentsIndex({
                                 }}
                                 views={saved_views}
                             />
+                            {can.download ? (
+                                <ExportMenu
+                                    getUrl={(format) => getExportUrl(format)}
+                                    selectedCount={selectedDocumentIds.length}
+                                    getSelectedUrl={(format) =>
+                                        getExportUrl(
+                                            format,
+                                            selectedDocumentIds,
+                                        )
+                                    }
+                                    formats={['xlsx', 'csv']}
+                                />
+                            ) : null}
                         </div>
                     }
                 />

@@ -94,18 +94,17 @@ final class DocumentComplianceQuery
     /**
      * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    public function paginate(
+    public function exportQuery(
         int $companyId,
         string $statusFilter,
         ?string $search = null,
-        int $perPage = 25,
         string $departmentId = '',
         ?int $documentTypeId = null,
-    ): LengthAwarePaginator {
+    ): Builder {
         $search = $search !== null ? trim($search) : '';
         $status = $statusFilter === 'required' ? null : $statusFilter;
 
-        $query = DB::query()
+        return DB::query()
             ->fromSub(
                 $this->statusQuery($companyId, $departmentId, $search !== '' ? $search : null),
                 'compliance',
@@ -122,8 +121,20 @@ final class DocumentComplianceQuery
             ->orderBy('document_type_title')
             ->orderBy('employee_id')
             ->orderBy('document_type_id');
+    }
 
-        return $query
+    /**
+     * @return LengthAwarePaginator<int, array<string, mixed>>
+     */
+    public function paginate(
+        int $companyId,
+        string $statusFilter,
+        ?string $search = null,
+        int $perPage = 25,
+        string $departmentId = '',
+        ?int $documentTypeId = null,
+    ): LengthAwarePaginator {
+        return $this->exportQuery($companyId, $statusFilter, $search, $departmentId, $documentTypeId)
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (object $row): array => $this->mapRow($row));
@@ -221,6 +232,7 @@ final class DocumentComplianceQuery
             })
             ->leftJoin('employee_documents', 'employee_documents.id', '=', 'latest_docs.id')
             ->leftJoin('departments', 'departments.id', '=', 'pairs.department_id')
+            ->leftJoin('users as uploaders', 'uploaders.id', '=', 'employee_documents.uploaded_by')
             ->select([
                 'pairs.employee_id',
                 'pairs.employee_name',
@@ -230,7 +242,11 @@ final class DocumentComplianceQuery
                 'departments.name as department_name',
                 'employee_documents.id as document_id',
                 'employee_documents.original_filename',
+                'employee_documents.document_number',
+                'employee_documents.issue_date',
                 'employee_documents.expiry_date',
+                'employee_documents.created_at as uploaded_at',
+                'uploaders.name as uploaded_by_name',
             ])
             ->selectRaw(
                 "CASE

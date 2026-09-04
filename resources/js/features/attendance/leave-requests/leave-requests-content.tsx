@@ -254,7 +254,7 @@ export function LeaveRequestsContent({
             />
 
             {/* Unified Filter Bar */}
-            <div className="glass-card mb-6 overflow-hidden rounded-2xl border border-border/60">
+            <div className="mb-6 overflow-hidden rounded-2xl border glass-card border-border/60">
                 {/* Row 1: Scope */}
                 <div className="flex items-center gap-0 border-b border-border/40 px-1 py-1">
                     <span className="shrink-0 px-3 text-[10px] font-bold tracking-[0.18em] text-muted-foreground/50 uppercase">
@@ -298,35 +298,40 @@ export function LeaveRequestsContent({
                                 value: '',
                                 label: 'All',
                                 count: status_counts.all,
-                                activeClass: 'bg-primary text-primary-foreground shadow-sm',
+                                activeClass:
+                                    'bg-primary text-primary-foreground shadow-sm',
                                 dotClass: 'bg-primary',
                             },
                             {
                                 value: 'pending',
                                 label: 'Pending',
                                 count: status_counts.pending,
-                                activeClass: 'bg-amber-500/15 text-amber-500 ring-1 ring-amber-500/30',
+                                activeClass:
+                                    'bg-amber-500/15 text-amber-500 ring-1 ring-amber-500/30',
                                 dotClass: 'bg-amber-500',
                             },
                             {
                                 value: 'approved',
                                 label: 'Approved',
                                 count: status_counts.approved,
-                                activeClass: 'bg-emerald-500/15 text-emerald-500 ring-1 ring-emerald-500/30',
+                                activeClass:
+                                    'bg-emerald-500/15 text-emerald-500 ring-1 ring-emerald-500/30',
                                 dotClass: 'bg-emerald-500',
                             },
                             {
                                 value: 'rejected',
                                 label: 'Rejected',
                                 count: status_counts.rejected,
-                                activeClass: 'bg-red-500/15 text-red-500 ring-1 ring-red-500/30',
+                                activeClass:
+                                    'bg-red-500/15 text-red-500 ring-1 ring-red-500/30',
                                 dotClass: 'bg-red-500',
                             },
                             {
                                 value: 'cancelled',
                                 label: 'Cancelled',
                                 count: status_counts.cancelled,
-                                activeClass: 'bg-muted/40 text-muted-foreground ring-1 ring-border/60',
+                                activeClass:
+                                    'bg-muted/40 text-muted-foreground ring-1 ring-border/60',
                                 dotClass: 'bg-muted-foreground',
                             },
                         ].map((opt) => {
@@ -350,7 +355,9 @@ export function LeaveRequestsContent({
                                         className={cn(
                                             'h-1.5 w-1.5 shrink-0 rounded-full transition-opacity',
                                             opt.dotClass,
-                                            isActive ? 'opacity-100' : 'opacity-50',
+                                            isActive
+                                                ? 'opacity-100'
+                                                : 'opacity-50',
                                         )}
                                     />
                                     {opt.label}

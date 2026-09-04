@@ -1,6 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     Download,
+    FileSpreadsheet,
     FileStack,
     FolderOpen,
     Loader2,
@@ -15,6 +16,7 @@ import {
     DataTableHead,
     DataTableHeaderRow,
 } from '@/components/data-table';
+import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
@@ -60,6 +62,7 @@ import {
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import { resolveDefaultWhatsAppTemplate } from '@/features/organization/documents/whatsapp-template/types';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
+import { buildListExportUrl } from '@/lib/build-list-export-url';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { toast } from '@/lib/toast';
 import documentRoutes from '@/routes/organization/documents';
@@ -299,9 +302,21 @@ export default function EmployeeDocumentsBrowse({
         );
     };
 
+    const getExportUrl = (
+        format: 'xlsx' | 'csv' | 'pdf',
+        selectedIds: number[] = [],
+    ) =>
+        buildListExportUrl(documentRoutes.export.url(), {
+            employee_id: employee.id,
+            format,
+            search: fileSearch || undefined,
+            expiry: expiryFilter !== 'all' ? expiryFilter : undefined,
+            ids: selectedIds.length > 0 ? selectedIds.join(',') : undefined,
+        });
+
     return (
         <Main>
-            <Head title={`Documents — ${employee.name}`} />
+            <Head title={`${employee.name} — Documents`} />
 
             <DocumentsBreadcrumbs
                 items={[
@@ -329,6 +344,18 @@ export default function EmployeeDocumentsBrowse({
                     placeholder="Search files by name, type, or date…"
                     value={fileSearch}
                     onChange={setFileSearch}
+                    right={
+                        canDownloadDocuments ? (
+                            <ExportMenu
+                                getUrl={(format) => getExportUrl(format)}
+                                selectedCount={selectedDocumentCount}
+                                getSelectedUrl={(format) =>
+                                    getExportUrl(format, selectedDocumentIds)
+                                }
+                                formats={['xlsx', 'csv']}
+                            />
+                        ) : null
+                    }
                 />
             ) : null}
 
@@ -364,6 +391,27 @@ export default function EmployeeDocumentsBrowse({
                                 >
                                     <FileStack className="mr-2 h-4 w-4" />
                                     Merge PDFs
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-lg"
+                                    onClick={() => {
+                                        if (selectedDocumentCount === 0) {
+                                            return;
+                                        }
+
+                                        window.location.assign(
+                                            getExportUrl(
+                                                'xlsx',
+                                                selectedDocumentIds,
+                                            ),
+                                        );
+                                    }}
+                                >
+                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                    Export Excel
                                 </Button>
                             </>
                         ) : null}

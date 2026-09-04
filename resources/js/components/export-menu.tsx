@@ -11,6 +11,12 @@ import {
 
 export type ExportFormat = 'csv' | 'xlsx' | 'pdf';
 
+const FORMAT_LABELS: Record<ExportFormat, string> = {
+    csv: 'CSV',
+    xlsx: 'Excel',
+    pdf: 'PDF',
+};
+
 export function ExportMenu({
     getUrl,
     label = 'Export',
@@ -19,6 +25,7 @@ export function ExportMenu({
     align = 'end',
     selectedCount = 0,
     getSelectedUrl,
+    formats = ['csv', 'xlsx', 'pdf'],
 }: {
     getUrl: (format: ExportFormat) => string;
     label?: string;
@@ -27,14 +34,15 @@ export function ExportMenu({
     align?: 'start' | 'center' | 'end';
     selectedCount?: number;
     getSelectedUrl?: (format: ExportFormat) => string;
+    formats?: ExportFormat[];
 }) {
     const go = (format: ExportFormat) => {
-        window.location.href = getUrl(format);
+        window.location.assign(getUrl(format));
     };
 
     const goSelected = (format: ExportFormat) => {
         if (getSelectedUrl) {
-            window.location.href = getSelectedUrl(format);
+            window.location.assign(getSelectedUrl(format));
         }
     };
 
@@ -54,30 +62,25 @@ export function ExportMenu({
                         All filtered records
                     </DropdownMenuLabel>
                 ) : null}
-                <DropdownMenuItem onClick={() => go('csv')}>
-                    CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => go('xlsx')}>
-                    Excel
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => go('pdf')}>
-                    PDF
-                </DropdownMenuItem>
+                {formats.map((format) => (
+                    <DropdownMenuItem key={format} onClick={() => go(format)}>
+                        {FORMAT_LABELS[format]}
+                    </DropdownMenuItem>
+                ))}
                 {hasSelectedExport ? (
                     <>
                         <DropdownMenuSeparator />
                         <DropdownMenuLabel className="text-xs text-muted-foreground">
                             {selectedCount} selected
                         </DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => goSelected('csv')}>
-                            CSV
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => goSelected('xlsx')}>
-                            Excel
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => goSelected('pdf')}>
-                            PDF
-                        </DropdownMenuItem>
+                        {formats.map((format) => (
+                            <DropdownMenuItem
+                                key={`selected-${format}`}
+                                onClick={() => goSelected(format)}
+                            >
+                                {FORMAT_LABELS[format]}
+                            </DropdownMenuItem>
+                        ))}
                     </>
                 ) : null}
             </DropdownMenuContent>
