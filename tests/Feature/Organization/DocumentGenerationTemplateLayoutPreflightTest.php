@@ -8,8 +8,10 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
 use App\Support\Documents\DocumentTemplateStorage;
+use App\Support\Documents\PdfOverlayLayoutMeasurementClient;
 use App\Support\Documents\PdfOverlayLayoutPreflight;
 use Database\Seeders\PermissionsSeeder;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 
@@ -147,6 +149,7 @@ test('sample validation catches a narrow Emirates ID placement', function () {
         ])
         ->assertOk()
         ->assertJsonPath('valid', false)
+        ->assertJsonPath('status', 'invalid')
         ->assertJsonPath('issues.0.code', 'LAYOUT_OVERFLOW')
         ->assertJsonPath('issues.0.field_key', '{{emirates_id}}')
         ->assertJsonPath('issues.0.field_label', 'Emirates ID')
@@ -173,7 +176,8 @@ test('sample validation passes a wide Emirates ID placement', function () {
             'mode' => 'sample',
         ])
         ->assertOk()
-        ->assertJsonPath('valid', true);
+        ->assertJsonPath('valid', true)
+        ->assertJsonPath('status', 'valid');
 });
 
 test('validate design does not mutate the draft', function () {
@@ -483,6 +487,7 @@ test('preflight uses the sample Emirates ID value not the canvas label', functio
     );
 
     expect($result->valid)->toBeFalse()
+        ->and($result->status->value)->toBe('invalid')
         ->and($result->issues[0]['code'])->toBe('LAYOUT_OVERFLOW')
         ->and($result->issues[0]['test_value'])->toBe('784-2000-1234567-1')
         ->and($result->issues[0]['field_label'])->toBe('Emirates ID')
@@ -557,4 +562,148 @@ test('validate design rejects a version that does not belong to the template', f
             'version' => $foreignVersion,
         ]), ['mode' => 'sample'])
         ->assertNotFound();
+});
+
+test('preflight evaluate reports missing source as a source issue not an engine failure', function () {
+    $user = User::factory()->create();
+    $company = makeDocumentFixtures()['company'];
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->pdfOverlay()->create();
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'status' => DocumentGenerationTemplateVersionStatus::Draft,
+        'source_pdf_path' => null,
+        'source_pdf_page_count' => 1,
+        'placement_config' => ['schema_version' => 2, 'placements' => []],
+    ]);
+
+    $result = app(PdfOverlayLayoutPreflight::class)->evaluate(
+        $template,
+        $version,
+        $company->id,
+        ['{{emirates_id}}' => '784-2000-1234567-1'],
+        allowDraft: true,
+    );
+
+    expect($result->status->value)->toBe('invalid')
+        ->and($result->valid)->toBeFalse()
+        ->and($result->issues[0]['code'])->toBe('TEMPLATE_SOURCE_UNAVAILABLE')
+        ->and($result->reference)->toBeNull();
+});
+
+test('preflight evaluate reports invalid placement config with a configuration code', function () {
+    ['company' => $company, 'template' => $template, 'version' => $version] = makeLayoutPreflightDraft();
+
+    $result = app(PdfOverlayLayoutPreflight::class)->evaluate(
+        $template,
+        $version,
+        $company->id,
+        ['{{emirates_id}}' => '784-2000-1234567-1'],
+        ['schema_version' => 2, 'placements' => 'not-a-list'],
+        allowDraft: true,
+    );
+
+    expect($result->status->value)->toBe('invalid')
+        ->and($result->issues[0]['code'])->toBe('TEMPLATE_LAYOUT_CONFIGURATION_INVALID')
+        ->and($result->issues[0]['placement_id'])->toBeNull()
+        ->and($result->reference)->toBeNull();
+});
+
+test('measurement engine failure is unavailable not a layout issue', function () {
+    ['company' => $company, 'template' => $template, 'version' => $version] = makeLayoutPreflightDraft();
+
+    $this->mock(PdfOverlayLayoutMeasurementClient::class, function ($mock) {
+        $mock->shouldReceive('evaluateHtml')
+            ->once()
+            ->andThrow(new RuntimeException(
+                'Chrome failed at /Users/ops/chrome with 784-2000-1234567-1',
+                0,
+                new RuntimeException('Process failed /opt/chrome --html'),
+            ));
+    });
+
+    $logged = [];
+
+    Log::listen(function ($event) use (&$logged): void {
+        $logged[] = $event;
+    });
+
+    $result = app(PdfOverlayLayoutPreflight::class)->evaluate(
+        $template,
+        $version,
+        $company->id,
+        ['{{emirates_id}}' => '784-2000-1234567-1'],
+        $version->placement_config,
+        allowDraft: true,
+        context: ['mode' => 'sample'],
+    );
+
+    expect($result->status->value)->toBe('unavailable')
+        ->and($result->valid)->toBeFalse()
+        ->and($result->issues)->toHaveCount(1)
+        ->and($result->issues[0]['code'])->toBe('TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE')
+        ->and($result->issues[0]['placement_id'])->toBeNull()
+        ->and($result->issues[0]['message'])->toBe('The PDF validation engine could not complete the layout check.')
+        ->and($result->reference)->toStartWith('LAY-')
+        ->and($result->issues[0]['reference'])->toBe($result->reference);
+
+    $match = collect($logged)->first(
+        fn ($event): bool => ($event->message ?? null) === 'document_template_layout_preflight_failed',
+    );
+
+    expect($match)->not->toBeNull();
+
+    $encoded = json_encode($match->context);
+
+    expect($match->context['company_id'])->toBe($company->id)
+        ->and($match->context['template_id'])->toBe($template->id)
+        ->and($match->context['version_id'])->toBe($version->id)
+        ->and($match->context['reference_id'])->toBe($result->reference)
+        ->and($encoded)->not->toContain('784-2000-1234567-1')
+        ->and($encoded)->not->toContain('/Users/ops/chrome');
+});
+
+test('validate design returns unavailable status when chromium measurement throws', function () {
+    ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makeLayoutPreflightDraft();
+
+    $this->mock(PdfOverlayLayoutMeasurementClient::class, function ($mock) {
+        $mock->shouldReceive('evaluateHtml')->andThrow(new RuntimeException('chrome down'));
+    });
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->postJson(route('organization.documents.templates.versions.design.validate', [
+            'template' => $template,
+            'version' => $version,
+        ]), [
+            'mode' => 'sample',
+            'placement_config' => $version->placement_config,
+        ])
+        ->assertOk()
+        ->assertJsonPath('status', 'unavailable')
+        ->assertJsonPath('valid', false)
+        ->assertJsonPath('overflow_count', 0)
+        ->assertJsonPath('issues.0.code', 'TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE')
+        ->assertJsonPath('issues.0.placement_id', null)
+        ->assertJsonPath('issues.0.message', 'The PDF validation engine could not complete the layout check.');
+});
+
+test('publish is blocked as validation unavailable when the measurement engine fails', function () {
+    ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makeLayoutPreflightDraft();
+
+    $this->mock(PdfOverlayLayoutMeasurementClient::class, function ($mock) {
+        $mock->shouldReceive('evaluateHtml')->andThrow(new RuntimeException('chrome down'));
+    });
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->postJson(route('organization.documents.templates.versions.publish', [
+            'template' => $template,
+            'version' => $version,
+        ]))
+        ->assertUnprocessable()
+        ->assertJsonPath('code', 'TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE')
+        ->assertJsonPath('message', 'Layout validation could not be completed. Try again.')
+        ->assertJsonPath('issues.0.placement_id', null);
+
+    expect($version->fresh()->isDraft())->toBeTrue()
+        ->and($template->fresh()->published_version_id)->toBeNull();
 });

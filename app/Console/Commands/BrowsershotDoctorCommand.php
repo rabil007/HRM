@@ -13,7 +13,7 @@ class BrowsershotDoctorCommand extends Command
 {
     protected $signature = 'browsershot:doctor';
 
-    protected $description = 'Show detected Browsershot binaries for salary declaration PDF generation';
+    protected $description = 'Show detected Browsershot binaries and smoke-test PDF generation plus layout evaluate()';
 
     public function handle(): int
     {
@@ -61,7 +61,14 @@ class BrowsershotDoctorCommand extends Command
             return self::FAILURE;
         }
 
-        $this->components->info('Browsershot is ready for salary declaration PDF generation.');
+        if (! $this->smokeTestLayoutEvaluation()) {
+            $this->components->error('Chrome was found but failed the layout measurement evaluate() check used by PDF template validation.');
+            $this->line('Run: php artisan browsershot:install && php artisan browsershot:doctor');
+
+            return self::FAILURE;
+        }
+
+        $this->components->info('Browsershot is ready for salary declaration PDF generation and PDF overlay layout validation.');
 
         return self::SUCCESS;
     }
@@ -81,6 +88,27 @@ class BrowsershotDoctorCommand extends Command
             $pdf = $shot->pdf();
 
             return str_starts_with($pdf, '%PDF');
+        } catch (Throwable $exception) {
+            $this->components->error($exception->getMessage());
+
+            return false;
+        }
+    }
+
+    private function smokeTestLayoutEvaluation(): bool
+    {
+        try {
+            $raw = ConfiguresBrowsershotPdf::apply(
+                Browsershot::html('<html><body><div id="b">ok</div></body></html>'),
+            )->evaluate('document.fonts.ready.then(function(){ return JSON.stringify({ok:true}); })');
+
+            $decoded = json_decode(is_string($raw) ? $raw : '', true);
+
+            if (is_string($decoded)) {
+                $decoded = json_decode($decoded, true);
+            }
+
+            return is_array($decoded) && ($decoded['ok'] ?? false) === true;
         } catch (Throwable $exception) {
             $this->components->error($exception->getMessage());
 

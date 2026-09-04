@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\DocumentTemplateLayoutPreflightStatus;
 use App\Support\Documents\DocumentTemplateLayoutPreflightResult;
 use App\Support\Documents\PdfOverlayLayoutPreflight;
 
@@ -22,6 +23,7 @@ test('font size candidates never go below the renderer minimum', function () {
 
 test('first overflow exception uses the physical placement identity', function () {
     $result = new DocumentTemplateLayoutPreflightResult(
+        status: DocumentTemplateLayoutPreflightStatus::Invalid,
         valid: false,
         effectiveFontSizes: ['emirates_id_en' => null, 'employee_name_en' => 10.0],
         issues: [[

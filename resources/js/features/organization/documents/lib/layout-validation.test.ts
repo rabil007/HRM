@@ -2,9 +2,14 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     layoutIssuePlacementIds,
+    layoutOverflowIssueCount,
+    layoutPublishBlockMessage,
     layoutReadinessSectionCopy,
+    layoutSavedDraftMessage,
     layoutValidateButtonLabel,
     layoutValidationFingerprint,
+    layoutValidationStateFromResult,
+    normalizeLayoutPreflightResult,
 } from '../templates/lib/layout-validation.ts';
 import type { LayoutPreflightResult } from '../templates/lib/layout-validation.ts';
 import { combinedPublishIssueLabel } from '../templates/lib/template-workflow.ts';
@@ -12,6 +17,7 @@ import { combinedPublishIssueLabel } from '../templates/lib/template-workflow.ts
 const sampleResult = (
     overrides: Partial<LayoutPreflightResult> = {},
 ): LayoutPreflightResult => ({
+    status: 'invalid',
     valid: false,
     mode: 'sample',
     validated_with: { mode: 'sample' },
@@ -29,6 +35,7 @@ const sampleResult = (
     ],
     fit_count: 0,
     overflow_count: 1,
+    reference: null,
     ...overrides,
 });
 
@@ -45,6 +52,10 @@ describe('layoutValidateButtonLabel', () => {
             layoutValidateButtonLabel('invalid', 3),
             '3 layout issues',
         );
+        assert.equal(
+            layoutValidateButtonLabel('unavailable'),
+            'Validation unavailable',
+        );
         assert.equal(layoutValidateButtonLabel('stale'), 'Validation required');
     });
 });
@@ -54,14 +65,22 @@ describe('layoutReadinessSectionCopy', () => {
         assert.deepEqual(layoutReadinessSectionCopy('valid'), {
             kind: 'ok',
             summary: 'No issues',
+            detail: null,
         });
         assert.deepEqual(layoutReadinessSectionCopy('invalid', 1), {
             kind: 'issues',
             summary: '1 layout issue',
+            detail: null,
+        });
+        assert.deepEqual(layoutReadinessSectionCopy('unavailable'), {
+            kind: 'unavailable',
+            summary: 'Validation unavailable',
+            detail: 'The PDF validation engine could not complete the layout check.',
         });
         assert.deepEqual(layoutReadinessSectionCopy('idle'), {
             kind: 'pending',
             summary: 'Validation required',
+            detail: null,
         });
     });
 });
@@ -161,6 +180,107 @@ describe('layoutIssuePlacementIds', () => {
         assert.equal(ids.has('emirates_id_en'), true);
         assert.equal(ids.size, 1);
     });
+
+    it('does not highlight fields for engine failures', () => {
+        const unavailable = sampleResult({
+            status: 'unavailable',
+            issues: [
+                {
+                    code: 'TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE',
+                    severity: 'error',
+                    placement_id: null,
+                    field_key: null,
+                    field_label: null,
+                    page: null,
+                    message:
+                        'The PDF validation engine could not complete the layout check.',
+                    reference: 'LAY-01TEST',
+                },
+            ],
+            overflow_count: 0,
+            reference: 'LAY-01TEST',
+        });
+
+        assert.equal(layoutIssuePlacementIds(unavailable).size, 0);
+        assert.equal(layoutOverflowIssueCount(unavailable), 0);
+        assert.equal(
+            layoutPublishBlockMessage(unavailable),
+            'Layout validation could not be completed. Publishing is unavailable until the validation check succeeds.',
+        );
+        assert.equal(
+            layoutSavedDraftMessage(unavailable),
+            'Draft saved · Validation unavailable',
+        );
+    });
+});
+
+describe('layoutValidationStateFromResult', () => {
+    it('retries from unavailable to valid or overflow', () => {
+        const fingerprint = 'fp-1';
+        const unavailable = layoutValidationStateFromResult(
+            sampleResult({
+                status: 'unavailable',
+                issues: [
+                    {
+                        code: 'TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE',
+                        severity: 'error',
+                        placement_id: null,
+                        field_key: null,
+                        field_label: null,
+                        page: null,
+                        message:
+                            'The PDF validation engine could not complete the layout check.',
+                    },
+                ],
+                overflow_count: 0,
+            }),
+            fingerprint,
+        );
+        const valid = layoutValidationStateFromResult(
+            sampleResult({
+                status: 'valid',
+                valid: true,
+                issues: [],
+                overflow_count: 0,
+                fit_count: 1,
+            }),
+            fingerprint,
+        );
+        const overflow = layoutValidationStateFromResult(
+            sampleResult(),
+            fingerprint,
+        );
+
+        assert.equal(unavailable.status, 'unavailable');
+        assert.equal(valid.status, 'valid');
+        assert.equal(overflow.status, 'invalid');
+        assert.equal(
+            layoutValidateButtonLabel('unavailable'),
+            'Validation unavailable',
+        );
+        assert.equal(layoutValidateButtonLabel('invalid', 1), '1 layout issue');
+    });
+
+    it('treats a missing status with the unavailable code as engine failure', () => {
+        const normalized = normalizeLayoutPreflightResult({
+            valid: false,
+            issues: [
+                {
+                    code: 'TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE',
+                    severity: 'error',
+                    placement_id: null,
+                    field_key: null,
+                    field_label: null,
+                    page: null,
+                    message:
+                        'The PDF validation engine could not complete the layout check.',
+                },
+            ],
+        });
+
+        assert.equal(normalized.status, 'unavailable');
+        assert.equal(normalized.valid, false);
+    });
 });
 
 describe('combinedPublishIssueLabel', () => {
@@ -188,6 +308,14 @@ describe('combinedPublishIssueLabel', () => {
                 layoutIssueCount: 0,
             }),
             { kind: 'stale', label: 'Validation required' },
+        );
+        assert.deepEqual(
+            combinedPublishIssueLabel({
+                configurationBlockingCount: 0,
+                layoutStatus: 'unavailable',
+                layoutIssueCount: 1,
+            }),
+            { kind: 'issues', label: 'Validation unavailable' },
         );
     });
 });

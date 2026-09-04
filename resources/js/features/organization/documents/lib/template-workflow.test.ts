@@ -256,6 +256,16 @@ describe('readinessDisplayState', () => {
             }).label,
             '1 layout issue',
         );
+        assert.equal(
+            readinessDisplayState({
+                configurationBlockingCount: 0,
+                hasUnsavedChanges: false,
+                serverReady: true,
+                layoutStatus: 'unavailable',
+                layoutIssueCount: 1,
+            }).label,
+            'Validation unavailable',
+        );
     });
 });
 
@@ -460,7 +470,7 @@ describe('designer and templates list copy', () => {
         assert.equal(readiness.includes('readinessFixAction'), true);
         assert.equal(readiness.includes('readinessDisplayState'), true);
         assert.equal(readiness.includes('Layout'), true);
-        assert.equal(readiness.includes('onValidateLayout'), true);
+        assert.equal(readiness.includes('Retry validation'), true);
         assert.equal(readiness.includes('canMutate'), true);
         assert.equal(panel.includes('preset.id'), true);
         assert.equal(panel.includes('stage.id'), false);

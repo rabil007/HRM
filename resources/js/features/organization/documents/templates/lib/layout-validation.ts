@@ -1,3 +1,5 @@
+export type LayoutPreflightStatus = 'valid' | 'invalid' | 'unavailable';
+
 export type LayoutPreflightIssue = {
     code: string;
     severity: string;
@@ -7,9 +9,11 @@ export type LayoutPreflightIssue = {
     page: number | null;
     message: string;
     test_value?: string | null;
+    reference?: string | null;
 };
 
 export type LayoutPreflightResult = {
+    status: LayoutPreflightStatus;
     valid: boolean;
     mode: 'sample' | 'employee';
     validated_with: {
@@ -22,6 +26,7 @@ export type LayoutPreflightResult = {
     issues: LayoutPreflightIssue[];
     fit_count: number;
     overflow_count: number;
+    reference?: string | null;
 };
 
 export type LayoutValidationStatus =
@@ -29,6 +34,7 @@ export type LayoutValidationStatus =
     | 'checking'
     | 'valid'
     | 'invalid'
+    | 'unavailable'
     | 'stale';
 
 export type LayoutValidationState =
@@ -36,7 +42,69 @@ export type LayoutValidationState =
     | { status: 'checking' }
     | { status: 'valid'; result: LayoutPreflightResult; fingerprint: string }
     | { status: 'invalid'; result: LayoutPreflightResult; fingerprint: string }
+    | {
+          status: 'unavailable';
+          result: LayoutPreflightResult;
+          fingerprint: string;
+      }
     | { status: 'stale'; previous: LayoutPreflightResult | null };
+
+export const LAYOUT_ISSUE_CODES = {
+    overflow: 'LAYOUT_OVERFLOW',
+    sourceUnavailable: 'TEMPLATE_SOURCE_UNAVAILABLE',
+    configurationInvalid: 'TEMPLATE_LAYOUT_CONFIGURATION_INVALID',
+    validationUnavailable: 'TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE',
+} as const;
+
+export function normalizeLayoutPreflightResult(
+    raw: Partial<LayoutPreflightResult> & {
+        issues?: LayoutPreflightIssue[];
+        valid?: boolean;
+        status?: string;
+    },
+): LayoutPreflightResult {
+    const issues = Array.isArray(raw.issues) ? raw.issues : [];
+    const engineFailed = issues.some(
+        (issue) => issue.code === LAYOUT_ISSUE_CODES.validationUnavailable,
+    );
+    const status: LayoutPreflightStatus =
+        raw.status === 'valid' ||
+        raw.status === 'invalid' ||
+        raw.status === 'unavailable'
+            ? raw.status
+            : engineFailed
+              ? 'unavailable'
+              : raw.valid
+                ? 'valid'
+                : 'invalid';
+
+    return {
+        status,
+        valid: Boolean(raw.valid) && status === 'valid',
+        mode: raw.mode === 'employee' ? 'employee' : 'sample',
+        validated_with: raw.validated_with ?? { mode: 'sample' },
+        effective_font_sizes: raw.effective_font_sizes ?? {},
+        issues,
+        fit_count: raw.fit_count ?? 0,
+        overflow_count: raw.overflow_count ?? 0,
+        reference: raw.reference ?? null,
+    };
+}
+
+export function layoutValidationStateFromResult(
+    result: LayoutPreflightResult,
+    fingerprint: string,
+): LayoutValidationState {
+    if (result.status === 'unavailable') {
+        return { status: 'unavailable', result, fingerprint };
+    }
+
+    if (result.valid && result.status === 'valid') {
+        return { status: 'valid', result, fingerprint };
+    }
+
+    return { status: 'invalid', result, fingerprint };
+}
 
 export function layoutValidationFingerprint(
     versionId: number | null,
@@ -76,22 +144,56 @@ export function layoutValidationFingerprint(
     });
 }
 
+export function layoutOverflowIssues(
+    result: LayoutPreflightResult | null,
+): LayoutPreflightIssue[] {
+    if (!result) {
+        return [];
+    }
+
+    return result.issues.filter(
+        (issue) =>
+            issue.code === LAYOUT_ISSUE_CODES.overflow &&
+            Boolean(issue.placement_id),
+    );
+}
+
 export function layoutIssuePlacementIds(
     result: LayoutPreflightResult | null,
 ): Set<string> {
     const ids = new Set<string>();
 
-    if (!result) {
-        return ids;
-    }
-
-    for (const issue of result.issues) {
-        if (issue.code === 'LAYOUT_OVERFLOW' && issue.placement_id) {
+    for (const issue of layoutOverflowIssues(result)) {
+        if (issue.placement_id) {
             ids.add(issue.placement_id);
         }
     }
 
     return ids;
+}
+
+export function layoutOverflowIssueCount(
+    result: LayoutPreflightResult | null,
+): number {
+    return layoutOverflowIssues(result).length;
+}
+
+export function layoutValidationReference(
+    result: LayoutPreflightResult | null,
+): string | null {
+    if (!result) {
+        return null;
+    }
+
+    if (typeof result.reference === 'string' && result.reference !== '') {
+        return result.reference;
+    }
+
+    const issue = result.issues.find(
+        (item) => typeof item.reference === 'string' && item.reference !== '',
+    );
+
+    return issue?.reference ?? null;
 }
 
 export function layoutValidateButtonLabel(
@@ -104,6 +206,10 @@ export function layoutValidateButtonLabel(
 
     if (status === 'valid') {
         return 'Layout valid';
+    }
+
+    if (status === 'unavailable') {
+        return 'Validation unavailable';
     }
 
     if (status === 'invalid') {
@@ -122,13 +228,29 @@ export function layoutValidateButtonLabel(
 export function layoutReadinessSectionCopy(
     status: LayoutValidationStatus,
     issueCount = 0,
-): { kind: 'ok' | 'pending' | 'checking' | 'issues'; summary: string } {
+): {
+    kind: 'ok' | 'pending' | 'checking' | 'issues' | 'unavailable';
+    summary: string;
+    detail: string | null;
+} {
     if (status === 'checking') {
-        return { kind: 'checking', summary: 'Validating layout…' };
+        return {
+            kind: 'checking',
+            summary: 'Validating layout…',
+            detail: null,
+        };
     }
 
     if (status === 'valid') {
-        return { kind: 'ok', summary: 'No issues' };
+        return { kind: 'ok', summary: 'No issues', detail: null };
+    }
+
+    if (status === 'unavailable') {
+        return {
+            kind: 'unavailable',
+            summary: 'Validation unavailable',
+            detail: 'The PDF validation engine could not complete the layout check.',
+        };
     }
 
     if (status === 'invalid') {
@@ -138,10 +260,59 @@ export function layoutReadinessSectionCopy(
                 issueCount === 1
                     ? '1 layout issue'
                     : `${issueCount} layout issues`,
+            detail: null,
         };
     }
 
-    return { kind: 'pending', summary: 'Validation required' };
+    return {
+        kind: 'pending',
+        summary: 'Validation required',
+        detail: null,
+    };
+}
+
+export function layoutPublishBlockMessage(
+    result: LayoutPreflightResult | null,
+): string {
+    if (!result || result.status === 'unavailable') {
+        return 'Layout validation could not be completed. Publishing is unavailable until the validation check succeeds.';
+    }
+
+    const count = layoutOverflowIssueCount(result);
+
+    if (count === 1) {
+        return 'This template has 1 layout issue that must be fixed before publishing.';
+    }
+
+    if (count > 1) {
+        return `This template has ${count} layout issues that must be fixed before publishing.`;
+    }
+
+    return 'This template has layout issues that must be fixed before publishing.';
+}
+
+export function layoutSavedDraftMessage(
+    result: LayoutPreflightResult | null,
+): string {
+    if (!result || result.valid) {
+        return 'Draft saved';
+    }
+
+    if (result.status === 'unavailable') {
+        return 'Draft saved · Validation unavailable';
+    }
+
+    const count = layoutOverflowIssueCount(result);
+
+    if (count === 1) {
+        return 'Draft saved · 1 layout issue';
+    }
+
+    if (count > 1) {
+        return `Draft saved · ${count} layout issues`;
+    }
+
+    return 'Draft saved';
 }
 
 export function issueTestValue(

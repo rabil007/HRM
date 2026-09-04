@@ -106,7 +106,12 @@ import {
 import type { FabricRectLike } from '../lib/coordinates';
 import {
     layoutIssuePlacementIds,
+    layoutOverflowIssueCount,
+    layoutPublishBlockMessage,
+    layoutSavedDraftMessage,
     layoutValidationFingerprint,
+    layoutValidationStateFromResult,
+    normalizeLayoutPreflightResult,
 } from '../lib/layout-validation';
 import type {
     LayoutPreflightIssue,
@@ -1282,7 +1287,9 @@ export function TemplatePdfDesignerDialog({
     useEffect(() => {
         setLayoutValidation((current) => {
             if (
-                (current.status === 'valid' || current.status === 'invalid') &&
+                (current.status === 'valid' ||
+                    current.status === 'invalid' ||
+                    current.status === 'unavailable') &&
                 current.fingerprint !== layoutFingerprint
             ) {
                 return { status: 'stale', previous: current.result };
@@ -3503,14 +3510,14 @@ export function TemplatePdfDesignerDialog({
                 throw new Error('Layout validation failed.');
             }
 
-            const result = (await response.json()) as LayoutPreflightResult;
+            const result = normalizeLayoutPreflightResult(
+                (await response.json()) as LayoutPreflightResult,
+            );
             setLayoutValidation(
-                result.valid
-                    ? { status: 'valid', result, fingerprint }
-                    : { status: 'invalid', result, fingerprint },
+                layoutValidationStateFromResult(result, fingerprint),
             );
 
-            if (!result.valid) {
+            if (result.status === 'invalid') {
                 const first = result.issues.find((issue) => issue.placement_id);
 
                 if (first) {
@@ -3662,12 +3669,7 @@ export function TemplatePdfDesignerDialog({
             });
 
             if (validation && !validation.valid) {
-                const count = validation.issues.length;
-                setLayoutStatusMessage(
-                    count === 1
-                        ? 'Draft saved · 1 layout issue'
-                        : `Draft saved · ${count} layout issues`,
-                );
+                setLayoutStatusMessage(layoutSavedDraftMessage(validation));
             } else {
                 setLayoutStatusMessage('Draft saved');
             }
@@ -3707,11 +3709,7 @@ export function TemplatePdfDesignerDialog({
             setRightPanelTab('properties');
 
             if (validation && !validation.valid) {
-                setErrorMessage(
-                    validation.issues.length === 1
-                        ? 'This template has 1 layout issue that must be fixed before publishing.'
-                        : `This template has ${validation.issues.length} layout issues that must be fixed before publishing.`,
-                );
+                setErrorMessage(layoutPublishBlockMessage(validation));
             }
 
             return;
@@ -4333,7 +4331,7 @@ export function TemplatePdfDesignerDialog({
         : (readiness?.blocking_count ?? 0);
     const layoutIssueCount =
         layoutValidation.status === 'invalid'
-            ? layoutValidation.result.issues.length
+            ? layoutOverflowIssueCount(layoutValidation.result)
             : 0;
     const publishBlocked =
         hasUnsavedChanges ||
@@ -4341,6 +4339,7 @@ export function TemplatePdfDesignerDialog({
         isPublishing ||
         isSaving ||
         layoutValidation.status === 'invalid' ||
+        layoutValidation.status === 'unavailable' ||
         layoutValidation.status === 'checking';
 
     const handleReadinessFix = (
@@ -4647,7 +4646,8 @@ export function TemplatePdfDesignerDialog({
                                 layoutIssueCount={layoutIssueCount}
                                 layoutResult={
                                     layoutValidation.status === 'valid' ||
-                                    layoutValidation.status === 'invalid'
+                                    layoutValidation.status === 'invalid' ||
+                                    layoutValidation.status === 'unavailable'
                                         ? layoutValidation.result
                                         : layoutValidation.status === 'stale'
                                           ? layoutValidation.previous
@@ -5152,11 +5152,32 @@ export function TemplatePdfDesignerDialog({
                                 <TemplateLayoutValidationPanel
                                     result={
                                         layoutValidation.status === 'valid' ||
-                                        layoutValidation.status === 'invalid'
+                                        layoutValidation.status === 'invalid' ||
+                                        layoutValidation.status ===
+                                            'unavailable'
                                             ? layoutValidation.result
-                                            : null
+                                            : layoutValidation.status ===
+                                                'stale'
+                                              ? layoutValidation.previous
+                                              : null
                                     }
                                     onSelectIssue={selectLayoutIssue}
+                                    onRetry={
+                                        isEditable
+                                            ? () =>
+                                                  void runLayoutValidation({
+                                                      mode: previewEmployee
+                                                          ? 'employee'
+                                                          : 'sample',
+                                                      employeeId:
+                                                          previewEmployee?.id ??
+                                                          null,
+                                                  })
+                                            : undefined
+                                    }
+                                    retryDisabled={
+                                        layoutValidation.status === 'checking'
+                                    }
                                 />
                             </div>
                             {!selectedElementId && isEditable && (

@@ -16,19 +16,21 @@ use InvalidArgumentException;
 final class ValidateDocumentGenerationTemplateDesign
 {
     public function __construct(
-        private PdfOverlayLayoutPreflight $preflight = new PdfOverlayLayoutPreflight,
+        private PdfOverlayLayoutPreflight $preflight,
     ) {}
 
     /**
      * @param  array<string, mixed>|null  $placementConfig
      * @return array{
+     *     status: string,
      *     valid: bool,
      *     mode: string,
      *     validated_with: array<string, mixed>,
      *     effective_font_sizes: array<string, float|null>,
      *     issues: list<array<string, mixed>>,
      *     fit_count: int,
-     *     overflow_count: int
+     *     overflow_count: int,
+     *     reference: string|null
      * }
      */
     public function handle(
@@ -110,6 +112,10 @@ final class ValidateDocumentGenerationTemplateDesign
             $mergeValues,
             is_array($configToMeasure) ? $configToMeasure : null,
             allowDraft: true,
+            context: [
+                'mode' => $mode,
+                'user_id' => auth()->id(),
+            ],
         );
 
         return $this->present($result, $mode, $validatedWith);
@@ -118,13 +124,15 @@ final class ValidateDocumentGenerationTemplateDesign
     /**
      * @param  array<string, mixed>  $validatedWith
      * @return array{
+     *     status: string,
      *     valid: bool,
      *     mode: string,
      *     validated_with: array<string, mixed>,
      *     effective_font_sizes: array<string, float|null>,
      *     issues: list<array<string, mixed>>,
      *     fit_count: int,
-     *     overflow_count: int
+     *     overflow_count: int,
+     *     reference: string|null
      * }
      */
     private function present(
@@ -139,6 +147,7 @@ final class ValidateDocumentGenerationTemplateDesign
         $measured = count($result->effectiveFontSizes);
 
         return [
+            'status' => $result->status->value,
             'valid' => $result->valid,
             'mode' => $mode,
             'validated_with' => $validatedWith,
@@ -146,6 +155,7 @@ final class ValidateDocumentGenerationTemplateDesign
             'issues' => $result->issues,
             'fit_count' => max(0, $measured - $overflowCount),
             'overflow_count' => $overflowCount,
+            'reference' => $result->reference,
         ];
     }
 }

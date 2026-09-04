@@ -1,11 +1,8 @@
-export const SAVE_DRAFT_LABEL = 'Save Draft';
+import type { LayoutValidationStatus } from './layout-validation';
 
-export type LayoutValidationStatus =
-    | 'idle'
-    | 'checking'
-    | 'valid'
-    | 'invalid'
-    | 'stale';
+export type { LayoutValidationStatus };
+
+export const SAVE_DRAFT_LABEL = 'Save Draft';
 
 export const READINESS_CODES = {
     workflowDecisionMissing: 'workflow_decision_missing',
@@ -372,6 +369,10 @@ export function combinedPublishIssueLabel(args: {
     layoutStatus: LayoutValidationStatus;
     layoutIssueCount: number;
 }): { kind: 'issues' | 'stale' | 'ready'; label: string } | null {
+    if (args.layoutStatus === 'unavailable') {
+        return { kind: 'issues', label: 'Validation unavailable' };
+    }
+
     const layoutBlocking =
         args.layoutStatus === 'invalid' ? args.layoutIssueCount : 0;
     const total = args.configurationBlockingCount + layoutBlocking;

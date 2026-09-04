@@ -2,17 +2,16 @@
 
 namespace App\Support\Documents;
 
+use App\Enums\DocumentTemplateLayoutPreflightStatus;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Support\BulkDocuments\BrowsershotEmbeddedFonts;
-use App\Support\BulkDocuments\ConfiguresBrowsershotPdf;
 use App\Support\BulkDocuments\DocumentGenerationItemErrorPresenter;
 use InvalidArgumentException;
 use setasign\Fpdi\Fpdi;
 use setasign\Fpdi\FpdiException;
 use setasign\Fpdi\PdfParser\CrossReference\CrossReferenceException;
 use setasign\Fpdi\PdfParser\PdfParserException;
-use Spatie\Browsershot\Browsershot;
 use Throwable;
 
 final class PdfOverlayLayoutPreflight
@@ -25,7 +24,19 @@ final class PdfOverlayLayoutPreflight
 
     public const CODE_SOURCE_UNAVAILABLE = 'TEMPLATE_SOURCE_UNAVAILABLE';
 
+    public const CODE_LAYOUT_CONFIGURATION_INVALID = 'TEMPLATE_LAYOUT_CONFIGURATION_INVALID';
+
+    public const CODE_LAYOUT_VALIDATION_UNAVAILABLE = 'TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE';
+
+    /**
+     * @deprecated Use CODE_LAYOUT_VALIDATION_UNAVAILABLE for engine failures and CODE_LAYOUT_CONFIGURATION_INVALID for placement config.
+     */
     public const CODE_LAYOUT_VALIDATION_FAILED = 'TEMPLATE_LAYOUT_VALIDATION_FAILED';
+
+    public function __construct(
+        private PdfOverlayLayoutMeasurementClient $measurementClient = new PdfOverlayLayoutMeasurementClient,
+        private DocumentTemplateLayoutValidationFailureLogger $failureLogger = new DocumentTemplateLayoutValidationFailureLogger,
+    ) {}
 
     public function inspectSource(
         DocumentGenerationTemplate $template,
@@ -99,6 +110,7 @@ final class PdfOverlayLayoutPreflight
     /**
      * @param  array<string, string>  $mergeValues
      * @param  array<string, mixed>|null  $placementConfig
+     * @param  array{mode?: string, user_id?: int|null}|null  $context
      */
     public function evaluate(
         DocumentGenerationTemplate $template,
@@ -107,15 +119,14 @@ final class PdfOverlayLayoutPreflight
         array $mergeValues,
         ?array $placementConfig = null,
         bool $allowDraft = false,
+        ?array $context = null,
     ): DocumentTemplateLayoutPreflightResult {
         $inspection = $this->inspectSource($template, $version, $companyId, $allowDraft);
 
         if (! $inspection->ok) {
-            return new DocumentTemplateLayoutPreflightResult(
-                valid: false,
-                effectiveFontSizes: [],
-                issues: [$inspection->issue ?? $this->sourceUnavailableIssue()],
-            );
+            return DocumentTemplateLayoutPreflightResult::invalid([
+                $inspection->issue ?? $this->sourceUnavailableIssue(),
+            ]);
         }
 
         $config = $placementConfig ?? $version->placement_config;
@@ -126,38 +137,28 @@ final class PdfOverlayLayoutPreflight
                 $inspection->pageCount,
             );
         } catch (InvalidArgumentException) {
-            return new DocumentTemplateLayoutPreflightResult(
-                valid: false,
-                effectiveFontSizes: [],
-                issues: [[
-                    'code' => self::CODE_LAYOUT_VALIDATION_FAILED,
-                    'severity' => 'error',
-                    'placement_id' => null,
-                    'field_key' => null,
-                    'field_label' => null,
-                    'page' => null,
-                    'message' => 'The template placement configuration is invalid.',
-                ]],
-            );
+            return DocumentTemplateLayoutPreflightResult::invalid([$this->configurationInvalidIssue()]);
         }
 
         $resolved = $this->resolvePlacements($placements, $inspection->pageSizes, $mergeValues);
 
         try {
             return $this->measure($resolved);
-        } catch (Throwable) {
-            return new DocumentTemplateLayoutPreflightResult(
-                valid: false,
-                effectiveFontSizes: $this->emptyEffectiveSizes($resolved),
-                issues: [[
-                    'code' => self::CODE_LAYOUT_VALIDATION_FAILED,
-                    'severity' => 'error',
-                    'placement_id' => null,
-                    'field_key' => null,
-                    'field_label' => null,
-                    'page' => null,
-                    'message' => 'Layout validation could not be completed. Try again.',
-                ]],
+        } catch (Throwable $e) {
+            $reference = DocumentTemplateLayoutValidationFailureLogger::newReference();
+            $this->failureLogger->record($e, $reference, [
+                'company_id' => $companyId,
+                'template_id' => (int) $template->id,
+                'template_version_id' => (int) $version->id,
+                'template_type' => $template->template_format->value,
+                'validation_mode' => $context['mode'] ?? null,
+                'user_id' => $context['user_id'] ?? null,
+            ]);
+
+            return DocumentTemplateLayoutPreflightResult::unavailable(
+                [$this->validationUnavailableIssue($reference)],
+                $this->emptyEffectiveSizes($resolved),
+                $reference,
             );
         }
     }
@@ -271,13 +272,7 @@ HTML;
 
         $pageFunction = 'document.fonts.ready.then(function(){ var results = []; '.$measureJs.' return JSON.stringify(results); })';
 
-        try {
-            $raw = ConfiguresBrowsershotPdf::apply(
-                Browsershot::html($html),
-            )->evaluate($pageFunction);
-        } catch (Throwable $e) {
-            throw new \RuntimeException('PDF overlay layout measurement failed.', 0, $e);
-        }
+        $raw = $this->measurementClient->evaluateHtml($html, $pageFunction);
 
         $measures = json_decode($raw, true);
 
@@ -328,11 +323,16 @@ HTML;
             $effective[$id] = $chosen[$index];
         }
 
-        return new DocumentTemplateLayoutPreflightResult(
-            valid: $issues === [],
-            effectiveFontSizes: $effective,
-            issues: $issues,
-        );
+        if ($issues === []) {
+            return new DocumentTemplateLayoutPreflightResult(
+                status: DocumentTemplateLayoutPreflightStatus::Valid,
+                valid: true,
+                effectiveFontSizes: $effective,
+                issues: [],
+            );
+        }
+
+        return DocumentTemplateLayoutPreflightResult::invalid($issues, $effective);
     }
 
     /**
@@ -413,6 +413,56 @@ HTML;
             'field_label' => null,
             'page' => null,
             'message' => 'The template source PDF is unavailable or invalid.',
+        ];
+    }
+
+    /**
+     * @return array{
+     *     code: string,
+     *     severity: string,
+     *     placement_id: null,
+     *     field_key: null,
+     *     field_label: null,
+     *     page: null,
+     *     message: string
+     * }
+     */
+    private function configurationInvalidIssue(): array
+    {
+        return [
+            'code' => self::CODE_LAYOUT_CONFIGURATION_INVALID,
+            'severity' => 'error',
+            'placement_id' => null,
+            'field_key' => null,
+            'field_label' => null,
+            'page' => null,
+            'message' => 'The template placement configuration is invalid.',
+        ];
+    }
+
+    /**
+     * @return array{
+     *     code: string,
+     *     severity: string,
+     *     placement_id: null,
+     *     field_key: null,
+     *     field_label: null,
+     *     page: null,
+     *     message: string,
+     *     reference: string
+     * }
+     */
+    private function validationUnavailableIssue(string $reference): array
+    {
+        return [
+            'code' => self::CODE_LAYOUT_VALIDATION_UNAVAILABLE,
+            'severity' => 'error',
+            'placement_id' => null,
+            'field_key' => null,
+            'field_label' => null,
+            'page' => null,
+            'message' => 'The PDF validation engine could not complete the layout check.',
+            'reference' => $reference,
         ];
     }
 

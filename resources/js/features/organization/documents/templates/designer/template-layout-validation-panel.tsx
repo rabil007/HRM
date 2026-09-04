@@ -1,5 +1,10 @@
 import { AlertTriangle, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+    LAYOUT_ISSUE_CODES,
+    layoutOverflowIssues,
+    layoutValidationReference,
+} from '../lib/layout-validation';
 import type {
     LayoutPreflightIssue,
     LayoutPreflightResult,
@@ -8,9 +13,13 @@ import type {
 export function TemplateLayoutValidationPanel({
     result,
     onSelectIssue,
+    onRetry,
+    retryDisabled = false,
 }: {
     result: LayoutPreflightResult | null;
     onSelectIssue: (issue: LayoutPreflightIssue) => void;
+    onRetry?: () => void;
+    retryDisabled?: boolean;
 }) {
     if (!result) {
         return (
@@ -24,11 +33,47 @@ export function TemplateLayoutValidationPanel({
         );
     }
 
-    const overflowIssues = result.issues.filter(
-        (issue) => issue.code === 'LAYOUT_OVERFLOW',
-    );
+    if (result.status === 'unavailable') {
+        const reference = layoutValidationReference(result);
+
+        return (
+            <div className="space-y-2">
+                <p className="text-xs font-semibold">Layout validation</p>
+                <p className="flex items-start gap-1 text-[11px] font-medium text-amber-800 dark:text-amber-300">
+                    <AlertTriangle className="mt-0.5 size-3 shrink-0" />
+                    Validation unavailable
+                </p>
+                <p className="text-[11px] text-foreground">
+                    The PDF validation engine could not complete the layout
+                    check.
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                    No template field has been identified as invalid.
+                </p>
+                {reference ? (
+                    <p className="font-mono text-[11px] text-muted-foreground">
+                        Reference: {reference}
+                    </p>
+                ) : null}
+                {onRetry ? (
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[11px]"
+                        disabled={retryDisabled}
+                        onClick={onRetry}
+                    >
+                        Retry validation
+                    </Button>
+                ) : null}
+            </div>
+        );
+    }
+
+    const overflowIssues = layoutOverflowIssues(result);
     const otherIssues = result.issues.filter(
-        (issue) => issue.code !== 'LAYOUT_OVERFLOW',
+        (issue) => issue.code !== LAYOUT_ISSUE_CODES.overflow,
     );
 
     if (result.valid) {
@@ -53,9 +98,9 @@ export function TemplateLayoutValidationPanel({
         <div className="space-y-2">
             <p className="text-xs font-semibold">Layout validation</p>
             <p className="text-[11px] text-destructive">
-                {result.issues.length === 1
+                {overflowIssues.length === 1
                     ? '1 issue'
-                    : `${result.issues.length} issues`}
+                    : `${overflowIssues.length} issues`}
             </p>
             {otherIssues.map((issue, index) => (
                 <p
@@ -82,6 +127,11 @@ export function TemplateLayoutValidationPanel({
                     <p className="text-[11px] text-foreground">
                         {issue.message}
                     </p>
+                    {issue.test_value ? (
+                        <p className="font-mono text-[11px] break-all text-muted-foreground">
+                            Test value: {issue.test_value}
+                        </p>
+                    ) : null}
                     <p className="text-[11px] text-muted-foreground">
                         Suggested: Increase the field width or reduce the
                         configured font size.
@@ -108,7 +158,7 @@ export function TemplateLayoutSelectedIssue({
 }: {
     issue: LayoutPreflightIssue | null;
 }) {
-    if (!issue) {
+    if (!issue || !issue.placement_id) {
         return null;
     }
 

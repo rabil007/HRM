@@ -175,14 +175,22 @@ function LayoutReadinessSection({
         result?.issues.filter((issue) => issue.code === 'LAYOUT_OVERFLOW') ??
         [];
     const otherIssues =
-        result?.issues.filter((issue) => issue.code !== 'LAYOUT_OVERFLOW') ??
-        [];
+        result?.issues.filter(
+            (issue) =>
+                issue.code !== 'LAYOUT_OVERFLOW' &&
+                issue.code !== 'TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE',
+        ) ?? [];
+    const reference =
+        result?.reference ??
+        result?.issues.find((issue) => issue.reference)?.reference ??
+        null;
     const showValidate =
         canMutate &&
         Boolean(onValidate) &&
         (status === 'idle' ||
             status === 'stale' ||
             status === 'invalid' ||
+            status === 'unavailable' ||
             status === 'checking');
 
     return (
@@ -200,15 +208,33 @@ function LayoutReadinessSection({
             ) : (
                 <p
                     className={
-                        copy.kind === 'issues'
+                        copy.kind === 'issues' || copy.kind === 'unavailable'
                             ? 'text-[11px] text-amber-800 dark:text-amber-300'
                             : 'text-[11px] text-muted-foreground'
                     }
                 >
-                    {copy.kind === 'issues' ? '⚠ ' : ''}
+                    {copy.kind === 'issues' || copy.kind === 'unavailable'
+                        ? '⚠ '
+                        : ''}
                     {copy.summary}
                 </p>
             )}
+            {copy.kind === 'unavailable' && copy.detail ? (
+                <p className="text-[11px] text-muted-foreground">
+                    {copy.detail}
+                </p>
+            ) : null}
+            {copy.kind === 'unavailable' ? (
+                <p className="text-[11px] text-muted-foreground">
+                    Publishing is unavailable until layout validation completes
+                    successfully.
+                </p>
+            ) : null}
+            {copy.kind === 'unavailable' && reference ? (
+                <p className="font-mono text-[11px] text-muted-foreground">
+                    Reference: {reference}
+                </p>
+            ) : null}
             {otherIssues.map((issue, index) => (
                 <p
                     key={`${issue.code}-${index}`}
@@ -254,7 +280,9 @@ function LayoutReadinessSection({
                         ? 'Validating…'
                         : status === 'invalid'
                           ? 'Re-check layout'
-                          : 'Validate layout'}
+                          : status === 'unavailable'
+                            ? 'Retry validation'
+                            : 'Validate layout'}
                 </Button>
             ) : null}
         </div>

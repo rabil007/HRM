@@ -69,7 +69,15 @@ final class PublishDocumentGenerationTemplateVersion
                     DocumentTemplateMergeFields::sampleValues($template->company?->name),
                     is_array($lockedVersion->placement_config) ? $lockedVersion->placement_config : null,
                     allowDraft: true,
+                    context: [
+                        'mode' => 'sample',
+                        'user_id' => $userId,
+                    ],
                 );
+
+                if ($layout->isUnavailable()) {
+                    RejectInvalidDocumentTemplateLayout::throwUnavailable($layout);
+                }
 
                 if (! $layout->valid) {
                     if ($readiness['blocking_count'] > 0) {

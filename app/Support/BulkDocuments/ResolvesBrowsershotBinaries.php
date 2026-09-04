@@ -157,4 +157,24 @@ final class ResolvesBrowsershotBinaries
 
         return $resolved !== '' && is_executable($resolved) ? $resolved : null;
     }
+
+    /**
+     * Safe binary presence flags for diagnostic logs. Does not include paths.
+     *
+     * @return array{
+     *     node_resolved: bool,
+     *     npm_resolved: bool,
+     *     chrome_resolved: bool,
+     *     node_modules_available: bool
+     * }
+     */
+    public static function availabilitySnapshot(): array
+    {
+        return [
+            'node_resolved' => self::nodeBinary() !== null,
+            'npm_resolved' => self::npmBinary() !== null,
+            'chrome_resolved' => self::chromePath() !== null,
+            'node_modules_available' => is_dir(base_path('node_modules')),
+        ];
+    }
 }
