@@ -3,7 +3,9 @@
 namespace App\Support\Queue;
 
 use App\Jobs\FetchHikvisionAccessEventsJob;
+use App\Jobs\GenerateCustomDocumentsJob;
 use App\Mail\FailedQueueJobMail;
+use App\Models\DocumentGenerationRun;
 use App\Models\JobRun;
 use App\Support\Hikvision\HikvisionFetchOrigin;
 use Carbon\CarbonInterface;
@@ -236,6 +238,24 @@ final class JobRunRecorder
 
             if (filled($instance->date)) {
                 $context['date'] = $instance->date;
+            }
+
+            return $context;
+        }
+
+        if ($instance instanceof GenerateCustomDocumentsJob) {
+            $context = [
+                'company_id' => $instance->companyId,
+                'generation_run_id' => $instance->runId,
+            ];
+
+            $templateId = DocumentGenerationRun::query()
+                ->whereKey($instance->runId)
+                ->where('company_id', $instance->companyId)
+                ->value('document_generation_template_id');
+
+            if ($templateId !== null) {
+                $context['template_id'] = (int) $templateId;
             }
 
             return $context;

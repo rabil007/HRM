@@ -29,6 +29,11 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { employeeDocumentViewUrl } from '@/features/organization/documents/bulk/bulk-document-urls';
 import { BulkDocumentsHistoryTable } from '@/features/organization/documents/bulk/bulk-documents-history-table';
 import { BulkDocumentsViewSwitcher } from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
@@ -36,6 +41,12 @@ import type { BulkDocumentsView } from '@/features/organization/documents/bulk/b
 import { BulkEmailBatchSendsSheet } from '@/features/organization/documents/bulk/bulk-email-batch-sends-sheet';
 import { BulkDocumentsEmailModal } from '@/features/organization/documents/bulk/bulk-email-modal';
 import { bulkDocumentsPollOnlyProps } from '@/features/organization/documents/lib/bulk-documents-poll-props';
+import {
+    generationCompletionToast,
+    isGenerationRunActive,
+    rosterGenerationBadge,
+    shouldPollBulkDocuments,
+} from '@/features/organization/documents/lib/generation-run-progress';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
@@ -50,6 +61,7 @@ import documentRoutes, {
 } from '@/routes/organization/documents';
 import { DocumentContextHeader } from './components/document-context-header';
 import { EmployeeFilters } from './components/employee-filters';
+import { GenerationProgressBanner } from './components/generation-progress-banner';
 import { GenerationStatusFilter } from './components/generation-status-filter';
 import { RegenerationWarning } from './components/regeneration-warning';
 import { EMPTY_BULK_DOCUMENT_FILTERS } from './types';
@@ -106,109 +118,6 @@ function buildQuery(
     }
 
     return query;
-}
-
-function ProgressBanner({
-    latestRun,
-}: {
-    latestRun: BulkDocumentsPageProps['latest_run'];
-}) {
-    const [dismissedRunId, setDismissedRunId] = useState<number | null>(null);
-
-    const status = latestRun?.status;
-    const isRunning = status === 'running' || status === 'queued';
-    const isFailed = status === 'failed';
-    const isCompleted = status === 'completed';
-
-    useEffect(() => {
-        if (!latestRun || !isCompleted) {
-            return;
-        }
-
-        const runId = latestRun.id;
-        const timeout = window.setTimeout(() => {
-            setDismissedRunId(runId);
-        }, 6000);
-
-        return () => window.clearTimeout(timeout);
-    }, [isCompleted, latestRun]);
-
-    if (!latestRun) {
-        return null;
-    }
-
-    if (!isRunning && !isFailed && !isCompleted) {
-        return null;
-    }
-
-    if (!isRunning && dismissedRunId === latestRun.id) {
-        return null;
-    }
-
-    const processed =
-        latestRun.generated_count +
-        latestRun.replaced_count +
-        latestRun.skipped_count +
-        latestRun.failed_count;
-
-    let message = '';
-
-    if (isRunning) {
-        message = `Generating… ${processed} of ${latestRun.total_targeted} processed`;
-    } else if (isCompleted) {
-        const parts = [`${latestRun.generated_count} created`];
-
-        if (latestRun.replaced_count > 0) {
-            parts.push(`${latestRun.replaced_count} updated`);
-        }
-
-        if (latestRun.skipped_count > 0) {
-            parts.push(`${latestRun.skipped_count} skipped`);
-        }
-
-        message = parts.join(' · ');
-    } else {
-        message = 'Document generation failed. Please try again.';
-    }
-
-    return (
-        <div
-            className={cn(
-                'mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm',
-                isRunning &&
-                    'border-amber-500/25 bg-amber-500/6 text-amber-700 dark:text-amber-400',
-                isCompleted &&
-                    'border-emerald-500/25 bg-emerald-500/6 text-emerald-700 dark:text-emerald-400',
-                isFailed &&
-                    'border-destructive/25 bg-destructive/6 text-destructive',
-            )}
-        >
-            {isRunning ? (
-                <Spinner className="h-4 w-4 shrink-0" />
-            ) : (
-                <span
-                    className={cn(
-                        'flex h-2 w-2 shrink-0 rounded-full',
-                        isCompleted && 'bg-emerald-500',
-                        isFailed && 'bg-destructive',
-                    )}
-                />
-            )}
-            <span className="font-medium">{message}</span>
-            {!isRunning ? (
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="ml-auto h-6 w-6 shrink-0 rounded-full hover:bg-foreground/10"
-                    onClick={() => setDismissedRunId(latestRun.id)}
-                    aria-label="Dismiss"
-                >
-                    <X className="h-3.5 w-3.5" />
-                </Button>
-            ) : null}
-        </div>
-    );
 }
 
 function EmailProgressBanner({
@@ -439,9 +348,11 @@ export function BulkDocumentsContent({
 
     const missingCount = counts.not_generated;
     const generateLabel =
-        effectiveSelectedCount > 0
-            ? `Generate for ${effectiveSelectedCount} selected`
-            : `Generate missing (${missingCount})`;
+        isGenerating || isGenerationRunActive(latest_run?.status)
+            ? 'Generating…'
+            : effectiveSelectedCount > 0
+              ? `Generate for ${effectiveSelectedCount} selected`
+              : `Generate missing (${missingCount})`;
 
     const showSelectAllMatching =
         isAllSelected &&
@@ -519,8 +430,7 @@ export function BulkDocumentsContent({
             ? 'indeterminate'
             : false;
 
-    const isRunActive =
-        latest_run?.status === 'running' || latest_run?.status === 'queued';
+    const isRunActive = isGenerationRunActive(latest_run?.status);
 
     const isEmailBatchActive =
         latest_email_batch?.status === 'running' ||
@@ -536,7 +446,8 @@ export function BulkDocumentsContent({
 
     useEffect(() => {
         const shouldPollRoster =
-            isRosterView && (isRunActive || isEmailBatchActive);
+            isRosterView &&
+            shouldPollBulkDocuments(isRunActive, isEmailBatchActive);
 
         if (!shouldPollRoster) {
             stop();
@@ -551,26 +462,33 @@ export function BulkDocumentsContent({
         };
     }, [isRunActive, isEmailBatchActive, isRosterView, start, stop]);
 
+    const previousRunId = useRef(latest_run?.id);
     const previousRunStatus = useRef(latest_run?.status);
     useEffect(() => {
         const previous = previousRunStatus.current;
+        const sameRun = latest_run?.id === previousRunId.current;
 
         if (
-            (previous === 'running' || previous === 'queued') &&
-            latest_run?.status === 'completed'
+            sameRun &&
+            isGenerationRunActive(previous) &&
+            latest_run !== null &&
+            (latest_run.status === 'completed' ||
+                latest_run.status === 'failed')
         ) {
-            toast.success('Document generation completed.');
+            const result = generationCompletionToast(latest_run);
+
+            if (result.type === 'error') {
+                toast.error(`${result.title}. ${result.body}`);
+            } else if (result.type === 'warning') {
+                toast.warning(`${result.title}. ${result.body}`);
+            } else {
+                toast.success(`${result.title}. ${result.body}`);
+            }
         }
 
-        if (
-            (previous === 'running' || previous === 'queued') &&
-            latest_run?.status === 'failed'
-        ) {
-            toast.error('Document generation failed.');
-        }
-
+        previousRunId.current = latest_run?.id;
         previousRunStatus.current = latest_run?.status;
-    }, [latest_run?.status]);
+    }, [latest_run]);
 
     const previousEmailBatchStatus = useRef(latest_email_batch?.status);
     useEffect(() => {
@@ -724,7 +642,7 @@ export function BulkDocumentsContent({
     ]);
 
     const handleGenerate = () => {
-        if (!can.generate || isGenerating) {
+        if (!can.generate || isGenerating || isRunActive) {
             return;
         }
 
@@ -978,7 +896,13 @@ export function BulkDocumentsContent({
                 />
             ) : null}
 
-            {isRosterView ? <ProgressBanner latestRun={latest_run} /> : null}
+            {isRosterView ? (
+                <GenerationProgressBanner
+                    latestRun={latest_run}
+                    onShowGenerated={() => setGenerationFilter('generated')}
+                    canViewTemplates={can_view_templates}
+                />
+            ) : null}
             {isRosterView ? (
                 <EmailProgressBanner latestEmailBatch={latest_email_batch} />
             ) : null}
@@ -1031,7 +955,7 @@ export function BulkDocumentsContent({
                                         onClick={handleGenerate}
                                         disabled={isGenerating || isRunActive}
                                     >
-                                        {isGenerating ? (
+                                        {isGenerating || isRunActive ? (
                                             <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
                                         ) : null}
                                         {generateLabel}
@@ -1241,6 +1165,7 @@ function BulkRosterRow({
     canDownload: boolean;
 }) {
     const hasDocument = employee.document !== null;
+    const documentBadge = rosterGenerationBadge(employee);
     const assignment = [employee.department, employee.position]
         .filter(Boolean)
         .join(' · ');
@@ -1324,16 +1249,44 @@ function BulkRosterRow({
                 )}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
-                <Badge
-                    variant={hasDocument ? 'secondary' : 'outline'}
-                    className={cn(
-                        hasDocument
-                            ? 'border-0 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                            : 'border-dashed text-muted-foreground/70',
-                    )}
-                >
-                    {hasDocument ? 'Generated' : 'Missing'}
-                </Badge>
+                {documentBadge.kind === 'generating' ? (
+                    <div className="flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-400">
+                        <Spinner className="h-3.5 w-3.5" />
+                        Generating
+                    </div>
+                ) : documentBadge.kind === 'failed' ? (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Badge
+                                variant="outline"
+                                className="border-destructive/30 text-destructive"
+                            >
+                                Failed
+                            </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            {employee.generation_error?.message ??
+                                'PDF generation failed. Check system logs if the problem continues.'}
+                        </TooltipContent>
+                    </Tooltip>
+                ) : (
+                    <Badge
+                        variant={
+                            documentBadge.kind === 'generated'
+                                ? 'secondary'
+                                : 'outline'
+                        }
+                        className={cn(
+                            documentBadge.kind === 'generated'
+                                ? 'border-0 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                : documentBadge.kind === 'queued'
+                                  ? 'border-dashed text-amber-700 dark:text-amber-400'
+                                  : 'border-dashed text-muted-foreground/70',
+                        )}
+                    >
+                        {documentBadge.label}
+                    </Badge>
+                )}
             </TableCell>
             <TableCell
                 className={dataTableActionsCellClass()}

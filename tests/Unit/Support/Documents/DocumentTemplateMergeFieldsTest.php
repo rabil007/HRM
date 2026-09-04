@@ -33,6 +33,14 @@ function createMergeFieldsTestCompany(string $name = 'Test Co'): Company
     ]);
 }
 
+test('labelFor maps merge keys to designer labels', function () {
+    expect(DocumentTemplateMergeFields::labelFor('{{employee_name}}'))->toBe('Employee Full Name')
+        ->and(DocumentTemplateMergeFields::labelFor('employee_name'))->toBe('Employee Full Name')
+        ->and(DocumentTemplateMergeFields::labelFor('{{today}}'))->toBe('Today\'s Date')
+        ->and(DocumentTemplateMergeFields::labelFor(''))->toBeNull()
+        ->and(DocumentTemplateMergeFields::labelFor('placement-001'))->toBeNull();
+});
+
 test('definitions returns allowed merge fields with required keys', function () {
     $defs = DocumentTemplateMergeFields::definitions();
 

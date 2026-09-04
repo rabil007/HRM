@@ -438,14 +438,7 @@ final class BulkDocumentRosterQuery
     private static function mapEmployee(Employee $employee, ?EmployeeDocument $document, ?CarbonInterface $emailSentAt = null, ?string $signatureStatus = null): array
     {
         return [
-            'id' => $employee->id,
-            'name' => (string) $employee->name,
-            'employee_no' => $employee->employee_no,
-            'image' => $employee->image,
-            'department' => $employee->department?->name,
-            'position' => $employee->position?->title,
-            'email' => $employee->work_email ?: $employee->personal_email,
-            'status' => (string) $employee->status,
+            ...BulkDocumentRosterEmployeePresenter::identity($employee),
             'document' => $document !== null ? [
                 'id' => $document->id,
                 'file_path' => (string) $document->file_path,

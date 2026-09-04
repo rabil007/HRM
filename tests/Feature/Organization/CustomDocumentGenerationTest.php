@@ -17,8 +17,10 @@ use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Notifications\DocumentGenerationFinishedWebPushNotification;
 use App\Services\Documents\CustomTemplatePdfRenderer;
 use App\Support\BulkDocuments\CustomDocumentRosterQuery;
+use App\Support\BulkDocuments\DocumentGenerationItemErrorPresenter;
 use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
 use App\Support\Documents\Actions\ReplaceDocumentGenerationTemplatePdf;
 use App\Support\Documents\Actions\SyncGeneratedEmployeeDocument;
@@ -29,8 +31,10 @@ use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use setasign\Fpdi\Fpdi;
 use Spatie\Activitylog\Models\Activity;
 
@@ -2209,7 +2213,8 @@ test('pdf overlay layout overflow fails the item without creating official docum
     $item->refresh();
     expect($item->status)->toBe('failed')
         ->and($item->error_code)->toBe('TEMPLATE_LAYOUT_OVERFLOW')
-        ->and($item->error_message)->toContain('do not fit')
+        ->and($item->error_message)->toContain('Employee Full Name')
+        ->and($item->error_message)->toContain('page 1')
         ->and($item->document_instance_id)->toBeNull()
         ->and(DocumentInstance::query()->count())->toBe(0)
         ->and(EmployeeDocument::query()->count())->toBe(0)
@@ -2930,4 +2935,450 @@ test('custom template selection returns matching generated library document ids'
         ->assertJsonPath('total', 1)
         ->assertJsonPath('employee_ids.0', $generated->id)
         ->assertJsonPath('document_ids.0', $libraryDoc->id);
+});
+
+function customGenOverlayPuppeteerAvailable(): bool
+{
+    return file_exists(base_path('node_modules/puppeteer'));
+}
+
+test('company template roster uses the same employee image as built-in rosters', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    grantCompanyPermissions($user, $company, ['bulk_documents.view']);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Photo Emp',
+        'image' => 'employee-photos/photo.jpg',
+        'work_email' => 'work@example.com',
+        'personal_email' => 'personal@example.com',
+    ]);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'name' => 'Photo Letter',
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents.generate', [
+            'document_type_key' => "custom_{$template->id}",
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employees.0.id', $employee->id)
+            ->where('employees.0.image', 'employee-photos/photo.jpg')
+            ->where('employees.0.email', 'work@example.com')
+            ->where('employees.0.generation_run_status', null));
+});
+
+test('active custom run maps item status onto the initiating users roster', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    grantCompanyPermissions($user, $company, ['bulk_documents.view']);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Queued Emp',
+        'image' => 'employee-photos/queued.jpg',
+    ]);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'running',
+        'total_targeted' => 1,
+        'correlation_id' => 'roster-status',
+        'triggered_by' => $user->id,
+        'started_at' => now(),
+    ]);
+    DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $employee->id,
+        'status' => 'processing',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents.generate', [
+            'document_type_key' => "custom_{$template->id}",
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employees.0.image', 'employee-photos/queued.jpg')
+            ->where('employees.0.generation_run_status', 'processing')
+            ->where('latest_run.failure_summary', null));
+});
+
+test('pdf overlay generate for one employee creates library instance version and generated roster row', function () {
+    if (! customGenOverlayPuppeteerAvailable()) {
+        $this->markTestSkipped('Puppeteer node module is not installed in this environment.');
+    }
+
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    grantCompanyPermissions($user, $company, ['bulk_documents.view', 'bulk_documents.generate']);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil',
+        'image' => 'employee-photos/rabil.jpg',
+    ]);
+
+    $sourcePath = "document-generation-templates/{$company->id}/letterhead.pdf";
+    Storage::disk('local')->put($sourcePath, overlaySourcePdfBytes());
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+        'name' => 'Company Letterhead',
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create([
+        'version' => 1,
+        'source_pdf_path' => $sourcePath,
+        'source_pdf_page_count' => 1,
+        'placement_config' => [
+            'schema_version' => 2,
+            'placements' => [
+                [
+                    'id' => 'name-field',
+                    'type' => 'field',
+                    'field' => '{{employee_name}}',
+                    'page' => 1,
+                    'x' => 0.1,
+                    'y' => 0.1,
+                    'width' => 0.8,
+                    'height' => 0.08,
+                    'font_size' => 14,
+                    'font_weight' => 'normal',
+                    'text_align' => 'left',
+                    'vertical_align' => 'top',
+                    'font_family' => 'sans',
+                ],
+                [
+                    'id' => 'today-field',
+                    'type' => 'field',
+                    'field' => '{{today}}',
+                    'page' => 1,
+                    'x' => 0.1,
+                    'y' => 0.2,
+                    'width' => 0.4,
+                    'height' => 0.05,
+                    'font_size' => 12,
+                    'font_weight' => 'normal',
+                    'text_align' => 'left',
+                    'vertical_align' => 'top',
+                    'font_family' => 'sans',
+                ],
+            ],
+        ],
+    ]);
+    $template->update(['published_version_id' => $version->id]);
+
+    Queue::fake();
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.documents.custom.generate'), [
+            'document_generation_template_id' => $template->id,
+            'employee_ids' => [$employee->id],
+        ])
+        ->assertRedirect();
+
+    $run = DocumentGenerationRun::query()->first();
+    expect($run)->not->toBeNull();
+
+    $job = new GenerateCustomDocumentsJob($company->id, $user->id, $run->id, false);
+    $job->handle(app(CustomTemplatePdfRenderer::class), app(SyncGeneratedEmployeeDocument::class));
+
+    $run->refresh();
+    $item = DocumentGenerationRunItem::query()->where('document_generation_run_id', $run->id)->first();
+
+    expect($run->status)->toBe('completed')
+        ->and($run->generated_count)->toBe(1)
+        ->and($run->failed_count)->toBe(0)
+        ->and($item?->status)->toBe('completed')
+        ->and($item?->document_instance_id)->not->toBeNull();
+
+    $instance = DocumentInstance::query()->find($item->document_instance_id);
+    expect($instance)->not->toBeNull()
+        ->and($instance->employee_id)->toBe($employee->id)
+        ->and($instance->employee_document_id)->not->toBeNull()
+        ->and($instance->current_version_id)->not->toBeNull();
+
+    $employeeDocument = EmployeeDocument::query()->find($instance->employee_document_id);
+    expect($employeeDocument)->not->toBeNull()
+        ->and($employeeDocument->employee_id)->toBe($employee->id)
+        ->and(Storage::disk('local')->exists($employeeDocument->file_path))->toBeTrue();
+
+    $instanceVersion = DocumentInstanceVersion::query()->find($instance->current_version_id);
+    $pdfBytes = Storage::disk('local')->get($instanceVersion->file_path);
+    expect($instanceVersion->stage)->toBe('generated')
+        ->and($pdfBytes)->toStartWith('%PDF')
+        ->and($instanceVersion->checksum)->toBe(hash('sha256', $pdfBytes));
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents.generate', [
+            'document_type_key' => "custom_{$template->id}",
+            'generation_filter' => 'generated',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employees.0.id', $employee->id)
+            ->where('employees.0.image', 'employee-photos/rabil.jpg')
+            ->where('employees.0.document.id', $employeeDocument->id));
+});
+
+test('invalid renderer bytes fail the item without storing documents', function () {
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'name' => 'Invalid Bytes',
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'queued',
+        'total_targeted' => 1,
+        'correlation_id' => 'invalid-bytes',
+        'triggered_by' => $user->id,
+    ]);
+    $item = DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $employee->id,
+        'status' => 'pending',
+    ]);
+
+    $mockRenderer = Mockery::mock(CustomTemplatePdfRenderer::class);
+    $mockRenderer->shouldReceive('render')->once()->andReturn('not-a-pdf');
+
+    $job = new GenerateCustomDocumentsJob($company->id, $user->id, $run->id, false);
+    $job->handle($mockRenderer, app(SyncGeneratedEmployeeDocument::class));
+
+    $item->refresh();
+    expect($item->status)->toBe('failed')
+        ->and($item->error_code)->toBe('GENERATION_FAILED')
+        ->and($item->error_message)->toBe(DocumentGenerationItemErrorPresenter::userMessage('GENERATION_FAILED'))
+        ->and(DocumentInstance::query()->count())->toBe(0)
+        ->and(EmployeeDocument::query()->count())->toBe(0)
+        ->and($run->fresh()->status)->toBe('failed');
+});
+
+test('hard job failure terminalizes processing items without leaving them stuck', function () {
+    Notification::fake();
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'running',
+        'total_targeted' => 1,
+        'correlation_id' => 'job-failed',
+        'triggered_by' => $user->id,
+        'started_at' => now(),
+    ]);
+    $item = DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $employee->id,
+        'status' => 'processing',
+    ]);
+
+    $job = new GenerateCustomDocumentsJob($company->id, $user->id, $run->id, false);
+    $job->failed(new RuntimeException('worker killed'));
+
+    $item->refresh();
+    $run->refresh();
+
+    expect($item->status)->toBe('failed')
+        ->and($item->error_code)->toBe('JOB_FAILED')
+        ->and($item->error_message)->toBe(DocumentGenerationItemErrorPresenter::JOB_FAILED_MESSAGE)
+        ->and($run->status)->toBe('failed')
+        ->and($run->failed_count)->toBe(1)
+        ->and($run->finished_at)->not->toBeNull();
+
+    Notification::assertSentTo($user, DocumentGenerationFinishedWebPushNotification::class, function (DocumentGenerationFinishedWebPushNotification $notification): bool {
+        return $notification->title === 'Document generation failed';
+    });
+    Notification::assertSentTimes(DocumentGenerationFinishedWebPushNotification::class, 1);
+});
+
+test('mixed custom batch completes with issues and surfaces failure summary', function () {
+    Notification::fake();
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+    grantCompanyPermissions($user, $company, ['bulk_documents.view']);
+
+    $okOne = Employee::factory()->forCompany($company)->create(['status' => 'active', 'name' => 'Ok One']);
+    $okTwo = Employee::factory()->forCompany($company)->create(['status' => 'active', 'name' => 'Ok Two']);
+    $failEmp = Employee::factory()->forCompany($company)->create(['status' => 'active', 'name' => 'Fail Emp']);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'name' => 'Mixed Batch',
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create();
+    $template->update(['published_version_id' => $version->id]);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'queued',
+        'total_targeted' => 3,
+        'correlation_id' => 'mixed-batch',
+        'triggered_by' => $user->id,
+    ]);
+
+    foreach ([$okOne, $okTwo, $failEmp] as $employee) {
+        DocumentGenerationRunItem::query()->create([
+            'company_id' => $company->id,
+            'document_generation_run_id' => $run->id,
+            'employee_id' => $employee->id,
+            'status' => 'pending',
+        ]);
+    }
+
+    $mockRenderer = Mockery::mock(CustomTemplatePdfRenderer::class);
+    $mockRenderer->shouldReceive('render')->times(3)->andReturnUsing(function ($templateArg, $versionArg, Employee $employee) {
+        if ($employee->name === 'Fail Emp') {
+            throw new DocumentTemplateLayoutException(
+                fieldKey: '{{employee_name}}',
+                pageNumber: 1,
+                placementId: 'name-field',
+            );
+        }
+
+        return minimalPdfBytes();
+    });
+
+    $job = new GenerateCustomDocumentsJob($company->id, $user->id, $run->id, false);
+    $job->handle($mockRenderer, app(SyncGeneratedEmployeeDocument::class));
+
+    $run->refresh();
+    expect($run->status)->toBe('completed')
+        ->and($run->generated_count)->toBe(2)
+        ->and($run->failed_count)->toBe(1);
+
+    $failedItem = DocumentGenerationRunItem::query()
+        ->where('document_generation_run_id', $run->id)
+        ->where('employee_id', $failEmp->id)
+        ->first();
+
+    expect($failedItem?->status)->toBe('failed')
+        ->and($failedItem?->error_code)->toBe('TEMPLATE_LAYOUT_OVERFLOW')
+        ->and($failedItem?->error_message)->toContain('Employee Full Name');
+
+    Notification::assertSentTo($user, DocumentGenerationFinishedWebPushNotification::class, function (DocumentGenerationFinishedWebPushNotification $notification): bool {
+        return $notification->title === 'Document generation completed with issues';
+    });
+    Notification::assertSentTimes(DocumentGenerationFinishedWebPushNotification::class, 1);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents.generate', [
+            'document_type_key' => "custom_{$template->id}",
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('latest_run.status', 'completed')
+            ->where('latest_run.progress_percent', 100)
+            ->where('latest_run.generated_count', 2)
+            ->where('latest_run.failed_count', 1)
+            ->where('latest_run.failure_summary.count', 1)
+            ->where('latest_run.failure_summary.items.0.employee_id', $failEmp->id)
+            ->where('latest_run.failure_summary.show_edit_template', true));
+});
+
+test('overlay generation continues in smaller chunks until pending items are done', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    $company = createCustomGenTestCompany();
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'template_format' => DocumentGenerationTemplateFormat::PdfOverlay,
+        'name' => 'Chunk Overlay',
+    ]);
+    $sourcePath = "document-generation-templates/{$company->id}/chunk.pdf";
+    Storage::disk('local')->put($sourcePath, overlaySourcePdfBytes());
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->published()->create([
+        'source_pdf_path' => $sourcePath,
+        'source_pdf_page_count' => 1,
+        'placement_config' => ['schema_version' => 1, 'placements' => []],
+    ]);
+    $template->update(['published_version_id' => $version->id]);
+
+    $employees = Employee::factory()->count(5)->forCompany($company)->create(['status' => 'active']);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'queued',
+        'total_targeted' => 5,
+        'correlation_id' => 'overlay-chunks',
+        'triggered_by' => $user->id,
+    ]);
+
+    foreach ($employees as $employee) {
+        DocumentGenerationRunItem::query()->create([
+            'company_id' => $company->id,
+            'document_generation_run_id' => $run->id,
+            'employee_id' => $employee->id,
+            'status' => 'pending',
+        ]);
+    }
+
+    expect(GenerateCustomDocumentsJob::PDF_OVERLAY_CHUNK_SIZE)->toBe(4);
+
+    $job = new GenerateCustomDocumentsJob($company->id, $user->id, $run->id, false);
+    $job->handle(app(CustomTemplatePdfRenderer::class), app(SyncGeneratedEmployeeDocument::class));
+
+    expect($run->fresh()->status)->toBe('running')
+        ->and(DocumentGenerationRunItem::query()->where('document_generation_run_id', $run->id)->where('status', 'completed')->count())->toBe(4)
+        ->and(DocumentGenerationRunItem::query()->where('document_generation_run_id', $run->id)->where('status', 'pending')->count())->toBe(1);
+
+    $continuation = null;
+    Queue::assertPushed(GenerateCustomDocumentsJob::class, function (GenerateCustomDocumentsJob $queued) use (&$continuation): bool {
+        $continuation = $queued;
+
+        return true;
+    });
+
+    expect($continuation)->not->toBeNull();
+    $continuation->handle(app(CustomTemplatePdfRenderer::class), app(SyncGeneratedEmployeeDocument::class));
+
+    expect($run->fresh()->status)->toBe('completed')
+        ->and($run->fresh()->generated_count)->toBe(5)
+        ->and(DocumentGenerationRunItem::query()->where('status', 'processing')->count())->toBe(0);
 });

@@ -636,12 +636,24 @@ EmployeeDocument (Documents Library representation)
    - Container has `dir="auto"` and `unicode-bidi: plaintext` with embedded DejaVu fonts (`BrowsershotEmbeddedFonts::dejaVuStyles()`), ensuring correct RTL alignment for Arabic paragraphs (`محمد رابيل`), LTR for English, clean inline mixed text, and multi-page flow.
 9. **Idempotent Queue Ledger**:
    - Runs are recorded in `document_generation_runs` and individual employee tasks in `document_generation_run_items` (unique on `[document_generation_run_id, employee_id]`).
-   - Workers claim items atomically (`pending` -> `processing`).
+   - Workers claim **pending** items atomically (`pending` -> `processing`). Overlay jobs process 4 employees per 120s attempt because each overlay employee can require FPDI parse, Chromium measurement, overlay render, composition, private storage, and a DB transaction. Content templates keep a chunk of 10. Continuation jobs run while pending items remain.
+   - `DocumentGenerationRun` / `DocumentGenerationRunItem` is the authoritative business result. A Laravel queue JobRun can complete successfully even when some run items failed and were handled inside the job.
+   - Per-employee failures (layout overflow, missing source PDF, invalid PDF bytes) mark the item `failed` with a business-safe `error_code` and do not throw out of the queue job.
+   - If the worker dies after claiming an item, `GenerateCustomDocumentsJob::failed()` marks remaining `processing` items `JOB_FAILED` ("Document generation was interrupted before completion."), does not rewrite `completed` / `skipped` / already-`failed` items, then either continues remaining **pending** items or terminalizes the run and sends the existing completion push once.
    - Run totals (`generated_count`, `skipped_count`, `failed_count`) are derived directly from database aggregate counts on `DocumentGenerationRunItem`.
 10. **Wayfinder-Driven Generate & Send UI**:
     - Frontend dispatches generation via Wayfinder route action `GenerateCustomDocumentsController.url()`.
     - Document Show page renders a "Document Provenance" card displaying template name, version, generation timestamp, and generator.
     - Generate & Send **Delete** removes the Library `EmployeeDocument` for the selected custom template’s published version. Canonical `DocumentInstance` artifacts remain. After delete, the employee appears under **Missing** for that version.
+    - Company Template and Salary Certificate rosters share the same employee identity mapping (`id`, `name`, `employee_no`, `image`, department, position, email, status). Company Template rows use `$employee->image` (not `avatar_url`) so `EmployeeAvatar` shows the same photo as Salary Certificate.
+11. **Live generation progress (Inertia polling, not WebSockets)**:
+    - Generate & Send exposes live progress for Company Template generation using `DocumentGenerationRun` / `DocumentGenerationRunItem`. The initiating user receives a completion/failure browser push when subscribed.
+    - Custom template pages (`document_type_key=custom_{id}`) receive `latest_run` for the current user's run on that company template. Another user's run is never shown as personal progress.
+    - While a run is `queued` or `running`, progress counts are aggregated from run-item statuses so the banner can move between queue chunks. Stored run counters remain the historical/final totals.
+    - When failed items exist, `latest_run.failure_summary` includes a user-safe headline, up to five employee rows (`employee_id`, `employee_name`, `error_code`, `message`), and `additional_failure_count`. Stack traces, storage paths, and SQL are not sent to the browser. Layout overflow names the merge field when known.
+    - During the initiating user's run, roster rows may include `generation_run_status` / `generation_error` for queued, generating, skipped, or failed items. After a successful generate, **Generated** still means a `DocumentInstance` for that published version with a live Library `EmployeeDocument` (`withLibraryDocument()`).
+    - The page uses Inertia `usePoll` (~3 seconds) with a partial reload of `latest_run`, roster `counts`, `employees`, `activity`, `pagination`, `latest_email_batch`, and `flash`. Polling continues while generation **or** email sending is active and stops when neither is.
+    - Browser push is optional. Generation still completes with the in-page banner and toast when the user has no push subscription. Push is sent once, only to `triggered_by`, only when the run reaches a terminal state. Clicking the notification opens `GET /notifications/documents/generation-runs/{run}/open`, which activates the run's company and redirects to Generate & Send for that template.
 
 ### Template Format Availability
 
@@ -697,7 +709,7 @@ Overlay HTML prefers Times New Roman (serif) or Arial (sans) so merge text match
 
 Every non-empty placement is measured in Chromium after `document.fonts.ready`. Overflow is detected when `scrollWidth > clientWidth + 1` or `scrollHeight > clientHeight + 1`. If the requested size does not fit, the renderer shrinks by `0.25pt` down to `8pt` so the value stays inside the drawn box. If the value still overflows at `8pt`, generation is blocked with `DocumentTemplateLayoutException`. Values are not clipped, truncated, or ellipsized. Empty merge values render nothing. The designer treats the drawn box as the max size and only warns when a value cannot fit at 8pt. Name fields use a long probe when no employee is selected.
 
-Preflight runs for all placements before any overlay PDF or canonical/Library file is written. Layout failure logs only `run_id`, `item_id`, `placement_id`, `field_key`, and `page`.
+Preflight runs for all placements before any overlay PDF or canonical/Library file is written. Layout failure logs `company_id`, `generation_run_id`, `run_item_id`, `employee_id`, `template_id`, `template_version_id`, `error_code`, `placement_id`, `field_key`, and `page` — not filesystem paths or employee PII. The run item stores a field-specific message such as "Employee Full Name does not fit the configured field on page 1." Static text uses "A text box does not fit the configured area on page N."
 
 ### Multi-page and mixed orientation
 
@@ -717,7 +729,9 @@ PDF Overlay output uses the same `DocumentInstance` / `DocumentInstanceVersion` 
 |------|---------|
 | `TEMPLATE_LAYOUT_OVERFLOW` | A merge value does not fit the configured placement even at 8pt. |
 | `TEMPLATE_SOURCE_UNAVAILABLE` | Source PDF missing, unreadable, page-count mismatch, or outside the company boundary. |
-| `GENERATION_FAILED` | Any other renderer or storage failure. |
+| `GENERATION_FAILED` | Any other renderer or storage failure, including invalid (non-`%PDF`) renderer bytes. |
+| `EMPLOYEE_NOT_FOUND` | The run item’s employee no longer exists in the company. |
+| `JOB_FAILED` | The queue worker died after claiming the item; the item is terminalized so it cannot stay `processing`. |
 
 File compensation from Phase 4A is unchanged. Custom overlay templates remain generation-only in Phase 4B. Phase 5A adds internal review/approval workflows for generated documents; Phase 5B adds reusable workflow presets with server-side dynamic routing. Signing, email delivery, and automatic template preset assignment remain later phases.
 

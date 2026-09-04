@@ -4,16 +4,19 @@ namespace App\Jobs;
 
 use App\Models\DocumentGenerationRun;
 use App\Models\DocumentGenerationRunItem;
+use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentInstance;
 use App\Models\DocumentInstanceVersion;
 use App\Models\Employee;
 use App\Services\Documents\CustomTemplatePdfRenderer;
+use App\Support\BulkDocuments\DocumentGenerationItemErrorPresenter;
 use App\Support\Documents\Actions\SyncGeneratedEmployeeDocument;
 use App\Support\Documents\DocumentInstanceStorage;
 use App\Support\Documents\Exceptions\DocumentTemplateLayoutException;
 use App\Support\Documents\Exceptions\DocumentTemplateSourceUnavailableException;
 use App\Support\Documents\Lifecycle\Actions\CreateDocumentLifecycleAutomation;
 use App\Support\Documents\Lifecycle\Actions\StartDocumentLifecycleAutomation;
+use App\Support\Documents\NotifyDocumentGenerationFinished;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
 use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Illuminate\Bus\Queueable;
@@ -31,6 +34,17 @@ class GenerateCustomDocumentsJob implements ShouldQueue
     use Queueable;
 
     public const CHUNK_SIZE = 10;
+
+    /**
+     * Overlay generation runs FPDI parse, Chromium measurement, overlay render,
+     * composition, private storage, and a DB transaction per employee. Shared
+     * hosting with a 120s timeout cannot reliably finish 10 overlay employees
+     * in one job, so overlay chunks stay smaller while content keeps CHUNK_SIZE.
+     */
+    public const PDF_OVERLAY_CHUNK_SIZE = 4;
+
+    /** Minimum length covering the `%PDF-1.` magic used by real files and test stubs. */
+    public const MIN_GENERATED_PDF_BYTES = 8;
 
     public int $tries = 1;
 
@@ -51,6 +65,17 @@ class GenerateCustomDocumentsJob implements ShouldQueue
         CustomTemplatePdfRenderer $renderer,
         SyncGeneratedEmployeeDocument $syncEmployeeDoc,
     ): void {
+        if ($this->afterRunItemId === null) {
+            DocumentGenerationRun::query()
+                ->whereKey($this->runId)
+                ->where('company_id', $this->companyId)
+                ->where('status', 'queued')
+                ->update([
+                    'status' => 'running',
+                    'started_at' => now(),
+                ]);
+        }
+
         /** @var DocumentGenerationRun|null $run */
         $run = DocumentGenerationRun::query()
             ->forCompany($this->companyId)
@@ -61,11 +86,8 @@ class GenerateCustomDocumentsJob implements ShouldQueue
             return;
         }
 
-        if ($this->afterRunItemId === null) {
-            $run->update([
-                'status' => 'running',
-                'started_at' => now(),
-            ]);
+        if (in_array($run->status, ['completed', 'failed'], true)) {
+            return;
         }
 
         $template = $run->template;
@@ -81,22 +103,21 @@ class GenerateCustomDocumentsJob implements ShouldQueue
             || $version->company_id !== $this->companyId
             || (int) $version->document_generation_template_id !== (int) $template->id
         ) {
-            $run->update([
-                'status' => 'failed',
-                'finished_at' => now(),
-            ]);
+            $this->finishRun($run, 'failed');
 
             return;
         }
+
+        $this->failClaimedProcessingItems($run);
 
         $lastProcessedItemId = $this->afterRunItemId;
 
         $items = DocumentGenerationRunItem::query()
             ->where('company_id', $this->companyId)
             ->where('document_generation_run_id', $run->id)
-            ->when($this->afterRunItemId !== null, fn ($q) => $q->where('id', '>', $this->afterRunItemId))
+            ->where('status', 'pending')
             ->orderBy('id')
-            ->limit(self::CHUNK_SIZE)
+            ->limit($this->chunkSize($template))
             ->get();
 
         foreach ($items as $item) {
@@ -113,42 +134,43 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                 continue;
             }
 
-            /** @var Employee|null $employee */
-            $employee = Employee::query()
-                ->where('company_id', $this->companyId)
-                ->find($item->employee_id);
-
-            if ($employee === null) {
-                $item->update([
-                    'status' => 'failed',
-                    'error_code' => 'EMPLOYEE_NOT_FOUND',
-                    'error_message' => 'Employee record could not be found.',
-                ]);
-
-                continue;
-            }
-
-            // Check if a library PDF still exists for this exact template version
-            $hasExistingInstance = DocumentInstance::query()
-                ->forCompany($this->companyId)
-                ->where('employee_id', $employee->id)
-                ->where('document_generation_template_version_id', $version->id)
-                ->withLibraryDocument()
-                ->exists();
-
-            if (! $this->allowRepeatGeneration && $hasExistingInstance) {
-                $item->update(['status' => 'skipped']);
-
-                continue;
-            }
-
             $tempPdfPath = null;
             $canonicalPath = null;
             $libraryFilePath = null;
 
             try {
+                /** @var Employee|null $employee */
+                $employee = Employee::query()
+                    ->where('company_id', $this->companyId)
+                    ->find($item->employee_id);
+
+                if ($employee === null) {
+                    $item->update([
+                        'status' => 'failed',
+                        'error_code' => 'EMPLOYEE_NOT_FOUND',
+                        'error_message' => DocumentGenerationItemErrorPresenter::userMessage('EMPLOYEE_NOT_FOUND'),
+                    ]);
+
+                    continue;
+                }
+
+                // Check if a library PDF still exists for this exact template version
+                $hasExistingInstance = DocumentInstance::query()
+                    ->forCompany($this->companyId)
+                    ->where('employee_id', $employee->id)
+                    ->where('document_generation_template_version_id', $version->id)
+                    ->withLibraryDocument()
+                    ->exists();
+
+                if (! $this->allowRepeatGeneration && $hasExistingInstance) {
+                    $item->update(['status' => 'skipped']);
+
+                    continue;
+                }
+
                 // 1. Render temp PDF
                 $pdfBytes = $renderer->render($template, $version, $employee, $this->companyId);
+                $this->assertValidGeneratedPdf($pdfBytes, $run, $item);
 
                 $tempPdfPath = tempnam(sys_get_temp_dir(), 'custom_gen_');
                 if ($tempPdfPath === false) {
@@ -330,12 +352,10 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                 $item->update([
                     'status' => 'failed',
                     'error_code' => 'TEMPLATE_LAYOUT_OVERFLOW',
-                    'error_message' => 'One or more values do not fit the configured PDF placement. Create a new template version and adjust the field size.',
+                    'error_message' => DocumentGenerationItemErrorPresenter::layoutOverflowMessage($e),
                 ]);
 
-                Log::warning('PDF overlay layout overflow during generation', [
-                    'run_id' => $run->id,
-                    'item_id' => $item->id,
+                $this->logItemFailure($run, $item, 'TEMPLATE_LAYOUT_OVERFLOW', 'warning', 'PDF overlay layout overflow during generation', [
                     'placement_id' => $e->placementId,
                     'field_key' => $e->fieldKey,
                     'page' => $e->pageNumber,
@@ -352,13 +372,10 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                 $item->update([
                     'status' => 'failed',
                     'error_code' => 'TEMPLATE_SOURCE_UNAVAILABLE',
-                    'error_message' => 'The template source PDF could not be read. Create a new template version with a valid source PDF.',
+                    'error_message' => DocumentGenerationItemErrorPresenter::userMessage('TEMPLATE_SOURCE_UNAVAILABLE'),
                 ]);
 
-                Log::warning('PDF overlay source unavailable during generation', [
-                    'run_id' => $run->id,
-                    'item_id' => $item->id,
-                ]);
+                $this->logItemFailure($run, $item, 'TEMPLATE_SOURCE_UNAVAILABLE', 'warning', 'PDF overlay source unavailable during generation');
             } catch (Throwable $e) {
                 // File compensation: clean up newly created files if DB or storage failed
                 if ($canonicalPath !== null) {
@@ -372,15 +389,13 @@ class GenerateCustomDocumentsJob implements ShouldQueue
                 $item->update([
                     'status' => 'failed',
                     'error_code' => 'GENERATION_FAILED',
-                    'error_message' => 'Failed to render or store document for this employee.',
+                    'error_message' => DocumentGenerationItemErrorPresenter::userMessage('GENERATION_FAILED'),
                 ]);
 
-                Log::error('Custom document generation failed for run item', [
-                    'run_id' => $run->id,
-                    'item_id' => $item->id,
-                    'employee_id' => $item->employee_id,
+                $this->logItemFailure($run, $item, 'GENERATION_FAILED', 'error', 'Custom document generation failed for run item', [
                     'error' => $e->getMessage(),
                 ]);
+                report($e);
             } finally {
                 if ($tempPdfPath !== null && file_exists($tempPdfPath)) {
                     @unlink($tempPdfPath);
@@ -388,21 +403,13 @@ class GenerateCustomDocumentsJob implements ShouldQueue
             }
         }
 
-        $counts = DocumentGenerationRunItem::query()
-            ->where('company_id', $this->companyId)
-            ->where('document_generation_run_id', $run->id)
-            ->selectRaw('
-                COUNT(CASE WHEN status = ? THEN 1 END) as `generated`,
-                COUNT(CASE WHEN status = ? THEN 1 END) as `skipped`,
-                COUNT(CASE WHEN status = ? THEN 1 END) as `failed`,
-                COUNT(CASE WHEN status IN (?, ?) THEN 1 END) as `remaining`
-            ', ['completed', 'skipped', 'failed', 'pending', 'processing'])
-            ->first();
+        $counts = $this->itemStatusCounts($run);
 
-        $totalGenerated = (int) ($counts->generated ?? 0);
-        $totalSkipped = (int) ($counts->skipped ?? 0);
-        $totalFailed = (int) ($counts->failed ?? 0);
-        $remaining = (int) ($counts->remaining ?? 0);
+        $totalGenerated = $counts['generated'];
+        $totalSkipped = $counts['skipped'];
+        $totalFailed = $counts['failed'];
+        $pending = $counts['pending'];
+        $processing = $counts['processing'];
 
         $run->update([
             'generated_count' => $totalGenerated,
@@ -410,15 +417,7 @@ class GenerateCustomDocumentsJob implements ShouldQueue
             'failed_count' => $totalFailed,
         ]);
 
-        $hasMore = $remaining > 0
-            && $lastProcessedItemId !== null
-            && DocumentGenerationRunItem::query()
-                ->where('company_id', $this->companyId)
-                ->where('document_generation_run_id', $run->id)
-                ->where('id', '>', $lastProcessedItemId)
-                ->exists();
-
-        if ($hasMore && $lastProcessedItemId !== null) {
+        if ($pending > 0) {
             self::dispatch(
                 $this->companyId,
                 $this->userId,
@@ -433,23 +432,225 @@ class GenerateCustomDocumentsJob implements ShouldQueue
             return;
         }
 
-        if ($remaining === 0) {
-            $run->update([
-                'status' => $totalFailed > 0 && $totalGenerated === 0 ? 'failed' : 'completed',
-                'finished_at' => now(),
-            ]);
+        if ($processing > 0) {
+            $this->failClaimedProcessingItems($run);
+            $counts = $this->itemStatusCounts($run);
+            $totalGenerated = $counts['generated'];
+            $totalSkipped = $counts['skipped'];
+            $totalFailed = $counts['failed'];
+            $pending = $counts['pending'];
+
+            if ($pending > 0) {
+                self::dispatch(
+                    $this->companyId,
+                    $this->userId,
+                    $this->runId,
+                    $this->allowRepeatGeneration,
+                    null,
+                    $totalGenerated,
+                    $totalSkipped,
+                    $totalFailed,
+                );
+
+                return;
+            }
         }
+
+        $this->finishRun(
+            $run,
+            $totalFailed > 0 && $totalGenerated === 0 ? 'failed' : 'completed',
+            $totalGenerated,
+            $totalSkipped,
+            $totalFailed,
+        );
     }
 
     public function failed(Throwable $exception): void
     {
-        DocumentGenerationRun::query()
-            ->where('id', $this->runId)
-            ->update([
-                'status' => 'failed',
-                'finished_at' => now(),
-            ]);
+        $run = DocumentGenerationRun::query()
+            ->forCompany($this->companyId)
+            ->find($this->runId);
+
+        if ($run === null) {
+            report($exception);
+
+            return;
+        }
+
+        $this->failClaimedProcessingItems($run);
+        $run->refresh();
+
+        if (in_array($run->status, ['completed', 'failed'], true)) {
+            report($exception);
+
+            return;
+        }
+
+        $counts = $this->itemStatusCounts($run);
+
+        $run->update([
+            'generated_count' => $counts['generated'],
+            'skipped_count' => $counts['skipped'],
+            'failed_count' => $counts['failed'],
+        ]);
+
+        if ($counts['pending'] > 0) {
+            self::dispatch(
+                $this->companyId,
+                $this->userId,
+                $this->runId,
+                $this->allowRepeatGeneration,
+                null,
+                $counts['generated'],
+                $counts['skipped'],
+                $counts['failed'],
+            );
+
+            report($exception);
+
+            return;
+        }
+
+        $this->finishRun(
+            $run,
+            $counts['failed'] > 0 && $counts['generated'] === 0 ? 'failed' : 'completed',
+            $counts['generated'],
+            $counts['skipped'],
+            $counts['failed'],
+        );
 
         report($exception);
+    }
+
+    private function finishRun(
+        DocumentGenerationRun $run,
+        string $status,
+        ?int $generatedCount = null,
+        ?int $skippedCount = null,
+        ?int $failedCount = null,
+    ): void {
+        $payload = [
+            'status' => $status,
+            'finished_at' => now(),
+        ];
+
+        if ($generatedCount !== null) {
+            $payload['generated_count'] = $generatedCount;
+        }
+
+        if ($skippedCount !== null) {
+            $payload['skipped_count'] = $skippedCount;
+        }
+
+        if ($failedCount !== null) {
+            $payload['failed_count'] = $failedCount;
+        }
+
+        $transitioned = DocumentGenerationRun::query()
+            ->whereKey($run->id)
+            ->where('company_id', $this->companyId)
+            ->whereIn('status', ['queued', 'running'])
+            ->update($payload) === 1;
+
+        if (! $transitioned) {
+            return;
+        }
+
+        $run->refresh();
+
+        app(NotifyDocumentGenerationFinished::class)->handle($run);
+    }
+
+    private function chunkSize(DocumentGenerationTemplate $template): int
+    {
+        return $template->isPdfOverlay() ? self::PDF_OVERLAY_CHUNK_SIZE : self::CHUNK_SIZE;
+    }
+
+    /**
+     * @return array{generated: int, skipped: int, failed: int, pending: int, processing: int}
+     */
+    private function itemStatusCounts(DocumentGenerationRun $run): array
+    {
+        $counts = DocumentGenerationRunItem::query()
+            ->where('company_id', $this->companyId)
+            ->where('document_generation_run_id', $run->id)
+            ->selectRaw('
+                COUNT(CASE WHEN status = ? THEN 1 END) as `generated`,
+                COUNT(CASE WHEN status = ? THEN 1 END) as `skipped`,
+                COUNT(CASE WHEN status = ? THEN 1 END) as `failed`,
+                COUNT(CASE WHEN status = ? THEN 1 END) as `pending`,
+                COUNT(CASE WHEN status = ? THEN 1 END) as `processing`
+            ', ['completed', 'skipped', 'failed', 'pending', 'processing'])
+            ->first();
+
+        return [
+            'generated' => (int) ($counts->generated ?? 0),
+            'skipped' => (int) ($counts->skipped ?? 0),
+            'failed' => (int) ($counts->failed ?? 0),
+            'pending' => (int) ($counts->pending ?? 0),
+            'processing' => (int) ($counts->processing ?? 0),
+        ];
+    }
+
+    private function failClaimedProcessingItems(DocumentGenerationRun $run): void
+    {
+        DocumentGenerationRunItem::query()
+            ->where('company_id', $this->companyId)
+            ->where('document_generation_run_id', $run->id)
+            ->where('status', 'processing')
+            ->update([
+                'status' => 'failed',
+                'error_code' => 'JOB_FAILED',
+                'error_message' => DocumentGenerationItemErrorPresenter::JOB_FAILED_MESSAGE,
+                'updated_at' => now(),
+            ]);
+    }
+
+    private function assertValidGeneratedPdf(string $pdfBytes, DocumentGenerationRun $run, DocumentGenerationRunItem $item): void
+    {
+        $byteLength = strlen($pdfBytes);
+        $startsWithPdf = str_starts_with($pdfBytes, '%PDF');
+
+        if ($byteLength >= self::MIN_GENERATED_PDF_BYTES && $startsWithPdf) {
+            return;
+        }
+
+        $this->logItemFailure($run, $item, 'GENERATION_FAILED', 'error', 'Custom document generation produced invalid PDF bytes', [
+            'byte_length' => $byteLength,
+            'starts_with_pdf' => $startsWithPdf,
+        ]);
+
+        throw new \RuntimeException('Renderer returned invalid PDF bytes.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function logItemFailure(
+        DocumentGenerationRun $run,
+        DocumentGenerationRunItem $item,
+        string $errorCode,
+        string $level,
+        string $message,
+        array $extra = [],
+    ): void {
+        $context = [
+            'company_id' => $this->companyId,
+            'generation_run_id' => $run->id,
+            'run_item_id' => $item->id,
+            'employee_id' => $item->employee_id,
+            'template_id' => $run->document_generation_template_id,
+            'template_version_id' => $run->document_generation_template_version_id,
+            'error_code' => $errorCode,
+            ...$extra,
+        ];
+
+        if ($level === 'warning') {
+            Log::warning($message, $context);
+
+            return;
+        }
+
+        Log::error($message, $context);
     }
 }

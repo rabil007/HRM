@@ -21,6 +21,7 @@ use App\Http\Controllers\Notifications\NotificationFeedController;
 use App\Http\Controllers\Notifications\OpenAnnouncementNotificationController;
 use App\Http\Controllers\Notifications\OpenCrewOperationalAlertNotificationController;
 use App\Http\Controllers\Notifications\OpenDocumentComplianceNotificationController;
+use App\Http\Controllers\Notifications\OpenDocumentGenerationRunNotificationController;
 use App\Http\Controllers\Notifications\StorePushSubscriptionController;
 use App\Http\Controllers\Notifications\TestPushSubscriptionController;
 use App\Http\Controllers\Organization\ActivityLogController;
@@ -319,6 +320,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('notifications.crew-operational-alerts.open');
     Route::get('notifications/documents/compliance/{company}/open', OpenDocumentComplianceNotificationController::class)
         ->name('notifications.documents.compliance.open');
+    Route::get('notifications/documents/generation-runs/{run}/open', OpenDocumentGenerationRunNotificationController::class)
+        ->name('notifications.documents.generation-runs.open');
     Route::get('notifications/feed', NotificationFeedController::class)
         ->name('notifications.feed');
     Route::get('search', GlobalSearchController::class)

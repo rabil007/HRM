@@ -161,3 +161,5 @@ Notes:
 - Service Worker route: `app/Http/Controllers/ServiceWorkerController.php`
 - Frontend provider: `resources/js/context/web-push-provider.tsx`
 - Frontend control: `resources/js/components/web-push-notification-control.tsx`
+
+Company Template generation completion also reuses these subscriptions (`DocumentGenerationFinishedWebPushNotification`). See [Document management](./document-management.md).

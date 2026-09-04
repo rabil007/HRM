@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Organization\BulkDocuments;
 use App\Enums\DocumentGenerationTemplateStatus;
 use App\Http\Controllers\Controller;
 use App\Models\BulkDocumentEmailBatch;
-use App\Models\BulkDocumentGenerationRun;
 use App\Models\Company;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
@@ -14,6 +13,7 @@ use App\Support\BulkDocuments\BulkDocumentPagePermissions;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\BulkDocuments\CustomDocumentRosterQuery;
+use App\Support\BulkDocuments\DocumentGenerationProgressQuery;
 use App\Support\Documents\DocumentsModuleAccess;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
@@ -83,6 +83,7 @@ class BulkDocumentsController extends Controller
         $formOptions = EmployeeFormOptions::for($companyId);
 
         if ($isCustom && $customTemplate !== null && $customVersion !== null) {
+            $latestRun = $this->latestRunPayload($request, $companyId, $documentTypeKey, $customTemplate, $customVersion);
             $paginator = CustomDocumentRosterQuery::paginate(
                 $companyId,
                 $customTemplate,
@@ -90,6 +91,7 @@ class BulkDocumentsController extends Controller
                 $filters,
                 $perPage,
                 $generationFilter,
+                isset($latestRun['id']) ? (int) $latestRun['id'] : null,
             );
 
             return Inertia::render('organization/documents/bulk/index', $this->sharedPayload(
@@ -102,6 +104,7 @@ class BulkDocumentsController extends Controller
                 $moduleViewLocked,
                 $customTemplate,
                 $customVersion,
+                $latestRun,
             ) + [
                 'view' => 'roster',
                 'activity' => [],
@@ -227,6 +230,7 @@ class BulkDocumentsController extends Controller
 
     /**
      * @param  Collection<int, DocumentGenerationTemplate>  $customTemplates
+     * @param  array<string, mixed>|false|null  $latestRunPayload  `false` computes the current user's run; `null`/`array` uses the given payload.
      * @return array<string, mixed>
      */
     private function sharedPayload(
@@ -239,6 +243,7 @@ class BulkDocumentsController extends Controller
         bool $moduleViewLocked = false,
         ?DocumentGenerationTemplate $customTemplate = null,
         ?DocumentGenerationTemplateVersion $customVersion = null,
+        array|false|null $latestRunPayload = false,
     ): array {
         $systemOptions = BulkDocumentTypeRegistry::availableGenerationOptions()->map(fn (array $def): array => [
             'value' => $def['value'],
@@ -281,7 +286,9 @@ class BulkDocumentsController extends Controller
             'company_name' => (string) Company::query()->whereKey($companyId)->value('name'),
             'email_template' => $isCustom || $documentTypeKey === '' ? null : $this->emailTemplatePayload($documentTypeKey),
             'reminder_email_template' => $isCustom || $documentTypeKey === '' ? null : $this->emailTemplatePayload($documentTypeKey, 'reminder'),
-            'latest_run' => $isCustom || $documentTypeKey === '' ? null : $this->latestRunPayload($companyId, $documentTypeKey),
+            'latest_run' => $latestRunPayload === false
+                ? $this->latestRunPayload($request, $companyId, $documentTypeKey, $customTemplate, $customVersion)
+                : $latestRunPayload,
             'latest_email_batch' => $isCustom || $documentTypeKey === '' ? null : $this->latestEmailBatchPayload($companyId, $documentTypeKey),
             'can' => BulkDocumentPagePermissions::for($request->user()),
             'can_view_templates' => DocumentsModuleAccess::canViewTemplates($request->user()),
@@ -444,31 +451,24 @@ class BulkDocumentsController extends Controller
     /**
      * @return array<string, mixed>|null
      */
-    private function latestRunPayload(int $companyId, string $documentTypeKey): ?array
-    {
-        $run = BulkDocumentGenerationRun::query()
-            ->where('company_id', $companyId)
-            ->where('document_type_key', $documentTypeKey)
-            ->latest('id')
-            ->with('triggeredBy:id,name')
-            ->first();
+    private function latestRunPayload(
+        Request $request,
+        int $companyId,
+        string $documentTypeKey,
+        ?DocumentGenerationTemplate $customTemplate,
+        ?DocumentGenerationTemplateVersion $customVersion,
+    ): ?array {
+        $userId = (int) $request->user()?->id;
+        $query = app(DocumentGenerationProgressQuery::class);
 
-        if ($run === null) {
+        if ($customTemplate !== null) {
+            return $query->forCurrentUserCustomTemplate($companyId, $userId, $customTemplate, $customVersion);
+        }
+
+        if ($documentTypeKey === '') {
             return null;
         }
 
-        return [
-            'id' => $run->id,
-            'status' => $run->status,
-            'document_type_key' => $run->document_type_key,
-            'total_targeted' => $run->total_targeted,
-            'generated_count' => $run->generated_count,
-            'replaced_count' => $run->replaced_count,
-            'skipped_count' => $run->skipped_count,
-            'failed_count' => $run->failed_count,
-            'started_at' => $run->started_at?->toIso8601String(),
-            'finished_at' => $run->finished_at?->toIso8601String(),
-            'triggered_by' => $run->triggeredBy?->name,
-        ];
+        return $query->forBuiltIn($companyId, $documentTypeKey);
     }
 }

@@ -209,6 +209,27 @@ final class DocumentTemplateMergeFields
         ];
     }
 
+    public static function labelFor(string $fieldKey): ?string
+    {
+        $normalized = trim($fieldKey);
+
+        if ($normalized === '') {
+            return null;
+        }
+
+        if (! str_starts_with($normalized, '{{')) {
+            $normalized = '{{'.$normalized.'}}';
+        }
+
+        foreach (self::definitions() as $definition) {
+            if ($definition['key'] === $normalized) {
+                return $definition['label'];
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Replace allowed placeholders in content with provided values.
      *

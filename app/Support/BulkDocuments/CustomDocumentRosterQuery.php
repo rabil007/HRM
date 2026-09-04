@@ -2,6 +2,7 @@
 
 namespace App\Support\BulkDocuments;
 
+use App\Models\DocumentGenerationRunItem;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentInstance;
@@ -9,6 +10,7 @@ use App\Models\Employee;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 final class CustomDocumentRosterQuery
 {
@@ -92,6 +94,7 @@ final class CustomDocumentRosterQuery
         EmployeeDirectoryFilters $filters,
         int $perPage,
         string $generationFilter = 'all',
+        ?int $generationRunId = null,
     ): LengthAwarePaginator {
         $paginator = self::filteredEmployeeQuery($companyId, $version, $filters, $generationFilter)
             ->with([
@@ -115,20 +118,22 @@ final class CustomDocumentRosterQuery
             ->unique('employee_id')
             ->keyBy('employee_id');
 
-        return $paginator->through(function (Employee $employee) use ($instancesByEmployee): array {
+        $runItemsByEmployee = self::runItemsByEmployee(
+            $companyId,
+            $employeeIdList,
+            $generationRunId,
+        );
+
+        return $paginator->through(function (Employee $employee) use ($instancesByEmployee, $runItemsByEmployee): array {
             /** @var DocumentInstance|null $instance */
             $instance = $instancesByEmployee->get($employee->id);
             $doc = $instance?->employeeDocument;
+            $runItem = $runItemsByEmployee->get($employee->id);
+            $runStatus = is_string($runItem?->status) ? $runItem->status : null;
+            $errorCode = is_string($runItem?->error_code) ? $runItem->error_code : null;
 
             return [
-                'id' => $employee->id,
-                'name' => (string) $employee->name,
-                'employee_no' => $employee->employee_no,
-                'image' => $employee->avatar_url,
-                'department' => $employee->department?->name,
-                'position' => $employee->position?->title,
-                'email' => $employee->work_email,
-                'status' => $employee->status,
+                ...BulkDocumentRosterEmployeePresenter::identity($employee),
                 'document' => $doc !== null ? [
                     'id' => $doc->id,
                     'created_at' => $instance?->generated_at?->toIso8601String(),
@@ -136,6 +141,13 @@ final class CustomDocumentRosterQuery
                 'email_sent_at' => null,
                 'signature_status' => null,
                 'signature_request' => null,
+                'generation_run_status' => $runStatus,
+                'generation_error' => $runStatus === 'failed' && $errorCode !== null
+                    ? [
+                        'code' => $errorCode,
+                        'message' => DocumentGenerationItemErrorPresenter::userMessage($errorCode, $runItem?->error_message),
+                    ]
+                    : null,
             ];
         });
     }
@@ -166,5 +178,25 @@ final class CustomDocumentRosterQuery
         }
 
         return $query;
+    }
+
+    /**
+     * @param  list<int>  $employeeIds
+     * @return Collection<int, DocumentGenerationRunItem>
+     */
+    private static function runItemsByEmployee(int $companyId, array $employeeIds, ?int $generationRunId): Collection
+    {
+        if ($generationRunId === null || $employeeIds === []) {
+            return collect();
+        }
+
+        return DocumentGenerationRunItem::query()
+            ->where('company_id', $companyId)
+            ->where('document_generation_run_id', $generationRunId)
+            ->whereIn('employee_id', $employeeIds)
+            ->orderByDesc('id')
+            ->get(['id', 'employee_id', 'status', 'error_code', 'error_message'])
+            ->unique('employee_id')
+            ->keyBy('employee_id');
     }
 }

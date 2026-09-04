@@ -12,6 +12,7 @@ use App\Support\Documents\DocumentTemplateStorage;
 use App\Support\Documents\Exceptions\DocumentTemplateLayoutException;
 use App\Support\Documents\Exceptions\DocumentTemplateSourceUnavailableException;
 use App\Support\Documents\PdfOverlayPlacementValidator;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use setasign\Fpdi\Fpdi;
 use setasign\Fpdi\FpdiException;
@@ -45,6 +46,7 @@ class PdfOverlayTemplatePdfRenderer
         try {
             $absoluteSourcePath = DocumentTemplateStorage::absolutePath($storagePath, $companyId);
         } catch (Throwable) {
+            $this->logSourceUnavailable($template, $version, $companyId);
             throw new DocumentTemplateSourceUnavailableException;
         }
 
@@ -52,10 +54,12 @@ class PdfOverlayTemplatePdfRenderer
             $inspectPdf = new Fpdi;
             $actualPageCount = $inspectPdf->setSourceFile($absoluteSourcePath);
         } catch (CrossReferenceException|PdfParserException|FpdiException) {
+            $this->logSourceUnavailable($template, $version, $companyId);
             throw new DocumentTemplateSourceUnavailableException;
         }
 
         if ($actualPageCount !== $storedPageCount) {
+            $this->logSourceUnavailable($template, $version, $companyId);
             throw new DocumentTemplateSourceUnavailableException;
         }
 
@@ -211,10 +215,12 @@ class PdfOverlayTemplatePdfRenderer
         }
 
         if ((int) ($version->source_pdf_page_count ?? 0) < 1) {
+            $this->logSourceUnavailable($template, $version, $companyId);
             throw new DocumentTemplateSourceUnavailableException;
         }
 
         if ((string) ($version->source_pdf_path ?? '') === '') {
+            $this->logSourceUnavailable($template, $version, $companyId);
             throw new DocumentTemplateSourceUnavailableException;
         }
     }
@@ -321,7 +327,9 @@ HTML;
         foreach ($placements as $index => $placement) {
             if ($chosen[$index] === null) {
                 throw new DocumentTemplateLayoutException(
-                    fieldKey: (string) ($placement['field'] ?? $placement['id']),
+                    fieldKey: ($placement['is_static_text'] ?? false)
+                        ? ''
+                        : (string) ($placement['field'] ?? ''),
                     pageNumber: (int) $placement['page'],
                     message: 'Field value does not fit in the configured placement box even at minimum font size.',
                     placementId: (string) $placement['id'],
@@ -388,5 +396,18 @@ HTML;
         }
 
         return $pdf->Output('S');
+    }
+
+    private function logSourceUnavailable(
+        DocumentGenerationTemplate $template,
+        DocumentGenerationTemplateVersion $version,
+        int $companyId,
+    ): void {
+        Log::warning('PDF overlay source unavailable', [
+            'company_id' => $companyId,
+            'template_id' => $template->id,
+            'template_version_id' => $version->id,
+            'error_code' => 'TEMPLATE_SOURCE_UNAVAILABLE',
+        ]);
     }
 }

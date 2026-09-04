@@ -38,6 +38,30 @@ export type BulkRosterEmployee = {
     } | null;
     email_sent_at: string | null;
     signature_status: string | null;
+    generation_run_status?:
+        | 'pending'
+        | 'processing'
+        | 'completed'
+        | 'skipped'
+        | 'failed'
+        | null;
+    generation_error?: {
+        code: string;
+        message: string;
+    } | null;
+};
+
+export type BulkGenerationFailureSummary = {
+    count: number;
+    headline: string;
+    show_edit_template: boolean;
+    additional_failure_count: number;
+    items: {
+        employee_id: number;
+        employee_name: string;
+        error_code: string;
+        message: string;
+    }[];
 };
 
 export type BulkDocumentCounts = {
@@ -51,16 +75,29 @@ export type BulkDocumentCounts = {
 
 export type BulkGenerationRun = {
     id: number;
+    source?: 'company_template' | 'built_in';
     status: string;
-    document_type_key: string;
+    document_type_key?: string;
     total_targeted: number;
     generated_count: number;
     replaced_count: number;
     skipped_count: number;
     failed_count: number;
+    pending_count?: number;
+    processing_count?: number;
+    processed_count: number;
+    progress_percent: number;
+    template_id?: number;
+    template_version_id?: number;
+    template_name?: string | null;
+    template_version?: number | null;
     started_at: string | null;
     finished_at: string | null;
-    triggered_by: string | null;
+    triggered_by: {
+        id: number;
+        name: string;
+    } | null;
+    failure_summary?: BulkGenerationFailureSummary | null;
 };
 
 export type WiredEmailTemplate = {
