@@ -24,6 +24,7 @@ jobs:
       && github.event.workflow_run.head_branch == 'main'
       && github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout validated revision
@@ -31,27 +32,66 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - name: Download CI plan
+        uses: actions/download-artifact@v8
         with:
-          php-version: 8.4
+          name: ci-plan-${{ github.event.workflow_run.head_sha }}-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get Composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - name: Read CI plan
+        id: plan
+        env:
+          VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
 
-      - name: Cache Composer dependencies
-        uses: actions/cache@v6
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-composer-
+          if [[ ! "$VALIDATED_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "ERROR: Invalid validated SHA format: $VALIDATED_SHA"
+            exit 1
+          fi
 
-      - name: Install Composer dependencies
-        run: composer install --no-interaction --no-progress --prefer-dist --no-dev --optimize-autoloader
+          if [[ ! -f ci-plan.txt ]]; then
+            echo "ERROR: CI plan artifact is missing."
+            exit 1
+          fi
+
+          cat ci-plan.txt
+
+          plan_sha="$(sed -n 's/^sha=//p' ci-plan.txt | head -n 1)"
+          plan_run_id="$(sed -n 's/^run_id=//p' ci-plan.txt | head -n 1)"
+          deploy_required="$(sed -n 's/^deploy_required=//p' ci-plan.txt | head -n 1)"
+          frontend_build_required="$(sed -n 's/^frontend_build_required=//p' ci-plan.txt | head -n 1)"
+
+          if [[ "$plan_sha" != "$VALIDATED_SHA" ]]; then
+            echo "ERROR: CI plan SHA ${plan_sha} does not match validated SHA ${VALIDATED_SHA}."
+            exit 1
+          fi
+
+          if [[ "$plan_run_id" != "$RUN_ID" ]]; then
+            echo "ERROR: CI plan run_id ${plan_run_id} does not match workflow_run id ${RUN_ID}."
+            exit 1
+          fi
+
+          echo "deploy_required=${deploy_required}" >> "$GITHUB_OUTPUT"
+          echo "frontend_build_required=${frontend_build_required}" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Deploy plan"
+            echo "- sha: ${VALIDATED_SHA}"
+            echo "- deploy_required: ${deploy_required}"
+            echo "- frontend_build_required: ${frontend_build_required}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Skip when nothing deployable changed
+        if: steps.plan.outputs.deploy_required != 'true'
+        run: |
+          echo "No deployable application changes."
+          echo "No deployable application changes." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Setup SSH
+        if: steps.plan.outputs.deploy_required == 'true'
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
@@ -64,47 +104,37 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           echo '[82.198.227.207]:65002 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIyse96dUeLo4oKa76H8AfK4q4/RHbHMcxt+1GZRGaI9' >> ~/.ssh/known_hosts
 
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: package-lock.json
-
       - name: Download CI-validated Vite build
-        id: vite-artifact
-        continue-on-error: true
+        if: steps.plan.outputs.deploy_required == 'true' && steps.plan.outputs.frontend_build_required == 'true'
         uses: actions/download-artifact@v8
         with:
           name: vite-build-${{ github.event.workflow_run.head_sha }}-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify or rebuild frontend
+      - name: Verify CI-validated frontend artifact
+        if: steps.plan.outputs.deploy_required == 'true' && steps.plan.outputs.frontend_build_required == 'true'
         env:
           VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
 
-          if [[ ! "$VALIDATED_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
-            echo "ERROR: Invalid validated SHA format: $VALIDATED_SHA"
+          if [[ ! -f ci-vite-build-meta || ! -f public/build/manifest.json ]]; then
+            echo "ERROR: Required CI Vite artifact is missing after Frontend Build was required."
             exit 1
           fi
 
-          if [[ -f ci-vite-build-meta && -f public/build/manifest.json ]] \
-            && grep -qx "sha=${VALIDATED_SHA}" ci-vite-build-meta \
-            && grep -qx "run_id=${{ github.event.workflow_run.id }}" ci-vite-build-meta; then
-            echo "Reusing CI-validated Vite build for ${VALIDATED_SHA}."
-            exit 0
+          if ! grep -qx "sha=${VALIDATED_SHA}" ci-vite-build-meta \
+            || ! grep -qx "run_id=${{ github.event.workflow_run.id }}" ci-vite-build-meta; then
+            echo "ERROR: CI Vite artifact metadata does not match the validated SHA/run."
+            cat ci-vite-build-meta
+            exit 1
           fi
 
-          echo "CI Vite artifact missing or SHA mismatch; rebuilding for ${VALIDATED_SHA}."
-          rm -rf public/build ci-vite-build-meta
-          npm ci
-          npm run build
-          test -f public/build/manifest.json
+          echo "Reusing CI-validated Vite build for ${VALIDATED_SHA}."
 
       - name: Test SSH connectivity
+        if: steps.plan.outputs.deploy_required == 'true'
         run: |
           for attempt in 1 2 3; do
             echo "SSH connectivity check attempt $attempt/3..."
@@ -121,11 +151,13 @@ jobs:
           exit 1
 
       - name: Upload build to server
+        if: steps.plan.outputs.deploy_required == 'true' && steps.plan.outputs.frontend_build_required == 'true'
         run: |
           rsync -avz -e "ssh -i ~/.ssh/id_ed25519 -p 65002 -o StrictHostKeyChecking=yes" public/build/ \
             u769441461@82.198.227.207:~/domains/overseas-ms.com/public_html/hrm/public/build/
 
       - name: Deploy Backend
+        if: steps.plan.outputs.deploy_required == 'true'
         env:
           VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
@@ -151,7 +183,7 @@ jobs:
             git fetch origin
             git reset --hard "$TARGET_SHA"
 
-            composer install --no-dev --optimize-autoloader
+            composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress
 
             NODE_BIN=""
             for candidate in $(ls -d /opt/alt/alt-nodejs*/root/usr/bin/node 2>/dev/null | sort -V | tail -1) /usr/local/bin/node /usr/bin/node; do
@@ -170,9 +202,30 @@ jobs:
             export PUPPETEER_CACHE_DIR="$PWD/storage/app/puppeteer"
             mkdir -p "$PUPPETEER_CACHE_DIR"
 
-            npm ci --omit=dev
-            php artisan browsershot:install
-            php artisan browsershot:doctor
+            LOCK_HASH="$(sha256sum package-lock.json | awk '{print $1}')"
+            STAMP_DIR="storage/app/deploy"
+            STAMP_FILE="$STAMP_DIR/npm-lock.sha256"
+            NEED_NPM=1
+
+            if [ -f "$STAMP_FILE" ] && [ "$(tr -d '[:space:]' < "$STAMP_FILE")" = "$LOCK_HASH" ] \
+              && [ -d node_modules/puppeteer ]; then
+              if php artisan browsershot:doctor --no-interaction; then
+                echo "Production Node/Puppeteer stamp matches package-lock; skipping npm ci."
+                NEED_NPM=0
+              else
+                echo "Browsershot doctor failed; reinstalling Node dependencies."
+              fi
+            fi
+
+            if [ "$NEED_NPM" = 1 ]; then
+              export CI_SKIP_PUPPETEER_BROWSER_INSTALL=1
+              npm ci --omit=dev --no-audit --no-fund
+              php artisan browsershot:install --no-interaction
+              php artisan browsershot:doctor --no-interaction
+              mkdir -p "$STAMP_DIR"
+              printf '%s\n' "$LOCK_HASH" > "${STAMP_FILE}.tmp"
+              mv "${STAMP_FILE}.tmp" "$STAMP_FILE"
+            fi
 
             php artisan migrate --force
             php artisan leave-balances:sync

@@ -26,7 +26,9 @@ env:
   NODE_VERSION: '22'
   PEST_SHARD_TOTAL: 6
   PUPPETEER_SKIP_DOWNLOAD: 'true'
+  CI_SKIP_PUPPETEER_BROWSER_INSTALL: '1'
   VITE_BUILD_ARTIFACT: vite-build-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+  CI_PLAN_ARTIFACT: ci-plan-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
   changes:
@@ -39,6 +41,7 @@ jobs:
       frontend_build: ${{ steps.classify.outputs.frontend_build }}
       pest: ${{ steps.classify.outputs.pest }}
       pdf_renderer: ${{ steps.classify.outputs.pdf_renderer }}
+      deploy: ${{ steps.classify.outputs.deploy }}
       docs_only: ${{ steps.classify.outputs.docs_only }}
       scope: ${{ steps.classify.outputs.scope }}
     steps:
@@ -46,12 +49,6 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ env.PHP_VERSION }}
-          coverage: none
 
       - name: Classify CI scope
         id: classify
@@ -63,6 +60,8 @@ jobs:
           PUSH_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
+
+          php -v
 
           collect_changed_files() {
             local from_ref="$1"
@@ -113,12 +112,49 @@ jobs:
 
           printf '%s\n' "${changed_files[@]}" | php .github/scripts/ci.php classify --paths-file=-
 
+      - name: Write CI plan
+        run: |
+          set -euo pipefail
+          {
+            echo "sha=${{ github.sha }}"
+            echo "run_id=${{ github.run_id }}"
+            echo "run_attempt=${{ github.run_attempt }}"
+            echo "deploy_required=${{ steps.classify.outputs.deploy }}"
+            echo "frontend_build_required=${{ steps.classify.outputs.frontend_build }}"
+            echo "pdf_renderer_required=${{ steps.classify.outputs.pdf_renderer }}"
+            echo "pest_required=${{ steps.classify.outputs.pest }}"
+            echo "pint_required=${{ steps.classify.outputs.pint }}"
+            echo "frontend_static_required=${{ steps.classify.outputs.frontend_static }}"
+            echo "docs_only=${{ steps.classify.outputs.docs_only }}"
+            echo "scope=${{ steps.classify.outputs.scope }}"
+          } > ci-plan.txt
+          cat ci-plan.txt
+
+          {
+            echo "## Change classification"
+            echo "- Pest: ${{ steps.classify.outputs.pest }}"
+            echo "- Pint: ${{ steps.classify.outputs.pint }}"
+            echo "- Frontend Static: ${{ steps.classify.outputs.frontend_static }}"
+            echo "- Frontend Build: ${{ steps.classify.outputs.frontend_build }}"
+            echo "- PDF Renderer: ${{ steps.classify.outputs.pdf_renderer }}"
+            echo "- Deploy: ${{ steps.classify.outputs.deploy }}"
+            echo "- Scope: ${{ steps.classify.outputs.scope }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload CI plan
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.CI_PLAN_ARTIFACT }}
+          path: ci-plan.txt
+          if-no-files-found: error
+          retention-days: 7
+
   pint:
     name: PHP Style (Pint)
     needs: changes
     if: needs.changes.outputs.pint == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -136,6 +172,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer downloads
+        id: composer-downloads
         uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
@@ -152,17 +189,25 @@ jobs:
             pint-${{ runner.os }}-${{ hashFiles('composer.lock', 'pint.json') }}-
 
       - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+        run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Pint
         run: composer lint:check -- --cache-file=.pint.cache
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## PHP Style (Pint)"
+            echo "- Composer cache hit: ${{ steps.composer-downloads.outputs.cache-hit }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   frontend_static:
     name: Frontend Static
     needs: changes
     if: needs.changes.outputs.frontend_static == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -176,6 +221,7 @@ jobs:
           ini-values: memory_limit=1G
 
       - name: Setup Node
+        id: setup-node
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -187,6 +233,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer downloads
+        id: composer-downloads
         uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
@@ -195,10 +242,13 @@ jobs:
             composer-${{ runner.os }}-${{ env.PHP_VERSION }}-
 
       - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+        run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Install Node dependencies
-        run: npm ci --prefer-offline
+      - name: Restore Node modules
+        id: node-modules
+        uses: ./.github/actions/node-modules
+        with:
+          skip-puppeteer-browser: 'true'
 
       - name: Cache ESLint
         uses: actions/cache@v6
@@ -212,9 +262,9 @@ jobs:
         uses: actions/cache@v6
         with:
           path: .cache/.prettiercache
-          key: prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc*') }}-${{ github.sha }}
+          key: prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc', '.prettierignore', 'resources/css/app.css') }}-${{ github.sha }}
           restore-keys: |
-            prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc*') }}-
+            prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc', '.prettierignore', 'resources/css/app.css') }}-
 
       - name: Cache TypeScript build info
         uses: actions/cache@v6
@@ -271,12 +321,23 @@ jobs:
             exit 1
           fi
 
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Frontend Static"
+            echo "- node_modules cache hit: ${{ steps.node-modules.outputs.cache-hit }}"
+            echo "- npm ci: ${{ steps.node-modules.outputs.npm-installed }}"
+            echo "- npm download cache hit: ${{ steps.setup-node.outputs.cache-hit }}"
+            echo "- Composer cache hit: ${{ steps.composer-downloads.outputs.cache-hit }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   frontend_build:
     name: Frontend Build
     needs: changes
     if: needs.changes.outputs.frontend_build == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -290,6 +351,7 @@ jobs:
           ini-values: memory_limit=1G
 
       - name: Setup Node
+        id: setup-node
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -301,6 +363,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer downloads
+        id: composer-downloads
         uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
@@ -309,18 +372,18 @@ jobs:
             composer-${{ runner.os }}-${{ env.PHP_VERSION }}-
 
       - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+        run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Install Node dependencies
-        run: npm ci --prefer-offline
+      - name: Restore Node modules
+        id: node-modules
+        uses: ./.github/actions/node-modules
+        with:
+          skip-puppeteer-browser: 'true'
 
       - name: Prepare Laravel environment
         run: |
           cp .env.example .env
           php artisan key:generate --no-interaction
-
-      - name: Generate Wayfinder types
-        run: php artisan wayfinder:generate --with-form --no-interaction
 
       - name: Production build
         run: npm run build
@@ -354,15 +417,28 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Frontend Build"
+            echo "- node_modules cache hit: ${{ steps.node-modules.outputs.cache-hit }}"
+            echo "- npm ci: ${{ steps.node-modules.outputs.npm-installed }}"
+            echo "- npm download cache hit: ${{ steps.setup-node.outputs.cache-hit }}"
+            echo "- Composer cache hit: ${{ steps.composer-downloads.outputs.cache-hit }}"
+            echo "- Wayfinder: generated by Vite plugin during npm run build"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   pdf_renderer:
     name: PDF Renderer
     needs: changes
     if: needs.changes.outputs.pdf_renderer == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     env:
       REQUIRE_PDF_RENDERER_TESTS: 'true'
       PUPPETEER_SKIP_DOWNLOAD: 'false'
+      CI_SKIP_PUPPETEER_BROWSER_INSTALL: '1'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -376,6 +452,7 @@ jobs:
           ini-values: memory_limit=1G
 
       - name: Setup Node
+        id: setup-node
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -387,6 +464,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer downloads
+        id: composer-downloads
         uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
@@ -395,10 +473,20 @@ jobs:
             composer-${{ runner.os }}-${{ env.PHP_VERSION }}-
 
       - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+        run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Install Node dependencies
-        run: npm ci --prefer-offline
+      - name: Restore Node modules
+        id: node-modules
+        uses: ./.github/actions/node-modules
+        with:
+          skip-puppeteer-browser: 'true'
+
+      - name: Restore Puppeteer browser cache
+        id: puppeteer-cache
+        uses: actions/cache@v6
+        with:
+          path: storage/app/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ runner.arch }}-node${{ env.NODE_VERSION }}-${{ hashFiles('package-lock.json') }}
 
       - name: Prepare Laravel environment
         run: |
@@ -420,13 +508,25 @@ jobs:
             tests/Feature/Organization/EmployeeSalaryCertificatePrintTest.php \
             tests/Feature/Organization/EmployeeSalaryDeclarationPrintTest.php
 
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## PDF Renderer"
+            echo "- node_modules cache hit: ${{ steps.node-modules.outputs.cache-hit }}"
+            echo "- npm ci: ${{ steps.node-modules.outputs.npm-installed }}"
+            echo "- npm download cache hit: ${{ steps.setup-node.outputs.cache-hit }}"
+            echo "- Composer cache hit: ${{ steps.composer-downloads.outputs.cache-hit }}"
+            echo "- Puppeteer cache hit: ${{ steps.puppeteer-cache.outputs.cache-hit }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   pest:
     name: Pest ${{ matrix.shard }}/6
     needs:
       - changes
     if: needs.changes.outputs.pest == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -448,6 +548,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer downloads
+        id: composer-downloads
         uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
@@ -456,7 +557,7 @@ jobs:
             composer-${{ runner.os }}-${{ env.PHP_VERSION }}-
 
       - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+        run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Prepare Laravel environment
         run: |
@@ -468,9 +569,17 @@ jobs:
           SHARD: ${{ matrix.shard }}
         run: |
           set -euo pipefail
+          start=$(date +%s)
           mapfile -t TEST_FILES < <(php .github/scripts/ci.php pest-shard --shard="$SHARD" --total="${PEST_SHARD_TOTAL}")
           echo "Running ${#TEST_FILES[@]} test files on shard ${SHARD}/${PEST_SHARD_TOTAL}."
           php artisan test --compact --ansi "${TEST_FILES[@]}"
+          end=$(date +%s)
+          {
+            echo "## Pest ${SHARD}/${PEST_SHARD_TOTAL}"
+            echo "- files: ${#TEST_FILES[@]}"
+            echo "- duration: $((end - start))s"
+            echo "- Composer cache hit: ${{ steps.composer-downloads.outputs.cache-hit }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   quality:
     name: Quality gates
@@ -498,6 +607,7 @@ jobs:
           RUN_FRONTEND_BUILD: ${{ needs.changes.outputs.frontend_build }}
           RUN_PDF_RENDERER: ${{ needs.changes.outputs.pdf_renderer }}
           RUN_PEST: ${{ needs.changes.outputs.pest }}
+          RUN_DEPLOY: ${{ needs.changes.outputs.deploy }}
           DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
           SCOPE: ${{ needs.changes.outputs.scope }}
         run: |
@@ -510,7 +620,19 @@ jobs:
           echo "run_frontend_build=${RUN_FRONTEND_BUILD} frontend_build_result=${FRONTEND_BUILD_RESULT}"
           echo "run_pdf_renderer=${RUN_PDF_RENDERER} pdf_renderer_result=${PDF_RENDERER_RESULT}"
           echo "run_pest=${RUN_PEST} pest_result=${PEST_RESULT}"
+          echo "run_deploy=${RUN_DEPLOY}"
           echo "changes_result=${CHANGES_RESULT}"
+
+          {
+            echo "## Quality gates"
+            echo "- scope: ${SCOPE}"
+            echo "- Pest: required=${RUN_PEST} result=${PEST_RESULT}"
+            echo "- Pint: required=${RUN_PINT} result=${PINT_RESULT}"
+            echo "- Frontend Static: required=${RUN_FRONTEND_STATIC} result=${FRONTEND_STATIC_RESULT}"
+            echo "- Frontend Build: required=${RUN_FRONTEND_BUILD} result=${FRONTEND_BUILD_RESULT}"
+            echo "- PDF Renderer: required=${RUN_PDF_RENDERER} result=${PDF_RENDERER_RESULT}"
+            echo "- Deploy planned: ${RUN_DEPLOY}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [[ "${CHANGES_RESULT}" != 'success' ]]; then
             echo "::error::Change detection failed; refusing to pass the CI gate (result=${CHANGES_RESULT})."

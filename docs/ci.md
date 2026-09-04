@@ -7,52 +7,47 @@ The workflow is `.github/workflows/ci.yml` (`CI`). Successful `CI` on a **push**
 ## Workflow shape
 
 ```text
-Detect changes
+Detect changes (system PHP classifier + CI plan artifact)
     |
-    +-- PHP Style (Pint)
+    +-- PHP Style (Pint)                 [if PHP changed]
     |
-    +-- Frontend Static (ESLint, Prettier, TypeScript, unit tests in parallel)
+    +-- Frontend Static                  [if frontend / Wayfinder inputs changed]
+    |     ESLint, Prettier, TypeScript, unit tests in parallel
     |
-    +-- Frontend Build (Wayfinder, npm run build, uploads public/build)
+    +-- Frontend Build                   [if the production bundle is affected]
+    |     Vite plugin generates Wayfinder; uploads public/build
     |
-    +-- PDF Renderer (Node + Puppeteer; production Chromium PDF tests)
+    +-- PDF Renderer                     [if Chromium/PDF inputs changed]
     |
-    +-- Pest 1/6 .. Pest 6/6 (decoupled from Vite build via withoutVite())
+    +-- Pest 1/6 .. Pest 6/6             [if backend/Pest inputs changed]
               |
-        Quality gates (near-zero overhead aggregator)
+        Quality gates (needs-based aggregator, no checkout)
 ```
 
-1. **Detect changes** — classifies the diff as `docs-only`, `backend-only`, `frontend-only`, or `full`. Unknown paths force full CI.
-2. Independent checks run fully in parallel. Backend tests are decoupled from Vite via `withoutVite()` in `tests/TestCase.php`, allowing all 6 Pest shards to start immediately alongside Frontend Build rather than waiting for it.
-3. **Quality gates** — near-zero overhead aggregator job (~2-3s) that verifies all required jobs completed successfully without requiring PHP, Composer, or artifact marker downloads. Expected skips (for example docs-only) still pass this aggregator when change detection succeeds.
-
-Docs-only paths include `docs/*`, `.cursor/*`, `.agents/*`, `.gemini/*`, root-level `*.md`, and a short list of agent/tooling files. Any unrecognized path forces full CI.
+Jobs that are not required are **skipped**. The quality gate treats `skipped` as success for those jobs and **fails** if a required job is skipped or unsuccessful.
 
 ## Change classification
 
-Classification is fail-safe: empty or unreadable diffs run full CI. Shared or uncertain application files also run full CI.
+Classification is fail-safe: empty or unreadable diffs run full CI. Unrecognized paths also run full CI. `.github/` and `composer.json` / `composer.lock` run full CI so infrastructure and PHP dependency changes self-validate.
 
-| Scope | Pint | Frontend static | Frontend build | PDF Renderer | Pest |
-|-------|------|-----------------|----------------|--------------|------|
-| `docs-only` | skip | skip | skip | skip | skip |
-| `backend-only` | run | skip | run | run | run (6 shards) |
-| `frontend-only` | skip | run | run | skip | skip |
-| `full` | run | run | run | run | run (6 shards) |
+Independent flags (not a coarse backend→frontend coupling):
 
-Examples that force **full** CI (both sides):
+| Change | Pint | Pest | Frontend static | Frontend build | PDF Renderer | Deploy |
+|--------|------|------|-----------------|----------------|--------------|--------|
+| `tests/**` only (non-PDF) | run | run | skip | skip | skip | skip |
+| Unrelated backend service | run | run | skip | skip | skip | run |
+| `routes/**` or `app/Http/Controllers/**` | run | run | run (Wayfinder) | run | skip | run |
+| `resources/js/**` / CSS / Vite / ESLint | skip | skip | run | run | skip | run |
+| PDF renderer / Browsershot / overlay preflight | run | run | skip | skip | run | run |
+| Dedicated PDF production test file | run | run | skip | skip | run | skip |
+| `package-lock.json` | skip | skip | run | run | run | run |
+| `docs/**`, root `*.md` | skip | skip | skip | skip | skip | skip |
+| `.github/workflows/ci.yml`, `ci.php` | run | run | run | run | run | skip |
+| Composer lock | run | run | run | run | run | run |
 
-- `routes/`, `app/Http/`, `app/Providers/`, `bootstrap/`, `config/`
-- `database/` (including migrations)
-- `composer.json` / `composer.lock` / `package.json` / `package-lock.json`
-- `vite.config.*`, `tsconfig.json`, `.env.example`
-- Inertia pages (`resources/js/pages/`, `resources/js/app.tsx`)
-- `resources/views/`, `public/`
-- `.github/` (including this workflow)
-- any path the classifier does not recognize
+Docs-only paths include `docs/*`, `.cursor/*`, `.agents/*`, `.gemini/*`, root-level `*.md`, and a short list of agent/tooling files.
 
-`backend-only` still builds the frontend as an independent build gate and for deployment artifact readiness. `frontend-only` still runs the production build gate.
-
-## Required gates (full application CI)
+## Required gates (when classified)
 
 | Gate | Job / step | Local command |
 |------|------------|---------------|
@@ -63,22 +58,28 @@ Examples that force **full** CI (both sides):
 | Frontend tests | Frontend Static → `npm run test:frontend` | `npm run test:frontend` |
 | TypeScript | Frontend Static → TypeScript → `npm run types:check` | `npm run types:check` |
 | Production build | Frontend Build → `npm run build` | `npm run build` |
+| PDF Chromium | PDF Renderer job | same three production test files with Puppeteer installed |
 
-Frontend Build uploads `public/build` as a workflow artifact named `vite-build-<sha>-<run_id>-<run_attempt>`. Deploy downloads this artifact directly.
+Frontend Build uploads `public/build` as `vite-build-<sha>-<run_id>-<run_attempt>`. Detect changes uploads a secret-free `ci-plan-<sha>-<run_id>-<run_attempt>` artifact so deploy can skip or reuse work.
 
-Pest sharding is deterministic file round-robin over `tests/Unit/**/*Test.php` and `tests/Feature/**/*Test.php` across 6 shards via `.github/scripts/ci.php`. Pest 4.4 in this repo has no native `--shard` flag; the helper splits the suite so the full set runs exactly once. Tests keep sqlite `:memory:` and `RefreshDatabase` isolation (one runner per shard, not Pest `--parallel`). Helpers used by more than one test file must live in `tests/Support/` (loaded from `tests/Pest.php`) so a shard that does not load the original defining file still has them.
+Pest sharding uses largest-processing-time packing over `.github/ci/pest-timings.json` (not file-count round-robin). Pest 4.4 in this repo has no native `--shard` flag. Tests keep sqlite `:memory:` and `RefreshDatabase` isolation (one runner per shard, **not** Pest `--parallel`). Helpers used by more than one test file must live in `tests/Support/`.
 
-**PDF Renderer** is a dedicated job (not part of the six Pest shards) that installs Node dependencies with Puppeteer, sets `REQUIRE_PDF_RENDERER_TESTS=true`, and runs production Chromium/Browsershot tests that would otherwise skip in Composer-only Pest shards. It executes `tests/Feature/Documents/PdfOverlayTemplatePdfRendererTest.php` plus protected Salary Certificate/Declaration print tests. Skipped renderer tests are treated as failure in this job.
+Refresh timings after a representative green suite:
 
-Run the same local set:
+```bash
+php artisan test --compact --log-junit=storage/logs/pest-junit.xml
+php .github/scripts/ci.php pest-timings-from-junit --junit=storage/logs/pest-junit.xml --output=.github/ci/pest-timings.json
+```
+
+Do not run a second full suite on every CI job just to rebalance shards. Unknown `*Test.php` files still run; they get the manifest `default_seconds` weight.
+
+**PDF Renderer** stays a dedicated job. Normal Pest shards do not require Chrome. This job installs Node + Chromium, sets `REQUIRE_PDF_RENDERER_TESTS=true`, and runs `PdfOverlayTemplatePdfRendererTest` plus Salary Certificate/Declaration print tests.
 
 ```bash
 composer ci:check
 ```
 
-That also runs `php artisan wayfinder:generate --with-form` first so TypeScript can resolve gitignored `@/actions` and `@/routes`. Local `ci:check` is sequential and unsharded; GitHub Actions is the parallel layout above.
-
-A documentation-only change should follow the docs-only fast path in GitHub Actions. Locally, `composer ci:check` still runs the full application suite.
+Local `ci:check` is sequential and unsharded; GitHub Actions is the parallel layout above.
 
 ## Fix vs verify
 
@@ -88,67 +89,42 @@ A documentation-only change should follow the docs-only fast path in GitHub Acti
 | ESLint | `npm run lint` (`eslint --fix`) | `npm run lint:check` |
 | Prettier | `npm run format` (`prettier --write`) | `npm run format:check` |
 
-Do not rely on CI to rewrite files. The old `lint.yml` workflow used Pint/`npm run format`/`npm run lint` with `contents: write`; that pattern is removed.
-
 ## Versions
 
 | Tool | Version |
 |------|---------|
 | PHP | 8.4 |
-| Node | 22 (lockfile via `npm ci`) |
-
-Pest uses sqlite `:memory:` from `phpunit.xml` (not the Herd MySQL database). PHP memory is set to `1G` in `phpunit.xml` and in the CI `setup-php` step so ZIP/export tests do not exhaust the default 512MB limit.
-
-## Triggers
-
-`CI` runs on:
-
-- `pull_request` targeting `develop`, `main`, `master`, or `workos`
-- `push` to those same branches
-
-Concurrency: a new commit on the same ref **cancels** an in-progress CI run. Deployment uses a separate concurrency group and is not cancelled by CI.
-
-## Wayfinder
-
-`resources/js/actions/`, `resources/js/routes/`, and `resources/js/wayfinder/` are **gitignored**. The Vite plugin generates them during `npm run build` / `npm run dev`. CI generates them explicitly before TypeScript and before the production build:
-
-```bash
-php artisan wayfinder:generate --with-form --no-interaction
-```
-
-Do not commit those directories.
+| Node | 22 (lockfile via `npm ci` on cache miss) |
 
 ## Caching
 
-CI caches:
-- Composer download cache (keyed by `composer.lock`)
-- npm download cache (via `actions/setup-node`)
-- Pint persistent style cache (`.pint.cache`)
-- ESLint content cache (`.cache/.eslintcache`)
-- Prettier content cache (`.cache/.prettiercache`)
-- TypeScript incremental build cache (`.cache/tsbuildinfo`)
+- **node_modules**: exact key `node-modules-<os>-<arch>-node22-<package-lock hash>`. No `restore-keys`. Cache hit skips `npm ci`. First lockfile change is a cold install.
+- npm download cache via `actions/setup-node` as cold-cache fallback.
+- Composer download cache keyed by OS + PHP 8.4 + `composer.lock` (CI test jobs do **not** use `--optimize-autoloader`; production deploy still does).
+- Pint, ESLint, Prettier (`--cache --cache-location .cache/.prettiercache`), TypeScript `.tsbuildinfo`.
+- Puppeteer browser cache for the PDF job (`storage/app/puppeteer`), still verified with `browsershot:install` / `browsershot:doctor`.
 
-It does not cache `vendor/` or `node_modules/` as restore artifacts. The workflow sets `PUPPETEER_SKIP_DOWNLOAD=true` on the default CI jobs so routine `npm ci` runs do not download browser binaries. The dedicated **PDF Renderer** job overrides that and runs `php artisan browsershot:install` so Chromium overlay tests execute against a real headless shell.
+Project `postinstall` installs Chrome unless `CI_SKIP_PUPPETEER_BROWSER_INSTALL=1`. Frontend CI jobs skip that download; PDF/production install Chromium through `php artisan browsershot:install`.
+
+## Wayfinder
+
+`resources/js/actions/`, `resources/js/routes/`, and `resources/js/wayfinder/` are **gitignored**. Frontend Static generates them before `tsc`. Frontend Build relies on the Vite Wayfinder plugin during `npm run build`.
 
 ## Permissions
 
-The CI workflow uses `contents: read` only. It does not need `contents: write`, `pull-requests: write`, or `packages: write`. Deploy uses `contents: read` plus `actions: read` so it can download the CI Vite artifact from the triggering workflow run.
-
-## Branch protection
-
-Confirm required checks in GitHub **Settings → Branches / Rulesets**. This repository’s CI aggregator job is named `Quality gates`. This documentation does not assert that `main` is currently protected; verify the live GitHub configuration.
+CI uses `contents: read`. Deploy uses `contents: read` plus `actions: read`.
 
 ## Deployment
 
-`.github/workflows/deploy.yml` performs the Hostinger SSH/rsync deploy. It runs via `workflow_run` after **`CI` succeeds** for a **push** to **`main`** on this repository:
+`.github/workflows/deploy.yml` runs via `workflow_run` after **`CI` succeeds** for a **push** to **`main`**:
 
-- **Exact SHA checkout**: Deploys the exact CI-validated commit revision (`workflow_run.head_sha`) rather than `origin/main`.
-- **Validated frontend assets**: Downloads the Vite `public/build` artifact from that same CI run and SHA. If the artifact is missing (docs-only CI) or the embedded SHA/run id does not match, deploy rebuilds with `npm ci && npm run build` instead of using another run’s files.
-- **Deploy serialization**: Uses `concurrency: group: deploy-main, cancel-in-progress: false` to ensure in-flight deployments are never aborted midway.
-- Failed CI, pull requests, and other branches do not deploy.
-
-Production Hostinger still runs `npm ci --omit=dev`, Puppeteer/Browsershot setup, and Artisan cache commands. Those runtime steps are not replaced by the CI artifact.
+- Downloads the CI plan. If `deploy_required=false` (tests/docs only), it finishes with **No deployable application changes** and does not SSH.
+- **Exact SHA**: `workflow_run.head_sha` then `git reset --hard` on the server. Never `git pull` latest main.
+- If `frontend_build_required=true`, the exact CI Vite artifact is required. Missing artifact **fails** deploy (no production rebuild).
+- If `frontend_build_required=false`, production keeps the existing gitignored `public/build` directory (`git reset --hard` does not delete it). No Vite, no rsync of frontend assets.
+- Production Node/Puppeteer: skip `npm ci` when `storage/app/deploy/npm-lock.sha256` matches `package-lock.json` and `browsershot:doctor` passes. Otherwise `npm ci --omit=dev` then a single Browsershot install, then write the stamp.
+- Deploy concurrency: `deploy-main`, `cancel-in-progress: false`.
 
 ## GitHub vs local
 
-Passing `composer ci:check` locally means the **same commands** succeeded on this machine. It does not prove the GitHub-hosted workflow ran. Confirm Actions on the repository after push.
+Passing `composer ci:check` locally does not prove GitHub Actions. Confirm the Actions run after push. First `package-lock.json` change is expected to be slower (cold `node_modules` cache).

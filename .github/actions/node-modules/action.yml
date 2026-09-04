@@ -1,0 +1,72 @@
+name: Restore Node modules
+description: Exact package-lock node_modules cache with npm ci fallback. Never restores a different lockfile tree.
+
+inputs:
+  skip-puppeteer-browser:
+    description: Set CI_SKIP_PUPPETEER_BROWSER_INSTALL during npm ci
+    required: false
+    default: 'true'
+
+outputs:
+  cache-hit:
+    description: Whether the exact node_modules cache was restored
+    value: ${{ steps.cache.outputs.cache-hit }}
+  npm-installed:
+    description: Whether npm ci ran
+    value: ${{ steps.install.outputs.npm-installed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Restore node_modules
+      id: cache
+      uses: actions/cache/restore@v6
+      with:
+        path: node_modules
+        key: node-modules-${{ runner.os }}-${{ runner.arch }}-node${{ env.NODE_VERSION }}-${{ hashFiles('package-lock.json') }}
+
+    - name: Install Node dependencies if needed
+      id: install
+      shell: bash
+      env:
+        CI_SKIP_PUPPETEER_BROWSER_INSTALL: ${{ inputs.skip-puppeteer-browser == 'true' && '1' || '0' }}
+      run: |
+        set -euo pipefail
+        start=$(date +%s)
+
+        cache_ok=false
+        if [[ "${{ steps.cache.outputs.cache-hit }}" == 'true' ]] \
+          && [[ -d node_modules/puppeteer ]] \
+          && [[ -d node_modules/.bin ]]; then
+          cache_ok=true
+        fi
+
+        if [[ "$cache_ok" == 'true' ]]; then
+          echo "npm-installed=false" >> "$GITHUB_OUTPUT"
+          echo "Restored exact node_modules cache."
+        else
+          if [[ "${{ steps.cache.outputs.cache-hit }}" == 'true' ]]; then
+            echo "Exact node_modules cache was incomplete; running npm ci."
+            rm -rf node_modules
+          fi
+          npm ci --prefer-offline --no-audit --no-fund
+          echo "npm-installed=true" >> "$GITHUB_OUTPUT"
+        fi
+
+        end=$(date +%s)
+        echo "node_modules_seconds=$((end - start))" >> "$GITHUB_OUTPUT"
+        echo "node_modules_cache_hit=${{ steps.cache.outputs.cache-hit }}" >> "$GITHUB_OUTPUT"
+
+        {
+          echo "## Node modules"
+          echo "- cache hit: ${{ steps.cache.outputs.cache-hit }}"
+          echo "- npm ci: $( [[ "$cache_ok" == 'true' ]] && echo skipped || echo ran )"
+          echo "- duration: $((end - start))s"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Save node_modules
+      if: steps.install.outputs.npm-installed == 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: node_modules
+        key: node-modules-${{ runner.os }}-${{ runner.arch }}-node${{ env.NODE_VERSION }}-${{ hashFiles('package-lock.json') }}
