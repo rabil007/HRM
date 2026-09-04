@@ -4659,8 +4659,7 @@ export function TemplatePdfDesignerDialog({
                                         mode: previewEmployee
                                             ? 'employee'
                                             : 'sample',
-                                        employeeId:
-                                            previewEmployee?.id ?? null,
+                                        employeeId: previewEmployee?.id ?? null,
                                     })
                                 }
                                 onSelectLayoutIssue={selectLayoutIssue}
