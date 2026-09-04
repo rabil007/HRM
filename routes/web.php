@@ -170,6 +170,7 @@ use App\Http\Controllers\Organization\TrainingsIndexController;
 use App\Http\Controllers\Organization\UserController;
 use App\Http\Controllers\Organization\UserInvitationController;
 use App\Http\Controllers\Organization\UserSecurityController;
+use App\Http\Controllers\Organization\ValidateDocumentGenerationTemplateDesignController;
 use App\Http\Controllers\Organization\VesselController;
 use App\Http\Controllers\Organization\VesselManningController;
 use App\Http\Controllers\Organization\VoidCrewAssignmentController;
@@ -850,6 +851,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/documents/templates/{template}/versions/{version}/design', [DocumentGenerationTemplateController::class, 'saveDesign'])
         ->middleware('can:documents.templates.update')
         ->name('organization.documents.templates.versions.design.save');
+    Route::post('organization/documents/templates/{template}/versions/{version}/validate-design', ValidateDocumentGenerationTemplateDesignController::class)
+        ->middleware('can:documents.templates.update')
+        ->name('organization.documents.templates.versions.design.validate');
     Route::post('organization/documents/templates/{template}/versions/{version}/replace-pdf', [DocumentGenerationTemplateController::class, 'replacePdf'])
         ->middleware('can:documents.templates.update')
         ->name('organization.documents.templates.versions.replace-pdf');

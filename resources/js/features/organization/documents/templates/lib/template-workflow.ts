@@ -1,5 +1,12 @@
 export const SAVE_DRAFT_LABEL = 'Save Draft';
 
+export type LayoutValidationStatus =
+    | 'idle'
+    | 'checking'
+    | 'valid'
+    | 'invalid'
+    | 'stale';
+
 export const READINESS_CODES = {
     workflowDecisionMissing: 'workflow_decision_missing',
     workflowPresetMissing: 'workflow_preset_missing',
@@ -360,17 +367,67 @@ export function configurationBlockingCount(
     ).length;
 }
 
+export function combinedPublishIssueLabel(args: {
+    configurationBlockingCount: number;
+    layoutStatus: LayoutValidationStatus;
+    layoutIssueCount: number;
+}): { kind: 'issues' | 'stale' | 'ready'; label: string } | null {
+    const layoutBlocking =
+        args.layoutStatus === 'invalid' ? args.layoutIssueCount : 0;
+    const total = args.configurationBlockingCount + layoutBlocking;
+
+    if (total > 0) {
+        if (args.configurationBlockingCount === 0) {
+            return {
+                kind: 'issues',
+                label:
+                    layoutBlocking === 1
+                        ? '1 layout issue'
+                        : `${layoutBlocking} layout issues`,
+            };
+        }
+
+        if (layoutBlocking === 0) {
+            return {
+                kind: 'issues',
+                label: `${args.configurationBlockingCount} ${args.configurationBlockingCount === 1 ? 'issue' : 'issues'}`,
+            };
+        }
+
+        return {
+            kind: 'issues',
+            label: `${total} issues`,
+        };
+    }
+
+    if (
+        args.layoutStatus === 'stale' ||
+        args.layoutStatus === 'idle' ||
+        args.layoutStatus === 'checking'
+    ) {
+        return { kind: 'stale', label: 'Validation required' };
+    }
+
+    return null;
+}
+
 export function readinessDisplayState(args: {
     configurationBlockingCount: number;
     hasUnsavedChanges: boolean;
     serverReady: boolean;
+    layoutStatus?: LayoutValidationStatus;
+    layoutIssueCount?: number;
 }): ReadinessDisplayState {
-    if (args.configurationBlockingCount > 0) {
-        const count = args.configurationBlockingCount;
+    const combined = combinedPublishIssueLabel({
+        configurationBlockingCount: args.configurationBlockingCount,
+        layoutStatus: args.layoutStatus ?? 'valid',
+        layoutIssueCount: args.layoutIssueCount ?? 0,
+    });
 
+    if (combined?.kind === 'issues') {
         return {
             kind: 'issues',
-            label: `${count} ${count === 1 ? 'issue' : 'issues'}`,
+            label: combined.label,
             detail: null,
         };
     }
@@ -380,6 +437,14 @@ export function readinessDisplayState(args: {
             kind: 'complete_unsaved',
             label: 'Configuration complete',
             detail: 'Unsaved changes',
+        };
+    }
+
+    if (combined?.kind === 'stale') {
+        return {
+            kind: 'issues',
+            label: combined.label,
+            detail: null,
         };
     }
 

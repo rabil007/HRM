@@ -191,7 +191,7 @@ test('published version retains configured signature placement', function () {
     $payload = validSubjectSignaturePlacement();
 
     $pdfPath = DocumentTemplateStorage::directory($company->id).'/source.pdf';
-    Storage::disk('local')->put($pdfPath, '%PDF-1.4 test');
+    Storage::disk('local')->put($pdfPath, minimalPdfBytes());
     $signingPreset = app(StoreDocumentSigningPreset::class)->handle(
         $user,
         $company->id,

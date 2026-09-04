@@ -7,6 +7,7 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import type { LayoutValidationStatus } from '../lib/layout-validation';
 import {
     readinessDisplayState,
     readinessFixAction,
@@ -23,6 +24,8 @@ type Props = {
     configurationBlockingCount: number;
     publishBlocked: boolean;
     canMutate: boolean;
+    layoutStatus?: LayoutValidationStatus;
+    layoutIssueCount?: number;
     onFix: (issue: Issue) => void;
 };
 
@@ -33,6 +36,8 @@ export function TemplateReadinessIndicator({
     configurationBlockingCount,
     publishBlocked,
     canMutate,
+    layoutStatus,
+    layoutIssueCount,
     onFix,
 }: Props) {
     const [open, setOpen] = useState(false);
@@ -40,6 +45,8 @@ export function TemplateReadinessIndicator({
         configurationBlockingCount,
         hasUnsavedChanges,
         serverReady: Boolean(readiness?.ready) && !publishBlocked,
+        layoutStatus,
+        layoutIssueCount,
     });
     const readyLook = display.kind !== 'issues';
 

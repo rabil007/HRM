@@ -237,6 +237,25 @@ describe('readinessDisplayState', () => {
             }).label,
             '2 issues',
         );
+        assert.equal(
+            readinessDisplayState({
+                configurationBlockingCount: 0,
+                hasUnsavedChanges: false,
+                serverReady: true,
+                layoutStatus: 'idle',
+            }).label,
+            'Validation required',
+        );
+        assert.equal(
+            readinessDisplayState({
+                configurationBlockingCount: 0,
+                hasUnsavedChanges: false,
+                serverReady: true,
+                layoutStatus: 'invalid',
+                layoutIssueCount: 1,
+            }).label,
+            '1 layout issue',
+        );
     });
 });
 

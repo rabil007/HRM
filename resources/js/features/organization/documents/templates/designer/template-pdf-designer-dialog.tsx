@@ -8,6 +8,8 @@ import {
     AlignVerticalJustifyEnd,
     AlignVerticalJustifyStart,
     Bold,
+    Check,
+    ChevronDown,
     ChevronLeft,
     ChevronRight,
     Copy,
@@ -38,6 +40,12 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -59,7 +67,10 @@ import {
     show as showVersionRoute,
     sourcePdf,
 } from '@/routes/organization/documents/templates/versions';
-import { save as saveDesignRoute } from '@/routes/organization/documents/templates/versions/design';
+import {
+    save as saveDesignRoute,
+    validate as validateDesignRoute,
+} from '@/routes/organization/documents/templates/versions/design';
 import {
     clickToAlignedPlacement,
     clickToCenteredPlacement,
@@ -94,6 +105,16 @@ import {
     stepOverlayFontSizePt,
 } from '../lib/coordinates';
 import type { FabricRectLike } from '../lib/coordinates';
+import {
+    layoutIssuePlacementIds,
+    layoutValidateButtonLabel,
+    layoutValidationFingerprint,
+} from '../lib/layout-validation';
+import type {
+    LayoutPreflightIssue,
+    LayoutPreflightResult,
+    LayoutValidationState,
+} from '../lib/layout-validation';
 import {
     estimatePlacementOverflow,
     overflowPageBanner,
@@ -162,6 +183,10 @@ import type {
 import { TemplateDesignEmployeePreviewPicker } from './template-design-employee-preview';
 import type { DesignEmployeePreview } from './template-design-employee-preview';
 import { TemplateDesignerWorkflowPanel } from './template-designer-workflow-panel';
+import {
+    TemplateLayoutSelectedIssue,
+    TemplateLayoutValidationPanel,
+} from './template-layout-validation-panel';
 import { TemplateReadinessIndicator } from './template-readiness-indicator';
 
 function isSnapGuideObject(obj: { get: (key: string) => unknown }): boolean {
@@ -690,6 +715,26 @@ function overflowLabelForPlacement(
     );
 }
 
+function addLayoutWarningMarker(
+    canvas: Canvas,
+    pixel: { left: number; top: number; width: number },
+    parentId: string,
+): void {
+    const mark = new FabricText('!', {
+        left: pixel.left + pixel.width - 8,
+        top: pixel.top - 1,
+        fontSize: 11,
+        fontWeight: 'bold',
+        fill: '#dc2626',
+        selectable: false,
+        evented: false,
+        originX: 'left',
+        originY: 'top',
+    });
+    mark.set('data', { parentId, elementType: 'layout-warning' });
+    canvas.add(mark);
+}
+
 function PlacementFontControls({
     placement,
     disabled,
@@ -1134,6 +1179,11 @@ export function TemplatePdfDesignerDialog({
     const [signatureError, setSignatureError] = useState<string | null>(null);
     const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
     const [isSamplePreview, setIsSamplePreview] = useState(false);
+    const [layoutValidation, setLayoutValidation] =
+        useState<LayoutValidationState>({ status: 'idle' });
+    const [layoutStatusMessage, setLayoutStatusMessage] = useState<
+        string | null
+    >(null);
     const [pendingVersionSwitch, setPendingVersionSwitch] =
         useState<TemplateVersionListItem | null>(null);
     const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
@@ -1191,6 +1241,7 @@ export function TemplatePdfDesignerDialog({
     >(null);
     const nudgeSessionRef = useRef(false);
     const isSyncingCanvasRef = useRef(false);
+    const layoutIssueIdsRef = useRef<Set<string>>(new Set());
 
     // ── Ref sync effects ────────────────────────────────────────────────────────
     useEffect(() => {
@@ -1223,6 +1274,24 @@ export function TemplatePdfDesignerDialog({
     useEffect(() => {
         selectedElementTypeRef.current = selectedElementType;
     }, [selectedElementType]);
+
+    const layoutFingerprint = layoutValidationFingerprint(
+        selectedVersion?.id ?? null,
+        placements,
+    );
+
+    useEffect(() => {
+        setLayoutValidation((current) => {
+            if (
+                (current.status === 'valid' || current.status === 'invalid') &&
+                current.fingerprint !== layoutFingerprint
+            ) {
+                return { status: 'stale', previous: current.result };
+            }
+
+            return current;
+        });
+    }, [layoutFingerprint]);
     useEffect(() => {
         nudgeSessionRef.current = false;
     }, [selectedElementId]);
@@ -1442,7 +1511,11 @@ export function TemplatePdfDesignerDialog({
                               item.field)
                             : (fieldMeta?.label ?? item.field);
 
-                        const overflow = overflowById.get(item.id) ?? 'ok';
+                        const overflow =
+                            layoutIssueIdsRef.current.has(item.id) ||
+                            (overflowById.get(item.id) ?? 'ok') === 'fail'
+                                ? 'fail'
+                                : (overflowById.get(item.id) ?? 'ok');
                         const chrome = overlayPlacementBoxChrome(
                             preview ? 'print' : 'edit',
                             overflow,
@@ -1506,8 +1579,16 @@ export function TemplatePdfDesignerDialog({
                         canvas.add(rect);
                         canvas.add(tb);
                         textBoxRefs.current.set(item.id, tb);
+
+                        if (overflow === 'fail' && !preview) {
+                            addLayoutWarningMarker(canvas, pixel, item.id);
+                        }
                     } else if (item.type === 'text') {
-                        const overflow = overflowById.get(item.id) ?? 'ok';
+                        const overflow =
+                            layoutIssueIdsRef.current.has(item.id) ||
+                            (overflowById.get(item.id) ?? 'ok') === 'fail'
+                                ? 'fail'
+                                : (overflowById.get(item.id) ?? 'ok');
                         const chrome = overlayPlacementBoxChrome(
                             preview ? 'print' : 'edit',
                             overflow,
@@ -1571,6 +1652,10 @@ export function TemplatePdfDesignerDialog({
                         canvas.add(rect);
                         canvas.add(tb);
                         textBoxRefs.current.set(item.id, tb);
+
+                        if (overflow === 'fail' && !preview) {
+                            addLayoutWarningMarker(canvas, pixel, item.id);
+                        }
                     }
                 });
 
@@ -1677,6 +1762,22 @@ export function TemplatePdfDesignerDialog({
         },
         [mergeFieldsMap],
     );
+
+    useEffect(() => {
+        if (layoutValidation.status === 'invalid') {
+            layoutIssueIdsRef.current = layoutIssuePlacementIds(
+                layoutValidation.result,
+            );
+        } else {
+            layoutIssueIdsRef.current = new Set();
+        }
+
+        const canvas = fabricCanvasRef.current;
+
+        if (canvas && canvasSizeRef.current.width > 0 && !isLoadingPdf) {
+            syncAllObjects(canvas, currentPageRef.current, Boolean(isEditable));
+        }
+    }, [layoutValidation, isLoadingPdf, syncAllObjects, isEditable]);
 
     // ── attachCanvasEvents ─────────────────────────────────────────────────────
     const attachCanvasEvents = useCallback(
@@ -2233,6 +2334,8 @@ export function TemplatePdfDesignerDialog({
             setSelectedElementId(null);
             setSelectedElementType(null);
             setHasUnsavedChanges(false);
+            setLayoutValidation({ status: 'idle' });
+            setLayoutStatusMessage(null);
             setChangeSummary(initialChangeSummary ?? null);
             const automation = automationStateFromVersion(initialVersion);
             setWorkflowMode(automation.workflowMode);
@@ -3202,6 +3305,8 @@ export function TemplatePdfDesignerDialog({
             setChangeSummary(data.change_summary);
             setCurrentPage(1);
             setHasUnsavedChanges(false);
+            setLayoutValidation({ status: 'idle' });
+            setLayoutStatusMessage(null);
             setPendingPlacement(null);
             const automation = automationStateFromVersion(data.version);
             setWorkflowMode(automation.workflowMode);
@@ -3274,6 +3379,158 @@ export function TemplatePdfDesignerDialog({
                 },
             },
         );
+    };
+
+    const currentPlacementPayload = () => ({
+        schema_version: 2 as const,
+        placements: placementsRef.current.map((p) => {
+            const base = {
+                id: p.id,
+                type: p.type,
+                page: p.page,
+                x: p.x,
+                y: p.y,
+                width: p.width,
+                height: p.height,
+                font_size: p.font_size || 12,
+                font_weight: p.font_weight || 'normal',
+                font_family: p.font_family === 'serif' ? 'serif' : 'sans',
+                font_color: normalizeFontColor(p.font_color),
+                text_align: p.text_align || 'left',
+                vertical_align: normalizeVerticalAlign(
+                    p.vertical_align,
+                    p.type,
+                ),
+            };
+
+            if (p.type === 'text') {
+                return { ...base, text_content: p.text_content };
+            }
+
+            return { ...base, field: p.field };
+        }),
+    });
+
+    const selectLayoutIssue = (issue: LayoutPreflightIssue) => {
+        if (!issue.placement_id) {
+            return;
+        }
+
+        const placement = placementsRef.current.find(
+            (item) => item.id === issue.placement_id,
+        );
+
+        if (!placement) {
+            return;
+        }
+
+        if (issue.page && issue.page !== currentPageRef.current) {
+            setCurrentPage(issue.page);
+        }
+
+        setSelectedElementId(placement.id);
+        setSelectedElementType(placement.type);
+        setRightPanelTab('properties');
+
+        requestAnimationFrame(() => {
+            const canvas = fabricCanvasRef.current;
+            const target = canvas?.getObjects().find((obj) => {
+                const data = obj.get('data') as { id?: string } | undefined;
+
+                return data?.id === placement.id;
+            });
+
+            if (canvas && target) {
+                canvas.setActiveObject(target);
+                canvas.requestRenderAll();
+            }
+        });
+    };
+
+    const runLayoutValidation = async (options?: {
+        mode?: 'sample' | 'employee';
+        employeeId?: number | null;
+    }): Promise<LayoutPreflightResult | null> => {
+        if (!template || !selectedVersion) {
+            return null;
+        }
+
+        const mode = options?.mode ?? 'sample';
+        const employeeId =
+            options?.employeeId ??
+            (mode === 'employee' ? previewEmployee?.id : null);
+
+        if (mode === 'employee' && !employeeId) {
+            setErrorMessage('Select an employee to preview.');
+
+            return null;
+        }
+
+        setLayoutValidation({ status: 'checking' });
+        setLayoutStatusMessage(null);
+
+        const fingerprint = layoutValidationFingerprint(
+            selectedVersion.id,
+            placementsRef.current,
+        );
+        const csrf =
+            document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute('content') ?? '';
+
+        try {
+            const response = await fetch(
+                validateDesignRoute.url({
+                    template: template.id,
+                    version: selectedVersion.id,
+                }),
+                {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrf,
+                    },
+                    body: JSON.stringify({
+                        mode,
+                        employee_id: mode === 'employee' ? employeeId : null,
+                        placement_config: currentPlacementPayload(),
+                    }),
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error('Layout validation failed.');
+            }
+
+            const result = (await response.json()) as LayoutPreflightResult;
+            setLayoutValidation(
+                result.valid
+                    ? { status: 'valid', result, fingerprint }
+                    : { status: 'invalid', result, fingerprint },
+            );
+
+            if (!result.valid) {
+                const first = result.issues.find((issue) => issue.placement_id);
+
+                if (first) {
+                    selectLayoutIssue(first);
+                }
+            }
+
+            return result;
+        } catch (err: unknown) {
+            setLayoutValidation({ status: 'idle' });
+            setErrorMessage(
+                err instanceof Error
+                    ? err.message
+                    : 'Layout validation failed.',
+            );
+
+            return null;
+        }
     };
 
     const handleSaveDesign = async (): Promise<boolean> => {
@@ -3401,6 +3658,22 @@ export function TemplatePdfDesignerDialog({
                 onSaved();
             }
 
+            const validation = await runLayoutValidation({
+                mode: previewEmployee ? 'employee' : 'sample',
+                employeeId: previewEmployee?.id ?? null,
+            });
+
+            if (validation && !validation.valid) {
+                const count = validation.issues.length;
+                setLayoutStatusMessage(
+                    count === 1
+                        ? 'Draft saved · 1 layout issue'
+                        : `Draft saved · ${count} layout issues`,
+                );
+            } else {
+                setLayoutStatusMessage('Draft saved');
+            }
+
             return true;
         } catch (err: unknown) {
             const message =
@@ -3428,6 +3701,24 @@ export function TemplatePdfDesignerDialog({
         }
 
         setIsPublishing(true);
+
+        const validation = await runLayoutValidation({ mode: 'sample' });
+
+        if (!validation || !validation.valid) {
+            setIsPublishing(false);
+            setRightPanelTab('properties');
+
+            if (validation && !validation.valid) {
+                setErrorMessage(
+                    validation.issues.length === 1
+                        ? 'This template has 1 layout issue that must be fixed before publishing.'
+                        : `This template has ${validation.issues.length} layout issues that must be fixed before publishing.`,
+                );
+            }
+
+            return;
+        }
+
         router.post(
             publishVersion.url({
                 template: template.id,
@@ -3443,10 +3734,15 @@ export function TemplatePdfDesignerDialog({
                 },
                 onError: (err) => {
                     setIsPublishing(false);
+                    const layoutMessage = err.layout;
                     setErrorMessage(
-                        (Object.values(err)[0] as string) ||
+                        (typeof layoutMessage === 'string'
+                            ? layoutMessage
+                            : (Object.values(err)[0] as string)) ||
                             'Failed to publish.',
                     );
+                    setRightPanelTab('properties');
+                    void runLayoutValidation({ mode: 'sample' });
                 },
             },
         );
@@ -3684,6 +3980,12 @@ export function TemplatePdfDesignerDialog({
               )
             : 'ok';
     const selectedOverflowMessage = overflowMessage(selectedOverflow);
+    const selectedServerIssue =
+        layoutValidation.status === 'invalid' && selectedPlacement
+            ? (layoutValidation.result.issues.find(
+                  (issue) => issue.placement_id === selectedPlacement.id,
+              ) ?? null)
+            : null;
 
     const pageOverflowBanner = (() => {
         if (canvasSize.width <= 0) {
@@ -3742,11 +4044,13 @@ export function TemplatePdfDesignerDialog({
                         updateFieldProperty(selectedPlacement.id, patch)
                     }
                 />
-                {selectedOverflowMessage && (
+                {selectedServerIssue ? (
+                    <TemplateLayoutSelectedIssue issue={selectedServerIssue} />
+                ) : selectedOverflowMessage ? (
                     <p className="text-[11px] text-destructive">
                         {selectedOverflowMessage}
                     </p>
-                )}
+                ) : null}
                 {isEditable && (
                     <>
                         <Button
@@ -3840,11 +4144,13 @@ export function TemplatePdfDesignerDialog({
                         updateFieldProperty(selectedPlacement.id, patch)
                     }
                 />
-                {selectedOverflowMessage && (
+                {selectedServerIssue ? (
+                    <TemplateLayoutSelectedIssue issue={selectedServerIssue} />
+                ) : selectedOverflowMessage ? (
                     <p className="text-[11px] text-destructive">
                         {selectedOverflowMessage}
                     </p>
-                )}
+                ) : null}
                 {isEditable && (
                     <>
                         <Button
@@ -4027,8 +4333,17 @@ export function TemplatePdfDesignerDialog({
     const configurationIssueCount = hasUnsavedChanges
         ? configurationBlockingCount(visibleIssues)
         : (readiness?.blocking_count ?? 0);
+    const layoutIssueCount =
+        layoutValidation.status === 'invalid'
+            ? layoutValidation.result.issues.length
+            : 0;
     const publishBlocked =
-        hasUnsavedChanges || blockingCount > 0 || isPublishing || isSaving;
+        hasUnsavedChanges ||
+        blockingCount > 0 ||
+        isPublishing ||
+        isSaving ||
+        layoutValidation.status === 'invalid' ||
+        layoutValidation.status === 'checking';
 
     const handleReadinessFix = (
         issue:
@@ -4202,39 +4517,76 @@ export function TemplatePdfDesignerDialog({
                     })()}
 
                 {/* Sample preview toggle */}
-                <Button
-                    type="button"
-                    variant={isSamplePreview ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => {
-                        setIsSamplePreview((preview) => {
-                            if (!preview) {
-                                setPendingPlacement(null);
-                            }
+                {isSamplePreview ? (
+                    <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        onClick={() => {
+                            setIsSamplePreview(false);
+                            setPreviewEmployee(null);
+                        }}
+                    >
+                        <EyeOff className="mr-1.5 size-3.5" />
+                        Exit Preview
+                    </Button>
+                ) : (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button type="button" variant="outline" size="sm">
+                                <Eye className="mr-1.5 size-3.5" />
+                                Preview
+                                <ChevronDown className="ml-1 size-3.5" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                                onSelect={() => {
+                                    setPendingPlacement(null);
+                                    setPreviewEmployee(null);
+                                    setIsSamplePreview(true);
+                                    void runLayoutValidation({
+                                        mode: 'sample',
+                                    });
+                                }}
+                            >
+                                Sample data
+                            </DropdownMenuItem>
+                            {can.preview_employee ? (
+                                <DropdownMenuItem
+                                    onSelect={() => {
+                                        setPendingPlacement(null);
+                                        setIsSamplePreview(true);
+                                    }}
+                                >
+                                    Preview with employee…
+                                </DropdownMenuItem>
+                            ) : null}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
 
-                            return !preview;
-                        });
-                    }}
-                >
-                    {isSamplePreview ? (
-                        <>
-                            <EyeOff className="mr-1.5 size-3.5" />
-                            Exit Preview
-                        </>
-                    ) : (
-                        <>
-                            <Eye className="mr-1.5 size-3.5" />
-                            Preview
-                        </>
-                    )}
-                </Button>
+                {isSamplePreview ? (
+                    <span className="text-[11px] text-muted-foreground">
+                        Preview data — not saved
+                    </span>
+                ) : null}
 
                 {isSamplePreview && can.preview_employee && template && (
                     <TemplateDesignEmployeePreviewPicker
                         templateId={template.id}
                         selected={previewEmployee}
-                        onSelect={setPreviewEmployee}
-                        onClear={() => setPreviewEmployee(null)}
+                        onSelect={(employee) => {
+                            setPreviewEmployee(employee);
+                            void runLayoutValidation({
+                                mode: 'employee',
+                                employeeId: employee.id,
+                            });
+                        }}
+                        onClear={() => {
+                            setPreviewEmployee(null);
+                            void runLayoutValidation({ mode: 'sample' });
+                        }}
                     />
                 )}
 
@@ -4279,8 +4631,39 @@ export function TemplatePdfDesignerDialog({
                             configurationBlockingCount={configurationIssueCount}
                             publishBlocked={publishBlocked}
                             canMutate={isEditable}
+                            layoutStatus={layoutValidation.status}
+                            layoutIssueCount={layoutIssueCount}
                             onFix={handleReadinessFix}
                         />
+                        {isEditable ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={
+                                    layoutValidation.status === 'checking' ||
+                                    isLoadingPdf
+                                }
+                                onClick={() =>
+                                    void runLayoutValidation({
+                                        mode: previewEmployee
+                                            ? 'employee'
+                                            : 'sample',
+                                        employeeId: previewEmployee?.id ?? null,
+                                    })
+                                }
+                            >
+                                {layoutValidation.status === 'checking' ? (
+                                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                                ) : layoutValidation.status === 'valid' ? (
+                                    <Check className="mr-1.5 size-3.5" />
+                                ) : null}
+                                {layoutValidateButtonLabel(
+                                    layoutValidation.status,
+                                    layoutIssueCount,
+                                )}
+                            </Button>
+                        ) : null}
                         <Button
                             type="button"
                             size="sm"
@@ -4354,6 +4737,12 @@ export function TemplatePdfDesignerDialog({
             {pageOverflowBanner && (
                 <div className="flex shrink-0 items-center bg-destructive/10 px-6 py-2 text-xs font-medium text-destructive">
                     {pageOverflowBanner.message}
+                </div>
+            )}
+
+            {layoutStatusMessage && (
+                <div className="flex shrink-0 items-center bg-muted/60 px-6 py-2 text-xs font-medium text-foreground">
+                    {layoutStatusMessage}
                 </div>
             )}
 
@@ -4756,6 +5145,17 @@ export function TemplatePdfDesignerDialog({
                             value="properties"
                             className="min-h-0 flex-1 overflow-y-auto p-3"
                         >
+                            <div className="mb-3">
+                                <TemplateLayoutValidationPanel
+                                    result={
+                                        layoutValidation.status === 'valid' ||
+                                        layoutValidation.status === 'invalid'
+                                            ? layoutValidation.result
+                                            : null
+                                    }
+                                    onSelectIssue={selectLayoutIssue}
+                                />
+                            </div>
                             {!selectedElementId && isEditable && (
                                 <p className="text-xs text-muted-foreground">
                                     Select an element to edit its properties.

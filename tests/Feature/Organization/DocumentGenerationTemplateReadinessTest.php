@@ -29,7 +29,7 @@ function makeReadinessOverlayDraft(): array
 
     $template = DocumentGenerationTemplate::factory()->forCompany($company)->pdfOverlay()->create();
     $path = DocumentTemplateStorage::directory($company->id).'/source.pdf';
-    Storage::disk(DocumentTemplateStorage::DISK)->put($path, '%PDF-1.4');
+    Storage::disk(DocumentTemplateStorage::DISK)->put($path, minimalPdfBytes());
     $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
         'version' => 1,
         'status' => DocumentGenerationTemplateVersionStatus::Draft,
