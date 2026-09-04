@@ -7,6 +7,7 @@ import {
     overflowLevelFromWrappedBox,
     overflowPageBanner,
     overflowPreviewText,
+    overlayFieldCanvasText,
     placementOverflowLabel,
     summarizeOverflowLabels,
 } from '../templates/lib/placement-overflow.ts';
@@ -89,6 +90,24 @@ describe('overflowPreviewText', () => {
             overflowPreviewText('{{employee_no}}', 'EMP-1042'),
             'EMP-1042',
         );
+    });
+});
+
+describe('overlayFieldCanvasText', () => {
+    it('shows the catalog sample instead of a field label', () => {
+        assert.equal(overlayFieldCanvasText('Jane Smith'), 'Jane Smith');
+    });
+
+    it('prefers an employee preview value', () => {
+        assert.equal(
+            overlayFieldCanvasText('Jane Smith', 'Ali Hassan'),
+            'Ali Hassan',
+        );
+    });
+
+    it('does not fall back to a printed PDF label', () => {
+        assert.equal(overlayFieldCanvasText(''), '');
+        assert.equal(overlayFieldCanvasText(undefined, '  '), '');
     });
 });
 

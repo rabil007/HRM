@@ -119,6 +119,7 @@ import {
     estimatePlacementOverflow,
     overflowPageBanner,
     overflowPreviewText,
+    overlayFieldCanvasText,
     placementOverflowLabel,
 } from '../lib/placement-overflow';
 import type { OverflowLevel } from '../lib/placement-overflow';
@@ -1505,11 +1506,10 @@ export function TemplatePdfDesignerDialog({
 
                     if (item.type === 'field') {
                         const fieldMeta = mergeFieldsMap.get(item.field);
-                        const displayText = preview
-                            ? (previewEmployeeRef.current?.values[item.field] ??
-                              fieldMeta?.sample ??
-                              item.field)
-                            : (fieldMeta?.label ?? item.field);
+                        const displayText = overlayFieldCanvasText(
+                            fieldMeta?.sample,
+                            previewEmployeeRef.current?.values[item.field],
+                        );
 
                         const overflow =
                             layoutIssueIdsRef.current.has(item.id) ||
@@ -2900,7 +2900,7 @@ export function TemplatePdfDesignerDialog({
             rect.set('data', { id: newId, elementType: 'field' });
 
             const tb = createOverlayWrapTextbox({
-                text: fieldMeta?.label ?? fieldKey,
+                text: overlayFieldCanvasText(fieldMeta?.sample),
                 left: initialPixel.left,
                 top: initialPixel.top,
                 width: initialPixel.width,

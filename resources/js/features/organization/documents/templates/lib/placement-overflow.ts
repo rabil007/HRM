@@ -109,6 +109,23 @@ export function overflowPreviewText(
     return catalogSample;
 }
 
+/**
+ * Text painted inside a merge-field box on the designer canvas.
+ * Uses sample/employee values so labels already printed on the PDF are not repeated.
+ */
+export function overlayFieldCanvasText(
+    catalogSample: string | undefined,
+    employeeValue?: string | null,
+): string {
+    const employee = employeeValue?.trim();
+
+    if (employee) {
+        return employee;
+    }
+
+    return catalogSample?.trim() ?? '';
+}
+
 export function placementOverflowLabel(
     type: 'field' | 'text',
     value: string,
