@@ -630,7 +630,39 @@ test('public document-action cannot be accessed by guessing request ids and does
         ->assertNotFound();
 
     $this->get(route('public.document-action.show', ['token' => $created['raw_token']]))
-        ->assertOk();
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('document-action/index')
+            ->where('alreadyCompleted', false));
+});
+
+test('public document-action stays on the standalone page after signing even if a staff user is logged in', function () {
+    ['company' => $company, 'document' => $document] = makeRecipientFixturesWithSignaturePlacement(
+        defaultSignaturePlacementConfig(),
+    );
+
+    $requester = User::factory()->create();
+    grantCompanyPermissions($requester, $company, ['documents.recipient-requests.create']);
+
+    $created = app(CreateDocumentRecipientRequest::class)->handle(
+        $document,
+        DocumentRecipientAction::Sign,
+        $requester,
+        $company->id,
+    );
+
+    $this->post(route('public.document-action.sign', ['token' => $created['raw_token']]), [
+        'signed_name' => 'Employee Name',
+        'signature_data' => validSignatureDataUri(),
+        'consent' => '1',
+    ])->assertRedirect(route('public.document-action.show', ['token' => $created['raw_token']]));
+
+    $this->actingAs($requester)
+        ->get(route('public.document-action.show', ['token' => $created['raw_token']]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('document-action/index')
+            ->where('alreadyCompleted', true));
 });
 
 test('recipient requests inbox presents every stored status', function (DocumentRecipientRequestStatus $status) {

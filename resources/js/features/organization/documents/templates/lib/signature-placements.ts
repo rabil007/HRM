@@ -1,7 +1,31 @@
 import type {
+    PlacementVerticalAlign,
     SignaturePlacementConfig,
     SignaturePlacementItem,
 } from '../types';
+
+export const DEFAULT_SIGNATURE_TEXT_ALIGN = 'center' as const;
+export const DEFAULT_SIGNATURE_VERTICAL_ALIGN = 'middle' as const;
+
+export function normalizeSignatureTextAlign(
+    raw: unknown,
+): 'left' | 'center' | 'right' {
+    if (raw === 'left' || raw === 'center' || raw === 'right') {
+        return raw;
+    }
+
+    return DEFAULT_SIGNATURE_TEXT_ALIGN;
+}
+
+export function normalizeSignatureVerticalAlign(
+    raw: unknown,
+): PlacementVerticalAlign {
+    if (raw === 'top' || raw === 'middle' || raw === 'baseline') {
+        return raw;
+    }
+
+    return DEFAULT_SIGNATURE_VERTICAL_ALIGN;
+}
 
 export const SUBJECT_SLOT = 'subject';
 export const MAX_ROLE_OCCURRENCE = 7;
@@ -160,6 +184,8 @@ export function defaultSignaturePlacement(
         width: DEFAULT_SIGNATURE_WIDTH,
         height: DEFAULT_SIGNATURE_HEIGHT,
         required: true,
+        text_align: DEFAULT_SIGNATURE_TEXT_ALIGN,
+        vertical_align: DEFAULT_SIGNATURE_VERTICAL_ALIGN,
     };
 }
 
@@ -190,6 +216,8 @@ export function loadSignaturePlacements(
             width: item.width,
             height: item.height,
             required: item.required ?? true,
+            text_align: normalizeSignatureTextAlign(item.text_align),
+            vertical_align: normalizeSignatureVerticalAlign(item.vertical_align),
         };
     });
 }
@@ -205,6 +233,8 @@ export function serializeSignaturePlacements(
             role: roleForSlot(item.slot_key ?? slotKeyForRole(item.role, 1)),
             slot_key: item.slot_key ?? slotKeyForRole(item.role, 1),
             required: item.required ?? true,
+            text_align: normalizeSignatureTextAlign(item.text_align),
+            vertical_align: normalizeSignatureVerticalAlign(item.vertical_align),
         })),
     };
 }

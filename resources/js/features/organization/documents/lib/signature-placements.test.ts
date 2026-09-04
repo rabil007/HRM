@@ -50,6 +50,27 @@ describe('signature placements', () => {
         assert.deepEqual(distinctSlotKeys(loaded), ['subject']);
     });
 
+    it('defaults missing signature alignment to center and middle', () => {
+        const loaded = loadSignaturePlacements({
+            schema_version: 3,
+            placements: [box('subject_signature', 'subject', 'subject')],
+        });
+
+        assert.equal(loaded[0]?.text_align, 'center');
+        assert.equal(loaded[0]?.vertical_align, 'middle');
+
+        const saved = serializeSignaturePlacements([
+            {
+                ...box('subject_signature', 'subject', 'subject'),
+                text_align: 'right',
+                vertical_align: 'baseline',
+            },
+        ]);
+
+        assert.equal(saved.placements[0]?.text_align, 'right');
+        assert.equal(saved.placements[0]?.vertical_align, 'baseline');
+    });
+
     it('serializes schema v3 and keeps distinct physical ids', () => {
         const saved = serializeSignaturePlacements([
             box('subject_signature', 'subject', 'subject'),

@@ -12,6 +12,7 @@ import {
     seedApplicationAppNameFromDom,
     syncApplicationAppNameFromInertiaPage,
 } from '@/lib/application-app-name';
+import { inertiaPageLayoutKind } from '@/lib/inertia-page-layout';
 
 seedApplicationAppNameFromDom();
 
@@ -22,20 +23,12 @@ router.on('success', (event) => {
 createInertiaApp({
     title: (title) => formatDocumentTitle(title),
     layout: (name) => {
-        switch (true) {
-            case name === 'welcome':
+        switch (inertiaPageLayoutKind(name)) {
+            case 'none':
                 return null;
-            case name.startsWith('errors/'):
-                return null;
-            case name.startsWith('esign/'):
-                return null;
-            case name.startsWith('shared/'):
-                return null;
-            case name.startsWith('public/'):
-                return null;
-            case name.startsWith('auth/'):
+            case 'auth':
                 return AuthLayout;
-            case name.startsWith('settings/'):
+            case 'settings':
                 return [AppLayout, SettingsLayout];
             default:
                 return AppLayout;

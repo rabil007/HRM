@@ -77,22 +77,7 @@ final class SaveDocumentGenerationTemplateDesign
             }
 
             $normalizedSignatures = array_map(
-                function (array $placement): array {
-                    $normalized = [
-                        'id' => $placement['id'],
-                        'type' => $placement['type'],
-                        'role' => $placement['role'],
-                        'page' => $placement['page'],
-                        'x' => round($placement['x'], 6),
-                        'y' => round($placement['y'], 6),
-                        'width' => round($placement['width'], 6),
-                        'height' => round($placement['height'], 6),
-                        'required' => $placement['required'],
-                    ];
-                    $normalized['slot_key'] = $placement['slot_key'];
-
-                    return $normalized;
-                },
+                fn (array $placement): array => DocumentSignaturePlacementValidator::toPersistedPlacement($placement),
                 $validatedSigConfig['placements'],
             );
 

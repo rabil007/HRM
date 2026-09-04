@@ -4,6 +4,7 @@ namespace App\Support\Documents\RecipientRequests;
 
 use App\Models\DocumentInstanceVersion;
 use App\Support\Documents\DocumentInstanceStorage;
+use App\Support\Documents\Signing\SignatureImageBoxFit;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use setasign\Fpdi\Fpdi;
@@ -18,7 +19,7 @@ final class StampSignedDocumentInstancePdf
      *
      * Opens the source PDF once and writes one output artifact.
      *
-     * @param  list<array{id?: string, type?: string, role?: string, slot_key?: string, page: int, x: float, y: float, width: float, height: float, required?: bool}>  $placements
+     * @param  list<array{id?: string, type?: string, role?: string, slot_key?: string, page: int, x: float, y: float, width: float, height: float, required?: bool, text_align?: string, vertical_align?: string}>  $placements
      */
     public function handle(
         DocumentInstanceVersion $sourceVersion,
@@ -60,7 +61,7 @@ final class StampSignedDocumentInstancePdf
     }
 
     /**
-     * @param  list<array{page: int, x: float, y: float, width: float, height: float}>  $placements
+     * @param  list<array{page: int, x: float, y: float, width: float, height: float, text_align?: string, vertical_align?: string}>  $placements
      */
     private function compose(
         string $sourcePath,
@@ -106,6 +107,8 @@ final class StampSignedDocumentInstancePdf
                     $boxY,
                     $boxW,
                     $boxH,
+                    DocumentSignaturePlacementValidator::normalizeTextAlign($placement['text_align'] ?? null),
+                    DocumentSignaturePlacementValidator::normalizeVerticalAlign($placement['vertical_align'] ?? null),
                 );
 
                 $pdf->Image($signaturePath, $drawX, $drawY, $drawW, $drawH, $imageType);
@@ -124,6 +127,8 @@ final class StampSignedDocumentInstancePdf
         float $boxY,
         float $boxW,
         float $boxH,
+        string $horizontalAlign = 'center',
+        string $verticalAlign = 'middle',
     ): array {
         $imageInfo = @getimagesize($signaturePath);
 
@@ -141,12 +146,15 @@ final class StampSignedDocumentInstancePdf
             ]);
         }
 
-        $scale = min($boxW / $imgW, $boxH / $imgH);
-        $drawW = $imgW * $scale;
-        $drawH = $imgH * $scale;
-        $drawX = $boxX + (($boxW - $drawW) / 2);
-        $drawY = $boxY + (($boxH - $drawH) / 2);
-
-        return [$drawW, $drawH, $drawX, $drawY];
+        return SignatureImageBoxFit::contained(
+            $boxX,
+            $boxY,
+            $boxW,
+            $boxH,
+            $imgW,
+            $imgH,
+            $horizontalAlign,
+            $verticalAlign,
+        );
     }
 }

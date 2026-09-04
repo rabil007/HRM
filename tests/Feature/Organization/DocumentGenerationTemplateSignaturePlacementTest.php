@@ -138,7 +138,38 @@ test('authorized company user can save subject signature placement on draft pdf 
         ->and($version->signature_placement_config['placements'][0]['x'])->toBe(0.12)
         ->and($version->signature_placement_config['placements'][0]['role'])->toBe('subject')
         ->and($version->signature_placement_config['placements'][0]['slot_key'])->toBe('subject')
+        ->and($version->signature_placement_config['placements'][0]['text_align'])->toBe('center')
+        ->and($version->signature_placement_config['placements'][0]['vertical_align'])->toBe('middle')
         ->and($version->toArraySummary()['has_signature_placement'])->toBeTrue();
+});
+
+test('unified designer persists signature alignment', function () {
+    ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makePdfOverlayDraftWithPages(1);
+
+    $payload = [
+        'schema_version' => 3,
+        'placements' => [[
+            'id' => 'subject_signature',
+            'type' => 'signature',
+            'role' => 'subject',
+            'slot_key' => 'subject',
+            'page' => 1,
+            'x' => 0.12,
+            'y' => 0.72,
+            'width' => 0.28,
+            'height' => 0.09,
+            'required' => true,
+            'text_align' => 'left',
+            'vertical_align' => 'top',
+        ]],
+    ];
+
+    putUnifiedDesignerDraft($user, $company, $template, $version, $payload)
+        ->assertOk();
+
+    $version->refresh();
+    expect($version->signature_placement_config['placements'][0]['text_align'])->toBe('left')
+        ->and($version->signature_placement_config['placements'][0]['vertical_align'])->toBe('top');
 });
 
 test('unified designer can persist two subject placements as schema v3', function () {

@@ -190,6 +190,39 @@ test('reports moved when a legacy v1 signature slot changes coordinates in v2', 
         ->and($result['signatures_moved'])->toBe(['Department Manager · manager_signature']);
 });
 
+test('reports moved when a signature alignment changes', function () {
+    $template = DocumentGenerationTemplate::factory()->create(['template_format' => 'pdf_overlay', 'status' => 'draft']);
+
+    $shared = [
+        'id' => 'subject_signature',
+        'type' => 'signature',
+        'role' => 'subject',
+        'slot_key' => 'subject',
+        'page' => 1,
+        'x' => 0.1,
+        'y' => 0.75,
+        'width' => 0.25,
+        'height' => 0.08,
+        'required' => true,
+    ];
+
+    $v1 = makeVersionWithConfig($template, 1, 'archived', [], [
+        'schema_version' => 3,
+        'placements' => [$shared],
+    ]);
+    $v2 = makeVersionWithConfig($template, 2, 'published', [], [
+        'schema_version' => 3,
+        'placements' => [array_merge($shared, [
+            'text_align' => 'right',
+            'vertical_align' => 'top',
+        ])],
+    ]);
+
+    $result = VersionChangeSummary::compare($v1, $v2);
+
+    expect($result['signatures_moved'])->toBe(['Employee · subject_signature']);
+});
+
 test('does NOT report moved from count changes alone', function () {
     $template = DocumentGenerationTemplate::factory()->create(['template_format' => 'pdf_overlay', 'status' => 'draft']);
 

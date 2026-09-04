@@ -131,6 +131,28 @@ final class DocumentSignaturePlacementValidator
     }
 
     /**
+     * @param  array{id: string, type: string, role: string, slot_key: string, page: int, x: float, y: float, width: float, height: float, required: bool, text_align: string, vertical_align: string}  $placement
+     * @return array{id: string, type: string, role: string, slot_key: string, page: int, x: float, y: float, width: float, height: float, required: bool, text_align: string, vertical_align: string}
+     */
+    public static function toPersistedPlacement(array $placement): array
+    {
+        return [
+            'id' => $placement['id'],
+            'type' => $placement['type'],
+            'role' => $placement['role'],
+            'slot_key' => $placement['slot_key'],
+            'page' => $placement['page'],
+            'x' => round($placement['x'], 6),
+            'y' => round($placement['y'], 6),
+            'width' => round($placement['width'], 6),
+            'height' => round($placement['height'], 6),
+            'required' => $placement['required'],
+            'text_align' => $placement['text_align'],
+            'vertical_align' => $placement['vertical_align'],
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>|null  $config
      * @return array{id: string, type: string, role: string, slot_key?: string, page: int, x: float, y: float, width: float, height: float, required: bool}
      *
@@ -451,7 +473,7 @@ final class DocumentSignaturePlacementValidator
 
     /**
      * @param  array<string, mixed>  $placement
-     * @return array{id: string, type: string, role: string, slot_key?: string, page: int, x: float, y: float, width: float, height: float, required: bool}
+     * @return array{id: string, type: string, role: string, slot_key?: string, page: int, x: float, y: float, width: float, height: float, required: bool, text_align: string, vertical_align: string}
      *
      * @throws InvalidArgumentException
      */
@@ -508,6 +530,8 @@ final class DocumentSignaturePlacementValidator
             'width' => $width,
             'height' => $height,
             'required' => (bool) ($placement['required'] ?? true),
+            'text_align' => self::parseTextAlign($placement['text_align'] ?? null),
+            'vertical_align' => self::parseVerticalAlign($placement['vertical_align'] ?? null),
         ];
 
         if ($includeSlotKey) {
@@ -527,5 +551,59 @@ final class DocumentSignaturePlacementValidator
         }
 
         return $parsed;
+    }
+
+    /**
+     * Missing values stay centered so existing templates keep current stamp behavior.
+     *
+     * @return 'left'|'center'|'right'
+     */
+    public static function normalizeTextAlign(mixed $value): string
+    {
+        return is_string($value) && in_array($value, ['left', 'center', 'right'], true)
+            ? $value
+            : 'center';
+    }
+
+    /**
+     * @return 'top'|'middle'|'baseline'
+     */
+    public static function normalizeVerticalAlign(mixed $value): string
+    {
+        return is_string($value) && in_array($value, ['top', 'middle', 'baseline'], true)
+            ? $value
+            : 'middle';
+    }
+
+    /**
+     * @return 'left'|'center'|'right'
+     */
+    public static function parseTextAlign(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return 'center';
+        }
+
+        if (! is_string($value) || ! in_array($value, ['left', 'center', 'right'], true)) {
+            throw new InvalidArgumentException('Signature placement has an invalid text alignment.');
+        }
+
+        return $value;
+    }
+
+    /**
+     * @return 'top'|'middle'|'baseline'
+     */
+    public static function parseVerticalAlign(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return 'middle';
+        }
+
+        if (! is_string($value) || ! in_array($value, ['top', 'middle', 'baseline'], true)) {
+            throw new InvalidArgumentException('Signature placement has an invalid vertical alignment.');
+        }
+
+        return $value;
     }
 }

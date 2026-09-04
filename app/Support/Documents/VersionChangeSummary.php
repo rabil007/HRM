@@ -133,7 +133,7 @@ final class VersionChangeSummary
         $sigsMoved = [];
 
         foreach (array_intersect($sigPrevKeys, $sigCurrKeys) as $id) {
-            if (self::coordinatesDiffer($prevSigs[$id], $currSigs[$id])) {
+            if (self::signaturePlacementChanged($prevSigs[$id], $currSigs[$id])) {
                 $sigsMoved[] = self::signatureChangeLabel($currSigs[$id]);
             }
         }
@@ -218,6 +218,17 @@ final class VersionChangeSummary
         }
 
         return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $previous
+     * @param  array<string, mixed>  $current
+     */
+    private static function signaturePlacementChanged(array $previous, array $current): bool
+    {
+        return self::coordinatesDiffer($previous, $current)
+            || ($previous['text_align'] ?? 'center') !== ($current['text_align'] ?? 'center')
+            || ($previous['vertical_align'] ?? 'middle') !== ($current['vertical_align'] ?? 'middle');
     }
 
     private static function automationChanged(

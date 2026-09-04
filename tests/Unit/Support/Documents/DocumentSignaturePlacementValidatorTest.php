@@ -144,5 +144,30 @@ test('draft save normalizes v1 and v2 to schema v3', function () {
     $normalized = DocumentSignaturePlacementValidator::normalizeForDraftSave($v1, 1);
 
     expect($normalized['schema_version'])->toBe(3)
-        ->and($normalized['placements'][0]['slot_key'])->toBe('subject');
+        ->and($normalized['placements'][0]['slot_key'])->toBe('subject')
+        ->and($normalized['placements'][0]['text_align'])->toBe('center')
+        ->and($normalized['placements'][0]['vertical_align'])->toBe('middle');
+});
+
+test('v3 persists signature alignment and rejects invalid values', function () {
+    $config = [
+        'schema_version' => 3,
+        'placements' => [
+            array_merge(v3Placement('subject_signature', 'subject', 'subject'), [
+                'text_align' => 'right',
+                'vertical_align' => 'baseline',
+            ]),
+        ],
+    ];
+
+    $validated = DocumentSignaturePlacementValidator::validateSignaturePlacementConfig($config, 1);
+
+    expect($validated['placements'][0]['text_align'])->toBe('right')
+        ->and($validated['placements'][0]['vertical_align'])->toBe('baseline');
+
+    $invalid = $config;
+    $invalid['placements'][0]['text_align'] = 'justify';
+
+    expect(fn () => DocumentSignaturePlacementValidator::validateSignaturePlacementConfig($invalid, 1))
+        ->toThrow(InvalidArgumentException::class, 'invalid text alignment');
 });

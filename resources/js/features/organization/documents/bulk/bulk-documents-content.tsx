@@ -41,6 +41,7 @@ import type { BulkDocumentsView } from '@/features/organization/documents/bulk/b
 import { BulkEmailBatchSendsSheet } from '@/features/organization/documents/bulk/bulk-email-batch-sends-sheet';
 import { BulkDocumentsEmailModal } from '@/features/organization/documents/bulk/bulk-email-modal';
 import { bulkDocumentsPollOnlyProps } from '@/features/organization/documents/lib/bulk-documents-poll-props';
+import { generationActionLabel } from '@/features/organization/documents/lib/generation-action-label';
 import {
     generationCompletionToast,
     isGenerationRunActive,
@@ -347,12 +348,11 @@ export function BulkDocumentsContent({
             : undefined);
 
     const missingCount = counts.not_generated;
-    const generateLabel =
-        isGenerating || isGenerationRunActive(latest_run?.status)
-            ? 'Generating…'
-            : effectiveSelectedCount > 0
-              ? `Generate for ${effectiveSelectedCount} selected`
-              : `Generate missing (${missingCount})`;
+    const generateLabel = generationActionLabel({
+        isBusy: isGenerating || isGenerationRunActive(latest_run?.status),
+        selectedCount: effectiveSelectedCount,
+        missingCount,
+    });
 
     const showSelectAllMatching =
         isAllSelected &&
@@ -792,6 +792,7 @@ export function BulkDocumentsContent({
     return (
         <Main>
             <PageHeader
+                className="mb-6"
                 title={isHistoryView ? 'Activity' : 'Generate & Send'}
                 description={
                     isHistoryView
@@ -812,12 +813,19 @@ export function BulkDocumentsContent({
             />
 
             {isRosterView ? (
-                <DocumentContextHeader
-                    documentTypeKey={document_type_key}
-                    documentTypeOptions={document_type_options}
-                    missingCount={counts.not_generated}
-                    onDocumentTypeChange={(value) => navigate(value)}
-                />
+                document_type_key !== '' ? (
+                    <DocumentContextHeader
+                        documentTypeKey={document_type_key}
+                        documentTypeOptions={document_type_options}
+                        missingCount={counts.not_generated}
+                        selectedCount={effectiveSelectedCount}
+                        generateLabel={generateLabel}
+                        canGenerate={can.generate}
+                        isGenerating={isGenerating || isRunActive}
+                        onDocumentTypeChange={(value) => navigate(value)}
+                        onGenerate={handleGenerate}
+                    />
+                ) : null
             ) : (
                 <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-muted-foreground">
@@ -857,43 +865,61 @@ export function BulkDocumentsContent({
                 </Alert>
             ) : null}
 
-            {isRosterView ? (
-                <GenerationStatusFilter
-                    generationFilter={generation_filter}
-                    onFilterChange={setGenerationFilter}
-                    counts={{
-                        targeted: counts.targeted,
-                        not_generated: counts.not_generated,
-                        generated: counts.generated,
-                    }}
-                />
-            ) : null}
-
-            {isRosterView ? (
-                <EmployeeFilters
-                    searchInput={searchInput}
-                    onSearchChange={setSearchInput}
-                    filters={{
-                        ...filters,
-                        search: searchInput,
-                    }}
-                    onFiltersChange={(next) => {
-                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                        const { search: _, ...filtersOnly } = next;
-                        setFilters(filtersOnly);
-                        navigate(document_type_key, filtersOnly, searchInput);
-                    }}
-                    emailFilter={email_filter}
-                    onEmailFilterChange={setEmailFilter}
-                    companyVisaTypes={company_visa_types}
-                    departmentTree={department_tree}
-                    departmentTreeSelectedId={department_tree_selected_id}
-                    departmentTreeSelectedPositionId={
-                        department_tree_selected_position_id
-                    }
-                    activeFilterCount={activeFilterCount}
-                    onClearFilters={clearAllFilters}
-                />
+            {isRosterView && document_type_key !== '' ? (
+                <section className="my-6 overflow-hidden rounded-2xl border border-border/60 bg-card/55 shadow-xs">
+                    <div className="flex flex-col gap-4 border-b border-border/60 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <h2 className="text-sm font-semibold text-foreground">
+                                Employee roster
+                            </h2>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                                Filter the roster, then select the people you
+                                want to process.
+                            </p>
+                        </div>
+                        <GenerationStatusFilter
+                            generationFilter={generation_filter}
+                            onFilterChange={setGenerationFilter}
+                            counts={{
+                                targeted: counts.targeted,
+                                not_generated: counts.not_generated,
+                                generated: counts.generated,
+                            }}
+                        />
+                    </div>
+                    <div className="p-4 sm:p-5">
+                        <EmployeeFilters
+                            searchInput={searchInput}
+                            onSearchChange={setSearchInput}
+                            filters={{
+                                ...filters,
+                                search: searchInput,
+                            }}
+                            onFiltersChange={(next) => {
+                                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                const { search: _, ...filtersOnly } = next;
+                                setFilters(filtersOnly);
+                                navigate(
+                                    document_type_key,
+                                    filtersOnly,
+                                    searchInput,
+                                );
+                            }}
+                            emailFilter={email_filter}
+                            onEmailFilterChange={setEmailFilter}
+                            companyVisaTypes={company_visa_types}
+                            departmentTree={department_tree}
+                            departmentTreeSelectedId={
+                                department_tree_selected_id
+                            }
+                            departmentTreeSelectedPositionId={
+                                department_tree_selected_position_id
+                            }
+                            activeFilterCount={activeFilterCount}
+                            onClearFilters={clearAllFilters}
+                        />
+                    </div>
+                </section>
             ) : null}
 
             {isRosterView ? (
@@ -909,10 +935,6 @@ export function BulkDocumentsContent({
 
             {isRosterView ? (
                 <>
-                    <h3 className="mb-4 text-sm font-medium text-foreground">
-                        Take Action
-                    </h3>
-
                     {effectiveSelectedCount > 0 ? (
                         <RegenerationWarning
                             count={
@@ -1007,7 +1029,18 @@ export function BulkDocumentsContent({
                         minWidth="min-w-[880px]"
                         header={
                             <>
-                                <span />
+                                <div>
+                                    <p className="text-sm font-semibold text-foreground">
+                                        Employees
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {pagination.total}{' '}
+                                        {pagination.total === 1
+                                            ? 'employee'
+                                            : 'employees'}{' '}
+                                        in this view
+                                    </p>
+                                </div>
                                 {!module_view_locked ? (
                                     <BulkDocumentsViewSwitcher
                                         value={view}

@@ -167,6 +167,8 @@ export type SignaturePlacementItem = {
     width: number;
     height: number;
     required: boolean;
+    text_align?: 'left' | 'center' | 'right';
+    vertical_align?: PlacementVerticalAlign;
 };
 
 export type SignaturePlacementConfig = {

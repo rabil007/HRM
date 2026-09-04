@@ -60,13 +60,8 @@ export function EmployeeFilters({
     )?.name;
 
     return (
-        <div className="space-y-4">
-            <h3 className="text-sm font-medium text-foreground">
-                Choose Employees
-            </h3>
-
-            {/* Search and filters */}
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+        <div className="space-y-3">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
                 <SearchBar
                     placeholder="Search employees by name or employee no…"
                     value={searchInput}
@@ -74,7 +69,7 @@ export function EmployeeFilters({
                     className="mb-0 flex-1"
                 />
 
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <div className="grid shrink-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:flex xl:items-center">
                     {/* Desktop: Departments popover */}
                     <Popover
                         open={deptPopoverOpen}
@@ -84,7 +79,7 @@ export function EmployeeFilters({
                             <Button
                                 type="button"
                                 variant="secondary"
-                                className="hidden h-12 rounded-xl glass-card px-5 hover:bg-accent lg:flex"
+                                className="hidden h-11 rounded-xl px-4 hover:bg-accent lg:flex"
                             >
                                 <FolderTree className="mr-2 h-4 w-4" />
                                 Departments
@@ -138,7 +133,7 @@ export function EmployeeFilters({
                             <Button
                                 type="button"
                                 variant="secondary"
-                                className="h-12 rounded-xl glass-card px-5 hover:bg-accent lg:hidden"
+                                className="h-11 rounded-xl px-4 hover:bg-accent lg:hidden"
                             >
                                 <FolderTree className="mr-2 h-4 w-4" />
                                 Departments
@@ -196,7 +191,7 @@ export function EmployeeFilters({
                             })
                         }
                         placeholder="All sponsors"
-                        className="h-12 w-full rounded-xl glass-card sm:w-56"
+                        className="h-11 w-full rounded-xl sm:w-48"
                     >
                         <AppSelectItem value="">All sponsors</AppSelectItem>
                         {companyVisaTypes.map((sponsor) => (
@@ -214,7 +209,7 @@ export function EmployeeFilters({
                         onValueChange={(value) =>
                             onEmailFilterChange(value as BulkEmailFilter)
                         }
-                        className="h-12 w-full rounded-xl glass-card sm:w-56"
+                        className="h-11 w-full rounded-xl sm:w-48"
                     >
                         <AppSelectItem value="all">
                             All email status
@@ -229,7 +224,7 @@ export function EmployeeFilters({
                         <Button
                             type="button"
                             variant="outline"
-                            className="h-12 rounded-xl glass-card px-4 hover:bg-accent"
+                            className="h-11 rounded-xl px-4 hover:bg-accent"
                             onClick={onClearFilters}
                         >
                             <X className="mr-2 h-4 w-4" />
@@ -239,7 +234,6 @@ export function EmployeeFilters({
                 </div>
             </div>
 
-            {/* Active filter chips */}
             {activeFilterCount > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-medium text-muted-foreground/80">

@@ -139,6 +139,8 @@ import {
     groupSignatureSlots,
     loadSignaturePlacements,
     nextSignerOccurrence,
+    normalizeSignatureTextAlign,
+    normalizeSignatureVerticalAlign,
     offsetNewPlacement,
     placementIndexInSlot,
     removeSignaturePlacement,
@@ -178,6 +180,7 @@ import type {
     DesignerWorkflowPreset,
     MergeField,
     PlacementFontFamily,
+    PlacementVerticalAlign,
     PdfFieldPlacement,
     PdfPlacementItem,
     PdfTextPlacement,
@@ -914,6 +917,36 @@ function PlacementFontControls({
                     <Bold className="size-3.5" />
                 </Button>
             </div>
+            <PlacementAlignmentControls
+                textAlign={placement.text_align || 'left'}
+                verticalAlign={
+                    placement.vertical_align ||
+                    (placement.type === 'text' ? 'top' : 'middle')
+                }
+                disabled={disabled}
+                onChange={onChange}
+            />
+        </>
+    );
+}
+
+function PlacementAlignmentControls({
+    textAlign,
+    verticalAlign,
+    disabled,
+    onChange,
+}: {
+    textAlign: 'left' | 'center' | 'right';
+    verticalAlign: PlacementVerticalAlign;
+    disabled: boolean;
+    onChange: (
+        patch: Partial<
+            Pick<PdfPlacementItem, 'text_align' | 'vertical_align'>
+        >,
+    ) => void;
+}) {
+    return (
+        <>
             <div>
                 <p className="mb-1 text-[11px] text-muted-foreground">
                     Alignment
@@ -930,18 +963,12 @@ function PlacementFontControls({
                             key={align}
                             type="button"
                             size="sm"
-                            variant={
-                                (placement.text_align || 'left') === align
-                                    ? 'default'
-                                    : 'ghost'
-                            }
+                            variant={textAlign === align ? 'default' : 'ghost'}
                             className="h-7 flex-1 gap-1 px-1.5 text-[11px]"
                             disabled={disabled}
                             title={label}
                             aria-label={label}
-                            aria-pressed={
-                                (placement.text_align || 'left') === align
-                            }
+                            aria-pressed={textAlign === align}
                             onClick={() => onChange({ text_align: align })}
                         >
                             <Icon className="size-3.5" />
@@ -971,12 +998,7 @@ function PlacementFontControls({
                             type="button"
                             size="icon"
                             variant={
-                                (placement.vertical_align ||
-                                    (placement.type === 'text'
-                                        ? 'top'
-                                        : 'middle')) === align
-                                    ? 'default'
-                                    : 'ghost'
+                                verticalAlign === align ? 'default' : 'ghost'
                             }
                             className="size-7"
                             disabled={disabled}
@@ -1388,12 +1410,22 @@ export function TemplatePdfDesignerDialog({
 
                 if (elementType === 'signature') {
                     const pixel = fabricObjectToPixelRect(rect);
-                    label.set({
-                        left: pixel.left + 6,
-                        top: pixel.top + 6,
-                        originX: 'left',
-                        originY: 'top',
-                    });
+                    const placement = signaturePlacementsRef.current.find(
+                        (item) => item.id === id,
+                    );
+                    label.set(
+                        overlayFieldLabelLayout(
+                            pixel.left,
+                            pixel.top,
+                            pixel.width,
+                            pixel.height,
+                            normalizeSignatureTextAlign(placement?.text_align),
+                            normalizeSignatureVerticalAlign(
+                                placement?.vertical_align,
+                            ),
+                            label.fontSize ?? 12,
+                        ),
+                    );
 
                     return;
                 }
@@ -1734,14 +1766,22 @@ export function TemplatePdfDesignerDialog({
                     canvas.add(rect);
 
                     if (!preview) {
+                        const labelLayout = overlayFieldLabelLayout(
+                            pixel.left,
+                            pixel.top,
+                            pixel.width,
+                            pixel.height,
+                            normalizeSignatureTextAlign(item.text_align),
+                            normalizeSignatureVerticalAlign(item.vertical_align),
+                            12,
+                        );
                         const label = new FabricText(
                             canvasSignatureLabel(
                                 item,
                                 signaturePlacementsRef.current,
                             ),
                             {
-                                left: pixel.left + 6,
-                                top: pixel.top + 6,
+                                ...labelLayout,
                                 fontSize: 12,
                                 fill: colors.text,
                                 selectable: false,
@@ -4179,6 +4219,35 @@ export function TemplatePdfDesignerDialog({
         }
     };
 
+    const updateSignatureProperty = (
+        id: string,
+        patch: Partial<
+            Pick<SignaturePlacementItem, 'text_align' | 'vertical_align'>
+        >,
+    ) => {
+        recordHistory();
+        nudgeSessionRef.current = false;
+        const updated = updateSignaturePlacement(
+            signaturePlacementsRef.current,
+            id,
+            patch,
+        );
+        signaturePlacementsRef.current = updated;
+        setSignaturePlacements(updated);
+        setHasUnsavedChanges(true);
+        refreshCanvasObjects();
+
+        const canvas = fabricCanvasRef.current;
+        const object = canvas
+            ?.getObjects()
+            .find((item) => (item.get('data') as { id?: string })?.id === id);
+
+        if (canvas && object) {
+            canvas.setActiveObject(object);
+            canvas.requestRenderAll();
+        }
+    };
+
     const selectedOverflow: OverflowLevel =
         selectedPlacement && canvasSize.width > 0
             ? placementOverflowLevel(
@@ -4488,6 +4557,18 @@ export function TemplatePdfDesignerDialog({
                         </SelectContent>
                     </Select>
                 </div>
+                <PlacementAlignmentControls
+                    textAlign={normalizeSignatureTextAlign(
+                        selectedSignature.text_align,
+                    )}
+                    verticalAlign={normalizeSignatureVerticalAlign(
+                        selectedSignature.vertical_align,
+                    )}
+                    disabled={!isEditable}
+                    onChange={(patch) =>
+                        updateSignatureProperty(selectedSignature.id, patch)
+                    }
+                />
                 {isEditable && (
                     <Button
                         type="button"
