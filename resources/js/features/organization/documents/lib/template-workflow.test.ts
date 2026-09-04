@@ -387,6 +387,8 @@ describe('designer and templates list copy', () => {
         assert.equal(designer.includes('designerUiCopy.workflowTab'), true);
         assert.equal(designer.includes('TemplateDesignerWorkflowPanel'), true);
         assert.equal(designer.includes('TemplateReadinessIndicator'), true);
+        assert.equal(designer.includes('layoutValidateButtonLabel'), false);
+        assert.equal(designer.includes('onValidateLayout'), true);
         assert.equal(designer.includes('markWorkflowDirty'), true);
         assert.equal(designer.includes('publishBlocked'), true);
         assert.equal(designer.includes('placeSlotOnPdf'), true);
@@ -457,6 +459,8 @@ describe('designer and templates list copy', () => {
         assert.equal(signingSteps.includes('onPlaceSlot'), true);
         assert.equal(readiness.includes('readinessFixAction'), true);
         assert.equal(readiness.includes('readinessDisplayState'), true);
+        assert.equal(readiness.includes('Layout'), true);
+        assert.equal(readiness.includes('onValidateLayout'), true);
         assert.equal(readiness.includes('canMutate'), true);
         assert.equal(panel.includes('preset.id'), true);
         assert.equal(panel.includes('stage.id'), false);

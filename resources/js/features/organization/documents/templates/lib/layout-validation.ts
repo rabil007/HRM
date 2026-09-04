@@ -119,6 +119,31 @@ export function layoutValidateButtonLabel(
     return 'Validate template';
 }
 
+export function layoutReadinessSectionCopy(
+    status: LayoutValidationStatus,
+    issueCount = 0,
+): { kind: 'ok' | 'pending' | 'checking' | 'issues'; summary: string } {
+    if (status === 'checking') {
+        return { kind: 'checking', summary: 'Validating layout…' };
+    }
+
+    if (status === 'valid') {
+        return { kind: 'ok', summary: 'No issues' };
+    }
+
+    if (status === 'invalid') {
+        return {
+            kind: 'issues',
+            summary:
+                issueCount === 1
+                    ? '1 layout issue'
+                    : `${issueCount} layout issues`,
+        };
+    }
+
+    return { kind: 'pending', summary: 'Validation required' };
+}
+
 export function issueTestValue(
     result: LayoutPreflightResult | null,
     placementId: string,

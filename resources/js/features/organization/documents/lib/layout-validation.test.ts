@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     layoutIssuePlacementIds,
+    layoutReadinessSectionCopy,
     layoutValidateButtonLabel,
     layoutValidationFingerprint,
 } from '../templates/lib/layout-validation.ts';
@@ -45,6 +46,23 @@ describe('layoutValidateButtonLabel', () => {
             '3 layout issues',
         );
         assert.equal(layoutValidateButtonLabel('stale'), 'Validation required');
+    });
+});
+
+describe('layoutReadinessSectionCopy', () => {
+    it('keeps layout status out of a second toolbar label', () => {
+        assert.deepEqual(layoutReadinessSectionCopy('valid'), {
+            kind: 'ok',
+            summary: 'No issues',
+        });
+        assert.deepEqual(layoutReadinessSectionCopy('invalid', 1), {
+            kind: 'issues',
+            summary: '1 layout issue',
+        });
+        assert.deepEqual(layoutReadinessSectionCopy('idle'), {
+            kind: 'pending',
+            summary: 'Validation required',
+        });
     });
 });
 

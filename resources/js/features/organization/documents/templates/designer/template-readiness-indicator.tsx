@@ -1,4 +1,4 @@
-import { AlertTriangle, Check } from 'lucide-react';
+import { AlertTriangle, Check, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,7 +7,12 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import type { LayoutValidationStatus } from '../lib/layout-validation';
+import { layoutReadinessSectionCopy } from '../lib/layout-validation';
+import type {
+    LayoutPreflightIssue,
+    LayoutPreflightResult,
+    LayoutValidationStatus,
+} from '../lib/layout-validation';
 import {
     readinessDisplayState,
     readinessFixAction,
@@ -26,7 +31,10 @@ type Props = {
     canMutate: boolean;
     layoutStatus?: LayoutValidationStatus;
     layoutIssueCount?: number;
+    layoutResult?: LayoutPreflightResult | null;
     onFix: (issue: Issue) => void;
+    onValidateLayout?: () => void;
+    onSelectLayoutIssue?: (issue: LayoutPreflightIssue) => void;
 };
 
 export function TemplateReadinessIndicator({
@@ -36,9 +44,12 @@ export function TemplateReadinessIndicator({
     configurationBlockingCount,
     publishBlocked,
     canMutate,
-    layoutStatus,
-    layoutIssueCount,
+    layoutStatus = 'valid',
+    layoutIssueCount = 0,
+    layoutResult = null,
     onFix,
+    onValidateLayout,
+    onSelectLayoutIssue,
 }: Props) {
     const [open, setOpen] = useState(false);
     const display = readinessDisplayState({
@@ -59,7 +70,7 @@ export function TemplateReadinessIndicator({
                     size="sm"
                     aria-label={`Template readiness: ${display.label}${display.detail ? `. ${display.detail}` : ''}`}
                     className={cn(
-                        'h-auto min-h-8 gap-1.5 py-1 text-xs',
+                        'h-8 gap-1.5 text-xs',
                         readyLook
                             ? 'border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400'
                             : 'border-amber-300 text-amber-800 dark:border-amber-800 dark:text-amber-300',
@@ -70,14 +81,7 @@ export function TemplateReadinessIndicator({
                     ) : (
                         <AlertTriangle className="size-3.5" />
                     )}
-                    <span className="flex flex-col items-start leading-none">
-                        <span>{display.label}</span>
-                        {display.detail ? (
-                            <span className="text-[10px] font-normal text-muted-foreground">
-                                {display.detail}
-                            </span>
-                        ) : null}
-                    </span>
+                    {display.label}
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-80 space-y-3 p-3">
@@ -90,6 +94,19 @@ export function TemplateReadinessIndicator({
                     canMutate={canMutate}
                     onFix={(issue) => {
                         onFix(issue);
+                        setOpen(false);
+                    }}
+                />
+                <LayoutReadinessSection
+                    status={layoutStatus}
+                    issueCount={layoutIssueCount}
+                    result={layoutResult}
+                    canMutate={canMutate}
+                    onValidate={() => {
+                        onValidateLayout?.();
+                    }}
+                    onSelectIssue={(issue) => {
+                        onSelectLayoutIssue?.(issue);
                         setOpen(false);
                     }}
                 />
@@ -135,6 +152,112 @@ export function TemplateReadinessIndicator({
                 ) : null}
             </PopoverContent>
         </Popover>
+    );
+}
+
+function LayoutReadinessSection({
+    status,
+    issueCount,
+    result,
+    canMutate,
+    onValidate,
+    onSelectIssue,
+}: {
+    status: LayoutValidationStatus;
+    issueCount: number;
+    result: LayoutPreflightResult | null;
+    canMutate: boolean;
+    onValidate?: () => void;
+    onSelectIssue: (issue: LayoutPreflightIssue) => void;
+}) {
+    const copy = layoutReadinessSectionCopy(status, issueCount);
+    const overflowIssues =
+        result?.issues.filter((issue) => issue.code === 'LAYOUT_OVERFLOW') ??
+        [];
+    const otherIssues =
+        result?.issues.filter((issue) => issue.code !== 'LAYOUT_OVERFLOW') ??
+        [];
+    const showValidate =
+        canMutate &&
+        Boolean(onValidate) &&
+        (status === 'idle' ||
+            status === 'stale' ||
+            status === 'invalid' ||
+            status === 'checking');
+
+    return (
+        <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase">Layout</p>
+            {copy.kind === 'ok' ? (
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                    ✓ {copy.summary}
+                </p>
+            ) : copy.kind === 'checking' ? (
+                <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Loader2 className="size-3 animate-spin" />
+                    {copy.summary}
+                </p>
+            ) : (
+                <p
+                    className={
+                        copy.kind === 'issues'
+                            ? 'text-[11px] text-amber-800 dark:text-amber-300'
+                            : 'text-[11px] text-muted-foreground'
+                    }
+                >
+                    {copy.kind === 'issues' ? '⚠ ' : ''}
+                    {copy.summary}
+                </p>
+            )}
+            {otherIssues.map((issue, index) => (
+                <p
+                    key={`${issue.code}-${index}`}
+                    className="text-[11px] text-destructive"
+                >
+                    {issue.message}
+                </p>
+            ))}
+            {overflowIssues.map((issue) => (
+                <div
+                    key={issue.placement_id ?? issue.message}
+                    className="flex items-start justify-between gap-2"
+                >
+                    <p className="text-[11px] text-foreground">
+                        ⚠ {issue.field_label ?? 'Text box'}
+                    </p>
+                    {canMutate && issue.placement_id ? (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-6 shrink-0 px-2 text-[11px]"
+                            onClick={() => onSelectIssue(issue)}
+                        >
+                            Select field
+                        </Button>
+                    ) : null}
+                </div>
+            ))}
+            {showValidate ? (
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[11px]"
+                    disabled={status === 'checking'}
+                    onClick={onValidate}
+                >
+                    {status === 'checking' ? (
+                        <Loader2 className="mr-1 size-3 animate-spin" />
+                    ) : null}
+                    {status === 'checking'
+                        ? 'Validating…'
+                        : status === 'invalid'
+                          ? 'Re-check layout'
+                          : 'Validate layout'}
+                </Button>
+            ) : null}
+        </div>
     );
 }
 

@@ -8,7 +8,6 @@ import {
     AlignVerticalJustifyEnd,
     AlignVerticalJustifyStart,
     Bold,
-    Check,
     ChevronDown,
     ChevronLeft,
     ChevronRight,
@@ -107,7 +106,6 @@ import {
 import type { FabricRectLike } from '../lib/coordinates';
 import {
     layoutIssuePlacementIds,
-    layoutValidateButtonLabel,
     layoutValidationFingerprint,
 } from '../lib/layout-validation';
 import type {
@@ -4446,9 +4444,9 @@ export function TemplatePdfDesignerDialog({
                 )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-2">
                 {isEditable && !isSamplePreview && (
-                    <>
+                    <div className="flex items-center gap-1">
                         <Button
                             type="button"
                             variant="outline"
@@ -4471,7 +4469,7 @@ export function TemplatePdfDesignerDialog({
                         >
                             <Redo2 className="size-3.5" />
                         </Button>
-                    </>
+                    </div>
                 )}
 
                 {/* Return to Draft / Create Draft */}
@@ -4516,195 +4514,201 @@ export function TemplatePdfDesignerDialog({
                         return null;
                     })()}
 
-                {/* Sample preview toggle */}
-                {isSamplePreview ? (
-                    <Button
-                        type="button"
-                        variant="default"
-                        size="sm"
-                        onClick={() => {
-                            setIsSamplePreview(false);
-                            setPreviewEmployee(null);
-                        }}
-                    >
-                        <EyeOff className="mr-1.5 size-3.5" />
-                        Exit Preview
-                    </Button>
-                ) : (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button type="button" variant="outline" size="sm">
-                                <Eye className="mr-1.5 size-3.5" />
-                                Preview
-                                <ChevronDown className="ml-1 size-3.5" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                                onSelect={() => {
-                                    setPendingPlacement(null);
-                                    setPreviewEmployee(null);
-                                    setIsSamplePreview(true);
-                                    void runLayoutValidation({
-                                        mode: 'sample',
-                                    });
-                                }}
-                            >
-                                Sample data
-                            </DropdownMenuItem>
-                            {can.preview_employee ? (
+                <div className="flex items-center gap-2">
+                    {/* Sample preview toggle */}
+                    {isSamplePreview ? (
+                        <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            onClick={() => {
+                                setIsSamplePreview(false);
+                                setPreviewEmployee(null);
+                            }}
+                        >
+                            <EyeOff className="mr-1.5 size-3.5" />
+                            Exit Preview
+                        </Button>
+                    ) : (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                >
+                                    <Eye className="mr-1.5 size-3.5" />
+                                    Preview
+                                    <ChevronDown className="ml-1 size-3.5" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
                                 <DropdownMenuItem
                                     onSelect={() => {
                                         setPendingPlacement(null);
+                                        setPreviewEmployee(null);
                                         setIsSamplePreview(true);
+                                        void runLayoutValidation({
+                                            mode: 'sample',
+                                        });
                                     }}
                                 >
-                                    Preview with employee…
+                                    Sample data
                                 </DropdownMenuItem>
-                            ) : null}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
+                                {can.preview_employee ? (
+                                    <DropdownMenuItem
+                                        onSelect={() => {
+                                            setPendingPlacement(null);
+                                            setIsSamplePreview(true);
+                                        }}
+                                    >
+                                        Preview with employee…
+                                    </DropdownMenuItem>
+                                ) : null}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
 
-                {isSamplePreview ? (
-                    <span className="text-[11px] text-muted-foreground">
-                        Preview data — not saved
-                    </span>
-                ) : null}
+                    {isSamplePreview ? (
+                        <span className="text-[11px] text-muted-foreground">
+                            Preview data — not saved
+                        </span>
+                    ) : null}
 
-                {isSamplePreview && can.preview_employee && template && (
-                    <TemplateDesignEmployeePreviewPicker
-                        templateId={template.id}
-                        selected={previewEmployee}
-                        onSelect={(employee) => {
-                            setPreviewEmployee(employee);
-                            void runLayoutValidation({
-                                mode: 'employee',
-                                employeeId: employee.id,
-                            });
-                        }}
-                        onClear={() => {
-                            setPreviewEmployee(null);
-                            void runLayoutValidation({ mode: 'sample' });
-                        }}
-                    />
-                )}
+                    {isSamplePreview && can.preview_employee && template && (
+                        <TemplateDesignEmployeePreviewPicker
+                            templateId={template.id}
+                            selected={previewEmployee}
+                            onSelect={(employee) => {
+                                setPreviewEmployee(employee);
+                                void runLayoutValidation({
+                                    mode: 'employee',
+                                    employeeId: employee.id,
+                                });
+                            }}
+                            onClear={() => {
+                                setPreviewEmployee(null);
+                                void runLayoutValidation({ mode: 'sample' });
+                            }}
+                        />
+                    )}
 
-                {/* Page navigation */}
-                <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 px-1.5 py-0.5">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-7"
-                        disabled={currentPage <= 1 || isLoadingPdf}
-                        onClick={() =>
-                            setCurrentPage((p) => Math.max(1, p - 1))
-                        }
-                    >
-                        <ChevronLeft className="size-4" />
-                    </Button>
-                    <span className="px-1 text-xs font-medium select-none">
-                        Page {currentPage} of {totalPages}
-                    </span>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-7"
-                        disabled={currentPage >= totalPages || isLoadingPdf}
-                        onClick={() =>
-                            setCurrentPage((p) => Math.min(totalPages, p + 1))
-                        }
-                    >
-                        <ChevronRight className="size-4" />
-                    </Button>
+                    {/* Page navigation */}
+                    <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 px-1.5 py-0.5">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-7"
+                            disabled={currentPage <= 1 || isLoadingPdf}
+                            onClick={() =>
+                                setCurrentPage((p) => Math.max(1, p - 1))
+                            }
+                        >
+                            <ChevronLeft className="size-4" />
+                        </Button>
+                        <span className="px-1 text-xs font-medium select-none">
+                            Page {currentPage} of {totalPages}
+                        </span>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-7"
+                            disabled={currentPage >= totalPages || isLoadingPdf}
+                            onClick={() =>
+                                setCurrentPage((p) =>
+                                    Math.min(totalPages, p + 1),
+                                )
+                            }
+                        >
+                            <ChevronRight className="size-4" />
+                        </Button>
+                    </div>
                 </div>
 
-                {/* Save / Publish — only when editable */}
                 {isEditable && (
                     <>
-                        <TemplateReadinessIndicator
-                            readiness={readiness}
-                            issues={visibleIssues}
-                            hasUnsavedChanges={hasUnsavedChanges}
-                            configurationBlockingCount={configurationIssueCount}
-                            publishBlocked={publishBlocked}
-                            canMutate={isEditable}
-                            layoutStatus={layoutValidation.status}
-                            layoutIssueCount={layoutIssueCount}
-                            onFix={handleReadinessFix}
+                        <div
+                            className="hidden h-5 w-px bg-border sm:block"
+                            aria-hidden
                         />
-                        {isEditable ? (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                disabled={
-                                    layoutValidation.status === 'checking' ||
-                                    isLoadingPdf
+                        <div className="flex items-center gap-2">
+                            <TemplateReadinessIndicator
+                                readiness={readiness}
+                                issues={visibleIssues}
+                                hasUnsavedChanges={hasUnsavedChanges}
+                                configurationBlockingCount={
+                                    configurationIssueCount
                                 }
-                                onClick={() =>
+                                publishBlocked={publishBlocked}
+                                canMutate={isEditable}
+                                layoutStatus={layoutValidation.status}
+                                layoutIssueCount={layoutIssueCount}
+                                layoutResult={
+                                    layoutValidation.status === 'valid' ||
+                                    layoutValidation.status === 'invalid'
+                                        ? layoutValidation.result
+                                        : layoutValidation.status === 'stale'
+                                          ? layoutValidation.previous
+                                          : null
+                                }
+                                onFix={handleReadinessFix}
+                                onValidateLayout={() =>
                                     void runLayoutValidation({
                                         mode: previewEmployee
                                             ? 'employee'
                                             : 'sample',
-                                        employeeId: previewEmployee?.id ?? null,
+                                        employeeId:
+                                            previewEmployee?.id ?? null,
                                     })
                                 }
+                                onSelectLayoutIssue={selectLayoutIssue}
+                            />
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant={
+                                    hasUnsavedChanges ? 'default' : 'outline'
+                                }
+                                onClick={() => void handleSaveDesign()}
+                                disabled={isSaving || isLoadingPdf}
                             >
-                                {layoutValidation.status === 'checking' ? (
-                                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                                ) : layoutValidation.status === 'valid' ? (
-                                    <Check className="mr-1.5 size-3.5" />
-                                ) : null}
-                                {layoutValidateButtonLabel(
-                                    layoutValidation.status,
-                                    layoutIssueCount,
+                                {isSaving ? (
+                                    <>
+                                        <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save className="mr-1.5 size-3.5" />
+                                        {designerUiCopy.saveDraft}
+                                        {hasUnsavedChanges && (
+                                            <span className="ml-1.5 inline-block size-1.5 rounded-full bg-amber-400" />
+                                        )}
+                                    </>
                                 )}
                             </Button>
-                        ) : null}
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant={hasUnsavedChanges ? 'default' : 'outline'}
-                            onClick={() => void handleSaveDesign()}
-                            disabled={isSaving || isLoadingPdf}
-                        >
-                            {isSaving ? (
-                                <>
-                                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                                    Saving...
-                                </>
-                            ) : (
-                                <>
-                                    <Save className="mr-1.5 size-3.5" />
-                                    {designerUiCopy.saveDraft}
-                                    {hasUnsavedChanges && (
-                                        <span className="ml-1.5 inline-block size-1.5 rounded-full bg-amber-400" />
-                                    )}
-                                </>
-                            )}
-                        </Button>
-                        <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => setIsPublishConfirmOpen(true)}
-                            disabled={publishBlocked}
-                            className="bg-primary hover:bg-primary/90"
-                        >
-                            {isPublishing ? (
-                                <>
-                                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                                    Publishing...
-                                </>
-                            ) : (
-                                <>
-                                    <Send className="mr-1.5 size-3.5" />
-                                    Publish
-                                </>
-                            )}
-                        </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => setIsPublishConfirmOpen(true)}
+                                disabled={publishBlocked}
+                                className="bg-primary hover:bg-primary/90"
+                            >
+                                {isPublishing ? (
+                                    <>
+                                        <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                                        Publishing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send className="mr-1.5 size-3.5" />
+                                        Publish
+                                    </>
+                                )}
+                            </Button>
+                        </div>
                     </>
                 )}
             </div>
