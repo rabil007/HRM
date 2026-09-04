@@ -27,6 +27,7 @@ export type Auth = {
     roles?: string[];
     platform?: PlatformAccess;
     two_factor?: TwoFactorStatus;
+    my_tasks_count?: number;
 };
 
 export type TwoFactorSetupData = {

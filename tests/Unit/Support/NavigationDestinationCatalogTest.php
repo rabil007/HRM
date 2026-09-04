@@ -27,9 +27,9 @@ test('vessel manning cannot unlock the vessels destination', function () {
 
     grantCompanyPermissions($user, $company, ['crew_operations.vessel_manning.view']);
 
-    expect(NavigationDestinationCatalog::contains('crew.vessel-manning'))->toBeTrue()
+    expect(NavigationDestinationCatalog::contains('crew.vessel-manning'))->toBeFalse()
         ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.vessels'))->toBeFalse()
-        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.vessel-manning'))->toBeTrue();
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.vessel-manning'))->toBeFalse();
 });
 
 test('documents destinations form one unified group without a standalone bulk generate href', function () {
@@ -42,8 +42,8 @@ test('documents destinations form one unified group without a standalone bulk ge
         'Overview',
         'Library',
         'Templates',
-        'Generate & Send',
-        'Requests',
+        'Generate & Track',
+        'My Tasks',
         'Document Types',
         'Activity',
     ])
@@ -72,12 +72,12 @@ test('platform view does not unlock the templates destination', function () {
     expect(NavigationDestinationCatalog::isAccessibleKey($user, 'documents.templates'))->toBeFalse();
 });
 
-test('vessels.view cannot unlock the vessel manning destination', function () {
+test('vessels.view cannot unlock a removed vessel manning destination', function () {
     $user = User::factory()->create();
     ['company' => $company] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, ['crew_operations.vessels.view']);
 
     expect(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.vessels'))->toBeTrue()
-        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.vessel-manning'))->toBeFalse();
+        ->and(NavigationDestinationCatalog::contains('crew.vessel-manning'))->toBeFalse();
 });

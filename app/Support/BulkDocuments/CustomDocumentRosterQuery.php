@@ -7,6 +7,7 @@ use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentInstance;
 use App\Models\Employee;
+use App\Support\Documents\Process\DocumentOperationalProcessPresenter;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -16,7 +17,19 @@ final class CustomDocumentRosterQuery
 {
     /**
      * @param  list<int>|null  $employeeIds
-     * @return array{targeted: int, generated: int, not_generated: int, pending_review: int, awaiting_signature: int, approved: int}
+     * @return array{
+     *     targeted: int,
+     *     generated: int,
+     *     not_generated: int,
+     *     pending_review: int,
+     *     awaiting_signature: int,
+     *     approved: int,
+     *     all: int,
+     *     not_started: int,
+     *     in_progress: int,
+     *     needs_attention: int,
+     *     completed: int,
+     * }
      */
     public static function counts(
         int $companyId,
@@ -36,6 +49,32 @@ final class CustomDocumentRosterQuery
 
         $notGenerated = max(0, $targeted - $generated);
 
+        $inProgress = (clone $query)->whereHas('documentInstances', function (Builder $instanceQuery) use ($companyId, $version): void {
+            $instanceQuery->where('company_id', $companyId)
+                ->where('document_generation_template_version_id', $version->id)
+                ->whereHas('lifecycleAutomation', function (Builder $lifecycleQuery): void {
+                    $lifecycleQuery->whereIn('status', ['active', 'pending']);
+                });
+        })->count();
+
+        $needsAttention = (clone $query)->whereHas('documentInstances', function (Builder $instanceQuery) use ($companyId, $version): void {
+            $instanceQuery->where('company_id', $companyId)
+                ->where('document_generation_template_version_id', $version->id)
+                ->whereHas('lifecycleAutomation', function (Builder $lifecycleQuery): void {
+                    $lifecycleQuery->where('status', 'blocked');
+                });
+        })->count();
+
+        $completed = (clone $query)->whereHas('documentInstances', function (Builder $instanceQuery) use ($companyId, $version): void {
+            $instanceQuery->where('company_id', $companyId)
+                ->where('document_generation_template_version_id', $version->id)
+                ->withLibraryDocument()
+                ->where(function (Builder $q): void {
+                    $q->whereHas('lifecycleAutomation', fn ($lq) => $lq->where('status', 'completed'))
+                        ->orWhereDoesntHave('lifecycleAutomation');
+                });
+        })->count();
+
         return [
             'targeted' => $targeted,
             'generated' => $generated,
@@ -43,6 +82,11 @@ final class CustomDocumentRosterQuery
             'pending_review' => 0,
             'awaiting_signature' => 0,
             'approved' => 0,
+            'all' => $targeted,
+            'not_started' => $notGenerated,
+            'in_progress' => $inProgress,
+            'needs_attention' => $needsAttention,
+            'completed' => $completed,
         ];
     }
 
@@ -57,9 +101,9 @@ final class CustomDocumentRosterQuery
         int $companyId,
         DocumentGenerationTemplateVersion $version,
         EmployeeDirectoryFilters $filters,
-        string $generationFilter = 'all',
+        string $filter = 'all',
     ): array {
-        $employeeIds = self::filteredEmployeeQuery($companyId, $version, $filters, $generationFilter)
+        $employeeIds = self::filteredEmployeeQuery($companyId, $version, $filters, $filter)
             ->orderBy('name')
             ->pluck('id')
             ->map(fn ($id): int => (int) $id)
@@ -93,10 +137,10 @@ final class CustomDocumentRosterQuery
         DocumentGenerationTemplateVersion $version,
         EmployeeDirectoryFilters $filters,
         int $perPage,
-        string $generationFilter = 'all',
+        string $filter = 'all',
         ?int $generationRunId = null,
     ): LengthAwarePaginator {
-        $paginator = self::filteredEmployeeQuery($companyId, $version, $filters, $generationFilter)
+        $paginator = self::filteredEmployeeQuery($companyId, $version, $filters, $filter)
             ->with([
                 'department:id,name',
                 'position:id,title',
@@ -112,7 +156,12 @@ final class CustomDocumentRosterQuery
             ->where('document_generation_template_version_id', $version->id)
             ->whereIn('employee_id', $employeeIdList)
             ->withLibraryDocument()
-            ->with('employeeDocument')
+            ->with([
+                'employeeDocument',
+                'lifecycleAutomation.workflowRequest.stages.tasks',
+                'lifecycleAutomation.signingFlow.recipientRequests.deliveries',
+                'recipientRequests.deliveries',
+            ])
             ->orderByDesc('id')
             ->get()
             ->unique('employee_id')
@@ -124,13 +173,26 @@ final class CustomDocumentRosterQuery
             $generationRunId,
         );
 
-        return $paginator->through(function (Employee $employee) use ($instancesByEmployee, $runItemsByEmployee): array {
+        $processPresenter = app(DocumentOperationalProcessPresenter::class);
+        $viewer = auth()->user();
+
+        return $paginator->through(function (Employee $employee) use ($instancesByEmployee, $runItemsByEmployee, $processPresenter, $viewer): array {
             /** @var DocumentInstance|null $instance */
             $instance = $instancesByEmployee->get($employee->id);
             $doc = $instance?->employeeDocument;
             $runItem = $runItemsByEmployee->get($employee->id);
             $runStatus = is_string($runItem?->status) ? $runItem->status : null;
             $errorCode = is_string($runItem?->error_code) ? $runItem->error_code : null;
+
+            $process = $processPresenter->present(
+                employee: $employee,
+                instance: $instance,
+                employeeDocument: $doc,
+                runItem: $runItem,
+                copyEmailSentAt: null,
+                legacySignatureStatus: null,
+                viewer: $viewer,
+            );
 
             return [
                 ...BulkDocumentRosterEmployeePresenter::identity($employee),
@@ -148,6 +210,7 @@ final class CustomDocumentRosterQuery
                         'message' => DocumentGenerationItemErrorPresenter::userMessage($errorCode, $runItem?->error_message),
                     ]
                     : null,
+                'process' => $process,
             ];
         });
     }
@@ -159,17 +222,43 @@ final class CustomDocumentRosterQuery
         int $companyId,
         DocumentGenerationTemplateVersion $version,
         EmployeeDirectoryFilters $filters,
-        string $generationFilter,
+        string $filter,
     ): Builder {
         $query = BulkDocumentRosterQuery::employeeQuery($companyId, $filters);
 
-        if ($generationFilter === 'missing') {
+        if ($filter === 'not_started' || $filter === 'missing') {
             $query->whereDoesntHave('documentInstances', function (Builder $instanceQuery) use ($companyId, $version): void {
                 $instanceQuery->where('company_id', $companyId)
                     ->where('document_generation_template_version_id', $version->id)
                     ->withLibraryDocument();
             });
-        } elseif ($generationFilter === 'generated') {
+        } elseif ($filter === 'in_progress') {
+            $query->whereHas('documentInstances', function (Builder $instanceQuery) use ($companyId, $version): void {
+                $instanceQuery->where('company_id', $companyId)
+                    ->where('document_generation_template_version_id', $version->id)
+                    ->whereHas('lifecycleAutomation', function (Builder $lifecycleQuery): void {
+                        $lifecycleQuery->whereIn('status', ['active', 'pending']);
+                    });
+            });
+        } elseif ($filter === 'needs_attention') {
+            $query->whereHas('documentInstances', function (Builder $instanceQuery) use ($companyId, $version): void {
+                $instanceQuery->where('company_id', $companyId)
+                    ->where('document_generation_template_version_id', $version->id)
+                    ->whereHas('lifecycleAutomation', function (Builder $lifecycleQuery): void {
+                        $lifecycleQuery->where('status', 'blocked');
+                    });
+            });
+        } elseif ($filter === 'completed') {
+            $query->whereHas('documentInstances', function (Builder $instanceQuery) use ($companyId, $version): void {
+                $instanceQuery->where('company_id', $companyId)
+                    ->where('document_generation_template_version_id', $version->id)
+                    ->withLibraryDocument()
+                    ->where(function (Builder $q): void {
+                        $q->whereHas('lifecycleAutomation', fn ($lq) => $lq->where('status', 'completed'))
+                            ->orWhereDoesntHave('lifecycleAutomation');
+                    });
+            });
+        } elseif ($filter === 'generated') {
             $query->whereHas('documentInstances', function (Builder $instanceQuery) use ($companyId, $version): void {
                 $instanceQuery->where('company_id', $companyId)
                     ->where('document_generation_template_version_id', $version->id)

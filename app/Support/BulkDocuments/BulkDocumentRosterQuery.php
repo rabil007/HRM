@@ -5,6 +5,7 @@ namespace App\Support\BulkDocuments;
 use App\Models\BulkDocumentEmailSend;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Support\Documents\Process\DocumentOperationalProcessPresenter;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use Carbon\CarbonInterface;
@@ -95,13 +96,22 @@ final class BulkDocumentRosterQuery
             )
             : 0;
 
+        $notStarted = max(0, $targeted - $generated);
+        $inProgress = $pendingReview + $awaitingSignature;
+        $completed = $approved + max(0, $generated - $pendingReview - $awaitingSignature - $approved);
+
         return [
             'targeted' => $targeted,
             'generated' => $generated,
-            'not_generated' => $targeted - $generated,
+            'not_generated' => $notStarted,
             'pending_review' => $pendingReview,
             'awaiting_signature' => $awaitingSignature,
             'approved' => $approved,
+            'all' => $targeted,
+            'not_started' => $notStarted,
+            'in_progress' => max(0, $inProgress),
+            'needs_attention' => 0,
+            'completed' => max(0, $completed),
         ];
     }
 
@@ -265,7 +275,7 @@ final class BulkDocumentRosterQuery
         int $documentTypeId,
         string $generationFilter,
     ): void {
-        if ($generationFilter === 'missing') {
+        if ($generationFilter === 'missing' || $generationFilter === 'not_started') {
             $query->whereDoesntHave('documents', function (Builder $documentQuery) use ($companyId, $documentTypeId): void {
                 $documentQuery
                     ->where('company_id', $companyId)
@@ -275,7 +285,7 @@ final class BulkDocumentRosterQuery
             return;
         }
 
-        if ($generationFilter === 'generated') {
+        if ($generationFilter === 'generated' || $generationFilter === 'completed') {
             $query->whereHas('documents', function (Builder $documentQuery) use ($companyId, $documentTypeId): void {
                 $documentQuery
                     ->where('company_id', $companyId)
@@ -437,6 +447,16 @@ final class BulkDocumentRosterQuery
      */
     private static function mapEmployee(Employee $employee, ?EmployeeDocument $document, ?CarbonInterface $emailSentAt = null, ?string $signatureStatus = null): array
     {
+        $process = app(DocumentOperationalProcessPresenter::class)->present(
+            employee: $employee,
+            instance: null,
+            employeeDocument: $document,
+            runItem: null,
+            copyEmailSentAt: $emailSentAt,
+            legacySignatureStatus: $signatureStatus,
+            viewer: auth()->user(),
+        );
+
         return [
             ...BulkDocumentRosterEmployeePresenter::identity($employee),
             'document' => $document !== null ? [
@@ -446,6 +466,7 @@ final class BulkDocumentRosterQuery
             ] : null,
             'email_sent_at' => $emailSentAt?->toIso8601String(),
             'signature_status' => $signatureStatus,
+            'process' => $process,
         ];
     }
 }

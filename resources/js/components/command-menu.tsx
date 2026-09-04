@@ -70,8 +70,13 @@ export function CommandMenu() {
     };
 
     const sidebarData = React.useMemo(
-        () => getSidebarData(auth?.permissions ?? [], auth?.platform),
-        [auth?.permissions, auth?.platform],
+        () =>
+            getSidebarData(
+                auth?.permissions ?? [],
+                auth?.platform,
+                auth?.my_tasks_count,
+            ),
+        [auth?.permissions, auth?.platform, auth?.my_tasks_count],
     );
     const commandGroups = React.useMemo(() => {
         const favoriteUrls = new Set(accessibleItems.map((item) => item.url));

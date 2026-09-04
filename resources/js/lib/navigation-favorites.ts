@@ -96,13 +96,13 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
     },
     {
         key: 'documents.bulk',
-        label: 'Generate & Send',
+        label: 'Generate & Track',
         href: '/organization/documents/generate',
         group: 'Documents',
     },
     {
         key: 'documents.requests',
-        label: 'Requests',
+        label: 'My Tasks',
         href: '/organization/documents/requests',
         group: 'Documents',
     },
@@ -164,12 +164,6 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         key: 'crew.vessels',
         label: 'Vessels',
         href: '/organization/vessels',
-        group: 'Crew Operations',
-    },
-    {
-        key: 'crew.vessel-manning',
-        label: 'Vessel Manning',
-        href: '/organization/vessel-manning',
         group: 'Crew Operations',
     },
     {
@@ -329,6 +323,13 @@ export function destinationKeyFromPageUrl(url: string): string | null {
 
     if (normalized === '/organization/documents') {
         return 'documents';
+    }
+
+    if (
+        normalized === '/organization/vessel-manning' ||
+        normalized.startsWith('/organization/vessel-manning/')
+    ) {
+        return 'crew.vessels';
     }
 
     let match: { key: string; href: string } | null = null;

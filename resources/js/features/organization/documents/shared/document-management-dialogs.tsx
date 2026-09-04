@@ -34,7 +34,7 @@ export function DocumentManagementDialogs({
     onDeleteDocIdChange,
     templateFields = null,
     documentTypes = [],
-    partialReloadKeys = ['documents', 'required_documents'],
+    partialReloadKeys = ['documents'],
     deleteRedirectUrl,
 }: DocumentManagementDialogsProps): ReactElement {
     return (

@@ -139,7 +139,6 @@ function EmployeeDetailsPage({
     contract_count,
     contracts,
     documents,
-    required_documents,
     education_qualifications,
     work_experiences,
     vaccinations,
@@ -381,7 +380,6 @@ function EmployeeDetailsPage({
         () => ({
             contracts,
             documents,
-            required_documents,
             education_qualifications,
             work_experiences,
             vaccinations,
@@ -398,7 +396,6 @@ function EmployeeDetailsPage({
         [
             contracts,
             documents,
-            required_documents,
             education_qualifications,
             work_experiences,
             vaccinations,
@@ -1153,9 +1150,6 @@ function EmployeeDetailsPage({
                                                 name: localEmployee.name,
                                             }}
                                             documents={documents ?? []}
-                                            required_documents={
-                                                required_documents ?? []
-                                            }
                                             document_types={
                                                 document_types ??
                                                 EMPTY_DOCUMENT_TYPES

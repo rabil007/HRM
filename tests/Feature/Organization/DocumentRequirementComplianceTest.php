@@ -325,7 +325,7 @@ test('company a rules do not apply to company b employees', function () {
         );
 });
 
-test('employee profile documents tab includes required document compliance', function () {
+test('employee profile documents tab does not load required document compliance', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -336,10 +336,9 @@ test('employee profile documents tab includes required document compliance', fun
     $this->get("/organization/employees/{$employee->id}")
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
-                ->has('required_documents', 1)
-                ->where('required_documents.0.document_type_id', $passportType->id)
-                ->where('required_documents.0.status', 'missing')
+            ->missing('required_documents')
+            ->reloadOnly(['documents'], fn (Assert $reload) => $reload
+                ->missing('required_documents')
             )
         );
 });
@@ -380,7 +379,7 @@ test('users without documents view cannot open requirement compliance', function
     $this->get('/organization/documents/library?requirement_status=missing')->assertForbidden();
 });
 
-test('newer created_at wins over a higher id on the documents index and employee profile', function () {
+test('newer created_at wins over a higher id on the documents index', function () {
     Carbon::setTestNow('2026-05-20');
 
     $user = User::factory()->create();
@@ -432,20 +431,10 @@ test('newer created_at wins over a higher id on the documents index and employee
             ->has('requirementDocuments.data', 0)
         );
 
-    $this->get("/organization/employees/{$employee->id}")
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
-                ->has('required_documents', 1)
-                ->where('required_documents.0.status', 'valid')
-                ->where('required_documents.0.document_id', $newerValid->id)
-            )
-        );
-
     Carbon::setTestNow();
 });
 
-test('equal created_at ties are broken by the highest id on the documents index and employee profile', function () {
+test('equal created_at ties are broken by the highest id on the documents index', function () {
     Carbon::setTestNow('2026-05-20');
 
     $user = User::factory()->create();
@@ -489,16 +478,6 @@ test('equal created_at ties are broken by the highest id on the documents index 
             ->has('requirementDocuments.data', 1)
             ->where('requirementDocuments.data.0.status', 'expired')
             ->where('requirementDocuments.data.0.document_id', $higherIdExpired->id)
-        );
-
-    $this->get("/organization/employees/{$employee->id}")
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
-                ->has('required_documents', 1)
-                ->where('required_documents.0.status', 'expired')
-                ->where('required_documents.0.document_id', $higherIdExpired->id)
-            )
         );
 
     Carbon::setTestNow();
@@ -553,16 +532,6 @@ test('project scoped missing documents appear in bulk compliance', function () {
             ->where('requirementDocuments.data.0.employee_id', $employee->id)
             ->where('requirementDocuments.data.0.document_type_id', $passportType->id)
             ->where('requirementDocuments.data.0.status', 'missing')
-        );
-
-    $this->get("/organization/employees/{$employee->id}")
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
-                ->has('required_documents', 1)
-                ->where('required_documents.0.document_type_id', $passportType->id)
-                ->where('required_documents.0.status', 'missing')
-            )
         );
 });
 
@@ -629,14 +598,6 @@ test('crew seafarer captain assigned to another project is not required until pr
             ->has('requirementDocuments.data', 0)
         );
 
-    $this->get("/organization/employees/{$employee->id}")
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
-                ->has('required_documents', 0)
-            )
-        );
-
     $employee->update(['project_id' => $scopes['adnoc']->id]);
     $matchedEmployee = $employee->fresh();
 
@@ -653,19 +614,9 @@ test('crew seafarer captain assigned to another project is not required until pr
             ->where('requirementDocuments.data.0.document_type_id', $passportType->id)
             ->where('requirementDocuments.data.0.status', 'missing')
         );
-
-    $this->get("/organization/employees/{$employee->id}")
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
-                ->has('required_documents', 1)
-                ->where('required_documents.0.document_type_id', $passportType->id)
-                ->where('required_documents.0.status', 'missing')
-            )
-        );
 });
 
-test('employee profile required documents uses and matching across selected categories', function () {
+test('required documents uses and matching across selected categories', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -687,24 +638,16 @@ test('employee profile required documents uses and matching across selected cate
         'project_id' => $scopes['adnoc']->id,
     ]);
 
-    $this->get("/organization/employees/{$employee->id}")
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
-                ->has('required_documents', 0)
-            )
-        );
+    $compliance = new DocumentComplianceQuery;
+
+    expect($compliance->itemsForEmployee($employee->fresh()))->toHaveCount(0);
 
     $employee->update(['rank_id' => $scopes['captain']->id]);
 
-    $this->get("/organization/employees/{$employee->id}")
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->reloadOnly(['required_documents'], fn (Assert $reload) => $reload
-                ->has('required_documents', 1)
-                ->where('required_documents.0.document_type_id', $passportType->id)
-            )
-        );
+    $matched = $compliance->itemsForEmployee($employee->fresh());
+
+    expect($matched)->toHaveCount(1)
+        ->and($matched[0]['document_type_id'])->toBe($passportType->id);
 });
 
 test('bulk missing list uses and matching across selected categories', function () {

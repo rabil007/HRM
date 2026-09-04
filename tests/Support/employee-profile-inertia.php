@@ -12,7 +12,6 @@ function assertEmployeeProfileRecords(Assert $page, ?Closure $callback = null, ?
     $props = $only ?? [
         'contracts',
         'documents',
-        'required_documents',
         'education_qualifications',
         'work_experiences',
         'vaccinations',
@@ -32,7 +31,6 @@ function assertEmployeeProfileRecords(Assert $page, ?Closure $callback = null, ?
         $callback ?? static function (Assert $assertable): void {
             $assertable->has('contracts')
                 ->has('documents')
-                ->has('required_documents')
                 ->has('education_qualifications')
                 ->has('work_experiences')
                 ->has('vaccinations')

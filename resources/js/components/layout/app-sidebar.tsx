@@ -29,8 +29,13 @@ export function AppSidebar() {
         auth?: Auth;
     };
     const sidebarData = useMemo(
-        () => getSidebarData(auth?.permissions ?? [], auth?.platform),
-        [auth?.permissions, auth?.platform],
+        () =>
+            getSidebarData(
+                auth?.permissions ?? [],
+                auth?.platform,
+                auth?.my_tasks_count,
+            ),
+        [auth?.permissions, auth?.platform, auth?.my_tasks_count],
     );
     const { accessibleItems } = useNavigationFavorites();
     const favoriteNavItems = useMemo((): NavLink[] => {

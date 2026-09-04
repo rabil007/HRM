@@ -160,12 +160,12 @@ const baseSidebarData: SidebarData = {
                             icon: ClipboardList,
                         },
                         {
-                            title: 'Generate & Send',
+                            title: 'Generate & Track',
                             url: documentsGenerate.url(),
                             icon: FileStack,
                         },
                         {
-                            title: 'Requests',
+                            title: 'My Tasks',
                             url: documentsRequests.url(),
                             icon: FilePenLine,
                         },
@@ -217,11 +217,6 @@ const baseSidebarData: SidebarData = {
                     title: 'Vessels',
                     url: '/organization/vessels',
                     icon: Ship,
-                },
-                {
-                    title: 'Vessel Manning',
-                    url: '/organization/vessel-manning',
-                    icon: ClipboardList,
                 },
                 {
                     title: 'Movement Corrections',
@@ -342,6 +337,7 @@ export {
 export function getSidebarData(
     permissions: string[],
     platform: NavPlatformAccess = NO_PLATFORM_ACCESS,
+    myTasksCount?: number,
 ): SidebarData {
     const groups = baseSidebarData.navGroups
         .map((group) => {
@@ -364,9 +360,28 @@ export function getSidebarData(
                             };
                         }
 
-                        const filteredSub = item.items.filter((sub) =>
-                            isSidebarUrlVisible(sub.url, permissions, platform),
-                        );
+                        const filteredSub = item.items
+                            .filter((sub) =>
+                                isSidebarUrlVisible(
+                                    sub.url,
+                                    permissions,
+                                    platform,
+                                ),
+                            )
+                            .map((sub) => {
+                                if (
+                                    sub.url === documentsRequests.url() &&
+                                    typeof myTasksCount === 'number' &&
+                                    myTasksCount > 0
+                                ) {
+                                    return {
+                                        ...sub,
+                                        badge: String(myTasksCount),
+                                    };
+                                }
+
+                                return sub;
+                            });
 
                         if (!filteredSub.length) {
                             return null;

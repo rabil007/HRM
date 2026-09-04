@@ -103,6 +103,7 @@ use App\Http\Controllers\Organization\Documents\DeactivateDocumentSigningPresetC
 use App\Http\Controllers\Organization\Documents\DeactivateDocumentWorkflowPresetController;
 use App\Http\Controllers\Organization\Documents\DeleteDocumentSigningPresetController;
 use App\Http\Controllers\Organization\Documents\DeleteDocumentWorkflowPresetController;
+use App\Http\Controllers\Organization\Documents\DocumentJourneyController;
 use App\Http\Controllers\Organization\Documents\DocumentRecipientAutomationSettingController;
 use App\Http\Controllers\Organization\Documents\DocumentRecipientRequestShowController;
 use App\Http\Controllers\Organization\Documents\DocumentRequestsIndexController;
@@ -798,6 +799,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('organization.documents.bulk.selection');
         Route::get('organization/documents/bulk/email-batches/{batch}/sends', BulkDocumentEmailBatchSendsController::class)
             ->name('organization.documents.bulk.email-batches.sends');
+        Route::get('organization/documents/journey', DocumentJourneyController::class)
+            ->name('organization.documents.journey');
     });
     Route::get('organization/documents/configuration', [DocumentTypeController::class, 'index'])
         ->middleware('can:settings.master-data.document-types.view')

@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { CalendarCheck, CheckCircle2, ShieldAlert } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { index as vesselsIndex } from '@/actions/App/Http/Controllers/Organization/VesselController';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -12,7 +13,6 @@ import {
 import type { CrewOperationsProjectedManning } from '@/features/organization/crew-operations/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import { index as vesselManningIndex } from '@/routes/organization/vessel-manning';
 
 interface SegmentProps {
     value: number;
@@ -101,9 +101,7 @@ export function CoverageHorizonCard({
                             className="h-8 rounded-lg text-xs"
                             asChild
                         >
-                            <Link href={vesselManningIndex.url()}>
-                                View Manning
-                            </Link>
+                            <Link href={vesselsIndex.url()}>View Manning</Link>
                         </Button>
                     ) : null}
                 </div>

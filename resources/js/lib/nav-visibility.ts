@@ -133,10 +133,6 @@ export function crewOperationsHref(permissions: string[]): string {
         return '/organization/vessels';
     }
 
-    if (has(permissions, 'crew_operations.vessel_manning.view')) {
-        return '/organization/vessel-manning';
-    }
-
     if (has(permissions, 'crew_operations.assignments.view')) {
         return '/organization/crew';
     }
@@ -207,8 +203,7 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
         has(permissions, 'crew_operations.assignments.view'),
     '/organization/vessels': (permissions) =>
         has(permissions, 'crew_operations.vessels.view'),
-    '/organization/vessel-manning': (permissions) =>
-        has(permissions, 'crew_operations.vessel_manning.view'),
+    '/organization/vessel-manning': () => false,
     '/organization/crew-planning': (permissions) =>
         has(permissions, 'crew_operations.planning.view'),
     '/organization/crew-operations/settings': (permissions) =>

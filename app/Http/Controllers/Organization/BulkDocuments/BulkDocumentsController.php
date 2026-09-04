@@ -68,9 +68,20 @@ class BulkDocumentsController extends Controller
         $filters = $this->resolveFilters($request);
         $perPage = $this->resolvePerPage($request);
         $page = max(1, (int) $request->query('page', 1));
-        $generationFilter = match ($request->query('generation_filter')) {
-            'missing' => 'missing',
-            'generated' => 'generated',
+        $processFilter = match ($request->query('process_filter')) {
+            'not_started' => 'not_started',
+            'in_progress' => 'in_progress',
+            'needs_attention' => 'needs_attention',
+            'completed' => 'completed',
+            default => match ($request->query('generation_filter')) {
+                'missing' => 'not_started',
+                'generated' => 'completed',
+                default => 'all',
+            },
+        };
+        $generationFilter = match ($processFilter) {
+            'not_started' => 'missing',
+            'completed' => 'generated',
             default => 'all',
         };
         $emailFilter = match ($request->query('email_filter')) {
@@ -90,7 +101,7 @@ class BulkDocumentsController extends Controller
                 $customVersion,
                 $filters,
                 $perPage,
-                $generationFilter,
+                $processFilter,
                 isset($latestRun['id']) ? (int) $latestRun['id'] : null,
             );
 
@@ -116,6 +127,7 @@ class BulkDocumentsController extends Controller
                 ),
                 'employees' => $paginator->items(),
                 'pagination' => $this->paginationMeta($paginator),
+                'process_filter' => $processFilter,
                 'generation_filter' => $generationFilter,
                 'email_filter' => 'all',
             ]);
@@ -169,6 +181,7 @@ class BulkDocumentsController extends Controller
                 'employees' => [],
                 'counts' => BulkDocumentRosterQuery::counts($companyId, $documentTypeKey, $filters, null, $emailFilter),
                 'pagination' => $this->paginationMeta($activityPaginator),
+                'process_filter' => $processFilter,
                 'generation_filter' => $generationFilter,
                 'email_filter' => $emailFilter,
             ]);
@@ -193,8 +206,14 @@ class BulkDocumentsController extends Controller
                     'missing' => 0,
                     'emailed' => 0,
                     'not_emailed' => 0,
+                    'all' => 0,
+                    'not_started' => 0,
+                    'in_progress' => 0,
+                    'needs_attention' => 0,
+                    'completed' => 0,
                 ],
                 'pagination' => $this->emptyPagination($perPage),
+                'process_filter' => $processFilter,
                 'generation_filter' => $generationFilter,
                 'email_filter' => $emailFilter,
             ]);
@@ -205,7 +224,7 @@ class BulkDocumentsController extends Controller
             $documentTypeKey,
             $filters,
             $perPage,
-            $generationFilter,
+            $processFilter,
             $emailFilter,
         );
 
@@ -223,6 +242,7 @@ class BulkDocumentsController extends Controller
             'counts' => BulkDocumentRosterQuery::counts($companyId, $documentTypeKey, $filters, null, $emailFilter),
             'employees' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
+            'process_filter' => $processFilter,
             'generation_filter' => $generationFilter,
             'email_filter' => $emailFilter,
         ]);

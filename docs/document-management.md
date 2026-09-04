@@ -10,8 +10,8 @@ Documents is one sidebar group with these destinations. Pages do not repeat that
 |------|---------|--------|------------|
 | `/organization/documents` | Overview | Operational attention dashboard | `documents.view` |
 | `/organization/documents/library` | Library | Canonical browse / search / compliance workspace | `documents.view` |
-| `/organization/documents/generate` | Generate & Send | Current Bulk Documents roster | `bulk_documents.view` |
-| `/organization/documents/requests` | Requests | Approvals + Signing (new document lifecycle only) | `documents.requests.view` **or** `documents.recipient-requests.view` **or** `documents.recipient-requests.respond` |
+| `/organization/documents/generate` | Generate & Track | Company operational document workspace and progress tracker | `bulk_documents.view` |
+| `/organization/documents/requests` | My Tasks | Personal actionable inbox: reviews, approvals, signatures | `documents.requests.view` **or** `documents.recipient-requests.view` **or** `documents.recipient-requests.respond` |
 | `/organization/documents/templates` | Templates | Company custom and system generation templates | Any of `documents.templates.view`, `bulk_documents.view`, or `settings.master-data.document-types.view` |
 | `/organization/documents/configuration` | Configuration | Document Types and employee requirement policy | `settings.master-data.document-types.view` |
 | `/organization/documents/activity` | Activity | Current bulk generation history | `bulk_documents.view` |
@@ -25,8 +25,8 @@ Needs Attention items appear only when the count is greater than zero:
 | Missing Required | Existing requirement/compliance engine | Library `requirement_status=missing` |
 | Expiring Soon | Browse expiry summary, 7-day window only | Library `expiry=expiring_7` |
 | Expired | Browse expiry summary | Library `expiry=expired` |
-| Awaiting Your Action | Pending workflow tasks assigned to the current user | Requests `tab=review&status=pending&assigned_to_me=1` |
-| Awaiting Signature | Company `DocumentRecipientRequest` rows awaiting action | Requests `tab=recipient&status=awaiting_action` |
+| Awaiting Your Action | Pending workflow tasks assigned to the current user | My Tasks `tab=review&status=pending&assigned_to_me=1` |
+| Awaiting Signature | Company `DocumentRecipientRequest` rows awaiting action | My Tasks `tab=recipient&status=awaiting_action` |
 
 Request and signature cards are omitted unless the user has the matching Requests permission. `documents.view` alone never grants request metrics or Configure actions.
 
@@ -40,13 +40,28 @@ Opening a document from Library uses `from=library` so **Back to Library** resto
 
 Old filtered Overview bookmarks such as `/organization/documents?search=`, `?expiry=`, `?requirement_status=`, `?department_id=`, `?document_type_id=`, and `?page=` redirect to the equivalent Library URL with those supported keys preserved. Unknown parameters are not redirected and are not copied. Plain `/organization/documents` stays Overview.
 
-Generate & Send and Activity are served by `BulkDocumentsController` (`/organization/documents/generate`, `/organization/documents/activity`). Legacy `/organization/documents/bulk` **redirects**: default → Generate & Send, `?view=history` → Activity, `?view=signatures` → Requests Signing when the user has current Requests access, otherwise Generate & Send. **Requests** is served by `DocumentRequestsIndexController` at `/organization/documents/requests` (Approvals and Signing only). `?tab=signatures` redirects to Signing or Approvals and never renders historical bulk signature rows. Templates are company-owned PDF overlay templates with merge fields and Fabric.js visual placement. Salary Certificate remains a current built-in generation flow. Current signing is Company Template → `DocumentInstance` → `DocumentRecipientRequest` → `/document-action/*`.
+Generate & Track and Activity are served by `BulkDocumentsController` (`/organization/documents/generate`, `/organization/documents/activity`). Legacy `/organization/documents/bulk` **redirects**: default → Generate & Track, `?view=history` → Activity, `?view=signatures` → My Tasks Signing when the user has current Requests access, otherwise Generate & Track. **My Tasks** is served by `DocumentRequestsIndexController` at `/organization/documents/requests` (defaulting to items assigned to the current user). Templates are company-owned PDF overlay templates with merge fields and Fabric.js visual placement. Salary Certificate remains a current built-in generation flow. Current signing is Company Template → `DocumentInstance` → `DocumentRecipientRequest` → `/document-action/*`.
 
 Current architecture:
 
-**Company Template → Generate → Approval/Signing lifecycle → Requests → final EmployeeDocument.**
+**Company Template → Generate → Approval/Signing lifecycle → My Tasks / Signing → final EmployeeDocument.**
 
-Legacy Salary Declaration `BulkDocumentSignatureRequest` rows and files are retained for audit/history but have no user-facing runtime.
+### Document Journey & Process State Precedence
+
+The operational document lifecycle across employees is tracked using a 10-state deterministic precedence in `DocumentOperationalProcessPresenter`:
+
+1. `failed` (PDF generation or automation failure)
+2. `blocked` (Review rejected or signing expired/declined)
+3. `generating` (Active generation run item processing)
+4. `not_generated` (No document instance exists yet)
+5. `awaiting_approval` (Active workflow review stage pending)
+6. `awaiting_employee_signature` (Recipient request awaiting employee action)
+7. `awaiting_manager_signature` (Recipient request awaiting manager action)
+8. `awaiting_company_signature` (Recipient request awaiting company representative action)
+9. `completed` (Document generated and all approvals/signatures completed)
+10. `generated` (Document created without active workflow requirements)
+
+Selecting **View** on any row opens the **Document Journey** sheet (`/organization/documents/journey`), displaying an aggregated chronological timeline of generation, approvals, recipient requests, and delivery attempts, as well as clear failure banners and permission-checked action shortcuts.
 
 ### Legacy Bulk URLs
 
@@ -54,13 +69,13 @@ These remain valid GET bookmarks. They redirect; they do not render the retired 
 
 | Legacy URL | Redirects to |
 |------------|----------------|
-| `/organization/documents/bulk` | Generate & Send |
-| `/organization/documents/bulk?view=signatures` | Requests `tab=recipient` when authorized for current Requests; otherwise Generate & Send |
+| `/organization/documents/bulk` | Generate & Track |
+| `/organization/documents/bulk?view=signatures` | My Tasks `tab=recipient` when authorized for current Requests; otherwise Generate & Track |
 | `/organization/documents/bulk?view=history` | Activity |
 
 POST/PUT/DELETE bulk generate/email/delete routes for **current** types (Salary Certificate, Company Templates) are unchanged. Salary Declaration generate/email remains rejected.
 
-The standalone **Bulk generate** sidebar item is removed. Favorites key `documents.bulk` points at Generate & Send.
+The standalone **Bulk generate** sidebar item is removed. Favorites key `documents.bulk` points at Generate & Track.
 
 ## Historical Salary Declaration bulk e-sign
 

@@ -20,7 +20,6 @@ const CREW_URLS = [
     '/organization/crew',
     '/organization/crew-planning',
     '/organization/vessels',
-    '/organization/vessel-manning',
     '/organization/crew-operations/settings',
     '/organization/crew-movement-corrections',
 ];
@@ -155,7 +154,7 @@ describe('Crew navigation', () => {
         assert.equal(canViewCrewOperations(permissions), true);
         assert.equal(
             crewOperationsHref(permissions),
-            '/organization/vessel-manning',
+            '/organization/crew-operations',
         );
         assert.equal(
             isSidebarUrlVisible('/organization/vessels', permissions),
@@ -163,7 +162,7 @@ describe('Crew navigation', () => {
         );
         assert.equal(
             isSidebarUrlVisible('/organization/vessel-manning', permissions),
-            true,
+            false,
         );
     });
 

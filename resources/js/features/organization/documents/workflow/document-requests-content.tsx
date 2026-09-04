@@ -174,8 +174,8 @@ export function DocumentRequestsContent(props: DocumentRequestsIndexProps) {
     return (
         <Main>
             <PageHeader
-                title="Requests"
-                description="Review, approve, sign, and track document requests."
+                title="My Tasks"
+                description="Review, approve, and sign document requests requiring your action."
                 right={headerActions}
             />
 

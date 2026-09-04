@@ -20,7 +20,6 @@ use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
-use App\Support\EmployeeDocuments\DocumentComplianceQuery;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
@@ -173,9 +172,6 @@ final class EmployeeProfilePageData
             'documents' => Inertia::optional(
                 fn () => self::documents($companyId, $employee->id),
             ),
-            'required_documents' => Inertia::optional(
-                fn () => (new DocumentComplianceQuery)->itemsForEmployee($employee),
-            ),
             'education_qualifications' => Inertia::optional(
                 fn () => self::educationQualifications($companyId, $employee->id),
             ),
@@ -277,9 +273,6 @@ final class EmployeeProfilePageData
             'contract_count' => $employeeId ? self::contractCount($companyId, $employeeId) : 0,
             'contracts' => $employeeId ? self::contracts($companyId, $employeeId) : [],
             'documents' => $employeeId ? self::documents($companyId, $employeeId) : [],
-            'required_documents' => $employee !== null
-                ? (new DocumentComplianceQuery)->itemsForEmployee($employee)
-                : [],
             'education_qualifications' => $employeeId ? self::educationQualifications($companyId, $employeeId) : [],
             'work_experiences' => $employeeId ? self::workExperiences($companyId, $employeeId) : [],
             'vaccinations' => $employeeId ? self::vaccinations($companyId, $employeeId) : [],

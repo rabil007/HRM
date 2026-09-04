@@ -42,7 +42,7 @@ export function EditDocumentDialog({
     onOpenChange,
     documentTypes = [],
     templateFields = null,
-    partialReloadKeys = ['documents', 'required_documents'],
+    partialReloadKeys = ['documents'],
 }: {
     document: DocumentProfileItem | null;
     employeeId: number;

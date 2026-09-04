@@ -75,7 +75,7 @@ export function UploadDocumentDialog({
     ensureEmployee,
     templateFields = null,
     initialDocumentTypeId = null,
-    partialReloadKeys = ['documents', 'required_documents'],
+    partialReloadKeys = ['documents'],
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;

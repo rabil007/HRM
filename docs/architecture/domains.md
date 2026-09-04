@@ -840,22 +840,28 @@ Integrate Hikvision people, devices, and access events with employees and attend
 
 ---
 
-## Bulk Documents (Generate & Send)
+## Bulk Documents (Generate & Track) & My Tasks
 
 ### Purpose
 
-Generate and email document batches for **current** types: Company Templates and built-in Salary Certificate. Historical Salary Declaration bulk e-sign has no user-facing runtime; `BulkDocumentSignatureRequest` rows and files remain for audit.
+Unified document operations workspace:
+1. **Generate & Track** (`/organization/documents/generate`): Company operational document workspace ("What is happening with documents for my employees?"). Generates document batches, tracks approval/signing progress, displays unified timeline via the Document Journey sheet, and handles bulk document copy emails.
+2. **My Tasks** (`/organization/documents/requests`): Personal actionable inbox ("What personally needs my action?"). Defaults to items assigned to the authenticated user for review/approval and awaiting recipient signatures.
+3. **Document Journey** (`/organization/documents/journey`): Tenancy-scoped endpoint aggregating document generation, workflow review requests, signing flows, recipient requests, and delivery attempts into a chronological event timeline.
 
 ### Main artifacts
 
-- Models prefixed with `BulkDocument*`
-- Controllers under `app/Http/Controllers/Organization/BulkDocuments/`
-- `features/organization/documents/bulk/bulk-documents-content.tsx`
-- Current signing UI: `/document-action/*` and Requests → Signing (`DocumentRecipientRequest`)
+- Models: `DocumentInstance`, `DocumentLifecycleAutomation`, `DocumentWorkflowRequest`, `DocumentSigningFlow`, `DocumentRecipientRequest`, `DocumentRecipientRequestDelivery`, `BulkDocumentEmailBatch`
+- Presenters: `DocumentOperationalProcessPresenter`, `DocumentJourneyPresenter`
+- Query services: `DocumentJourneyQuery`, `CustomDocumentRosterQuery`, `BulkDocumentRosterQuery`, `MyTasksCounter`
+- Controllers: `BulkDocumentsController`, `DocumentRequestsIndexController`, `DocumentJourneyController`
+- UI Components: `BulkDocumentsContent`, `DocumentJourneySheet`, `DocumentRequestsContent`
+- Signing UI: `/document-action/*` for external token signing and Requests → Signing (`DocumentRecipientRequest`) for company signers
 
 ### Permissions involved
 
-`bulk_documents.view`, `bulk_documents.generate`, `bulk_documents.delete`, `bulk_documents.email`
+- `bulk_documents.view`, `bulk_documents.generate`, `bulk_documents.delete`, `bulk_documents.email`
+- `documents.requests.view`, `documents.recipient-requests.view`, `documents.recipient-requests.respond`
 
 Public signing uses `/document-action/{token}` (token-bound). Administrative generation, email, and download flows remain company-scoped.
 

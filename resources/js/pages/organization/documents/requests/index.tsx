@@ -7,7 +7,7 @@ export default function DocumentRequestsIndex(
 ) {
     return (
         <>
-            <Head title="Requests" />
+            <Head title="My Tasks" />
             <DocumentRequestsContent {...props} />
         </>
     );

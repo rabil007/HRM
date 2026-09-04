@@ -63,11 +63,20 @@ class DocumentRequestsIndexController extends Controller
         $perPage = $this->resolvePerPage($request);
         $page = max(1, (int) $request->query('page', 1));
 
+        $defaultAssignedToMe = ! $request->has('assigned_to_me')
+            && ! $request->has('tab')
+            && ! $request->has('status')
+            && ! $request->has('search');
+
+        $assignedToMe = $request->has('assigned_to_me')
+            ? $request->boolean('assigned_to_me')
+            : $defaultAssignedToMe;
+
         $filters = [
             'search' => trim((string) $request->query('search', '')),
             'status' => trim((string) $request->query('status', '')),
             'action' => trim((string) $request->query('action', '')),
-            'assigned_to_me' => $request->boolean('assigned_to_me'),
+            'assigned_to_me' => $assignedToMe,
         ];
 
         if ($tab === 'review') {

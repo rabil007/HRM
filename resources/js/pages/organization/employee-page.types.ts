@@ -1,7 +1,6 @@
 import type {
     DocumentProfileItem,
     DocumentTypeOption,
-    RequiredDocumentItem,
 } from '@/features/organization/documents/shared/types';
 import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import type {
@@ -335,7 +334,6 @@ export type EmployeePageProps = {
     contract_count?: number;
     contracts?: EmployeeContractDetails[];
     documents?: EmployeeDocumentItem[];
-    required_documents?: RequiredDocumentItem[];
     education_qualifications?: EducationQualificationItem[];
     work_experiences?: WorkExperienceItem[];
     vaccinations?: VaccinationItem[];

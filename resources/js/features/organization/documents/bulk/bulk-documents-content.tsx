@@ -34,12 +34,15 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { employeeDocumentViewUrl } from '@/features/organization/documents/bulk/bulk-document-urls';
 import { BulkDocumentsHistoryTable } from '@/features/organization/documents/bulk/bulk-documents-history-table';
 import { BulkDocumentsViewSwitcher } from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
 import type { BulkDocumentsView } from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
 import { BulkEmailBatchSendsSheet } from '@/features/organization/documents/bulk/bulk-email-batch-sends-sheet';
 import { BulkDocumentsEmailModal } from '@/features/organization/documents/bulk/bulk-email-modal';
+import {
+    DocumentJourneySheet,
+    badgeToneClasses,
+} from '@/features/organization/documents/journey/document-journey-sheet';
 import { bulkDocumentsPollOnlyProps } from '@/features/organization/documents/lib/bulk-documents-poll-props';
 import { generationActionLabel } from '@/features/organization/documents/lib/generation-action-label';
 import {
@@ -70,9 +73,9 @@ import type {
     BulkDocumentFilters,
     BulkDocumentsPageProps,
     BulkEmailFilter,
-    BulkGenerationFilter,
     BulkRosterEmployee,
     LatestEmailBatch,
+    ProcessLifecycleFilter,
 } from './types';
 
 function documentsSectionUrl(view: BulkDocumentsView): string {
@@ -87,7 +90,7 @@ function buildQuery(
     documentTypeKey: string,
     filters: BulkDocumentFilters,
     search: string,
-    generationFilter: BulkGenerationFilter,
+    processFilter: ProcessLifecycleFilter = 'all',
     emailFilter: BulkEmailFilter = 'all',
     pagination?: { page?: number | null; perPage: number },
 ): Record<string, string> {
@@ -106,8 +109,8 @@ function buildQuery(
         }
     });
 
-    if (generationFilter === 'missing' || generationFilter === 'generated') {
-        query.generation_filter = generationFilter;
+    if (processFilter !== 'all') {
+        query.process_filter = processFilter;
     }
 
     if (emailFilter === 'emailed' || emailFilter === 'not_emailed') {
@@ -242,7 +245,7 @@ export function BulkDocumentsContent({
     employees,
     activity,
     pagination,
-    generation_filter,
+    process_filter: initialProcessFilter = 'all',
     email_filter,
     company_visa_types,
     department_tree,
@@ -257,6 +260,8 @@ export function BulkDocumentsContent({
     const isRosterView = view === 'roster';
     const isHistoryView = view === 'history';
     const [searchInput, setSearchInput] = useState(initialSearch);
+    const [processFilter, setProcessFilter] =
+        useState<ProcessLifecycleFilter>(initialProcessFilter);
     const [filters, setFilters] = useState<BulkDocumentFilters>({
         department_id: initialFilters.department_id,
         position_id: initialFilters.position_id,
@@ -276,6 +281,19 @@ export function BulkDocumentsContent({
         total: number;
     } | null>(null);
     const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
+    const [journeySheetOpen, setJourneySheetOpen] = useState(false);
+    const [journeyIdentifiers, setJourneyIdentifiers] = useState<{
+        document_instance_id?: number | null;
+        employee_document_id?: number | null;
+        employee_id?: number | null;
+        version_id?: number | null;
+        document_type_key?: string | null;
+        generation_run_id?: number | null;
+    } | null>(null);
+
+    useEffect(() => {
+        setProcessFilter(initialProcessFilter);
+    }, [initialProcessFilter]);
 
     const employeeIds = useMemo(
         () => employees.map((employee) => employee.id),
@@ -318,7 +336,7 @@ export function BulkDocumentsContent({
 
     useEffect(() => {
         setMatchingSelection(null);
-    }, [document_type_key, filters, generation_filter, searchInput]);
+    }, [document_type_key, filters, processFilter, searchInput]);
 
     const previewEmployee = useMemo(() => {
         if (matchingSelection) {
@@ -347,6 +365,20 @@ export function BulkDocumentsContent({
             ? Number(document_type_key.replace('custom_', ''))
             : undefined);
 
+    const handleOpenJourney = useCallback(
+        (employee: BulkRosterEmployee) => {
+            setJourneyIdentifiers({
+                employee_id: employee.id,
+                employee_document_id: employee.document?.id ?? null,
+                document_type_key: document_type_key || null,
+                version_id: customTemplateId ?? null,
+                generation_run_id: latest_run?.id ?? null,
+            });
+            setJourneySheetOpen(true);
+        },
+        [customTemplateId, document_type_key, latest_run?.id],
+    );
+
     const missingCount = counts.not_generated;
     const generateLabel = generationActionLabel({
         isBusy: isGenerating || isGenerationRunActive(latest_run?.status),
@@ -368,7 +400,7 @@ export function BulkDocumentsContent({
                     document_type_key,
                     filters,
                     searchInput,
-                    generation_filter,
+                    processFilter,
                     email_filter,
                     { perPage: pagination.per_page },
                 ),
@@ -516,7 +548,7 @@ export function BulkDocumentsContent({
             nextType = document_type_key,
             nextFilters = filters,
             nextSearch = searchInput,
-            nextGenerationFilter = generation_filter,
+            nextProcessFilter = processFilter,
             nextView: BulkDocumentsView = view,
             nextEmailFilter: BulkEmailFilter = email_filter,
             page: number | null = null,
@@ -527,7 +559,7 @@ export function BulkDocumentsContent({
                     nextType,
                     nextFilters,
                     nextSearch,
-                    nextGenerationFilter,
+                    nextProcessFilter,
                     nextEmailFilter,
                     {
                         page,
@@ -541,7 +573,7 @@ export function BulkDocumentsContent({
             document_type_key,
             email_filter,
             filters,
-            generation_filter,
+            processFilter,
             pagination.per_page,
             searchInput,
             view,
@@ -555,7 +587,7 @@ export function BulkDocumentsContent({
                 document_type_key,
                 filters,
                 searchInput,
-                generation_filter,
+                processFilter,
                 nextView,
                 email_filter,
                 null,
@@ -566,7 +598,7 @@ export function BulkDocumentsContent({
             document_type_key,
             email_filter,
             filters,
-            generation_filter,
+            processFilter,
             navigate,
             searchInput,
         ],
@@ -578,7 +610,7 @@ export function BulkDocumentsContent({
                 document_type_key,
                 filters,
                 searchInput,
-                generation_filter,
+                processFilter,
                 view,
                 email_filter,
                 page,
@@ -588,7 +620,7 @@ export function BulkDocumentsContent({
             document_type_key,
             email_filter,
             filters,
-            generation_filter,
+            processFilter,
             navigate,
             searchInput,
             view,
@@ -603,7 +635,7 @@ export function BulkDocumentsContent({
                     document_type_key,
                     filters,
                     searchInput,
-                    generation_filter,
+                    processFilter,
                     email_filter,
                     { perPage },
                 ),
@@ -614,7 +646,7 @@ export function BulkDocumentsContent({
             document_type_key,
             email_filter,
             filters,
-            generation_filter,
+            processFilter,
             searchInput,
             view,
         ],
@@ -741,11 +773,29 @@ export function BulkDocumentsContent({
         }
     };
 
-    const setGenerationFilter = useCallback(
-        (next: BulkGenerationFilter) => {
-            navigate(document_type_key, filters, searchInput, next);
+    const handleProcessFilterChange = useCallback(
+        (next: ProcessLifecycleFilter) => {
+            setProcessFilter(next);
+            clearSelection();
+            navigate(
+                document_type_key,
+                filters,
+                searchInput,
+                next,
+                view,
+                email_filter,
+                null,
+            );
         },
-        [document_type_key, filters, navigate, searchInput],
+        [
+            clearSelection,
+            document_type_key,
+            email_filter,
+            filters,
+            navigate,
+            searchInput,
+            view,
+        ],
     );
 
     const setEmailFilter = useCallback(
@@ -754,7 +804,7 @@ export function BulkDocumentsContent({
                 document_type_key,
                 filters,
                 searchInput,
-                generation_filter,
+                processFilter,
                 view,
                 next,
             );
@@ -762,7 +812,7 @@ export function BulkDocumentsContent({
         [
             document_type_key,
             filters,
-            generation_filter,
+            processFilter,
             navigate,
             searchInput,
             view,
@@ -778,7 +828,7 @@ export function BulkDocumentsContent({
     ].filter(Boolean).length;
 
     const activeFilterCount = isRosterView
-        ? employeeFilterCount + (generation_filter !== 'all' ? 1 : 0)
+        ? employeeFilterCount + (processFilter !== 'all' ? 1 : 0)
         : employeeFilterCount;
 
     const clearAllFilters = useCallback(() => {
@@ -793,13 +843,15 @@ export function BulkDocumentsContent({
         <Main>
             <PageHeader
                 className="mb-6"
-                title={isHistoryView ? 'Activity' : 'Generate & Send'}
+                title={isHistoryView ? 'Activity' : 'Generate & Track'}
                 description={
                     isHistoryView
                         ? 'Review document generation and email history.'
-                        : document_type_key === ''
-                          ? 'Choose a company template or built-in document to generate.'
-                          : `Create ${selectedTypeLabel} documents for multiple employees at once, then email or download them.`
+                        : isCustomTemplate && custom_template
+                          ? `Company template · Version ${custom_template.version}`
+                          : document_type_key === ''
+                            ? 'Choose a company template or built-in document to generate.'
+                            : `Generate documents for multiple employees, track their review and signing journey, and manage delivery.`
                 }
                 right={
                     can_view_templates ? (
@@ -878,13 +930,9 @@ export function BulkDocumentsContent({
                             </p>
                         </div>
                         <GenerationStatusFilter
-                            generationFilter={generation_filter}
-                            onFilterChange={setGenerationFilter}
-                            counts={{
-                                targeted: counts.targeted,
-                                not_generated: counts.not_generated,
-                                generated: counts.generated,
-                            }}
+                            processFilter={processFilter}
+                            onFilterChange={handleProcessFilterChange}
+                            counts={counts}
                         />
                     </div>
                     <div className="p-4 sm:p-5">
@@ -925,7 +973,9 @@ export function BulkDocumentsContent({
             {isRosterView ? (
                 <GenerationProgressBanner
                     latestRun={latest_run}
-                    onShowGenerated={() => setGenerationFilter('generated')}
+                    onShowGenerated={() =>
+                        handleProcessFilterChange('completed')
+                    }
                     canViewTemplates={can_view_templates}
                 />
             ) : null}
@@ -1003,7 +1053,7 @@ export function BulkDocumentsContent({
                                         onClick={() => setEmailOpen(true)}
                                     >
                                         <Mail className="mr-2 h-3.5 w-3.5" />
-                                        Send email
+                                        Email document copy
                                     </Button>
                                 ) : null}
                                 {can.delete ? (
@@ -1062,9 +1112,9 @@ export function BulkDocumentsContent({
                                     />
                                 </DataTableHead>
                                 <DataTableHead>Employee</DataTableHead>
-                                <DataTableHead>Email</DataTableHead>
-                                <DataTableHead>Emailed</DataTableHead>
-                                <DataTableHead>Document</DataTableHead>
+                                <DataTableHead>Process</DataTableHead>
+                                <DataTableHead>Waiting For</DataTableHead>
+                                <DataTableHead>Last Activity</DataTableHead>
                                 <DataTableHead className="text-right">
                                     Actions
                                 </DataTableHead>
@@ -1092,6 +1142,9 @@ export function BulkDocumentsContent({
                                             handleToggleEmployee(employee.id)
                                         }
                                         canDownload={can.download}
+                                        onViewJourney={() =>
+                                            handleOpenJourney(employee)
+                                        }
                                     />
                                 ))
                             )}
@@ -1182,6 +1235,12 @@ export function BulkDocumentsContent({
                 description={`This will permanently remove ${effectiveDocumentIds.length} document(s) from employee profiles.`}
                 onConfirm={handleDelete}
             />
+
+            <DocumentJourneySheet
+                open={journeySheetOpen}
+                onOpenChange={setJourneySheetOpen}
+                identifiers={journeyIdentifiers}
+            />
         </Main>
     );
 }
@@ -1191,20 +1250,26 @@ function BulkRosterRow({
     checked,
     onToggle,
     canDownload,
+    onViewJourney,
 }: {
     employee: BulkRosterEmployee;
     checked: boolean;
     onToggle: () => void;
     canDownload: boolean;
+    onViewJourney: () => void;
 }) {
     const hasDocument = employee.document !== null;
     const documentBadge = rosterGenerationBadge(employee);
     const assignment = [employee.department, employee.position]
         .filter(Boolean)
         .join(' · ');
+    const process = employee.process;
 
     return (
-        <TableRow className={dataTableBodyRowClass(false)}>
+        <TableRow
+            className={cn(dataTableBodyRowClass(false), 'cursor-pointer')}
+            onClick={onViewJourney}
+        >
             <TableCell
                 className={dataTableCellClass()}
                 onClick={(e) => e.stopPropagation()}
@@ -1250,39 +1315,31 @@ function BulkRosterRow({
                 </div>
             </TableCell>
             <TableCell className={dataTableCellClass()}>
-                {employee.email ? (
-                    <a
-                        href={`mailto:${employee.email}`}
-                        className="text-sm text-primary hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {employee.email}
-                    </a>
-                ) : (
-                    <span className="text-muted-foreground/70">—</span>
-                )}
-            </TableCell>
-            <TableCell className={dataTableCellClass()}>
-                {employee.email_sent_at ? (
-                    <div className="flex flex-col gap-0.5">
-                        <Badge className="w-fit border-0 bg-sky-500/10 text-sky-600 dark:text-sky-400">
-                            Sent
-                        </Badge>
-                        <span className="text-[11px] text-muted-foreground/70">
-                            {formatDisplayDateTime12h(employee.email_sent_at)}
-                        </span>
-                    </div>
-                ) : (
-                    <Badge
-                        variant="outline"
-                        className="border-dashed text-muted-foreground/60"
-                    >
-                        Not emailed
-                    </Badge>
-                )}
-            </TableCell>
-            <TableCell className={dataTableCellClass()}>
-                {documentBadge.kind === 'generating' ? (
+                {process ? (
+                    process.status === 'generating' ? (
+                        <div className="flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-400">
+                            <Spinner className="h-3.5 w-3.5" />
+                            Generating
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-start gap-1">
+                            <Badge
+                                variant="outline"
+                                className={cn(
+                                    'border font-medium',
+                                    badgeToneClasses(process.tone),
+                                )}
+                            >
+                                {process.label}
+                            </Badge>
+                            {process.action_email?.status === 'failed' ? (
+                                <span className="text-[10px] font-medium text-rose-600 dark:text-rose-400">
+                                    Action email issue
+                                </span>
+                            ) : null}
+                        </div>
+                    )
+                ) : documentBadge.kind === 'generating' ? (
                     <div className="flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-400">
                         <Spinner className="h-3.5 w-3.5" />
                         Generating
@@ -1321,27 +1378,56 @@ function BulkRosterRow({
                     </Badge>
                 )}
             </TableCell>
+            <TableCell className={dataTableCellClass()}>
+                {process?.waiting_for ? (
+                    <span className="text-xs font-medium text-foreground">
+                        {process.waiting_for}
+                    </span>
+                ) : (
+                    <span className="text-muted-foreground/60">—</span>
+                )}
+            </TableCell>
+            <TableCell className={dataTableCellClass()}>
+                {process?.last_activity ? (
+                    <div className="flex max-w-[200px] flex-col text-xs">
+                        <span
+                            className="truncate text-foreground"
+                            title={process.last_activity.event}
+                        >
+                            {process.last_activity.event}
+                        </span>
+                        {process.last_activity.relative ? (
+                            <span className="text-[11px] text-muted-foreground/70">
+                                {process.last_activity.relative}
+                            </span>
+                        ) : process.last_activity.timestamp ? (
+                            <span className="text-[11px] text-muted-foreground/70">
+                                {formatDisplayDateTime12h(
+                                    process.last_activity.timestamp,
+                                )}
+                            </span>
+                        ) : null}
+                    </div>
+                ) : (
+                    <span className="text-muted-foreground/60">—</span>
+                )}
+            </TableCell>
             <TableCell
                 className={dataTableActionsCellClass()}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex items-center justify-end gap-2">
-                    {hasDocument && canDownload ? (
-                        <Button type="button" variant="ghost" size="sm" asChild>
-                            <a
-                                href={employeeDocumentViewUrl(
-                                    employee.document!.id,
-                                )}
-                                target="_blank"
-                                rel="noreferrer"
-                                title="View document"
-                                aria-label={`View document for ${employee.name}`}
-                            >
-                                <Eye className="mr-2 h-4 w-4" />
-                                View
-                            </a>
-                        </Button>
-                    ) : null}
+                <div className="flex items-center justify-end gap-1.5">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={onViewJourney}
+                        title="View document journey"
+                        aria-label={`View document journey for ${employee.name}`}
+                    >
+                        <Eye className="mr-1.5 h-4 w-4" />
+                        View
+                    </Button>
                     <Button
                         type="button"
                         variant="ghost"

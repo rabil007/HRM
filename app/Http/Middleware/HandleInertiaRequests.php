@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Settings\SettingService;
 use App\Support\Auth\PrivilegedTwoFactorPolicy;
 use App\Support\Companies\ResolveCompanyAccess;
+use App\Support\Documents\MyTasks\MyTasksCounter;
 use App\Support\Platform\PlatformAuthorization;
 use App\Support\Users\UserAvatar;
 use Closure;
@@ -202,6 +203,9 @@ class HandleInertiaRequests extends Middleware
                 'roles' => $roleNames,
                 'platform' => PlatformAuthorization::sharedFlags($user),
                 'two_factor' => PrivilegedTwoFactorPolicy::sharedFlags($user),
+                'my_tasks_count' => ($user && $currentCompanyId !== null)
+                    ? app(MyTasksCounter::class)->count($user, (int) $currentCompanyId)
+                    : 0,
             ],
             'company_switcher_companies' => $companies,
             'current_company_id' => $currentCompanyId,

@@ -6,7 +6,7 @@ This phase does **not** favorite business records (employees, documents, crew as
 
 ## What can be favorited
 
-Only keys from the server catalog (`App\Support\Navigation\NavigationDestinationCatalog`, mirrored in `resources/js/lib/navigation-favorites.ts`). Examples: Employees, Documents, Crew Assignments, Crew Planning, Vessels, Vessel Manning, Leave requests, Attendance records, Payroll, and other existing sidebar destinations.
+Only keys from the server catalog (`App\Support\Navigation\NavigationDestinationCatalog`, mirrored in `resources/js/lib/navigation-favorites.ts`). Examples: Employees, Documents, Crew Assignments, Crew Planning, Vessels, Leave requests, Attendance records, Payroll, and other existing sidebar destinations.
 
 The client submits a catalog **key**, never a URL. Unknown keys and client-supplied `url` / `href` / `user_id` / `company_id` are rejected.
 

@@ -36,11 +36,7 @@ class BulkDocumentSelectionController extends Controller
                 ['status' => 'active'],
             ));
 
-            $generationFilter = match ($request->query('generation_filter')) {
-                'missing' => 'missing',
-                'generated' => 'generated',
-                default => 'all',
-            };
+            $generationFilter = (string) ($request->query('process_filter') ?? $request->query('generation_filter', 'all'));
 
             return response()->json(
                 CustomDocumentRosterQuery::matchingSelection(
@@ -90,9 +86,10 @@ class BulkDocumentSelectionController extends Controller
             );
         }
 
-        $generationFilter = match ($request->query('generation_filter')) {
-            'missing' => 'missing',
-            'generated' => 'generated',
+        $processFilter = $request->query('process_filter');
+        $generationFilter = match ($processFilter ?? $request->query('generation_filter')) {
+            'not_started', 'missing' => 'missing',
+            'completed', 'generated' => 'generated',
             default => 'all',
         };
 

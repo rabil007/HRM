@@ -303,7 +303,6 @@ test('catalog keys used by the product examples exist', function () {
         'crew.current',
         'crew.planning',
         'crew.vessels',
-        'crew.vessel-manning',
         'leave.requests',
         'payroll',
         'attendance.records',

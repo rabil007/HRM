@@ -1,3 +1,4 @@
+import type { OperationalProcess } from '@/features/organization/documents/journey/types';
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -49,6 +50,7 @@ export type BulkRosterEmployee = {
         code: string;
         message: string;
     } | null;
+    process?: OperationalProcess;
 };
 
 export type BulkGenerationFailureSummary = {
@@ -64,6 +66,13 @@ export type BulkGenerationFailureSummary = {
     }[];
 };
 
+export type ProcessLifecycleFilter =
+    | 'all'
+    | 'not_started'
+    | 'in_progress'
+    | 'needs_attention'
+    | 'completed';
+
 export type BulkDocumentCounts = {
     targeted: number;
     generated: number;
@@ -71,6 +80,11 @@ export type BulkDocumentCounts = {
     pending_review: number;
     awaiting_signature: number;
     approved: number;
+    all?: number;
+    not_started?: number;
+    in_progress?: number;
+    needs_attention?: number;
+    completed?: number;
 };
 
 export type BulkGenerationRun = {
@@ -210,6 +224,7 @@ export type BulkDocumentsPageProps = {
     employees: BulkRosterEmployee[];
     activity: BulkActivityItem[];
     pagination: PaginationMeta;
+    process_filter?: ProcessLifecycleFilter;
     generation_filter: BulkGenerationFilter;
     email_filter: BulkEmailFilter;
     departments: { id: number; name: string }[];

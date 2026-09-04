@@ -65,7 +65,7 @@ describe('pathname matching', () => {
         );
         assert.equal(
             destinationKeyFromPathname('/organization/vessel-manning/4'),
-            'crew.vessel-manning',
+            'crew.vessels',
         );
         assert.equal(destinationKeyFromPathname('/settings/application'), null);
         assert.equal(
@@ -95,8 +95,8 @@ describe('unified Documents destinations', () => {
                 'Overview',
                 'Library',
                 'Templates',
-                'Generate & Send',
-                'Requests',
+                'Generate & Track',
+                'My Tasks',
                 'Document Types',
                 'Activity',
             ],

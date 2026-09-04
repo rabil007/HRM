@@ -20,8 +20,8 @@ export const DOCUMENTS_MODULE_PATHS: Record<DocumentsModuleSection, string> = {
 export const DOCUMENTS_MODULE_LABELS: Record<DocumentsModuleSection, string> = {
     overview: 'Overview',
     library: 'Library',
-    generate: 'Generate & Send',
-    requests: 'Requests',
+    generate: 'Generate & Track',
+    requests: 'My Tasks',
     templates: 'Templates',
     configuration: 'Document Types',
     activity: 'Activity',
