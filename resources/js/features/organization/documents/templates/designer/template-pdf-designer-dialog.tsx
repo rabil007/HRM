@@ -940,9 +940,7 @@ function PlacementAlignmentControls({
     verticalAlign: PlacementVerticalAlign;
     disabled: boolean;
     onChange: (
-        patch: Partial<
-            Pick<PdfPlacementItem, 'text_align' | 'vertical_align'>
-        >,
+        patch: Partial<Pick<PdfPlacementItem, 'text_align' | 'vertical_align'>>,
     ) => void;
 }) {
     return (
@@ -1772,7 +1770,9 @@ export function TemplatePdfDesignerDialog({
                             pixel.width,
                             pixel.height,
                             normalizeSignatureTextAlign(item.text_align),
-                            normalizeSignatureVerticalAlign(item.vertical_align),
+                            normalizeSignatureVerticalAlign(
+                                item.vertical_align,
+                            ),
                             12,
                         );
                         const label = new FabricText(

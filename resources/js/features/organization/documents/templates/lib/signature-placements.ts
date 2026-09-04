@@ -217,7 +217,9 @@ export function loadSignaturePlacements(
             height: item.height,
             required: item.required ?? true,
             text_align: normalizeSignatureTextAlign(item.text_align),
-            vertical_align: normalizeSignatureVerticalAlign(item.vertical_align),
+            vertical_align: normalizeSignatureVerticalAlign(
+                item.vertical_align,
+            ),
         };
     });
 }
@@ -234,7 +236,9 @@ export function serializeSignaturePlacements(
             slot_key: item.slot_key ?? slotKeyForRole(item.role, 1),
             required: item.required ?? true,
             text_align: normalizeSignatureTextAlign(item.text_align),
-            vertical_align: normalizeSignatureVerticalAlign(item.vertical_align),
+            vertical_align: normalizeSignatureVerticalAlign(
+                item.vertical_align,
+            ),
         })),
     };
 }

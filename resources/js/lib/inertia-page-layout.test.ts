@@ -4,16 +4,16 @@ import { inertiaPageLayoutKind } from './inertia-page-layout.ts';
 
 describe('inertiaPageLayoutKind', () => {
     it('keeps public document-action pages outside the admin layout', () => {
-        assert.equal(
-            inertiaPageLayoutKind('document-action/index'),
-            'none',
-        );
+        assert.equal(inertiaPageLayoutKind('document-action/index'), 'none');
     });
 
     it('keeps other public surfaces outside the admin layout', () => {
         assert.equal(inertiaPageLayoutKind('welcome'), 'none');
         assert.equal(inertiaPageLayoutKind('shared/show'), 'none');
-        assert.equal(inertiaPageLayoutKind('public/announcements/show'), 'none');
+        assert.equal(
+            inertiaPageLayoutKind('public/announcements/show'),
+            'none',
+        );
         assert.equal(inertiaPageLayoutKind('esign/show'), 'none');
         assert.equal(inertiaPageLayoutKind('errors/404'), 'none');
     });
