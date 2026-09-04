@@ -550,6 +550,7 @@ test('manual activity events record company_id and avoid logging sensitive conte
     }
 
     // 2. Publish
+    seedAuthoritativeValidLayoutRun($template, $version->fresh());
     $publisher = new PublishDocumentGenerationTemplateVersion;
     $publisher->handle($version, $user->id);
 

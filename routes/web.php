@@ -164,6 +164,7 @@ use App\Http\Controllers\Organization\SeaServiceShowController;
 use App\Http\Controllers\Organization\SeaServicesImportController;
 use App\Http\Controllers\Organization\SeaServicesIndexController;
 use App\Http\Controllers\Organization\SendWhatsAppDocumentTemplateController;
+use App\Http\Controllers\Organization\ShowDocumentTemplateLayoutValidationRunController;
 use App\Http\Controllers\Organization\TrainingsExportController;
 use App\Http\Controllers\Organization\TrainingsImportController;
 use App\Http\Controllers\Organization\TrainingsIndexController;
@@ -854,6 +855,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/documents/templates/{template}/versions/{version}/validate-design', ValidateDocumentGenerationTemplateDesignController::class)
         ->middleware('can:documents.templates.update')
         ->name('organization.documents.templates.versions.design.validate');
+    Route::get('organization/documents/templates/{template}/versions/{version}/validation-runs/{run}', ShowDocumentTemplateLayoutValidationRunController::class)
+        ->middleware('can:documents.templates.update')
+        ->name('organization.documents.templates.versions.validation-runs.show');
     Route::post('organization/documents/templates/{template}/versions/{version}/replace-pdf', [DocumentGenerationTemplateController::class, 'replacePdf'])
         ->middleware('can:documents.templates.update')
         ->name('organization.documents.templates.versions.replace-pdf');

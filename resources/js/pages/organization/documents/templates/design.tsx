@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import { Main } from '@/components/layout/main';
 import type { SigningPresetFormOptions } from '@/features/organization/documents/signing/types';
 import { TemplatePdfDesignerDialog } from '@/features/organization/documents/templates/designer/template-pdf-designer-dialog';
+import type { LayoutValidationRun } from '@/features/organization/documents/templates/lib/layout-validation';
 import type {
     CustomTemplate,
     DesignerSigningPreset,
@@ -26,6 +27,7 @@ type Props = {
     workflow_form_options: WorkflowPresetFormOptions | null;
     signing_form_options: SigningPresetFormOptions | null;
     readiness: TemplateReadiness | null;
+    layout_validation_run?: LayoutValidationRun | null;
     can: {
         create_draft: boolean;
         update: boolean;
@@ -46,6 +48,7 @@ export default function DocumentTemplateDesignPage({
     workflow_form_options = null,
     signing_form_options = null,
     readiness = null,
+    layout_validation_run = null,
     can,
 }: Props) {
     return (
@@ -70,6 +73,7 @@ export default function DocumentTemplateDesignPage({
                     workflowFormOptions={workflow_form_options}
                     signingFormOptions={signing_form_options}
                     readiness={readiness}
+                    initialLayoutValidationRun={layout_validation_run}
                     can={can}
                 />
             </Main>

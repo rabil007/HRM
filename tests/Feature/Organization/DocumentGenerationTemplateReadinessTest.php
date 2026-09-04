@@ -317,6 +317,8 @@ test('draft with both none decisions can publish', function () {
         'document_signing_mode' => DocumentTemplateAutomationMode::None,
     ]);
 
+    seedAuthoritativeValidLayoutRun($template, $version->fresh());
+
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->post(route('organization.documents.templates.versions.publish', [
@@ -337,6 +339,7 @@ test('draft with workflow preset and signing none can publish', function () {
         'document_signing_mode' => DocumentTemplateAutomationMode::None,
     ]);
 
+    seedAuthoritativeValidLayoutRun($template, $version->fresh());
     app(PublishDocumentGenerationTemplateVersion::class)->handle($version->fresh(), $user->id);
 
     expect($version->fresh()->isPublished())->toBeTrue();
@@ -374,6 +377,7 @@ test('draft with both valid preset configurations can publish', function () {
         ],
     ]);
 
+    seedAuthoritativeValidLayoutRun($template, $version->fresh());
     app(PublishDocumentGenerationTemplateVersion::class)->handle($version->fresh(), $user->id);
 
     expect($version->fresh()->isPublished())->toBeTrue();

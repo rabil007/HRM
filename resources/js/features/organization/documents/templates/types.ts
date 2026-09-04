@@ -1,3 +1,5 @@
+import type { LayoutValidationRun } from './lib/layout-validation';
+
 export type TemplateVersionSummary = {
     id: number;
     version: number;
@@ -294,4 +296,5 @@ export type VersionDetailResponse = {
     version: TemplateVersionSummary;
     change_summary: VersionChangeSummary | null;
     readiness?: TemplateReadiness;
+    layout_validation_run?: LayoutValidationRun | null;
 };

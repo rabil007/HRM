@@ -1,17 +1,29 @@
 <?php
 
+use App\Enums\DocumentGenerationTemplateVersionStatus;
+use App\Enums\DocumentTemplateAutomationMode;
+use App\Enums\DocumentTemplateLayoutValidationRunStatus;
+use App\Jobs\ValidateDocumentTemplateLayoutJob;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
+use App\Models\DocumentGenerationTemplate;
+use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentRequirement;
+use App\Models\DocumentTemplateLayoutValidationRun;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\Position;
 use App\Models\Project;
 use App\Models\Rank;
+use App\Models\User;
+use App\Support\Documents\DocumentTemplateLayoutValidationFailureLogger;
+use App\Support\Documents\DocumentTemplateLayoutValidationFingerprint;
+use App\Support\Documents\DocumentTemplateStorage;
+use App\Support\Documents\PdfOverlayLayoutPreflight;
 use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\Fpdi;
 
@@ -223,5 +235,103 @@ function makeUnmappedEmployeeDocument(
         'original_filename' => 'unmapped.pdf',
         'mime_type' => 'application/pdf',
         'status' => 'valid',
+    ]);
+}
+
+function layoutPreflightPuppeteerAvailable(): bool
+{
+    if (getenv('REQUIRE_PDF_RENDERER_TESTS') === 'true') {
+        return true;
+    }
+
+    return file_exists(base_path('node_modules/puppeteer'));
+}
+
+/**
+ * @return array{user: User, company: mixed, template: DocumentGenerationTemplate, version: DocumentGenerationTemplateVersion, path: string}
+ */
+function makeLayoutPreflightDraft(array $placementOverrides = []): array
+{
+    $user = User::factory()->create();
+    $company = makeDocumentFixtures()['company'];
+    grantCompanyPermissions($user, $company, [
+        'documents.templates.update',
+        'documents.templates.view',
+        'employees.view',
+    ]);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->pdfOverlay()->create();
+    $path = DocumentTemplateStorage::directory($company->id).'/source.pdf';
+    Storage::disk(DocumentTemplateStorage::DISK)->put($path, minimalPdfBytes());
+
+    $placement = array_merge([
+        'id' => 'emirates_id_en',
+        'type' => 'field',
+        'field' => '{{emirates_id}}',
+        'page' => 1,
+        'x' => 0.1,
+        'y' => 0.1,
+        'width' => 0.05,
+        'height' => 0.02,
+        'font_size' => 14,
+        'font_weight' => 'normal',
+        'text_align' => 'left',
+        'font_family' => 'sans',
+        'font_color' => '#000000',
+    ], $placementOverrides);
+
+    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
+        'version' => 1,
+        'status' => DocumentGenerationTemplateVersionStatus::Draft,
+        'source_pdf_path' => $path,
+        'source_pdf_page_count' => 1,
+        'placement_config' => [
+            'schema_version' => 2,
+            'placements' => [$placement],
+        ],
+        'signature_placement_config' => ['schema_version' => 3, 'placements' => []],
+        'document_workflow_mode' => DocumentTemplateAutomationMode::None,
+        'document_signing_mode' => DocumentTemplateAutomationMode::None,
+    ]);
+
+    return compact('user', 'company', 'template', 'version', 'path');
+}
+
+function processLayoutValidationRun(int $runId, int $companyId): void
+{
+    (new ValidateDocumentTemplateLayoutJob($runId, $companyId))->handle(
+        app(PdfOverlayLayoutPreflight::class),
+        app(DocumentTemplateLayoutValidationFingerprint::class),
+        app(DocumentTemplateLayoutValidationFailureLogger::class),
+    );
+}
+
+function seedAuthoritativeValidLayoutRun(
+    DocumentGenerationTemplate $template,
+    DocumentGenerationTemplateVersion $version,
+): DocumentTemplateLayoutValidationRun {
+    $companyId = (int) $template->company_id;
+    $fingerprint = app(DocumentTemplateLayoutValidationFingerprint::class)->for(
+        $template,
+        $version,
+        $companyId,
+        is_array($version->placement_config) ? $version->placement_config : ['schema_version' => 2, 'placements' => []],
+        'sample',
+        null,
+        true,
+    );
+
+    return DocumentTemplateLayoutValidationRun::query()->create([
+        'company_id' => $companyId,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'mode' => 'sample',
+        'authoritative' => true,
+        'fingerprint' => $fingerprint,
+        'status' => DocumentTemplateLayoutValidationRunStatus::Valid,
+        'issues' => [],
+        'effective_font_sizes' => [],
+        'validated_with' => ['mode' => 'sample'],
+        'finished_at' => now(),
     ]);
 }

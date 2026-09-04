@@ -26,6 +26,8 @@ class ValidateDocumentGenerationTemplateDesignRequest extends FormRequest
             'placement_config.placements.*.type' => ['required_with:placement_config.placements', 'string', 'in:field,text'],
             'company_id' => ['prohibited'],
             'source_pdf_path' => ['prohibited'],
+            'fingerprint' => ['prohibited'],
+            'authoritative' => ['prohibited'],
         ];
     }
 

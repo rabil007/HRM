@@ -15,7 +15,9 @@ use App\Support\Documents\Actions\CreateDocumentGenerationTemplate;
 use App\Support\Documents\Actions\DeleteDocumentGenerationTemplate;
 use App\Support\Documents\Actions\DuplicateDocumentGenerationTemplate;
 use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
+use App\Support\Documents\Actions\QueueDocumentTemplateLayoutValidation;
 use App\Support\Documents\Actions\ReplaceDocumentGenerationTemplatePdf;
+use App\Support\Documents\Actions\ResolveCurrentDocumentTemplateLayoutValidationRun;
 use App\Support\Documents\Actions\SaveDocumentGenerationTemplateDesign;
 use App\Support\Documents\Actions\UpdateDocumentGenerationTemplate;
 use App\Support\Documents\DocumentGenerationTemplateDesignerOptions;
@@ -23,6 +25,7 @@ use App\Support\Documents\DocumentGenerationTemplatePageOptions;
 use App\Support\Documents\DocumentGenerationTemplateReadiness;
 use App\Support\Documents\DocumentsModuleAccess;
 use App\Support\Documents\DocumentTemplateStorage;
+use App\Support\Documents\PresentDocumentTemplateLayoutValidationRun;
 use App\Support\Documents\VersionChangeSummary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -64,6 +67,8 @@ class DocumentGenerationTemplateController extends Controller
         Request $request,
         DocumentGenerationTemplate $template,
         DocumentGenerationTemplateDesignerOptions $designerOptions,
+        ResolveCurrentDocumentTemplateLayoutValidationRun $resolveLayoutRun,
+        PresentDocumentTemplateLayoutValidationRun $presentLayoutRun,
     ): InertiaResponse {
         abort_unless(DocumentsModuleAccess::canUpdateCustomTemplates($request->user()), 403);
 
@@ -91,6 +96,8 @@ class DocumentGenerationTemplateController extends Controller
         $pageOptions = DocumentGenerationTemplatePageOptions::for($request->user());
         $designer = $designerOptions->for($request->user(), $companyId, $template, $initialVersion);
 
+        $layoutValidationRun = $resolveLayoutRun->handle($template, $initialVersion, $companyId);
+
         return Inertia::render('organization/documents/templates/design', [
             'template' => $template->toBrowseArray(),
             'initial_version' => $initialVersion->toArraySummary(),
@@ -104,6 +111,9 @@ class DocumentGenerationTemplateController extends Controller
             'workflow_form_options' => $designer['workflow_form_options'],
             'signing_form_options' => $designer['signing_form_options'],
             'readiness' => $designer['readiness'],
+            'layout_validation_run' => $layoutValidationRun !== null
+                ? $presentLayoutRun->handle($layoutValidationRun)
+                : null,
             ...$pageOptions,
             'can' => array_merge($pageOptions['can'], [
                 'create_draft' => DocumentsModuleAccess::canUpdateCustomTemplates($request->user()),
@@ -120,6 +130,8 @@ class DocumentGenerationTemplateController extends Controller
         DocumentGenerationTemplate $template,
         DocumentGenerationTemplateVersion $version,
         DocumentGenerationTemplateReadiness $readiness,
+        ResolveCurrentDocumentTemplateLayoutValidationRun $resolveLayoutRun,
+        PresentDocumentTemplateLayoutValidationRun $presentLayoutRun,
     ): JsonResponse {
         abort_unless($request->user()?->can('documents.templates.view') ?? false, 403);
 
@@ -139,10 +151,15 @@ class DocumentGenerationTemplateController extends Controller
         $summary = $version->toArraySummary();
         unset($summary['source_pdf_path']);
 
+        $layoutValidationRun = $resolveLayoutRun->handle($template, $version, $companyId);
+
         return response()->json([
             'version' => $summary,
             'change_summary' => $changeSummary,
             'readiness' => $readiness->evaluate($version, $template),
+            'layout_validation_run' => $layoutValidationRun !== null
+                ? $presentLayoutRun->handle($layoutValidationRun)
+                : null,
         ]);
     }
 
@@ -152,6 +169,8 @@ class DocumentGenerationTemplateController extends Controller
         DocumentGenerationTemplateVersion $version,
         SaveDocumentGenerationTemplateDesign $action,
         DocumentGenerationTemplateReadiness $readiness,
+        QueueDocumentTemplateLayoutValidation $queueLayoutValidation,
+        PresentDocumentTemplateLayoutValidationRun $presentLayoutRun,
     ): JsonResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_if($companyId <= 0, 403);
@@ -168,12 +187,23 @@ class DocumentGenerationTemplateController extends Controller
         );
 
         $fresh = $updated->fresh() ?? $updated;
+        $layoutValidationRun = $queueLayoutValidation->handle(
+            $template,
+            $fresh,
+            $companyId,
+            'sample',
+            null,
+            null,
+            false,
+            $request->user()?->id,
+        );
 
         return response()->json([
             'success' => true,
             'message' => 'Draft saved.',
             'version' => $fresh->toArraySummary(),
             'readiness' => $readiness->evaluate($fresh, $template),
+            'layout_validation_run' => $presentLayoutRun->handle($layoutValidationRun),
         ]);
     }
 

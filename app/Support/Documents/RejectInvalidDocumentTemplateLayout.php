@@ -10,6 +10,10 @@ final class RejectInvalidDocumentTemplateLayout
 
     public const UNAVAILABLE_CODE = PdfOverlayLayoutPreflight::CODE_LAYOUT_VALIDATION_UNAVAILABLE;
 
+    public const PENDING_CODE = 'TEMPLATE_LAYOUT_VALIDATION_PENDING';
+
+    public const REQUIRED_CODE = 'TEMPLATE_LAYOUT_VALIDATION_REQUIRED';
+
     public static function throw(DocumentTemplateLayoutPreflightResult $result): never
     {
         if ($result->isUnavailable()) {
@@ -50,6 +54,42 @@ final class RejectInvalidDocumentTemplateLayout
             'message' => 'Layout validation could not be completed. Try again.',
             'reference' => $result->reference,
             'issues' => $issues,
+            'errors' => [
+                'layout' => [$headline],
+            ],
+        ], 422);
+
+        throw $exception;
+    }
+
+    public static function throwPending(): never
+    {
+        $headline = 'Layout validation is still running. Publishing is unavailable until it finishes.';
+        $exception = ValidationException::withMessages([
+            'layout' => $headline,
+        ]);
+        $exception->response = response()->json([
+            'code' => self::PENDING_CODE,
+            'message' => $headline,
+            'issues' => [],
+            'errors' => [
+                'layout' => [$headline],
+            ],
+        ], 422);
+
+        throw $exception;
+    }
+
+    public static function throwRequired(): never
+    {
+        $headline = 'Validate the saved draft with sample data before publishing.';
+        $exception = ValidationException::withMessages([
+            'layout' => $headline,
+        ]);
+        $exception->response = response()->json([
+            'code' => self::REQUIRED_CODE,
+            'message' => $headline,
+            'issues' => [],
             'errors' => [
                 'layout' => [$headline],
             ],

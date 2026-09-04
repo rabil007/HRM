@@ -7,11 +7,18 @@ import {
     layoutReadinessSectionCopy,
     layoutSavedDraftMessage,
     layoutValidateButtonLabel,
+    applyLayoutRunIfCurrent,
+    isTerminalLayoutRunStatus,
     layoutValidationFingerprint,
     layoutValidationStateFromResult,
+    layoutValidationStateFromRun,
     normalizeLayoutPreflightResult,
+    parseLayoutValidationRunPayload,
 } from '../templates/lib/layout-validation.ts';
-import type { LayoutPreflightResult } from '../templates/lib/layout-validation.ts';
+import type {
+    LayoutPreflightResult,
+    LayoutValidationRun,
+} from '../templates/lib/layout-validation.ts';
 import { combinedPublishIssueLabel } from '../templates/lib/template-workflow.ts';
 
 const sampleResult = (
@@ -316,6 +323,83 @@ describe('combinedPublishIssueLabel', () => {
                 layoutIssueCount: 1,
             }),
             { kind: 'issues', label: 'Validation unavailable' },
+        );
+    });
+});
+
+const sampleRun = (
+    overrides: Partial<LayoutValidationRun> = {},
+): LayoutValidationRun => ({
+    id: 12,
+    status: 'queued',
+    mode: 'sample',
+    authoritative: true,
+    valid: false,
+    validated_with: { mode: 'sample' },
+    effective_font_sizes: {},
+    issues: [],
+    fit_count: 0,
+    overflow_count: 0,
+    reference: null,
+    ...overrides,
+});
+
+describe('async layout validation runs', () => {
+    it('treats queued and processing as non-terminal', () => {
+        assert.equal(isTerminalLayoutRunStatus('queued'), false);
+        assert.equal(isTerminalLayoutRunStatus('processing'), false);
+        assert.equal(isTerminalLayoutRunStatus('valid'), true);
+    });
+
+    it('restores checking from an in-flight run', () => {
+        const state = layoutValidationStateFromRun(sampleRun(), 'fp-current');
+
+        assert.deepEqual(state, {
+            status: 'checking',
+            fingerprint: 'fp-current',
+            runId: 12,
+        });
+    });
+
+    it('ignores a completed run when the canvas fingerprint changed', () => {
+        const next = applyLayoutRunIfCurrent(
+            sampleRun({
+                status: 'valid',
+                valid: true,
+            }),
+            'fp-request',
+            'fp-moved',
+        );
+
+        assert.equal(next.status, 'stale');
+    });
+
+    it('applies a valid run only when the canvas still matches', () => {
+        const next = applyLayoutRunIfCurrent(
+            sampleRun({
+                status: 'valid',
+                valid: true,
+            }),
+            'fp-current',
+            'fp-current',
+        );
+
+        assert.equal(next.status, 'valid');
+    });
+
+    it('parses a queued POST envelope', () => {
+        const run = parseLayoutValidationRunPayload({
+            run: sampleRun({ status: 'queued' }),
+        });
+
+        assert.equal(run?.status, 'queued');
+        assert.equal(run?.id, 12);
+    });
+
+    it('shows validating copy after save draft', () => {
+        assert.equal(
+            layoutSavedDraftMessage(null, { validating: true }),
+            'Draft saved · Validating layout…',
         );
     });
 });

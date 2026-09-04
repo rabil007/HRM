@@ -37,9 +37,33 @@ export type LayoutValidationStatus =
     | 'unavailable'
     | 'stale';
 
+export type LayoutValidationRunStatus =
+    | 'queued'
+    | 'processing'
+    | 'valid'
+    | 'invalid'
+    | 'unavailable'
+    | 'stale';
+
+export type LayoutValidationRun = {
+    id: number;
+    status: LayoutValidationRunStatus;
+    mode: 'sample' | 'employee';
+    authoritative: boolean;
+    valid: boolean;
+    validated_with: LayoutPreflightResult['validated_with'];
+    effective_font_sizes: Record<string, number | null>;
+    issues: LayoutPreflightIssue[];
+    fit_count: number;
+    overflow_count: number;
+    reference: string | null;
+    started_at?: string | null;
+    finished_at?: string | null;
+};
+
 export type LayoutValidationState =
     | { status: 'idle' }
-    | { status: 'checking' }
+    | { status: 'checking'; fingerprint: string; runId: number }
     | { status: 'valid'; result: LayoutPreflightResult; fingerprint: string }
     | { status: 'invalid'; result: LayoutPreflightResult; fingerprint: string }
     | {
@@ -48,6 +72,15 @@ export type LayoutValidationState =
           fingerprint: string;
       }
     | { status: 'stale'; previous: LayoutPreflightResult | null };
+
+export const LAYOUT_VALIDATION_POLL_MS = 1800;
+
+export const LAYOUT_PUBLISH_CODES = {
+    invalid: 'TEMPLATE_LAYOUT_INVALID',
+    unavailable: 'TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE',
+    pending: 'TEMPLATE_LAYOUT_VALIDATION_PENDING',
+    required: 'TEMPLATE_LAYOUT_VALIDATION_REQUIRED',
+} as const;
 
 export const LAYOUT_ISSUE_CODES = {
     overflow: 'LAYOUT_OVERFLOW',
@@ -88,6 +121,106 @@ export function normalizeLayoutPreflightResult(
         fit_count: raw.fit_count ?? 0,
         overflow_count: raw.overflow_count ?? 0,
         reference: raw.reference ?? null,
+    };
+}
+
+export function isTerminalLayoutRunStatus(
+    status: string,
+): status is Exclude<LayoutValidationRunStatus, 'queued' | 'processing'> {
+    return (
+        status === 'valid' ||
+        status === 'invalid' ||
+        status === 'unavailable' ||
+        status === 'stale'
+    );
+}
+
+export function layoutPreflightResultFromRun(
+    run: LayoutValidationRun,
+): LayoutPreflightResult {
+    return normalizeLayoutPreflightResult({
+        status:
+            run.status === 'valid' ||
+            run.status === 'invalid' ||
+            run.status === 'unavailable'
+                ? run.status
+                : run.valid
+                  ? 'valid'
+                  : 'invalid',
+        valid: run.valid,
+        mode: run.mode,
+        validated_with: run.validated_with,
+        effective_font_sizes: run.effective_font_sizes,
+        issues: run.issues,
+        fit_count: run.fit_count,
+        overflow_count: run.overflow_count,
+        reference: run.reference,
+    });
+}
+
+export function layoutValidationStateFromRun(
+    run: LayoutValidationRun,
+    fingerprint: string,
+): LayoutValidationState {
+    if (run.status === 'queued' || run.status === 'processing') {
+        return { status: 'checking', fingerprint, runId: run.id };
+    }
+
+    if (run.status === 'stale') {
+        return {
+            status: 'stale',
+            previous: layoutPreflightResultFromRun(run),
+        };
+    }
+
+    return layoutValidationStateFromResult(
+        layoutPreflightResultFromRun(run),
+        fingerprint,
+    );
+}
+
+export function applyLayoutRunIfCurrent(
+    run: LayoutValidationRun,
+    requestFingerprint: string,
+    currentFingerprint: string,
+): LayoutValidationState {
+    if (requestFingerprint !== currentFingerprint) {
+        return { status: 'stale', previous: null };
+    }
+
+    return layoutValidationStateFromRun(run, requestFingerprint);
+}
+
+export function parseLayoutValidationRunPayload(
+    raw: unknown,
+): LayoutValidationRun | null {
+    if (typeof raw !== 'object' || raw === null) {
+        return null;
+    }
+
+    const envelope = raw as { run?: unknown };
+    const candidate =
+        envelope.run && typeof envelope.run === 'object' ? envelope.run : raw;
+    const run = candidate as Partial<LayoutValidationRun>;
+
+    if (typeof run.id !== 'number' || typeof run.status !== 'string') {
+        return null;
+    }
+
+    return {
+        id: run.id,
+        status: run.status as LayoutValidationRunStatus,
+        mode: run.mode === 'employee' ? 'employee' : 'sample',
+        authoritative: Boolean(run.authoritative),
+        valid: Boolean(run.valid),
+        validated_with: run.validated_with ?? { mode: 'sample' },
+        effective_font_sizes: run.effective_font_sizes ?? {},
+        issues: Array.isArray(run.issues) ? run.issues : [],
+        fit_count: run.fit_count ?? 0,
+        overflow_count: run.overflow_count ?? 0,
+        reference: run.reference ?? null,
+        started_at: run.started_at ?? null,
+        finished_at: run.finished_at ?? null,
     };
 }
 
@@ -293,7 +426,12 @@ export function layoutPublishBlockMessage(
 
 export function layoutSavedDraftMessage(
     result: LayoutPreflightResult | null,
+    options?: { validating?: boolean },
 ): string {
+    if (options?.validating) {
+        return 'Draft saved · Validating layout…';
+    }
+
     if (!result || result.valid) {
         return 'Draft saved';
     }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\DocumentTemplateLayoutValidationRun;
 use App\Models\JobRun;
 use App\Support\EmployeeDocuments\DocumentExpiryAlertSchedule;
 use App\Support\Hikvision\HikvisionAccessEventsFetchSchedule;
@@ -76,7 +77,7 @@ Schedule::command('contracts:mirror-effective-salary-revisions')
     ->withoutOverlapping();
 
 Schedule::command('model:prune', [
-    '--model' => [JobRun::class],
+    '--model' => [JobRun::class, DocumentTemplateLayoutValidationRun::class],
 ])
     ->dailyAt('02:00')
     ->timezone(ApplicationTimezone::identifier())

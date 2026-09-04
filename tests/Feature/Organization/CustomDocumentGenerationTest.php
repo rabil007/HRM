@@ -2275,6 +2275,7 @@ test('pdf overlay archived version run uses the snapshotted source rather than t
         'source_pdf_page_count' => 1,
         'placement_config' => ['schema_version' => 1, 'placements' => []],
     ]);
+    seedAuthoritativeValidLayoutRun($template, $version2);
     app(PublishDocumentGenerationTemplateVersion::class)->handle($version2, $user->id);
 
     $version1->refresh();
@@ -2431,6 +2432,7 @@ test('pdf overlay create publish and generate with zero placements succeeds thro
         'document_signing_mode' => DocumentTemplateAutomationMode::None,
     ]);
 
+    seedAuthoritativeValidLayoutRun($template, $draft->fresh());
     app(PublishDocumentGenerationTemplateVersion::class)->handle($draft, $user->id);
 
     $published = $template->fresh()->publishedVersion;
@@ -2534,6 +2536,7 @@ test('pdf overlay replace pdf publish and generate with zero placements succeeds
         'document_signing_mode' => DocumentTemplateAutomationMode::None,
     ]);
 
+    seedAuthoritativeValidLayoutRun($template, $draft->fresh());
     app(PublishDocumentGenerationTemplateVersion::class)->handle($draft, $user->id);
 
     $published = $template->fresh()->publishedVersion;

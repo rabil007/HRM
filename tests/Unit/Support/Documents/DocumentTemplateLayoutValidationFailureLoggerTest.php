@@ -2,6 +2,8 @@
 
 use App\Support\Documents\DocumentTemplateLayoutValidationFailureLogger;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Process\Exception\ProcessFailedException;
+use Symfony\Component\Process\Process;
 
 test('sanitizes filesystem paths and emirates-id shaped values from messages', function () {
     $message = DocumentTemplateLayoutValidationFailureLogger::sanitizeMessage(
@@ -50,4 +52,34 @@ test('records a diagnostic log without merge values or filesystem paths', functi
 
     expect($encoded)->not->toContain('784-2000-1234567-1')
         ->and($encoded)->not->toContain('/opt/chrome');
+});
+
+test('extracts sanitized process stderr without the command line', function () {
+    $captured = null;
+
+    Log::shouldReceive('error')
+        ->once()
+        ->withArgs(function (string $message, array $context) use (&$captured): bool {
+            $captured = $context;
+
+            return true;
+        });
+
+    $process = new Process(['php', '-r', 'fwrite(STDERR, "Failed to launch browser at /opt/chrome for 784-2000-1234567-1"); exit(1);']);
+    $process->run();
+    $exception = new ProcessFailedException($process);
+
+    (new DocumentTemplateLayoutValidationFailureLogger)->record($exception, 'LAY-01PROCESS', [
+        'company_id' => 1,
+        'template_id' => 2,
+        'template_version_id' => 3,
+        'validation_mode' => 'sample',
+    ]);
+
+    expect($captured['cause'])->toBe(ProcessFailedException::class)
+        ->and($captured['process_exit_code'])->toBe(1)
+        ->and($captured['process_error_output'])->toContain('Failed to launch browser')
+        ->and($captured['process_error_output'])->not->toContain('/opt/chrome')
+        ->and($captured['process_error_output'])->not->toContain('784-2000-1234567-1')
+        ->and(json_encode($captured))->not->toContain('--html');
 });

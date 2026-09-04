@@ -7,6 +7,7 @@ use App\Http\Requests\Organization\DocumentGenerationTemplate\ValidateDocumentGe
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
 use App\Support\Documents\Actions\ValidateDocumentGenerationTemplateDesign;
+use App\Support\Documents\PresentDocumentTemplateLayoutValidationRun;
 use Illuminate\Http\JsonResponse;
 
 class ValidateDocumentGenerationTemplateDesignController extends Controller
@@ -16,6 +17,7 @@ class ValidateDocumentGenerationTemplateDesignController extends Controller
         DocumentGenerationTemplate $template,
         DocumentGenerationTemplateVersion $version,
         ValidateDocumentGenerationTemplateDesign $action,
+        PresentDocumentTemplateLayoutValidationRun $present,
     ): JsonResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_if($companyId <= 0, 403);
@@ -28,7 +30,7 @@ class ValidateDocumentGenerationTemplateDesignController extends Controller
         $canPreviewEmployee = ($user?->can('documents.templates.update') ?? false)
             && ($user?->can('employees.view') ?? false);
 
-        $payload = $action->handle(
+        $run = $action->handle(
             $template,
             $version,
             $companyId,
@@ -36,8 +38,12 @@ class ValidateDocumentGenerationTemplateDesignController extends Controller
             $request->placementConfig(),
             $request->employeeId(),
             $canPreviewEmployee,
+            $user?->id,
         );
 
-        return response()->json($payload);
+        $payload = ['run' => $present->handle($run)];
+        $status = $run->status->isActive() ? 202 : 200;
+
+        return response()->json($payload, $status);
     }
 }

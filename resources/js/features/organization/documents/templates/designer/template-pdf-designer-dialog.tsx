@@ -70,6 +70,7 @@ import {
     save as saveDesignRoute,
     validate as validateDesignRoute,
 } from '@/routes/organization/documents/templates/versions/design';
+import { show as showValidationRunRoute } from '@/routes/organization/documents/templates/versions/validation-runs';
 import {
     clickToAlignedPlacement,
     clickToCenteredPlacement,
@@ -105,17 +106,21 @@ import {
 } from '../lib/coordinates';
 import type { FabricRectLike } from '../lib/coordinates';
 import {
+    applyLayoutRunIfCurrent,
+    isTerminalLayoutRunStatus,
+    LAYOUT_VALIDATION_POLL_MS,
     layoutIssuePlacementIds,
     layoutOverflowIssueCount,
     layoutPublishBlockMessage,
     layoutSavedDraftMessage,
     layoutValidationFingerprint,
-    layoutValidationStateFromResult,
-    normalizeLayoutPreflightResult,
+    layoutValidationStateFromRun,
+    parseLayoutValidationRunPayload,
 } from '../lib/layout-validation';
 import type {
     LayoutPreflightIssue,
     LayoutPreflightResult,
+    LayoutValidationRun,
     LayoutValidationState,
 } from '../lib/layout-validation';
 import {
@@ -537,6 +542,7 @@ type Props = {
     workflowFormOptions?: WorkflowPresetFormOptions | null;
     signingFormOptions?: SigningPresetFormOptions | null;
     readiness?: TemplateReadiness | null;
+    initialLayoutValidationRun?: LayoutValidationRun | null;
     can: {
         create_draft: boolean;
         update: boolean;
@@ -1128,6 +1134,7 @@ export function TemplatePdfDesignerDialog({
     workflowFormOptions = null,
     signingFormOptions = null,
     readiness: initialReadiness = null,
+    initialLayoutValidationRun = null,
     can,
     onSaved,
     mode = 'dialog',
@@ -1286,6 +1293,13 @@ export function TemplatePdfDesignerDialog({
 
     useEffect(() => {
         setLayoutValidation((current) => {
+            if (
+                current.status === 'checking' &&
+                current.fingerprint !== layoutFingerprint
+            ) {
+                return { status: 'stale', previous: null };
+            }
+
             if (
                 (current.status === 'valid' ||
                     current.status === 'invalid' ||
@@ -2339,7 +2353,18 @@ export function TemplatePdfDesignerDialog({
             setSelectedElementId(null);
             setSelectedElementType(null);
             setHasUnsavedChanges(false);
-            setLayoutValidation({ status: 'idle' });
+            const restoredFingerprint = layoutValidationFingerprint(
+                initialVersion.id,
+                normalizedConfig.placements,
+            );
+            setLayoutValidation(
+                initialLayoutValidationRun
+                    ? layoutValidationStateFromRun(
+                          initialLayoutValidationRun,
+                          restoredFingerprint,
+                      )
+                    : { status: 'idle' },
+            );
             setLayoutStatusMessage(null);
             setChangeSummary(initialChangeSummary ?? null);
             const automation = automationStateFromVersion(initialVersion);
@@ -3310,7 +3335,18 @@ export function TemplatePdfDesignerDialog({
             setChangeSummary(data.change_summary);
             setCurrentPage(1);
             setHasUnsavedChanges(false);
-            setLayoutValidation({ status: 'idle' });
+            const restoredFingerprint = layoutValidationFingerprint(
+                data.version.id,
+                normalizedConfig.placements,
+            );
+            setLayoutValidation(
+                data.layout_validation_run
+                    ? layoutValidationStateFromRun(
+                          data.layout_validation_run,
+                          restoredFingerprint,
+                      )
+                    : { status: 'idle' },
+            );
             setLayoutStatusMessage(null);
             setPendingPlacement(null);
             const automation = automationStateFromVersion(data.version);
@@ -3452,9 +3488,109 @@ export function TemplatePdfDesignerDialog({
         });
     };
 
+    const applyValidationRun = (
+        run: LayoutValidationRun,
+        requestFingerprint: string,
+    ): LayoutPreflightResult | null => {
+        const currentFingerprint = layoutValidationFingerprint(
+            selectedVersion?.id ?? null,
+            placementsRef.current,
+        );
+        const next = applyLayoutRunIfCurrent(
+            run,
+            requestFingerprint,
+            currentFingerprint,
+        );
+        setLayoutValidation(next);
+
+        if (next.status === 'invalid') {
+            const first = next.result.issues.find(
+                (issue) => issue.placement_id,
+            );
+
+            if (first) {
+                selectLayoutIssue(first);
+            }
+
+            return next.result;
+        }
+
+        if (next.status === 'valid' || next.status === 'unavailable') {
+            return next.result;
+        }
+
+        return null;
+    };
+
+    const pollLayoutValidationRun = async (
+        runId: number,
+        requestFingerprint: string,
+    ): Promise<LayoutPreflightResult | null> => {
+        if (!template || !selectedVersion) {
+            return null;
+        }
+
+        const csrf =
+            document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute('content') ?? '';
+
+        for (let attempt = 0; attempt < 90; attempt += 1) {
+            const currentFingerprint = layoutValidationFingerprint(
+                selectedVersion.id,
+                placementsRef.current,
+            );
+
+            if (currentFingerprint !== requestFingerprint) {
+                setLayoutValidation({ status: 'stale', previous: null });
+
+                return null;
+            }
+
+            const response = await fetch(
+                showValidationRunRoute.url({
+                    template: template.id,
+                    version: selectedVersion.id,
+                    run: runId,
+                }),
+                {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrf,
+                    },
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error('Layout validation failed.');
+            }
+
+            const run = parseLayoutValidationRunPayload(await response.json());
+
+            if (!run) {
+                throw new Error('Layout validation failed.');
+            }
+
+            if (isTerminalLayoutRunStatus(run.status)) {
+                return applyValidationRun(run, requestFingerprint);
+            }
+
+            await new Promise((resolve) => {
+                window.setTimeout(resolve, LAYOUT_VALIDATION_POLL_MS);
+            });
+        }
+
+        throw new Error('Layout validation timed out.');
+    };
+
     const runLayoutValidation = async (options?: {
         mode?: 'sample' | 'employee';
         employeeId?: number | null;
+        existingRun?: LayoutValidationRun | null;
+        skipPlacementConfig?: boolean;
     }): Promise<LayoutPreflightResult | null> => {
         if (!template || !selectedVersion) {
             return null;
@@ -3471,19 +3607,40 @@ export function TemplatePdfDesignerDialog({
             return null;
         }
 
-        setLayoutValidation({ status: 'checking' });
-        setLayoutStatusMessage(null);
-
         const fingerprint = layoutValidationFingerprint(
             selectedVersion.id,
             placementsRef.current,
         );
-        const csrf =
-            document
-                .querySelector('meta[name="csrf-token"]')
-                ?.getAttribute('content') ?? '';
+        setLayoutStatusMessage(null);
 
         try {
+            if (options?.existingRun) {
+                setLayoutValidation({
+                    status: 'checking',
+                    fingerprint,
+                    runId: options.existingRun.id,
+                });
+
+                if (isTerminalLayoutRunStatus(options.existingRun.status)) {
+                    return applyValidationRun(options.existingRun, fingerprint);
+                }
+
+                return await pollLayoutValidationRun(
+                    options.existingRun.id,
+                    fingerprint,
+                );
+            }
+
+            setLayoutValidation({
+                status: 'checking',
+                fingerprint,
+                runId: 0,
+            });
+
+            const csrf =
+                document
+                    .querySelector('meta[name="csrf-token"]')
+                    ?.getAttribute('content') ?? '';
             const response = await fetch(
                 validateDesignRoute.url({
                     template: template.id,
@@ -3501,7 +3658,11 @@ export function TemplatePdfDesignerDialog({
                     body: JSON.stringify({
                         mode,
                         employee_id: mode === 'employee' ? employeeId : null,
-                        placement_config: currentPlacementPayload(),
+                        ...(options?.skipPlacementConfig
+                            ? {}
+                            : {
+                                  placement_config: currentPlacementPayload(),
+                              }),
                     }),
                 },
             );
@@ -3510,22 +3671,23 @@ export function TemplatePdfDesignerDialog({
                 throw new Error('Layout validation failed.');
             }
 
-            const result = normalizeLayoutPreflightResult(
-                (await response.json()) as LayoutPreflightResult,
-            );
-            setLayoutValidation(
-                layoutValidationStateFromResult(result, fingerprint),
-            );
+            const run = parseLayoutValidationRunPayload(await response.json());
 
-            if (result.status === 'invalid') {
-                const first = result.issues.find((issue) => issue.placement_id);
-
-                if (first) {
-                    selectLayoutIssue(first);
-                }
+            if (!run) {
+                throw new Error('Layout validation failed.');
             }
 
-            return result;
+            setLayoutValidation({
+                status: 'checking',
+                fingerprint,
+                runId: run.id,
+            });
+
+            if (isTerminalLayoutRunStatus(run.status)) {
+                return applyValidationRun(run, fingerprint);
+            }
+
+            return await pollLayoutValidationRun(run.id, fingerprint);
         } catch (err: unknown) {
             setLayoutValidation({ status: 'idle' });
             setErrorMessage(
@@ -3537,6 +3699,42 @@ export function TemplatePdfDesignerDialog({
             return null;
         }
     };
+
+    const pollingRunId =
+        layoutValidation.status === 'checking' ? layoutValidation.runId : 0;
+    const pollingFingerprint =
+        layoutValidation.status === 'checking'
+            ? layoutValidation.fingerprint
+            : '';
+
+    useEffect(() => {
+        if (pollingRunId < 1) {
+            return;
+        }
+
+        let cancelled = false;
+
+        void pollLayoutValidationRun(pollingRunId, pollingFingerprint).catch(
+            (err: unknown) => {
+                if (cancelled) {
+                    return;
+                }
+
+                setLayoutValidation({ status: 'idle' });
+                setErrorMessage(
+                    err instanceof Error
+                        ? err.message
+                        : 'Layout validation failed.',
+                );
+            },
+        );
+
+        return () => {
+            cancelled = true;
+        };
+        // Resume polling after refresh; runLayoutValidation also polls started runs.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pollingRunId, pollingFingerprint]);
 
     const handleSaveDesign = async (): Promise<boolean> => {
         if (!template || !selectedVersion) {
@@ -3647,6 +3845,7 @@ export function TemplatePdfDesignerDialog({
             const data = (await response.json()) as {
                 version?: TemplateVersionSummary;
                 readiness?: TemplateReadiness;
+                layout_validation_run?: LayoutValidationRun | null;
             };
 
             if (data.version) {
@@ -3663,16 +3862,21 @@ export function TemplatePdfDesignerDialog({
                 onSaved();
             }
 
+            setLayoutStatusMessage(
+                layoutSavedDraftMessage(null, { validating: true }),
+            );
+
             const validation = await runLayoutValidation({
-                mode: previewEmployee ? 'employee' : 'sample',
-                employeeId: previewEmployee?.id ?? null,
+                mode: 'sample',
+                existingRun: data.layout_validation_run ?? null,
+                skipPlacementConfig: true,
             });
 
-            if (validation && !validation.valid) {
-                setLayoutStatusMessage(layoutSavedDraftMessage(validation));
-            } else {
-                setLayoutStatusMessage('Draft saved');
-            }
+            setLayoutStatusMessage(
+                layoutSavedDraftMessage(validation, {
+                    validating: false,
+                }),
+            );
 
             return true;
         } catch (err: unknown) {
@@ -3702,17 +3906,31 @@ export function TemplatePdfDesignerDialog({
 
         setIsPublishing(true);
 
-        const validation = await runLayoutValidation({ mode: 'sample' });
+        const currentFingerprint = layoutValidationFingerprint(
+            selectedVersion.id,
+            placementsRef.current,
+        );
+        const alreadyValid =
+            layoutValidation.status === 'valid' &&
+            layoutValidation.fingerprint === currentFingerprint &&
+            layoutValidation.result.mode === 'sample';
 
-        if (!validation || !validation.valid) {
-            setIsPublishing(false);
-            setRightPanelTab('properties');
+        if (!alreadyValid) {
+            const validation = await runLayoutValidation({
+                mode: 'sample',
+                skipPlacementConfig: true,
+            });
 
-            if (validation && !validation.valid) {
-                setErrorMessage(layoutPublishBlockMessage(validation));
+            if (!validation || !validation.valid) {
+                setIsPublishing(false);
+                setRightPanelTab('properties');
+
+                if (validation && !validation.valid) {
+                    setErrorMessage(layoutPublishBlockMessage(validation));
+                }
+
+                return;
             }
-
-            return;
         }
 
         router.post(

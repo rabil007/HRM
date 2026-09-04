@@ -208,6 +208,7 @@ test('published version retains configured signature placement', function () {
 
     app(SaveDocumentGenerationTemplateSignaturePlacement::class)->handle($version, $payload, $user->id);
 
+    seedAuthoritativeValidLayoutRun($template, $version->fresh());
     $published = app(PublishDocumentGenerationTemplateVersion::class)->handle($version->fresh(), $user->id);
 
     expect($published->isPublished())->toBeTrue()
@@ -265,6 +266,7 @@ test('create draft copies published v3 placements and leaves the published versi
     ]);
 
     app(SaveDocumentGenerationTemplateSignaturePlacement::class)->handle($version, $payload, $user->id);
+    seedAuthoritativeValidLayoutRun($template, $version->fresh());
     $published = app(PublishDocumentGenerationTemplateVersion::class)->handle($version->fresh(), $user->id);
     $publishedChecksum = $published->signature_placement_config;
 

@@ -1,17 +1,21 @@
 <?php
 
 use App\Enums\DocumentGenerationTemplateVersionStatus;
-use App\Enums\DocumentTemplateAutomationMode;
+use App\Enums\DocumentTemplateLayoutValidationRunStatus;
+use App\Jobs\ValidateDocumentTemplateLayoutJob;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
+use App\Models\DocumentTemplateLayoutValidationRun;
 use App\Models\Employee;
 use App\Models\User;
 use App\Support\Documents\Actions\PublishDocumentGenerationTemplateVersion;
+use App\Support\Documents\DocumentTemplateLayoutValidationFingerprint;
 use App\Support\Documents\DocumentTemplateStorage;
 use App\Support\Documents\PdfOverlayLayoutMeasurementClient;
 use App\Support\Documents\PdfOverlayLayoutPreflight;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 
@@ -19,65 +23,6 @@ beforeEach(function () {
     $this->seed(PermissionsSeeder::class);
     Storage::fake(DocumentTemplateStorage::DISK);
 });
-
-function layoutPreflightPuppeteerAvailable(): bool
-{
-    if (getenv('REQUIRE_PDF_RENDERER_TESTS') === 'true') {
-        return true;
-    }
-
-    return file_exists(base_path('node_modules/puppeteer'));
-}
-
-/**
- * @return array{user: User, company: mixed, template: DocumentGenerationTemplate, version: DocumentGenerationTemplateVersion, path: string}
- */
-function makeLayoutPreflightDraft(array $placementOverrides = []): array
-{
-    $user = User::factory()->create();
-    $company = makeDocumentFixtures()['company'];
-    grantCompanyPermissions($user, $company, [
-        'documents.templates.update',
-        'documents.templates.view',
-        'employees.view',
-    ]);
-
-    $template = DocumentGenerationTemplate::factory()->forCompany($company)->pdfOverlay()->create();
-    $path = DocumentTemplateStorage::directory($company->id).'/source.pdf';
-    Storage::disk(DocumentTemplateStorage::DISK)->put($path, minimalPdfBytes());
-
-    $placement = array_merge([
-        'id' => 'emirates_id_en',
-        'type' => 'field',
-        'field' => '{{emirates_id}}',
-        'page' => 1,
-        'x' => 0.1,
-        'y' => 0.1,
-        'width' => 0.05,
-        'height' => 0.02,
-        'font_size' => 14,
-        'font_weight' => 'normal',
-        'text_align' => 'left',
-        'font_family' => 'sans',
-        'font_color' => '#000000',
-    ], $placementOverrides);
-
-    $version = DocumentGenerationTemplateVersion::factory()->forTemplate($template)->create([
-        'version' => 1,
-        'status' => DocumentGenerationTemplateVersionStatus::Draft,
-        'source_pdf_path' => $path,
-        'source_pdf_page_count' => 1,
-        'placement_config' => [
-            'schema_version' => 2,
-            'placements' => [$placement],
-        ],
-        'signature_placement_config' => ['schema_version' => 3, 'placements' => []],
-        'document_workflow_mode' => DocumentTemplateAutomationMode::None,
-        'document_signing_mode' => DocumentTemplateAutomationMode::None,
-    ]);
-
-    return compact('user', 'company', 'template', 'version', 'path');
-}
 
 test('preflight reports missing source pdf', function () {
     $user = User::factory()->create();
@@ -138,7 +83,7 @@ test('sample validation catches a narrow Emirates ID placement', function () {
 
     ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makeLayoutPreflightDraft();
 
-    $this->actingAs($user)
+    $response = $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->postJson(route('organization.documents.templates.versions.design.validate', [
             'template' => $template,
@@ -147,14 +92,27 @@ test('sample validation catches a narrow Emirates ID placement', function () {
             'mode' => 'sample',
             'placement_config' => $version->placement_config,
         ])
+        ->assertAccepted()
+        ->assertJsonPath('run.status', 'queued')
+        ->assertJsonPath('run.authoritative', true);
+
+    processLayoutValidationRun((int) $response->json('run.id'), $company->id);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->getJson(route('organization.documents.templates.versions.validation-runs.show', [
+            'template' => $template,
+            'version' => $version,
+            'run' => $response->json('run.id'),
+        ]))
         ->assertOk()
-        ->assertJsonPath('valid', false)
-        ->assertJsonPath('status', 'invalid')
-        ->assertJsonPath('issues.0.code', 'LAYOUT_OVERFLOW')
-        ->assertJsonPath('issues.0.field_key', '{{emirates_id}}')
-        ->assertJsonPath('issues.0.field_label', 'Emirates ID')
-        ->assertJsonPath('issues.0.page', 1)
-        ->assertJsonPath('issues.0.placement_id', 'emirates_id_en');
+        ->assertJsonPath('run.valid', false)
+        ->assertJsonPath('run.status', 'invalid')
+        ->assertJsonPath('run.issues.0.code', 'LAYOUT_OVERFLOW')
+        ->assertJsonPath('run.issues.0.field_key', '{{emirates_id}}')
+        ->assertJsonPath('run.issues.0.field_label', 'Emirates ID')
+        ->assertJsonPath('run.issues.0.page', 1)
+        ->assertJsonPath('run.issues.0.placement_id', 'emirates_id_en');
 });
 
 test('sample validation passes a wide Emirates ID placement', function () {
@@ -167,7 +125,7 @@ test('sample validation passes a wide Emirates ID placement', function () {
         'height' => 0.06,
     ]);
 
-    $this->actingAs($user)
+    $response = $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->postJson(route('organization.documents.templates.versions.design.validate', [
             'template' => $template,
@@ -175,9 +133,21 @@ test('sample validation passes a wide Emirates ID placement', function () {
         ]), [
             'mode' => 'sample',
         ])
+        ->assertAccepted()
+        ->assertJsonPath('run.status', 'queued');
+
+    processLayoutValidationRun((int) $response->json('run.id'), $company->id);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->getJson(route('organization.documents.templates.versions.validation-runs.show', [
+            'template' => $template,
+            'version' => $version,
+            'run' => $response->json('run.id'),
+        ]))
         ->assertOk()
-        ->assertJsonPath('valid', true)
-        ->assertJsonPath('status', 'valid');
+        ->assertJsonPath('run.valid', true)
+        ->assertJsonPath('run.status', 'valid');
 });
 
 test('validate design does not mutate the draft', function () {
@@ -209,7 +179,7 @@ test('validate design does not mutate the draft', function () {
                 ]],
             ],
         ])
-        ->assertOk();
+        ->assertAccepted();
 
     expect($version->fresh()->placement_config)->toEqual($checksum)
         ->and(Activity::query()->count())->toBe($activityCount);
@@ -303,6 +273,16 @@ test('publish is blocked for a narrow Emirates ID field and remains draft', func
 
     ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makeLayoutPreflightDraft();
 
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->postJson(route('organization.documents.templates.versions.design.validate', [
+            'template' => $template,
+            'version' => $version,
+        ]), ['mode' => 'sample'])
+        ->assertAccepted();
+
+    processLayoutValidationRun((int) $response->json('run.id'), $company->id);
+
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->postJson(route('organization.documents.templates.versions.publish', [
@@ -329,6 +309,16 @@ test('publish succeeds after the Emirates ID field is widened', function () {
     $config['placements'][0]['width'] = 0.8;
     $config['placements'][0]['height'] = 0.06;
     $version->update(['placement_config' => $config]);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->postJson(route('organization.documents.templates.versions.design.validate', [
+            'template' => $template,
+            'version' => $version,
+        ]), ['mode' => 'sample'])
+        ->assertAccepted();
+
+    processLayoutValidationRun((int) $response->json('run.id'), $company->id);
 
     app(PublishDocumentGenerationTemplateVersion::class)->handle($version->fresh(), $user->id);
 
@@ -376,10 +366,11 @@ test('employee preview validation works for a same-company employee', function (
             'mode' => 'employee',
             'employee_id' => $employee->id,
         ])
-        ->assertOk()
-        ->assertJsonPath('validated_with.mode', 'employee')
-        ->assertJsonPath('validated_with.employee_id', $employee->id)
-        ->assertJsonPath('validated_with.employee_name', 'Mohammed Rabil T');
+        ->assertAccepted()
+        ->assertJsonPath('run.validated_with.mode', 'employee')
+        ->assertJsonPath('run.validated_with.employee_id', $employee->id)
+        ->assertJsonPath('run.validated_with.employee_name', 'Mohammed Rabil T')
+        ->assertJsonPath('run.authoritative', false);
 });
 
 test('static text overflow is reported independently of merge fields', function () {
@@ -411,7 +402,7 @@ test('static text overflow is reported independently of merge fields', function 
         'font_color' => '#000000',
     ];
 
-    $this->actingAs($user)
+    $response = $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->postJson(route('organization.documents.templates.versions.design.validate', [
             'template' => $template,
@@ -420,11 +411,22 @@ test('static text overflow is reported independently of merge fields', function 
             'mode' => 'sample',
             'placement_config' => $config,
         ])
+        ->assertAccepted();
+
+    processLayoutValidationRun((int) $response->json('run.id'), $company->id);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->getJson(route('organization.documents.templates.versions.validation-runs.show', [
+            'template' => $template,
+            'version' => $version,
+            'run' => $response->json('run.id'),
+        ]))
         ->assertOk()
-        ->assertJsonPath('valid', false)
-        ->assertJsonPath('issues.0.placement_id', 'static_declaration')
-        ->assertJsonPath('issues.0.field_key', null)
-        ->assertJsonPath('issues.0.field_label', 'Text box');
+        ->assertJsonPath('run.valid', false)
+        ->assertJsonPath('run.issues.0.placement_id', 'static_declaration')
+        ->assertJsonPath('run.issues.0.field_key', null)
+        ->assertJsonPath('run.issues.0.field_label', 'Text box');
 });
 
 test('two placements of the same field are scored independently', function () {
@@ -455,7 +457,7 @@ test('two placements of the same field are scored independently', function () {
         'font_color' => '#000000',
     ];
 
-    $this->actingAs($user)
+    $response = $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->postJson(route('organization.documents.templates.versions.design.validate', [
             'template' => $template,
@@ -464,10 +466,21 @@ test('two placements of the same field are scored independently', function () {
             'mode' => 'sample',
             'placement_config' => $config,
         ])
+        ->assertAccepted();
+
+    processLayoutValidationRun((int) $response->json('run.id'), $company->id);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->getJson(route('organization.documents.templates.versions.validation-runs.show', [
+            'template' => $template,
+            'version' => $version,
+            'run' => $response->json('run.id'),
+        ]))
         ->assertOk()
-        ->assertJsonPath('valid', false)
-        ->assertJsonPath('issues.0.placement_id', 'emirates_id_narrow')
-        ->assertJsonMissingPath('issues.1');
+        ->assertJsonPath('run.valid', false)
+        ->assertJsonPath('run.issues.0.placement_id', 'emirates_id_narrow')
+        ->assertJsonMissingPath('run.issues.1');
 });
 
 test('preflight uses the sample Emirates ID value not the canvas label', function () {
@@ -661,11 +674,12 @@ test('measurement engine failure is unavailable not a layout issue', function ()
         ->and($encoded)->not->toContain('/Users/ops/chrome');
 });
 
-test('validate design returns unavailable status when chromium measurement throws', function () {
+test('validate design does not invoke chromium in the HTTP request', function () {
     ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makeLayoutPreflightDraft();
+    Queue::fake();
 
     $this->mock(PdfOverlayLayoutMeasurementClient::class, function ($mock) {
-        $mock->shouldReceive('evaluateHtml')->andThrow(new RuntimeException('chrome down'));
+        $mock->shouldReceive('evaluateHtml')->never();
     });
 
     $this->actingAs($user)
@@ -677,20 +691,47 @@ test('validate design returns unavailable status when chromium measurement throw
             'mode' => 'sample',
             'placement_config' => $version->placement_config,
         ])
-        ->assertOk()
-        ->assertJsonPath('status', 'unavailable')
-        ->assertJsonPath('valid', false)
-        ->assertJsonPath('overflow_count', 0)
-        ->assertJsonPath('issues.0.code', 'TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE')
-        ->assertJsonPath('issues.0.placement_id', null)
-        ->assertJsonPath('issues.0.message', 'The PDF validation engine could not complete the layout check.');
+        ->assertAccepted()
+        ->assertJsonPath('run.status', 'queued');
+
+    Queue::assertPushed(ValidateDocumentTemplateLayoutJob::class);
+    expect(DocumentTemplateLayoutValidationRun::query()->count())->toBe(1);
 });
 
-test('publish is blocked as validation unavailable when the measurement engine fails', function () {
+test('publish is blocked as validation unavailable when the matching run is unavailable', function () {
     ['user' => $user, 'company' => $company, 'template' => $template, 'version' => $version] = makeLayoutPreflightDraft();
 
+    $fingerprint = app(DocumentTemplateLayoutValidationFingerprint::class)->for(
+        $template,
+        $version,
+        $company->id,
+        $version->placement_config,
+        'sample',
+        null,
+        true,
+    );
+
+    DocumentTemplateLayoutValidationRun::factory()->forDraft(compact('company', 'template', 'version'))->create([
+        'fingerprint' => $fingerprint,
+        'status' => DocumentTemplateLayoutValidationRunStatus::Unavailable,
+        'authoritative' => true,
+        'mode' => 'sample',
+        'issues' => [[
+            'code' => 'TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE',
+            'severity' => 'error',
+            'placement_id' => null,
+            'field_key' => null,
+            'field_label' => null,
+            'page' => null,
+            'message' => 'The PDF validation engine could not complete the layout check.',
+            'reference' => 'LAY-01TESTUNAVAILABLE',
+        ]],
+        'reference' => 'LAY-01TESTUNAVAILABLE',
+        'finished_at' => now(),
+    ]);
+
     $this->mock(PdfOverlayLayoutMeasurementClient::class, function ($mock) {
-        $mock->shouldReceive('evaluateHtml')->andThrow(new RuntimeException('chrome down'));
+        $mock->shouldReceive('evaluateHtml')->never();
     });
 
     $this->actingAs($user)
