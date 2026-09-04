@@ -180,6 +180,11 @@ function minimalPdfBytes(): string
     return $pdf->Output('S');
 }
 
+function overlayChromiumAvailable(): bool
+{
+    return file_exists(base_path('node_modules/puppeteer'));
+}
+
 function createEmployeePdfDocument(
     int $companyId,
     int $employeeId,

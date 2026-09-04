@@ -545,6 +545,10 @@ test('manual activity events record company_id and avoid logging sensitive conte
     expect($placementActivity->company_id)->toBe($company->id);
     expect($placementActivity->properties->toArray())->not->toHaveKey('placement_config');
 
+    if (! overlayChromiumAvailable()) {
+        return;
+    }
+
     // 2. Publish
     $publisher = new PublishDocumentGenerationTemplateVersion;
     $publisher->handle($version, $user->id);
