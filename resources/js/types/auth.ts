@@ -22,7 +22,7 @@ export type TwoFactorStatus = {
 };
 
 export type Auth = {
-    user: User;
+    user: User | null;
     permissions?: string[];
     roles?: string[];
     platform?: PlatformAccess;

@@ -14,13 +14,18 @@ import {
 } from '@/components/ui/dropdown-menu';
 import useDialogState from '@/hooks/use-dialog-state';
 import { useInitials } from '@/hooks/use-initials';
+import { resolveAuthUser } from '@/lib/auth-user';
 import type { User } from '@/types';
 
 export function ProfileDropdown() {
-    const { auth } = usePage<{ auth: { user: User } }>().props;
-    const user = auth.user;
+    const { auth } = usePage<{ auth: { user: User | null } }>().props;
+    const user = resolveAuthUser(auth);
     const [open, setOpen] = useDialogState();
     const getInitials = useInitials();
+
+    if (!user) {
+        return null;
+    }
 
     return (
         <>

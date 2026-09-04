@@ -19,14 +19,19 @@ import {
 } from '@/components/ui/sidebar';
 import useDialogState from '@/hooks/use-dialog-state';
 import { useInitials } from '@/hooks/use-initials';
+import { resolveAuthUser } from '@/lib/auth-user';
 import type { User } from '@/types';
 
 export function NavUser() {
-    const { auth } = usePage<{ auth: { user: User } }>().props;
-    const user = auth.user;
+    const { auth } = usePage<{ auth: { user: User | null } }>().props;
+    const user = resolveAuthUser(auth);
     const { isMobile } = useSidebar();
     const [open, setOpen] = useDialogState();
     const getInitials = useInitials();
+
+    if (!user) {
+        return null;
+    }
 
     return (
         <>
