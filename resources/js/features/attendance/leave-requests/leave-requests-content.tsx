@@ -253,111 +253,122 @@ export function LeaveRequestsContent({
                 }
             />
 
-            <div className="mb-4 flex flex-wrap gap-2">
-                {scopeOptions.map((opt) => {
-                    const isActive = filters.scope === opt.value;
+            {/* Unified Filter Bar */}
+            <div className="glass-card mb-6 overflow-hidden rounded-2xl border border-border/60">
+                {/* Row 1: Scope */}
+                <div className="flex items-center gap-0 border-b border-border/40 px-1 py-1">
+                    <span className="shrink-0 px-3 text-[10px] font-bold tracking-[0.18em] text-muted-foreground/50 uppercase">
+                        View
+                    </span>
+                    <div className="mx-1 h-4 w-px shrink-0 bg-border/50" />
+                    <div className="flex flex-wrap gap-1">
+                        {scopeOptions.map((opt) => {
+                            const isActive = filters.scope === opt.value;
 
-                    return (
-                        <Button
-                            key={opt.value}
-                            type="button"
-                            variant={isActive ? 'default' : 'secondary'}
-                            className={cn(
-                                'h-10 rounded-xl px-4',
-                                !isActive && 'glass-card hover:bg-accent',
-                            )}
-                            onClick={() =>
-                                list.applyFilters({ scope: opt.value })
-                            }
-                        >
-                            {opt.label}
-                        </Button>
-                    );
-                })}
-            </div>
-
-            {/* Status Counts Filter Cards */}
-            <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
-                {[
-                    {
-                        value: '',
-                        label: 'All Requests',
-                        count: status_counts.all,
-                        color: 'bg-primary',
-                        activeClass:
-                            'border-primary/30 bg-primary/5 ring-primary/20 text-primary',
-                    },
-                    {
-                        value: 'pending',
-                        label: 'Pending',
-                        count: status_counts.pending,
-                        color: 'bg-amber-500',
-                        activeClass:
-                            'border-amber-500/30 bg-amber-500/5 ring-amber-500/20 text-amber-500',
-                    },
-                    {
-                        value: 'approved',
-                        label: 'Approved',
-                        count: status_counts.approved,
-                        color: 'bg-emerald-500',
-                        activeClass:
-                            'border-emerald-500/30 bg-emerald-500/5 ring-emerald-500/20 text-emerald-500',
-                    },
-                    {
-                        value: 'rejected',
-                        label: 'Rejected',
-                        count: status_counts.rejected,
-                        color: 'bg-red-500',
-                        activeClass:
-                            'border-red-500/30 bg-red-500/5 ring-red-500/20 text-red-500',
-                    },
-                    {
-                        value: 'cancelled',
-                        label: 'Cancelled',
-                        count: status_counts.cancelled,
-                        color: 'bg-muted-foreground',
-                        activeClass:
-                            'border-border bg-muted/20 ring-border/40 text-muted-foreground',
-                    },
-                ].map((opt) => {
-                    const isActive = filters.status === opt.value;
-
-                    return (
-                        <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() =>
-                                list.applyFilters({ status: opt.value })
-                            }
-                            className={cn(
-                                'group relative cursor-pointer overflow-hidden rounded-2xl border glass-card p-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md',
-                                isActive
-                                    ? cn(
-                                          'border-border/80 shadow-xs ring-1',
-                                          opt.activeClass,
-                                      )
-                                    : 'border-border/60 bg-card/80 hover:border-border hover:bg-card dark:hover:border-white/10',
-                            )}
-                        >
-                            <div className="flex items-center justify-between gap-3">
-                                <span className="text-[10px] font-bold tracking-[0.18em] text-muted-foreground/70 uppercase transition-colors group-hover:text-foreground">
-                                    {opt.label}
-                                </span>
-                                <span
+                            return (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() =>
+                                        list.applyFilters({ scope: opt.value })
+                                    }
                                     className={cn(
-                                        'h-2 w-2 shrink-0 rounded-full',
-                                        opt.color,
+                                        'rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150',
+                                        isActive
+                                            ? 'bg-primary text-primary-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                                     )}
-                                />
-                            </div>
-                            <div className="mt-2 flex items-baseline gap-2">
-                                <span className="text-2xl font-extrabold tracking-tight text-foreground tabular-nums">
-                                    {opt.count}
-                                </span>
-                            </div>
-                        </button>
-                    );
-                })}
+                                >
+                                    {opt.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Row 2: Status */}
+                <div className="flex items-center gap-0 px-1 py-1">
+                    <span className="shrink-0 px-3 text-[10px] font-bold tracking-[0.18em] text-muted-foreground/50 uppercase">
+                        Status
+                    </span>
+                    <div className="mx-1 h-4 w-px shrink-0 bg-border/50" />
+                    <div className="flex flex-wrap gap-1">
+                        {[
+                            {
+                                value: '',
+                                label: 'All',
+                                count: status_counts.all,
+                                activeClass: 'bg-primary text-primary-foreground shadow-sm',
+                                dotClass: 'bg-primary',
+                            },
+                            {
+                                value: 'pending',
+                                label: 'Pending',
+                                count: status_counts.pending,
+                                activeClass: 'bg-amber-500/15 text-amber-500 ring-1 ring-amber-500/30',
+                                dotClass: 'bg-amber-500',
+                            },
+                            {
+                                value: 'approved',
+                                label: 'Approved',
+                                count: status_counts.approved,
+                                activeClass: 'bg-emerald-500/15 text-emerald-500 ring-1 ring-emerald-500/30',
+                                dotClass: 'bg-emerald-500',
+                            },
+                            {
+                                value: 'rejected',
+                                label: 'Rejected',
+                                count: status_counts.rejected,
+                                activeClass: 'bg-red-500/15 text-red-500 ring-1 ring-red-500/30',
+                                dotClass: 'bg-red-500',
+                            },
+                            {
+                                value: 'cancelled',
+                                label: 'Cancelled',
+                                count: status_counts.cancelled,
+                                activeClass: 'bg-muted/40 text-muted-foreground ring-1 ring-border/60',
+                                dotClass: 'bg-muted-foreground',
+                            },
+                        ].map((opt) => {
+                            const isActive = filters.status === opt.value;
+
+                            return (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() =>
+                                        list.applyFilters({ status: opt.value })
+                                    }
+                                    className={cn(
+                                        'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150',
+                                        isActive
+                                            ? opt.activeClass
+                                            : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                                    )}
+                                >
+                                    <span
+                                        className={cn(
+                                            'h-1.5 w-1.5 shrink-0 rounded-full transition-opacity',
+                                            opt.dotClass,
+                                            isActive ? 'opacity-100' : 'opacity-50',
+                                        )}
+                                    />
+                                    {opt.label}
+                                    <span
+                                        className={cn(
+                                            'ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
+                                            isActive
+                                                ? 'bg-black/10 dark:bg-white/15'
+                                                : 'bg-muted/60 text-muted-foreground/70',
+                                        )}
+                                    >
+                                        {opt.count}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             </div>
 
             <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
