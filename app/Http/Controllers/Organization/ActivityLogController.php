@@ -62,11 +62,17 @@ class ActivityLogController extends Controller
         $logs = $paginator->through(function (Activity $log) {
             $presented = ActivityChangePresenter::toRecentActivityArray($log);
 
+            $subjectType = is_string($log->subject_type) && $log->subject_type !== ''
+                ? $log->subject_type
+                : null;
+
             return [
                 'id' => $log->id,
                 'event' => $log->event,
-                'subject_type' => $log->subject_type,
-                'subject_name' => Str::afterLast((string) $log->subject_type, '\\'),
+                'subject_type' => $subjectType,
+                'subject_name' => $subjectType
+                    ? Str::afterLast($subjectType, '\\')
+                    : 'System',
                 'subject_id' => $log->subject_id,
                 'subject_label' => ActivityChangePresenter::subjectLabel($log->subject),
                 'description' => $log->description ?: null,
@@ -80,10 +86,13 @@ class ActivityLogController extends Controller
 
         $subjectTypes = Activity::query()
             ->where('company_id', $companyId)
+            ->whereNotNull('subject_type')
+            ->where('subject_type', '!=', '')
             ->select('subject_type')
             ->distinct()
             ->orderBy('subject_type')
-            ->pluck('subject_type');
+            ->pluck('subject_type')
+            ->values();
 
         return Inertia::render('organization/activity-logs', [
             'logs' => $logs->items(),

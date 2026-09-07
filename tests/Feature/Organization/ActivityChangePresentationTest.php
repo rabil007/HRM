@@ -124,6 +124,38 @@ test('activity change presenter resolves old and new course names on update', fu
         ->and(data_get($presented, 'new_values.course_id'))->toBe('Advanced Firefighting');
 });
 
+test('activity logs page omits null subject types from the model filter', function () {
+    ['user' => $user, 'company' => $company] = makeActivityPresentationFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['audit.view']);
+
+    activity()
+        ->causedBy($user)
+        ->event('updated')
+        ->tap(function ($activity) use ($company): void {
+            $activity->company_id = $company->id;
+        })
+        ->log('background job');
+
+    $this->get(route('organization.activity-logs', [
+        'date_from' => now()->toDateString(),
+        'date_to' => now()->toDateString(),
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('organization/activity-logs')
+            ->where('subject_types', fn ($types) => collect($types)->every(
+                fn ($type): bool => is_string($type) && $type !== '',
+            ))
+            ->has('logs', fn ($logs) => $logs
+                ->where('0.subject_type', null)
+                ->where('0.subject_name', 'System')
+                ->etc()
+            )
+        );
+});
+
 test('activity logs page shows resolved labels instead of raw ids', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee] = makeActivityPresentationFixtures();
     $this->actingAs($user);

@@ -33,7 +33,7 @@ import type { PaginationMeta } from '@/types/pagination';
 type AuditLog = {
     id: number;
     event: 'created' | 'updated' | 'deleted' | string;
-    subject_type: string;
+    subject_type: string | null;
     subject_name: string;
     subject_id: number | null;
     subject_label: string | null;
@@ -96,10 +96,19 @@ function eventStyle(event: string): {
     }
 }
 
+function modelShortName(value: string | null | undefined): string {
+    if (!value) {
+        return 'System';
+    }
+
+    return value.split('\\').slice(-1)[0] || 'System';
+}
+
 /** Causer initials avatar */
-function CauserAvatar({ name }: { name: string }) {
-    const initials = name
-        .split(' ')
+function CauserAvatar({ name }: { name: string | null }) {
+    const source = name?.trim() || '?';
+    const initials = source
+        .split(/\s+/)
         .slice(0, 2)
         .map((w) => w[0])
         .join('')
@@ -300,9 +309,9 @@ export default function ActivityLogs({
                                         <AppSelectItem value="">
                                             All models
                                         </AppSelectItem>
-                                        {subject_types.map((t) => (
+                                        {subject_types.filter(Boolean).map((t) => (
                                             <AppSelectItem key={t} value={t}>
-                                                {t.split('\\').slice(-1)[0]}
+                                                {modelShortName(t)}
                                             </AppSelectItem>
                                         ))}
                                     </AppSelect>
@@ -455,9 +464,9 @@ export default function ActivityLogs({
                                     const previewKeys = changedKeys.slice(0, 3);
                                     const isOpen = openId === log.id;
                                     const style = eventStyle(log.event);
-                                    const modelName = log.subject_name
-                                        .split('\\')
-                                        .slice(-1)[0];
+                                    const modelName = modelShortName(
+                                        log.subject_name ?? log.subject_type,
+                                    );
 
                                     return (
                                         <Collapsible
