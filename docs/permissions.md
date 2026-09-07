@@ -35,6 +35,8 @@ php artisan db:seed --class=PermissionsSeeder
 
 Assign permissions through **Organization → Roles & permissions** (`/organization/roles`).
 
+**Protected Owner role:** The tenant `Owner` role is system-protected in role management. It cannot be renamed, deleted, or have its permissions modified. These restrictions are enforced on the backend and preserve the literal `Owner` role used by the last-active-Owner safeguards. Other tenant roles remain editable and deletable subject to their normal authorization and company scope.
+
 ## Permission groups
 
 | Area | Current permission families |
