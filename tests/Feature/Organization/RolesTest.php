@@ -205,6 +205,164 @@ test('authenticated users can create, update, and delete a role', function () {
     $this->assertDatabaseMissing('spatie_roles', ['id' => $roleId]);
 });
 
+test('updating only a role name preserves previously assigned permissions', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    Permission::findOrCreate('employees.view', 'web');
+    Permission::findOrCreate('employees.update', 'web');
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR Admin',
+        'guard_name' => 'web',
+    ]);
+    $role->syncPermissions(['employees.view', 'employees.update']);
+
+    grantCompanyPermissions($user, $company, ['roles.update', 'roles.view']);
+
+    $this->put("/organization/roles/{$role->id}", [
+        'name' => 'Renamed Role',
+    ])->assertRedirect('/organization/roles');
+
+    $role->refresh();
+
+    expect($role->name)->toBe('Renamed Role')
+        ->and($role->permissions->pluck('name')->sort()->values()->all())->toBe([
+            'employees.update',
+            'employees.view',
+        ]);
+});
+
+test('updating a role with permissions synchronizes assigned permissions', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    Permission::findOrCreate('employees.view', 'web');
+    Permission::findOrCreate('employees.update', 'web');
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR Admin',
+        'guard_name' => 'web',
+    ]);
+    $role->syncPermissions(['employees.view', 'employees.update']);
+
+    grantCompanyPermissions($user, $company, ['roles.update', 'roles.view']);
+
+    $this->put("/organization/roles/{$role->id}", [
+        'name' => 'Renamed Role',
+        'permissions' => ['employees.view'],
+    ])->assertRedirect('/organization/roles');
+
+    $role->refresh();
+
+    expect($role->name)->toBe('Renamed Role')
+        ->and($role->permissions->pluck('name')->all())->toBe(['employees.view']);
+});
+
+test('updating a role with an empty permissions array clears assigned permissions', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    Permission::findOrCreate('employees.view', 'web');
+    Permission::findOrCreate('employees.update', 'web');
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR Admin',
+        'guard_name' => 'web',
+    ]);
+    $role->syncPermissions(['employees.view', 'employees.update']);
+
+    grantCompanyPermissions($user, $company, ['roles.update', 'roles.view']);
+
+    $this->put("/organization/roles/{$role->id}", [
+        'name' => 'Renamed Role',
+        'permissions' => [],
+    ])->assertRedirect('/organization/roles');
+
+    $role->refresh();
+
+    expect($role->name)->toBe('Renamed Role')
+        ->and($role->permissions)->toHaveCount(0);
+});
+
 test('authenticated users can delete a role', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

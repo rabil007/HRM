@@ -132,7 +132,9 @@ class RoleController extends Controller
             'name' => $data['name'],
         ]);
 
-        $role->syncPermissions($data['permissions'] ?? []);
+        if ($request->exists('permissions')) {
+            $role->syncPermissions($data['permissions'] ?? []);
+        }
 
         return redirect()
             ->route('organization.roles')
