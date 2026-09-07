@@ -22,6 +22,7 @@ import type {
     Role,
     RoleFormData,
 } from '@/features/organization/roles/types';
+import { resolvePermissionGroups } from '@/pages/organization/_lib/role-permission-groups';
 
 function normalizePermissions(value: string[]): string[] {
     return Array.from(
@@ -29,43 +30,9 @@ function normalizePermissions(value: string[]): string[] {
     ).sort();
 }
 
-function formatPermissionGroupLabel(segment: string): string {
-    return segment.replace(/[-_]/g, ' ').toUpperCase();
-}
-
 const PERMISSION_LABEL_OVERRIDES: Record<string, string> = {
     'attendance.records.manage': 'Records: View All Employees',
 };
-
-const PERMISSION_MAIN_GROUP_ALIASES: Record<string, string> = {
-    company_documents: 'companies',
-};
-
-function resolvePermissionGroups(permission: string): {
-    mainGroup: string;
-    subGroup: string;
-} {
-    const parts = permission.split('.');
-    const root = parts[0] || 'other';
-    const mainGroup = formatPermissionGroupLabel(
-        PERMISSION_MAIN_GROUP_ALIASES[root] ?? root,
-    );
-
-    let subGroup = 'GENERAL';
-
-    if (root === 'company_documents') {
-        subGroup = 'DOCUMENTS';
-    } else if (parts.length > 2) {
-        subGroup = parts
-            .slice(1, -1)
-            .map((p) => formatPermissionGroupLabel(p))
-            .join(' • ');
-    } else if (parts.length === 2 && mainGroup === 'SETTINGS') {
-        subGroup = 'CORE';
-    }
-
-    return { mainGroup, subGroup };
-}
 
 export default function RoleDetails({
     role,
