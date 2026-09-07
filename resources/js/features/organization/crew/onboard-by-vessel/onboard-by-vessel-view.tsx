@@ -22,9 +22,9 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { CrewEmployeeIdentity } from '@/features/organization/crew/components/crew-employee-identity';
 import { CrewReliefReadinessBadge } from '@/features/organization/crew/components/crew-relief-readiness-badge';
 import type { CurrentCrewVesselRow } from '@/features/organization/crew/types';
-import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { RecordSelectionCell } from '@/features/organization/shared/record-selection-checkbox';
 import type { RecordSelection } from '@/hooks/use-record-selection';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -197,7 +197,7 @@ export function OnboardByVesselView({
 
                                 <CollapsibleContent>
                                     <div className="overflow-x-auto border-t border-border/60">
-                                        <Table className="min-w-[1140px] table-fixed">
+                                        <Table className="min-w-[1000px] table-fixed">
                                             <TableHeader>
                                                 <DataTableHeaderRow>
                                                     <DataTableHead className="w-12 px-3 text-center">
@@ -205,14 +205,11 @@ export function OnboardByVesselView({
                                                             Select
                                                         </span>
                                                     </DataTableHead>
-                                                    <DataTableHead className="w-[220px]">
+                                                    <DataTableHead className="w-[260px]">
                                                         Employee
                                                     </DataTableHead>
                                                     <DataTableHead className="w-[120px]">
                                                         Employee No
-                                                    </DataTableHead>
-                                                    <DataTableHead className="w-[140px]">
-                                                        Rank
                                                     </DataTableHead>
                                                     <DataTableHead className="w-[120px]">
                                                         P4 Joined
@@ -259,24 +256,22 @@ export function OnboardByVesselView({
                                                             <TableCell
                                                                 className={dataTableCellPrimaryClass()}
                                                             >
-                                                                {assignment.employee ? (
-                                                                    <EmployeeProfileLink
-                                                                        employeeId={
-                                                                            assignment
-                                                                                .employee
-                                                                                .id
-                                                                        }
-                                                                        stopRowNavigation
-                                                                    >
-                                                                        {
-                                                                            assignment
-                                                                                .employee
-                                                                                .name
-                                                                        }
-                                                                    </EmployeeProfileLink>
-                                                                ) : (
-                                                                    '—'
-                                                                )}
+                                                                <CrewEmployeeIdentity
+                                                                    employee={
+                                                                        assignment.employee
+                                                                    }
+                                                                    rankName={
+                                                                        assignment
+                                                                            .rank
+                                                                            ?.name
+                                                                    }
+                                                                    showAvatar={
+                                                                        false
+                                                                    }
+                                                                    showEmployeeNo={
+                                                                        false
+                                                                    }
+                                                                />
                                                             </TableCell>
                                                             <TableCell
                                                                 className={cn(
@@ -287,13 +282,6 @@ export function OnboardByVesselView({
                                                                 {assignment
                                                                     .employee
                                                                     ?.employee_no ??
-                                                                    '—'}
-                                                            </TableCell>
-                                                            <TableCell
-                                                                className={dataTableCellClass()}
-                                                            >
-                                                                {assignment.rank
-                                                                    ?.name ??
                                                                     '—'}
                                                             </TableCell>
                                                             <TableCell

@@ -379,7 +379,7 @@ export function CurrentCrewContent({
 
                     <div className={DESKTOP_OPERATIONAL_TABLE_CLASS}>
                         <OrganizationDataTable
-                            minWidth="min-w-[1480px]"
+                            minWidth="min-w-[1360px]"
                             tableClassName="table-fixed"
                         >
                             <TableHeader>
@@ -387,14 +387,11 @@ export function CurrentCrewContent({
                                     <DataTableHead className="w-[150px]">
                                         Assignment
                                     </DataTableHead>
-                                    <DataTableHead className="w-[220px]">
+                                    <DataTableHead className="w-[260px]">
                                         Employee
                                     </DataTableHead>
                                     <DataTableHead className="w-[160px]">
                                         Vessel
-                                    </DataTableHead>
-                                    <DataTableHead className="w-[120px]">
-                                        Rank
                                     </DataTableHead>
                                     <DataTableHead className="w-[200px]">
                                         Current Phase

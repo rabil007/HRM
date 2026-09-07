@@ -113,12 +113,25 @@ describe('crewAssignmentMobileCardModel', () => {
         });
 
         assert.equal(model.title, 'Mohammed Rabil');
-        assert.equal(model.subtitle, 'CA-00482');
+        assert.equal(model.subtitle, 'CA-00482 · Engineer');
         assert.equal(model.vesselName, 'Horizon');
         assert.equal(model.phaseCode, 'p4');
         assert.equal(model.phaseLabel, 'Onboard');
         assert.equal(model.isOnVessel, true);
         assert.equal(model.plannedSignoffAt, '2026-08-28');
+    });
+
+    it('keeps the assignment number when rank is missing', () => {
+        const model = crewAssignmentMobileCardModel(
+            assignment({ rank: null }),
+            {
+                update: true,
+                performMovement: true,
+                cancel: true,
+            },
+        );
+
+        assert.equal(model.subtitle, 'CA-00482');
     });
 
     it('does not conflate planned sign-off with actual disembarkation', () => {

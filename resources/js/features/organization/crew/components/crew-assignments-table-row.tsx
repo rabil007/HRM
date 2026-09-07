@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
+import { CrewEmployeeIdentity } from '@/features/organization/crew/components/crew-employee-identity';
 import { CrewMobilisationReadinessBadge } from '@/features/organization/crew/components/crew-mobilisation-readiness-badge';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { CrewReliefReadinessBadge } from '@/features/organization/crew/components/crew-relief-readiness-badge';
@@ -21,8 +22,6 @@ import type {
     CrewAssignmentFormOptions,
     CrewAssignmentListItem,
 } from '@/features/organization/crew/types';
-import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
-import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -75,37 +74,11 @@ export function CrewAssignmentsTableRow({
                 </div>
             </TableCell>
 
-            <TableCell className={cn(dataTableCellClass(), 'min-w-[200px]')}>
-                {assignment.employee ? (
-                    <div className="flex min-w-0 items-center gap-3">
-                        <EmployeeProfileLink
-                            employeeId={assignment.employee.id}
-                            stopRowNavigation
-                            className="shrink-0"
-                        >
-                            <EmployeeAvatar
-                                name={assignment.employee.name}
-                                size="sm"
-                            />
-                        </EmployeeProfileLink>
-                        <div className="min-w-0">
-                            <EmployeeProfileLink
-                                employeeId={assignment.employee.id}
-                                className="block truncate text-sm font-semibold text-foreground hover:text-primary"
-                                stopRowNavigation
-                            >
-                                {assignment.employee.name}
-                            </EmployeeProfileLink>
-                            {assignment.employee.employee_no ? (
-                                <p className="truncate font-mono text-[11px] text-muted-foreground/75">
-                                    {assignment.employee.employee_no}
-                                </p>
-                            ) : null}
-                        </div>
-                    </div>
-                ) : (
-                    <span className="text-muted-foreground">—</span>
-                )}
+            <TableCell className={cn(dataTableCellClass(), 'min-w-[220px]')}>
+                <CrewEmployeeIdentity
+                    employee={assignment.employee}
+                    rankName={assignment.rank?.name}
+                />
             </TableCell>
 
             <TableCell className={dataTableCellClass()}>
@@ -117,10 +90,6 @@ export function CrewAssignmentsTableRow({
                         {assignment.client.name}
                     </p>
                 ) : null}
-            </TableCell>
-
-            <TableCell className={dataTableCellClass()}>
-                {assignment.rank?.name ?? '—'}
             </TableCell>
 
             <TableCell className={dataTableCellClass()}>
