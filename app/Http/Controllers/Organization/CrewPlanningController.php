@@ -12,6 +12,8 @@ use App\Support\CrewOperations\CrewProjectedManningQuery;
 use App\Support\CrewPlanning\CrewPlanningGanttQuery;
 use App\Support\CrewPlanning\CrewPlanningPagePermissions;
 use App\Support\CrewPlanning\CrewPlanningProjectionPresenter;
+use App\Support\CrewPlanning\CrewReliefDeskFilters;
+use App\Support\CrewPlanning\CrewReliefDeskQuery;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Carbon\CarbonImmutable;
@@ -28,8 +30,11 @@ class CrewPlanningController extends Controller
 
     public const VIEW_ONBOARD_VESSELS = 'onboard-vessels';
 
+    public const VIEW_RELIEF = 'relief';
+
     public function __construct(
         private readonly CrewProjectedManningQuery $projectedManningQuery,
+        private readonly CrewReliefDeskQuery $reliefDeskQuery,
     ) {}
 
     public function index(Request $request): Response
@@ -62,7 +67,43 @@ class CrewPlanningController extends Controller
             'vessels' => $this->activeVessels($companyId),
             'ranks' => $this->activeRanks(),
             'can' => $can,
+            'relief_desk' => $this->emptyReliefDesk(),
         ];
+
+        if ($view === self::VIEW_RELIEF) {
+            $user = $request->user();
+            abort_unless($user !== null, 403);
+
+            $deskFilters = CrewReliefDeskFilters::fromRequest($request);
+            $desk = $this->reliefDeskQuery->page(
+                $companyId,
+                $deskFilters,
+                $user,
+                max(1, (int) $request->query('page', 1)),
+                $request->url(),
+                is_array($request->query()) ? $request->query() : [],
+            );
+
+            return Inertia::render('organization/crew-planning/index', [
+                ...$shared,
+                'rows' => [],
+                'bars' => [],
+                'tree' => [],
+                'employees' => [],
+                'projection' => null,
+                'relief_prefill' => null,
+                'onboard_vessels' => [],
+                'onboard_pagination' => $this->emptyPaginationMeta(),
+                'relief_desk' => [
+                    'rows' => $desk['rows'],
+                    'pagination' => $this->paginationMeta($desk['pagination']),
+                    'summary' => $desk['summary'],
+                    'filters' => $desk['filters'],
+                    'filter_options' => $desk['filter_options'],
+                    'has_active_query' => CrewReliefDeskFilters::hasActiveQuery($deskFilters),
+                ],
+            ]);
+        }
 
         if ($view === self::VIEW_ONBOARD_VESSELS) {
             Gate::authorize('viewAny', CrewAssignment::class);
@@ -80,6 +121,7 @@ class CrewPlanningController extends Controller
                 'relief_prefill' => null,
                 'onboard_vessels' => $paginator->items(),
                 'onboard_pagination' => $this->paginationMeta($paginator),
+                'relief_desk' => $this->emptyReliefDesk(),
             ]);
         }
 
@@ -122,22 +164,67 @@ class CrewPlanningController extends Controller
             'projection' => $projection,
             'relief_prefill' => $this->reliefPrefill($request, $companyId),
             'onboard_vessels' => [],
-            'onboard_pagination' => [
-                'current_page' => 1,
-                'last_page' => 1,
-                'per_page' => 15,
-                'total' => 0,
-                'from' => null,
-                'to' => null,
-            ],
+            'onboard_pagination' => $this->emptyPaginationMeta(),
         ]);
     }
 
     private function resolveView(Request $request): string
     {
-        return $request->query('view') === self::VIEW_ONBOARD_VESSELS
-            ? self::VIEW_ONBOARD_VESSELS
-            : self::VIEW_PLANNING;
+        $view = (string) $request->query('view', self::VIEW_PLANNING);
+
+        return match ($view) {
+            self::VIEW_ONBOARD_VESSELS => self::VIEW_ONBOARD_VESSELS,
+            self::VIEW_RELIEF => self::VIEW_RELIEF,
+            default => self::VIEW_PLANNING,
+        };
+    }
+
+    /**
+     * @return array{
+     *     rows: list<array<string, mixed>>,
+     *     pagination: array{current_page: int, last_page: int, per_page: int, total: int, from: int|null, to: int|null},
+     *     summary: array<string, int>,
+     *     filters: array<string, mixed>,
+     *     filter_options: array<string, mixed>,
+     *     has_active_query: bool
+     * }
+     */
+    private function emptyReliefDesk(): array
+    {
+        return [
+            'rows' => [],
+            'pagination' => $this->emptyPaginationMeta(),
+            'summary' => [
+                'needs_relief' => 0,
+                'critical' => 0,
+                'not_ready' => 0,
+                'signoff_14' => 0,
+                'ready' => 0,
+                'overdue' => 0,
+            ],
+            'filters' => CrewReliefDeskFilters::inertiaFilters(CrewReliefDeskFilters::defaults()),
+            'filter_options' => [
+                'clients' => [],
+                'relief_statuses' => [],
+                'relief_risks' => [],
+            ],
+            'has_active_query' => false,
+        ];
+    }
+
+    /**
+     * @return array{current_page: int, last_page: int, per_page: int, total: int, from: int|null, to: int|null}
+     */
+    private function emptyPaginationMeta(): array
+    {
+        return [
+            'current_page' => 1,
+            'last_page' => 1,
+            'per_page' => 15,
+            'total' => 0,
+            'from' => null,
+            'to' => null,
+        ];
     }
 
     /**

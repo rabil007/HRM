@@ -26,8 +26,9 @@ Current Crew, vessel manning actuals, the Crew Operations dashboard pulse, and c
 | **Crew Assignments → Vessel View** | `/organization/crew?view=vessel` | Operational vessel-first roster of **currently onboard** crew |
 | **Crew Planning → Planning** (default) | `/organization/crew-planning` or `?view=planning` | Planned/future vessel manning and movements (Gantt) |
 | **Crew Planning → Onboard by Vessel** | `/organization/crew-planning?view=onboard-vessels` | The same actual/current P4 vessel roster, shown beside planning workflows |
+| **Crew Planning → Relief Desk** | `/organization/crew-planning?view=relief` | Operational desk of active P4 crew with upcoming/overdue/missing Planned Sign-Off, derived relief status, and mobilisation readiness |
 
-Crew Planning **Planning** is planned/future state. Crew Planning **Onboard by Vessel** is reusable actual/current P4 operational state. It never derives onboard status from Gantt/planning records.
+Crew Planning **Planning** is planned/future state. Crew Planning **Onboard by Vessel** is reusable actual/current P4 operational state. It never derives onboard status from Gantt/planning records. Crew Planning **Relief Desk** is a management view over the same active P4 assignments and existing Planning relief links (`relieves_crew_assignment_id`). It is not a new Relief entity or workflow.
 
 Vessel View / Onboard by Vessel answers: which vessels currently have crew onboard, and who is onboard each vessel.
 
@@ -386,6 +387,16 @@ Soft-deleted Planning rows, cancelled or completed linked assignments, and linke
 4. Real P0–P4 movement progresses on the linked assignment; readiness recalculates from phase.
 
 Planning never starts movement, completes source P4, creates Sea Service, or creates payroll actuals.
+
+### Relief Desk
+
+`/organization/crew-planning?view=relief` is the operational workspace for upcoming crew changes. Source rows are company-scoped **active P4** assignments with an operationally active employee. The default horizon is **next 30 days plus overdue**, and assignments **missing Planned Sign-Off** still surface because Operations cannot plan relief without a forecast.
+
+Status and risk come only from `CrewReliefReadinessResolver` / `CrewReliefStatusQuery` semantics. Mobilisation Readiness on a linked pre-join relief assignment is **advisory** (`CrewMobilisationReadinessResolver`) and never blocks planning or movement. Ready to Join / Relief Onboard never automatically disembarks the source crew.
+
+Row actions reuse existing routes: Plan Relief opens the Planning create sheet with vessel/rank/`relieves_crew_assignment_id`/join date prefill; Open Relief Plan stays on Planning; Open Relief Assignment / Review Source Assignment use Crew Assignment show when `crew_operations.assignments.view` is granted.
+
+Saved Views are not used on Relief Desk (Crew Planning has no Saved Views page key). Projected Manning context is deferred; the desk does not add a second projection engine.
 
 ### Deferred
 

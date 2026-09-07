@@ -32,6 +32,7 @@ import { OnboardPlanningFilters } from './components/onboard-planning-filters';
 import { PlanningGantt } from './components/planning-gantt';
 import { PlanningLegend } from './components/planning-legend';
 import { PlanningToolbar } from './components/planning-toolbar';
+import { ReliefDesk } from './components/relief-desk';
 import { VesselRankTree } from './components/vessel-rank-tree';
 import { findRelievedAssignment } from './lib/find-relieved-assignment';
 import { dateFromPointerRatio } from './lib/planning-gantt-math';
@@ -49,6 +50,7 @@ import type {
     PlanningProjection,
     PlanningProjectionPeriod,
     PlanningReliefPrefill,
+    ReliefDeskPayload,
     RowDropData,
     TreeVessel,
 } from './types';
@@ -86,6 +88,7 @@ type Props = {
     relief_prefill?: PlanningReliefPrefill | null;
     onboard_vessels?: CurrentCrewVesselRow[];
     onboard_pagination?: PaginationMeta;
+    relief_desk?: ReliefDeskPayload;
 };
 
 function visitPlanningView(
@@ -96,6 +99,10 @@ function visitPlanningView(
 
     if (view === 'onboard-vessels') {
         params.view = 'onboard-vessels';
+    }
+
+    if (view === 'relief') {
+        params.view = 'relief';
     }
 
     if (filters.vessel_id != null) {
@@ -148,12 +155,17 @@ export function CrewPlanningContent({
         from: null,
         to: null,
     },
+    relief_desk: reliefDesk,
 }: Props): ReactElement {
     const { current_company_id: currentCompanyId } = usePage().props as {
         current_company_id?: number | null;
     };
     const currentView: CrewPlanningView =
-        view === 'onboard-vessels' ? 'onboard-vessels' : 'planning';
+        view === 'onboard-vessels'
+            ? 'onboard-vessels'
+            : view === 'relief'
+              ? 'relief'
+              : 'planning';
     const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState(filters.search ?? '');
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -418,6 +430,30 @@ export function CrewPlanningContent({
         },
         [openCreateForRow, today, filters.from, filters.to, ranks],
     );
+
+    if (currentView === 'relief' && reliefDesk) {
+        return (
+            <Main>
+                <div className="border-b px-4 pt-5 pb-4">
+                    <PageHeader
+                        kicker="Crew Operations"
+                        title="Crew Planning"
+                        description="Who is signing off soon, who is replacing them, and whether that relief is ready."
+                        right={
+                            <CrewPlanningViewSwitcher
+                                value={currentView}
+                                onChange={(next) =>
+                                    visitPlanningView(next, filters)
+                                }
+                                canViewOnboard={Boolean(can.view_assignments)}
+                            />
+                        }
+                    />
+                </div>
+                <ReliefDesk desk={reliefDesk} vessels={vessels} ranks={ranks} />
+            </Main>
+        );
+    }
 
     if (currentView === 'onboard-vessels') {
         const hasActiveQuery =

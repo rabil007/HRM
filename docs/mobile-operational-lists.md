@@ -26,6 +26,7 @@ Do not introduce a generic rendering DSL. Keep identity, status, and action deci
 | Employees                                 | `EmployeeMobileCard`           | Compact identity; no private contact/salary fields                                       |
 | Vessels                                   | `VesselMobileCard`             | Identity, type, IMO/official number, manning counts; no certificate files                |
 | Crew assignments                          | `CrewAssignmentMobileCard`     | Current P0–P6 phase from `CrewAssignment`; planned sign-off is not actual disembarkation |
+| Crew Planning Relief Desk                 | `ReliefDeskMobileCard`         | Active P4 relief cases; desktop table stays on `md+`                                     |
 | Leave requests                            | `LeaveRequestMobileCard`       | Approve only when `can_approve_current_step`                                             |
 | Attendance records                        | `AttendanceRecordMobileCard`   | Self-service omits employee identity; `attendance.records.manage` shows it               |
 | Documents (index/compliance/search table) | `DocumentComplianceMobileCard` | Expiry/compliance from existing presenters; no file contents                             |

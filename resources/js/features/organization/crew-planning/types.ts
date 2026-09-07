@@ -1,3 +1,6 @@
+import type { CrewMobilisationReadiness } from '@/features/organization/crew/types';
+import type { PaginationMeta } from '@/types/pagination';
+
 export type GanttRankRow = {
     row_key: string;
     rank_id: number;
@@ -72,7 +75,7 @@ export type TreeVessel = {
     ranks: TreeRank[];
 };
 
-export type CrewPlanningView = 'planning' | 'onboard-vessels';
+export type CrewPlanningView = 'planning' | 'onboard-vessels' | 'relief';
 
 export type PlanningFilters = {
     vessel_id: number | null;
@@ -108,6 +111,102 @@ export type PlanningPagePermissions = {
     projection: boolean;
     create_assignment?: boolean;
     view_assignments?: boolean;
+    view_vessels?: boolean;
+    view_employees?: boolean;
+};
+
+export type ReliefDeskFocus =
+    | ''
+    | 'needs_relief'
+    | 'critical'
+    | 'not_ready'
+    | 'signoff_7'
+    | 'signoff_14'
+    | 'ready'
+    | 'overdue';
+
+export type ReliefDeskFilters = {
+    search: string;
+    vessel_id: number | null;
+    rank_id: number | null;
+    client_id: number | null;
+    relief_status: string;
+    relief_risk: string;
+    planned_signoff_from: string;
+    planned_signoff_to: string;
+    horizon: '30' | 'all';
+    focus: ReliefDeskFocus;
+};
+
+export type ReliefDeskSummary = {
+    needs_relief: number;
+    critical: number;
+    not_ready: number;
+    signoff_14: number;
+    ready: number;
+    overdue: number;
+};
+
+export type ReliefDeskPerson = {
+    id: number;
+    name: string;
+    employee_no: string | null;
+    href: string | null;
+};
+
+export type ReliefDeskVessel = {
+    id: number;
+    name: string;
+    href: string | null;
+};
+
+export type ReliefDeskAction = {
+    key: string;
+    label: string;
+    href: string | null;
+};
+
+export type ReliefDeskRow = {
+    id: number;
+    assignment_no: string;
+    source_href: string | null;
+    employee: ReliefDeskPerson | null;
+    vessel: ReliefDeskVessel | null;
+    rank: { id: number; name: string } | null;
+    current_phase_code: string | null;
+    current_phase_label: string | null;
+    current_duty_day: number | null;
+    days_onboard: number | null;
+    planned_signoff_at: string | null;
+    days_until_signoff: number | null;
+    missing_planned_signoff: boolean;
+    relief_status: string;
+    relief_status_label: string;
+    relief_risk: string;
+    relief_risk_label: string;
+    relief_employee: ReliefDeskPerson | null;
+    relief_planning_assignment_id: number | null;
+    relief_crew_assignment_id: number | null;
+    relief_phase_code: string | null;
+    relief_phase_label: string | null;
+    relief_planned_join_date: string | null;
+    mobilisation_readiness: CrewMobilisationReadiness | null;
+    recommended_action: ReliefDeskAction;
+};
+
+export type ReliefDeskFilterOptions = {
+    clients: PlanningOption[];
+    relief_statuses: Array<{ value: string; label: string }>;
+    relief_risks: Array<{ value: string; label: string }>;
+};
+
+export type ReliefDeskPayload = {
+    rows: ReliefDeskRow[];
+    pagination: PaginationMeta;
+    summary: ReliefDeskSummary;
+    filters: ReliefDeskFilters;
+    filter_options: ReliefDeskFilterOptions;
+    has_active_query: boolean;
 };
 
 export type PlanningProjectionStatus =

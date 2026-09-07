@@ -29,11 +29,11 @@ final class CrewReliefPlanningLoader
             ->where('company_id', $companyId)
             ->whereIn('relieves_crew_assignment_id', $ids)
             ->with([
-                'employee:id,name,employee_no',
+                'employee:id,company_id,name,employee_no',
                 'crewAssignment.currentPhase',
-                'crewAssignment.employee:id,name,employee_no',
-                'relievedAssignment.employee:id,name,employee_no',
-                'relievedAssignment.vessel:id,name',
+                'crewAssignment.employee:id,company_id,name,employee_no',
+                'relievedAssignment.employee:id,company_id,name,employee_no',
+                'relievedAssignment.vessel:id,company_id,name',
                 'relievedAssignment.rank:id,name',
             ])
             ->orderByDesc('id')
