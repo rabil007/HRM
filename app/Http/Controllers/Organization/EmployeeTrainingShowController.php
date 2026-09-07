@@ -31,12 +31,13 @@ class EmployeeTrainingShowController extends Controller
             'course:id,name',
             'country:id,name',
             'versions.replacer:id,name',
+            'sourceCrewAssignmentPhase.assignment:id,assignment_no',
         ]);
 
         $templateConfiguration = EmployeeProfileTemplateResolver::resolve($employee->employeeProfileTemplate);
 
         return Inertia::render('organization/training/show', [
-            'training' => $training->toShowArray(),
+            'training' => $training->toShowArray($request->user()?->can('crew_operations.assignments.view')),
             'employee' => [
                 'id' => $employee->id,
                 'name' => $employee->name,

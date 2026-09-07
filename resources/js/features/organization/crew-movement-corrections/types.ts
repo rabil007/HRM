@@ -120,6 +120,7 @@ export const CORRECTION_FIELD_LABELS: Record<string, string> = {
     remarks: 'Remarks',
     'details.provider': 'Training Provider',
     'details.course': 'Training Course',
+    'details.course_id': 'Training Course',
     vessel_id: 'Vessel',
     rank_id: 'Rank',
     client_id: 'Client',

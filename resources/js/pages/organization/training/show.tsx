@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { History } from 'lucide-react';
+import { History, Ship } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { DetailsHeader } from '@/components/details-header';
@@ -23,6 +23,7 @@ import type {
     CourseOption,
     TemplateFieldConfig,
 } from '@/pages/organization/employee-page.types';
+import { show as showCrewAssignment } from '@/routes/organization/crew-assignments';
 import { show as employeeShow } from '@/routes/organization/employees';
 
 type Props = {
@@ -120,6 +121,19 @@ export default function TrainingShow({
                                     </Badge>
                                 </>
                             ) : null}
+                            {training.is_from_crew_operations ? (
+                                <>
+                                    <span className="text-muted-foreground">
+                                        ·
+                                    </span>
+                                    <Badge
+                                        variant="outline"
+                                        className="border-primary/30 bg-primary/5 text-[10px] text-primary uppercase"
+                                    >
+                                        Crew Operations · P2B
+                                    </Badge>
+                                </>
+                            ) : null}
                         </span>
                     }
                     backHref={back.href}
@@ -157,6 +171,42 @@ export default function TrainingShow({
 
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                     <div className="min-w-0 space-y-6">
+                        {training.is_from_crew_operations ? (
+                            <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-4 text-sm dark:border-primary/30 dark:bg-primary/[0.06]">
+                                <div className="flex items-center gap-2 font-semibold text-primary">
+                                    <Ship className="size-4" />
+                                    <span>
+                                        Source: Crew Operations · P2B Training
+                                    </span>
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    This qualification was recorded during
+                                    mobilization in Crew Operations.
+                                    {training.source_crew_assignment ? (
+                                        <>
+                                            {' '}
+                                            Linked to assignment{' '}
+                                            <Link
+                                                href={showCrewAssignment.url(
+                                                    training
+                                                        .source_crew_assignment
+                                                        .id,
+                                                )}
+                                                className="font-medium text-primary underline hover:text-primary/80"
+                                            >
+                                                {
+                                                    training
+                                                        .source_crew_assignment
+                                                        .assignment_no
+                                                }
+                                            </Link>
+                                            .
+                                        </>
+                                    ) : null}
+                                </p>
+                            </div>
+                        ) : null}
+
                         {training.certificate_url ? (
                             <Card className="border-border/80 dark:border-white/10">
                                 <CardHeader className="pb-3">
@@ -202,6 +252,30 @@ export default function TrainingShow({
                             <CardTitle className="text-base">Details</CardTitle>
                         </CardHeader>
                         <CardContent className="pt-0">
+                            {training.source_crew_assignment ? (
+                                <div className="flex items-start justify-between gap-4 border-b border-border/50 px-1 py-3">
+                                    <span className="text-[10px] font-bold tracking-[0.18em] text-muted-foreground/70 uppercase">
+                                        Source
+                                    </span>
+                                    <Link
+                                        href={showCrewAssignment.url(
+                                            training.source_crew_assignment.id,
+                                        )}
+                                        className="max-w-[60%] text-right text-sm font-medium text-primary hover:underline"
+                                    >
+                                        {
+                                            training.source_crew_assignment
+                                                .assignment_no
+                                        }{' '}
+                                        (P2B)
+                                    </Link>
+                                </div>
+                            ) : training.source_crew_assignment_phase_id ? (
+                                <MetadataField
+                                    label="Source"
+                                    value="Crew Operations (P2B)"
+                                />
+                            ) : null}
                             <MetadataField
                                 label="Course"
                                 value={training.course_name ?? '—'}

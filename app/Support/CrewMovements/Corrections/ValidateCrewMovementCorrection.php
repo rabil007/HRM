@@ -9,9 +9,11 @@ use App\Exceptions\CrewMovementException;
 use App\Models\Client;
 use App\Models\Company;
 use App\Models\CompanyVisaType;
+use App\Models\Course;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewMovementCorrection;
+use App\Models\EmployeeTraining;
 use App\Models\Rank;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewMovementMasterDataGuard;
@@ -88,9 +90,45 @@ final class ValidateCrewMovementCorrection
                 );
             }
 
+            if ($field === 'details.course_id') {
+                if ($normalizedValue === null) {
+                    throw CrewMovementException::make(
+                        'A valid Course is required.',
+                        'correction_course_invalid',
+                    );
+                }
+                $course = Course::query()->whereKey((int) $normalizedValue)->where('is_active', true)->first();
+                if ($course === null) {
+                    throw CrewMovementException::make(
+                        'The selected Course is inactive or does not exist.',
+                        'correction_course_invalid',
+                    );
+                }
+            }
+
             $this->assertMasterData($assignment, $field, $normalizedValue);
 
             $normalized[$field] = $normalizedValue;
+        }
+
+        if (array_key_exists('details.course_id', $normalized)) {
+            $course = Course::query()->whereKey((int) $normalized['details.course_id'])->where('is_active', true)->first();
+            if ($course !== null) {
+                $normalized['details.course'] = (string) $course->name;
+            }
+        }
+
+        if ($phase->phase_code === CrewPhaseCode::Training) {
+            $isLinkedToTraining = EmployeeTraining::query()
+                ->where('source_crew_assignment_phase_id', $phase->id)
+                ->exists();
+
+            if ($isLinkedToTraining && array_key_exists('details.course', $proposed) && ! array_key_exists('details.course_id', $proposed)) {
+                throw CrewMovementException::make(
+                    'Course cannot be changed via free text on a training phase linked to Employee Training.',
+                    'correction_training_course_locked',
+                );
+            }
         }
 
         if ($normalized === []) {
@@ -195,6 +233,14 @@ final class ValidateCrewMovementCorrection
             }
 
             return $this->parseTimestamp((int) $assignment->company_id, (string) $value);
+        }
+
+        if ($field === 'details.course_id') {
+            if ($value === null || $value === '') {
+                return null;
+            }
+
+            return (int) $value;
         }
 
         if ($this->catalog->isDetailsField($field) || $field === 'remarks') {

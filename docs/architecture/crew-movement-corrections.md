@@ -17,13 +17,14 @@ Request correction
 |--------|--------|
 | Recorded phases (`active` / `completed` with `actual_start_at`) | `actual_start_at`, `remarks` |
 | Completed phases | also `actual_end_at` |
-| Training | also `details.provider`, `details.course` |
+| Training | also `details.provider`, `details.course`, `details.course_id` |
 | On Vessel (P4) | also assignment `vessel_id`, `rank_id`, `client_id`, `company_visa_type_id` |
 
 Derived updates on approve:
 
 - P1 start → assignment `started_at`
 - Completed P6 end → assignment `closed_at`
+- Completed Training provider / completion date / course_id → linked `EmployeeTraining` `institute_center`, `issue_date`, `course_id`
 
 ## Hard rules
 
@@ -34,6 +35,7 @@ Derived updates on approve:
 - Neighbor-phase boundary checks and company-timezone parsing
 - Self-approval denied unless `crew_operations.corrections.override`
 - Operational phase status is never flipped to `corrected` for badges — badges come from correction relations
+- **Course correction consistency**: If a Training phase is linked to an `EmployeeTraining` record, free-text `details.course` cannot be modified without `details.course_id`. Structured `details.course_id` must reference an active, valid Course, snapshots the title to `details.course`, and atomically updates `EmployeeTraining.course_id`.
 
 ## Permissions
 
@@ -51,8 +53,9 @@ Derived updates on approve:
 3. Target phase
 4. Linked planning assignment (when present)
 5. Linked sea service rows (when present)
+6. Linked employee training row (when present for completed Training phase)
 
-Then: stale-original conflict check → validate → apply → invariants → planning sync → sea-service sync (completed P4 only; reject if unsyncable) → mark approved.
+Then: stale-original conflict check → validate → apply → invariants → planning sync → sea-service sync (completed P4 only; reject if unsyncable) → training sync (completed P2B only) → mark approved.
 
 Notification failures after commit are reported and never roll back approval.
 

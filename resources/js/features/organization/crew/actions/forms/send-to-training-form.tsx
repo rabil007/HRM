@@ -25,8 +25,10 @@ export function SendToTrainingForm({
         form.data.planned_end_at < form.data.occurred_at;
 
     const selectedCourseId =
+        form.data.course_id ??
         formOptions?.courses.find((course) => course.name === form.data.course)
-            ?.id ?? null;
+            ?.id ??
+        null;
 
     return (
         <div className="space-y-4">
@@ -61,7 +63,11 @@ export function SendToTrainingForm({
                                 const course = formOptions.courses.find(
                                     (item) => item.id.toString() === value,
                                 );
-                                form.setData('course', course?.name ?? '');
+                                form.setData((prev) => ({
+                                    ...prev,
+                                    course_id: course ? course.id : null,
+                                    course: course?.name ?? '',
+                                }));
                             }}
                         >
                             <SelectTrigger id="movement-course">
@@ -87,7 +93,9 @@ export function SendToTrainingForm({
                             }
                         />
                     )}
-                    <InputError message={form.errors.course} />
+                    <InputError
+                        message={form.errors.course_id || form.errors.course}
+                    />
                 </div>
             </div>
 

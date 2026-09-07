@@ -29,6 +29,7 @@ class CrewOperationsSettingsController extends Controller
                 'pool_department_ids' => CrewOperationsSettings::poolDepartmentIds($companyId),
                 'max_home_days' => CrewOperationsSettings::maxHomeDays($companyId),
                 'sync_sea_service' => CrewOperationsSettings::syncSeaServiceEnabled($companyId),
+                'sync_training_to_employee_training' => CrewOperationsSettings::syncTrainingToEmployeeTrainingEnabled($companyId),
                 ...$notifications,
             ],
         ]);
@@ -38,24 +39,30 @@ class CrewOperationsSettingsController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
+        $options = [
+            'notifications_enabled' => $request->boolean('notifications_enabled'),
+            'notification_recipient_user_ids' => $request->validated('notification_recipient_user_ids') ?? [],
+            'alert_signoff_overdue' => $request->boolean('alert_signoff_overdue'),
+            'alert_signoff_no_relief' => $request->boolean('alert_signoff_no_relief'),
+            'alert_relief_not_ready' => $request->boolean('alert_relief_not_ready'),
+            'alert_current_manning_gap' => $request->boolean('alert_current_manning_gap'),
+            'alert_projected_manning_gap' => $request->boolean('alert_projected_manning_gap'),
+            'notification_email_delivery_mode' => (string) $request->validated('notification_email_delivery_mode'),
+            'notification_email_digest_at' => (string) $request->validated('notification_email_digest_at'),
+            'notification_email_critical_immediate' => $request->boolean('notification_email_critical_immediate'),
+            'actor_id' => $request->user()?->id,
+        ];
+
+        if ($request->has('sync_training_to_employee_training')) {
+            $options['sync_training_to_employee_training'] = $request->boolean('sync_training_to_employee_training');
+        }
+
         CrewOperationsSettings::saveSettings(
             $companyId,
             $request->validated('pool_department_ids') ?? [],
             (int) $request->validated('max_home_days'),
             $request->boolean('sync_sea_service'),
-            [
-                'notifications_enabled' => $request->boolean('notifications_enabled'),
-                'notification_recipient_user_ids' => $request->validated('notification_recipient_user_ids') ?? [],
-                'alert_signoff_overdue' => $request->boolean('alert_signoff_overdue'),
-                'alert_signoff_no_relief' => $request->boolean('alert_signoff_no_relief'),
-                'alert_relief_not_ready' => $request->boolean('alert_relief_not_ready'),
-                'alert_current_manning_gap' => $request->boolean('alert_current_manning_gap'),
-                'alert_projected_manning_gap' => $request->boolean('alert_projected_manning_gap'),
-                'notification_email_delivery_mode' => (string) $request->validated('notification_email_delivery_mode'),
-                'notification_email_digest_at' => (string) $request->validated('notification_email_digest_at'),
-                'notification_email_critical_immediate' => $request->boolean('notification_email_critical_immediate'),
-                'actor_id' => $request->user()?->id,
-            ],
+            $options,
         );
 
         return back()->with('success', 'Crew operations settings saved.');

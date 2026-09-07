@@ -8,6 +8,7 @@ use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\User;
+use App\Support\CrewOperations\CrewOperationsSettings;
 use Carbon\CarbonInterface;
 
 class CrewAssignmentPresenter
@@ -139,6 +140,7 @@ class CrewAssignmentPresenter
                     'remarks' => $phase->remarks,
                     'has_pending_correction' => $hasPending,
                     'has_approved_correction' => $hasApproved,
+                    'employee_training_id' => $phase->employeeTraining?->id,
                 ];
             })
             ->sortBy('sequence')
@@ -297,6 +299,8 @@ class CrewAssignmentPresenter
             'actual_disembarkation_at' => $onVesselPhase?->actual_end_at?->toDateString(),
             'training_provider' => is_array($trainingPhase?->details) ? ($trainingPhase->details['provider'] ?? null) : null,
             'training_course' => is_array($trainingPhase?->details) ? ($trainingPhase->details['course'] ?? null) : null,
+            'training_course_id' => is_array($trainingPhase?->details) ? ($trainingPhase->details['course_id'] ?? null) : null,
+            'sync_training_enabled' => CrewOperationsSettings::syncTrainingToEmployeeTrainingEnabled((int) $assignment->company_id),
             'training_started_at' => self::formatDateTime($trainingPhase?->actual_start_at, $timezone),
             'training_expected_completion_at' => $trainingPhase?->planned_end_at?->toDateString(),
             'company_timezone' => $timezone,

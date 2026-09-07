@@ -94,8 +94,25 @@ function buildInitialForm(
         occurred_at: defaultDateTimeLocal(),
         next_phase: nextPhase,
         starting_phase: action === 'redeploy' ? 'p0' : '',
-        provider: '',
-        course: '',
+        provider:
+            action === 'complete_training'
+                ? (context.training_provider ?? '')
+                : '',
+        course:
+            action === 'complete_training'
+                ? (context.training_course ?? '')
+                : '',
+        course_id:
+            action === 'complete_training'
+                ? (context.training_course_id ??
+                  formOptions?.courses.find(
+                      (c) => c.name === context.training_course,
+                  )?.id ??
+                  null)
+                : null,
+        sync_training_to_employee_training: Boolean(
+            context.sync_training_enabled,
+        ),
         planned_start_at: '',
         planned_end_at: '',
         remarks: '',

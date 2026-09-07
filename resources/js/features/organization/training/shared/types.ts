@@ -9,6 +9,12 @@ export type TrainingShowItem = TrainingItem & {
     replaced_at: string | null;
     can_preview: boolean;
     versions: DocumentVersionItem[];
+    source_crew_assignment_phase_id?: number | null;
+    source_crew_assignment?: {
+        id: number;
+        assignment_no: string;
+    } | null;
+    is_from_crew_operations?: boolean;
 };
 
 export type TrainingEmployeeSummary = {

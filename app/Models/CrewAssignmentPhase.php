@@ -109,6 +109,11 @@ class CrewAssignmentPhase extends Model
         return $this->hasOne(EmployeeSeaService::class);
     }
 
+    public function employeeTraining(): HasOne
+    {
+        return $this->hasOne(EmployeeTraining::class, 'source_crew_assignment_phase_id');
+    }
+
     /**
      * @return HasMany<CrewMovementCorrection, $this>
      */

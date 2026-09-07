@@ -11,11 +11,15 @@ use App\Models\CrewAssignmentPhase;
 use App\Models\CrewMovementCorrection;
 use App\Models\CrewPlanningAssignment;
 use App\Models\EmployeeSeaService;
+use App\Models\EmployeeTraining;
 use App\Models\User;
 use App\Support\Auth\PrivilegedTwoFactorPolicy;
 use App\Support\CrewMovements\CrewAssignmentInvariantGuard;
 use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
+use App\Support\Settings\CompanyTimezone;
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
 final class ApproveCrewMovementCorrection
@@ -92,6 +96,11 @@ final class ApproveCrewMovementCorrection
                 ->lockForUpdate()
                 ->get();
 
+            EmployeeTraining::query()
+                ->where('source_crew_assignment_phase_id', $phase->id)
+                ->lockForUpdate()
+                ->first();
+
             $originals = $correction->original_values ?? [];
 
             if (! $this->snapshot->valuesMatch($originals, $assignment, $phase)) {
@@ -138,6 +147,31 @@ final class ApproveCrewMovementCorrection
                         'Approved correction would leave completed on-vessel sea service unsyncable.',
                         'correction_sea_service_unsyncable',
                     );
+                }
+            }
+
+            if ($phase->phase_code === CrewPhaseCode::Training
+                && $phase->status === CrewPhaseStatus::Completed) {
+                $employeeTraining = EmployeeTraining::query()
+                    ->where('source_crew_assignment_phase_id', $phase->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($employeeTraining !== null) {
+                    $trainingUpdates = [];
+                    if (array_key_exists('actual_end_at', $normalized) && $phase->actual_end_at instanceof CarbonInterface) {
+                        $timezone = CompanyTimezone::forCompanyId($companyId);
+                        $trainingUpdates['issue_date'] = Carbon::parse($phase->actual_end_at)->timezone($timezone)->toDateString();
+                    }
+                    if (array_key_exists('details.provider', $normalized)) {
+                        $trainingUpdates['institute_center'] = is_array($phase->details) ? ($phase->details['provider'] ?? null) : null;
+                    }
+                    if (array_key_exists('details.course_id', $normalized)) {
+                        $trainingUpdates['course_id'] = (int) $normalized['details.course_id'];
+                    }
+                    if ($trainingUpdates !== []) {
+                        $employeeTraining->update($trainingUpdates);
+                    }
                 }
             }
 

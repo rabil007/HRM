@@ -5,6 +5,7 @@ namespace App\Support\CrewMovements\Corrections;
 use App\Models\Client;
 use App\Models\Company;
 use App\Models\CompanyVisaType;
+use App\Models\Course;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Rank;
@@ -84,7 +85,7 @@ final class CrewMovementCorrectionValueSnapshot
             return Carbon::parse($value)->toIso8601String();
         }
 
-        if (in_array($field, ['vessel_id', 'rank_id', 'client_id', 'company_visa_type_id'], true)) {
+        if (in_array($field, ['vessel_id', 'rank_id', 'client_id', 'company_visa_type_id', 'details.course_id'], true)) {
             return $value === null || $value === '' ? null : (int) $value;
         }
 
@@ -117,6 +118,7 @@ final class CrewMovementCorrectionValueSnapshot
             'rank_id' => Rank::query()->whereKey((int) $value)->value('name'),
             'client_id' => Client::query()->whereKey((int) $value)->value('name'),
             'company_visa_type_id' => CompanyVisaType::query()->whereKey((int) $value)->value('name'),
+            'details.course_id' => Course::query()->whereKey((int) $value)->value('name'),
             default => is_scalar($value) ? (string) $value : null,
         };
     }

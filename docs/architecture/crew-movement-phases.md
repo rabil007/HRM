@@ -71,6 +71,7 @@ Selection uses the shared `useRecordSelection` hook. `selectedIds` remains the v
 | **CrewAssignment** | One mobilisation cycle (P0–P6). |
 | **CrewAssignmentPhase** | Ordered occurrence of a phase on that cycle. |
 | **EmployeeSeaService** | Historical sea time created from completed P4 phases. |
+| **EmployeeTraining** | Formal employee qualification record; optionally synced from completed P2B phases. |
 
 ## P0–P6
 
@@ -316,6 +317,79 @@ Legacy `crew_operations.deployments.*` permissions are removed and migrated onto
 `CrewMovementService` runs every create/action in a company-scoped transaction with `lockForUpdate()`, invariant checks, and atomic phase updates. Completed P4 (`actual_end_at` set) syncs sea service via `SeaServiceSyncService` in the same transaction.
 
 Tour resolution uses `CrewTourOfDutyResolver` / `CrewTourOfDutyCalculator`. Progress and status buckets use `CrewTourProgress` / `CrewTourStatusQuery`.
+
+## P2B Training → Employee Training synchronization
+
+Crew Operations operationally tracks training during mobilisation within `CrewAssignmentPhase` (code `Training` / `P2B`). Employee Training separately maintains the employee's formal qualification and certificate history. The two domains are integrated conditionally without conflating their responsibilities.
+
+```text
+CrewAssignmentPhase P2B (Training)
+         │
+         │ complete_training (if company toggle enabled & not skipped)
+         ▼
+  EmployeeTraining (Authoritative HR qualification)
+```
+
+### Domain separation
+- **CrewAssignmentPhase (P2B)**: Answers "what happened during this mobilisation?" Stores operational history, provider remarks, and dates within the assignment lifecycle.
+- **EmployeeTraining**: Answers "is the seafarer qualified, and what certificates do they hold?" Authoritative HR/crew records used for audits, qualifications, and matrices.
+
+### Company Setting & Governance
+- Controlled per company under **Crew Operations → Settings → Assignment Settings** via `sync_training_to_employee_training` (boolean column on `crew_operations_settings`, defaults to `false` / OFF).
+- Toggling the setting logs an activity log entry (`updated crew operations training sync setting`).
+- **Prospective only**: Turning the toggle ON does not retroactively scan or backfill previously completed P2B phases.
+
+### Eligibility & Completion Guard
+- Only completed P2B phases (`status === CrewPhaseStatus::Completed`) with an explicit completion timestamp (`actual_end_at !== null`) may synchronize.
+- Active, cancelled, or pseudo-status phases are strictly ineligible.
+- There is **no `now()` completion fallback** or synthetic completion date; planned dates must never be substituted. If a phase lacks `actual_end_at`, sync is blocked.
+
+### Data Ownership & Field Separation
+Crew Operations and HR maintain strict separation of owned fields on `EmployeeTraining`:
+- **Crew-owned synchronized fields**:
+  - `course_id`: Selected active company course ID.
+  - `issue_date`: `actual_end_at` converted to the company's local timezone via `CompanyTimezone::forCompanyId($companyId)`.
+  - `institute_center`: Training provider name from phase details (`details['provider']`).
+- **HR-owned preserved fields**:
+  - `expiry_date`, `country_id`, `certificate_path`, `certificate_original_filename`, `certificate_mime_type`, `certificate_size_bytes`, `current_version`, `replaced_at`, etc.
+  - When creating a new record, HR fields are initialized to `null`.
+  - On re-sync or correction sync, Crew Operations updates **only** crew-owned fields. HR-managed fields are **never erased or overwritten with null**.
+
+### Course Resolution & Correction Consistency
+- Synchronization strictly requires a valid, active `course_id` belonging to the company (`Course::class`).
+- Free-text course names never trigger fuzzy-matching or automatic course creation.
+- If sync is active, the operator must pick a course from the company course catalog during `send_to_training` or `complete_training`.
+- **Course Correction Consistency**: When a P2B phase is already linked to an `EmployeeTraining`, free-text `details.course` cannot be modified in isolation. Corrections must supply `details.course_id`, which validates against active courses, snapshots the course name to `details.course`, and atomically updates `EmployeeTraining.course_id`. Free-text-only corrections on linked phases are rejected with `correction_training_course_locked`.
+
+### Occurrence-Level Control
+- When the company toggle is enabled, the **Complete Training** movement dialog displays a pre-checked toggle: *"Add to Employee Training record"*.
+- Operators may uncheck this to skip HR sync for non-certifying or ad-hoc briefings.
+- If the company toggle is disabled, this option is omitted and sync is bypassed entirely.
+
+### Field Mapping (Initial Creation)
+| EmployeeTraining Field | Source / Rule |
+|-----------------------|---------------|
+| `company_id` | Assignment company ID (strictly tenant-isolated) |
+| `employee_id` | Assignment employee ID |
+| `course_id` | Selected active company course ID |
+| `issue_date` | Actual P2B completion date (`occurred_at` / `actual_end_at`) converted to the company's local timezone via `CompanyTimezone::forCompanyId($companyId)`. Never uses planned dates or `now()`. |
+| `institute_center` | Training provider name from phase details (`details['provider']`) |
+| `expiry_date` | `null` on creation; preserved on subsequent re-sync |
+| `country_id` | `null` on creation; preserved on subsequent re-sync |
+| `certificate_path` | `null` on creation; preserved on subsequent re-sync |
+| `source_crew_assignment_phase_id` | FK to the completed `crew_assignment_phases.id` |
+| `sort_order` | `EmployeeTraining::where('employee_id', ...)->max('sort_order') + 1` |
+
+### Idempotency & Invariants
+- `source_crew_assignment_phase_id` has a unique constraint on `employee_trainings`. Repeating completion or re-running sync updates the existing record's crew-owned fields rather than creating duplicates.
+- The sync executes inside the same database transaction as the movement action in `CrewMovementService::completeTraining()`.
+- Voiding an assignment preserves the employee's formal training history (`foreignId('source_crew_assignment_phase_id')->nullable()->nullOnDelete()`).
+- Approved movement corrections on a P2B phase atomically update the linked `EmployeeTraining` (`institute_center` from provider, `issue_date` in company timezone if `actual_end_at` is corrected, and `course_id` if `details.course_id` is corrected), while keeping HR-owned fields intact.
+- Turning the company toggle OFF never deletes, unlinks, or hides previously synchronized records. Turning it ON never backfills historical phases.
+
+### Cross-Domain Navigation
+- **Crew Assignment Timeline**: Displays a *"✓ Added to Employee Training"* badge linking directly to the employee's training record (`/organization/employees/{employee}/trainings/{id}`).
+- **Employee Training Show View**: Displays a prominent source banner (*"Source: Crew Operations · P2B Training"*) and links back to the originating Crew Assignment.
 
 ## Planning
 
