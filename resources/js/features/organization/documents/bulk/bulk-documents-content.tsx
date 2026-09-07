@@ -113,7 +113,10 @@ function buildQuery(
         query.process_filter = processFilter;
     }
 
-    if (emailFilter === 'emailed' || emailFilter === 'not_emailed') {
+    if (
+        !documentTypeKey.startsWith('custom_') &&
+        (emailFilter === 'emailed' || emailFilter === 'not_emailed')
+    ) {
         query.email_filter = emailFilter;
     }
 
@@ -833,7 +836,7 @@ export function BulkDocumentsContent({
         filters.position_id,
         filters.company_visa_type_id,
         searchInput.trim(),
-        email_filter !== 'all',
+        !isCustomTemplate && email_filter !== 'all',
     ].filter(Boolean).length;
 
     const activeFilterCount = isRosterView
@@ -964,6 +967,7 @@ export function BulkDocumentsContent({
                             }}
                             emailFilter={email_filter}
                             onEmailFilterChange={setEmailFilter}
+                            showEmailFilter={!isCustomTemplate}
                             companyVisaTypes={company_visa_types}
                             departmentTree={department_tree}
                             departmentTreeSelectedId={

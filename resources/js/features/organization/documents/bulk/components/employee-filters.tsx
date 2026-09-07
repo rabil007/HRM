@@ -27,8 +27,9 @@ export function EmployeeFilters({
     onSearchChange,
     filters,
     onFiltersChange,
-    emailFilter,
+    emailFilter = 'all',
     onEmailFilterChange,
+    showEmailFilter = true,
     companyVisaTypes,
     departmentTree,
     departmentTreeSelectedId,
@@ -40,8 +41,9 @@ export function EmployeeFilters({
     onSearchChange: (value: string) => void;
     filters: Filters;
     onFiltersChange: (filters: Filters) => void;
-    emailFilter: BulkEmailFilter;
-    onEmailFilterChange: (filter: BulkEmailFilter) => void;
+    emailFilter?: BulkEmailFilter;
+    onEmailFilterChange?: (filter: BulkEmailFilter) => void;
+    showEmailFilter?: boolean;
     companyVisaTypes: Array<{ id: number; name: string }>;
     departmentTree: DepartmentTreeNode[];
     departmentTreeSelectedId: number | null;
@@ -204,21 +206,25 @@ export function EmployeeFilters({
                         ))}
                     </AppSelect>
 
-                    <AppSelect
-                        value={emailFilter}
-                        onValueChange={(value) =>
-                            onEmailFilterChange(value as BulkEmailFilter)
-                        }
-                        className="h-11 w-full rounded-xl sm:w-48"
-                    >
-                        <AppSelectItem value="all">
-                            All email status
-                        </AppSelectItem>
-                        <AppSelectItem value="emailed">Emailed</AppSelectItem>
-                        <AppSelectItem value="not_emailed">
-                            Not emailed
-                        </AppSelectItem>
-                    </AppSelect>
+                    {showEmailFilter && onEmailFilterChange ? (
+                        <AppSelect
+                            value={emailFilter}
+                            onValueChange={(value) =>
+                                onEmailFilterChange(value as BulkEmailFilter)
+                            }
+                            className="h-11 w-full rounded-xl sm:w-48"
+                        >
+                            <AppSelectItem value="all">
+                                All email status
+                            </AppSelectItem>
+                            <AppSelectItem value="emailed">
+                                Emailed
+                            </AppSelectItem>
+                            <AppSelectItem value="not_emailed">
+                                Not emailed
+                            </AppSelectItem>
+                        </AppSelect>
+                    ) : null}
 
                     {activeFilterCount > 0 ? (
                         <Button
@@ -310,7 +316,9 @@ export function EmployeeFilters({
                         </Badge>
                     ) : null}
 
-                    {emailFilter === 'emailed' ? (
+                    {showEmailFilter &&
+                    emailFilter === 'emailed' &&
+                    onEmailFilterChange ? (
                         <Badge
                             variant="outline"
                             className="gap-1 border-sky-500/25 bg-sky-500/5 pr-1 pl-2.5 font-normal"
@@ -329,7 +337,9 @@ export function EmployeeFilters({
                         </Badge>
                     ) : null}
 
-                    {emailFilter === 'not_emailed' ? (
+                    {showEmailFilter &&
+                    emailFilter === 'not_emailed' &&
+                    onEmailFilterChange ? (
                         <Badge
                             variant="outline"
                             className="gap-1 border-dashed pr-1 pl-2.5 font-normal"
