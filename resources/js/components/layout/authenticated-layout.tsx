@@ -1,6 +1,7 @@
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { SkipToMain } from '@/components/skip-to-main';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { WebPushEnablePrompt } from '@/components/web-push-enable-prompt';
 import { LayoutProvider } from '@/context/layout-provider';
 import { SearchProvider } from '@/context/search-provider';
 import { WebPushProvider } from '@/context/web-push-provider';
@@ -18,6 +19,7 @@ export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
         <SearchProvider>
             <LayoutProvider>
                 <WebPushProvider>
+                    <WebPushEnablePrompt />
                     <SidebarProvider defaultOpen={defaultOpen}>
                         <SkipToMain />
                         <AppSidebar />

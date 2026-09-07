@@ -25,7 +25,7 @@ user has an active Web Push subscription
 queue DeliverCrewOperationalAlertWebPushJob (afterCommit)
 ```
 
-Push uses the same Push Subscription / VAPID infrastructure as announcements and document compliance. Users enable notifications from the existing bell control.
+Push uses the same Push Subscription / VAPID infrastructure as announcements and document compliance. Users enable notifications from the existing bell control, or from the in-app **Stay updated** reminder (native permission is still requested only after they click Enable). See [Announcement Web Push](./announcements-web-push.md).
 
 ## Privacy-safe payload
 

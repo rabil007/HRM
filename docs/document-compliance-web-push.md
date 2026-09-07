@@ -95,7 +95,7 @@ Requires a running queue worker (`php artisan queue:work` or `composer run dev`)
 
 - Trusted HTTPS origin (Herd local CA in development)
 - VAPID keys configured (`php artisan webpush:vapid`)
-- Users enable browser notifications from the bell control
+- Users enable browser notifications from the bell control, or from the in-app **Stay updated** reminder (native permission is still requested only after they click Enable). See [Announcement Web Push](./announcements-web-push.md).
 - Document expiry email template enabled with TO/CC presets
 
 ## Related files

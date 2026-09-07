@@ -31,7 +31,21 @@ There is no Browser Push checkbox and no `web_push` rows in `announcement_delive
 
 ## Enabling notifications
 
-Users open the notification bell and choose **Enable browser notifications**. OMS-HRM never prompts for permission automatically on page load.
+OMS-HRM may show an in-app **Stay updated** soft prompt when the authenticated user has never made a browser notification permission choice on the current device (`Notification.permission === 'default'`), Web Push is configured, the browser supports it, and the shared provider status is `not_enabled`.
+
+That prompt never invokes the native browser permission request on its own. The browser permission dialog appears only after the user clicks **Enable notifications**, which calls the existing `WebPushProvider.enable()` method.
+
+**Not now** (or dismissing the dialog) hides the reminder for **7 days** on that user and browser via `localStorage`. The key is user-specific so shared computers do not leak another user’s dismissal. After 7 days the in-app prompt may appear again if permission is still `default` and status is still `not_enabled`.
+
+The prompt does **not** appear when:
+
+- Status is `enabled`, `denied`, `unsupported`, `requesting_permission`, `subscribing`, or `error`
+- The user already blocked notifications (`Notification.permission === 'denied'`)
+- Permission is already `granted` but the OMS-HRM subscription was later disabled from the bell (native permission stays granted; do not nag)
+
+OMS-HRM never calls `Notification.requestPermission()` automatically on page load. After a user blocks notifications, the browser permission cannot be changed programmatically; the bell explains how to change it in browser settings.
+
+The notification bell remains the permanent manual control for **Enable browser notifications**, **Disable browser notifications**, and **Send test notification**.
 
 If permission is already granted, the current browser subscription is synchronised silently to the authenticated user.
 
@@ -161,5 +175,6 @@ Notes:
 - Service Worker route: `app/Http/Controllers/ServiceWorkerController.php`
 - Frontend provider: `resources/js/context/web-push-provider.tsx`
 - Frontend control: `resources/js/components/web-push-notification-control.tsx`
+- Soft enable prompt: `resources/js/components/web-push-enable-prompt.tsx`
 
 Company Template generation completion also reuses these subscriptions (`DocumentGenerationFinishedWebPushNotification`). See [Document management](./document-management.md).
