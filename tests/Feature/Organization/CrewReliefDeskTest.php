@@ -191,7 +191,7 @@ test('relief desk shows planning-only relief as open relief plan', function () {
     $fixtures = makeReliefDeskFixtures();
     $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 12, 'John Mathew');
     $relief = makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Sameer Khan');
-    makeReliefPlanFor($source, $relief, $fixtures['today']->addDays(12));
+    $plan = makeReliefPlanFor($source, $relief, $fixtures['today']->addDays(12));
 
     $this->actingAs($fixtures['user'])
         ->get(route('organization.crew-planning.index', ['view' => 'relief']))
@@ -199,8 +199,17 @@ test('relief desk shows planning-only relief as open relief plan', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::ReliefPlanned->value)
             ->where('relief_desk.rows.0.relief_employee.name', 'Sameer Khan')
+            ->where('relief_desk.rows.0.relief_planning_assignment_id', $plan->id)
             ->where('relief_desk.rows.0.recommended_action.key', 'open_relief_plan')
             ->where('relief_desk.rows.0.recommended_action.label', 'Open Relief Plan')
+            ->where('relief_desk.rows.0.recommended_action.href', function (?string $value) use ($plan) {
+                expect($value)->toBeString()
+                    ->and($value)->toContain('planning_assignment_id='.$plan->id)
+                    ->and($value)->not->toContain('view=relief')
+                    ->and($value)->not->toContain('search=');
+
+                return true;
+            })
         );
 });
 
@@ -566,5 +575,89 @@ test('crew planning gantt view is unchanged when relief desk is unused', functio
             ->where('view', 'planning')
             ->has('relief_desk.rows', 0)
             ->has('bars')
+        );
+});
+
+test('relief desk sorts known imminent sign-offs ahead of missing planned sign-off', function () {
+    $fixtures = makeReliefDeskFixtures();
+    $company = $fixtures['company'];
+    $rank = $fixtures['rank'];
+    $today = $fixtures['today'];
+
+    makeReliefDeskOnboard($company, $rank, makeCrewMovementVessel('Good Vessel', $company), $today, 20, 'Good');
+    $missingEmployee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'status' => 'active',
+        'name' => 'Ravi',
+    ]);
+    makeActiveOnVesselAssignment($company, $missingEmployee, $rank, makeCrewMovementVessel('Missing Vessel', $company), [
+        'planned_signoff_at' => null,
+    ]);
+    makeReliefDeskOnboard($company, $rank, makeCrewMovementVessel('Warning Vessel', $company), $today, 10, 'Manoj');
+    makeReliefDeskOnboard($company, $rank, makeCrewMovementVessel('Critical Later Vessel', $company), $today, 5, 'Ali');
+    makeReliefDeskOnboard($company, $rank, makeCrewMovementVessel('Critical Vessel', $company), $today, 3, 'Sameer');
+    makeReliefDeskOnboard($company, $rank, makeCrewMovementVessel('Today Vessel', $company), $today, 0, 'John');
+    makeReliefDeskOnboard($company, $rank, makeCrewMovementVessel('Overdue Vessel', $company), $today, -3, 'Ahmed');
+
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-planning.index', ['view' => 'relief']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('relief_desk.rows', 7)
+            ->where('relief_desk.rows.0.employee.name', 'Ahmed')
+            ->where('relief_desk.rows.1.employee.name', 'John')
+            ->where('relief_desk.rows.2.employee.name', 'Sameer')
+            ->where('relief_desk.rows.3.employee.name', 'Ali')
+            ->where('relief_desk.rows.4.employee.name', 'Ravi')
+            ->where('relief_desk.rows.4.missing_planned_signoff', true)
+            ->where('relief_desk.rows.5.employee.name', 'Manoj')
+            ->where('relief_desk.rows.6.employee.name', 'Good')
+        );
+});
+
+test('open relief plan prefill targets the company-owned planning assignment', function () {
+    $fixtures = makeReliefDeskFixtures();
+    $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 12, 'Prefill Source');
+    $plan = makeReliefPlanFor(
+        $source,
+        makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Prefill Relief'),
+        $fixtures['today']->addDays(12),
+    );
+
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-planning.index', [
+            'vessel_id' => $fixtures['vessel']->id,
+            'rank_id' => $fixtures['rank']->id,
+            'planning_assignment_id' => $plan->id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('view', 'planning')
+            ->where('relief_prefill.planning_assignment_id', $plan->id)
+            ->where('relief_prefill.open_create', false)
+            ->where('relief_prefill.vessel_id', $fixtures['vessel']->id)
+            ->where('relief_prefill.rank_id', $fixtures['rank']->id)
+            ->where('bars', fn ($bars) => collect($bars)->contains(fn ($bar) => (int) $bar['id'] === $plan->id))
+        );
+});
+
+test('open relief plan prefill ignores another company planning assignment id', function () {
+    $fixtures = makeReliefDeskFixtures();
+    $other = makeCrewAssignmentFixtures();
+    $foreignVessel = makeCrewMovementVessel('Foreign Plan Vessel', $other['company']);
+    $foreignSource = makeReliefDeskOnboard($other['company'], $other['rank'], $foreignVessel, $fixtures['today'], 8, 'Foreign Source');
+    $foreignPlan = makeReliefPlanFor(
+        $foreignSource,
+        makeReliefEmployee($other['company'], $other['rank'], 'Foreign Relief'),
+        $fixtures['today']->addDays(8),
+    );
+
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-planning.index', [
+            'planning_assignment_id' => $foreignPlan->id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('relief_prefill', null)
         );
 });

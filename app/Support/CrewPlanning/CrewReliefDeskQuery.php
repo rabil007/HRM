@@ -401,11 +401,11 @@ final class CrewReliefDeskQuery
             return 1;
         }
 
-        if ($days === null) {
+        if ($relief->risk === CrewReliefRisk::Critical) {
             return 2;
         }
 
-        if ($relief->risk === CrewReliefRisk::Critical) {
+        if ($days === null) {
             return 3;
         }
 

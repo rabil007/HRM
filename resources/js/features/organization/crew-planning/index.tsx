@@ -176,6 +176,7 @@ export function CrewPlanningContent({
         useState<CrewDragData | null>(null);
     const ganttRef = useRef<HTMLDivElement | null>(null);
     const prefillAppliedRef = useRef(false);
+    const planningFocusAppliedRef = useRef(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -299,6 +300,41 @@ export function CrewPlanningContent({
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        if (
+            reliefPrefill?.open_create ||
+            reliefPrefill?.planning_assignment_id == null ||
+            planningFocusAppliedRef.current
+        ) {
+            return;
+        }
+
+        const bar = bars.find(
+            (entry) => entry.id === reliefPrefill.planning_assignment_id,
+        );
+
+        if (bar === undefined) {
+            return;
+        }
+
+        planningFocusAppliedRef.current = true;
+        setSelectedRowKey(bar.row_key);
+
+        if (can.update && !bar.is_assigned) {
+            openEdit(bar);
+        }
+
+        window.requestAnimationFrame(() => {
+            const el = ganttRef.current?.querySelector(
+                `[data-row-key="${bar.row_key}"]`,
+            );
+
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    }, [bars, can.update, openEdit, reliefPrefill]);
 
     const handleDialogOpenChange = (open: boolean): void => {
         if (!open) {

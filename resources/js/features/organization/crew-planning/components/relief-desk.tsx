@@ -11,6 +11,7 @@ import { ReliefDeskFiltersBar } from '@/features/organization/crew-planning/comp
 import { ReliefDeskMobileCard } from '@/features/organization/crew-planning/components/relief-desk-mobile-card';
 import { ReliefDeskSummaryStrip } from '@/features/organization/crew-planning/components/relief-desk-summary';
 import { ReliefDeskTableRow } from '@/features/organization/crew-planning/components/relief-desk-table-row';
+import { RELIEF_DESK_RESET_QUERY } from '@/features/organization/crew-planning/lib/relief-desk-query';
 import type {
     PlanningOption,
     ReliefDeskFocus,
@@ -80,12 +81,7 @@ export function ReliefDesk({
     };
 
     const resetFilters = (): void => {
-        visit({
-            view: 'relief',
-            horizon: '30',
-            search: '',
-            page: null,
-        });
+        visit({ ...RELIEF_DESK_RESET_QUERY });
     };
 
     return (

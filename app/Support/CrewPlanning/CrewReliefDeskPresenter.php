@@ -151,11 +151,21 @@ final class CrewReliefDeskPresenter
 
     private function openReliefPlanHref(CrewAssignment $source, CrewReliefReadinessResult $relief): string
     {
-        return route('organization.crew-planning.index', array_filter([
+        $params = [
             'vessel_id' => $source->vessel_id,
             'rank_id' => $source->rank_id,
-            'search' => $relief->reliefEmployee['name'] ?? null,
-        ], fn ($value): bool => $value !== null && $value !== ''));
+        ];
+
+        if ($relief->reliefPlanningAssignmentId !== null) {
+            $params['planning_assignment_id'] = $relief->reliefPlanningAssignmentId;
+        } else {
+            $params['search'] = $relief->reliefEmployee['name'] ?? null;
+        }
+
+        return route('organization.crew-planning.index', array_filter(
+            $params,
+            fn ($value): bool => $value !== null && $value !== '',
+        ));
     }
 
     /**

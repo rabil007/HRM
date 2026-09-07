@@ -394,7 +394,18 @@ Planning never starts movement, completes source P4, creates Sea Service, or cre
 
 Status and risk come only from `CrewReliefReadinessResolver` / `CrewReliefStatusQuery` semantics. Mobilisation Readiness on a linked pre-join relief assignment is **advisory** (`CrewMobilisationReadinessResolver`) and never blocks planning or movement. Ready to Join / Relief Onboard never automatically disembarks the source crew.
 
-Row actions reuse existing routes: Plan Relief opens the Planning create sheet with vessel/rank/`relieves_crew_assignment_id`/join date prefill; Open Relief Plan stays on Planning; Open Relief Assignment / Review Source Assignment use Crew Assignment show when `crew_operations.assignments.view` is granted.
+Row actions reuse existing routes: Plan Relief opens the Planning create sheet with vessel/rank/`relieves_crew_assignment_id`/join date prefill; Open Relief Plan stays on Planning and targets the existing bar via `planning_assignment_id` (opens the current edit sheet when the bar is in range); Open Relief Assignment / Review Source Assignment use Crew Assignment show when `crew_operations.assignments.view` is granted.
+
+Default desk order is operational urgency, then nearest Planned Sign-Off:
+
+1. Overdue
+2. Due today
+3. Critical relief risk / sign-off within 7 days
+4. Missing Planned Sign-Off
+5. Warning relief risk / sign-off within 14 days
+6. Normal / Good, then later cases
+
+The quick-view strip uses the `not_ready` focus key and labels it **Relief Not Ready** (replacement not yet operationally ready), which is distinct from Mobilisation Readiness **Not Ready**.
 
 Saved Views are not used on Relief Desk (Crew Planning has no Saved Views page key). Projected Manning context is deferred; the desk does not add a second projection engine.
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
 use App\Models\CrewAssignment;
+use App\Models\CrewPlanningAssignment;
 use App\Models\Rank;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
@@ -234,6 +235,7 @@ class CrewPlanningController extends Controller
      *     relieves_crew_assignment_id: int|null,
      *     planned_join_date: string|null,
      *     open_create: bool,
+     *     planning_assignment_id: int|null,
      *     relieves_employee_name: string|null
      * }|null
      */
@@ -250,12 +252,29 @@ class CrewPlanningController extends Controller
         $rankId = $rankIdRaw !== null && $rankIdRaw !== '' ? (int) $rankIdRaw : null;
 
         $plannedJoinDate = $this->nullableDate($request->query('planned_join_date'));
+        $planningAssignmentIdRaw = $request->query('planning_assignment_id');
+        $planningAssignmentId = $planningAssignmentIdRaw !== null && $planningAssignmentIdRaw !== ''
+            ? (int) $planningAssignmentIdRaw
+            : null;
 
-        if (! $openCreate && $relievesId === null && $plannedJoinDate === null) {
+        if (! $openCreate && $relievesId === null && $plannedJoinDate === null && $planningAssignmentId === null) {
             return null;
         }
 
         $relievesEmployeeName = null;
+
+        if ($planningAssignmentId !== null) {
+            $plan = CrewPlanningAssignment::query()
+                ->where('company_id', $companyId)
+                ->find($planningAssignmentId);
+
+            if ($plan === null) {
+                $planningAssignmentId = null;
+            } else {
+                $vesselId ??= $plan->vessel_id !== null ? (int) $plan->vessel_id : null;
+                $rankId ??= $plan->rank_id !== null ? (int) $plan->rank_id : null;
+            }
+        }
 
         if ($relievesId !== null) {
             $source = CrewAssignment::query()
@@ -273,12 +292,17 @@ class CrewPlanningController extends Controller
             }
         }
 
+        if (! $openCreate && $relievesId === null && $plannedJoinDate === null && $planningAssignmentId === null) {
+            return null;
+        }
+
         return [
             'vessel_id' => $vesselId,
             'rank_id' => $rankId,
             'relieves_crew_assignment_id' => $relievesId,
             'planned_join_date' => $plannedJoinDate,
             'open_create' => $openCreate,
+            'planning_assignment_id' => $planningAssignmentId,
             'relieves_employee_name' => $relievesEmployeeName,
         ];
     }

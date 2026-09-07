@@ -52,6 +52,7 @@ export type PlanningReliefPrefill = {
     relieves_crew_assignment_id: number | null;
     planned_join_date: string | null;
     open_create: boolean;
+    planning_assignment_id: number | null;
     relieves_employee_name: string | null;
 };
 
