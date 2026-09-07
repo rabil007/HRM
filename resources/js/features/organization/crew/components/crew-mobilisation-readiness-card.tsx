@@ -10,29 +10,24 @@ import {
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { CrewMobilisationReadinessBadge } from '@/features/organization/crew/components/crew-mobilisation-readiness-badge';
+import { hasConfiguredMobilisationChecks } from '@/features/organization/crew/lib/mobilisation-readiness';
 import type { CrewMobilisationReadiness } from '@/features/organization/crew/types';
 
 function problemPrefix(severity: string): string {
-    return severity === 'blocker' ? '❌' : '⚠';
+    return severity === 'critical' ? '❌' : '⚠';
 }
 
 export function CrewMobilisationReadinessCard({
     readiness,
     canViewDocuments,
-    canViewTraining,
 }: {
     readiness: CrewMobilisationReadiness;
     canViewDocuments: boolean;
-    canViewTraining: boolean;
 }): ReactElement {
     const [open, setOpen] = useState(false);
     const documentsHref =
         canViewDocuments && readiness.documents_href
             ? readiness.documents_href
-            : null;
-    const trainingHref =
-        canViewTraining && readiness.training_href
-            ? readiness.training_href
             : null;
     const extraChecks = (readiness.checks ?? []).filter(
         (check) =>
@@ -42,6 +37,7 @@ export function CrewMobilisationReadinessCard({
                     problem.document_type_id === check.document_type_id,
             ),
     );
+    const hasChecks = hasConfiguredMobilisationChecks(readiness);
 
     return (
         <Card className="border-border/80 dark:border-white/10">
@@ -53,16 +49,11 @@ export function CrewMobilisationReadinessCard({
             <CardContent className="space-y-3">
                 <div className="flex flex-wrap items-center gap-3">
                     <CrewMobilisationReadinessBadge readiness={readiness} />
-                    {readiness.checks_total > 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                            {readiness.checks_clear} of {readiness.checks_total}{' '}
-                            checks clear
-                        </p>
-                    ) : (
-                        <p className="text-sm text-muted-foreground">
-                            No required document checks configured
-                        </p>
-                    )}
+                    <p className="text-sm text-muted-foreground">
+                        {hasChecks
+                            ? `${readiness.checks_clear} of ${readiness.checks_total} checks clear`
+                            : 'No required document checks are configured for this employee.'}
+                    </p>
                 </div>
                 <p className="text-xs text-muted-foreground">
                     {readiness.advisory_note}
@@ -83,11 +74,6 @@ export function CrewMobilisationReadinessCard({
                     {documentsHref ? (
                         <Button asChild variant="outline" size="sm">
                             <Link href={documentsHref}>Open Documents</Link>
-                        </Button>
-                    ) : null}
-                    {trainingHref ? (
-                        <Button asChild variant="outline" size="sm">
-                            <Link href={trainingHref}>Open Training</Link>
                         </Button>
                     ) : null}
                 </div>

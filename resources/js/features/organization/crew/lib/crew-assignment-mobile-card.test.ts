@@ -157,4 +157,165 @@ describe('crewAssignmentMobileCardModel', () => {
         assert.equal(mover.showEdit, true);
         assert.equal(mover.showMovement, true);
     });
+
+    it('keeps operational warnings above ready mobilisation readiness', () => {
+        const model = crewAssignmentMobileCardModel(
+            assignment({
+                current_phase: {
+                    code: 'p0',
+                    label: 'Pre-Mobilisation',
+                    status: 'planned',
+                },
+                warnings: [
+                    {
+                        code: 'join_overdue',
+                        severity: 'warning',
+                        label: 'Planned Join Overdue',
+                        message: 'Planned join date has passed.',
+                        date: '2026-08-01',
+                    },
+                ],
+                mobilisation_readiness: {
+                    applies: true,
+                    status: 'ready',
+                    status_label: 'Ready',
+                    checks_clear: 6,
+                    checks_total: 6,
+                    advisory_note: 'Operational warning only.',
+                    problems: [],
+                    documents_href: null,
+                },
+            }),
+            { update: true, performMovement: true, cancel: true },
+        );
+
+        assert.equal(model.attention, 'Planned Join Overdue');
+    });
+
+    it('keeps operational warnings above not-ready mobilisation readiness', () => {
+        const model = crewAssignmentMobileCardModel(
+            assignment({
+                current_phase: {
+                    code: 'p0',
+                    label: 'Pre-Mobilisation',
+                    status: 'planned',
+                },
+                warnings: [
+                    {
+                        code: 'join_overdue',
+                        severity: 'warning',
+                        label: 'Planned Join Overdue',
+                        message: 'Planned join date has passed.',
+                        date: '2026-08-01',
+                    },
+                ],
+                mobilisation_readiness: {
+                    applies: true,
+                    status: 'not_ready',
+                    status_label: 'Not Ready',
+                    checks_clear: 4,
+                    checks_total: 6,
+                    advisory_note: 'Operational warning only.',
+                    problems: [
+                        {
+                            code: 'document_missing',
+                            severity: 'critical',
+                            label: 'Seaman Book missing',
+                            message:
+                                'Seaman Book is required and has no upload.',
+                            document_type_id: 1,
+                        },
+                    ],
+                    documents_href: null,
+                },
+            }),
+            { update: true, performMovement: true, cancel: true },
+        );
+
+        assert.equal(model.attention, 'Planned Join Overdue');
+    });
+
+    it('shows readiness when there is no operational warning', () => {
+        const model = crewAssignmentMobileCardModel(
+            assignment({
+                current_phase: {
+                    code: 'p0',
+                    label: 'Pre-Mobilisation',
+                    status: 'planned',
+                },
+                warnings: [],
+                mobilisation_readiness: {
+                    applies: true,
+                    status: 'not_ready',
+                    status_label: 'Not Ready',
+                    checks_clear: 4,
+                    checks_total: 6,
+                    advisory_note: 'Operational warning only.',
+                    problems: [
+                        {
+                            code: 'document_missing',
+                            severity: 'critical',
+                            label: 'Seaman Book missing',
+                            message:
+                                'Seaman Book is required and has no upload.',
+                            document_type_id: 1,
+                        },
+                    ],
+                    documents_href: null,
+                },
+            }),
+            { update: true, performMovement: true, cancel: true },
+        );
+
+        assert.equal(model.attention, 'Readiness: Not Ready');
+    });
+
+    it('shows no checks configured only when there is no operational warning', () => {
+        const withWarning = crewAssignmentMobileCardModel(
+            assignment({
+                warnings: [
+                    {
+                        code: 'join_overdue',
+                        severity: 'warning',
+                        label: 'Planned Join Overdue',
+                        message: 'Planned join date has passed.',
+                        date: '2026-08-01',
+                    },
+                ],
+                mobilisation_readiness: {
+                    applies: true,
+                    status: 'ready',
+                    status_label: 'No Checks Configured',
+                    checks_clear: 0,
+                    checks_total: 0,
+                    advisory_note: 'Operational warning only.',
+                    problems: [],
+                    documents_href: null,
+                },
+            }),
+            { update: true, performMovement: true, cancel: true },
+        );
+        const withoutWarning = crewAssignmentMobileCardModel(
+            assignment({
+                warnings: [],
+                mobilisation_readiness: {
+                    applies: true,
+                    status: 'ready',
+                    status_label: 'No Checks Configured',
+                    checks_clear: 0,
+                    checks_total: 0,
+                    advisory_note: 'Operational warning only.',
+                    problems: [],
+                    documents_href: null,
+                },
+            }),
+            { update: true, performMovement: true, cancel: true },
+        );
+
+        assert.equal(withWarning.attention, 'Planned Join Overdue');
+        assert.equal(
+            withoutWarning.attention,
+            'Readiness: No Checks Configured',
+        );
+    });
 });

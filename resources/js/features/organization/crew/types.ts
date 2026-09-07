@@ -254,7 +254,6 @@ export interface CrewMobilisationReadiness {
     problems: CrewMobilisationReadinessCheck[];
     checks?: CrewMobilisationReadinessCheck[];
     documents_href: string | null;
-    training_href: string | null;
 }
 
 export interface CrewRecommendedAction {

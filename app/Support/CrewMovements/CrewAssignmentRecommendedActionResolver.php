@@ -110,10 +110,14 @@ final class CrewAssignmentRecommendedActionResolver
             );
         }
 
+        $reason = $readiness !== null && $readiness->applies && ! $readiness->hasConfiguredChecks()
+            ? 'No required document checks are configured. Approve mobilisation when Operations is ready to proceed.'
+            : 'Readiness looks clear. Approve mobilisation when Operations is ready to proceed.';
+
         return $this->movementRecommendation(
             $permitted,
             CrewMovementAction::ApproveMobilisation,
-            'Readiness looks clear. Approve mobilisation when Operations is ready to proceed.',
+            $reason,
         );
     }
 

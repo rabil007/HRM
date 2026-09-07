@@ -130,7 +130,6 @@ final class CrewMobilisationReadinessResolver
             checks: $checks,
             problems: $problems,
             documentsHref: $includeHrefs ? $this->documentsHref($user, $employeeId) : null,
-            trainingHref: $includeHrefs ? $this->trainingHref($user, $employeeId) : null,
             applies: true,
         );
     }
@@ -141,7 +140,7 @@ final class CrewMobilisationReadinessResolver
     private function resolveStatus(array $problems): CrewMobilisationReadinessStatus
     {
         foreach ($problems as $problem) {
-            if (($problem['severity'] ?? '') === 'blocker') {
+            if (($problem['severity'] ?? '') === 'critical') {
                 return CrewMobilisationReadinessStatus::NotReady;
             }
         }
@@ -155,7 +154,7 @@ final class CrewMobilisationReadinessResolver
 
     /**
      * @param  array<string, mixed>  $item
-     * @return array{code: string, severity: string, label: string, message: string, document_type_id: int|null}
+     * @return array{code: string, severity: 'ok'|'warning'|'critical', label: string, message: string, document_type_id: int|null}
      */
     private function checkFromCompliance(
         string $title,
@@ -167,7 +166,7 @@ final class CrewMobilisationReadinessResolver
         if ($status === DocumentRequirementComplianceStatus::Missing) {
             return [
                 'code' => 'document_missing',
-                'severity' => 'blocker',
+                'severity' => 'critical',
                 'label' => $title.' missing',
                 'message' => $title.' is required and has no upload.',
                 'document_type_id' => $documentTypeId,
@@ -177,7 +176,7 @@ final class CrewMobilisationReadinessResolver
         if ($status === DocumentRequirementComplianceStatus::Expired) {
             return [
                 'code' => 'document_expired',
-                'severity' => 'blocker',
+                'severity' => 'critical',
                 'label' => $title.' expired',
                 'message' => $title.' is required and has expired.',
                 'document_type_id' => $documentTypeId,
@@ -243,14 +242,5 @@ final class CrewMobilisationReadinessResolver
         }
 
         return route('organization.documents.employee', ['employee' => $employeeId]);
-    }
-
-    private function trainingHref(?User $user, ?int $employeeId): ?string
-    {
-        if ($user === null || $employeeId === null || ! $user->can('training.view')) {
-            return null;
-        }
-
-        return route('organization.training.employee', ['employee' => $employeeId]);
     }
 }

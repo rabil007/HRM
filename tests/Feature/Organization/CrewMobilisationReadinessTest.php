@@ -41,6 +41,7 @@ it('shows mobilisation readiness on the assignment show page', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/crew/show')
             ->where('assignment.mobilisation_readiness.status', CrewMobilisationReadinessStatus::NotReady->value)
+            ->where('assignment.mobilisation_readiness.problems.0.severity', 'critical')
             ->where('assignment.recommended_action.type', 'readiness')
             ->where('assignment.available_actions.0', CrewMovementAction::ApproveMobilisation->value)
         );
@@ -140,7 +141,9 @@ it('does not leak another company employee documents into readiness', function (
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('assignment.mobilisation_readiness.status', CrewMobilisationReadinessStatus::Ready->value)
+            ->where('assignment.mobilisation_readiness.status_label', 'No Checks Configured')
             ->where('assignment.mobilisation_readiness.checks_total', 0)
+            ->missing('assignment.mobilisation_readiness.training_href')
         );
 });
 
@@ -182,4 +185,32 @@ it('batches mobilisation readiness on the crew assignment index', function () {
 
     expect($page->total())->toBe(6)
         ->and($queryCount)->toBeLessThan(18);
+});
+
+it('treats zero configured checks as a neutral presentation and still allows P0 approval', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
+        'crew_operations.assignments.view',
+        'crew_operations.movements.perform',
+    ]);
+    $fixtures['user']->update(['current_company_id' => $fixtures['company']->id]);
+
+    $assignment = app(CrewMovementService::class)->createDraft(
+        $fixtures['company']->id,
+        $fixtures['employee']->id,
+        ['rank_id' => $fixtures['rank']->id],
+        $fixtures['user']->id,
+    );
+
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-assignments.show', $assignment))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('assignment.mobilisation_readiness.status', CrewMobilisationReadinessStatus::Ready->value)
+            ->where('assignment.mobilisation_readiness.status_label', 'No Checks Configured')
+            ->where('assignment.mobilisation_readiness.checks_total', 0)
+            ->where('assignment.recommended_action.action', CrewMovementAction::ApproveMobilisation->value)
+            ->where('assignment.available_actions.0', CrewMovementAction::ApproveMobilisation->value)
+            ->missing('assignment.mobilisation_readiness.training_href')
+        );
 });

@@ -242,7 +242,6 @@ export default function CrewAssignmentShow({
                         <CrewMobilisationReadinessCard
                             readiness={assignment.mobilisation_readiness}
                             canViewDocuments={can.view_documents}
-                            canViewTraining={can.view_training}
                         />
                     </div>
                 ) : null}

@@ -47,6 +47,38 @@ it('recommends approve mobilisation for ready P0', function () {
         ->and($available)->toContain(CrewMovementAction::ApproveMobilisation->value);
 });
 
+it('recommends approve mobilisation when no document checks are configured', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $assignment = app(CrewMovementService::class)->createDraft(
+        $fixtures['company']->id,
+        $fixtures['employee']->id,
+        ['rank_id' => $fixtures['rank']->id],
+        $fixtures['user']->id,
+    )->load(['currentPhase', 'employee']);
+
+    $readiness = new CrewMobilisationReadinessResult(
+        status: CrewMobilisationReadinessStatus::Ready,
+        checksClear: 0,
+        checksTotal: 0,
+        checks: [],
+        problems: [],
+        documentsHref: null,
+        applies: true,
+    );
+
+    $available = CrewMovementAvailableActions::for($assignment);
+    $recommended = (new CrewAssignmentRecommendedActionResolver)->forAssignment(
+        $assignment,
+        $available,
+        $readiness,
+    );
+
+    expect($readiness->presentationLabel())->toBe('No Checks Configured')
+        ->and($recommended?->type)->toBe('movement')
+        ->and($recommended?->action)->toBe(CrewMovementAction::ApproveMobilisation->value)
+        ->and($available)->toContain(CrewMovementAction::ApproveMobilisation->value);
+});
+
 it('recommends resolving readiness on P0 when checks fail without removing other actions', function () {
     $fixtures = makeCrewAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft(
@@ -63,13 +95,12 @@ it('recommends resolving readiness on P0 when checks fail without removing other
         checks: [],
         problems: [[
             'code' => 'document_missing',
-            'severity' => 'blocker',
+            'severity' => 'critical',
             'label' => 'Seaman Book missing',
             'message' => 'Seaman Book is required and has no upload.',
             'document_type_id' => 1,
         ]],
         documentsHref: '/organization/documents/employees/1',
-        trainingHref: null,
         applies: true,
     );
 

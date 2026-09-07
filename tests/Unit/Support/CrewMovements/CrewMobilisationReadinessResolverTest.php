@@ -48,7 +48,8 @@ it('marks a ready employee when required documents are valid', function () {
         ->and($result->status)->toBe(CrewMobilisationReadinessStatus::Ready)
         ->and($result->checksTotal)->toBe(1)
         ->and($result->checksClear)->toBe(1)
-        ->and($result->problems)->toBe([]);
+        ->and($result->problems)->toBe([])
+        ->and($result->checks[0]['severity'])->toBe('ok');
 });
 
 it('marks missing required documents as not ready', function () {
@@ -62,7 +63,8 @@ it('marks missing required documents as not ready', function () {
     $result = (new CrewMobilisationReadinessResolver)->forAssignment($fixtures['assignment']->fresh(['employee', 'currentPhase']));
 
     expect($result->status)->toBe(CrewMobilisationReadinessStatus::NotReady)
-        ->and($result->problems[0]['code'])->toBe('document_missing');
+        ->and($result->problems[0]['code'])->toBe('document_missing')
+        ->and($result->problems[0]['severity'])->toBe('critical');
 });
 
 it('marks expired required documents as not ready', function () {
@@ -88,7 +90,8 @@ it('marks expired required documents as not ready', function () {
     $result = (new CrewMobilisationReadinessResolver)->forAssignment($fixtures['assignment']->fresh(['employee', 'currentPhase']));
 
     expect($result->status)->toBe(CrewMobilisationReadinessStatus::NotReady)
-        ->and($result->problems[0]['code'])->toBe('document_expired');
+        ->and($result->problems[0]['code'])->toBe('document_expired')
+        ->and($result->problems[0]['severity'])->toBe('critical');
 });
 
 it('marks expiring required documents as attention', function () {
@@ -114,7 +117,8 @@ it('marks expiring required documents as attention', function () {
     $result = (new CrewMobilisationReadinessResolver)->forAssignment($fixtures['assignment']->fresh(['employee', 'currentPhase']));
 
     expect($result->status)->toBe(CrewMobilisationReadinessStatus::Attention)
-        ->and($result->problems[0]['code'])->toBe('document_expiring');
+        ->and($result->problems[0]['code'])->toBe('document_expiring')
+        ->and($result->problems[0]['severity'])->toBe('warning');
 });
 
 it('treats a required document with no upload as missing', function () {
@@ -144,7 +148,9 @@ it('does not apply other company document requirements', function () {
     $result = (new CrewMobilisationReadinessResolver)->forAssignment($fixtures['assignment']->fresh(['employee', 'currentPhase']));
 
     expect($result->status)->toBe(CrewMobilisationReadinessStatus::Ready)
-        ->and($result->checksTotal)->toBe(0);
+        ->and($result->checksTotal)->toBe(0)
+        ->and($result->presentationLabel())->toBe('No Checks Configured')
+        ->and($result->toArray()['status_label'])->toBe('No Checks Configured');
 });
 
 it('does not treat readiness as a movement restriction', function () {

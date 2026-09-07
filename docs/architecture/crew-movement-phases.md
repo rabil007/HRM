@@ -248,19 +248,24 @@ Generic Crew Assignment editing is limited to Draft/pre-P4 preparation. Once P4 
 
 ## Mobilisation Readiness (advisory)
 
-Derived live from existing required-document compliance (`DocumentRequirementResolver` / `DocumentComplianceQuery`). There is no readiness table and **no movement blocker**.
+Mobilisation Readiness currently derives from required-document compliance (`DocumentRequirementResolver` / `DocumentComplianceQuery`). Training is not included in the score. There is no readiness table and **no movement blocker**. Readiness is advisory only and never blocks Crew movement.
 
-`CrewMobilisationReadinessResolver` answers whether the assignment employee looks operationally ready to mobilise. It is shown on Crew Assignment show (full card) and as a compact indicator on Current Crew lists for **pre-join** assignments (P0–P3).
+`CrewMobilisationReadinessResolver` answers whether the assignment employee looks operationally ready to mobilise based on required documents. It is shown on Crew Assignment show (full card) and as a compact indicator on Current Crew lists for **pre-join** assignments (P0–P3). Zero applicable checks are shown as **No Checks Configured** (neutral presentation; overall status remains Ready so P0 may still recommend Approve Mobilisation).
 
 | Status | Meaning |
 |--------|---------|
-| Ready | No known required-document problems |
-| Attention | Expiring-soon required documents or incomplete information |
-| Not Ready | Required documents missing or expired |
+| Ready | Required-document checks are configured and none have known problems |
+| No Checks Configured | Zero applicable required-document checks (presentation only; not a separate movement status) |
+| Attention | Expiring-soon required documents |
+| Not Ready | Required documents missing or expired (`critical` check severity) |
+
+Check severities are `ok` (valid), `warning` (expiring), and `critical` (missing or expired). `critical` maps to Not Ready. None of these severities block `CrewMovementService`.
+
+On Current Crew **mobile** cards, existing assignment operational warnings take priority over the readiness summary (including Ready and Not Ready). The desktop table still shows the readiness badge.
 
 Operators may still perform any movement already allowed by `CrewMovementAvailableActions` / `CrewMovementService`. Readiness never adds override, waiver, or acknowledgement steps.
 
-Links to Documents / Training are omitted unless the user has `documents.view` / `training.view`.
+The Documents shortcut is omitted unless the user has `documents.view`.
 
 ## Recommended Next Action (advisory)
 
@@ -272,7 +277,7 @@ Typical suggestions:
 
 | Phase | Usual recommendation |
 |-------|----------------------|
-| P0 (ready) | Approve Mobilisation |
+| P0 (ready or no checks configured) | Approve Mobilisation |
 | P0 (readiness issues) | Resolve readiness, with Approve Mobilisation Anyway |
 | P1 | Record Arrival |
 | P2A | Join Vessel |

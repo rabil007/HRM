@@ -14,15 +14,34 @@ export type CrewAssignmentMobileCardModel = {
     isOnVessel: boolean;
 };
 
+function mobileAttentionSummary(
+    assignment: CrewAssignmentListItem,
+): string | null {
+    const firstWarning = assignment.warnings[0]?.label?.trim() ?? null;
+
+    if (firstWarning) {
+        return firstWarning;
+    }
+
+    const readiness = assignment.mobilisation_readiness;
+
+    if (!readiness) {
+        return null;
+    }
+
+    const label =
+        readiness.checks_total === 0
+            ? 'No Checks Configured'
+            : readiness.status_label;
+
+    return `Readiness: ${label}`;
+}
+
 export function crewAssignmentMobileCardModel(
     assignment: CrewAssignmentListItem,
     can: { update: boolean; performMovement: boolean; cancel: boolean },
 ): CrewAssignmentMobileCardModel {
     const isOnVessel = assignment.current_phase?.code === 'p4';
-    const firstWarning = assignment.warnings[0]?.label?.trim() ?? null;
-    const readinessLabel = assignment.mobilisation_readiness
-        ? `Readiness: ${assignment.mobilisation_readiness.status_label}`
-        : null;
 
     return {
         title: assignment.employee?.name ?? 'Unassigned',
@@ -32,7 +51,7 @@ export function crewAssignmentMobileCardModel(
         phaseLabel: assignment.current_phase?.label ?? null,
         plannedSignoffAt: assignment.planned_signoff_at,
         actualDisembarkationAt: null,
-        attention: readinessLabel ?? firstWarning,
+        attention: mobileAttentionSummary(assignment),
         showEdit: can.update && assignment.is_editable,
         showMovement:
             (can.performMovement || can.cancel) &&

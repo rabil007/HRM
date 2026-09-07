@@ -1,5 +1,10 @@
 import type { ReactElement } from 'react';
 import { Badge } from '@/components/ui/badge';
+import {
+    hasConfiguredMobilisationChecks,
+    mobilisationReadinessPresentationLabel,
+    mobilisationReadinessTone,
+} from '@/features/organization/crew/lib/mobilisation-readiness';
 import type { CrewMobilisationReadiness } from '@/features/organization/crew/types';
 import { cn } from '@/lib/utils';
 
@@ -8,6 +13,8 @@ const STATUS_STYLES: Record<string, string> = {
     attention:
         'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200',
     not_ready: 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300',
+    not_assessed:
+        'border-slate-400/40 bg-slate-500/10 text-slate-700 dark:text-slate-200',
 };
 
 export function CrewMobilisationReadinessBadge({
@@ -17,11 +24,13 @@ export function CrewMobilisationReadinessBadge({
     readiness: CrewMobilisationReadiness;
     compact?: boolean;
 }): ReactElement {
+    const label = mobilisationReadinessPresentationLabel(readiness);
+    const tone = mobilisationReadinessTone(readiness);
     const summary = [
-        `Mobilisation readiness: ${readiness.status_label}`,
-        readiness.checks_total > 0
+        `Mobilisation readiness: ${label}`,
+        hasConfiguredMobilisationChecks(readiness)
             ? `${readiness.checks_clear} of ${readiness.checks_total} checks clear`
-            : 'No required document checks',
+            : 'No required document checks are configured for this employee.',
     ].join('. ');
 
     return (
@@ -34,12 +43,12 @@ export function CrewMobilisationReadinessBadge({
                 variant="outline"
                 className={cn(
                     'w-fit max-w-full font-medium',
-                    STATUS_STYLES[readiness.status] ?? STATUS_STYLES.attention,
+                    STATUS_STYLES[tone] ?? STATUS_STYLES.not_assessed,
                 )}
             >
-                <span className="truncate">{readiness.status_label}</span>
+                <span className="truncate">{label}</span>
             </Badge>
-            {!compact && readiness.checks_total > 0 ? (
+            {!compact && hasConfiguredMobilisationChecks(readiness) ? (
                 <p className="text-[11px] text-muted-foreground">
                     {readiness.checks_clear}/{readiness.checks_total} clear
                 </p>

@@ -9,7 +9,7 @@ use App\Enums\CrewMobilisationReadinessStatus;
  *
  * @phpstan-type ReadinessCheck array{
  *     code: string,
- *     severity: string,
+ *     severity: 'ok'|'warning'|'critical'|string,
  *     label: string,
  *     message: string,
  *     document_type_id: int|null
@@ -28,7 +28,6 @@ final class CrewMobilisationReadinessResult
         public readonly array $checks,
         public readonly array $problems,
         public readonly ?string $documentsHref,
-        public readonly ?string $trainingHref,
         public readonly bool $applies,
     ) {}
 
@@ -41,9 +40,22 @@ final class CrewMobilisationReadinessResult
             checks: [],
             problems: [],
             documentsHref: null,
-            trainingHref: null,
             applies: false,
         );
+    }
+
+    public function hasConfiguredChecks(): bool
+    {
+        return $this->checksTotal > 0;
+    }
+
+    public function presentationLabel(): string
+    {
+        if ($this->applies && ! $this->hasConfiguredChecks()) {
+            return 'No Checks Configured';
+        }
+
+        return $this->status->label();
     }
 
     /**
@@ -56,8 +68,7 @@ final class CrewMobilisationReadinessResult
      *     advisory_note: string,
      *     problems: list<ReadinessCheck>,
      *     checks: list<ReadinessCheck>,
-     *     documents_href: string|null,
-     *     training_href: string|null
+     *     documents_href: string|null
      * }
      */
     public function toArray(bool $compact = false): array
@@ -65,13 +76,12 @@ final class CrewMobilisationReadinessResult
         $payload = [
             'applies' => $this->applies,
             'status' => $this->status->value,
-            'status_label' => $this->status->label(),
+            'status_label' => $this->presentationLabel(),
             'checks_clear' => $this->checksClear,
             'checks_total' => $this->checksTotal,
             'advisory_note' => 'Operational warning only. This does not block crew movement.',
             'problems' => array_slice($this->problems, 0, 3),
             'documents_href' => $this->documentsHref,
-            'training_href' => $this->trainingHref,
         ];
 
         if (! $compact) {
