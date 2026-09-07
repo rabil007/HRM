@@ -1,3 +1,4 @@
+import { Link } from '@inertiajs/react';
 import { useState } from 'react';
 import {
     DataTableHead,
@@ -23,6 +24,7 @@ import {
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import { show as showAssignment } from '@/routes/organization/crew-assignments';
 import { CrewTimelineLinesDialog } from './crew-timeline-lines-dialog';
 import type { CrewTimelineEmployeeSummary } from './types';
 
@@ -132,6 +134,85 @@ function warningDetails(
         }));
 }
 
+function AssignmentCell({
+    employee,
+}: {
+    employee: CrewTimelineEmployeeSummary;
+}) {
+    if ((employee.assignment_count ?? 1) > 1) {
+        const assignments = employee.assignments ?? [];
+
+        return (
+            <div className="space-y-0.5">
+                <div className="font-medium">
+                    {employee.assignment_count} assignments
+                </div>
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
+                    {assignments.length > 0 ? (
+                        assignments.map((assignment, index) => {
+                            const number = assignment.assignment_number ?? '—';
+
+                            return (
+                                <span
+                                    key={
+                                        assignment.id ??
+                                        `${employee.employee_id}-${index}`
+                                    }
+                                    className="inline-flex items-center gap-1.5"
+                                >
+                                    {index > 0 && (
+                                        <span className="text-muted-foreground/60">
+                                            ·
+                                        </span>
+                                    )}
+                                    {assignment.id ? (
+                                        <Link
+                                            href={showAssignment.url(
+                                                assignment.id,
+                                            )}
+                                            className="font-medium text-primary hover:underline"
+                                        >
+                                            {number}
+                                        </Link>
+                                    ) : (
+                                        <span>{number}</span>
+                                    )}
+                                </span>
+                            );
+                        })
+                    ) : (
+                        <span>—</span>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    const assignmentId =
+        employee.assignment_id ?? employee.assignments?.[0]?.id ?? null;
+    const assignmentNumber =
+        employee.assignment_number ??
+        employee.assignments?.[0]?.assignment_number ??
+        null;
+
+    if (!assignmentNumber) {
+        return <span className="text-muted-foreground">—</span>;
+    }
+
+    if (assignmentId) {
+        return (
+            <Link
+                href={showAssignment.url(assignmentId)}
+                className="font-medium text-primary hover:underline"
+            >
+                {assignmentNumber}
+            </Link>
+        );
+    }
+
+    return <span>{assignmentNumber}</span>;
+}
+
 export function CrewTimelineEmployeeTable({
     employees,
 }: {
@@ -206,28 +287,7 @@ export function CrewTimelineEmployeeTable({
                                 </div>
                             </TableCell>
                             <TableCell className={dataTableCellClass()}>
-                                {(employee.assignment_count ?? 1) > 1 ? (
-                                    <div className="space-y-0.5">
-                                        <div className="font-medium">
-                                            {employee.assignment_count}{' '}
-                                            assignments
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {(employee.assignments ?? [])
-                                                .map(
-                                                    (assignment) =>
-                                                        assignment.assignment_number,
-                                                )
-                                                .filter(Boolean)
-                                                .join(' · ') || '—'}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    (employee.assignment_number ??
-                                    employee.assignments?.[0]
-                                        ?.assignment_number ??
-                                    '—')
-                                )}
+                                <AssignmentCell employee={employee} />
                             </TableCell>
                             <TableCell className={dataTableCellClass()}>
                                 {(employee.assignment_count ?? 1) > 1 ? (

@@ -1,9 +1,11 @@
+import { Link } from '@inertiajs/react';
 import {
     AlertTriangle,
     ArrowRight,
     CalendarDays,
     CheckCircle2,
     Clock3,
+    ExternalLink,
     Info,
     Ship,
     Shuffle,
@@ -34,6 +36,7 @@ import type {
     CrewTimelineAssignmentSection,
 } from '@/features/payroll/lib/crew-timeline-lines';
 import { cn } from '@/lib/utils';
+import { show as showAssignment } from '@/routes/organization/crew-assignments';
 import type {
     CrewTimelineEmployeeSummary,
     CrewTimelinePhaseOccurrence,
@@ -403,8 +406,22 @@ function AssignmentSection({
                         Assignment
                     </p>
                     <h3 className="mt-0.5 text-base font-semibold">
-                        {assignment.assignment_number ??
-                            'Unnumbered assignment'}
+                        {assignment.id ? (
+                            <Link
+                                href={showAssignment.url(assignment.id)}
+                                className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                            >
+                                {assignment.assignment_number ??
+                                    'Unnumbered assignment'}
+                                <ExternalLink
+                                    className="size-3.5 shrink-0"
+                                    aria-hidden
+                                />
+                            </Link>
+                        ) : (
+                            (assignment.assignment_number ??
+                            'Unnumbered assignment')
+                        )}
                     </h3>
                 </div>
                 <Badge variant="outline" className="rounded-md">
@@ -428,7 +445,19 @@ function AssignmentSection({
                             {detail.label}
                         </dt>
                         <dd className="truncate font-medium text-foreground">
-                            {detail.value}
+                            {detail.label === 'Previous assignment' &&
+                            assignment.previous_assignment_id ? (
+                                <Link
+                                    href={showAssignment.url(
+                                        assignment.previous_assignment_id,
+                                    )}
+                                    className="text-primary hover:underline"
+                                >
+                                    {detail.value}
+                                </Link>
+                            ) : (
+                                detail.value
+                            )}
                         </dd>
                     </div>
                 ))}
