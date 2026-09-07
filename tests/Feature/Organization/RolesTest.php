@@ -456,6 +456,264 @@ test('authenticated users can export roles as csv, excel, and pdf', function () 
     expect($pdf->headers->get('content-type'))->toContain('application/pdf');
 });
 
+test('the Owner role cannot be renamed', function () {
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    Permission::findOrCreate('employees.view', 'web');
+
+    $owner = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Owner',
+        'guard_name' => 'web',
+    ]);
+    $owner->syncPermissions(['employees.view']);
+
+    grantCompanyPermissions($user, $company, ['roles.update', 'roles.view']);
+
+    $this->put("/organization/roles/{$owner->id}", [
+        'name' => 'Super Admin',
+    ])->assertSessionHasErrors([
+        'name' => 'The Owner role cannot be renamed or have its permissions modified.',
+    ]);
+
+    $owner->refresh();
+
+    expect($owner->name)->toBe('Owner')
+        ->and($owner->permissions->pluck('name')->all())->toBe(['employees.view']);
+});
+
+test('the Owner role permissions cannot be changed', function () {
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    Permission::findOrCreate('employees.view', 'web');
+    Permission::findOrCreate('employees.update', 'web');
+
+    $owner = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Owner',
+        'guard_name' => 'web',
+    ]);
+    $owner->syncPermissions(['employees.view', 'employees.update']);
+
+    grantCompanyPermissions($user, $company, ['roles.update', 'roles.view']);
+
+    $this->put("/organization/roles/{$owner->id}", [
+        'name' => 'Owner',
+        'permissions' => ['employees.view'],
+    ])->assertSessionHasErrors([
+        'name' => 'The Owner role cannot be renamed or have its permissions modified.',
+    ]);
+
+    $owner->refresh();
+
+    expect($owner->name)->toBe('Owner')
+        ->and($owner->permissions->pluck('name')->sort()->values()->all())->toBe([
+            'employees.update',
+            'employees.view',
+        ]);
+});
+
+test('the Owner role permissions cannot be cleared with an empty array', function () {
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    Permission::findOrCreate('employees.view', 'web');
+    Permission::findOrCreate('employees.update', 'web');
+
+    $owner = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Owner',
+        'guard_name' => 'web',
+    ]);
+    $owner->syncPermissions(['employees.view', 'employees.update']);
+
+    grantCompanyPermissions($user, $company, ['roles.update', 'roles.view']);
+
+    $this->put("/organization/roles/{$owner->id}", [
+        'name' => 'Owner',
+        'permissions' => [],
+    ])->assertSessionHasErrors([
+        'name' => 'The Owner role cannot be renamed or have its permissions modified.',
+    ]);
+
+    $owner->refresh();
+
+    expect($owner->name)->toBe('Owner')
+        ->and($owner->permissions->pluck('name')->sort()->values()->all())->toBe([
+            'employees.update',
+            'employees.view',
+        ]);
+});
+
+test('the Owner role cannot be deleted', function () {
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    $owner = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Owner',
+        'guard_name' => 'web',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['roles.delete', 'roles.view']);
+
+    $this->delete("/organization/roles/{$owner->id}")->assertSessionHasErrors([
+        'name' => 'The Owner role cannot be deleted.',
+    ]);
+
+    $this->assertDatabaseHas('spatie_roles', [
+        'id' => $owner->id,
+        'name' => 'Owner',
+        'company_id' => $company->id,
+    ]);
+});
+
+test('a normal role can still be renamed', function () {
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    Permission::findOrCreate('employees.view', 'web');
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR Manager',
+        'guard_name' => 'web',
+    ]);
+    $role->syncPermissions(['employees.view']);
+
+    grantCompanyPermissions($user, $company, ['roles.update', 'roles.view']);
+
+    $this->put("/organization/roles/{$role->id}", [
+        'name' => 'HR Admin',
+    ])->assertRedirect('/organization/roles');
+
+    $role->refresh();
+
+    expect($role->name)->toBe('HR Admin')
+        ->and($role->permissions->pluck('name')->all())->toBe(['employees.view']);
+});
+
+test('a normal role can still have its permissions updated', function () {
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    Permission::findOrCreate('employees.view', 'web');
+    Permission::findOrCreate('employees.update', 'web');
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR Manager',
+        'guard_name' => 'web',
+    ]);
+    $role->syncPermissions(['employees.view', 'employees.update']);
+
+    grantCompanyPermissions($user, $company, ['roles.update', 'roles.view']);
+
+    $this->put("/organization/roles/{$role->id}", [
+        'name' => 'HR Manager',
+        'permissions' => ['employees.view'],
+    ])->assertRedirect('/organization/roles');
+
+    $role->refresh();
+
+    expect($role->name)->toBe('HR Manager')
+        ->and($role->permissions->pluck('name')->all())->toBe(['employees.view']);
+});
+
+test('a normal role can still be deleted', function () {
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR Manager',
+        'guard_name' => 'web',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['roles.delete', 'roles.view']);
+
+    $this->delete("/organization/roles/{$role->id}")->assertRedirect('/organization/roles');
+    $this->assertDatabaseMissing('spatie_roles', ['id' => $role->id]);
+});
+
+test('Owner protection in company A does not block normal role edits in company B', function () {
+    ['user' => $user, 'companyA' => $companyA, 'companyB' => $companyB] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    Permission::findOrCreate('employees.view', 'web');
+    Permission::findOrCreate('employees.update', 'web');
+
+    $ownerA = Role::query()->create([
+        'company_id' => $companyA->id,
+        'name' => 'Owner',
+        'guard_name' => 'web',
+    ]);
+    $ownerA->syncPermissions(['employees.view', 'employees.update']);
+
+    $hrB = Role::query()->create([
+        'company_id' => $companyB->id,
+        'name' => 'HR Manager',
+        'guard_name' => 'web',
+    ]);
+    $hrB->syncPermissions(['employees.view']);
+
+    grantCompanyPermissions($user, $companyA, ['roles.update', 'roles.delete', 'roles.view']);
+
+    $this->withSession(['current_company_id' => $companyA->id])
+        ->put("/organization/roles/{$ownerA->id}", [
+            'name' => 'Super Admin',
+            'permissions' => [],
+        ])->assertSessionHasErrors([
+            'name' => 'The Owner role cannot be renamed or have its permissions modified.',
+        ]);
+
+    $this->withSession(['current_company_id' => $companyA->id])
+        ->delete("/organization/roles/{$ownerA->id}")
+        ->assertSessionHasErrors([
+            'name' => 'The Owner role cannot be deleted.',
+        ]);
+
+    grantCompanyPermissions($user, $companyB, ['roles.update', 'roles.delete', 'roles.view']);
+
+    $this->withSession(['current_company_id' => $companyB->id])
+        ->put("/organization/roles/{$hrB->id}", [
+            'name' => 'HR Admin',
+            'permissions' => ['employees.view', 'employees.update'],
+        ])->assertRedirect('/organization/roles');
+
+    $this->withSession(['current_company_id' => $companyB->id])
+        ->put("/organization/roles/{$ownerA->id}", [
+            'name' => 'Super Admin',
+        ])->assertNotFound();
+
+    $hrB->refresh();
+    $ownerA->refresh();
+
+    expect($hrB->name)->toBe('HR Admin')
+        ->and($hrB->permissions->pluck('name')->sort()->values()->all())->toBe([
+            'employees.update',
+            'employees.view',
+        ])
+        ->and($ownerA->name)->toBe('Owner')
+        ->and($ownerA->permissions->pluck('name')->sort()->values()->all())->toBe([
+            'employees.update',
+            'employees.view',
+        ]);
+
+    $this->withSession(['current_company_id' => $companyB->id])
+        ->delete("/organization/roles/{$hrB->id}")
+        ->assertRedirect('/organization/roles');
+
+    $this->assertDatabaseMissing('spatie_roles', ['id' => $hrB->id]);
+    $this->assertDatabaseHas('spatie_roles', [
+        'id' => $ownerA->id,
+        'name' => 'Owner',
+        'company_id' => $companyA->id,
+    ]);
+});
+
 test('roles page does not list retired bulk signature review permission', function () {
     $this->seed(PermissionsSeeder::class);
 

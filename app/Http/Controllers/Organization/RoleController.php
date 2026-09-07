@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
@@ -124,6 +125,18 @@ class RoleController extends Controller
             'permissions.*' => ['string', 'max:100'],
         ]);
 
+        if ($role->name === 'Owner') {
+            if ($data['name'] !== 'Owner' || $request->exists('permissions')) {
+                throw ValidationException::withMessages([
+                    'name' => 'The Owner role cannot be renamed or have its permissions modified.',
+                ]);
+            }
+
+            return redirect()
+                ->route('organization.roles')
+                ->with('success', 'Role updated successfully.');
+        }
+
         foreach (($data['permissions'] ?? []) as $permissionName) {
             Permission::findOrCreate($permissionName, 'web');
         }
@@ -145,6 +158,12 @@ class RoleController extends Controller
     {
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $role->company_id === $companyId, 404);
+
+        if ($role->name === 'Owner') {
+            throw ValidationException::withMessages([
+                'name' => 'The Owner role cannot be deleted.',
+            ]);
+        }
 
         $role->delete();
 
