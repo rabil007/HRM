@@ -34,4 +34,15 @@ enum CrewPhaseCode: string
     {
         return array_column(self::cases(), 'value');
     }
+
+    public function isPreJoin(): bool
+    {
+        return in_array($this, [
+            self::PreMobilisation,
+            self::TravelIn,
+            self::JoinStandby,
+            self::Training,
+            self::ReadyToJoin,
+        ], true);
+    }
 }

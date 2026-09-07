@@ -246,7 +246,44 @@ Movement field corrections use a dedicated approval workflow instead of `correct
 
 Generic Crew Assignment editing is limited to Draft/pre-P4 preparation. Once P4 begins, planned sign-off changes use Plan Sign-Off, historical field changes use Movement Corrections, and actual operational changes use movement actions.
 
+## Mobilisation Readiness (advisory)
+
+Derived live from existing required-document compliance (`DocumentRequirementResolver` / `DocumentComplianceQuery`). There is no readiness table and **no movement blocker**.
+
+`CrewMobilisationReadinessResolver` answers whether the assignment employee looks operationally ready to mobilise. It is shown on Crew Assignment show (full card) and as a compact indicator on Current Crew lists for **pre-join** assignments (P0–P3).
+
+| Status | Meaning |
+|--------|---------|
+| Ready | No known required-document problems |
+| Attention | Expiring-soon required documents or incomplete information |
+| Not Ready | Required documents missing or expired |
+
+Operators may still perform any movement already allowed by `CrewMovementAvailableActions` / `CrewMovementService`. Readiness never adds override, waiver, or acknowledgement steps.
+
+Links to Documents / Training are omitted unless the user has `documents.view` / `training.view`.
+
+## Recommended Next Action (advisory)
+
+`CrewAssignmentRecommendedActionResolver` picks **one** suggested next step from the current `available_actions` result (or a non-movement hint such as resolve readiness / plan relief).
+
+It does **not** replace the allowed-action menu. `More Actions` remains the complete backend-allowed set. Operators may ignore the recommendation. Permission checks for `crew_operations.movements.perform` and `crew_operations.assignments.cancel` still apply on the server.
+
+Typical suggestions:
+
+| Phase | Usual recommendation |
+|-------|----------------------|
+| P0 (ready) | Approve Mobilisation |
+| P0 (readiness issues) | Resolve readiness, with Approve Mobilisation Anyway |
+| P1 | Record Arrival |
+| P2A | Join Vessel |
+| P2B | Complete Training |
+| P3 | Join Vessel |
+| P4 | Confirm Disembarkation (or Plan Relief when sign-off is near and relief is not ready) |
+| P5 | Travel Home |
+| P6 | Close Assignment |
+
 ## Permissions
+
 
 Use Spatie permission names:
 

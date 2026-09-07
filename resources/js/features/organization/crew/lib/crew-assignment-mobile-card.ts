@@ -20,6 +20,9 @@ export function crewAssignmentMobileCardModel(
 ): CrewAssignmentMobileCardModel {
     const isOnVessel = assignment.current_phase?.code === 'p4';
     const firstWarning = assignment.warnings[0]?.label?.trim() ?? null;
+    const readinessLabel = assignment.mobilisation_readiness
+        ? `Readiness: ${assignment.mobilisation_readiness.status_label}`
+        : null;
 
     return {
         title: assignment.employee?.name ?? 'Unassigned',
@@ -29,7 +32,7 @@ export function crewAssignmentMobileCardModel(
         phaseLabel: assignment.current_phase?.label ?? null,
         plannedSignoffAt: assignment.planned_signoff_at,
         actualDisembarkationAt: null,
-        attention: firstWarning,
+        attention: readinessLabel ?? firstWarning,
         showEdit: can.update && assignment.is_editable,
         showMovement:
             (can.performMovement || can.cancel) &&

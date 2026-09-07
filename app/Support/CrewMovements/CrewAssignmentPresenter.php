@@ -7,6 +7,7 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\User;
 use Carbon\CarbonInterface;
 
 class CrewAssignmentPresenter
@@ -14,7 +15,7 @@ class CrewAssignmentPresenter
     /**
      * @return array<string, mixed>
      */
-    public static function listItem(CrewAssignment $assignment): array
+    public static function listItem(CrewAssignment $assignment, ?User $user = null): array
     {
         $current = $assignment->currentPhase;
         $timezone = self::companyTimezone($assignment);
@@ -23,6 +24,10 @@ class CrewAssignmentPresenter
         $relief = $assignment->relief_readiness instanceof CrewReliefReadinessResult
             ? $assignment->relief_readiness
             : (new CrewReliefReadinessResolver)->forSourceAssignment($assignment, null, null, $timezone);
+        $readiness = $assignment->mobilisation_readiness instanceof CrewMobilisationReadinessResult
+            ? $assignment->mobilisation_readiness
+            : (new CrewMobilisationReadinessResolver)->forAssignment($assignment, $user, includeHrefs: false);
+        $availableActions = CrewMovementAvailableActions::for($assignment);
 
         return [
             'id' => $assignment->id,
@@ -71,7 +76,9 @@ class CrewAssignmentPresenter
             'warnings' => is_array($assignment->attention_warnings)
                 ? $assignment->attention_warnings
                 : CrewMovementAttentionQuery::forAssignment($assignment, $tourProgress),
-            'available_actions' => CrewMovementAvailableActions::for($assignment),
+            'available_actions' => $availableActions,
+            'mobilisation_readiness' => $readiness->applies ? $readiness->toArray(compact: true) : null,
+            'recommended_action' => null,
             'movement_context' => self::movementContext($assignment, $tourProgress),
         ];
     }
@@ -79,7 +86,7 @@ class CrewAssignmentPresenter
     /**
      * @return array<string, mixed>
      */
-    public static function detail(CrewAssignment $assignment): array
+    public static function detail(CrewAssignment $assignment, ?User $user = null): array
     {
         $current = $assignment->currentPhase;
         $timezone = self::companyTimezone($assignment);
@@ -95,6 +102,15 @@ class CrewAssignmentPresenter
             ),
             null,
             $timezone,
+        );
+        $readiness = (new CrewMobilisationReadinessResolver)->forAssignment($assignment, $user);
+        $availableActions = CrewMovementAvailableActions::for($assignment);
+        $recommended = (new CrewAssignmentRecommendedActionResolver)->forAssignment(
+            $assignment,
+            $availableActions,
+            $readiness,
+            $relief,
+            $user,
         );
         $relieves = self::relievesContext($assignment);
         $tourRepair = (new ApplyMissingCrewTourOfDuty)->inspect($assignment);
@@ -200,7 +216,9 @@ class CrewAssignmentPresenter
             'relieves' => $relieves,
             'phase_timeline' => $phaseTimeline,
             'warnings' => CrewMovementAttentionQuery::forAssignment($assignment, $tourProgress),
-            'available_actions' => CrewMovementAvailableActions::for($assignment),
+            'available_actions' => $availableActions,
+            'mobilisation_readiness' => $readiness->applies ? $readiness->toArray() : null,
+            'recommended_action' => $recommended?->toArray(),
             'planning_assignment_id' => $assignment->planningAssignment?->id,
             'previous_assignment' => $assignment->previousAssignment ? [
                 'id' => $assignment->previousAssignment->id,

@@ -132,6 +132,8 @@ export interface CrewAssignmentListItem
     company_timezone?: string;
     warnings: CrewAssignmentWarning[];
     available_actions: string[];
+    mobilisation_readiness: CrewMobilisationReadiness | null;
+    recommended_action?: CrewRecommendedAction | null;
     movement_context: CrewMovementContext;
 }
 
@@ -192,6 +194,8 @@ export interface CrewAssignmentDetail
     phase_timeline: PhaseTimelineItem[];
     warnings: CrewAssignmentWarning[];
     available_actions: string[];
+    mobilisation_readiness: CrewMobilisationReadiness | null;
+    recommended_action: CrewRecommendedAction | null;
     planning_assignment_id: number | null;
     relieves: CrewRelievesContext | null;
     previous_assignment: {
@@ -230,6 +234,37 @@ export interface PhaseTimelineItem {
     remarks: string | null;
     has_pending_correction: boolean;
     has_approved_correction: boolean;
+}
+
+export interface CrewMobilisationReadinessCheck {
+    code: string;
+    severity: string;
+    label: string;
+    message: string;
+    document_type_id: number | null;
+}
+
+export interface CrewMobilisationReadiness {
+    applies: boolean;
+    status: 'ready' | 'attention' | 'not_ready' | string;
+    status_label: string;
+    checks_clear: number;
+    checks_total: number;
+    advisory_note: string;
+    problems: CrewMobilisationReadinessCheck[];
+    checks?: CrewMobilisationReadinessCheck[];
+    documents_href: string | null;
+    training_href: string | null;
+}
+
+export interface CrewRecommendedAction {
+    type: string;
+    action: string | null;
+    label: string;
+    reason: string;
+    href: string | null;
+    anyway_action: string | null;
+    anyway_label: string | null;
 }
 
 export interface CrewAssignmentWarning {
@@ -340,6 +375,9 @@ export interface CrewAssignmentPagePermissions {
     view_corrections: boolean;
     approve_corrections: boolean;
     override_corrections: boolean;
+    view_documents: boolean;
+    view_training: boolean;
+    view_planning: boolean;
 }
 
 export interface CorrectablePhase {

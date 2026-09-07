@@ -10,6 +10,7 @@ use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\Rank;
+use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -74,6 +75,7 @@ class CurrentCrewQuery
         $paginator = $query->paginate($perPage)->withQueryString();
 
         self::attachReliefReadiness($paginator->getCollection(), $companyId);
+        self::attachMobilisationReadiness($paginator->getCollection(), $companyId);
 
         return $paginator;
     }
@@ -205,6 +207,14 @@ class CurrentCrewQuery
 
             return $assignment;
         });
+    }
+
+    /**
+     * @param  Collection<int, CrewAssignment>  $assignments
+     */
+    public static function attachMobilisationReadiness(Collection $assignments, int $companyId, ?User $user = null): void
+    {
+        (new CrewMobilisationReadinessResolver)->attachForAssignments($assignments, $companyId, $user);
     }
 
     /**

@@ -106,6 +106,7 @@ final class CurrentCrewVesselQuery
             ->values();
 
         CurrentCrewQuery::attachReliefReadiness($assignments, $companyId);
+        CurrentCrewQuery::attachMobilisationReadiness($assignments, $companyId);
 
         return $assignments;
     }
@@ -128,6 +129,7 @@ final class CurrentCrewVesselQuery
 
         $assignments = $query->get();
         CurrentCrewQuery::attachReliefReadiness($assignments, $companyId);
+        CurrentCrewQuery::attachMobilisationReadiness($assignments, $companyId);
 
         return $assignments
             ->sortBy([

@@ -9,11 +9,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ApplyTourOfDutyDialog } from '@/features/organization/crew/actions/apply-tour-of-duty-dialog';
-import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
 import { VoidErroneousAssignmentDialog } from '@/features/organization/crew/actions/void-erroneous-assignment-dialog';
 import { CrewMetadataField } from '@/features/organization/crew/components/crew-metadata-field';
+import { CrewMobilisationReadinessCard } from '@/features/organization/crew/components/crew-mobilisation-readiness-card';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { CrewPhaseProgress } from '@/features/organization/crew/components/crew-phase-progress';
+import { CrewRecommendedNextAction } from '@/features/organization/crew/components/crew-recommended-next-action';
 import { CrewReliefReadinessBadge } from '@/features/organization/crew/components/crew-relief-readiness-badge';
 import { CrewTourProgressDisplay } from '@/features/organization/crew/components/crew-tour-progress-display';
 import { CorrectionHistoryCard } from '@/features/organization/crew/corrections/correction-history-card';
@@ -148,18 +149,6 @@ export default function CrewAssignmentShow({
                     backLabel="Back to Crew Assignments"
                     actions={
                         <div className="flex flex-wrap items-center gap-2">
-                            {showMovementActions ? (
-                                <MovementActionMenu
-                                    assignmentId={assignment.id}
-                                    availableActions={
-                                        assignment.available_actions
-                                    }
-                                    movementContext={
-                                        assignment.movement_context
-                                    }
-                                    formOptions={form_options}
-                                />
-                            ) : null}
                             {can.perform_movement &&
                             assignment.can_apply_tour_of_duty ? (
                                 <Button
@@ -245,6 +234,30 @@ export default function CrewAssignmentShow({
                                 </div>
                             ))}
                         </div>
+                    </div>
+                ) : null}
+
+                {assignment.mobilisation_readiness ? (
+                    <div className="mb-6">
+                        <CrewMobilisationReadinessCard
+                            readiness={assignment.mobilisation_readiness}
+                            canViewDocuments={can.view_documents}
+                            canViewTraining={can.view_training}
+                        />
+                    </div>
+                ) : null}
+
+                {showMovementActions || assignment.recommended_action ? (
+                    <div className="mb-6">
+                        <CrewRecommendedNextAction
+                            assignmentId={assignment.id}
+                            recommended={assignment.recommended_action}
+                            availableActions={assignment.available_actions}
+                            movementContext={assignment.movement_context}
+                            formOptions={form_options}
+                            canViewDocuments={can.view_documents}
+                            canViewPlanning={can.view_planning}
+                        />
                     </div>
                 ) : null}
 

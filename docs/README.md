@@ -119,4 +119,4 @@ The application currently includes core organization and employee management, em
 
 ## Last reviewed
 
-Entry points reviewed on **2026-08-25**. Guides were reconciled with CrewAssignment + P0–P6 (EmployeeDeployment removed), current authorization/policy usage, Golden Files, Cursor rules, and CI change classification. Topic guides still vary in depth; implementation remains authoritative.
+Entry points reviewed on **2026-09-07**. Guides were reconciled with CrewAssignment + P0–P6 (EmployeeDeployment removed), current authorization/policy usage, Golden Files, Cursor rules, and CI change classification. Topic guides still vary in depth; implementation remains authoritative.

@@ -8,6 +8,7 @@ use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 final class DocumentComplianceQuery
@@ -189,6 +190,32 @@ final class DocumentComplianceQuery
     }
 
     /**
+     * Company-scoped required-document compliance rows for a page of employees.
+     *
+     * @param  list<int>  $employeeIds
+     * @return Collection<int, list<array<string, mixed>>>
+     */
+    public function itemsForEmployeeIds(int $companyId, array $employeeIds): Collection
+    {
+        $ids = array_values(array_unique(array_filter(
+            array_map(intval(...), $employeeIds),
+            fn (int $id): bool => $id > 0,
+        )));
+
+        if ($ids === []) {
+            return collect();
+        }
+
+        return DB::query()
+            ->fromSub($this->statusQuery($companyId, employeeIds: $ids), 'compliance')
+            ->whereIn('employee_id', $ids)
+            ->orderBy('document_type_title')
+            ->get()
+            ->groupBy(fn (object $row): int => (int) $row->employee_id)
+            ->map(fn ($rows): array => $rows->map(fn (object $row): array => $this->mapRow($row))->values()->all());
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function mapRow(object $row): array
@@ -217,15 +244,25 @@ final class DocumentComplianceQuery
         ];
     }
 
-    private function statusQuery(int $companyId, string $departmentId = '', ?string $search = null): Builder
-    {
+    /**
+     * @param  list<int>  $employeeIds
+     */
+    private function statusQuery(
+        int $companyId,
+        string $departmentId = '',
+        ?string $search = null,
+        array $employeeIds = [],
+    ): Builder {
         $today = now()->toDateString();
         $in30 = now()->addDays(30)->toDateString();
 
-        $latestDocuments = (new LatestEmployeeDocumentQuery)->forCompany($companyId);
+        $latestDocuments = (new LatestEmployeeDocumentQuery)->forCompany(
+            $companyId,
+            employeeIds: $employeeIds,
+        );
 
         return DB::query()
-            ->fromSub($this->pairsQuery($companyId, $departmentId, $search), 'pairs')
+            ->fromSub($this->pairsQuery($companyId, $departmentId, $search, $employeeIds), 'pairs')
             ->leftJoinSub($latestDocuments, 'latest_docs', function ($join): void {
                 $join->on('latest_docs.employee_id', '=', 'pairs.employee_id')
                     ->on('latest_docs.document_type_id', '=', 'pairs.document_type_id');
@@ -259,8 +296,15 @@ final class DocumentComplianceQuery
             );
     }
 
-    private function pairsQuery(int $companyId, string $departmentId = '', ?string $search = null): Builder
-    {
+    /**
+     * @param  list<int>  $employeeIds
+     */
+    private function pairsQuery(
+        int $companyId,
+        string $departmentId = '',
+        ?string $search = null,
+        array $employeeIds = [],
+    ): Builder {
         $employees = Employee::query();
         EmployeeDirectoryQuery::applyAttributeFilters(
             $employees,
@@ -268,6 +312,10 @@ final class DocumentComplianceQuery
             new EmployeeDirectoryFilters(departmentId: $departmentId),
             exceptPosition: true,
         );
+
+        if ($employeeIds !== []) {
+            $employees->whereIn('employees.id', $employeeIds);
+        }
 
         $search = $search !== null ? trim($search) : '';
 

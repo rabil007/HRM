@@ -13,7 +13,10 @@ final class LatestEmployeeDocumentQuery
      *
      * Canonical rule: created_at DESC, then id DESC (matches EmployeeDocument::latestUpload()).
      */
-    public function forCompany(int $companyId, ?int $employeeId = null): Builder
+    /**
+     * @param  list<int>  $employeeIds
+     */
+    public function forCompany(int $companyId, ?int $employeeId = null, array $employeeIds = []): Builder
     {
         $table = (new EmployeeDocument)->getTable();
 
@@ -21,6 +24,7 @@ final class LatestEmployeeDocumentQuery
             ->forCompany($companyId)
             ->whereNotNull("{$table}.document_type_id")
             ->when($employeeId !== null, fn ($query) => $query->where("{$table}.employee_id", $employeeId))
+            ->when($employeeIds !== [], fn ($query) => $query->whereIn("{$table}.employee_id", $employeeIds))
             ->select([
                 "{$table}.id",
                 "{$table}.employee_id",

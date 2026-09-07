@@ -50,7 +50,9 @@ test('presenter separates planned and actual dates', function () {
         ->and($detail['current_phase']['code'])->toBe(CrewPhaseCode::OnVessel->value)
         ->and($detail['phase_timeline'])->not->toBeEmpty()
         ->and($detail['available_actions'])->toBeArray()
-        ->and($detail['warnings'])->toBeArray();
+        ->and($detail['warnings'])->toBeArray()
+        ->and($detail['mobilisation_readiness'])->toBeNull()
+        ->and($detail['recommended_action'])->not->toBeNull();
 });
 
 test('list presenter includes warnings payload shape', function () {
@@ -75,7 +77,9 @@ test('list presenter includes warnings payload shape', function () {
         ->and($item['available_actions'])->toBe([
             CrewMovementAction::ApproveMobilisation->value,
             CrewMovementAction::CancelAssignment->value,
-        ]);
+        ])
+        ->and($item['mobilisation_readiness'])->toBeArray()
+        ->and($item['mobilisation_readiness']['applies'])->toBeTrue();
 
     if ($item['warnings'] !== []) {
         expect($item['warnings'][0])->toHaveKeys(['code', 'severity', 'label', 'message', 'date']);

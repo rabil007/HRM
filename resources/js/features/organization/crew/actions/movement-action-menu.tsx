@@ -22,18 +22,26 @@ export function MovementActionMenu({
     movementContext,
     formOptions,
     size = 'default',
+    triggerLabel = 'Record Movement',
+    excludeActions = [],
 }: {
     assignmentId: number;
     availableActions: string[];
     movementContext: CrewMovementContext;
     formOptions?: CrewAssignmentFormOptions;
     size?: 'default' | 'sm';
+    triggerLabel?: string;
+    excludeActions?: string[];
 }): ReactElement | null {
     const [selectedAction, setSelectedAction] =
         useState<CrewMovementAction | null>(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
-    if (availableActions.length === 0) {
+    const menuActions = availableActions.filter(
+        (action) => !excludeActions.includes(action),
+    );
+
+    if (menuActions.length === 0) {
         return null;
     }
 
@@ -62,20 +70,20 @@ export function MovementActionMenu({
                             variant="ghost"
                             size="icon"
                             className="size-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100"
-                            title="Record Movement"
-                            aria-label="Record Movement"
+                            title={triggerLabel}
+                            aria-label={triggerLabel}
                         >
                             <ArrowRightLeft className="size-4" />
                         </Button>
                     ) : (
-                        <Button>
-                            Record Movement
+                        <Button type="button" variant="outline">
+                            {triggerLabel}
                             <ChevronDown className="h-4 w-4" />
                         </Button>
                     )}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                    {availableActions.map((actionValue) => {
+                    {menuActions.map((actionValue) => {
                         const action = actionValue as CrewMovementAction;
 
                         return (

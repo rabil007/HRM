@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
+import { CrewMobilisationReadinessBadge } from '@/features/organization/crew/components/crew-mobilisation-readiness-badge';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { CrewReliefReadinessBadge } from '@/features/organization/crew/components/crew-relief-readiness-badge';
 import { CrewTourProgressDisplay } from '@/features/organization/crew/components/crew-tour-progress-display';
@@ -210,6 +211,12 @@ export function CrewAssignmentsTableRow({
                             <AlertTriangle className="size-3" aria-hidden />
                             {warningCount}
                         </Badge>
+                    ) : null}
+                    {assignment.mobilisation_readiness ? (
+                        <CrewMobilisationReadinessBadge
+                            readiness={assignment.mobilisation_readiness}
+                            compact
+                        />
                     ) : null}
                 </div>
             </TableCell>

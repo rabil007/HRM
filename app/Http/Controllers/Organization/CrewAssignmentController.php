@@ -70,7 +70,9 @@ class CrewAssignmentController extends Controller
             $pagination = $this->paginationMeta($vesselPaginator);
         } else {
             $paginator = CurrentCrewQuery::paginate($companyId, $filters);
-            $assignments = $paginator->through(fn (CrewAssignment $assignment) => CrewAssignmentPresenter::listItem($assignment))->items();
+            $assignments = $paginator->through(
+                fn (CrewAssignment $assignment) => CrewAssignmentPresenter::listItem($assignment, $request->user()),
+            )->items();
             $vessels = [];
             $pagination = $this->paginationMeta($paginator);
         }
@@ -206,7 +208,7 @@ class CrewAssignmentController extends Controller
             'corrections.company:id,timezone',
         ]);
 
-        $detail = CrewAssignmentPresenter::detail($assignment);
+        $detail = CrewAssignmentPresenter::detail($assignment, $request->user());
         $corrections = app(CrewMovementCorrectionPresenter::class)->assignmentSummary($assignment);
 
         $recentActivity = Gate::allows('viewAudit', CrewAssignment::class)
@@ -273,7 +275,7 @@ class CrewAssignmentController extends Controller
         ];
 
         return Inertia::render('organization/crew/edit', [
-            'assignment' => CrewAssignmentPresenter::detail($assignment),
+            'assignment' => CrewAssignmentPresenter::detail($assignment, $request->user()),
             'form_options' => $formOptions,
             'can' => CrewAssignmentPagePermissions::for($request->user()),
         ]);
