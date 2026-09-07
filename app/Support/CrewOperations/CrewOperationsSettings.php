@@ -30,27 +30,37 @@ final class CrewOperationsSettings
      */
     public const CONFIG_SYNC_TRAINING_TO_EMPLOYEE_TRAINING = 'crew_operations.sync_training_to_employee_training';
 
-    /** @var array<int, CrewOperationsSetting|null> */
-    protected static array $companySettingsCache = [];
-
     public static function findForCompany(int $companyId): ?CrewOperationsSetting
     {
-        if (! array_key_exists($companyId, self::$companySettingsCache)) {
-            self::$companySettingsCache[$companyId] = CrewOperationsSetting::query()
+        $cache = app()->bound('crew_operations_settings_cache')
+            ? app('crew_operations_settings_cache')
+            : [];
+
+        if (! array_key_exists($companyId, $cache)) {
+            $cache[$companyId] = CrewOperationsSetting::query()
                 ->where('company_id', $companyId)
                 ->first();
+            app()->instance('crew_operations_settings_cache', $cache);
         }
 
-        return self::$companySettingsCache[$companyId];
+        return $cache[$companyId];
     }
 
     public static function clearCache(?int $companyId = null): void
     {
-        if ($companyId !== null) {
-            unset(self::$companySettingsCache[$companyId]);
-        } else {
-            self::$companySettingsCache = [];
+        if (! app()->bound('crew_operations_settings_cache')) {
+            return;
         }
+
+        if ($companyId === null) {
+            app()->forgetInstance('crew_operations_settings_cache');
+
+            return;
+        }
+
+        $cache = app('crew_operations_settings_cache');
+        unset($cache[$companyId]);
+        app()->instance('crew_operations_settings_cache', $cache);
     }
 
     /**
