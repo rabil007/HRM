@@ -70,4 +70,10 @@ Reference: `features/organization/documents/shared/types.ts`
 
 ## Check
 
-After TS changes: `npm run types:check`
+After every TS/TSX change, **always** format the files you edited with Prettier first:
+
+```bash
+npx prettier --write resources/js/path/to/file.tsx
+```
+
+Then: `npm run types:check`. CI runs `prettier --check` and will fail if this is skipped.

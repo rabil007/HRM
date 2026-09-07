@@ -15,7 +15,8 @@ Laravel 13 + Inertia v3 + React 19 monolith with company-scoped Spatie permissio
 - Extend existing Support, Service, component, and hook abstractions before creating another pattern.
 - Use Wayfinder for frontend routes and actions; do not hardcode application URLs.
 - Add or update the smallest relevant Pest test for every behavior change.
-- Run `vendor/bin/pint --dirty --format agent` after PHP edits and the relevant frontend checks after TypeScript edits.
+- Run `vendor/bin/pint --dirty --format agent` after PHP edits.
+- After any `resources/` frontend edit (`.ts`, `.tsx`, `.js`, `.jsx`, `.css`), run Prettier on the files you changed before finishing: `npx prettier --write path/to/file`. Do not skip this — CI fails on `prettier --check`. Then run the narrowest relevant `eslint` / `npm run types:check` as needed.
 - Never run `migrate:fresh`, `migrate:refresh`, `db:wipe`, or other destructive DB resets against the Herd app database unless the user explicitly requests it. Use Pest/`RefreshDatabase` (sqlite `:memory:` in `phpunit.xml`) for fixtures and measurements.
 
 ## Context routing

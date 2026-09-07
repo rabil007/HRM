@@ -11,7 +11,7 @@ description: Implement or refactor an end-to-end OMS-HRM feature across Laravel,
 4. Keep controllers focused on HTTP/Inertia concerns. Put domain queries and actions in `app/Support/`; put external integrations in `app/Services/`.
 5. Keep Inertia pages thin, reuse `resources/js/features/` and shared components, and use Wayfinder instead of hardcoded application URLs.
 6. Add or update the smallest targeted Pest test. Cover unauthorized and cross-company behavior when the change touches tenant-owned data.
-7. Run the targeted tests, `vendor/bin/pint --dirty --format agent` after PHP edits, and the narrowest relevant TypeScript lint or type check after frontend edits.
+7. Run the targeted tests. After PHP edits: `vendor/bin/pint --dirty --format agent`. After any `resources/` frontend edit: **always** run `npx prettier --write` on the changed files (CI `prettier --check` fails otherwise), then the narrowest relevant `eslint` / `npm run types:check`.
 8. Review the final diff for unrelated changes, generated files, exposed secrets, and stale documentation.
 
 For broad architecture decisions, read `AI_GUIDE.md`. For preferred examples, read `docs/architecture/golden-files.md`.
