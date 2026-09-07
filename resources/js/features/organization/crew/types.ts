@@ -44,6 +44,8 @@ export type CrewMovementContext = {
     actual_disembarkation_at: string | null;
     training_provider: string | null;
     training_course: string | null;
+    training_course_id?: number | null;
+    sync_training_enabled?: boolean;
     training_started_at: string | null;
     training_expected_completion_at: string | null;
     company_timezone: string;
@@ -234,6 +236,7 @@ export interface PhaseTimelineItem {
     remarks: string | null;
     has_pending_correction: boolean;
     has_approved_correction: boolean;
+    employee_training_id?: number | null;
 }
 
 export interface CrewMobilisationReadinessCheck {
@@ -457,6 +460,8 @@ export interface CrewMovementActionFormData {
     starting_phase: string;
     provider: string;
     course: string;
+    course_id?: number | null;
+    sync_training_to_employee_training?: boolean;
     planned_start_at: string;
     planned_end_at: string;
     remarks: string;

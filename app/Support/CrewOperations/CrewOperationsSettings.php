@@ -26,13 +26,39 @@ final class CrewOperationsSettings
     public const CONFIG_SYNC_SEA_SERVICE = 'crew_operations.sync_sea_service';
 
     /**
+     * Company setting key for Training synchronization to employee training records.
+     */
+    public const CONFIG_SYNC_TRAINING_TO_EMPLOYEE_TRAINING = 'crew_operations.sync_training_to_employee_training';
+
+    /** @var array<int, CrewOperationsSetting|null> */
+    protected static array $companySettingsCache = [];
+
+    public static function findForCompany(int $companyId): ?CrewOperationsSetting
+    {
+        if (! array_key_exists($companyId, self::$companySettingsCache)) {
+            self::$companySettingsCache[$companyId] = CrewOperationsSetting::query()
+                ->where('company_id', $companyId)
+                ->first();
+        }
+
+        return self::$companySettingsCache[$companyId];
+    }
+
+    public static function clearCache(?int $companyId = null): void
+    {
+        if ($companyId !== null) {
+            unset(self::$companySettingsCache[$companyId]);
+        } else {
+            self::$companySettingsCache = [];
+        }
+    }
+
+    /**
      * @return list<int>
      */
     public static function poolDepartmentIds(int $companyId): array
     {
-        $setting = CrewOperationsSetting::query()
-            ->where('company_id', $companyId)
-            ->first();
+        $setting = self::findForCompany($companyId);
 
         if ($setting === null || $setting->pool_department_ids === null) {
             return [];
@@ -46,9 +72,7 @@ final class CrewOperationsSettings
 
     public static function maxHomeDays(int $companyId): int
     {
-        $setting = CrewOperationsSetting::query()
-            ->where('company_id', $companyId)
-            ->first();
+        $setting = self::findForCompany($companyId);
 
         return $setting?->max_home_days ?? 30;
     }
@@ -58,9 +82,7 @@ final class CrewOperationsSettings
      */
     public static function syncSeaServiceEnabled(int $companyId): bool
     {
-        $setting = CrewOperationsSetting::query()
-            ->where('company_id', $companyId)
-            ->first();
+        $setting = self::findForCompany($companyId);
 
         if ($setting === null) {
             return true;
@@ -72,20 +94,30 @@ final class CrewOperationsSettings
     /**
      * Defaults to OFF when the company has no settings row yet.
      */
+    public static function syncTrainingToEmployeeTrainingEnabled(int $companyId): bool
+    {
+        $setting = self::findForCompany($companyId);
+
+        if ($setting === null) {
+            return false;
+        }
+
+        return (bool) $setting->sync_training_to_employee_training;
+    }
+
+    /**
+     * Defaults to OFF when the company has no settings row yet.
+     */
     public static function notificationsEnabled(int $companyId): bool
     {
-        $setting = CrewOperationsSetting::query()
-            ->where('company_id', $companyId)
-            ->first();
+        $setting = self::findForCompany($companyId);
 
         return (bool) ($setting?->notifications_enabled ?? false);
     }
 
     public static function emailDeliveryMode(int $companyId): CrewOperationalAlertEmailDeliveryMode
     {
-        $setting = CrewOperationsSetting::query()
-            ->where('company_id', $companyId)
-            ->first();
+        $setting = self::findForCompany($companyId);
 
         if ($setting === null || $setting->notification_email_delivery_mode === null) {
             return CrewOperationalAlertEmailDeliveryMode::Scheduled;
@@ -98,9 +130,7 @@ final class CrewOperationsSettings
 
     public static function emailDigestAt(int $companyId): string
     {
-        $setting = CrewOperationsSetting::query()
-            ->where('company_id', $companyId)
-            ->first();
+        $setting = self::findForCompany($companyId);
 
         $val = $setting?->notification_email_digest_at;
 
@@ -113,9 +143,7 @@ final class CrewOperationsSettings
 
     public static function emailCriticalImmediate(int $companyId): bool
     {
-        $setting = CrewOperationsSetting::query()
-            ->where('company_id', $companyId)
-            ->first();
+        $setting = self::findForCompany($companyId);
 
         if ($setting === null || $setting->notification_email_critical_immediate === null) {
             return true;
@@ -140,9 +168,7 @@ final class CrewOperationsSettings
      */
     public static function notificationSettings(int $companyId): array
     {
-        $setting = CrewOperationsSetting::query()
-            ->where('company_id', $companyId)
-            ->first();
+        $setting = self::findForCompany($companyId);
 
         return [
             'notifications_enabled' => (bool) ($setting?->notifications_enabled ?? false),
@@ -197,6 +223,7 @@ final class CrewOperationsSettings
     /**
      * @param  list<int>  $departmentIds
      * @param  array{
+     *     sync_training_to_employee_training?: bool,
      *     notifications_enabled?: bool,
      *     notification_recipient_user_ids?: list<int>,
      *     alert_signoff_overdue?: bool,
@@ -234,6 +261,14 @@ final class CrewOperationsSettings
                 ? true
                 : (bool) $existing->sync_sea_service;
 
+            $previousTrainingSync = $existing === null
+                ? false
+                : (bool) $existing->sync_training_to_employee_training;
+
+            $trainingSync = array_key_exists('sync_training_to_employee_training', $options)
+                ? (bool) $options['sync_training_to_employee_training']
+                : $previousTrainingSync;
+
             $recipientIds = array_key_exists('notification_recipient_user_ids', $options)
                 ? self::normalizeRecipientUserIds(
                     $companyId,
@@ -247,6 +282,7 @@ final class CrewOperationsSettings
                     'pool_department_ids' => $normalized === [] ? null : $normalized,
                     'max_home_days' => $maxHomeDays,
                     'sync_sea_service' => $syncSeaService,
+                    'sync_training_to_employee_training' => $trainingSync,
                     'notifications_enabled' => array_key_exists('notifications_enabled', $options)
                         ? (bool) $options['notifications_enabled']
                         : (bool) ($existing?->notifications_enabled ?? false),
@@ -299,6 +335,27 @@ final class CrewOperationsSettings
                 }
 
                 $activity->log('updated crew operations sea service sync setting');
+            }
+
+            if ($previousTrainingSync !== $trainingSync) {
+                $activity = activity()
+                    ->performedOn($setting)
+                    ->withProperties([
+                        'company_id' => $companyId,
+                        'setting_key' => self::CONFIG_SYNC_TRAINING_TO_EMPLOYEE_TRAINING,
+                        'old' => ['sync_training_to_employee_training' => $previousTrainingSync],
+                        'attributes' => ['sync_training_to_employee_training' => $trainingSync],
+                        'old_values' => ['sync_training_to_employee_training' => $previousTrainingSync],
+                        'new_values' => ['sync_training_to_employee_training' => $trainingSync],
+                    ]);
+
+                $actorId = $options['actor_id'] ?? null;
+
+                if (is_int($actorId) && $actorId > 0) {
+                    $activity->causedBy($actorId);
+                }
+
+                $activity->log('updated crew operations training sync setting');
             }
 
             return $setting;
@@ -385,9 +442,7 @@ final class CrewOperationsSettings
         int $companyId,
         ?CrewOperationsSetting $setting = null,
     ): array {
-        $setting ??= CrewOperationsSetting::query()
-            ->where('company_id', $companyId)
-            ->first();
+        $setting ??= self::findForCompany($companyId);
 
         if ($setting === null || $setting->notification_recipient_user_ids === null) {
             return [];

@@ -195,6 +195,7 @@ class CrewAssignmentController extends Controller
             'currentPhase',
             'phases.pendingCorrections',
             'phases.corrections' => fn ($query) => $query->where('status', 'approved')->latest('decided_at'),
+            'phases.employeeTraining:id,source_crew_assignment_phase_id',
             'planningAssignment.relievedAssignment.employee',
             'planningAssignment.relievedAssignment.vessel',
             'planningAssignment.relievedAssignment.rank',

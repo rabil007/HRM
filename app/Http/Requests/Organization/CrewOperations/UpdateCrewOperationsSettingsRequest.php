@@ -16,6 +16,7 @@ class UpdateCrewOperationsSettingsRequest extends FormRequest
     {
         foreach ([
             'sync_sea_service',
+            'sync_training_to_employee_training',
             'notifications_enabled',
             'alert_signoff_overdue',
             'alert_signoff_no_relief',
@@ -53,6 +54,7 @@ class UpdateCrewOperationsSettingsRequest extends FormRequest
             ],
             'max_home_days' => ['required', 'integer', 'min:0'],
             'sync_sea_service' => ['required', 'boolean'],
+            'sync_training_to_employee_training' => ['sometimes', 'boolean'],
             'notifications_enabled' => ['required', 'boolean'],
             'notification_recipient_user_ids' => ['nullable', 'array'],
             'notification_recipient_user_ids.*' => ['integer'],

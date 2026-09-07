@@ -739,7 +739,8 @@ export default function CrewOperationsSettings({
                                     </CardTitle>
                                     <CardDescription className="text-xs leading-relaxed">
                                         Control how crew assignments interact
-                                        with Sea Service records.
+                                        with Sea Service and Employee Training
+                                        records.
                                     </CardDescription>
                                 </div>
                             </div>
@@ -795,6 +796,47 @@ export default function CrewOperationsSettings({
                                     </AlertDescription>
                                 </Alert>
                             ) : null}
+
+                            <div className="border-t border-border/60 pt-4 dark:border-white/6">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label
+                                            htmlFor="sync_training_to_employee_training"
+                                            className="text-sm font-semibold text-foreground"
+                                        >
+                                            Sync P2B Training to Employee
+                                            Training
+                                        </Label>
+                                        <p className="text-xs leading-relaxed text-muted-foreground">
+                                            When enabled, completing a P2B
+                                            Training phase allows synchronizing
+                                            the record into Employee Training.
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        id="sync_training_to_employee_training"
+                                        checked={Boolean(
+                                            form.data
+                                                .sync_training_to_employee_training,
+                                        )}
+                                        onCheckedChange={(checked) => {
+                                            form.setData(
+                                                'sync_training_to_employee_training',
+                                                checked,
+                                            );
+                                        }}
+                                    />
+                                </div>
+                                {form.errors
+                                    .sync_training_to_employee_training ? (
+                                    <p className="mt-1.5 text-xs font-medium text-destructive">
+                                        {
+                                            form.errors
+                                                .sync_training_to_employee_training
+                                        }
+                                    </p>
+                                ) : null}
+                            </div>
                         </CardContent>
                     </Card>
 

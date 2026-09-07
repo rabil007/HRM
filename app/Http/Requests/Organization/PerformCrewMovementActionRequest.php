@@ -5,6 +5,7 @@ namespace App\Http\Requests\Organization;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Models\CrewAssignment;
+use App\Support\CrewOperations\CrewOperationsSettings;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -192,8 +193,17 @@ class PerformCrewMovementActionRequest extends FormRequest
         if ($action === 'send_to_training') {
             $baseRules['provider'] = ['nullable', 'string', 'max:200'];
             $baseRules['course'] = ['nullable', 'string', 'max:200'];
+            $baseRules['course_id'] = ['nullable', 'integer', Rule::exists('courses', 'id')->where('is_active', true)];
             $baseRules['planned_start_at'] = ['nullable', 'date'];
             $baseRules['planned_end_at'] = ['nullable', 'date'];
+            $baseRules['remarks'] = ['nullable', 'string', 'max:1000'];
+        }
+
+        if ($action === 'complete_training') {
+            $baseRules['provider'] = ['nullable', 'string', 'max:200'];
+            $baseRules['course'] = ['nullable', 'string', 'max:200'];
+            $baseRules['course_id'] = ['nullable', 'integer', Rule::exists('courses', 'id')->where('is_active', true)];
+            $baseRules['sync_training_to_employee_training'] = ['nullable', 'boolean'];
             $baseRules['remarks'] = ['nullable', 'string', 'max:1000'];
         }
 
@@ -240,6 +250,25 @@ class PerformCrewMovementActionRequest extends FormRequest
                     'occurred_at',
                     'This date cannot be before the current phase started.',
                 );
+            }
+
+            if ($action === 'complete_training') {
+                $syncEnabled = CrewOperationsSettings::syncTrainingToEmployeeTrainingEnabled((int) $assignment->company_id);
+                $syncInput = $this->input('sync_training_to_employee_training');
+                $isSkipped = $syncInput === false || $syncInput === '0' || $syncInput === 0 || $syncInput === 'false';
+                $shouldSync = $syncEnabled && ! $isSkipped;
+
+                if ($shouldSync) {
+                    $hasCourseId = $this->filled('course_id')
+                        || (! empty($assignment->currentPhase?->details['course_id']));
+
+                    if (! $hasCourseId) {
+                        $validator->errors()->add(
+                            'course_id',
+                            'Select a Course before adding this training to the employee\'s Training record.',
+                        );
+                    }
+                }
             }
 
             if ($action === 'send_to_training') {

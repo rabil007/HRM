@@ -22,6 +22,7 @@ final class CrewMovementCorrectionFieldCatalog
         if ($phase->phase_code === CrewPhaseCode::Training) {
             $fields[] = 'details.provider';
             $fields[] = 'details.course';
+            $fields[] = 'details.course_id';
         }
 
         return $fields;

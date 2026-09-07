@@ -40,6 +40,7 @@ class EmployeeTraining extends Model
                 'certificate_size_bytes',
                 'current_version',
                 'replaced_at',
+                'source_crew_assignment_phase_id',
             ])
             ->logOnlyDirty();
     }
@@ -51,6 +52,7 @@ class EmployeeTraining extends Model
             'expiry_date' => 'date',
             'sort_order' => 'integer',
             'replaced_at' => 'datetime',
+            'source_crew_assignment_phase_id' => 'integer',
         ];
     }
 
@@ -79,10 +81,20 @@ class EmployeeTraining extends Model
         return $this->belongsTo(Country::class);
     }
 
+    public function sourceCrewAssignmentPhase(): BelongsTo
+    {
+        return $this->belongsTo(CrewAssignmentPhase::class, 'source_crew_assignment_phase_id')->withTrashed();
+    }
+
+    public function isFromCrewOperations(): bool
+    {
+        return $this->source_crew_assignment_phase_id !== null;
+    }
+
     /**
      * @return array<string, mixed>
      */
-    public function toShowArray(): array
+    public function toShowArray(?bool $canViewCrew = null): array
     {
         return [
             'id' => $this->id,
@@ -103,6 +115,9 @@ class EmployeeTraining extends Model
             'replaced_at' => $this->replaced_at?->toDateTimeString(),
             'can_preview' => $this->can_preview,
             'created_at' => $this->created_at?->toDateTimeString(),
+            'source_crew_assignment_phase_id' => $this->source_crew_assignment_phase_id,
+            'source_crew_assignment' => $this->resolveSourceCrewAssignmentSummary($canViewCrew),
+            'is_from_crew_operations' => $this->isFromCrewOperations(),
             'versions' => $this->versions->map(fn (EmployeeTrainingVersion $version) => [
                 'id' => $version->id,
                 'version' => $version->version,
@@ -178,5 +193,34 @@ class EmployeeTraining extends Model
         }
 
         return null;
+    }
+
+    /**
+     * @return array{id: int, assignment_no: string}|null
+     */
+    private function resolveSourceCrewAssignmentSummary(?bool $canViewCrew = null): ?array
+    {
+        if ($this->source_crew_assignment_phase_id === null) {
+            return null;
+        }
+
+        $canViewCrew ??= auth()->user()?->can('crew_operations.assignments.view') ?? false;
+        if (! $canViewCrew) {
+            return null;
+        }
+
+        $phase = $this->relationLoaded('sourceCrewAssignmentPhase')
+            ? $this->sourceCrewAssignmentPhase
+            : $this->sourceCrewAssignmentPhase()->with('assignment')->first();
+
+        $assignment = $phase?->assignment;
+        if ($assignment === null) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $assignment->id,
+            'assignment_no' => (string) $assignment->assignment_no,
+        ];
     }
 }

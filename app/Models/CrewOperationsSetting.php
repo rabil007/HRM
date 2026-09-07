@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CrewOperationalAlertEmailDeliveryMode;
+use App\Support\CrewOperations\CrewOperationsSettings;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -15,6 +16,17 @@ class CrewOperationsSetting extends Model
 
     protected $guarded = [];
 
+    protected static function booted(): void
+    {
+        static::saved(function (CrewOperationsSetting $setting): void {
+            CrewOperationsSettings::clearCache((int) $setting->company_id);
+        });
+
+        static::deleted(function (CrewOperationsSetting $setting): void {
+            CrewOperationsSettings::clearCache((int) $setting->company_id);
+        });
+    }
+
     protected function casts(): array
     {
         return [
@@ -22,6 +34,7 @@ class CrewOperationsSetting extends Model
             'pool_department_ids' => 'array',
             'max_home_days' => 'integer',
             'sync_sea_service' => 'boolean',
+            'sync_training_to_employee_training' => 'boolean',
             'notifications_enabled' => 'boolean',
             'notification_recipient_user_ids' => 'array',
             'alert_signoff_overdue' => 'boolean',

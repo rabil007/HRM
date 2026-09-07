@@ -1,5 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertTriangle, Clock, FilePenLine, Pencil } from 'lucide-react';
+import {
+    AlertTriangle,
+    CheckCircle2,
+    Clock,
+    FilePenLine,
+    Pencil,
+} from 'lucide-react';
 import { useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
@@ -36,6 +42,7 @@ import {
     show as showAssignment,
 } from '@/routes/organization/crew-assignments';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
+import { show as showEmployeeTraining } from '@/routes/organization/employees/training';
 
 function reliefActionHref(assignment: CrewAssignmentDetail): string {
     const status = assignment.relief_status;
@@ -465,6 +472,42 @@ export default function CrewAssignmentShow({
                                                                             Corrected
                                                                         </Badge>
                                                                     ) : null}
+                                                                    {phase.phase_code ===
+                                                                        'p2b' &&
+                                                                    phase.employee_training_id ? (
+                                                                        can.view_training &&
+                                                                        assignment
+                                                                            .employee
+                                                                            ?.id ? (
+                                                                            <Link
+                                                                                href={showEmployeeTraining.url(
+                                                                                    {
+                                                                                        employee:
+                                                                                            assignment
+                                                                                                .employee
+                                                                                                .id,
+                                                                                        training:
+                                                                                            phase.employee_training_id,
+                                                                                    },
+                                                                                )}
+                                                                                className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
+                                                                            >
+                                                                                <CheckCircle2 className="size-3 text-emerald-600 dark:text-emerald-400" />
+                                                                                Added
+                                                                                to
+                                                                                Employee
+                                                                                Training
+                                                                            </Link>
+                                                                        ) : (
+                                                                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                                                                                <CheckCircle2 className="size-3 text-emerald-600 dark:text-emerald-400" />
+                                                                                Added
+                                                                                to
+                                                                                Employee
+                                                                                Training
+                                                                            </span>
+                                                                        )
+                                                                    ) : null}
                                                                 </div>
                                                                 <p className="text-sm text-muted-foreground">
                                                                     {
@@ -472,6 +515,13 @@ export default function CrewAssignmentShow({
                                                                     }
                                                                     {index === 0
                                                                         ? ' · Sequence start'
+                                                                        : ''}
+                                                                    {phase.phase_code ===
+                                                                        'p2b' &&
+                                                                    phase
+                                                                        .details
+                                                                        ?.course
+                                                                        ? ` · ${String(phase.details.course)}`
                                                                         : ''}
                                                                 </p>
                                                             </div>

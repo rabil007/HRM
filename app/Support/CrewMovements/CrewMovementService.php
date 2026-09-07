@@ -11,11 +11,13 @@ use App\Exceptions\CrewMovementException;
 use App\Models\Client;
 use App\Models\Company;
 use App\Models\CompanyVisaType;
+use App\Models\Course;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\Vessel;
+use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -40,6 +42,7 @@ final class CrewMovementService
         private CrewMovementMasterDataGuard $masters,
         private CrewTourOfDutyResolver $tourOfDutyResolver = new CrewTourOfDutyResolver,
         private CrewJoinVesselSignoffApplier $signoffApplier = new CrewJoinVesselSignoffApplier,
+        private SyncCrewTrainingToEmployeeTraining $trainingSync = new SyncCrewTrainingToEmployeeTraining,
     ) {}
 
     /**
@@ -247,9 +250,22 @@ final class CrewMovementService
 
         $this->completePhase($current, $current->actual_start_at ?? $occurredAt, $occurredAt, $actorId);
 
+        $courseId = ! empty($payload['course_id']) ? (int) $payload['course_id'] : null;
+        $courseName = null;
+        if ($courseId !== null) {
+            $course = Course::query()->whereKey($courseId)->where('is_active', true)->first();
+            if ($course !== null) {
+                $courseName = $course->name;
+            }
+        }
+        if ($courseName === null && ! empty($payload['course'])) {
+            $courseName = (string) $payload['course'];
+        }
+
         $details = array_filter([
             'provider' => $payload['provider'] ?? null,
-            'course' => $payload['course'] ?? null,
+            'course_id' => $courseId,
+            'course' => $courseName,
         ], fn ($value) => $value !== null && $value !== '');
 
         $next = $this->createPhase(
@@ -291,7 +307,67 @@ final class CrewMovementService
         $nextCode = $this->requireNextPhaseCode($payload, [CrewPhaseCode::JoinStandby, CrewPhaseCode::ReadyToJoin]);
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
 
-        return $this->completeAndOpenNext($assignment, $current, $nextCode, $occurredAt, $actorId);
+        $existingDetails = is_array($current->details) ? $current->details : [];
+
+        $courseId = ! empty($payload['course_id'])
+            ? (int) $payload['course_id']
+            : (! empty($existingDetails['course_id']) ? (int) $existingDetails['course_id'] : null);
+
+        $courseName = null;
+        if ($courseId !== null) {
+            $course = Course::query()->whereKey($courseId)->where('is_active', true)->first();
+            if ($course !== null) {
+                $courseName = $course->name;
+            }
+        }
+        if ($courseName === null) {
+            $courseName = ! empty($payload['course'])
+                ? (string) $payload['course']
+                : ($existingDetails['course'] ?? null);
+        }
+
+        $provider = array_key_exists('provider', $payload)
+            ? (filled($payload['provider']) ? (string) $payload['provider'] : null)
+            : ($existingDetails['provider'] ?? null);
+
+        $updatedDetails = array_filter([
+            ...$existingDetails,
+            'provider' => $provider,
+            'course_id' => $courseId,
+            'course' => $courseName,
+        ], fn ($value) => $value !== null && $value !== '');
+
+        $current->update([
+            'details' => $updatedDetails === [] ? null : $updatedDetails,
+        ]);
+
+        $syncEnabled = CrewOperationsSettings::syncTrainingToEmployeeTrainingEnabled((int) $assignment->company_id);
+        $shouldSync = $syncEnabled && (bool) ($payload['sync_training_to_employee_training'] ?? true);
+
+        if ($shouldSync) {
+            if ($courseId === null) {
+                throw CrewMovementException::make(
+                    'Select a Course before adding this training to the employee\'s Training record.',
+                    'training_course_required',
+                );
+            }
+
+            $course = Course::query()->whereKey($courseId)->where('is_active', true)->first();
+            if ($course === null) {
+                throw CrewMovementException::make(
+                    'Select a Course before adding this training to the employee\'s Training record.',
+                    'training_course_required',
+                );
+            }
+        }
+
+        $assignment = $this->completeAndOpenNext($assignment, $current, $nextCode, $occurredAt, $actorId);
+
+        if ($shouldSync && $courseId !== null) {
+            $this->trainingSync->syncFromPhase($current->fresh(), $courseId);
+        }
+
+        return $assignment;
     }
 
     /**
