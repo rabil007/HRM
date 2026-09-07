@@ -381,7 +381,11 @@ export function BulkDocumentsContent({
             });
             setJourneySheetOpen(true);
         },
-        [custom_template?.published_version_id, document_type_key, latest_run?.id],
+        [
+            custom_template?.published_version_id,
+            document_type_key,
+            latest_run?.id,
+        ],
     );
 
     const missingCount = counts.not_started ?? counts.not_generated;
