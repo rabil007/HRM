@@ -116,6 +116,86 @@ test('last active Owner cannot be deleted', function () {
     expect(User::whereKey($owner->id)->exists())->toBeTrue();
 });
 
+test('last active Owner cannot have Owner role cleared via membership update', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $owner = $pair['user'];
+    $company = $pair['companyA'];
+
+    $ownerRole = Role::create([
+        'name' => 'Owner',
+        'guard_name' => 'web',
+        'company_id' => $company->id,
+    ]);
+
+    $owner->update(['company_id' => $company->id, 'status' => 'active']);
+    setupOwnerWithPermissions($owner, $company, $ownerRole, ['users.update']);
+
+    $response = $this->actingAs($owner)
+        ->withSession(['current_company_id' => $company->id])
+        ->put(route('organization.users.memberships.update', [
+            'user' => $owner,
+            'company' => $company,
+        ]), [
+            'status' => 'active',
+            'role_id' => null,
+        ]);
+
+    $response->assertRedirect();
+    $response->assertSessionHas('error', 'Cannot perform this action: the company must have at least one active Owner.');
+
+    expect($owner->companies()->whereKey($company->id)->wherePivot('status', 'active')->exists())->toBeTrue();
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    expect($owner->fresh()->hasRole('Owner'))->toBeTrue();
+});
+
+test('Owner role may be cleared via membership update when another active Owner remains', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $owner1 = $pair['user'];
+    $company = $pair['companyA'];
+
+    $owner2 = User::factory()->create([
+        'company_id' => $company->id,
+        'status' => 'active',
+    ]);
+
+    $ownerRole = Role::create([
+        'name' => 'Owner',
+        'guard_name' => 'web',
+        'company_id' => $company->id,
+    ]);
+
+    $owner1->update(['company_id' => $company->id, 'status' => 'active']);
+    setupOwnerWithPermissions($owner1, $company, $ownerRole, ['users.update']);
+
+    DB::table('company_user')->updateOrInsert(
+        ['company_id' => $company->id, 'user_id' => $owner2->id],
+        ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
+    );
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $owner2->assignRole($ownerRole);
+
+    $response = $this->actingAs($owner1)
+        ->withSession(['current_company_id' => $company->id])
+        ->put(route('organization.users.memberships.update', [
+            'user' => $owner1,
+            'company' => $company,
+        ]), [
+            'status' => 'active',
+            'role_id' => null,
+        ]);
+
+    $response->assertRedirect(route('organization.users.show', $owner1));
+    $response->assertSessionHas('success');
+
+    expect($owner1->companies()->whereKey($company->id)->wherePivot('status', 'active')->exists())->toBeTrue();
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    expect($owner1->fresh()->hasRole('Owner'))->toBeFalse()
+        ->and($owner2->fresh()->hasRole('Owner'))->toBeTrue();
+});
+
 test('last active Owner membership cannot be removed', function () {
     $pair = makeCompanyAuthorizationPair();
     $owner = $pair['user'];

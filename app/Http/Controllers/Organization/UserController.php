@@ -478,18 +478,19 @@ class UserController extends Controller
 
         try {
             DB::transaction(function () use ($user, $companyId, $status, $roleId, $request) {
-                if ($status !== 'active' || $roleId !== null) {
-                    $isRoleChangeToNonOwner = false;
-                    if ($roleId !== null) {
-                        $newRole = SpatieRole::find($roleId);
-                        if (! $newRole || $newRole->name !== 'Owner') {
-                            $isRoleChangeToNonOwner = true;
-                        }
-                    }
-                    if ($status !== 'active' || $isRoleChangeToNonOwner) {
-                        if (! LastCompanyOwnerGuard::check($user, $companyId)) {
-                            abort(400, 'Cannot perform this action: the company must have at least one active Owner.');
-                        }
+                $isRoleChangeToNonOwner = true;
+
+                if ($roleId !== null) {
+                    $newRole = SpatieRole::query()
+                        ->whereKey($roleId)
+                        ->where('company_id', $companyId)
+                        ->first();
+                    $isRoleChangeToNonOwner = $newRole === null || $newRole->name !== 'Owner';
+                }
+
+                if ($status !== 'active' || $isRoleChangeToNonOwner) {
+                    if (! LastCompanyOwnerGuard::check($user, $companyId)) {
+                        abort(400, 'Cannot perform this action: the company must have at least one active Owner.');
                     }
                 }
 
