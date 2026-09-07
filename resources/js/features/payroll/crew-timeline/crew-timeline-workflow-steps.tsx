@@ -69,7 +69,7 @@ export function CrewTimelineWorkflowSteps({
     return (
         <Card className="glass-card">
             <CardContent className="p-5">
-                <ol className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <ol className="flex flex-col gap-4 sm:flex-row sm:items-start">
                     {STEPS.map((step, index) => {
                         const state: StepState =
                             index < reached
@@ -84,35 +84,83 @@ export function CrewTimelineWorkflowSteps({
                         return (
                             <li
                                 key={step.key}
-                                className="flex flex-1 items-center gap-3"
+                                className="flex flex-1 items-start gap-3 sm:flex-col sm:items-center sm:gap-2"
                             >
-                                <div
-                                    className={cn(
-                                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors',
-                                        state === 'complete' &&
-                                            'border-emerald-500/40 bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
-                                        state === 'current' &&
-                                            !showReturned &&
-                                            'border-primary/40 bg-primary/15 text-primary',
-                                        state === 'current' &&
-                                            showReturned &&
-                                            'border-amber-500/40 bg-amber-500/15 text-amber-600 dark:text-amber-300',
-                                        state === 'upcoming' &&
-                                            'border-border/60 bg-muted/30 text-muted-foreground',
-                                    )}
-                                >
-                                    {state === 'complete' ? (
-                                        <Check className="h-5 w-5" />
+                                {/* Connector + circle row on desktop */}
+                                <div className="flex w-full flex-col items-center gap-0 sm:flex-row">
+                                    {/* Left connector */}
+                                    {index > 0 ? (
+                                        <div
+                                            className={cn(
+                                                'hidden h-px flex-1 sm:block',
+                                                index <= reached
+                                                    ? 'bg-emerald-500/50'
+                                                    : 'bg-border/60',
+                                            )}
+                                        />
                                     ) : (
-                                        <Icon className="h-5 w-5" />
+                                        <div className="hidden flex-1 sm:block" />
+                                    )}
+
+                                    {/* Step circle */}
+                                    <div className="relative shrink-0">
+                                        {state === 'current' && (
+                                            <span
+                                                className={cn(
+                                                    'absolute inset-0 -m-1 animate-ping rounded-full opacity-30',
+                                                    showReturned
+                                                        ? 'bg-amber-400'
+                                                        : 'bg-primary',
+                                                )}
+                                            />
+                                        )}
+                                        <div
+                                            className={cn(
+                                                'relative flex h-9 w-9 items-center justify-center rounded-full border-2 transition-colors',
+                                                state === 'complete' &&
+                                                    'border-emerald-500/60 bg-emerald-500/20 text-emerald-600 dark:text-emerald-300',
+                                                state === 'current' &&
+                                                    !showReturned &&
+                                                    'border-primary/60 bg-primary/20 text-primary',
+                                                state === 'current' &&
+                                                    showReturned &&
+                                                    'border-amber-500/60 bg-amber-500/20 text-amber-600 dark:text-amber-300',
+                                                state === 'upcoming' &&
+                                                    'border-border/50 bg-muted/20 text-muted-foreground/50',
+                                            )}
+                                        >
+                                            {state === 'complete' ? (
+                                                <Check className="h-4 w-4" />
+                                            ) : (
+                                                <Icon className="h-4 w-4" />
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Right connector */}
+                                    {index < STEPS.length - 1 ? (
+                                        <div
+                                            className={cn(
+                                                'hidden h-px flex-1 sm:block',
+                                                index < reached
+                                                    ? 'bg-emerald-500/50'
+                                                    : 'bg-border/60',
+                                            )}
+                                        />
+                                    ) : (
+                                        <div className="hidden flex-1 sm:block" />
                                     )}
                                 </div>
-                                <div className="min-w-0">
+
+                                {/* Label block */}
+                                <div className="min-w-0 pb-1 text-left sm:text-center">
                                     <p
                                         className={cn(
                                             'text-sm font-semibold',
                                             state === 'upcoming' &&
-                                                'text-muted-foreground',
+                                                'text-muted-foreground/50',
+                                            state === 'complete' &&
+                                                'text-emerald-700 dark:text-emerald-300',
                                         )}
                                     >
                                         {showReturned ? 'Returned' : step.label}
@@ -123,16 +171,6 @@ export function CrewTimelineWorkflowSteps({
                                             : step.hint}
                                     </p>
                                 </div>
-                                {index < STEPS.length - 1 ? (
-                                    <div
-                                        className={cn(
-                                            'mx-1 hidden h-px flex-1 sm:block',
-                                            index < reached
-                                                ? 'bg-emerald-500/40'
-                                                : 'bg-border/60',
-                                        )}
-                                    />
-                                ) : null}
                             </li>
                         );
                     })}

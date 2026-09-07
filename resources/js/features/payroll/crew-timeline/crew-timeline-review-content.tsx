@@ -1,11 +1,15 @@
+import type React from 'react';
 import { router } from '@inertiajs/react';
 import {
+    Calendar,
     CheckCircle2,
     FileSpreadsheet,
     Loader2,
+    RefreshCw,
     RotateCcw,
     Send,
     Ship,
+    Zap,
 } from 'lucide-react';
 import { useState } from 'react';
 import PrepareCrewTimesheetTimelineController from '@/actions/App/Http/Controllers/Payroll/PrepareCrewTimesheetTimelineController';
@@ -15,7 +19,8 @@ import { Main } from '@/components/layout/main';
 import { SearchBar } from '@/components/search-bar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/format-date';
 import { show as payrollShow } from '@/routes/payroll';
@@ -240,58 +245,69 @@ export function CrewTimelineReviewContent({
                 ) : null}
 
                 <Card className="glass-card">
-                    <CardContent className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
-                        <Meta
+                    <CardHeader className="px-5 pt-5 pb-3">
+                        <CardTitle className="text-sm font-semibold text-muted-foreground">
+                            Preparation Details
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 px-5 pb-5 sm:grid-cols-2 xl:grid-cols-3">
+                        <MetaWithIcon
                             label="Cutoff date"
                             value={formatDisplayDate(preparation.cutoff_date)}
+                            icon={Calendar}
                         />
-                        <Meta
-                            label="Source freshness"
-                            value={
-                                preparation.is_fresh
-                                    ? 'Fresh'
-                                    : 'Timeline changed'
-                            }
-                        />
-                        <Meta
-                            label="Prepared"
-                            value={actorLabel(
-                                preparation.prepared_by,
-                                preparation.prepared_at,
-                            )}
-                        />
-                        <Meta
-                            label="Submitted"
-                            value={actorLabel(
-                                preparation.submitted_by,
-                                preparation.submitted_at,
-                            )}
-                        />
-                        <Meta
-                            label="Approved"
-                            value={actorLabel(
-                                preparation.approved_by,
-                                preparation.approved_at,
-                            )}
-                        />
-                        <Meta
-                            label="Returned"
-                            value={actorLabel(
-                                preparation.returned_by,
-                                preparation.returned_at,
-                            )}
-                        />
-                        <Meta
-                            label="Applied"
-                            value={actorLabel(
-                                preparation.applied_by,
-                                preparation.applied_at,
-                            )}
-                        />
-                        <Meta
-                            label="Linked timesheets"
-                            value={String(preparation.linked_timesheet_count)}
-                        />
+                        <MetaFreshness isFresh={preparation.is_fresh} />
+                        {preparation.linked_timesheet_count > 0 ? (
+                            <Meta
+                                label="Linked timesheets"
+                                value={String(preparation.linked_timesheet_count)}
+                            />
+                        ) : null}
+                        {preparation.prepared_by ? (
+                            <Meta
+                                label="Prepared"
+                                value={actorLabel(
+                                    preparation.prepared_by,
+                                    preparation.prepared_at,
+                                )}
+                            />
+                        ) : null}
+                        {preparation.submitted_by ? (
+                            <Meta
+                                label="Submitted"
+                                value={actorLabel(
+                                    preparation.submitted_by,
+                                    preparation.submitted_at,
+                                )}
+                            />
+                        ) : null}
+                        {preparation.approved_by ? (
+                            <Meta
+                                label="Approved"
+                                value={actorLabel(
+                                    preparation.approved_by,
+                                    preparation.approved_at,
+                                )}
+                            />
+                        ) : null}
+                        {preparation.returned_by ? (
+                            <Meta
+                                label="Returned"
+                                value={actorLabel(
+                                    preparation.returned_by,
+                                    preparation.returned_at,
+                                )}
+                            />
+                        ) : null}
+                        {preparation.applied_by ? (
+                            <Meta
+                                label="Applied"
+                                value={actorLabel(
+                                    preparation.applied_by,
+                                    preparation.applied_at,
+                                )}
+                            />
+                        ) : null}
                     </CardContent>
                 </Card>
 
@@ -299,11 +315,12 @@ export function CrewTimelineReviewContent({
 
                 <div className="space-y-3">
                     <div className="flex items-center gap-3">
-                        <div className="h-px flex-1 bg-border/60" />
-                        <span className="text-[11px] font-bold tracking-widest text-muted-foreground/50 uppercase">
+                        <div className="h-px flex-1 bg-border/40" />
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-3 py-0.5 text-[11px] font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                            <span className="size-1.5 rounded-full bg-primary/60" />
                             Employee Breakdown
                         </span>
-                        <div className="h-px flex-1 bg-border/60" />
+                        <div className="h-px flex-1 bg-border/40" />
                     </div>
 
                     <SearchBar
@@ -387,10 +404,56 @@ export function CrewTimelineReviewContent({
 function Meta({ label, value }: { label: string; value: string }) {
     return (
         <div className="space-y-1">
-            <p className="text-xs tracking-wide text-muted-foreground uppercase">
+            <p className="text-[11px] font-semibold tracking-wide text-muted-foreground/70 uppercase">
                 {label}
             </p>
             <p className="text-sm font-medium">{value}</p>
+        </div>
+    );
+}
+
+function MetaWithIcon({
+    label,
+    value,
+    icon: Icon,
+}: {
+    label: string;
+    value: string;
+    icon: React.ComponentType<{ className?: string }>;
+}) {
+    return (
+        <div className="space-y-1">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground/70 uppercase">
+                <Icon className="size-3 shrink-0" />
+                {label}
+            </p>
+            <p className="text-sm font-medium">{value}</p>
+        </div>
+    );
+}
+
+function MetaFreshness({ isFresh }: { isFresh: boolean }) {
+    return (
+        <div className="space-y-1">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground/70 uppercase">
+                <RefreshCw className="size-3 shrink-0" />
+                Source freshness
+            </p>
+            <p
+                className={cn(
+                    'inline-flex items-center gap-1.5 text-sm font-semibold',
+                    isFresh
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-600 dark:text-amber-400',
+                )}
+            >
+                {isFresh ? (
+                    <Zap className="size-3.5 shrink-0" />
+                ) : (
+                    <RefreshCw className="size-3.5 shrink-0" />
+                )}
+                {isFresh ? 'Fresh' : 'Timeline changed'}
+            </p>
         </div>
     );
 }

@@ -106,6 +106,7 @@ export type CrewTimelineEmployeeSummary = {
     employee_id: number;
     employee_number: string | null;
     employee_name: string | null;
+    employee_image?: string | null;
     rank: string | null;
     assignment_id: number | null;
     assignment_number: string | null;

@@ -20,6 +20,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { CrewTimelineLinesDialog } from './crew-timeline-lines-dialog';
@@ -145,7 +146,6 @@ export function CrewTimelineEmployeeTable({
                 <TableHeader>
                     <DataTableHeaderRow>
                         <DataTableHead>Employee</DataTableHead>
-                        <DataTableHead>Rank</DataTableHead>
                         <DataTableHead>Assignment</DataTableHead>
                         <DataTableHead>Vessel</DataTableHead>
                         <DataTableHead>Sign-On Standby</DataTableHead>
@@ -166,15 +166,35 @@ export function CrewTimelineEmployeeTable({
                             className={dataTableBodyRowClass(false)}
                         >
                             <TableCell className={dataTableCellClass()}>
-                                <div className="font-medium">
-                                    {employee.employee_name ?? '—'}
+                                <div className="flex items-center gap-3">
+                                    <EmployeeAvatar
+                                        name={employee.employee_name ?? ''}
+                                        image={employee.employee_image}
+                                        size="sm"
+                                        className="shrink-0 rounded-lg"
+                                    />
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            {employee.blocking_warning_count > 0 ? (
+                                                <span className="size-1.5 shrink-0 rounded-full bg-red-500" />
+                                            ) : employee.informational_warning_count > 0 ? (
+                                                <span className="size-1.5 shrink-0 rounded-full bg-amber-400" />
+                                            ) : null}
+                                            <span className="truncate font-medium">
+                                                {employee.employee_name ?? '—'}
+                                            </span>
+                                        </div>
+                                        <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                                            <span>{employee.employee_number ?? '—'}</span>
+                                            {employee.rank ? (
+                                                <>
+                                                    <span className="text-border">·</span>
+                                                    <span className="font-medium text-foreground/70">{employee.rank}</span>
+                                                </>
+                                            ) : null}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="text-xs text-muted-foreground">
-                                    {employee.employee_number ?? '—'}
-                                </div>
-                            </TableCell>
-                            <TableCell className={dataTableCellClass()}>
-                                {employee.rank ?? '—'}
                             </TableCell>
                             <TableCell className={dataTableCellClass()}>
                                 {(employee.assignment_count ?? 1) > 1 ? (
@@ -241,7 +261,14 @@ export function CrewTimelineEmployeeTable({
                             <TableCell
                                 className={`${dataTableCellClass()} tabular-nums`}
                             >
-                                <span className="font-semibold">
+                                <span
+                                    className={cn(
+                                        'inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold tabular-nums',
+                                        employee.blocking_warning_count > 0
+                                            ? 'bg-red-500/10 text-red-700 dark:text-red-300'
+                                            : 'bg-primary/8 text-primary',
+                                    )}
+                                >
                                     {employee.total_payable_days.toFixed(2)}
                                 </span>
                             </TableCell>

@@ -171,6 +171,7 @@ final class CrewTimesheetPreparationReviewResource
                 'employee_id' => (int) $employeeId,
                 'employee_number' => $first?->employee?->employee_no,
                 'employee_name' => $first?->employee?->name,
+                'employee_image' => $first?->employee?->image,
                 'rank' => $primaryAssignment['rank']
                     ?? $assignments[0]['rank']
                     ?? $first?->assignment?->rank?->name
