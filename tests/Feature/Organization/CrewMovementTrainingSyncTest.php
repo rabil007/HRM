@@ -751,7 +751,7 @@ test('sync uses actual completion date and never planned dates or synthetic fall
         ->and($synced->issue_date->toDateString())->not->toBe(now($company->timezone)->toDateString());
 });
 
-test('provider and completion date corrections preserve HR-enriched fields', function () {
+test('provider and completion date corrections preserve HR-enriched fields', function (array $changes, string $expectedProvider, string $expectedIssueDate) {
     ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
     enableCrewTrainingSync($company->id);
 
@@ -806,15 +806,14 @@ test('provider and completion date corrections preserve HR-enriched fields', fun
         'certificate_path' => 'employees/cert_sgp.pdf',
     ]);
 
-    // Propose correction to provider and completion date (before next phase start)
     $requester = app(RequestCrewMovementCorrection::class);
     $correction = $requester->handle(
         $assignment->fresh(),
         $trainingPhase->fresh(),
         $user,
         [
-            'details.provider' => 'Corrected Global Academy',
-            'actual_end_at' => '2026-03-04 18:00:00',
+            'details.course_id' => (string) $course->id,
+            ...$changes,
         ],
         'Correcting provider name and completion date',
     );
@@ -823,15 +822,36 @@ test('provider and completion date corrections preserve HR-enriched fields', fun
     $approver->handle($correction, $user, $company->id, 'Approved by manager');
 
     $synced->refresh();
+    $trainingPhase->refresh();
 
     // Crew-owned fields updated
-    expect($synced->institute_center)->toBe('Corrected Global Academy')
-        ->and($synced->issue_date->toDateString())->toBe('2026-03-04')
+    expect($synced->institute_center)->toBe($expectedProvider)
+        ->and($synced->issue_date->toDateString())->toBe($expectedIssueDate)
+        ->and($synced->course_id)->toBe($course->id)
+        ->and($trainingPhase->details['course_id'])->toBe($course->id)
+        ->and($trainingPhase->details['course'])->toBe($course->name)
+        ->and($correction->proposed_values)->not->toHaveKey('details.course_id')
         // HR-owned fields preserved
         ->and($synced->expiry_date->toDateString())->toBe('2030-05-15')
         ->and($synced->country_id)->toBe($country->id)
         ->and($synced->certificate_path)->toBe('employees/cert_sgp.pdf');
-});
+})->with([
+    'provider only' => [
+        ['details.provider' => 'Corrected Global Academy'],
+        'Corrected Global Academy',
+        '2026-03-05',
+    ],
+    'completion date only' => [
+        ['actual_end_at' => '2026-03-04 18:00:00'],
+        'Original Academy',
+        '2026-03-04',
+    ],
+    'provider and completion date' => [
+        ['details.provider' => 'Corrected Global Academy', 'actual_end_at' => '2026-03-04 18:00:00'],
+        'Corrected Global Academy',
+        '2026-03-04',
+    ],
+]);
 
 test('course correction via structured course_id updates p2b details and employee training course atomically', function () {
     ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
@@ -892,7 +912,7 @@ test('course correction via structured course_id updates p2b details and employe
         $trainingPhase->fresh(),
         $user,
         [
-            'details.course_id' => $courseB->id,
+            'details.course_id' => (string) $courseB->id,
         ],
         'Course was actually FOET, not BOSIET',
     );

@@ -17,59 +17,16 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { correctionFieldLabel } from '@/features/organization/crew-movement-corrections/types';
-import type { CrewMovementCorrectionFieldValue } from '@/features/organization/crew-movement-corrections/types';
 import { cn } from '@/lib/utils';
 import { store as storeCorrection } from '@/routes/organization/crew-assignments/corrections';
+import {
+    CORRECTION_DATE_FIELDS,
+    CORRECTION_SELECT_OPTIONS,
+    editableCorrectionFields,
+    initialCorrectionFieldValue,
+    initialCorrectionValues,
+} from '../lib/correction-form';
 import type { CorrectablePhase, CrewAssignmentFormOptions } from '../types';
-
-const ASSIGNMENT_FIELD_OPTIONS: Record<
-    string,
-    keyof CrewAssignmentFormOptions
-> = {
-    vessel_id: 'vessels',
-    rank_id: 'ranks',
-    client_id: 'clients',
-    company_visa_type_id: 'visa_types',
-};
-
-const DATE_FIELDS = new Set(['actual_start_at', 'actual_end_at']);
-
-function isAssignmentField(field: string): boolean {
-    return field in ASSIGNMENT_FIELD_OPTIONS;
-}
-
-function isDetailsField(field: string): boolean {
-    return field.startsWith('details.');
-}
-
-function toDatetimeLocalValue(display: string | null | undefined): string {
-    if (!display) {
-        return '';
-    }
-
-    return display.replace(' ', 'T');
-}
-
-function initialFieldValue(
-    field: string,
-    current: CrewMovementCorrectionFieldValue | undefined,
-): string {
-    if (!current) {
-        return '';
-    }
-
-    if (DATE_FIELDS.has(field)) {
-        return toDatetimeLocalValue(current.display);
-    }
-
-    if (isAssignmentField(field)) {
-        return current.value === null || current.value === undefined
-            ? ''
-            : String(current.value);
-    }
-
-    return current.display ?? '';
-}
 
 type CorrectionFormData = {
     crew_assignment_phase_id: number | null;
@@ -101,6 +58,14 @@ export function RequestCorrectionDialog({
 
     const selectedPhase =
         correctablePhases.find((phase) => phase.id === selectedPhaseId) ?? null;
+    const editableFields = selectedPhase
+        ? editableCorrectionFields(selectedPhase)
+        : [];
+    const currentCourse = selectedPhase?.current_values['details.course_id'];
+    const currentCourseId = initialCorrectionFieldValue(
+        'details.course_id',
+        currentCourse,
+    );
 
     useEffect(() => {
         if (!open) {
@@ -119,19 +84,10 @@ export function RequestCorrectionDialog({
             return;
         }
 
-        const initialValues: Record<string, string> = {};
-
-        phase.allowed_fields.forEach((field) => {
-            initialValues[field] = initialFieldValue(
-                field,
-                phase.current_values[field],
-            );
-        });
-
         setSelectedPhaseId(phase.id);
         form.setData({
             crew_assignment_phase_id: phase.id,
-            proposed_values: initialValues,
+            proposed_values: initialCorrectionValues(phase),
             reason: '',
         });
         setStep(2);
@@ -170,10 +126,13 @@ export function RequestCorrectionDialog({
 
     const hasChanges = Boolean(
         selectedPhase &&
-        selectedPhase.allowed_fields.some(
+        editableFields.some(
             (field) =>
                 (form.data.proposed_values[field] ?? '') !==
-                initialFieldValue(field, selectedPhase.current_values[field]),
+                initialCorrectionFieldValue(
+                    field,
+                    selectedPhase.current_values[field],
+                ),
         ),
     );
 
@@ -237,12 +196,12 @@ export function RequestCorrectionDialog({
 
                     {step === 2 && selectedPhase ? (
                         <div className="space-y-4">
-                            {selectedPhase.allowed_fields.map((field) => (
+                            {editableFields.map((field) => (
                                 <div key={field} className="space-y-2">
                                     <Label htmlFor={`correction-${field}`}>
                                         {correctionFieldLabel(field)}
                                     </Label>
-                                    {DATE_FIELDS.has(field) ? (
+                                    {CORRECTION_DATE_FIELDS.has(field) ? (
                                         <Input
                                             id={`correction-${field}`}
                                             type="datetime-local"
@@ -258,8 +217,9 @@ export function RequestCorrectionDialog({
                                                 )
                                             }
                                         />
-                                    ) : isAssignmentField(field) &&
-                                      formOptions ? (
+                                    ) : field in CORRECTION_SELECT_OPTIONS &&
+                                      (formOptions ||
+                                          field === 'details.course_id') ? (
                                         <AppSelect
                                             value={
                                                 form.data.proposed_values[
@@ -272,9 +232,13 @@ export function RequestCorrectionDialog({
                                             variant="card"
                                             placeholder="Select..."
                                         >
-                                            {formOptions[
-                                                ASSIGNMENT_FIELD_OPTIONS[field]
-                                            ].map((option) => (
+                                            {(
+                                                formOptions?.[
+                                                    CORRECTION_SELECT_OPTIONS[
+                                                        field
+                                                    ]
+                                                ] ?? []
+                                            ).map((option) => (
                                                 <AppSelectItem
                                                     key={option.id}
                                                     value={String(option.id)}
@@ -282,8 +246,22 @@ export function RequestCorrectionDialog({
                                                     {option.name}
                                                 </AppSelectItem>
                                             ))}
+                                            {field === 'details.course_id' &&
+                                            !formOptions?.courses.some(
+                                                (course) =>
+                                                    String(course.id) ===
+                                                    currentCourseId,
+                                            ) ? (
+                                                <AppSelectItem
+                                                    value={currentCourseId}
+                                                    disabled
+                                                >
+                                                    {currentCourse?.display ??
+                                                        currentCourseId}
+                                                </AppSelectItem>
+                                            ) : null}
                                         </AppSelect>
-                                    ) : isDetailsField(field) ||
+                                    ) : field.startsWith('details.') ||
                                       field === 'remarks' ? (
                                         <Textarea
                                             id={`correction-${field}`}

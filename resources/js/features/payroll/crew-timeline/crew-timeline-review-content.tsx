@@ -1,4 +1,3 @@
-import type React from 'react';
 import { router } from '@inertiajs/react';
 import {
     Calendar,
@@ -11,6 +10,7 @@ import {
     Ship,
     Zap,
 } from 'lucide-react';
+import type React from 'react';
 import { useState } from 'react';
 import PrepareCrewTimesheetTimelineController from '@/actions/App/Http/Controllers/Payroll/PrepareCrewTimesheetTimelineController';
 import { DetailsHeader } from '@/components/details-header';
@@ -20,9 +20,9 @@ import { SearchBar } from '@/components/search-bar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 import { show as payrollShow } from '@/routes/payroll';
 import { show as crewTimelineShow } from '@/routes/payroll/crew-timeline';
 import { CrewTimelineApplyDialog } from './crew-timeline-apply-dialog';
@@ -260,7 +260,9 @@ export function CrewTimelineReviewContent({
                         {preparation.linked_timesheet_count > 0 ? (
                             <Meta
                                 label="Linked timesheets"
-                                value={String(preparation.linked_timesheet_count)}
+                                value={String(
+                                    preparation.linked_timesheet_count,
+                                )}
                             />
                         ) : null}
                         {preparation.prepared_by ? (

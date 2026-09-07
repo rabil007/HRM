@@ -175,9 +175,11 @@ export function CrewTimelineEmployeeTable({
                                     />
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2">
-                                            {employee.blocking_warning_count > 0 ? (
+                                            {employee.blocking_warning_count >
+                                            0 ? (
                                                 <span className="size-1.5 shrink-0 rounded-full bg-red-500" />
-                                            ) : employee.informational_warning_count > 0 ? (
+                                            ) : employee.informational_warning_count >
+                                              0 ? (
                                                 <span className="size-1.5 shrink-0 rounded-full bg-amber-400" />
                                             ) : null}
                                             <span className="truncate font-medium">
@@ -185,11 +187,18 @@ export function CrewTimelineEmployeeTable({
                                             </span>
                                         </div>
                                         <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                                            <span>{employee.employee_number ?? '—'}</span>
+                                            <span>
+                                                {employee.employee_number ??
+                                                    '—'}
+                                            </span>
                                             {employee.rank ? (
                                                 <>
-                                                    <span className="text-border">·</span>
-                                                    <span className="font-medium text-foreground/70">{employee.rank}</span>
+                                                    <span className="text-border">
+                                                        ·
+                                                    </span>
+                                                    <span className="font-medium text-foreground/70">
+                                                        {employee.rank}
+                                                    </span>
                                                 </>
                                             ) : null}
                                         </div>
