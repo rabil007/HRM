@@ -11,8 +11,8 @@ use App\Models\DocumentGenerationRun;
 use App\Models\DocumentGenerationRunItem;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
-use App\Models\DocumentInstance;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
+use App\Support\BulkDocuments\CustomDocumentRosterQuery;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -65,28 +65,20 @@ class GenerateCustomDocumentsController extends Controller
 
         $directoryFilters = EmployeeDirectoryFilters::fromArray($filters);
 
-        // Query active employees matching company and filters
-        $employeeQuery = BulkDocumentRosterQuery::employeeQuery(
-            $companyId,
-            $directoryFilters,
-            $isExplicitSelection ? $employeeIds : null,
-        );
-
-        if (! $isExplicitSelection) {
-            $alreadyGeneratedIds = DocumentInstance::query()
-                ->forCompany($companyId)
-                ->where('document_generation_template_version_id', $version->id)
-                ->withLibraryDocument()
-                ->pluck('employee_id')
-                ->filter()
-                ->all();
-
-            if ($alreadyGeneratedIds !== []) {
-                $employeeQuery->whereNotIn('id', $alreadyGeneratedIds);
-            }
+        if ($isExplicitSelection) {
+            $targetEmployeeIds = BulkDocumentRosterQuery::employeeQuery(
+                $companyId,
+                $directoryFilters,
+                $employeeIds,
+            )->pluck('id')->all();
+        } else {
+            $targetEmployeeIds = CustomDocumentRosterQuery::matchingSelection(
+                $companyId,
+                $version,
+                $directoryFilters,
+                'missing',
+            )['employee_ids'];
         }
-
-        $targetEmployeeIds = $employeeQuery->pluck('id')->all();
         $targetCount = count($targetEmployeeIds);
 
         if ($targetCount === 0) {

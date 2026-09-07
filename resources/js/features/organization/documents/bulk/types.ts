@@ -208,6 +208,7 @@ export type BulkDocumentsPageProps = {
         id: number;
         name: string;
         version: number;
+        published_version_id?: number | null;
         template_format: string;
     } | null;
     view: 'roster' | 'history';

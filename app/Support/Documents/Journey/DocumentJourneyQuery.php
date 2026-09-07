@@ -3,12 +3,16 @@
 namespace App\Support\Documents\Journey;
 
 use App\Models\BulkDocumentEmailSend;
+use App\Models\BulkDocumentSignatureRequest;
 use App\Models\DocumentGenerationRunItem;
+use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentInstance;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\BulkDocuments\GenerateDocumentTypeKey;
+use App\Support\BulkDocuments\LegacySalaryDeclarationCompletionQuery;
 
 final class DocumentJourneyQuery
 {
@@ -27,6 +31,7 @@ final class DocumentJourneyQuery
      *     employee_document: EmployeeDocument|null,
      *     run_item: DocumentGenerationRunItem|null,
      *     copy_email_send: BulkDocumentEmailSend|null,
+     *     historical_completion: BulkDocumentSignatureRequest|null,
      * }|null
      */
     public function resolve(int $companyId, array $identifiers, ?User $viewer = null): ?array
@@ -101,7 +106,7 @@ final class DocumentJourneyQuery
         }
 
         // 4. By Employee ID + Document Type Key (e.g. Salary Certificate)
-        if ($instance === null && $employeeDocument === null && $employeeId !== null && $documentTypeKey !== null) {
+        if ($instance === null && $employeeDocument === null && $employeeId !== null && $documentTypeKey !== null && ! GenerateDocumentTypeKey::isCustom($documentTypeKey)) {
             $documentType = BulkDocumentTypeRegistry::resolveDocumentType($documentTypeKey);
             $employeeDocument = EmployeeDocument::query()
                 ->where('company_id', $companyId)
@@ -155,13 +160,54 @@ final class DocumentJourneyQuery
             ->orderByDesc('sent_at')
             ->first();
 
+        $historicalCompletion = $this->resolveHistoricalCompletion(
+            $companyId,
+            $employee,
+            $instance,
+            $versionId,
+        );
+
+        if ($instance === null && $employeeDocument === null && $historicalCompletion?->employee_document_id !== null) {
+            $employeeDocument = EmployeeDocument::query()
+                ->where('company_id', $companyId)
+                ->where('id', $historicalCompletion->employee_document_id)
+                ->with(['employee.department', 'employee.position', 'documentType'])
+                ->first();
+        }
+
         return [
             'employee' => $employee,
             'instance' => $instance,
             'employee_document' => $employeeDocument,
             'run_item' => $runItem,
             'copy_email_send' => $copyEmailSend,
+            'historical_completion' => $historicalCompletion,
         ];
+    }
+
+    private function resolveHistoricalCompletion(
+        int $companyId,
+        Employee $employee,
+        ?DocumentInstance $instance,
+        ?int $versionId,
+    ): ?BulkDocumentSignatureRequest {
+        if ($instance !== null || $versionId === null) {
+            return null;
+        }
+
+        $version = DocumentGenerationTemplateVersion::query()
+            ->where('company_id', $companyId)
+            ->with('template')
+            ->find($versionId);
+
+        $template = $version?->template;
+        $completions = app(LegacySalaryDeclarationCompletionQuery::class);
+
+        if ($template === null || ! $completions->appliesToTemplate($template)) {
+            return null;
+        }
+
+        return $completions->latestCompletionForEmployee($companyId, (int) $employee->id);
     }
 
     /**

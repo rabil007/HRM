@@ -369,17 +369,22 @@ export function BulkDocumentsContent({
         (employee: BulkRosterEmployee) => {
             setJourneyIdentifiers({
                 employee_id: employee.id,
-                employee_document_id: employee.document?.id ?? null,
+                employee_document_id:
+                    employee.process?.employee_document_id ??
+                    employee.document?.id ??
+                    null,
+                document_instance_id:
+                    employee.process?.document_instance_id ?? null,
                 document_type_key: document_type_key || null,
-                version_id: customTemplateId ?? null,
+                version_id: custom_template?.published_version_id ?? null,
                 generation_run_id: latest_run?.id ?? null,
             });
             setJourneySheetOpen(true);
         },
-        [customTemplateId, document_type_key, latest_run?.id],
+        [custom_template?.published_version_id, document_type_key, latest_run?.id],
     );
 
-    const missingCount = counts.not_generated;
+    const missingCount = counts.not_started ?? counts.not_generated;
     const generateLabel = generationActionLabel({
         isBusy: isGenerating || isGenerationRunActive(latest_run?.status),
         selectedCount: effectiveSelectedCount,
@@ -869,7 +874,7 @@ export function BulkDocumentsContent({
                     <DocumentContextHeader
                         documentTypeKey={document_type_key}
                         documentTypeOptions={document_type_options}
-                        missingCount={counts.not_generated}
+                        missingCount={missingCount}
                         selectedCount={effectiveSelectedCount}
                         generateLabel={generateLabel}
                         canGenerate={can.generate}
@@ -1332,6 +1337,11 @@ function BulkRosterRow({
                             >
                                 {process.label}
                             </Badge>
+                            {process.historical ? (
+                                <span className="text-[10px] font-medium text-muted-foreground">
+                                    {process.secondary_label ?? 'Historical'}
+                                </span>
+                            ) : null}
                             {process.action_email?.status === 'failed' ? (
                                 <span className="text-[10px] font-medium text-rose-600 dark:text-rose-400">
                                     Action email issue

@@ -2,10 +2,12 @@
 
 namespace App\Support\Documents\Process;
 
+use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Enums\DocumentRecipientRole;
 use App\Enums\DocumentWorkflowStageStatus;
 use App\Enums\DocumentWorkflowTaskStatus;
+use App\Models\BulkDocumentSignatureRequest;
 use App\Models\DocumentGenerationRunItem;
 use App\Models\DocumentInstance;
 use App\Models\DocumentRecipientRequest;
@@ -46,6 +48,8 @@ final class DocumentOperationalProcessPresenter
      *     recipient_request_id: int|null,
      *     document_instance_id: int|null,
      *     employee_document_id: int|null,
+     *     historical: bool,
+     *     secondary_label: string|null,
      * }
      */
     public function present(
@@ -56,6 +60,7 @@ final class DocumentOperationalProcessPresenter
         ?CarbonInterface $copyEmailSentAt = null,
         ?string $legacySignatureStatus = null,
         ?User $viewer = null,
+        ?BulkDocumentSignatureRequest $historicalCompletion = null,
     ): array {
         $doc = $instance?->employeeDocument ?? $employeeDocument;
         $lifecycle = $instance?->lifecycleAutomation;
@@ -138,7 +143,15 @@ final class DocumentOperationalProcessPresenter
                 'recipient_request_id' => null,
                 'document_instance_id' => $instance?->id,
                 'employee_document_id' => $doc?->id,
+                'historical' => false,
+                'secondary_label' => null,
             ];
+        }
+
+        // Historical Salary Declaration completion is a fallback only when there
+        // is no current DocumentInstance for this workspace.
+        if ($instance === null && $this->isHistoricalCompletion($historicalCompletion)) {
+            return $this->presentHistoricalCompletion($historicalCompletion, $doc);
         }
 
         // 4. Not Started / Not Generated
@@ -545,6 +558,51 @@ final class DocumentOperationalProcessPresenter
             'event' => $event,
             'timestamp' => $carbon->toIso8601String(),
             'relative' => $carbon->diffForHumans(),
+        ];
+    }
+
+    private function isHistoricalCompletion(?BulkDocumentSignatureRequest $completion): bool
+    {
+        if ($completion === null) {
+            return false;
+        }
+
+        $signedPath = trim((string) $completion->signed_pdf_path);
+
+        return $completion->status === BulkDocumentSignatureRequestStatus::Approved
+            && $completion->signed_at !== null
+            && $signedPath !== '';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function presentHistoricalCompletion(
+        BulkDocumentSignatureRequest $completion,
+        ?EmployeeDocument $doc,
+    ): array {
+        $libraryDoc = $doc;
+
+        return [
+            'status' => 'completed',
+            'label' => 'Completed',
+            'tone' => 'success',
+            'stage' => null,
+            'waiting_for' => null,
+            'last_activity' => $this->resolveLastActivity('Signed', $completion->signed_at),
+            'action_email' => null,
+            'document_copy_email' => [
+                'status' => 'not_sent',
+                'sent_at' => null,
+            ],
+            'authorized_action_url' => null,
+            'workflow_request_id' => null,
+            'signing_flow_id' => null,
+            'recipient_request_id' => null,
+            'document_instance_id' => null,
+            'employee_document_id' => $libraryDoc?->id ?? $completion->employee_document_id,
+            'historical' => true,
+            'secondary_label' => 'Historical signed declaration',
         ];
     }
 

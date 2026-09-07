@@ -111,6 +111,36 @@ There is no `--execute` mode. `--export` requires `--company` and writes a CSV o
 5. Generate Company Templates for employees who still need a current Salary Declaration.
 6. Use Requests → Signing and `/document-action/*` for all current tracking.
 
+### Generate & Track historical completion bridge
+
+Legacy approved signed Salary Declarations remain **immutable**. They are not migrated into `DocumentInstance`, `DocumentSigningFlow`, or `DocumentRecipientRequest` rows.
+
+The successor Company Template is identified by a durable relationship: `document_generation_templates.document_type_id` equals the Salary Declaration `document_types.id` (the type titled `Salary Declaration` from `BulkDocumentTypeRegistry`). Display names such as “Salary declaration” are not used as the mapping.
+
+For that successor template only, Generate & Track **projects** historical completion when:
+
+- `company_id` is the active company
+- `document_type_key = salary_declaration`
+- `status = approved`
+- `signed_at` is not null
+- `signed_pdf_path` is not null
+
+`submitted`, `awaiting_signature`, `rejected`, `expired`, and `cancelled` are **not** historical completions. Those employees remain **Not started** when they have no current process, so they can be generated with the Company Template architecture.
+
+Counts and filters are distinct by employee:
+
+- **Completed** = unique employees with a current completed process **or** a qualifying historical signature and no current process
+- **Not started** = employees with neither
+- **In progress** / **Needs attention** = current processes only
+
+Current DocumentInstance / lifecycle state always wins. If HR generates a new Salary Declaration and it is awaiting signature, the roster shows that current state, not historical completion.
+
+Implicit **Generate missing** (and `process_filter=not_started` / `generation_filter=missing` selection) uses the same server definition and excludes historically completed employees. Explicit employee selection for regeneration remains available as a separate intentional action.
+
+View / Journey for a historical completion is read-only (no send, resend, approve, or sign actions). When the legacy request has an `employee_document_id` in the current company, Preview uses the existing authorized document file route. Raw `signed_pdf_path` values are not exposed.
+
+No legacy signing UI is restored. New Company Template signing is unchanged.
+
 ### New requests blocked
 
 `CreateBulkDocumentSignatureRequest` and bulk email/generate HTTP actions reject Salary Declaration with a domain validation error. Salary Certificate generation/email is unchanged. Public `/esign/{token}` is removed (404). New signing uses `/document-action/*`.

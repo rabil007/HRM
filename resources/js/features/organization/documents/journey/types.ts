@@ -39,6 +39,8 @@ export type OperationalProcess = {
     recipient_request_id: number | null;
     document_instance_id: number | null;
     employee_document_id: number | null;
+    historical?: boolean;
+    secondary_label?: string | null;
 };
 
 export type JourneyEmployee = {

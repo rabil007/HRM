@@ -292,6 +292,7 @@ class BulkDocumentsController extends Controller
                 'id' => $customTemplate->id,
                 'name' => $customTemplate->name,
                 'version' => $customVersion?->version,
+                'published_version_id' => $customVersion?->id,
                 'template_format' => $customTemplate->template_format->value,
             ] : null,
             'module_view_locked' => $moduleViewLocked,

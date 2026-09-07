@@ -6,6 +6,7 @@ use App\Enums\DocumentRecipientRequestDeliveryStatus;
 use App\Enums\DocumentRecipientRequestStatus;
 use App\Enums\DocumentWorkflowTaskStatus;
 use App\Models\BulkDocumentEmailSend;
+use App\Models\BulkDocumentSignatureRequest;
 use App\Models\DocumentGenerationRunItem;
 use App\Models\DocumentInstance;
 use App\Models\DocumentLifecycleAutomation;
@@ -31,6 +32,7 @@ final class DocumentJourneyPresenter
      *     employee_document: EmployeeDocument|null,
      *     run_item: DocumentGenerationRunItem|null,
      *     copy_email_send: BulkDocumentEmailSend|null,
+     *     historical_completion?: BulkDocumentSignatureRequest|null,
      * }  $journeyData
      * @return array<string, mixed>
      */
@@ -41,6 +43,7 @@ final class DocumentJourneyPresenter
         $doc = $journeyData['employee_document'] ?? $instance?->employeeDocument;
         $runItem = $journeyData['run_item'];
         $copyEmailSend = $journeyData['copy_email_send'];
+        $historicalCompletion = $journeyData['historical_completion'] ?? null;
 
         $lifecycle = $instance?->lifecycleAutomation;
         $workflow = $lifecycle?->workflowRequest;
@@ -57,26 +60,31 @@ final class DocumentJourneyPresenter
             copyEmailSentAt: $copyEmailSend?->sent_at,
             legacySignatureStatus: null,
             viewer: $viewer,
+            historicalCompletion: $historicalCompletion,
         );
 
-        $events = $this->buildTimelineEvents(
-            $instance,
-            $doc,
-            $runItem,
-            $lifecycle,
-            $workflow,
-            $recipientRequests,
-            $copyEmailSend,
-        );
+        $isHistorical = $historicalCompletion !== null && $instance === null && ($process['historical'] ?? false) === true;
 
-        $actionEmailBanner = $this->buildActionEmailBanner($recipientRequests, $viewer);
+        $events = $isHistorical
+            ? $this->buildHistoricalTimelineEvents($historicalCompletion, $doc)
+            : $this->buildTimelineEvents(
+                $instance,
+                $doc,
+                $runItem,
+                $lifecycle,
+                $workflow,
+                $recipientRequests,
+                $copyEmailSend,
+            );
+
+        $actionEmailBanner = $isHistorical ? null : $this->buildActionEmailBanner($recipientRequests, $viewer);
 
         $viewUrl = $doc !== null ? route('organization.documents.files.preview', ['document' => $doc->id]) : null;
         $detailsUrl = $doc !== null ? route('organization.documents.employee.files.show', ['employee' => $employee->id, 'document' => $doc->id]) : null;
 
         $canViewDocuments = $viewer?->can('documents.view') ?? false;
         $canDownloadDocuments = $viewer?->can('documents.download') ?? false;
-        $canResendActionEmail = $viewer?->can('documents.recipient-requests.respond') ?? false;
+        $canResendActionEmail = $isHistorical ? false : ($viewer?->can('documents.recipient-requests.respond') ?? false);
 
         return [
             'employee' => [
@@ -89,10 +97,10 @@ final class DocumentJourneyPresenter
             'document' => [
                 'id' => $doc?->id,
                 'instance_id' => $instance?->id,
-                'title' => $doc?->title ?? $instance?->title_snapshot ?? 'Document',
-                'document_type' => $doc?->documentType?->name ?? $instance?->template_name_snapshot,
-                'version_number' => $instance?->template_version_number ?? $instance?->currentVersion?->version,
-                'generated_at' => ($instance?->generated_at ?? $doc?->created_at)?->toIso8601String(),
+                'title' => $doc?->title ?? $instance?->title_snapshot ?? ($isHistorical ? 'Salary Declaration' : 'Document'),
+                'document_type' => $doc?->documentType?->title ?? $instance?->template_name_snapshot ?? ($isHistorical ? 'Salary Declaration' : null),
+                'version_number' => $isHistorical ? null : ($instance?->template_version_number ?? $instance?->currentVersion?->version),
+                'generated_at' => ($instance?->generated_at ?? $doc?->created_at ?? $historicalCompletion?->created_at)?->toIso8601String(),
                 'view_url' => $canViewDocuments ? $viewUrl : null,
                 'details_url' => $canViewDocuments ? $detailsUrl : null,
             ],
@@ -103,9 +111,81 @@ final class DocumentJourneyPresenter
                 'can_view_document' => $canViewDocuments,
                 'can_download_document' => $canDownloadDocuments,
                 'can_resend_action_email' => $canResendActionEmail,
-                'can_retry_lifecycle' => $viewer?->can('bulk_documents.manage') ?? false,
+                'can_retry_lifecycle' => $isHistorical ? false : ($viewer?->can('bulk_documents.manage') ?? false),
             ],
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function buildHistoricalTimelineEvents(
+        BulkDocumentSignatureRequest $completion,
+        ?EmployeeDocument $doc,
+    ): array {
+        $generatedAt = $doc?->created_at ?? $completion->created_at;
+        $signedAt = $completion->signed_at;
+        $approvedAt = $completion->reviewed_at ?? $completion->signed_at;
+
+        $events = [];
+
+        if ($generatedAt !== null) {
+            $events[] = [
+                'id' => 'evt_hist_generated_'.$completion->id,
+                'type' => 'generated',
+                'title' => 'Historical declaration generated',
+                'description' => null,
+                'actor' => 'System',
+                'status' => 'completed',
+                'timestamp' => $generatedAt->toIso8601String(),
+                'relative' => $generatedAt->diffForHumans(),
+                'metadata' => ['historical' => true],
+            ];
+        }
+
+        if ($signedAt !== null) {
+            $events[] = [
+                'id' => 'evt_hist_signed_'.$completion->id,
+                'type' => 'signed',
+                'title' => 'Employee signed',
+                'description' => 'Signed '.$signedAt->toDayDateTimeString(),
+                'actor' => null,
+                'status' => 'completed',
+                'timestamp' => $signedAt->toIso8601String(),
+                'relative' => $signedAt->diffForHumans(),
+                'metadata' => ['historical' => true],
+            ];
+        }
+
+        if ($approvedAt !== null) {
+            $events[] = [
+                'id' => 'evt_hist_approved_'.$completion->id,
+                'type' => 'reviewed',
+                'title' => 'Approved',
+                'description' => $completion->reviewed_at !== null
+                    ? 'Approved '.$approvedAt->toDayDateTimeString()
+                    : null,
+                'actor' => null,
+                'status' => 'approved',
+                'timestamp' => $approvedAt->toIso8601String(),
+                'relative' => $approvedAt->diffForHumans(),
+                'metadata' => ['historical' => true],
+            ];
+        }
+
+        $events[] = [
+            'id' => 'evt_hist_completed_'.$completion->id,
+            'type' => 'completed',
+            'title' => 'Completed · Historical',
+            'description' => 'This signed Salary Declaration was completed before Company Template generation.',
+            'actor' => 'System',
+            'status' => 'completed',
+            'timestamp' => ($approvedAt ?? $signedAt)?->toIso8601String(),
+            'relative' => ($approvedAt ?? $signedAt)?->diffForHumans(),
+            'metadata' => ['historical' => true],
+        ];
+
+        return $events;
     }
 
     /**

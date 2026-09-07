@@ -252,6 +252,9 @@ export function DocumentJourneySheet({
                                 )}
                             >
                                 {journeyData.process.label}
+                                {journeyData.process.historical
+                                    ? ' · Historical'
+                                    : ''}
                             </Badge>
                         )}
                     </div>
