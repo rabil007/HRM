@@ -3,10 +3,12 @@
 namespace App\Providers;
 
 use App\Models\EmailTemplate;
+use App\Models\User;
 use App\Services\SalaryDeclaration\RendersSalaryDeclarationPdf;
 use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
 use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
+use App\Support\Auth\UnrestrictedCompanyAccess;
 use App\Support\BulkDocuments\ConfiguresBrowsershotEnvironment;
 use App\Support\Queue\JobRunRecorder;
 use App\Support\Security\ProductionSecurityDefaults;
@@ -24,6 +26,7 @@ use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -65,6 +68,7 @@ class AppServiceProvider extends ServiceProvider
         ConfiguresBrowsershotEnvironment::apply();
         app(ProductionSecurityDefaults::class)->apply();
         $this->configureDefaults();
+        $this->configureUnrestrictedCompanyAccess();
         $this->configureApplicationSettings();
         $this->configureMailViews();
         $this->configurePasswordResetNotifications();
@@ -240,6 +244,17 @@ class AppServiceProvider extends ServiceProvider
         }
 
         return in_array($command, self::DEFER_SETTINGS_COMMANDS, true);
+    }
+
+    protected function configureUnrestrictedCompanyAccess(): void
+    {
+        Gate::before(function (mixed $user, string $ability): ?true {
+            if (! $user instanceof User) {
+                return null;
+            }
+
+            return UnrestrictedCompanyAccess::allowsAbility($user, $ability) ? true : null;
+        });
     }
 
     /**

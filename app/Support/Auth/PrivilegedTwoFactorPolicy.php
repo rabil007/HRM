@@ -66,7 +66,7 @@ final class PrivilegedTwoFactorPolicy
             return false;
         }
 
-        if (PlatformAuthorization::canView($user)) {
+        if (PlatformAuthorization::canView($user) || UnrestrictedCompanyAccess::grants($user)) {
             return true;
         }
 

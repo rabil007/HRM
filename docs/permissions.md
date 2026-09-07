@@ -48,7 +48,7 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 
 `crew_operations.assignments.void` (Void Erroneous Assignment) is high-trust only: auto-granted to roles that already hold `roles.update` (same convention as `corrections.override`). Permission alone is not sufficient — `CrewAssignmentVoidGuard` blocks voids that would affect protected payroll, sea service, or linked assignment chains.
 
-Re-seed after catalog changes: `php artisan db:seed --class=PermissionsSeeder`. The seeded `Owner` role receives the full catalog when `AdminSeeder` runs.
+Re-seed after catalog changes: `php artisan db:seed --class=PermissionsSeeder`. The seeded `Owner` role receives the full catalog when `AdminSeeder` runs. The demo account `admin@example.com` is treated as unrestricted for every catalog permission even when no Spatie roles are assigned; tenant isolation, model policies, and privileged 2FA still apply.
 | Reports | `reports.crew_movement_history.view|export` |
 | Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` (incl. `view_all` and privileged `delete_any`; approve is step-scoped; `assigned_to_me` is historical assignment visibility only), `attendance.leave-approval-policies.*`, `attendance.leave-approval-settings.view|update` (company-scoped approver defaults and leave-request email notification switches; Email Templates still control content/enabled state) |
 | Payroll | `payroll.overview.view`, `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, `payroll.payslips.*`, `payroll.wps.export` |

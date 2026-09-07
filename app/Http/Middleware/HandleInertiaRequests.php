@@ -7,6 +7,7 @@ use App\Models\NavigationFavorite;
 use App\Models\User;
 use App\Services\Settings\SettingService;
 use App\Support\Auth\PrivilegedTwoFactorPolicy;
+use App\Support\Auth\UnrestrictedCompanyAccess;
 use App\Support\Companies\ResolveCompanyAccess;
 use App\Support\Documents\MyTasks\MyTasksCounter;
 use App\Support\Platform\PlatformAuthorization;
@@ -161,6 +162,10 @@ class HandleInertiaRequests extends Middleware
 
                 $permissions = Cache::remember($permissionsCacheKey, now()->addSeconds(60), function () use ($currentCompanyId, $user) {
                     app(PermissionRegistrar::class)->setPermissionsTeamId((int) $currentCompanyId);
+
+                    if (UnrestrictedCompanyAccess::grants($user)) {
+                        return UnrestrictedCompanyAccess::permissionNames();
+                    }
 
                     return $user->getAllPermissions()->pluck('name')->all();
                 });

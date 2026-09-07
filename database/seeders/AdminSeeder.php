@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\PlatformAccess;
 use App\Models\Company;
 use App\Models\User;
+use App\Support\Auth\UnrestrictedCompanyAccess;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -25,7 +26,7 @@ class AdminSeeder extends Seeder
         }
 
         $user = User::query()->updateOrCreate(
-            ['email' => 'admin@example.com'],
+            ['email' => UnrestrictedCompanyAccess::EMAIL],
             [
                 'name' => 'Admin',
                 'password' => 'password',

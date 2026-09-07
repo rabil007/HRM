@@ -5,6 +5,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use App\Support\Auth\UnrestrictedCompanyAccess;
 use Database\Seeders\AdminSeeder;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Support\Facades\Hash;
@@ -39,7 +40,7 @@ test('admin seeder creates demo admin in local and testing environments', functi
 
     $this->seed(AdminSeeder::class);
 
-    $admin = User::query()->where('email', 'admin@example.com')->first();
+    $admin = User::query()->where('email', UnrestrictedCompanyAccess::EMAIL)->first();
 
     expect($admin)->not->toBeNull()
         ->and($admin->platform_access)->toBe(PlatformAccess::Manage)
@@ -56,7 +57,7 @@ test('admin seeder safely returns and does not create demo admin in production',
     $this->artisan('db:seed', ['--class' => AdminSeeder::class, '--force' => true])
         ->assertSuccessful();
 
-    $admin = User::query()->where('email', 'admin@example.com')->first();
+    $admin = User::query()->where('email', UnrestrictedCompanyAccess::EMAIL)->first();
 
     expect($admin)->toBeNull();
 });
@@ -67,7 +68,7 @@ test('admin seeder in production does not reset an existing administrator accoun
 
     $customPasswordHash = Hash::make('CustomProductionSecret123!');
     $existing = User::factory()->create([
-        'email' => 'admin@example.com',
+        'email' => UnrestrictedCompanyAccess::EMAIL,
         'password' => $customPasswordHash,
         'platform_access' => PlatformAccess::View,
         'company_id' => $company->id,
@@ -89,6 +90,6 @@ test('permissions seeder does not create administrator accounts or grant platfor
 
     $this->seed(PermissionsSeeder::class);
 
-    expect(User::query()->where('email', 'admin@example.com')->exists())->toBeFalse()
+    expect(User::query()->where('email', UnrestrictedCompanyAccess::EMAIL)->exists())->toBeFalse()
         ->and($user->fresh()->platform_access)->toBeNull();
 });
