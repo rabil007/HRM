@@ -102,6 +102,7 @@ export interface CrewAssignmentListItem
         id: number;
         name: string;
         employee_no: string | null;
+        image?: string | null;
     } | null;
     rank: {
         id: number;
@@ -150,6 +151,7 @@ export interface CrewAssignmentDetail
         id: number;
         name: string;
         employee_no: string | null;
+        image?: string | null;
     } | null;
     rank: {
         id: number;

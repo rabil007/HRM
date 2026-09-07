@@ -85,3 +85,20 @@ test('list presenter includes warnings payload shape', function () {
         expect($item['warnings'][0])->toHaveKeys(['code', 'severity', 'label', 'message', 'date']);
     }
 });
+
+test('presenter includes employee image in list and detail payloads', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makeCrewAssignmentFixtures();
+    $employee->update(['image' => 'employees/1/images/avatar.jpg']);
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+    ], $user->id)->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'company', 'phases', 'planningAssignment', 'companyVisaType']);
+
+    $listItem = CrewAssignmentPresenter::listItem($assignment);
+    expect($listItem['employee'])->toBeArray()
+        ->and($listItem['employee']['image'])->toBe('employees/1/images/avatar.jpg');
+
+    $detail = CrewAssignmentPresenter::detail($assignment);
+    expect($detail['employee'])->toBeArray()
+        ->and($detail['employee']['image'])->toBe('employees/1/images/avatar.jpg');
+});

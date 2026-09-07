@@ -12,6 +12,7 @@ export function CrewEmployeeIdentity({
         id: number;
         name: string;
         employee_no: string | null;
+        image?: string | null;
     } | null;
     rankName?: string | null;
     showAvatar?: boolean;
@@ -29,7 +30,11 @@ export function CrewEmployeeIdentity({
                     stopRowNavigation
                     className="shrink-0"
                 >
-                    <EmployeeAvatar name={employee.name} size="sm" />
+                    <EmployeeAvatar
+                        name={employee.name}
+                        image={employee.image}
+                        size="sm"
+                    />
                 </EmployeeProfileLink>
             ) : null}
             <div className="min-w-0">

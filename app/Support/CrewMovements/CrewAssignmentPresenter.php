@@ -39,6 +39,7 @@ class CrewAssignmentPresenter
                 'id' => $assignment->employee->id,
                 'name' => $assignment->employee->name,
                 'employee_no' => $assignment->employee->employee_no,
+                'image' => $assignment->employee->image,
             ] : null,
             'rank' => $assignment->rank ? [
                 'id' => $assignment->rank->id,
@@ -156,6 +157,7 @@ class CrewAssignmentPresenter
                 'id' => $assignment->employee->id,
                 'name' => $assignment->employee->name,
                 'employee_no' => $assignment->employee->employee_no,
+                'image' => $assignment->employee->image,
             ] : null,
             'rank' => $assignment->rank ? [
                 'id' => $assignment->rank->id,
