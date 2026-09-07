@@ -9,7 +9,7 @@ class UpdateCrewOperationsSettingsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user();
+        return $this->user()?->can('crew_operations.settings.update') ?? false;
     }
 
     protected function prepareForValidation(): void

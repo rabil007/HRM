@@ -303,6 +303,9 @@ class PermissionsSeeder extends Seeder
             'crew_operations.planning.update',
             'crew_operations.planning.delete',
 
+            'crew_operations.settings.view',
+            'crew_operations.settings.update',
+
             'crew_operations.assignments.view',
             'crew_operations.assignments.create',
             'crew_operations.assignments.update',

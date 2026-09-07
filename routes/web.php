@@ -560,8 +560,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/crew-movement-corrections/{correction}/cancel', [CrewMovementCorrectionDecisionController::class, 'cancel'])
         ->name('organization.crew-movement-corrections.cancel');
 
-    Route::get('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'index'])->middleware('can:crew_operations.planning.view')->name('organization.crew-operations.settings.index');
-    Route::put('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'update'])->middleware('can:crew_operations.planning.update')->name('organization.crew-operations.settings.update');
+    Route::get('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'index'])->middleware('can:crew_operations.settings.view')->name('organization.crew-operations.settings.index');
+    Route::put('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'update'])->middleware('can:crew_operations.settings.update')->name('organization.crew-operations.settings.update');
 
     Route::get('payroll/overview', PayrollOverviewController::class)->middleware('can:payroll.overview.view')->name('payroll.overview');
     Route::get('payroll', [PayrollController::class, 'index'])->name('payroll.index');

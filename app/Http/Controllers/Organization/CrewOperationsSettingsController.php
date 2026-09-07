@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\CrewOperations\UpdateCrewOperationsSettingsRequest;
 use App\Support\CrewOperations\CrewOperationsSettings;
+use App\Support\CrewOperations\CrewOperationsSettingsPagePermissions;
 use App\Support\Settings\CompanyTimezone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ class CrewOperationsSettingsController extends Controller
             'department_tree' => CrewOperationsSettings::activeDepartmentTree($companyId),
             'notification_users' => CrewOperationsSettings::notificationRecipientOptions($companyId),
             'company_timezone' => $companyTimezone,
+            'can' => CrewOperationsSettingsPagePermissions::for($request->user()),
             'crew_settings' => [
                 'pool_department_ids' => CrewOperationsSettings::poolDepartmentIds($companyId),
                 'max_home_days' => CrewOperationsSettings::maxHomeDays($companyId),

@@ -25,7 +25,8 @@ export function canViewCrewOperations(permissions: string[]): boolean {
         has(permissions, 'crew_operations.vessels.view') ||
         has(permissions, 'crew_operations.vessel_manning.view') ||
         has(permissions, 'crew_operations.planning.view') ||
-        has(permissions, 'crew_operations.corrections.view')
+        has(permissions, 'crew_operations.corrections.view') ||
+        has(permissions, 'crew_operations.settings.view')
     );
 }
 
@@ -141,6 +142,10 @@ export function crewOperationsHref(permissions: string[]): string {
         return '/organization/crew-movement-corrections';
     }
 
+    if (has(permissions, 'crew_operations.settings.view')) {
+        return '/organization/crew-operations/settings';
+    }
+
     return '/organization/crew-operations';
 }
 
@@ -207,7 +212,7 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
     '/organization/crew-planning': (permissions) =>
         has(permissions, 'crew_operations.planning.view'),
     '/organization/crew-operations/settings': (permissions) =>
-        has(permissions, 'crew_operations.planning.view'),
+        has(permissions, 'crew_operations.settings.view'),
     '/organization/crew-movement-corrections': (permissions) =>
         has(permissions, 'crew_operations.corrections.view'),
     '/organization/reports/crew-movement-history': (permissions) =>

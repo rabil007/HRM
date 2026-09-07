@@ -69,7 +69,7 @@ test('users without view permission cannot view crew operations settings', funct
 test('authorized users can view the crew operations settings index', function () {
     ['user' => $user, 'company' => $company] = makeCrewOperationsSettingsFixtures();
 
-    grantCompanyPermissions($user, $company, ['crew_operations.planning.view']);
+    grantCompanyPermissions($user, $company, ['crew_operations.settings.view']);
 
     $dept = Department::query()->create([
         'company_id' => $company->id,
@@ -111,15 +111,26 @@ test('authorized users can view the crew operations settings index', function ()
             ->where('crew_settings.notification_email_digest_at', '08:00')
             ->where('crew_settings.notification_email_critical_immediate', true)
             ->has('notification_users')
+            ->where('can.update', false)
         );
+});
+
+test('planning view permission does not grant crew operations settings access', function () {
+    ['user' => $user, 'company' => $company] = makeCrewOperationsSettingsFixtures();
+
+    grantCompanyPermissions($user, $company, ['crew_operations.planning.view']);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-operations.settings.index'))
+        ->assertForbidden();
 });
 
 test('authorized user can update crew operations settings', function () {
     ['user' => $user, 'company' => $company] = makeCrewOperationsSettingsFixtures();
 
     grantCompanyPermissions($user, $company, [
-        'crew_operations.planning.view',
-        'crew_operations.planning.update',
+        'crew_operations.settings.view',
+        'crew_operations.settings.update',
     ]);
 
     $dept = Department::query()->create([
@@ -163,8 +174,8 @@ test('clearing pool department settings works', function () {
     ['user' => $user, 'company' => $company] = makeCrewOperationsSettingsFixtures();
 
     grantCompanyPermissions($user, $company, [
-        'crew_operations.planning.view',
-        'crew_operations.planning.update',
+        'crew_operations.settings.view',
+        'crew_operations.settings.update',
     ]);
 
     $dept = Department::query()->create([
@@ -208,7 +219,34 @@ test('clearing pool department settings works', function () {
 test('users without update permission cannot change settings', function () {
     ['user' => $user, 'company' => $company] = makeCrewOperationsSettingsFixtures();
 
-    grantCompanyPermissions($user, $company, ['crew_operations.planning.view']);
+    grantCompanyPermissions($user, $company, ['crew_operations.settings.view']);
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-operations.settings.update'), [
+            'pool_department_ids' => [],
+            'max_home_days' => 30,
+            'sync_sea_service' => false,
+            'notifications_enabled' => false,
+            'notification_recipient_user_ids' => [],
+            'alert_signoff_overdue' => true,
+            'alert_signoff_no_relief' => true,
+            'alert_relief_not_ready' => true,
+            'alert_current_manning_gap' => true,
+            'alert_projected_manning_gap' => true,
+            'notification_email_delivery_mode' => 'scheduled',
+            'notification_email_digest_at' => '08:00',
+            'notification_email_critical_immediate' => true,
+        ])
+        ->assertForbidden();
+});
+
+test('planning update permission does not allow changing crew operations settings', function () {
+    ['user' => $user, 'company' => $company] = makeCrewOperationsSettingsFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.settings.view',
+        'crew_operations.planning.update',
+    ]);
 
     $this->actingAs($user)
         ->put(route('organization.crew-operations.settings.update'), [
@@ -233,8 +271,8 @@ test('settings reject departments from another company', function () {
     ['user' => $user, 'company' => $company, 'otherCompany' => $otherCompany] = makeCrewOperationsSettingsFixtures();
 
     grantCompanyPermissions($user, $company, [
-        'crew_operations.planning.view',
-        'crew_operations.planning.update',
+        'crew_operations.settings.view',
+        'crew_operations.settings.update',
     ]);
 
     $foreignDept = Department::query()->create([
@@ -267,8 +305,8 @@ test('invalid email delivery mode and digest time are rejected', function () {
     ['user' => $user, 'company' => $company] = makeCrewOperationsSettingsFixtures();
 
     grantCompanyPermissions($user, $company, [
-        'crew_operations.planning.view',
-        'crew_operations.planning.update',
+        'crew_operations.settings.view',
+        'crew_operations.settings.update',
     ]);
 
     $this->actingAs($user)
@@ -297,8 +335,8 @@ test('disabling sea service sync is logged with old and new values', function ()
     ['user' => $user, 'company' => $company] = makeCrewOperationsSettingsFixtures();
 
     grantCompanyPermissions($user, $company, [
-        'crew_operations.planning.view',
-        'crew_operations.planning.update',
+        'crew_operations.settings.view',
+        'crew_operations.settings.update',
     ]);
 
     CrewOperationsSetting::query()->create([

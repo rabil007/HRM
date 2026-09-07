@@ -81,3 +81,23 @@ test('vessels.view cannot unlock a removed vessel manning destination', function
     expect(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.vessels'))->toBeTrue()
         ->and(NavigationDestinationCatalog::contains('crew.vessel-manning'))->toBeFalse();
 });
+
+test('planning view cannot unlock crew operations settings destination', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['crew_operations.planning.view']);
+
+    expect(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.settings'))->toBeFalse()
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.planning'))->toBeTrue();
+});
+
+test('settings view unlocks crew operations settings destination', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['crew_operations.settings.view']);
+
+    expect(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.settings'))->toBeTrue()
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.planning'))->toBeFalse();
+});

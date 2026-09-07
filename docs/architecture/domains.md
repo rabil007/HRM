@@ -685,8 +685,9 @@ Current Crew (`/organization/crew`) is operational state, not planning. **Crew V
 
 - `crew_operations.overview.view`
 - `crew_operations.planning.view|create|update|delete`
+- `crew_operations.settings.view|update`
 
-Overview uses `can:crew_operations.overview.view`. Settings use `can:crew_operations.planning.view` (read) and `can:crew_operations.planning.update` (write). Verify any new Crew Operations route independently.
+Overview uses `can:crew_operations.overview.view`. Settings use `can:crew_operations.settings.view` (read) and `can:crew_operations.settings.update` (write). Planning stays on the Gantt and related planning routes. Verify any new Crew Operations route independently.
 
 ---
 

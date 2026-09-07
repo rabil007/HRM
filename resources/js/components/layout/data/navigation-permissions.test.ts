@@ -191,6 +191,29 @@ describe('Crew navigation', () => {
             '/organization/crew-movement-corrections',
         );
     });
+
+    it('shows settings from settings.view, not planning.view', () => {
+        assert.equal(
+            isSidebarUrlVisible('/organization/crew-operations/settings', [
+                'crew_operations.planning.view',
+            ]),
+            false,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/crew-operations/settings', [
+                'crew_operations.settings.view',
+            ]),
+            true,
+        );
+        assert.equal(
+            canViewCrewOperations(['crew_operations.settings.view']),
+            true,
+        );
+        assert.equal(
+            crewOperationsHref(['crew_operations.settings.view']),
+            '/organization/crew-operations/settings',
+        );
+    });
 });
 
 describe('Attendance top-nav landing', () => {

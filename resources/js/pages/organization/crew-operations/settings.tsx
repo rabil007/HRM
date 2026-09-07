@@ -66,6 +66,9 @@ type Props = {
     crew_settings: PlanningSettings;
     notification_users: NotificationUserOption[];
     company_timezone?: string;
+    can: {
+        update: boolean;
+    };
 };
 
 const ALERT_TYPE_FIELDS = [
@@ -180,6 +183,7 @@ export default function CrewOperationsSettings({
     crew_settings,
     notification_users,
     company_timezone,
+    can,
 }: Props): ReactElement {
     const form = useForm<FormData>({
         ...crew_settings,
@@ -207,6 +211,11 @@ export default function CrewOperationsSettings({
 
     const handleSubmit = (e: React.FormEvent): void => {
         e.preventDefault();
+
+        if (!can.update) {
+            return;
+        }
+
         form.put(updateSettings.url(), {
             preserveScroll: true,
         });
@@ -897,7 +906,11 @@ export default function CrewOperationsSettings({
                                 type="button"
                                 variant="outline"
                                 className="h-10 rounded-xl text-muted-foreground"
-                                disabled={form.processing || !form.isDirty}
+                                disabled={
+                                    !can.update ||
+                                    form.processing ||
+                                    !form.isDirty
+                                }
                                 onClick={() => form.reset()}
                             >
                                 <RotateCcw className="h-4 w-4" />
@@ -906,7 +919,11 @@ export default function CrewOperationsSettings({
                             <Button
                                 type="submit"
                                 className="h-10 rounded-xl bg-primary font-semibold shadow-md shadow-primary/10 transition-all hover:bg-primary/95"
-                                disabled={form.processing || !form.isDirty}
+                                disabled={
+                                    !can.update ||
+                                    form.processing ||
+                                    !form.isDirty
+                                }
                             >
                                 <Save className="h-4 w-4" />
                                 {form.processing ? 'Saving…' : 'Save'}

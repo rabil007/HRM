@@ -67,7 +67,7 @@ test('crew notifications default off when no settings row exists', function () {
 test('settings page exposes notification defaults and recipient options', function () {
     $fixtures = makeCrewAssignmentFixtures();
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
-        'crew_operations.planning.view',
+        'crew_operations.settings.view',
     ]);
 
     $this->actingAs($fixtures['user'])
@@ -78,14 +78,15 @@ test('settings page exposes notification defaults and recipient options', functi
             ->where('crew_settings.alert_signoff_overdue', true)
             ->has('notification_users')
             ->where('notification_users.0.id', $fixtures['user']->id)
+            ->where('can.update', false)
         );
 });
 
 test('authorized user can enable notifications recipients and alert types', function () {
     $fixtures = makeCrewAssignmentFixtures();
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
-        'crew_operations.planning.view',
-        'crew_operations.planning.update',
+        'crew_operations.settings.view',
+        'crew_operations.settings.update',
     ]);
 
     $this->actingAs($fixtures['user'])
@@ -109,8 +110,8 @@ test('settings reject recipients from another company', function () {
     $fixtures = makeCrewAssignmentFixtures();
     $other = makeCrewAssignmentFixtures();
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
-        'crew_operations.planning.view',
-        'crew_operations.planning.update',
+        'crew_operations.settings.view',
+        'crew_operations.settings.update',
     ]);
 
     $this->actingAs($fixtures['user'])
@@ -124,8 +125,8 @@ test('settings reject recipients from another company', function () {
 test('inactive membership users are rejected as recipients', function () {
     $fixtures = makeCrewAssignmentFixtures();
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
-        'crew_operations.planning.view',
-        'crew_operations.planning.update',
+        'crew_operations.settings.view',
+        'crew_operations.settings.update',
     ]);
 
     $inactive = User::factory()->create();

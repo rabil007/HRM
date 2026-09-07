@@ -298,6 +298,8 @@ crew_operations.corrections.view
 crew_operations.corrections.request
 crew_operations.corrections.approve
 crew_operations.corrections.override
+crew_operations.settings.view
+crew_operations.settings.update
 audit.view
 ```
 
