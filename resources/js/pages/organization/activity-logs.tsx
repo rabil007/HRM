@@ -309,11 +309,16 @@ export default function ActivityLogs({
                                         <AppSelectItem value="">
                                             All models
                                         </AppSelectItem>
-                                        {subject_types.filter(Boolean).map((t) => (
-                                            <AppSelectItem key={t} value={t}>
-                                                {modelShortName(t)}
-                                            </AppSelectItem>
-                                        ))}
+                                        {subject_types
+                                            .filter(Boolean)
+                                            .map((t) => (
+                                                <AppSelectItem
+                                                    key={t}
+                                                    value={t}
+                                                >
+                                                    {modelShortName(t)}
+                                                </AppSelectItem>
+                                            ))}
                                     </AppSelect>
                                 </div>
 
