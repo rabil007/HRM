@@ -19,7 +19,11 @@ export default function VesselsIndex({
     vessels: VesselRow[];
     pagination: PaginationMeta;
     search: string;
-    filters: { vessel_type_id: number | null; manning: string | null };
+    filters: {
+        vessel_type_id: number | null;
+        manning: string | null;
+        health: string | null;
+    };
     vessel_types: VesselTypeOption[];
     can: VesselPageCan;
     stats: {

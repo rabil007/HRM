@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Enums\RecentItemType;
+use App\Enums\VesselManningHealthStatus;
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Vessel\ImportVesselsRequest;
@@ -20,6 +21,7 @@ use App\Support\Activity\RecentActivityQuery;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\RecentItems\RecordRecentItem;
 use App\Support\VesselManning\SyncVesselManning;
+use App\Support\VesselManning\VesselManningHealthQuery;
 use App\Support\VesselManning\VesselManningIndexQuery;
 use App\Support\VesselManning\VesselManningPagePermissions;
 use App\Support\Vessels\StoresVesselCertificate;
@@ -50,9 +52,50 @@ class VesselController extends Controller
         $manning = $request->query('manning');
         $manning = in_array($manning, ['configured', 'pending'], true) ? $manning : null;
 
-        $paginator = VesselIndexQuery::paginate($companyId, $search, $vesselTypeId, $perPage, $manning);
+        $health = $request->query('health');
+        $health = is_string($health) && in_array($health, VesselManningHealthStatus::values(), true)
+            ? $health
+            : null;
 
-        $vessels = $paginator->through(fn (Vessel $vessel) => VesselIndexQuery::toArray($vessel));
+        $user = $request->user();
+        $healthByVessel = [];
+        $healthVesselIds = null;
+        $healthOrderIds = null;
+
+        if ($user?->can('crew_operations.vessel_manning.view')) {
+            $healthQuery = new VesselManningHealthQuery;
+            $healthByVessel = $healthQuery->compactByVessel($companyId, $user);
+            $nameById = Vessel::query()
+                ->where('company_id', $companyId)
+                ->pluck('name', 'id')
+                ->mapWithKeys(fn ($name, $id): array => [(int) $id => (string) $name])
+                ->all();
+            $healthOrderIds = VesselManningHealthQuery::sortedVesselIds($healthByVessel, $nameById);
+
+            if ($health !== null) {
+                $healthVesselIds = array_values(array_filter(
+                    $healthOrderIds,
+                    fn (int $id): bool => ($healthByVessel[$id]['status'] ?? null) === $health,
+                ));
+            }
+        }
+
+        $paginator = VesselIndexQuery::paginate(
+            $companyId,
+            $search,
+            $vesselTypeId,
+            $perPage,
+            $manning,
+            $healthVesselIds,
+            $healthOrderIds,
+        );
+
+        $vessels = $paginator->through(function (Vessel $vessel) use ($healthByVessel): array {
+            $row = VesselIndexQuery::toArray($vessel);
+            $row['manning_health'] = $healthByVessel[$vessel->id] ?? null;
+
+            return $row;
+        });
 
         $vesselsWith = (int) VesselManning::query()
             ->where('company_id', $companyId)
@@ -68,6 +111,7 @@ class VesselController extends Controller
             'filters' => [
                 'vessel_type_id' => $vesselTypeId,
                 'manning' => $manning,
+                'health' => $health,
             ],
             'vessel_types' => $this->vesselTypes(),
             'can' => VesselPagePermissions::for($request->user()),
@@ -117,6 +161,7 @@ class VesselController extends Controller
             'can' => VesselPagePermissions::for($user),
             'ranks' => $this->activeRanks(),
             'manning_can' => VesselManningPagePermissions::for($user),
+            'manning_health' => (new VesselManningHealthQuery)->forVessel($companyId, (int) $record->id, $user),
             'recent_activity' => RecentActivityQuery::for(
                 $user,
                 $companyId,

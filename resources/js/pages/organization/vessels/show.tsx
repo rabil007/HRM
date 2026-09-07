@@ -7,6 +7,7 @@ import type {
 import { VesselShowContent } from '@/features/organization/vessels/show';
 import type {
     VesselDetails,
+    VesselManningHealth,
     VesselPageCan,
     VesselSummary,
     VesselTypeOption,
@@ -22,6 +23,7 @@ export default function VesselShow({
     back_query,
     ranks,
     manning_can,
+    manning_health,
 }: {
     vessel: VesselDetails;
     vessel_types: VesselTypeOption[];
@@ -32,6 +34,7 @@ export default function VesselShow({
     back_query?: Record<string, string>;
     ranks?: RankOption[];
     manning_can?: VesselManningPagePermissions;
+    manning_health?: VesselManningHealth | null;
 }) {
     return (
         <>
@@ -46,6 +49,7 @@ export default function VesselShow({
                 back_query={back_query}
                 ranks={ranks}
                 manning_can={manning_can}
+                manning_health={manning_health}
             />
         </>
     );

@@ -7,7 +7,14 @@ use App\Models\User;
 final class VesselPagePermissions
 {
     /**
-     * @return array{create: bool, update: bool, delete: bool, view_manning: bool}
+     * @return array{
+     *     create: bool,
+     *     update: bool,
+     *     delete: bool,
+     *     view_manning: bool,
+     *     view_assignments: bool,
+     *     view_planning: bool
+     * }
      */
     public static function for(?User $user): array
     {
@@ -16,6 +23,8 @@ final class VesselPagePermissions
             'update' => $user?->can('crew_operations.vessels.update') ?? false,
             'delete' => $user?->can('crew_operations.vessels.delete') ?? false,
             'view_manning' => $user?->can('crew_operations.vessel_manning.view') ?? false,
+            'view_assignments' => $user?->can('crew_operations.assignments.view') ?? false,
+            'view_planning' => $user?->can('crew_operations.planning.view') ?? false,
         ];
     }
 }
