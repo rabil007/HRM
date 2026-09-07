@@ -489,6 +489,25 @@ There is **no standalone Projected Manning page**. Projected manning is an inter
 - **Crew Operations Overview** (`/organization/crew-operations`) surfaces projected risk analytics and action items, linking directly into Crew Planning.
 - **Operational Alerts** (`ProjectedManningGap`) detect projected shortfall conditions and resolve URLs to Crew Planning (with Overview/Vessels fallbacks).
 
+### Vessel Manning Health
+
+Vessel Show (`/organization/vessels/{vessel}`) presents a read-only **Manning Health** section. Vessel Index can show the same compact status. There is no manning-health table, snapshot job, or second projection engine.
+
+| Status | Meaning |
+|--------|---------|
+| `healthy` | Requirements exist, no current shortage, no projected shortage in the next **30 days** |
+| `at_risk` | Adequately manned now; `CrewProjectedManningQuery` shows a shortfall within 30 days |
+| `critical` | Current onboard (active P4) is already below required. Current shortage outranks future shortage |
+| `not_configured` | No valid `VesselManning` rows. Never shown as Healthy because requirements are missing |
+
+Overlap/excess remains supporting copy (for example `+1 temporary overlap`). It is not a primary health state.
+
+**Sources (unchanged):** `VesselManning` (required), `CurrentOnboardCrewQuery` (actual onboard), `CrewProjectedManningQuery` (projected coverage), `CrewReliefReadinessResolver` (relief labels). Planned Sign-Off is forecast only and does not disembark anyone. Planned relief is not actual onboard until active P4. Relief status and Mobilisation Readiness are advisory and never override projected coverage or block movement.
+
+Health is derived at read time. Viewing it is not audited. Actions link into existing Relief Desk, Crew Planning, Current Crew, and Edit Manning workflows.
+
+Compact index health reuses one company-level projection plus one onboard query — not one projection per vessel. Optional server-side `health=` filter (`critical`, `at_risk`, `healthy`, `not_configured`) sits beside Configured/Pending Manning filters; those remain configuration completeness, not coverage.
+
 ### Deferred (still later)
 
 - Notifications / escalations

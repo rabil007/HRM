@@ -15,12 +15,19 @@ final class VesselIndexQuery
     /**
      * @return LengthAwarePaginator<int, Vessel>
      */
+    /**
+     * @param  list<int>|null  $healthVesselIds
+     * @param  list<int>|null  $healthOrderIds
+     * @return LengthAwarePaginator<int, Vessel>
+     */
     public static function paginate(
         int $companyId,
         string $search = '',
         ?int $vesselTypeId = null,
         int $perPage = 20,
         ?string $manning = null,
+        ?array $healthVesselIds = null,
+        ?array $healthOrderIds = null,
     ): LengthAwarePaginator {
         return Vessel::query()
             ->where('company_id', $companyId)
@@ -43,7 +50,28 @@ final class VesselIndexQuery
             ->when($vesselTypeId !== null, fn (Builder $query) => $query->where('vessel_type_id', $vesselTypeId))
             ->when($manning === 'configured', fn (Builder $query) => $query->whereHas('manning', fn (Builder $q) => $q->where('company_id', $companyId)))
             ->when($manning === 'pending', fn (Builder $query) => $query->whereDoesntHave('manning', fn (Builder $q) => $q->where('company_id', $companyId)))
-            ->orderBy('name')
+            ->when($healthVesselIds !== null, function (Builder $query) use ($healthVesselIds): void {
+                if ($healthVesselIds === []) {
+                    $query->whereRaw('0 = 1');
+
+                    return;
+                }
+
+                $query->whereIn('id', $healthVesselIds);
+            })
+            ->when(
+                $healthOrderIds !== null && $healthOrderIds !== [],
+                function (Builder $query) use ($healthOrderIds): void {
+                    $cases = collect($healthOrderIds)
+                        ->values()
+                        ->map(fn (int $id, int $index): string => 'WHEN '.(int) $id.' THEN '.$index)
+                        ->implode(' ');
+
+                    $query->orderByRaw("CASE id {$cases} ELSE 999999 END")
+                        ->orderBy('name');
+                },
+                fn (Builder $query) => $query->orderBy('name'),
+            )
             ->paginate($perPage)
             ->withQueryString();
     }
@@ -139,7 +167,7 @@ final class VesselIndexQuery
     {
         $query = [];
 
-        foreach (['search', 'vessel_type_id', 'manning', 'page', 'per_page'] as $key) {
+        foreach (['search', 'vessel_type_id', 'manning', 'health', 'page', 'per_page'] as $key) {
             $value = $request->query($key);
 
             if ($value !== null && $value !== '') {

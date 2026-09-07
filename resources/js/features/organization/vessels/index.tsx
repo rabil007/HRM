@@ -71,6 +71,10 @@ import type { PaginationMeta } from '@/types/pagination';
 import { VesselDeleteDialog } from './components/vessel-delete-dialog';
 import { VesselFormSheet } from './components/vessel-form-sheet';
 import { VesselMobileCard } from './components/vessel-mobile-card';
+import {
+    vesselManningHealthBadgeClass,
+    vesselManningHealthDot,
+} from './lib/vessel-manning-health';
 import type {
     VesselFormData,
     VesselPageCan,
@@ -192,7 +196,11 @@ export function VesselsContent({
     vessels: VesselRow[];
     pagination: PaginationMeta;
     search: string;
-    filters: { vessel_type_id: number | null; manning: string | null };
+    filters: {
+        vessel_type_id: number | null;
+        manning: string | null;
+        health: string | null;
+    };
     vessel_types: VesselTypeOption[];
     can: VesselPageCan;
     stats: {
@@ -209,6 +217,7 @@ export function VesselsContent({
                 ? String(initialFilters.vessel_type_id)
                 : '',
             manning: initialFilters.manning ?? '',
+            health: initialFilters.health ?? '',
         },
         pagination,
     });
@@ -228,6 +237,10 @@ export function VesselsContent({
             query.manning = initialFilters.manning;
         }
 
+        if (initialFilters.health) {
+            query.health = initialFilters.health;
+        }
+
         if (pagination.current_page > 1) {
             query.page = String(pagination.current_page);
         }
@@ -240,6 +253,7 @@ export function VesselsContent({
     }, [
         initialFilters.vessel_type_id,
         initialFilters.manning,
+        initialFilters.health,
         initialSearch,
         pagination.current_page,
         pagination.per_page,
@@ -432,7 +446,10 @@ export function VesselsContent({
     };
 
     const hasVesselTypeFilter = Boolean(initialFilters.vessel_type_id);
-    const hasActiveFilters = hasVesselTypeFilter || initialSearch.trim() !== '';
+    const hasActiveFilters =
+        hasVesselTypeFilter ||
+        Boolean(initialFilters.health) ||
+        initialSearch.trim() !== '';
 
     return (
         <Main>
@@ -580,6 +597,34 @@ export function VesselsContent({
                                 </AppSelectItem>
                             ))}
                         </AppSelect>
+
+                        {can.view_manning ? (
+                            <AppSelect
+                                value={initialFilters.health ?? ''}
+                                onValueChange={(health) =>
+                                    list.applyFilters({ health })
+                                }
+                                placeholder="All health"
+                                variant="dark"
+                                className="h-10 lg:w-56"
+                            >
+                                <AppSelectItem value="">
+                                    All health
+                                </AppSelectItem>
+                                <AppSelectItem value="critical">
+                                    Critical
+                                </AppSelectItem>
+                                <AppSelectItem value="at_risk">
+                                    At Risk
+                                </AppSelectItem>
+                                <AppSelectItem value="healthy">
+                                    Healthy
+                                </AppSelectItem>
+                                <AppSelectItem value="not_configured">
+                                    Not Configured
+                                </AppSelectItem>
+                            </AppSelect>
+                        ) : null}
                     </div>
                 </CardContent>
             </Card>
@@ -598,7 +643,7 @@ export function VesselsContent({
                     }
                     description={
                         hasActiveFilters
-                            ? 'Try adjusting your search or vessel type filter.'
+                            ? 'Try adjusting your search, vessel type, or health filter.'
                             : 'Add your first vessel to get started.'
                     }
                     action={
@@ -627,7 +672,7 @@ export function VesselsContent({
                     </div>
 
                     <div className={DESKTOP_OPERATIONAL_TABLE_CLASS}>
-                        <OrganizationDataTable minWidth="min-w-[1100px]">
+                        <OrganizationDataTable minWidth="min-w-[1240px]">
                             <TableHeader>
                                 <DataTableHeaderRow>
                                     <DataTableHead>Vessel</DataTableHead>
@@ -637,6 +682,9 @@ export function VesselsContent({
                                     </DataTableHead>
                                     <DataTableHead>Manning</DataTableHead>
                                     <DataTableHead>Required Crew</DataTableHead>
+                                    {can.view_manning ? (
+                                        <DataTableHead>Health</DataTableHead>
+                                    ) : null}
                                     <DataTableHead>Status</DataTableHead>
                                     <DataTableHead className="text-right">
                                         Actions
@@ -752,6 +800,40 @@ export function VesselsContent({
                                                 </span>
                                             )}
                                         </TableCell>
+                                        {can.view_manning ? (
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                {vessel.manning_health ? (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={cn(
+                                                            'text-[10px] font-bold tracking-wider uppercase',
+                                                            vesselManningHealthBadgeClass(
+                                                                vessel
+                                                                    .manning_health
+                                                                    .status,
+                                                            ),
+                                                        )}
+                                                    >
+                                                        {vesselManningHealthDot(
+                                                            vessel
+                                                                .manning_health
+                                                                .status,
+                                                        )}{' '}
+                                                        {
+                                                            vessel
+                                                                .manning_health
+                                                                .reason
+                                                        }
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-muted-foreground/50">
+                                                        —
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                        ) : null}
                                         <TableCell
                                             className={dataTableCellClass()}
                                         >

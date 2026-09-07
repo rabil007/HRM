@@ -49,9 +49,11 @@ import {
     toVesselManningPayload,
 } from '../vessel-manning/vessel-manning-form-utils';
 import { VesselFormSheet } from './components/vessel-form-sheet';
+import { VesselManningHealthCard } from './components/vessel-manning-health-card';
 import type {
     VesselDetails,
     VesselFormData,
+    VesselManningHealth,
     VesselPageCan,
     VesselSummary,
     VesselTypeOption,
@@ -162,6 +164,7 @@ export function VesselShowContent({
     back_query,
     ranks,
     manning_can,
+    manning_health,
 }: {
     vessel: VesselDetails;
     vessel_types: VesselTypeOption[];
@@ -172,6 +175,7 @@ export function VesselShowContent({
     back_query?: Record<string, string>;
     ranks?: RankOption[];
     manning_can?: VesselManningPagePermissions;
+    manning_health?: VesselManningHealth | null;
 }) {
     const [editOpen, setEditOpen] = useState(false);
     const [manningEditOpen, setManningEditOpen] = useState(false);
@@ -329,6 +333,22 @@ export function VesselShowContent({
                     </div>
                 }
             />
+
+            {manning_health ? (
+                <div className="mb-6">
+                    <VesselManningHealthCard
+                        vesselId={vessel.id}
+                        health={manning_health}
+                        can={can}
+                        canEditManning={Boolean(hasManningWriteAccess)}
+                        onEditManning={
+                            ranks && hasManningWriteAccess
+                                ? openManningEdit
+                                : undefined
+                        }
+                    />
+                </div>
+            ) : null}
 
             <div className="grid gap-6 lg:grid-cols-3">
                 <Card className="overflow-hidden glass-card lg:col-span-2 dark:border-white/5 dark:bg-white/5">
