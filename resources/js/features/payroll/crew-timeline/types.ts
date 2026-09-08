@@ -23,6 +23,9 @@ export type CrewTimelineWarningBreakdownItem = {
     label: string;
     is_blocking: boolean;
     count: number;
+    total_count?: number;
+    unresolved_count?: number;
+    skipped_count?: number;
 };
 
 export type CrewTimelineLine = {
@@ -122,7 +125,16 @@ export type CrewTimelineEmployeeSummary = {
     sign_off_standby_to: string | null;
     sign_off_standby_days: number;
     total_payable_days: number;
+    is_skipped: boolean;
+    skip_reason: string | null;
+    skipped_by: CrewTimelineUserRef | null;
+    skipped_at: string | null;
+    can_skip: boolean;
+    can_restore: boolean;
+    has_cross_company_warning: boolean;
+    has_non_skippable_integrity_error?: boolean;
     blocking_warning_count: number;
+    unresolved_blocking_warning_count: number;
     informational_warning_count: number;
     assignments: CrewTimelineAssignmentSummary[];
     lines: CrewTimelineLine[];
@@ -158,6 +170,7 @@ export type CrewTimelinePreparation = {
     applied_at: string | null;
     linked_timesheet_count: number;
     decision_notes: string | null;
+    has_non_skippable_integrity_error?: boolean;
 };
 
 export type CrewTimelinePeriod = {
@@ -171,11 +184,15 @@ export type CrewTimelinePeriod = {
 
 export type CrewTimelineSummary = {
     total_employees: number;
+    included_employees: number;
+    skipped_employees: number;
     total_sign_on_standby_days: string;
     total_onsite_days: string;
     total_sign_off_standby_days: string;
     blocking_warning_count: number;
+    unresolved_blocking_warning_count: number;
     informational_warning_count: number;
+    has_non_skippable_integrity_error?: boolean;
 };
 
 export type CrewTimelinePagePermissions = {
@@ -185,6 +202,7 @@ export type CrewTimelinePagePermissions = {
     approve: boolean;
     return: boolean;
     apply: boolean;
+    skip_timeline: boolean;
     view_audit: boolean;
 };
 

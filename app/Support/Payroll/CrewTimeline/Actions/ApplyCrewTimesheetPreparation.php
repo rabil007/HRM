@@ -16,6 +16,7 @@ use App\Models\PayrollPeriod;
 use App\Models\User;
 use App\Support\Payroll\CrewTimeline\ApplyCrewTimesheetPreparationResult;
 use App\Support\Payroll\CrewTimeline\CrewTimelineFreshnessChecker;
+use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationSkipResolver;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationWorkflowGuard;
 use App\Support\Payroll\CrewTimeline\PayableCrewPreparationLines;
 use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
@@ -32,6 +33,7 @@ final class ApplyCrewTimesheetPreparation
         private readonly CrewTimelineFreshnessChecker $freshnessChecker,
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
         private readonly SyncCrewTimesheetParentFromSegments $syncParentFromSegments,
+        private readonly CrewTimesheetPreparationSkipResolver $skipResolver,
     ) {}
 
     public function handle(
@@ -100,7 +102,8 @@ final class ApplyCrewTimesheetPreparation
                 }
             }
 
-            $linesByEmployee = $this->groupPayableLinesByEmployee($lines);
+            $activeSkippedIds = $this->skipResolver->activeSkippedEmployeeIds($preparation);
+            $linesByEmployee = $this->groupPayableLinesByEmployee($lines, $activeSkippedIds);
             $employeeIds = array_keys($linesByEmployee);
 
             $existingTimesheets = CrewTimesheet::withTrashed()
@@ -125,6 +128,22 @@ final class ApplyCrewTimesheetPreparation
             $skipped = [];
             $warnings = [];
             $changes = [];
+
+            if ($activeSkippedIds !== []) {
+                $activeSkips = $preparation->activeSkips()
+                    ->where('company_id', $companyId)
+                    ->with('employee')
+                    ->get();
+
+                foreach ($activeSkips as $activeSkip) {
+                    $skipped[] = [
+                        'employee_id' => (int) $activeSkip->employee_id,
+                        'employee_number' => $activeSkip->employee?->employee_no,
+                        'employee_name' => $activeSkip->employee?->name,
+                        'reason' => 'Timeline data skipped: '.$activeSkip->reason,
+                    ];
+                }
+            }
 
             foreach ($linesByEmployee as $employeeId => $employeeLines) {
                 $employee = $employees->get($employeeId);
@@ -302,14 +321,16 @@ final class ApplyCrewTimesheetPreparation
         int $companyId,
     ): bool {
         $payableEmployeeIds = PayableCrewPreparationLines::payableEmployeeIds($companyId, (int) $preparation->id);
+        $activeSkippedIds = $this->skipResolver->activeSkippedEmployeeIds($preparation);
+        $effectivePayableIds = array_values(array_diff($payableEmployeeIds, $activeSkippedIds));
 
-        if ($payableEmployeeIds === []) {
+        if ($effectivePayableIds === []) {
             return false;
         }
 
-        $contracts = $this->resolveContract->resolveMany($period, $payableEmployeeIds);
+        $contracts = $this->resolveContract->resolveMany($period, $effectivePayableIds);
 
-        foreach ($payableEmployeeIds as $employeeId) {
+        foreach ($effectivePayableIds as $employeeId) {
             $contract = $contracts->get($employeeId);
 
             if (
@@ -326,15 +347,20 @@ final class ApplyCrewTimesheetPreparation
 
     /**
      * @param  Collection<int, CrewTimesheetPreparationLine>  $lines
+     * @param  list<int>  $activeSkippedIds
      * @return array<int, list<CrewTimesheetPreparationLine>>
      */
-    private function groupPayableLinesByEmployee(Collection $lines): array
+    private function groupPayableLinesByEmployee(Collection $lines, array $activeSkippedIds = []): array
     {
         /** @var array<int, list<CrewTimesheetPreparationLine>> $grouped */
         $grouped = [];
 
         foreach ($lines as $line) {
             if (! PayableCrewPreparationLines::isPayable($line)) {
+                continue;
+            }
+
+            if (in_array((int) $line->employee_id, $activeSkippedIds, true)) {
                 continue;
             }
 

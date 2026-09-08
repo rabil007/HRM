@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import {
     DataTableHead,
@@ -25,7 +25,9 @@ import { EmployeeAvatar } from '@/features/organization/employees/components/emp
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
+import { restore as restoreEmployeeSkip } from '@/routes/payroll/crew-timeline/employee-skip';
 import { CrewTimelineLinesDialog } from './crew-timeline-lines-dialog';
+import { CrewTimelineSkipDialog } from './crew-timeline-skip-dialog';
 import type { CrewTimelineEmployeeSummary } from './types';
 
 type WarningDetail = {
@@ -162,7 +164,14 @@ function EmployeeCell({ employee }: { employee: CrewTimelineEmployeeSummary }) {
             />
             <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                    {employee.blocking_warning_count > 0 ? (
+                    {employee.is_skipped ? (
+                        <Badge
+                            variant="outline"
+                            className="border-amber-500/40 bg-amber-500/10 text-[10px] font-semibold text-amber-700 uppercase dark:text-amber-300"
+                        >
+                            Skipped
+                        </Badge>
+                    ) : employee.blocking_warning_count > 0 ? (
                         <span className="size-1.5 shrink-0 rounded-full bg-red-500" />
                     ) : employee.informational_warning_count > 0 ? (
                         <span className="size-1.5 shrink-0 rounded-full bg-amber-400" />
@@ -171,6 +180,16 @@ function EmployeeCell({ employee }: { employee: CrewTimelineEmployeeSummary }) {
                         {employee.employee_name ?? '—'}
                     </span>
                 </div>
+                {employee.is_skipped ? (
+                    <div className="mt-0.5 space-y-0.5 text-xs text-amber-800/90 dark:text-amber-300/90">
+                        <p className="font-medium">
+                            Skipped by {employee.skipped_by?.name ?? '—'}
+                        </p>
+                        <p className="max-w-xs truncate text-[11px] text-muted-foreground">
+                            Reason: {employee.skip_reason ?? '—'}
+                        </p>
+                    </div>
+                ) : null}
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
                     <span>{employee.employee_number ?? '—'}</span>
                     {employee.rank ? (
@@ -247,11 +266,29 @@ function EmployeeCell({ employee }: { employee: CrewTimelineEmployeeSummary }) {
 
 export function CrewTimelineEmployeeTable({
     employees,
+    periodId,
+    preparationId,
 }: {
     employees: CrewTimelineEmployeeSummary[];
+    periodId: number;
+    preparationId: number;
 }) {
     const [selected, setSelected] =
         useState<CrewTimelineEmployeeSummary | null>(null);
+    const [skippingEmployee, setSkippingEmployee] =
+        useState<CrewTimelineEmployeeSummary | null>(null);
+    const [restoringId, setRestoringId] = useState<number | null>(null);
+
+    const handleRestore = (emp: CrewTimelineEmployeeSummary): void => {
+        setRestoringId(emp.employee_id);
+        router.delete(
+            restoreEmployeeSkip.url([periodId, preparationId, emp.employee_id]),
+            {
+                preserveScroll: true,
+                onFinish: () => setRestoringId(null),
+            },
+        );
+    };
 
     return (
         <>
@@ -320,28 +357,100 @@ export function CrewTimelineEmployeeTable({
                             <TableCell
                                 className={`${dataTableCellClass()} tabular-nums`}
                             >
-                                <span
-                                    className={cn(
-                                        'inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold tabular-nums',
-                                        employee.blocking_warning_count > 0
-                                            ? 'bg-red-500/10 text-red-700 dark:text-red-300'
-                                            : 'bg-primary/8 text-primary',
-                                    )}
-                                >
-                                    {employee.total_payable_days.toFixed(2)}
-                                </span>
+                                {employee.is_skipped ? (
+                                    <div className="space-y-0.5">
+                                        <span className="inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold text-muted-foreground tabular-nums line-through opacity-70">
+                                            {employee.total_payable_days.toFixed(
+                                                2,
+                                            )}
+                                        </span>
+                                        <p className="text-[10px] leading-tight text-muted-foreground">
+                                            Not included in applied payroll
+                                            timeline
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <span
+                                        className={cn(
+                                            'inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold tabular-nums',
+                                            employee.blocking_warning_count > 0
+                                                ? 'bg-red-500/10 text-red-700 dark:text-red-300'
+                                                : 'bg-primary/8 text-primary',
+                                        )}
+                                    >
+                                        {employee.total_payable_days.toFixed(2)}
+                                    </span>
+                                )}
                             </TableCell>
                             <TableCell className={dataTableCellClass()}>
                                 <WarningCell items={warningDetails(employee)} />
                             </TableCell>
                             <TableCell className={dataTableActionsCellClass()}>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setSelected(employee)}
-                                >
-                                    View Details
-                                </Button>
+                                <div className="flex items-center justify-end gap-1.5">
+                                    {employee.is_skipped ? (
+                                        employee.can_restore ? (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={
+                                                    restoringId ===
+                                                    employee.employee_id
+                                                }
+                                                onClick={() =>
+                                                    handleRestore(employee)
+                                                }
+                                            >
+                                                {restoringId ===
+                                                employee.employee_id
+                                                    ? 'Restoring…'
+                                                    : 'Restore Timeline Data'}
+                                            </Button>
+                                        ) : null
+                                    ) : employee.can_skip ? (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-destructive hover:bg-destructive/10"
+                                            onClick={() =>
+                                                setSkippingEmployee(employee)
+                                            }
+                                        >
+                                            Skip Timeline Data
+                                        </Button>
+                                    ) : employee.has_cross_company_warning ||
+                                      (employee.has_non_skippable_integrity_error &&
+                                          employee.blocking_warning_count +
+                                              employee.informational_warning_count >
+                                              0) ? (
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span tabIndex={0}>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        disabled
+                                                    >
+                                                        Skip Timeline Data
+                                                    </Button>
+                                                </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="max-w-xs text-xs">
+                                                Skipping is unavailable because
+                                                this preparation contains a
+                                                company data-isolation error.
+                                                Correct the source data and
+                                                prepare a new version.
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    ) : null}
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setSelected(employee)}
+                                    >
+                                        View Details
+                                    </Button>
+                                </div>
                             </TableCell>
                         </TableRow>
                     ))}
@@ -355,6 +464,17 @@ export function CrewTimelineEmployeeTable({
                         setSelected(null);
                     }
                 }}
+            />
+            <CrewTimelineSkipDialog
+                open={skippingEmployee !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setSkippingEmployee(null);
+                    }
+                }}
+                periodId={periodId}
+                preparationId={preparationId}
+                employee={skippingEmployee}
             />
         </>
     );

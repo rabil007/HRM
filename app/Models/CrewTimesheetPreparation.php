@@ -117,6 +117,22 @@ class CrewTimesheetPreparation extends Model
         return $this->hasMany(CrewTimesheet::class);
     }
 
+    /**
+     * @return HasMany<CrewTimesheetPreparationSkip, $this>
+     */
+    public function skips(): HasMany
+    {
+        return $this->hasMany(CrewTimesheetPreparationSkip::class);
+    }
+
+    /**
+     * @return HasMany<CrewTimesheetPreparationSkip, $this>
+     */
+    public function activeSkips(): HasMany
+    {
+        return $this->hasMany(CrewTimesheetPreparationSkip::class)->whereNull('restored_at');
+    }
+
     public function preparedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'prepared_by');

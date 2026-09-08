@@ -30,6 +30,7 @@ test('crew timesheets module exposes granular permissions only', function () {
         'payroll.crew_timesheets.import',
         'payroll.crew_timesheets.prepare',
         'payroll.crew_timesheets.return',
+        'payroll.crew_timesheets.skip_timeline',
         'payroll.crew_timesheets.submit',
         'payroll.crew_timesheets.update',
         'payroll.crew_timesheets.view',

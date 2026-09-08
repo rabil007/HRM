@@ -7,8 +7,11 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewTimelineWarningCode;
 use App\Enums\CrewTimesheetPayCategory;
+use App\Enums\CrewTimesheetPreparationStatus;
+use App\Enums\PayrollPeriodStatus;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\CrewTimesheetPreparationLine;
+use App\Models\CrewTimesheetPreparationSkip;
 use App\Models\PayrollPeriod;
 use App\Support\CrewMovements\CrewDateProvenance;
 use Illuminate\Support\Collection;
@@ -28,8 +31,13 @@ final class CrewTimesheetPreparationReviewResource
         ?CrewTimesheetPreparationReviewFilters $filters = null,
     ): array {
         $isFresh = $this->freshnessChecker->isFresh($preparation, $period);
-        $employees = $this->employeeSummaries($preparation);
-        $summary = $this->summaryTotals($employees);
+        $prepLines = $this->preparationLines($preparation);
+        $hasPreparationCrossCompany = $prepLines->contains(
+            fn (CrewTimesheetPreparationLine $line): bool => $line->warning_code === CrewTimelineWarningCode::CrossCompanyReference->value,
+        );
+
+        $employees = $this->employeeSummaries($preparation, $period, $hasPreparationCrossCompany);
+        $summary = $this->summaryTotals($employees, $hasPreparationCrossCompany);
         $warningBreakdown = $this->warningBreakdown($employees);
 
         if ($filters !== null && $filters->isActive()) {
@@ -71,6 +79,7 @@ final class CrewTimesheetPreparationReviewResource
                 'applied_at' => $preparation->applied_at?->toIso8601String(),
                 'linked_timesheet_count' => (int) ($preparation->linked_timesheet_count ?? 0),
                 'decision_notes' => $preparation->decision_notes,
+                'has_non_skippable_integrity_error' => $hasPreparationCrossCompany,
             ],
             'summary' => $summary,
             'warning_breakdown' => $warningBreakdown,
@@ -81,12 +90,29 @@ final class CrewTimesheetPreparationReviewResource
     /**
      * @return list<array<string, mixed>>
      */
-    private function employeeSummaries(CrewTimesheetPreparation $preparation): array
-    {
+    private function employeeSummaries(
+        CrewTimesheetPreparation $preparation,
+        PayrollPeriod $period,
+        bool $hasPreparationCrossCompany = false,
+    ): array {
+        $prepLines = $this->preparationLines($preparation);
+
         /** @var Collection<int, Collection<int, CrewTimesheetPreparationLine>> $linesByEmployee */
-        $linesByEmployee = $preparation->lines->groupBy(
+        $linesByEmployee = $prepLines->groupBy(
             fn (CrewTimesheetPreparationLine $line): int => (int) $line->employee_id,
         );
+
+        $isDraft = $preparation->status === CrewTimesheetPreparationStatus::Draft;
+        $isLatest = $this->isLatest($preparation);
+        $isFresh = $this->freshnessChecker->isFresh($preparation, $period);
+        $userCanSkip = auth()->user()?->can('payroll.crew_timesheets.skip_timeline') ?? false;
+        $isPreparationEditable = $isDraft && $period->status === PayrollPeriodStatus::Draft && $period->isCrew() && $isLatest && $isFresh;
+
+        /** @var Collection<int, CrewTimesheetPreparationSkip> $skipsByEmployee */
+        $skipsByEmployee = $this->preparationSkips($preparation)
+            ->keyBy(
+                fn (CrewTimesheetPreparationSkip $skip): int => (int) $skip->employee_id,
+            );
 
         $employees = [];
 
@@ -164,6 +190,22 @@ final class CrewTimesheetPreparationReviewResource
                 };
             }
 
+            $skip = $skipsByEmployee->get((int) $employeeId);
+            $isSkipped = $skip !== null && $skip->isActive();
+
+            $crossCompanyCount = $employeeLines->filter(
+                fn (CrewTimesheetPreparationLine $line): bool => $line->warning_code === CrewTimelineWarningCode::CrossCompanyReference->value,
+            )->count();
+            $hasCrossCompanyWarning = $crossCompanyCount > 0;
+
+            $hasWarning = ($blocking + $informational) > 0;
+            $canSkip = $isPreparationEditable && $userCanSkip && ! $isSkipped && $hasWarning && ! $hasCrossCompanyWarning && ! $hasPreparationCrossCompany;
+            $canRestore = $isPreparationEditable && $userCanSkip && $isSkipped;
+
+            $unresolvedBlocking = $isSkipped
+                ? $crossCompanyCount
+                : $blocking;
+
             $assignmentCount = count($assignments);
             $primaryAssignment = $assignmentCount === 1 ? ($assignments[0] ?? null) : null;
 
@@ -190,7 +232,16 @@ final class CrewTimesheetPreparationReviewResource
                 'sign_off_standby_to' => $signOffTo,
                 'sign_off_standby_days' => round($signOffDays, 2),
                 'total_payable_days' => round($totalPayable, 2),
+                'is_skipped' => $isSkipped,
+                'skip_reason' => $isSkipped ? $skip?->reason : null,
+                'skipped_by' => $isSkipped ? $this->userPayload($skip?->skippedBy) : null,
+                'skipped_at' => $isSkipped ? $skip?->skipped_at?->toIso8601String() : null,
+                'can_skip' => $canSkip,
+                'can_restore' => $canRestore,
+                'has_cross_company_warning' => $hasCrossCompanyWarning,
+                'has_non_skippable_integrity_error' => $hasPreparationCrossCompany,
                 'blocking_warning_count' => $blocking,
+                'unresolved_blocking_warning_count' => $unresolvedBlocking,
                 'informational_warning_count' => $informational,
                 'assignments' => $assignments,
                 'lines' => $flatLines,
@@ -608,48 +659,78 @@ final class CrewTimesheetPreparationReviewResource
      * @param  list<array<string, mixed>>  $employees
      * @return array{
      *     total_employees: int,
+     *     included_employees: int,
+     *     skipped_employees: int,
      *     total_sign_on_standby_days: string,
      *     total_onsite_days: string,
      *     total_sign_off_standby_days: string,
      *     blocking_warning_count: int,
-     *     informational_warning_count: int
+     *     unresolved_blocking_warning_count: int,
+     *     informational_warning_count: int,
+     *     has_non_skippable_integrity_error: bool
      * }
      */
-    private function summaryTotals(array $employees): array
+    private function summaryTotals(array $employees, bool $hasPreparationCrossCompany = false): array
     {
         $signOn = 0.0;
         $onsite = 0.0;
         $signOff = 0.0;
         $blocking = 0;
+        $unresolvedBlocking = 0;
         $informational = 0;
+        $skippedEmployees = 0;
+        $includedEmployees = 0;
 
         foreach ($employees as $employee) {
-            $signOn += (float) $employee['sign_on_standby_days'];
-            $onsite += (float) $employee['onsite_days'];
-            $signOff += (float) $employee['sign_off_standby_days'];
+            $isSkipped = (bool) ($employee['is_skipped'] ?? false);
+
+            if ($isSkipped) {
+                $skippedEmployees++;
+            } else {
+                $includedEmployees++;
+                $signOn += (float) $employee['sign_on_standby_days'];
+                $onsite += (float) $employee['onsite_days'];
+                $signOff += (float) $employee['sign_off_standby_days'];
+            }
+
             $blocking += (int) $employee['blocking_warning_count'];
+            $unresolvedBlocking += (int) ($employee['unresolved_blocking_warning_count'] ?? $employee['blocking_warning_count']);
             $informational += (int) $employee['informational_warning_count'];
         }
 
         return [
             'total_employees' => count($employees),
+            'included_employees' => $includedEmployees,
+            'skipped_employees' => $skippedEmployees,
             'total_sign_on_standby_days' => $this->formatDays($signOn),
             'total_onsite_days' => $this->formatDays($onsite),
             'total_sign_off_standby_days' => $this->formatDays($signOff),
             'blocking_warning_count' => $blocking,
+            'unresolved_blocking_warning_count' => $unresolvedBlocking,
             'informational_warning_count' => $informational,
+            'has_non_skippable_integrity_error' => $hasPreparationCrossCompany,
         ];
     }
 
     /**
      * @param  list<array<string, mixed>>  $employees
-     * @return list<array{code: string, label: string, is_blocking: bool, count: int}>
+     * @return list<array{
+     *     code: string,
+     *     label: string,
+     *     is_blocking: bool,
+     *     count: int,
+     *     total_count: int,
+     *     unresolved_count: int,
+     *     skipped_count: int
+     * }>
      */
     private function warningBreakdown(array $employees): array
     {
         $byCode = [];
 
         foreach ($employees as $employee) {
+            $isSkipped = (bool) ($employee['is_skipped'] ?? false);
+
             foreach ($employee['lines'] ?? [] as $line) {
                 if (! is_array($line)) {
                     continue;
@@ -669,16 +750,34 @@ final class CrewTimesheetPreparationReviewResource
                         'label' => (string) ($warning['label'] ?? $code),
                         'is_blocking' => (bool) ($warning['is_blocking'] ?? false),
                         'count' => 0,
+                        'total_count' => 0,
+                        'unresolved_count' => 0,
+                        'skipped_count' => 0,
                     ];
                 }
 
                 $byCode[$code]['count']++;
+                $byCode[$code]['total_count']++;
+
+                if ($isSkipped && $code !== CrewTimelineWarningCode::CrossCompanyReference->value) {
+                    $byCode[$code]['skipped_count']++;
+                } else {
+                    $byCode[$code]['unresolved_count']++;
+                }
             }
         }
 
         $items = array_values($byCode);
 
-        usort($items, fn (array $left, array $right): int => $right['count'] <=> $left['count']);
+        usort($items, function (array $left, array $right): int {
+            $unresolvedCompare = $right['unresolved_count'] <=> $left['unresolved_count'];
+
+            if ($unresolvedCompare !== 0) {
+                return $unresolvedCompare;
+            }
+
+            return $right['total_count'] <=> $left['total_count'];
+        });
 
         return $items;
     }
@@ -722,6 +821,48 @@ final class CrewTimesheetPreparationReviewResource
             'id' => (int) $user->id,
             'name' => (string) $user->name,
         ];
+    }
+
+    /**
+     * @return Collection<int, CrewTimesheetPreparationLine>
+     */
+    private function preparationLines(CrewTimesheetPreparation $preparation): Collection
+    {
+        if ($preparation->relationLoaded('lines')) {
+            /** @var Collection<int, CrewTimesheetPreparationLine> $lines */
+            $lines = $preparation->lines;
+
+            return $lines
+                ->filter(fn (CrewTimesheetPreparationLine $line): bool => (int) $line->company_id === (int) $preparation->company_id
+                    && (int) $line->crew_timesheet_preparation_id === (int) $preparation->id
+                )
+                ->values();
+        }
+
+        return $preparation->lines()
+            ->where('company_id', (int) $preparation->company_id)
+            ->get();
+    }
+
+    /**
+     * @return Collection<int, CrewTimesheetPreparationSkip>
+     */
+    private function preparationSkips(CrewTimesheetPreparation $preparation): Collection
+    {
+        if ($preparation->relationLoaded('skips')) {
+            /** @var Collection<int, CrewTimesheetPreparationSkip> $skips */
+            $skips = $preparation->skips;
+
+            return $skips
+                ->filter(fn (CrewTimesheetPreparationSkip $skip): bool => (int) $skip->company_id === (int) $preparation->company_id
+                    && (int) $skip->crew_timesheet_preparation_id === (int) $preparation->id
+                )
+                ->values();
+        }
+
+        return $preparation->skips()
+            ->where('company_id', (int) $preparation->company_id)
+            ->get();
     }
 
     private function isLatest(CrewTimesheetPreparation $preparation): bool

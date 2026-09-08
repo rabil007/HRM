@@ -3,7 +3,6 @@
 namespace App\Support\Payroll;
 
 use App\Enums\ContractSalaryStructure;
-use App\Enums\CrewTimelineWarningCode;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
@@ -25,6 +24,7 @@ final class CrewOperationsPayrollGenerationGuard
 
     public function __construct(
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
+        private readonly CrewTimeline\CrewTimesheetPreparationSkipResolver $skipResolver,
     ) {}
 
     /**
@@ -169,6 +169,11 @@ final class CrewOperationsPayrollGenerationGuard
         }
 
         $payableEmployeeIds = PayableCrewPreparationLines::payableEmployeeIds($companyId, (int) $preparation->id);
+        $activeSkippedIds = $this->skipResolver->activeSkippedEmployeeIds($preparation);
+        $effectivePayableEmployeeIds = array_values(
+            array_diff($payableEmployeeIds, $activeSkippedIds)
+        );
+
         $employeeIds = $employees->pluck('id')->map(intval(...))->all();
         $contracts = $this->resolveContract->resolveMany(
             $period,
@@ -196,7 +201,16 @@ final class CrewOperationsPayrollGenerationGuard
                 continue;
             }
 
-            if (! in_array((int) $employee->id, $payableEmployeeIds, true)) {
+            if (in_array((int) $employee->id, $activeSkippedIds, true)) {
+                return $this->result(
+                    false,
+                    "Daily crew employee {$employee->name} timeline data was skipped and is not covered by Crew Operations.",
+                    $preparation,
+                    (int) $employee->id,
+                );
+            }
+
+            if (! in_array((int) $employee->id, $effectivePayableEmployeeIds, true)) {
                 continue;
             }
 
@@ -319,14 +333,7 @@ final class CrewOperationsPayrollGenerationGuard
 
     public function preparationHasBlockingWarnings(CrewTimesheetPreparation $preparation): bool
     {
-        return $preparation->lines()
-            ->whereNotNull('warning_code')
-            ->get(['warning_code'])
-            ->contains(function ($line): bool {
-                $code = CrewTimelineWarningCode::tryFrom((string) $line->warning_code);
-
-                return $code !== null && $code->isBlocking();
-            });
+        return $this->skipResolver->hasUnresolvedBlockingWarnings($preparation);
     }
 
     public function dailyTimesheetLinkReason(

@@ -188,9 +188,11 @@ use App\Http\Controllers\Payroll\PayrollOverviewController;
 use App\Http\Controllers\Payroll\PayrollRecordController;
 use App\Http\Controllers\Payroll\PayslipController;
 use App\Http\Controllers\Payroll\PrepareCrewTimesheetTimelineController;
+use App\Http\Controllers\Payroll\RestoreCrewTimesheetPreparationEmployeeController;
 use App\Http\Controllers\Payroll\ReturnCrewTimesheetPreparationController;
 use App\Http\Controllers\Payroll\SalaryInputController;
 use App\Http\Controllers\Payroll\SalaryInputTypeController;
+use App\Http\Controllers\Payroll\SkipCrewTimesheetPreparationEmployeeController;
 use App\Http\Controllers\Payroll\SubmitCrewTimesheetPreparationController;
 use App\Http\Controllers\Payroll\UpdateCrewTimesheetFinancialsController;
 use App\Http\Controllers\Payroll\UpdateCrewTimesheetSegmentsController;
@@ -627,6 +629,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('payroll/{payrollPeriod}/crew-timeline/{preparation}/apply', ApplyCrewTimesheetPreparationController::class)
         ->middleware('can:payroll.crew_timesheets.apply_approved')
         ->name('payroll.crew-timeline.apply');
+    Route::post('payroll/{payrollPeriod}/crew-timeline/{preparation}/employees/{employee}/skip', SkipCrewTimesheetPreparationEmployeeController::class)
+        ->middleware('can:payroll.crew_timesheets.skip_timeline')
+        ->name('payroll.crew-timeline.employee-skip');
+    Route::delete('payroll/{payrollPeriod}/crew-timeline/{preparation}/employees/{employee}/skip', RestoreCrewTimesheetPreparationEmployeeController::class)
+        ->middleware('can:payroll.crew_timesheets.skip_timeline')
+        ->name('payroll.crew-timeline.employee-skip.restore');
     Route::get('payroll/{payrollPeriod}/export', [PayrollController::class, 'exportPayroll'])
         ->name('payroll.export');
     Route::post('payroll/{payrollPeriod}/generate', [PayrollController::class, 'generatePayroll'])->middleware('can:payroll.periods.update')->name('payroll.generate');
