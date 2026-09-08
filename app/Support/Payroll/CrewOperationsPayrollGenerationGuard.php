@@ -3,7 +3,6 @@
 namespace App\Support\Payroll;
 
 use App\Enums\ContractSalaryStructure;
-use App\Enums\CrewTimelineWarningCode;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
@@ -25,6 +24,7 @@ final class CrewOperationsPayrollGenerationGuard
 
     public function __construct(
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
+        private readonly CrewTimeline\CrewTimesheetPreparationSkipResolver $skipResolver,
     ) {}
 
     /**
@@ -319,14 +319,7 @@ final class CrewOperationsPayrollGenerationGuard
 
     public function preparationHasBlockingWarnings(CrewTimesheetPreparation $preparation): bool
     {
-        return $preparation->lines()
-            ->whereNotNull('warning_code')
-            ->get(['warning_code'])
-            ->contains(function ($line): bool {
-                $code = CrewTimelineWarningCode::tryFrom((string) $line->warning_code);
-
-                return $code !== null && $code->isBlocking();
-            });
+        return $this->skipResolver->hasUnresolvedBlockingWarnings($preparation);
     }
 
     public function dailyTimesheetLinkReason(

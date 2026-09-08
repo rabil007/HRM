@@ -7,8 +7,11 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewTimelineWarningCode;
 use App\Enums\CrewTimesheetPayCategory;
+use App\Enums\CrewTimesheetPreparationStatus;
+use App\Enums\PayrollPeriodStatus;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\CrewTimesheetPreparationLine;
+use App\Models\CrewTimesheetPreparationSkip;
 use App\Models\PayrollPeriod;
 use App\Support\CrewMovements\CrewDateProvenance;
 use Illuminate\Support\Collection;
@@ -28,7 +31,7 @@ final class CrewTimesheetPreparationReviewResource
         ?CrewTimesheetPreparationReviewFilters $filters = null,
     ): array {
         $isFresh = $this->freshnessChecker->isFresh($preparation, $period);
-        $employees = $this->employeeSummaries($preparation);
+        $employees = $this->employeeSummaries($preparation, $period);
         $summary = $this->summaryTotals($employees);
         $warningBreakdown = $this->warningBreakdown($employees);
 
@@ -81,11 +84,22 @@ final class CrewTimesheetPreparationReviewResource
     /**
      * @return list<array<string, mixed>>
      */
-    private function employeeSummaries(CrewTimesheetPreparation $preparation): array
+    private function employeeSummaries(CrewTimesheetPreparation $preparation, PayrollPeriod $period): array
     {
         /** @var Collection<int, Collection<int, CrewTimesheetPreparationLine>> $linesByEmployee */
         $linesByEmployee = $preparation->lines->groupBy(
             fn (CrewTimesheetPreparationLine $line): int => (int) $line->employee_id,
+        );
+
+        $isDraft = $preparation->status === CrewTimesheetPreparationStatus::Draft;
+        $isLatest = $this->isLatest($preparation);
+        $isFresh = $this->freshnessChecker->isFresh($preparation, $period);
+        $userCanSkip = auth()->user()?->can('payroll.crew_timesheets.skip_timeline') ?? false;
+        $isPreparationEditable = $isDraft && $period->status === PayrollPeriodStatus::Draft && $period->isCrew() && $isLatest && $isFresh;
+
+        /** @var Collection<int, CrewTimesheetPreparationSkip> $skipsByEmployee */
+        $skipsByEmployee = $preparation->skips->keyBy(
+            fn (CrewTimesheetPreparationSkip $skip): int => (int) $skip->employee_id,
         );
 
         $employees = [];
@@ -164,6 +178,22 @@ final class CrewTimesheetPreparationReviewResource
                 };
             }
 
+            $skip = $skipsByEmployee->get((int) $employeeId);
+            $isSkipped = $skip !== null && $skip->isActive();
+
+            $crossCompanyCount = $employeeLines->filter(
+                fn (CrewTimesheetPreparationLine $line): bool => $line->warning_code === CrewTimelineWarningCode::CrossCompanyReference->value,
+            )->count();
+            $hasCrossCompanyWarning = $crossCompanyCount > 0;
+
+            $hasWarning = ($blocking + $informational) > 0;
+            $canSkip = $isPreparationEditable && $userCanSkip && ! $isSkipped && $hasWarning && ! $hasCrossCompanyWarning;
+            $canRestore = $isPreparationEditable && $userCanSkip && $isSkipped;
+
+            $unresolvedBlocking = $isSkipped
+                ? $crossCompanyCount
+                : $blocking;
+
             $assignmentCount = count($assignments);
             $primaryAssignment = $assignmentCount === 1 ? ($assignments[0] ?? null) : null;
 
@@ -190,7 +220,15 @@ final class CrewTimesheetPreparationReviewResource
                 'sign_off_standby_to' => $signOffTo,
                 'sign_off_standby_days' => round($signOffDays, 2),
                 'total_payable_days' => round($totalPayable, 2),
+                'is_skipped' => $isSkipped,
+                'skip_reason' => $isSkipped ? $skip?->reason : null,
+                'skipped_by' => $isSkipped ? $this->userPayload($skip?->skippedBy) : null,
+                'skipped_at' => $isSkipped ? $skip?->skipped_at?->toIso8601String() : null,
+                'can_skip' => $canSkip,
+                'can_restore' => $canRestore,
+                'has_cross_company_warning' => $hasCrossCompanyWarning,
                 'blocking_warning_count' => $blocking,
+                'unresolved_blocking_warning_count' => $unresolvedBlocking,
                 'informational_warning_count' => $informational,
                 'assignments' => $assignments,
                 'lines' => $flatLines,
@@ -608,10 +646,13 @@ final class CrewTimesheetPreparationReviewResource
      * @param  list<array<string, mixed>>  $employees
      * @return array{
      *     total_employees: int,
+     *     included_employees: int,
+     *     skipped_employees: int,
      *     total_sign_on_standby_days: string,
      *     total_onsite_days: string,
      *     total_sign_off_standby_days: string,
      *     blocking_warning_count: int,
+     *     unresolved_blocking_warning_count: int,
      *     informational_warning_count: int
      * }
      */
@@ -621,22 +662,37 @@ final class CrewTimesheetPreparationReviewResource
         $onsite = 0.0;
         $signOff = 0.0;
         $blocking = 0;
+        $unresolvedBlocking = 0;
         $informational = 0;
+        $skippedEmployees = 0;
+        $includedEmployees = 0;
 
         foreach ($employees as $employee) {
-            $signOn += (float) $employee['sign_on_standby_days'];
-            $onsite += (float) $employee['onsite_days'];
-            $signOff += (float) $employee['sign_off_standby_days'];
+            $isSkipped = (bool) ($employee['is_skipped'] ?? false);
+
+            if ($isSkipped) {
+                $skippedEmployees++;
+            } else {
+                $includedEmployees++;
+                $signOn += (float) $employee['sign_on_standby_days'];
+                $onsite += (float) $employee['onsite_days'];
+                $signOff += (float) $employee['sign_off_standby_days'];
+            }
+
             $blocking += (int) $employee['blocking_warning_count'];
+            $unresolvedBlocking += (int) ($employee['unresolved_blocking_warning_count'] ?? $employee['blocking_warning_count']);
             $informational += (int) $employee['informational_warning_count'];
         }
 
         return [
             'total_employees' => count($employees),
+            'included_employees' => $includedEmployees,
+            'skipped_employees' => $skippedEmployees,
             'total_sign_on_standby_days' => $this->formatDays($signOn),
             'total_onsite_days' => $this->formatDays($onsite),
             'total_sign_off_standby_days' => $this->formatDays($signOff),
             'blocking_warning_count' => $blocking,
+            'unresolved_blocking_warning_count' => $unresolvedBlocking,
             'informational_warning_count' => $informational,
         ];
     }

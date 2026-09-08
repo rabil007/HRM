@@ -2,7 +2,6 @@
 
 namespace App\Support\Payroll\CrewTimeline;
 
-use App\Enums\CrewTimelineWarningCode;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\CrewTimesheetPreparation;
@@ -11,6 +10,10 @@ use Illuminate\Validation\ValidationException;
 
 final class CrewTimesheetPreparationWorkflowGuard
 {
+    public function __construct(
+        private readonly CrewTimesheetPreparationSkipResolver $skipResolver,
+    ) {}
+
     public function assertTenantOwnership(
         PayrollPeriod $period,
         CrewTimesheetPreparation $preparation,
@@ -68,20 +71,7 @@ final class CrewTimesheetPreparationWorkflowGuard
 
     public function assertNoBlockingWarnings(CrewTimesheetPreparation $preparation): void
     {
-        $hasBlocking = $preparation->lines()
-            ->whereNotNull('warning_code')
-            ->get(['warning_code'])
-            ->contains(function ($line): bool {
-                $code = CrewTimelineWarningCode::tryFrom((string) $line->warning_code);
-
-                return $code !== null && $code->isBlocking();
-            });
-
-        if ($hasBlocking) {
-            throw ValidationException::withMessages([
-                'preparation' => 'Blocking warnings must be resolved before continuing. Correct Crew Operations data and prepare a new version.',
-            ]);
-        }
+        $this->skipResolver->assertNoUnresolvedBlockingWarnings($preparation);
     }
 
     public function assertNoOtherSubmitted(

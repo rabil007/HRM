@@ -50,10 +50,16 @@ export function CrewTimelineWarningPanel({
     isStale: boolean;
     breakdown: CrewTimelineWarningBreakdownItem[];
 }) {
+    const unresolvedBlockers =
+        summary.unresolved_blocking_warning_count ??
+        summary.blocking_warning_count;
+    const skippedCount = summary.skipped_employees ?? 0;
+
     if (
         !isStale &&
         summary.blocking_warning_count === 0 &&
-        summary.informational_warning_count === 0
+        summary.informational_warning_count === 0 &&
+        skippedCount === 0
     ) {
         return null;
     }
@@ -74,18 +80,19 @@ export function CrewTimelineWarningPanel({
                     </AlertDescription>
                 </Alert>
             ) : null}
-            {summary.blocking_warning_count > 0 ? (
+
+            {unresolvedBlockers > 0 ? (
                 <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>
-                        {summary.blocking_warning_count} blocking warning
-                        {summary.blocking_warning_count === 1 ? '' : 's'}
+                        {unresolvedBlockers} unresolved blocking warning
+                        {unresolvedBlockers === 1 ? '' : 's'}
                     </AlertTitle>
                     <AlertDescription>
                         Blocking warnings prevent submission and approval.
-                        Correct Crew Operations data, then prepare a new
-                        version. Open a flagged employee’s details to see the
-                        affected lines.
+                        Correct Crew Operations data and prepare a new version,
+                        or skip the affected employee&apos;s timeline data if
+                        permitted.
                         <WarningBreakdownList
                             items={blockingItems}
                             tone="blocking"
@@ -93,6 +100,22 @@ export function CrewTimelineWarningPanel({
                     </AlertDescription>
                 </Alert>
             ) : null}
+
+            {skippedCount > 0 ? (
+                <Alert className="border-sky-500/30 bg-sky-500/5 text-sky-950 dark:bg-sky-500/10 dark:text-sky-100">
+                    <Info className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                    <AlertTitle>
+                        {skippedCount} employee
+                        {skippedCount === 1 ? '' : 's'} skipped
+                    </AlertTitle>
+                    <AlertDescription>
+                        Their Crew Operations timeline data will not be applied
+                        to timesheets. They may require Manual/Excel data or
+                        payroll exclusion before generation.
+                    </AlertDescription>
+                </Alert>
+            ) : null}
+
             {summary.informational_warning_count > 0 ? (
                 <Alert>
                     <Info className="h-4 w-4" />

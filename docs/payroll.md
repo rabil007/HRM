@@ -6,12 +6,12 @@ This guide describes the payroll implementation currently present in the reposit
 
 The Payroll sidebar contains four entries:
 
-| Label | Path | Inertia page |
-|---|---|---|
-| Overview | `/payroll/overview` | `resources/js/pages/payroll/overview.tsx` |
-| Payroll | `/payroll` | `resources/js/pages/payroll/index.tsx` |
-| Payroll records | `/payroll/records` | `resources/js/pages/payroll/records.tsx` |
-| Salary inputs | `/payroll/salary-inputs` | `resources/js/pages/payroll/salary-inputs.tsx` |
+| Label           | Path                     | Inertia page                                   |
+| --------------- | ------------------------ | ---------------------------------------------- |
+| Overview        | `/payroll/overview`      | `resources/js/pages/payroll/overview.tsx`      |
+| Payroll         | `/payroll`               | `resources/js/pages/payroll/index.tsx`         |
+| Payroll records | `/payroll/records`       | `resources/js/pages/payroll/records.tsx`       |
+| Salary inputs   | `/payroll/salary-inputs` | `resources/js/pages/payroll/salary-inputs.tsx` |
 
 An individual period is displayed by `resources/js/pages/payroll/show.tsx` at `/payroll/{payrollPeriod}`.
 
@@ -222,6 +222,24 @@ Phase 1D applies an Approved preparation to `crew_timesheets`:
 
 Vessel transfer and redeployment create linked assignments so one employee can have multiple exact onsite periods in the same payroll month without inventing phases or duplicating final salary records.
 
+### Skip Timeline Data workflow
+
+Crew operations timeline preparations can contain blocking warnings (e.g. `missing_actual_start`, `missing_actual_end`, `overlapping_phases`, `pending_movement_correction`, `no_active_crew_contract`, `invalid_phase_range`). To prevent an entire payroll run from becoming blocked because one employee has incomplete or bad Crew Operations movement data, authorized users with `payroll.crew_timesheets.skip_timeline` can explicitly skip the affected employee's Crew Operations timeline data for that preparation version.
+
+Key characteristics:
+
+- **Version-specific scope:** A skip decision is attached strictly to `(company_id, crew_timesheet_preparation_id, employee_id)` on `crew_timesheet_preparation_skips`. Preparing a new preparation version does **not** inherit previous skips; the user must review the new version anew.
+- **Mandatory reason:** Skipping requires an explicit, audited reason (between 5 and 1,000 characters).
+- **Audit tracking:** Skips and restores write activity logs (`crew_timeline_employee_skipped` and `crew_timeline_employee_skip_restored`) capturing `company_id`, `payroll_period_id`, `preparation_id`, `preparation_version`, `employee_id`, `reason`, actor, timestamp, and warning codes present at the time of the action.
+- **Skippable vs Non-skippable warnings:** Employee-level operational warnings (`missing_actual_start`, `missing_actual_end`, `overlapping_phases`, `pending_movement_correction`, `no_active_crew_contract`, `invalid_phase_range`, as well as informational warnings) may be skipped. However, tenant-isolation and integrity failures (`cross_company_reference`) and stale preparations can **never** be skipped or bypassed.
+- **Immutable snapshot preserved:** Original `CrewAssignment`, `CrewAssignmentPhase`, and generated `CrewTimesheetPreparationLine` records are never deleted, mutated, or zeroed. They remain visible in the review history and details dialog for audit evidence.
+- **Exclusion from Apply:** When the approved preparation is applied (`ApplyCrewTimesheetPreparation`), payable preparation lines for actively skipped employees are completely excluded. No Crew Operations timesheet or segments are written for that employee.
+- **Preservation of Manual / Excel data:** If a skipped employee already has a Manual or Imported timesheet or segments, Apply leaves that employee's operational and financial data untouched.
+- **Separate from payroll exclusion:** Skipping an employee's Crew Operations timeline data is strictly a source-selection decision. It does **not** automatically add the employee to `payroll_periods.excluded_employee_ids`. In hybrid payroll, the employee may subsequently have hours/movements entered manually or imported via Excel, or be excluded during the final payroll generation step if no replacement timesheet is provided.
+- **Freshness independent:** Skip decisions are payroll-review choices rather than changes to operational source data; therefore, `crew_timesheet_preparation_skips` is **not** included in the `source_hash`. Creating or restoring a skip does not make the preparation stale.
+- **Reversible via Restore:** While the preparation is in `Draft` status, an active skip may be reversed via **Restore Timeline Data** (`restored_by`, `restored_at`). Upon restoration, the employee's original warning and payable lines become active again; any unresolved blocking warnings will once again prevent submission.
+- **Empty effective preparation supported:** If all employees in a preparation are skipped, the preparation can still be submitted, approved, and applied without generating dummy timesheets.
+
 ### Manual and Excel movement periods
 
 - Daily Crew manual entry supports a **Movement Periods** editor: one parent `CrewTimesheet` with many `crew_timesheet_segments` (pay category, optional vessel/client/rank, From/To, days, remarks). The dialog focuses on **Movement Details** (category, dates, days, remarks); Vessel/Client/Rank sit in a secondary **Assignment** summary with **Change Assignment** to expand selectors.
@@ -243,6 +261,7 @@ Permissions:
 - `payroll.crew_timesheets.approve`
 - `payroll.crew_timesheets.return`
 - `payroll.crew_timesheets.apply_approved`
+- `payroll.crew_timesheets.skip_timeline`
 
 See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md).
 
@@ -250,21 +269,21 @@ See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payr
 
 Each crew pay period stores `crew_timesheet_mode`:
 
-| Mode | Value | Behavior |
-|------|-------|----------|
-| Hybrid (default) | `hybrid` | One Crew period supports mixed employee-level sources. UI label: **Crew Payroll**. |
-| Manual / Excel Timesheet | `manual` | Historical exclusive Manual/Import mode |
-| Crew Operations Timeline | `crew_operations` | Historical exclusive timeline mode |
+| Mode                     | Value             | Behavior                                                                           |
+| ------------------------ | ----------------- | ---------------------------------------------------------------------------------- |
+| Hybrid (default)         | `hybrid`          | One Crew period supports mixed employee-level sources. UI label: **Crew Payroll**. |
+| Manual / Excel Timesheet | `manual`          | Historical exclusive Manual/Import mode                                            |
+| Crew Operations Timeline | `crew_operations` | Historical exclusive timeline mode                                                 |
 
 Office periods keep `crew_timesheet_mode = null`.
 
 Operational source belongs to each employee’s `CrewTimesheet`, not the period:
 
-| Priority | Source | Notes |
-|----------|--------|-------|
-| 1 | Approved Crew Operations | Highest; locks operational fields; replaces Manual/Import operational values automatically |
-| 2 | Excel Import | Fallback when no Applied movement coverage |
-| 3 | Manual Entry | Fallback when no Applied movement coverage |
+| Priority | Source                   | Notes                                                                                      |
+| -------- | ------------------------ | ------------------------------------------------------------------------------------------ |
+| 1        | Approved Crew Operations | Highest; locks operational fields; replaces Manual/Import operational values automatically |
+| 2        | Excel Import             | Fallback when no Applied movement coverage                                                 |
+| 3        | Manual Entry             | Fallback when no Applied movement coverage                                                 |
 
 Rules:
 
@@ -514,67 +533,67 @@ All routes below are inside the authenticated and verified web group. Some use r
 
 ### Pages and records
 
-| Method | Path | Route name | Effective authorization |
-|---|---|---|---|
-| GET | `/payroll/overview` | `payroll.overview` | `payroll.periods.view` or `payroll.crew_timesheets.view` |
-| GET | `/payroll` | `payroll.index` | `payroll.periods.view` or `payroll.crew_timesheets.view` |
-| POST | `/payroll/periods` | `payroll.periods.store` | `payroll.periods.create` |
-| GET | `/payroll/{payrollPeriod}` | `payroll.show` | `payroll.periods.view` or `payroll.crew_timesheets.view` |
-| GET | `/payroll/records` | `payroll.records.index` | `payroll.records.view` |
-| GET | `/payroll/{payrollPeriod}/export` | `payroll.export` | Approved/paid period plus category view permission |
-| DELETE | `/payroll/{payrollPeriod}/records/{payrollRecord}` | `payroll.records.destroy` | `payroll.periods.update` |
+| Method | Path                                               | Route name                | Effective authorization                                  |
+| ------ | -------------------------------------------------- | ------------------------- | -------------------------------------------------------- |
+| GET    | `/payroll/overview`                                | `payroll.overview`        | `payroll.periods.view` or `payroll.crew_timesheets.view` |
+| GET    | `/payroll`                                         | `payroll.index`           | `payroll.periods.view` or `payroll.crew_timesheets.view` |
+| POST   | `/payroll/periods`                                 | `payroll.periods.store`   | `payroll.periods.create`                                 |
+| GET    | `/payroll/{payrollPeriod}`                         | `payroll.show`            | `payroll.periods.view` or `payroll.crew_timesheets.view` |
+| GET    | `/payroll/records`                                 | `payroll.records.index`   | `payroll.records.view`                                   |
+| GET    | `/payroll/{payrollPeriod}/export`                  | `payroll.export`          | Approved/paid period plus category view permission       |
+| DELETE | `/payroll/{payrollPeriod}/records/{payrollRecord}` | `payroll.records.destroy` | `payroll.periods.update`                                 |
 
 ### Generation and workflow
 
-| Method | Path | Route name | Permission |
-|---|---|---|---|
-| POST | `/payroll/{payrollPeriod}/generate` | `payroll.generate` | `payroll.periods.update` |
-| POST | `/payroll/{payrollPeriod}/recalculate` | `payroll.recalculate` | `payroll.periods.recalculate` or `payroll.periods.update` |
-| POST | `/payroll/{payrollPeriod}/revert-to-draft` | `payroll.revert-to-draft` | `payroll.periods.revert_to_draft` |
-| POST | `/payroll/{payrollPeriod}/revert-to-approved` | `payroll.revert-to-approved` | `payroll.periods.revert_to_approved` |
-| POST | `/payroll/{payrollPeriod}/revert-to-processing` | `payroll.revert-to-processing` | `payroll.periods.revert_to_processing` |
-| POST | `/payroll/{payrollPeriod}/approve` | `payroll.approve` | `payroll.periods.approve` |
-| POST | `/payroll/{payrollPeriod}/mark-paid` | `payroll.mark-paid` | `payroll.periods.mark_paid` |
-| GET | `/payroll/{payrollPeriod}/payment-proof` | `payroll.payment-proof` | `payroll.periods.view` |
-| POST | `/payroll/{payrollPeriod}/cancel` | `payroll.cancel` | `payroll.periods.cancel` |
+| Method | Path                                            | Route name                     | Permission                                                |
+| ------ | ----------------------------------------------- | ------------------------------ | --------------------------------------------------------- |
+| POST   | `/payroll/{payrollPeriod}/generate`             | `payroll.generate`             | `payroll.periods.update`                                  |
+| POST   | `/payroll/{payrollPeriod}/recalculate`          | `payroll.recalculate`          | `payroll.periods.recalculate` or `payroll.periods.update` |
+| POST   | `/payroll/{payrollPeriod}/revert-to-draft`      | `payroll.revert-to-draft`      | `payroll.periods.revert_to_draft`                         |
+| POST   | `/payroll/{payrollPeriod}/revert-to-approved`   | `payroll.revert-to-approved`   | `payroll.periods.revert_to_approved`                      |
+| POST   | `/payroll/{payrollPeriod}/revert-to-processing` | `payroll.revert-to-processing` | `payroll.periods.revert_to_processing`                    |
+| POST   | `/payroll/{payrollPeriod}/approve`              | `payroll.approve`              | `payroll.periods.approve`                                 |
+| POST   | `/payroll/{payrollPeriod}/mark-paid`            | `payroll.mark-paid`            | `payroll.periods.mark_paid`                               |
+| GET    | `/payroll/{payrollPeriod}/payment-proof`        | `payroll.payment-proof`        | `payroll.periods.view`                                    |
+| POST   | `/payroll/{payrollPeriod}/cancel`               | `payroll.cancel`               | `payroll.periods.cancel`                                  |
 
 ### Crew timesheets and salary inputs
 
-| Method | Path | Route name | Effective authorization |
-|---|---|---|---|
-| POST | `/payroll/{payrollPeriod}/timesheets` | `payroll.timesheets.store` | `payroll.crew_timesheets.create` or `payroll.crew_timesheets.update` |
-| GET | `/payroll/{payrollPeriod}/timesheets/import/template` | `payroll.timesheets.import.template` | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
-| POST | `/payroll/{payrollPeriod}/timesheets/import/preview` | `payroll.timesheets.import.preview` | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
-| POST | `/payroll/{payrollPeriod}/timesheets/import` | `payroll.timesheets.import` | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
-| DELETE | `/payroll/{payrollPeriod}/crew-timesheets/manual-import` | `payroll.crew-timesheets.clear-manual-import` | `payroll.crew_timesheets.clear` |
-| POST | `/payroll/{payrollPeriod}/crew-timeline/prepare` | `payroll.crew-timeline.prepare` | `payroll.crew_timesheets.prepare` |
-| GET | `/payroll/{payrollPeriod}/crew-timeline/{preparation}` | `payroll.crew-timeline.show` | `payroll.crew_timesheets.view` |
-| POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/submit` | `payroll.crew-timeline.submit` | `payroll.crew_timesheets.submit` |
-| POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/approve` | `payroll.crew-timeline.approve` | `payroll.crew_timesheets.approve` |
-| POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/return` | `payroll.crew-timeline.return` | `payroll.crew_timesheets.return` |
-| POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/apply` | `payroll.crew-timeline.apply` | `payroll.crew_timesheets.apply_approved` |
-| GET | `/payroll/salary-inputs` | `payroll.salary-inputs.index` | `payroll.salary_inputs.view` or `payroll.periods.update` |
-| POST | `/payroll/salary-inputs` | `payroll.salary-input-types.store` | `payroll.salary_inputs.create` or `payroll.periods.update` |
-| PUT | `/payroll/salary-inputs/{salaryInputType}` | `payroll.salary-input-types.update` | `payroll.salary_inputs.update` or `payroll.periods.update` |
-| PUT | `/payroll/salary-inputs/{salaryInputType}/status` | `payroll.salary-input-types.update-status` | `payroll.salary_inputs.update` or `payroll.periods.update` |
-| DELETE | `/payroll/salary-inputs/{salaryInputType}` | `payroll.salary-input-types.destroy` | `payroll.salary_inputs.delete` or `payroll.periods.update` |
-| POST | `/payroll/{payrollPeriod}/salary-inputs` | `payroll.salary-inputs.store` | `payroll.salary_inputs.create` or `payroll.periods.update` |
-| PUT | `/payroll/{payrollPeriod}/salary-inputs/{salaryInput}` | `payroll.salary-inputs.update` | `payroll.salary_inputs.update` or `payroll.periods.update` |
-| DELETE | `/payroll/{payrollPeriod}/salary-inputs/{salaryInput}` | `payroll.salary-inputs.destroy` | `payroll.salary_inputs.delete` or `payroll.periods.update` |
+| Method | Path                                                           | Route name                                    | Effective authorization                                              |
+| ------ | -------------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------- |
+| POST   | `/payroll/{payrollPeriod}/timesheets`                          | `payroll.timesheets.store`                    | `payroll.crew_timesheets.create` or `payroll.crew_timesheets.update` |
+| GET    | `/payroll/{payrollPeriod}/timesheets/import/template`          | `payroll.timesheets.import.template`          | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
+| POST   | `/payroll/{payrollPeriod}/timesheets/import/preview`           | `payroll.timesheets.import.preview`           | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
+| POST   | `/payroll/{payrollPeriod}/timesheets/import`                   | `payroll.timesheets.import`                   | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
+| DELETE | `/payroll/{payrollPeriod}/crew-timesheets/manual-import`       | `payroll.crew-timesheets.clear-manual-import` | `payroll.crew_timesheets.clear`                                      |
+| POST   | `/payroll/{payrollPeriod}/crew-timeline/prepare`               | `payroll.crew-timeline.prepare`               | `payroll.crew_timesheets.prepare`                                    |
+| GET    | `/payroll/{payrollPeriod}/crew-timeline/{preparation}`         | `payroll.crew-timeline.show`                  | `payroll.crew_timesheets.view`                                       |
+| POST   | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/submit`  | `payroll.crew-timeline.submit`                | `payroll.crew_timesheets.submit`                                     |
+| POST   | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/approve` | `payroll.crew-timeline.approve`               | `payroll.crew_timesheets.approve`                                    |
+| POST   | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/return`  | `payroll.crew-timeline.return`                | `payroll.crew_timesheets.return`                                     |
+| POST   | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/apply`   | `payroll.crew-timeline.apply`                 | `payroll.crew_timesheets.apply_approved`                             |
+| GET    | `/payroll/salary-inputs`                                       | `payroll.salary-inputs.index`                 | `payroll.salary_inputs.view` or `payroll.periods.update`             |
+| POST   | `/payroll/salary-inputs`                                       | `payroll.salary-input-types.store`            | `payroll.salary_inputs.create` or `payroll.periods.update`           |
+| PUT    | `/payroll/salary-inputs/{salaryInputType}`                     | `payroll.salary-input-types.update`           | `payroll.salary_inputs.update` or `payroll.periods.update`           |
+| PUT    | `/payroll/salary-inputs/{salaryInputType}/status`              | `payroll.salary-input-types.update-status`    | `payroll.salary_inputs.update` or `payroll.periods.update`           |
+| DELETE | `/payroll/salary-inputs/{salaryInputType}`                     | `payroll.salary-input-types.destroy`          | `payroll.salary_inputs.delete` or `payroll.periods.update`           |
+| POST   | `/payroll/{payrollPeriod}/salary-inputs`                       | `payroll.salary-inputs.store`                 | `payroll.salary_inputs.create` or `payroll.periods.update`           |
+| PUT    | `/payroll/{payrollPeriod}/salary-inputs/{salaryInput}`         | `payroll.salary-inputs.update`                | `payroll.salary_inputs.update` or `payroll.periods.update`           |
+| DELETE | `/payroll/{payrollPeriod}/salary-inputs/{salaryInput}`         | `payroll.salary-inputs.destroy`               | `payroll.salary_inputs.delete` or `payroll.periods.update`           |
 
 ### Payslips and WPS
 
-| Method | Path | Route name | Effective authorization |
-|---|---|---|---|
-| GET | `/payroll/payslips-zip` | `payroll.payslips.download-zip` | `payroll.records.view` or `payroll.periods.view` |
-| GET | `/payroll/payslips-pdf` | `payroll.payslips.download-pdf` | `payroll.records.view` or `payroll.periods.view` |
-| GET | `/payroll/payslips/{payrollRecord}` | `payroll.payslips.show` | `payroll.records.view` or `payroll.periods.view` |
-| GET | `/payroll/payslips/{payrollRecord}/download` | `payroll.payslips.download` | `payroll.records.view` or `payroll.periods.view` |
-| POST | `/payroll/payslips/generate` | `payroll.payslips.generate` | `payroll.payslips.generate` |
-| POST | `/payroll/payslips/email` | `payroll.payslips.email` | `payroll.payslips.email` |
-| POST | `/payroll/payslips/from-salary-sheet/preview` | `payroll.payslips.from-salary-sheet.preview` | `payroll.payslips.generate` |
-| POST | `/payroll/payslips/from-salary-sheet` | `payroll.payslips.from-salary-sheet` | `payroll.payslips.generate` |
-| POST | `/payroll/wps/export` | `payroll.wps.export` | `payroll.wps.export` |
+| Method | Path                                          | Route name                                   | Effective authorization                          |
+| ------ | --------------------------------------------- | -------------------------------------------- | ------------------------------------------------ |
+| GET    | `/payroll/payslips-zip`                       | `payroll.payslips.download-zip`              | `payroll.records.view` or `payroll.periods.view` |
+| GET    | `/payroll/payslips-pdf`                       | `payroll.payslips.download-pdf`              | `payroll.records.view` or `payroll.periods.view` |
+| GET    | `/payroll/payslips/{payrollRecord}`           | `payroll.payslips.show`                      | `payroll.records.view` or `payroll.periods.view` |
+| GET    | `/payroll/payslips/{payrollRecord}/download`  | `payroll.payslips.download`                  | `payroll.records.view` or `payroll.periods.view` |
+| POST   | `/payroll/payslips/generate`                  | `payroll.payslips.generate`                  | `payroll.payslips.generate`                      |
+| POST   | `/payroll/payslips/email`                     | `payroll.payslips.email`                     | `payroll.payslips.email`                         |
+| POST   | `/payroll/payslips/from-salary-sheet/preview` | `payroll.payslips.from-salary-sheet.preview` | `payroll.payslips.generate`                      |
+| POST   | `/payroll/payslips/from-salary-sheet`         | `payroll.payslips.from-salary-sheet`         | `payroll.payslips.generate`                      |
+| POST   | `/payroll/wps/export`                         | `payroll.wps.export`                         | `payroll.wps.export`                             |
 
 ## Permission catalog
 

@@ -28,16 +28,16 @@ System or user creates one normal Crew pay period for the month (hybrid)
 
 ## Phase mapping
 
-| Phase | Pay category |
-|-------|--------------|
-| P0 Pre-Mobilisation | Excluded |
-| P1 Travel In | Excluded (informational issue) |
-| P2A Join Standby | Sign-On Standby |
-| P2B Training | Sign-On Standby |
-| P3 Ready to Join | Sign-On Standby |
-| P4 On Vessel | Onsite |
-| P5 Demobilisation Standby | Sign-Off Standby |
-| P6 Home / Redeployment | Excluded |
+| Phase                     | Pay category                   |
+| ------------------------- | ------------------------------ |
+| P0 Pre-Mobilisation       | Excluded                       |
+| P1 Travel In              | Excluded (informational issue) |
+| P2A Join Standby          | Sign-On Standby                |
+| P2B Training              | Sign-On Standby                |
+| P3 Ready to Join          | Sign-On Standby                |
+| P4 On Vessel              | Onsite                         |
+| P5 Demobilisation Standby | Sign-Off Standby               |
+| P6 Home / Redeployment    | Excluded                       |
 
 Day priority when categories overlap:
 
@@ -91,20 +91,31 @@ Do not overload `approved_by` for return decisions.
 
 Line-level proposed operational pay categories and warning rows (`warning_code`). Warning-only rows use `days = 0` and must not contribute to payable totals.
 
+### `crew_timesheet_preparation_skips`
+
+Persistent, additive audit table for employee timeline skips:
+
+- `company_id`, `crew_timesheet_preparation_id`, `employee_id` (unique together)
+- `reason` (mandatory, 5–1,000 characters)
+- `skipped_by`, `skipped_at`
+- `restored_by`, `restored_at` (nullable; an active skip is `restored_at IS NULL`)
+
+Original preparation lines and crew movement entities are never deleted or modified. Skip records are payroll review decisions and are excluded from the source hash.
+
 ## Phase 1B preparation engine
 
 Implemented Support classes under `app/Support/Payroll/CrewTimeline/`:
 
-| Class | Role |
-|---|---|
-| `PrepareCrewTimesheetTimeline` | Orchestrates draft preparation creation |
-| `CrewTimelinePhaseQuery` | Loads overlapping actual phases and effective end |
-| `CrewTimelineDayAllocator` | Allocates one category per calendar day |
+| Class                              | Role                                                                   |
+| ---------------------------------- | ---------------------------------------------------------------------- |
+| `PrepareCrewTimesheetTimeline`     | Orchestrates draft preparation creation                                |
+| `CrewTimelinePhaseQuery`           | Loads overlapping actual phases and effective end                      |
+| `CrewTimelineDayAllocator`         | Allocates one category per calendar day                                |
 | `CrewPhaseIntervalOverlapDetector` | Positive-duration timestamp overlap check (handoff vs genuine overlap) |
-| `CrewPhasePayCategoryResolver` | Maps phase → pay category and priority |
-| `CrewTimelineSourceHasher` | SHA-256 source fingerprint |
-| `CrewTimelineIssueDetector` | Warning/issue detection |
-| `CrewTimelineRangeBuilder` | Contiguous ranges per phase/category |
+| `CrewPhasePayCategoryResolver`     | Maps phase → pay category and priority                                 |
+| `CrewTimelineSourceHasher`         | SHA-256 source fingerprint                                             |
+| `CrewTimelineIssueDetector`        | Warning/issue detection                                                |
+| `CrewTimelineRangeBuilder`         | Contiguous ranges per phase/category                                   |
 
 ### HTTP
 
@@ -127,13 +138,13 @@ Draft crew periods show a **Prepare from Crew Operations** header action for aut
 
 ### Status transitions
 
-| From | To | Notes |
-|------|----|-------|
-| Draft | Submitted | Latest version only |
-| Submitted | Approved | Requires approve permission |
-| Submitted | Returned | Return notes required |
-| Approved | Superseded | Only when a newer version is approved |
-| Returned | (history) | Do not change Returned back to Draft |
+| From      | To         | Notes                                 |
+| --------- | ---------- | ------------------------------------- |
+| Draft     | Submitted  | Latest version only                   |
+| Submitted | Approved   | Requires approve permission           |
+| Submitted | Returned   | Return notes required                 |
+| Approved  | Superseded | Only when a newer version is approved |
+| Returned  | (history)  | Do not change Returned back to Draft  |
 
 `Applied` is set by Phase 1D.
 
@@ -218,26 +229,26 @@ When approving a Submitted preparation:
 
 ### Support classes
 
-| Class | Role |
-|---|---|
-| `Actions/SubmitCrewTimesheetPreparation` | Draft → Submitted |
-| `Actions/ReturnCrewTimesheetPreparation` | Submitted → Returned |
+| Class                                     | Role                               |
+| ----------------------------------------- | ---------------------------------- |
+| `Actions/SubmitCrewTimesheetPreparation`  | Draft → Submitted                  |
+| `Actions/ReturnCrewTimesheetPreparation`  | Submitted → Returned               |
 | `Actions/ApproveCrewTimesheetPreparation` | Submitted → Approved (+ supersede) |
-| `CrewTimelineFreshnessChecker` | Source hash comparison |
-| `CrewTimesheetPreparationWorkflowGuard` | Shared validation |
-| `CrewTimesheetPreparationReviewQuery` | Tenant-safe load |
-| `CrewTimesheetPreparationReviewResource` | Inertia review payload |
-| `CrewTimesheetPreparationSummaryResource` | Payroll show summary |
-| `CrewTimelinePagePermissions` | Review page permission flags |
+| `CrewTimelineFreshnessChecker`            | Source hash comparison             |
+| `CrewTimesheetPreparationWorkflowGuard`   | Shared validation                  |
+| `CrewTimesheetPreparationReviewQuery`     | Tenant-safe load                   |
+| `CrewTimesheetPreparationReviewResource`  | Inertia review payload             |
+| `CrewTimesheetPreparationSummaryResource` | Payroll show summary               |
+| `CrewTimelinePagePermissions`             | Review page permission flags       |
 
 ### HTTP
 
-| Method | Path | Route name | Permission |
-|--------|------|------------|------------|
-| GET | `/payroll/{payrollPeriod}/crew-timeline/{preparation}` | `payroll.crew-timeline.show` | `payroll.crew_timesheets.view` |
-| POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/submit` | `payroll.crew-timeline.submit` | `payroll.crew_timesheets.submit` |
-| POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/approve` | `payroll.crew-timeline.approve` | `payroll.crew_timesheets.approve` |
-| POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/return` | `payroll.crew-timeline.return` | `payroll.crew_timesheets.return` |
+| Method | Path                                                           | Route name                      | Permission                        |
+| ------ | -------------------------------------------------------------- | ------------------------------- | --------------------------------- |
+| GET    | `/payroll/{payrollPeriod}/crew-timeline/{preparation}`         | `payroll.crew-timeline.show`    | `payroll.crew_timesheets.view`    |
+| POST   | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/submit`  | `payroll.crew-timeline.submit`  | `payroll.crew_timesheets.submit`  |
+| POST   | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/approve` | `payroll.crew-timeline.approve` | `payroll.crew_timesheets.approve` |
+| POST   | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/return`  | `payroll.crew-timeline.return`  | `payroll.crew_timesheets.return`  |
 
 Inertia page: `resources/js/pages/payroll/crew-timeline/show.tsx`
 
@@ -273,11 +284,11 @@ Preparation-line `from_date` / `to_date` are **payroll allocation or warning ran
 
 Phase cards separate:
 
-| Section | Source fields | Origin examples |
-|---------|---------------|-----------------|
-| Planned schedule | `crew_assignment_phases.planned_*` (or assignment planned fields when applicable) | `user_entered`, `crew_planning` |
-| Actual activity | `crew_assignment_phases.actual_start_at` / `actual_end_at` only | `movement_actual` |
-| Payroll allocation / Affected period | preparation-line `from_date` / `to_date` | `payroll_allocation`, `warning_range` |
+| Section                              | Source fields                                                                     | Origin examples                       |
+| ------------------------------------ | --------------------------------------------------------------------------------- | ------------------------------------- |
+| Planned schedule                     | `crew_assignment_phases.planned_*` (or assignment planned fields when applicable) | `user_entered`, `crew_planning`       |
+| Actual activity                      | `crew_assignment_phases.actual_start_at` / `actual_end_at` only                   | `movement_actual`                     |
+| Payroll allocation / Affected period | preparation-line `from_date` / `to_date`                                          | `payroll_allocation`, `warning_range` |
 
 Hide Planned schedule when phase planned timestamps are blank. Do not fall back to payroll ranges or actual timestamps.
 
@@ -297,8 +308,8 @@ Phase 1C does not write to `crew_timesheets`.
 
 ### Status transition
 
-| From | To | Notes |
-|------|----|-------|
+| From     | To      | Notes                                            |
+| -------- | ------- | ------------------------------------------------ |
 | Approved | Applied | Only transition that may write `crew_timesheets` |
 
 Only one Applied preparation may exist per company and payroll period.
@@ -324,6 +335,7 @@ Per employee (`company_id` + `employee_id` + `period_id`):
 - excluded / warning-only / zero-day rows do not contribute
 
 Do not collapse separate assignments into one misleading continuous date range on the parent.
+
 ### CrewTimesheet fields written
 
 - `sign_on_standby_*`, `onsite_*`, `sign_off_standby_*`
@@ -366,6 +378,7 @@ Current behaviour:
 - `creation_source` remains audit metadata only (Created by system / Created by user)
 
 See `docs/payroll.md` for the authoritative hybrid rules.
+
 - import template instructions differ for crew-operations periods (Daily operational columns left blank)
 - `CrewOperationsPayrollGenerationGuard` blocks crew-operations generation until an Applied preparation exists
 - `CrewPayrollCalculator` uses the same split sign-on/onsite/sign-off structure for all daily sources (Manual, Import, Applied crew-operations); Monthly crew uses `unpaid_leave_days`
@@ -389,14 +402,14 @@ Stale message:
 
 ### Support / HTTP
 
-| Class | Role |
-|---|---|
+| Class                                   | Role                                  |
+| --------------------------------------- | ------------------------------------- |
 | `Actions/ApplyCrewTimesheetPreparation` | Approved → Applied + timesheet upsert |
-| `ApplyCrewTimesheetPreparationResult` | Counts, skips, idempotent flag |
+| `ApplyCrewTimesheetPreparationResult`   | Counts, skips, idempotent flag        |
 
-| Method | Path | Route name | Permission |
-|--------|------|------------|------------|
-| POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/apply` | `payroll.crew-timeline.apply` | `payroll.crew_timesheets.apply_approved` |
+| Method | Path                                                         | Route name                    | Permission                               |
+| ------ | ------------------------------------------------------------ | ----------------------------- | ---------------------------------------- |
+| POST   | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/apply` | `payroll.crew-timeline.apply` | `payroll.crew_timesheets.apply_approved` |
 
 ## Warning codes
 
@@ -405,6 +418,26 @@ Stored in `crew_timesheet_preparation_lines.warning_code` via `CrewTimelineWarni
 Blocking: `missing_actual_start`, `missing_actual_end`, `overlapping_phases`, `pending_movement_correction`, `no_active_crew_contract`, `cross_company_reference`, `invalid_phase_range`
 
 Informational: `timeline_gap`, `monthly_contract_not_supported`, `future_actual_date`
+
+## Skip Timeline Data architecture
+
+Enables skipping an employee's Crew Operations timeline data for a draft preparation version to prevent bad or incomplete movement data from stalling the entire payroll workflow:
+
+- **Permission:** `payroll.crew_timesheets.skip_timeline` (granted to Owner/Admin, synced via `PermissionsSeeder`).
+- **Resolver abstraction:** `CrewTimesheetPreparationSkipResolver` provides a single authoritative engine for:
+    - Resolving active skip records for a preparation (`restored_at IS NULL`).
+    - Distinguishing raw warning lines from unresolved blocking lines (ignoring blockers for actively skipped employees).
+    - Enforcing that `cross_company_reference` is strictly non-bypassable and blocks workflow regardless of skip records.
+    - Validating skip and restore eligibility (Draft status, latest version, fresh source hash, employee membership, and warning presence).
+- **Actions:**
+    - `Actions/SkipCrewTimesheetPreparationEmployee`: executes under pessimistic row locking (`lockForUpdate`), records mandatory `reason` (5–1,000 chars), sets `skipped_by` and `skipped_at`, clears any previous restore markers, and logs `crew_timeline_employee_skipped` with audit metadata and warning codes present.
+    - `Actions/RestoreCrewTimesheetPreparationEmployee`: executes under pessimistic row locking, sets `restored_by` and `restored_at`, and logs `crew_timeline_employee_skip_restored`.
+- **Workflow guards:** `CrewTimesheetPreparationWorkflowGuard` and `CrewOperationsPayrollGenerationGuard` assert unresolved blocking warnings via the resolver rather than raw blocking preparation lines.
+- **Apply behavior:** `ApplyCrewTimesheetPreparation` excludes payable lines of actively skipped employees from line grouping and timesheet creation. Existing Manual and Import timesheets and segments for skipped employees are left untouched. Applying a preparation where all employees are skipped completes successfully without writing dummy timesheets.
+- **Freshness & version isolation:** Skip records are review metadata, not operational source data, and are excluded from `source_hash`. Preparing a new version starts with zero skips (no automatic inheritance).
+- **Routes:**
+    - `POST /payroll/{payrollPeriod}/crew-timeline/{preparation}/employees/{employee}/skip` (`payroll.crew-timeline.employee-skip`)
+    - `DELETE /payroll/{payrollPeriod}/crew-timeline/{preparation}/employees/{employee}/skip` (`payroll.crew-timeline.employee-skip.restore`)
 
 ## Production hardening (post Phase 1E)
 
@@ -428,6 +461,7 @@ Hardening applied before production use. Manual / Excel and Monthly crew behavio
 - Phase 1C: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1CTest.php`
 - Phase 1D: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1DTest.php`
 - Phase 1E: `tests/Feature/Payroll/CrewTimesheetModePhase1ETest.php`
+- Skip Timeline Data: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationSkipTest.php`
 - Hardening: `tests/Feature/Payroll/CrewPayrollHardeningTest.php`, `tests/Unit/Support/Payroll/ResolveCrewContractForPayrollPeriodTest.php`
 - Shared fixtures: `tests/Support/crew-timeline-fixtures.php`
 

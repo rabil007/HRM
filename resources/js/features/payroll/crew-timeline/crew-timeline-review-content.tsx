@@ -98,14 +98,14 @@ export function CrewTimelineReviewContent({
         preparation.status === 'draft' &&
         preparation.is_latest &&
         preparation.is_fresh &&
-        summary.blocking_warning_count === 0 &&
+        summary.unresolved_blocking_warning_count === 0 &&
         period.status === 'draft';
 
     const canApprove =
         permissions.approve &&
         preparation.status === 'submitted' &&
         preparation.is_fresh &&
-        summary.blocking_warning_count === 0 &&
+        summary.unresolved_blocking_warning_count === 0 &&
         period.status === 'draft';
 
     const canReturn =
@@ -117,7 +117,7 @@ export function CrewTimelineReviewContent({
         permissions.apply &&
         preparation.status === 'approved' &&
         preparation.is_fresh &&
-        summary.blocking_warning_count === 0 &&
+        summary.unresolved_blocking_warning_count === 0 &&
         period.status === 'draft';
 
     const prepareNewVersion = (): void => {
@@ -370,7 +370,11 @@ export function CrewTimelineReviewContent({
                             }
                         />
                     ) : (
-                        <CrewTimelineEmployeeTable employees={employees} />
+                        <CrewTimelineEmployeeTable
+                            employees={employees}
+                            periodId={period.id}
+                            preparationId={preparation.id}
+                        />
                     )}
                 </div>
             </div>

@@ -35,6 +35,7 @@ import type {
     CrewTimelineAssignmentLinkDivider,
     CrewTimelineAssignmentSection,
 } from '@/features/payroll/lib/crew-timeline-lines';
+import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
 import type {
@@ -685,6 +686,53 @@ export function CrewTimelineLinesDialog({
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto bg-muted/10 px-4 py-5 sm:px-6">
+                    {employee.is_skipped ? (
+                        <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm dark:bg-amber-500/5">
+                            <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-200">
+                                <AlertTriangle
+                                    className="size-4 shrink-0"
+                                    aria-hidden
+                                />
+                                Skipped from this preparation
+                            </div>
+                            <div className="mt-3 grid gap-3 text-xs sm:grid-cols-3">
+                                <div>
+                                    <span className="block text-muted-foreground">
+                                        Reason
+                                    </span>
+                                    <span className="font-medium text-foreground">
+                                        {employee.skip_reason ?? '—'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="block text-muted-foreground">
+                                        Skipped by
+                                    </span>
+                                    <span className="font-medium text-foreground">
+                                        {employee.skipped_by?.name ?? '—'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="block text-muted-foreground">
+                                        Skipped at
+                                    </span>
+                                    <span className="font-medium text-foreground">
+                                        {employee.skipped_at
+                                            ? formatDisplayDate(
+                                                  employee.skipped_at,
+                                              )
+                                            : '—'}
+                                    </span>
+                                </div>
+                            </div>
+                            <p className="mt-3 text-xs text-muted-foreground italic">
+                                Original movement data, phases, and warnings are
+                                preserved below for audit, but will not be
+                                applied to payroll timesheets.
+                            </p>
+                        </div>
+                    ) : null}
+
                     {summary.blockingWarningCount === 0 &&
                     summary.informationalWarningCount === 0 ? (
                         <div className="mb-4 flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">

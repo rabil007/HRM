@@ -39,14 +39,14 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 
 ## Permission groups
 
-| Area | Current permission families |
-|------|-----------------------------|
-| Organization | `companies.*`, `branches.*`, `departments.*`, `positions.*`, `users.*`, `roles.*` |
-| Employees | `employees.view|create|update|delete|export|import`, and `employees.salary_certificate.print` / `employees.salary_declaration.print` |
-| Contracts / bank / training / sea service / profile tabs | `contracts.view|create|update|delete|import`, `contracts.salary_revisions.view|create|update|delete`, `bank_accounts.view|create|update|delete|import`, `training.view|create|update|delete|import`, `sea_services.view|create|update|delete|import`, `education.view|create|update|delete`, `work_experience.view|create|update|delete|import`, `vaccination.view|create|update|delete|import`, `languages.view|create|update|delete` |
-| Documents | `documents.view|download|share|upload|delete`, `documents.templates.view|create|update|delete`, `documents.requests.view|create|review|approve|cancel`, `documents.workflow-presets.view|create|update|delete`, `documents.signing-presets.view|create|update|delete`, `documents.recipient-requests.view|create|cancel|respond`, `documents.recipient-automation.view|update` |
-| Bulk documents | `bulk_documents.view|generate|delete|email` |
-| Crew operations | `crew_operations.overview.view`, `crew_operations.vessels.*`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*`, `crew_operations.settings.view|update`, `crew_operations.assignments.*` (incl. `void`), `crew_operations.movements.perform`, `crew_operations.corrections.view|request|approve|override` |
+| Area                                                     | Current permission families                                                                                                                                    |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------- | ------- | ----------------------------------------- | -------------------------------------------------------------------------------------- | ------ | --------------------------------- | ------ | ------ | ------- | ----------------------------------------- | ------ | ------ | ---------------------------------------- | --------------------------- | ------ | ------------------------------------------- | ------ | ------------------------ | ---------------------------------------------- | ------- | ------------------------------ | ------ | ------ | ------ | -------------------------- | ------ | ------ | ------ | ------------------------ | ------ | ------ | ------- |
+| Organization                                             | `companies.*`, `branches.*`, `departments.*`, `positions.*`, `users.*`, `roles.*`                                                                              |
+| Employees                                                | `employees.view                                                                                                                                                | create                                                                                                                         | update  | delete  | export                                    | import`, and `employees.salary_certificate.print`/`employees.salary_declaration.print` |
+| Contracts / bank / training / sea service / profile tabs | `contracts.view                                                                                                                                                | create                                                                                                                         | update  | delete  | import`, `contracts.salary_revisions.view | create                                                                                 | update | delete`, `bank_accounts.view      | create | update | delete  | import`, `training.view                   | create | update | delete                                   | import`, `sea_services.view | create | update                                      | delete | import`, `education.view | create                                         | update  | delete`, `work_experience.view | create | update | delete | import`, `vaccination.view | create | update | delete | import`, `languages.view | create | update | delete` |
+| Documents                                                | `documents.view                                                                                                                                                | download                                                                                                                       | share   | upload  | delete`, `documents.templates.view        | create                                                                                 | update | delete`, `documents.requests.view | create | review | approve | cancel`, `documents.workflow-presets.view | create | update | delete`, `documents.signing-presets.view | create                      | update | delete`, `documents.recipient-requests.view | create | cancel                   | respond`, `documents.recipient-automation.view | update` |
+| Bulk documents                                           | `bulk_documents.view                                                                                                                                           | generate                                                                                                                       | delete  | email`  |
+| Crew operations                                          | `crew_operations.overview.view`, `crew_operations.vessels.*`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*`, `crew_operations.settings.view | update`, `crew_operations.assignments.\*`(incl.`void`), `crew_operations.movements.perform`, `crew_operations.corrections.view | request | approve | override`                                 |
 
 `crew_operations.assignments.void` (Void Erroneous Assignment) is high-trust only: auto-granted to roles that already hold `roles.update` (same convention as `corrections.override`). Permission alone is not sufficient — `CrewAssignmentVoidGuard` blocks voids that would affect protected payroll, sea service, or linked assignment chains.
 
@@ -67,21 +67,22 @@ Cmd/Ctrl+K record search authorizes each category on the backend (`employees.vie
 
 Crew timesheet timeline workflow permissions (Phase 1C–1D):
 
-| Permission | Capability |
-|------------|------------|
-| `payroll.crew_timesheets.view` | View timeline preparation review page |
-| `payroll.crew_timesheets.prepare` | Create a new draft preparation version |
-| `payroll.crew_timesheets.clear` | Clear all Manual/Import timesheets on a Draft crew period |
-| `payroll.crew_timesheets.submit` | Submit latest draft timeline preparation, or submit a Manual/Import timesheet for approval |
-| `payroll.crew_timesheets.approve` | Approve a submitted preparation, or approve a submitted Manual/Import timesheet |
-| `payroll.crew_timesheets.return` | Return a submitted preparation or Manual/Import timesheet with notes |
-| `payroll.crew_timesheets.apply_approved` | Apply an approved preparation to crew timesheets |
+| Permission                               | Capability                                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `payroll.crew_timesheets.view`           | View timeline preparation review page                                                       |
+| `payroll.crew_timesheets.prepare`        | Create a new draft preparation version                                                      |
+| `payroll.crew_timesheets.clear`          | Clear all Manual/Import timesheets on a Draft crew period                                   |
+| `payroll.crew_timesheets.submit`         | Submit latest draft timeline preparation, or submit a Manual/Import timesheet for approval  |
+| `payroll.crew_timesheets.approve`        | Approve a submitted preparation, or approve a submitted Manual/Import timesheet             |
+| `payroll.crew_timesheets.return`         | Return a submitted preparation or Manual/Import timesheet with notes                        |
+| `payroll.crew_timesheets.apply_approved` | Apply an approved preparation to crew timesheets                                            |
+| `payroll.crew_timesheets.skip_timeline`  | Skip or restore an employee's Crew Operations timeline data for a draft preparation version |
 
 ## Leave request deletion
 
-| Permission | Capability |
-|------------|------------|
-| `attendance.leave-requests.delete` | Ordinary soft-delete of **pending or cancelled** requests owned by the linked employee (or when combined with `view_all`). Blocked once any approval step has been acted; cancels should be used instead to preserve history. |
+| Permission                             | Capability                                                                                                                                                                                                                                                                                                                                                                                      |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `attendance.leave-requests.delete`     | Ordinary soft-delete of **pending or cancelled** requests owned by the linked employee (or when combined with `view_all`). Blocked once any approval step has been acted; cancels should be used instead to preserve history.                                                                                                                                                                   |
 | `attendance.leave-requests.delete_any` | Privileged administrative **void and remove**. Requires `view` + `view_all` + `delete_any`. Soft-deletes the request in any workflow status, reverses balance (pending → release pending; approved → reverse used; rejected/cancelled → no balance change), cancels open approval steps while preserving completed history, keeps attachments on disk, and writes a company-scoped audit event. |
 
 Ordinary `delete` must never be broadened to cover approved or mid-approval requests. Administrative deletion uses route `attendance.leave-requests.administrative-destroy` and row capability `can_administratively_delete`.
@@ -90,15 +91,15 @@ Ordinary `delete` must never be broadened to cover approved or mid-approval requ
 
 Employee import has one employee permission plus module imports for related records:
 
-| Permission | Import scope |
-|------------|--------------|
-| `employees.import` | Employee import workflow, including passport and Emirates ID columns |
-| `contracts.import` | Contract columns and contract import workflow |
-| `bank_accounts.import` | Bank-account columns and bank import workflow |
-| `training.import` | Training import workflow |
-| `sea_services.import` | Sea service import workflow |
-| `work_experience.import` | Work experience import workflow |
-| `vaccination.import` | Vaccination import workflow |
+| Permission               | Import scope                                                         |
+| ------------------------ | -------------------------------------------------------------------- |
+| `employees.import`       | Employee import workflow, including passport and Emirates ID columns |
+| `contracts.import`       | Contract columns and contract import workflow                        |
+| `bank_accounts.import`   | Bank-account columns and bank import workflow                        |
+| `training.import`        | Training import workflow                                             |
+| `sea_services.import`    | Sea service import workflow                                          |
+| `work_experience.import` | Work experience import workflow                                      |
+| `vaccination.import`     | Vaccination import workflow                                          |
 
 Salary certificate and salary declaration prints use `employees.salary_certificate.print` and `employees.salary_declaration.print` (separate from `employees.view`). Education, work experience, vaccination, languages, contracts, bank accounts, training, and sea services use their own view/create/update/delete families rather than the removed `employees.education.manage`, `employees.work_experience.manage`, `employees.vaccination.manage`, `employees.languages.manage`, `employees.contracts.manage`, `employees.bank_accounts.manage`, and `employees.sea_service.manage` names.
 
@@ -142,7 +143,9 @@ Automatic Spatie activity logging now covers a broad set of organization, master
 Settings are separated cleanly by **ownership**:
 
 ### 1. Platform-Global Settings & Integrations
+
 Installation-wide configurations are singleton resources shared across all companies and are governed exclusively by user-level **Platform Authority** (`platform:view` and `platform:manage`), not tenant Spatie permissions:
+
 - **Application Settings** (`/settings/application`): System name, support contact, regional fallbacks, branding, SMTP configuration, and AI providers / Smart Employee Search. AI setting changes are platform activity (`company_id` null) and are not listed in a tenant Activity Log.
 - **WhatsApp Integration** (`/settings/application?tab=whatsapp`): Singleton Meta Cloud API credentials, phone number IDs, and webhooks. Credential mutations enforce `privileged.2fa`.
 - **WhatsApp Templates** (`/settings/application/whatsapp-templates`): Global Meta template library mappings (`whatsapp_templates` table).
@@ -151,7 +154,9 @@ Installation-wide configurations are singleton resources shared across all compa
 Legacy Spatie permission names (`settings.application.*`, `settings.integrations.whatsapp.*`, `settings.integrations.whatsapp-templates.*`, `settings.integrations.email-templates.*`) are retained in the permission catalog and seeders for backward compatibility, but do **not** authorize global singleton resources.
 
 ### 2. Company-Scoped Settings & Integrations
+
 Tenant-specific configurations are scoped to `current_company_id` and use Spatie **team-scoped permissions**:
+
 - **Company Identity & Regional Defaults** (`/organization/companies/{company}`): Company name, logo, address, legal documents, timezone, currency, and working days (`companies.view`, `companies.update`).
 - **Company Document Signing Assets**: Salary certificate signature, company stamp, and authorized signatory (`companies.view`, `companies.update`).
 - **Company Document Library**: Membership-based document storage (`company_documents.*`).
@@ -161,14 +166,14 @@ Tenant-specific configurations are scoped to `current_company_id` and use Spatie
 
 ### Ownership Matrix
 
-| Concern | Source | Authority |
-|---------|--------|-----------|
-| Platform name, support email/phone, fallback timezone, date format, branding, SMTP, AI providers / Smart Employee Search, e-sign placement | Global `app_settings` | `platform:view` / `platform:manage` |
-| WhatsApp Meta Cloud API singleton integration | Global `whatsapp_settings` | `platform:view` / `platform:manage` + `privileged.2fa` |
-| WhatsApp & Email template libraries | Global `whatsapp_templates`, `email_templates` | `platform:view` / `platform:manage` |
-| Company name, logo, address, phone, email, website, currency, timezone, payroll cycle, working days, WPS | `companies` row | `companies.view|update` |
-| Salary certificate signature/stamp/signatory | `company_document_settings` | `companies.view|update` |
-| Hikvision access control device integration | Company-scoped `hikvision_settings` | `settings.integrations.hikvision.*` |
+| Concern                                                                                                                                    | Source                                         | Authority                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- | ------------------------------------------------------ | ------- |
+| Platform name, support email/phone, fallback timezone, date format, branding, SMTP, AI providers / Smart Employee Search, e-sign placement | Global `app_settings`                          | `platform:view` / `platform:manage`                    |
+| WhatsApp Meta Cloud API singleton integration                                                                                              | Global `whatsapp_settings`                     | `platform:view` / `platform:manage` + `privileged.2fa` |
+| WhatsApp & Email template libraries                                                                                                        | Global `whatsapp_templates`, `email_templates` | `platform:view` / `platform:manage`                    |
+| Company name, logo, address, phone, email, website, currency, timezone, payroll cycle, working days, WPS                                   | `companies` row                                | `companies.view                                        | update` |
+| Salary certificate signature/stamp/signatory                                                                                               | `company_document_settings`                    | `companies.view                                        | update` |
+| Hikvision access control device integration                                                                                                | Company-scoped `hikvision_settings`            | `settings.integrations.hikvision.*`                    |
 
 Credential permissions and platform access never imply that decrypted secrets may be sent to the browser. Settings responses expose masked placeholders and `has_*` flags, and empty secret submissions preserve the stored value.
 
@@ -199,18 +204,20 @@ The `LastCompanyOwnerGuard` ensures that a tenant company never ends up with zer
 ### User Invitations and Acceptance Flow
 
 Tenant administrators with `users.create` may invite users into the company via `UserInvitation`:
+
 - **Cryptographic Tokens**: Each invitation generates a cryptographically secure 40-character random token. Only the SHA-256 hash (`token_hash`) is persisted at rest.
 - **Tenant Isolation**: Invited roles and employees are strictly validated to belong to `current_company_id`. Employees must be unlinked (`user_id IS NULL`).
 - **Resend & Revoke**: Resending an invitation invalidates the previous token by re-generating a fresh token and extending expiration by 7 days. Revoking immediately marks the invitation inactive.
 - **Dual-Path Acceptance**:
-  - **New User Flow**: If the invited email does not exist as a global identity, the user sets up their name and password (matching standard Fortify password policy). Upon acceptance, the User is created, linked to the company, assigned their role/employee, logged in, and redirected to the dashboard.
-  - **Existing User Flow (Zero 2FA / Password Bypass)**: If an account already exists for the invited email, the acceptance flow **NEVER** bypasses login or 2FA. Merely possessing an invitation token does not grant authentication. Unauthenticated visitors are prompted to sign in with their existing credentials. Once authenticated via Fortify (including any required 2FA challenge), the acceptance endpoint verifies that the authenticated user matches the invitation email before linking membership and roles.
+    - **New User Flow**: If the invited email does not exist as a global identity, the user sets up their name and password (matching standard Fortify password policy). Upon acceptance, the User is created, linked to the company, assigned their role/employee, logged in, and redirected to the dashboard.
+    - **Existing User Flow (Zero 2FA / Password Bypass)**: If an account already exists for the invited email, the acceptance flow **NEVER** bypasses login or 2FA. Merely possessing an invitation token does not grant authentication. Unauthenticated visitors are prompted to sign in with their existing credentials. Once authenticated via Fortify (including any required 2FA challenge), the acceptance endpoint verifies that the authenticated user matches the invitation email before linking membership and roles.
 - **Fail-Fast Concurrency**: Acceptance operations lock the invitation row with `lockForUpdate()`. Invalid, expired, accepted, or revoked invitations fail closed with immediate transaction rollback.
 - **Email template**: Invitation mail uses the branded `user_invitation` template from **Settings → Application → Email Templates** (not Laravel markdown mail). Placeholders include `{{invitee_name}}`, `{{inviter_name}}`, `{{company_name}}`, `{{brand_name}}`, `{{accept_url}}`, `{{expires_at}}`, and `{{role_name}}`. If the template is missing or disabled, the same branded layout is still sent with default copy so the invite is not silently dropped.
 
 ### User Security Operations
 
 Administrators with `users.password_reset` or `users.sessions.revoke` (subject to `privileged.2fa` enforcement) may manage security actions against **home-company** users:
+
 - **Password Reset**: Sends a standard Fortify password reset link to the user's email. Restricted to the user's home company via `GlobalIdentityAccessGuard`. This is the admin path for credential rotation; it is not part of normal User Edit.
 - **Session Revocation**: Uses `InvalidateUserSessions` to rotate the user's `remember_token` and delete all active database sessions, immediately terminating sessions across all devices.
 - **Audit Logging**: All invitation events, security actions, and membership changes are logged to Spatie Activity Log tagged with the company ID.
@@ -218,6 +225,7 @@ Administrators with `users.password_reset` or `users.sessions.revoke` (subject t
 ### Presence & Directory Telemetry
 
 User presence is computed server-side from database session activity and login history:
+
 - **Online**: Active session activity within the last 5 minutes.
 - **Recent**: Active session activity between 5 and 30 minutes ago.
 - **Offline**: Activity older than 30 minutes or previous login with no active session.
@@ -366,15 +374,16 @@ Tenant administration (Owner roles, `roles.update`, `companies.*`) is **company-
 Platform administration is a user-level attribute: `users.platform_access` (`view` or `manage`). It is **not** a Spatie permission, is **not** seeded in `PermissionsSeeder`, and is **not** mass-assignable on the User model.
 
 Installation-wide configuration and tooling require platform authority:
+
 - `platform:view` (`platform_access = view` or `manage`): view installation-wide configuration, masked credentials, diagnostics, and template libraries.
 - `platform:manage` (`platform_access = manage`): modify installation-wide configuration, branding assets, test sends, template libraries, and diagnostic actions.
 - High-trust mutations (SMTP credentials, WhatsApp credentials, and e-sign placement updates) additionally enforce `privileged.2fa` when enabled.
 - Legacy `settings.application.*`, `settings.integrations.whatsapp.*`, and template Spatie permissions are retained for compatibility but do **not** authorize mutations to platform-global settings.
 
-| Capability | Who | Surfaces |
-|------------|-----|----------|
-| View | `platform_access = view` or `manage` | Application logs (`/log`, export). Queue/job history (`/jobs` GET). Database table browse/export (`/mysql`) only when the database viewer is enabled. Platform settings (`/settings/application`). |
-| Manage | `platform_access = manage` | Everything in View, plus clear logs, retry/delete failed jobs, delete history, clear pending jobs, and modify installation-wide application settings, branding, SMTP, and e-sign placement. |
+| Capability | Who                                  | Surfaces                                                                                                                                                                                           |
+| ---------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| View       | `platform_access = view` or `manage` | Application logs (`/log`, export). Queue/job history (`/jobs` GET). Database table browse/export (`/mysql`) only when the database viewer is enabled. Platform settings (`/settings/application`). |
+| Manage     | `platform_access = manage`           | Everything in View, plus clear logs, retry/delete failed jobs, delete history, clear pending jobs, and modify installation-wide application settings, branding, SMTP, and e-sign placement.        |
 
 Arbitrary SQL execution (`/mysql/query`) has been **removed**. Table browsing still exposes tenant data, so it remains platform-only. Credential/session/cache/queue-payload tables are hidden; secret-like columns (passwords, tokens, `app_settings.value`, payloads) are redacted even for platform users.
 

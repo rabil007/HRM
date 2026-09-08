@@ -45,6 +45,10 @@ final class CrewTimesheetPreparationReviewQuery
                         ->orderBy('from_date')
                         ->orderBy('id');
                 },
+                'skips' => function ($query) use ($companyId): void {
+                    $query->where('company_id', $companyId)
+                        ->with(['skippedBy:id,name', 'restoredBy:id,name']);
+                },
             ])
             ->withCount([
                 'crewTimesheets as linked_timesheet_count' => function ($query) use ($companyId, $period): void {
