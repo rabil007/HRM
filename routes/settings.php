@@ -46,6 +46,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('platform:manage')
         ->name('application.general.update');
 
+    Route::put('settings/application/retention', [ApplicationSettingsController::class, 'updateRetention'])
+        ->middleware('platform:manage')
+        ->name('application.retention.update');
+
     Route::post('settings/application/branding', [ApplicationSettingsController::class, 'updateBranding'])
         ->middleware('platform:manage')
         ->name('application.branding.update');

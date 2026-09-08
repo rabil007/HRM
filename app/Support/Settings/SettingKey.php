@@ -83,6 +83,14 @@ final class SettingKey
 
     public const AiOpenRouterModel = 'ai_openrouter_model';
 
+    public const JobRunCompletedRetentionDays = 'job_run_completed_retention_days';
+
+    public const JobRunFailedRetentionDays = 'job_run_failed_retention_days';
+
+    public const JobRunRunningRetentionDays = 'job_run_running_retention_days';
+
+    public const JobRunDeletedRetentionDays = 'job_run_deleted_retention_days';
+
     /** @return list<string> */
     public static function encryptedKeys(): array
     {
@@ -151,6 +159,21 @@ final class SettingKey
             self::MailFooterTagline => 'Your Complete Marine Solutions',
             self::MailFooterWebsite => 'www.overseas-ms.com',
             self::MailFooterCertifications => 'ISO 9001:2015 | ISO 14001:2015 | ISO 45001:2018 | ICV Certified',
+            self::JobRunCompletedRetentionDays => '30',
+            self::JobRunFailedRetentionDays => '90',
+            self::JobRunRunningRetentionDays => '90',
+            self::JobRunDeletedRetentionDays => '30',
+        ];
+    }
+
+    /** @return list<string> */
+    public static function jobRunRetentionKeys(): array
+    {
+        return [
+            self::JobRunCompletedRetentionDays,
+            self::JobRunFailedRetentionDays,
+            self::JobRunRunningRetentionDays,
+            self::JobRunDeletedRetentionDays,
         ];
     }
 }

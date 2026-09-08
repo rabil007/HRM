@@ -14,8 +14,12 @@ return [
     /*
      * When the clean command is executed, all recording activities older than
      * the number of days specified here will be deleted.
+     *
+     * This value does not delete records by itself. OMS-HRM does not schedule
+     * activitylog:clean. Changing ACTIVITYLOG_CLEAN_AFTER_DAYS only affects a
+     * deliberate cleanup run after an approved audit-retention policy.
      */
-    'clean_after_days' => 365,
+    'clean_after_days' => max(1, (int) env('ACTIVITYLOG_CLEAN_AFTER_DAYS', 365)),
 
     /*
      * If no log name is passed to the activity() helper

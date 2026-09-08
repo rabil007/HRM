@@ -2,6 +2,7 @@ import { Head, useForm, usePage } from '@inertiajs/react';
 import {
     Building2,
     CheckCircle2,
+    Database,
     ImageIcon,
     Layout,
     Mail,
@@ -37,6 +38,7 @@ import { WhatsAppSettingsPanel } from '@/features/settings/whatsapp-settings-pan
 import type { WhatsAppSettingsPanelProps } from '@/features/settings/whatsapp-settings-panel';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { update as updateRetentionSettings } from '@/routes/application/retention';
 
 type Props = {
     scope?: 'platform';
@@ -61,6 +63,16 @@ type Props = {
     } | null;
     timezones: string[] | null;
     date_formats: { value: string; label: string }[] | null;
+    retention: {
+        completed_days: number;
+        failed_days: number;
+        running_days: number;
+        deleted_days: number;
+        activity_log: {
+            retention_reference_days: number;
+            automatic_cleanup: boolean;
+        };
+    };
     smtp: {
         host: string;
         port: number;
@@ -129,6 +141,13 @@ const ALL_NAV_ITEMS = [
         label: 'System',
         icon: Settings2,
         description: 'UI preferences',
+        permission: 'settings.application.view',
+    },
+    {
+        id: 'retention',
+        label: 'Retention',
+        icon: Database,
+        description: 'Job history & audit',
         permission: 'settings.application.view',
     },
 ] as const;
@@ -248,6 +267,7 @@ export default function ApplicationSettings({
     preferences,
     timezones,
     date_formats,
+    retention,
     smtp,
     ai,
     whatsapp,
@@ -333,6 +353,13 @@ export default function ApplicationSettings({
         sidebar_compact_default: preferences?.sidebar_compact_default ?? false,
     });
 
+    const retentionForm = useForm({
+        completed_days: retention.completed_days,
+        failed_days: retention.failed_days,
+        running_days: retention.running_days,
+        deleted_days: retention.deleted_days,
+    });
+
     function submitGeneral(e: React.FormEvent) {
         e.preventDefault();
 
@@ -366,6 +393,18 @@ export default function ApplicationSettings({
         }
 
         preferencesForm.post('/settings/application/branding', {
+            preserveScroll: true,
+        });
+    }
+
+    function submitRetention(e: React.FormEvent) {
+        e.preventDefault();
+
+        if (!canUpdateApplication) {
+            return;
+        }
+
+        retentionForm.put(updateRetentionSettings.url(), {
             preserveScroll: true,
         });
     }
@@ -451,8 +490,8 @@ export default function ApplicationSettings({
                     Application
                 </h1>
                 <p className="text-sm font-medium text-muted-foreground/80">
-                    Manage branding, email, WhatsApp, and system preferences for
-                    the entire platform.
+                    Manage branding, email, WhatsApp, system preferences, and
+                    data retention for the entire platform.
                 </p>
             </div>
 
@@ -1298,6 +1337,151 @@ export default function ApplicationSettings({
                                     Save preferences
                                 </Button>
                             </div>
+                        </form>
+                    ) : null}
+
+                    {tab === 'retention' ? (
+                        <form onSubmit={submitRetention} className="space-y-6">
+                            <SettingsCard>
+                                <SectionHeading
+                                    icon={Database}
+                                    title="System & Data Retention"
+                                    description="Platform-wide operational retention. These values are not company settings."
+                                    color="bg-amber-500/10 border-amber-500/20 text-amber-500"
+                                />
+                                <div className="grid gap-6 sm:grid-cols-2">
+                                    {(
+                                        [
+                                            [
+                                                'completed_days',
+                                                'Completed job history',
+                                                'Successful job and scheduler history.',
+                                            ],
+                                            [
+                                                'failed_days',
+                                                'Failed job history',
+                                                'Kept longer for incident investigation.',
+                                            ],
+                                            [
+                                                'running_days',
+                                                'Running / stuck job history',
+                                                'Stuck running rows are not treated as recent noise.',
+                                            ],
+                                            [
+                                                'deleted_days',
+                                                'Deleted job history',
+                                                'Soft-deleted completed history only. Failed and running rows still use their longer windows.',
+                                            ],
+                                        ] as const
+                                    ).map(([field, label, hint]) => (
+                                        <div
+                                            key={field}
+                                            className="space-y-1.5"
+                                        >
+                                            <FieldLabel htmlFor={field}>
+                                                {label}
+                                            </FieldLabel>
+                                            <FieldInput
+                                                id={field}
+                                                type="number"
+                                                min={1}
+                                                max={3650}
+                                                inputMode="numeric"
+                                                disabled={!canUpdateApplication}
+                                                value={
+                                                    retentionForm.data[field]
+                                                }
+                                                onChange={(e) =>
+                                                    retentionForm.setData(
+                                                        field,
+                                                        e.target.value === ''
+                                                            ? 0
+                                                            : Number(
+                                                                  e.target
+                                                                      .value,
+                                                              ),
+                                                    )
+                                                }
+                                            />
+                                            <p className="ml-0.5 text-[10px] text-muted-foreground/60">
+                                                {hint} Default{' '}
+                                                {field === 'completed_days' ||
+                                                field === 'deleted_days'
+                                                    ? '30'
+                                                    : '90'}{' '}
+                                                days. Allowed 1–3650.
+                                            </p>
+                                            {retentionForm.errors[field] ? (
+                                                <p className="text-sm text-destructive">
+                                                    {
+                                                        retentionForm.errors[
+                                                            field
+                                                        ]
+                                                    }
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                    ))}
+                                </div>
+                            </SettingsCard>
+
+                            <SettingsCard>
+                                <SectionHeading
+                                    icon={Database}
+                                    title="Activity log policy"
+                                    description="Read-only. Automatic cleanup is not enabled."
+                                    color="bg-muted border-border text-muted-foreground"
+                                />
+                                <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4 dark:border-white/5 dark:bg-white/[0.02]">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <p className="text-sm font-semibold text-foreground">
+                                            Retention reference
+                                        </p>
+                                        <Badge
+                                            variant="secondary"
+                                            className="text-[10px]"
+                                        >
+                                            {
+                                                retention.activity_log
+                                                    .retention_reference_days
+                                            }{' '}
+                                            days
+                                        </Badge>
+                                    </div>
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <p className="text-sm font-semibold text-foreground">
+                                            Automatic cleanup
+                                        </p>
+                                        <Badge
+                                            variant="secondary"
+                                            className="text-[10px]"
+                                        >
+                                            Disabled
+                                        </Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Activity history is preserved for HR,
+                                        payroll, documents, approvals and audit
+                                        purposes. Automatic deletion is not
+                                        currently enabled.
+                                    </p>
+                                </div>
+                            </SettingsCard>
+
+                            {canUpdateApplication ? (
+                                <div className="flex justify-end">
+                                    <Button
+                                        type="submit"
+                                        className="h-11 rounded-xl px-6"
+                                        disabled={retentionForm.processing}
+                                    >
+                                        {retentionForm.processing ? (
+                                            <Spinner />
+                                        ) : null}
+                                        Save retention
+                                    </Button>
+                                </div>
+                            ) : null}
                         </form>
                     ) : null}
                 </main>

@@ -50,6 +50,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 | Recently viewed records | [recent-items.md](./recent-items.md) |
 | Saved list filters | [saved-views.md](./saved-views.md) |
 | Privileged 2FA | [privileged-2fa.md](./privileged-2fa.md) and `.cursor/rules/permissions.mdc` |
+| Job history retention / activity-log cleanup | [permissions.md](./permissions.md#job-history-and-activity-log-retention) |
 | AI providers / Smart Employee Search | [ai-settings.md](./ai-settings.md) |
 | HTTP / browser security headers | [security-headers.md](./security-headers.md) |
 | Security (credentials, tenancy, auth) | Matching security guide ([permissions.md](./permissions.md#global-user-account-status) for login account status, [permissions.md](./permissions.md#global-user-email-identity) for global email identity, [privileged-2fa.md](./privileged-2fa.md), [security-headers.md](./security-headers.md)) + `review-oms-security` skill |
@@ -119,4 +120,4 @@ The application currently includes core organization and employee management, em
 
 ## Last reviewed
 
-Entry points reviewed on **2026-09-07**. Guides were reconciled with CrewAssignment + P0–P6 (EmployeeDeployment removed), current authorization/policy usage, Golden Files, Cursor rules, and CI change classification. Topic guides still vary in depth; implementation remains authoritative.
+Entry points reviewed on **2026-09-08**. Guides were reconciled with CrewAssignment + P0–P6 (EmployeeDeployment removed), current authorization/policy usage, Golden Files, Cursor rules, and CI change classification. Topic guides still vary in depth; implementation remains authoritative.

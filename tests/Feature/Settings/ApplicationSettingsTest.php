@@ -37,7 +37,13 @@ test('user with platform view access can open application settings in view mode'
             ->has('general.app_name')
             ->has('general.support_email')
             ->has('general.timezone')
-            ->has('general.date_format'),
+            ->has('general.date_format')
+            ->where('retention.completed_days', 30)
+            ->where('retention.failed_days', 90)
+            ->where('retention.running_days', 90)
+            ->where('retention.deleted_days', 30)
+            ->where('retention.activity_log.automatic_cleanup', false)
+            ->where('retention.activity_log.retention_reference_days', 365),
         );
 });
 
@@ -144,6 +150,15 @@ test('tenant user without platform manage access receives 403 on every global se
 
     $this->actingAs($user)
         ->postJson(route('application.ai.test'))
+        ->assertForbidden();
+
+    $this->actingAs($user)
+        ->put(route('application.retention.update'), [
+            'completed_days' => 10,
+            'failed_days' => 20,
+            'running_days' => 20,
+            'deleted_days' => 10,
+        ])
         ->assertForbidden();
 });
 
