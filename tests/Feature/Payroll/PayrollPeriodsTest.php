@@ -422,6 +422,54 @@ test('payroll hub defaults to current month periods only', function () {
             ->where('summary.total_periods', 3));
 });
 
+test('payroll hub filters by multiple selected months', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+
+    $tz = $company->timezone;
+    $pastMonth = now($tz)->subMonth()->format('Y-m');
+    $currentMonth = now($tz)->format('Y-m');
+    $futureMonth = now($tz)->addMonth()->format('Y-m');
+
+    PayrollPeriod::factory()->for($company)->create([
+        'name' => 'Past Month Run',
+        'start_date' => now($tz)->subMonth()->startOfMonth()->toDateString(),
+        'end_date' => now($tz)->subMonth()->endOfMonth()->toDateString(),
+    ]);
+    PayrollPeriod::factory()->for($company)->create([
+        'name' => 'Current Month Run',
+        'start_date' => now($tz)->startOfMonth()->toDateString(),
+        'end_date' => now($tz)->endOfMonth()->toDateString(),
+    ]);
+    PayrollPeriod::factory()->for($company)->create([
+        'name' => 'Future Month Run',
+        'start_date' => now($tz)->addMonth()->startOfMonth()->toDateString(),
+        'end_date' => now($tz)->addMonth()->endOfMonth()->toDateString(),
+    ]);
+
+    // Comma-separated query
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.index', ['months' => "{$pastMonth},{$futureMonth}"]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/index')
+            ->has('periods', 2)
+            ->where('filters.months', [$pastMonth, $futureMonth])
+            ->where('summary.total_periods', 2));
+
+    // Array query
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.index', ['months' => [$pastMonth, $futureMonth]]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/index')
+            ->has('periods', 2)
+            ->where('filters.months', [$pastMonth, $futureMonth])
+            ->where('summary.total_periods', 2));
+});
+
 test('payroll/payroll route redirects to payroll index', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);

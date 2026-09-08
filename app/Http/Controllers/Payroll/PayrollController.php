@@ -113,12 +113,33 @@ class PayrollController extends Controller
         $dateTo = trim((string) $request->query('date_to', ''));
         $showAll = $request->boolean('all');
 
-        if (! $showAll && $dateFrom === '' && $dateTo === '') {
+        $monthsInput = $request->input('months');
+        $months = [];
+        if (is_array($monthsInput)) {
+            $months = array_values(array_unique(array_filter(
+                $monthsInput,
+                fn ($m) => is_string($m) && (bool) preg_match('/^\d{4}-\d{2}$/', $m)
+            )));
+        } elseif (is_string($monthsInput) && $monthsInput !== '') {
+            $months = array_values(array_unique(array_filter(
+                array_map('trim', explode(',', $monthsInput)),
+                fn ($m) => (bool) preg_match('/^\d{4}-\d{2}$/', $m)
+            )));
+        }
+        sort($months);
+
+        if (! $showAll && $months === [] && $dateFrom === '' && $dateTo === '') {
             $company = Company::query()->find($companyId);
             $timezone = $company?->timezone ?? config('app.timezone', 'Asia/Dubai');
             $now = CarbonImmutable::now($timezone);
+            $months = [$now->format('Y-m')];
             $dateFrom = $now->startOfMonth()->toDateString();
             $dateTo = $now->endOfMonth()->toDateString();
+        } elseif ($months !== []) {
+            $firstMonth = $months[0];
+            $lastMonth = end($months);
+            $dateFrom = CarbonImmutable::parse($firstMonth.'-01')->startOfMonth()->toDateString();
+            $dateTo = CarbonImmutable::parse($lastMonth.'-01')->endOfMonth()->toDateString();
         }
 
         $query = PayrollPeriod::query()
@@ -163,12 +184,25 @@ class PayrollController extends Controller
             $query->where('status', $status);
         }
 
-        if ($this->isValidDateFilter($dateFrom)) {
-            $query->whereDate('end_date', '>=', $dateFrom);
-        }
+        if ($months !== []) {
+            $query->where(function (Builder $dateQuery) use ($months): void {
+                foreach ($months as $month) {
+                    $start = CarbonImmutable::parse($month.'-01')->startOfMonth()->toDateString();
+                    $end = CarbonImmutable::parse($month.'-01')->endOfMonth()->toDateString();
+                    $dateQuery->orWhere(function (Builder $mQuery) use ($start, $end): void {
+                        $mQuery->whereDate('end_date', '>=', $start)
+                            ->whereDate('start_date', '<=', $end);
+                    });
+                }
+            });
+        } else {
+            if ($this->isValidDateFilter($dateFrom)) {
+                $query->whereDate('end_date', '>=', $dateFrom);
+            }
 
-        if ($this->isValidDateFilter($dateTo)) {
-            $query->whereDate('start_date', '<=', $dateTo);
+            if ($this->isValidDateFilter($dateTo)) {
+                $query->whereDate('start_date', '<=', $dateTo);
+            }
         }
 
         $paginator = $query
@@ -187,9 +221,10 @@ class PayrollController extends Controller
                 'status' => $status,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
+                'months' => $months,
                 'all' => $showAll ? '1' : '',
             ],
-            'summary' => PayrollHubSummary::forCompany($companyId, $dateFrom, $dateTo),
+            'summary' => PayrollHubSummary::forCompany($companyId, $dateFrom, $dateTo, $months),
             'payroll_categories' => $this->payrollCategoryOptions(),
             'payroll_period_statuses' => $this->payrollPeriodStatusOptions(),
             'permissions' => [

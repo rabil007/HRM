@@ -221,6 +221,7 @@ final class SavedViewCatalog
                 'status' => ['type' => 'enum', 'values' => PayrollPeriodStatus::values()],
                 'date_from' => ['type' => 'date'],
                 'date_to' => ['type' => 'date'],
+                'months' => ['type' => 'months'],
                 'all' => ['type' => 'bool'],
             ],
         };
@@ -236,13 +237,17 @@ final class SavedViewCatalog
         ?int $companyId,
         bool $rejectInvalid,
     ): ?string {
+        $type = (string) ($definition['type'] ?? '');
+
         if (is_array($value)) {
+            if ($type === 'months') {
+                return self::normalizeMonths($key, $value, $rejectInvalid);
+            }
+
             self::failOrSkip($key, 'must be a scalar value.', $rejectInvalid);
 
             return null;
         }
-
-        $type = (string) ($definition['type'] ?? '');
 
         return match ($type) {
             'search' => self::normalizeSearch($key, $value, $rejectInvalid),
@@ -251,6 +256,7 @@ final class SavedViewCatalog
             'id' => self::normalizeId($key, $value, $definition, $companyId, $rejectInvalid),
             'bool' => self::normalizeBool($value),
             'date' => self::normalizeDate($key, $value, $rejectInvalid),
+            'months' => self::normalizeMonths($key, $value, $rejectInvalid),
             default => null,
         };
     }
@@ -451,6 +457,35 @@ final class SavedViewCatalog
         }
 
         return $date;
+    }
+
+    private static function normalizeMonths(string $key, mixed $value, bool $rejectInvalid): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $raw = is_array($value) ? implode(',', $value) : trim((string) $value);
+        if ($raw === '') {
+            return null;
+        }
+
+        $parts = array_unique(array_filter(array_map('trim', explode(',', $raw))));
+        sort($parts);
+
+        if ($parts === []) {
+            return null;
+        }
+
+        foreach ($parts as $part) {
+            if (preg_match('/^\d{4}-\d{2}$/', $part) !== 1) {
+                self::failOrSkip($key, 'must be valid month format (YYYY-MM).', $rejectInvalid);
+
+                return null;
+            }
+        }
+
+        return implode(',', $parts);
     }
 
     private static function failOrSkip(string $key, string $message, bool $rejectInvalid): void

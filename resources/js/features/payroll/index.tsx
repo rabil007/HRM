@@ -1,6 +1,6 @@
 import { Link, router, useForm } from '@inertiajs/react';
 import { ChevronRight, Plus, Receipt } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     index,
     storePeriod,
@@ -43,6 +43,7 @@ import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
 import { PayrollCreationSourceBadge } from './components/payroll-creation-source-badge';
+import { PayrollMonthFilter } from './components/payroll-month-filter';
 
 import { PayrollPeriodCard } from './components/payroll-period-card';
 import { PayrollPeriodFormSheet } from './components/payroll-period-form-sheet';
@@ -86,18 +87,19 @@ export function PayrollIndexContent({
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [view, setView] = useViewPreference('payroll:view', 'grid');
 
-    /** Derive the current month value (YYYY-MM) from the active date_from filter */
-    const currentMonthValue = (() => {
+    const activeMonths = useMemo((): string[] => {
         if (initialFilters.all === '1') {
-            return '__all__';
+            return [];
+        }
+        if (Array.isArray(initialFilters.months) && initialFilters.months.length > 0) {
+            return initialFilters.months;
         }
         if (initialFilters.date_from) {
-            return initialFilters.date_from.substring(0, 7);
+            return [initialFilters.date_from.substring(0, 7)];
         }
-        // Default: current month
         const now = new Date();
-        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    })();
+        return [`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`];
+    }, [initialFilters.all, initialFilters.months, initialFilters.date_from]);
 
     const list = useServerPaginationFilters({
         url: index.url(),
@@ -107,21 +109,33 @@ export function PayrollIndexContent({
             status: initialFilters.status,
             date_from: initialFilters.date_from,
             date_to: initialFilters.date_to,
+            months: Array.isArray(initialFilters.months)
+                ? initialFilters.months.join(',')
+                : (initialFilters.months || ''),
             all: initialFilters.all || '',
         },
         pagination,
     });
 
-    const handleMonthChange = (value: string) => {
-        if (!value) {
+    const handleMonthsChange = (months: string[]) => {
+        if (months.length === 0) {
+            handleClearToAll();
             return;
         }
-        const [year, month] = value.split('-').map(Number);
-        const lastDay = new Date(year, month, 0).getDate();
         list.applyFilters({
-            date_from: `${value}-01`,
-            date_to: `${value}-${String(lastDay).padStart(2, '0')}`,
+            months: months.join(','),
+            date_from: '',
+            date_to: '',
             all: '',
+        });
+    };
+
+    const handleClearToAll = () => {
+        list.applyFilters({
+            months: '',
+            date_from: '',
+            date_to: '',
+            all: '1',
         });
     };
 
@@ -149,7 +163,6 @@ export function PayrollIndexContent({
         });
     };
 
-
     const handleCategoryChange = (category: PayrollCategory | '') => {
         list.applyFilters({ category });
     };
@@ -158,6 +171,7 @@ export function PayrollIndexContent({
         initialFilters.category ||
         initialFilters.status ||
         initialFilters.all ||
+        (Array.isArray(initialFilters.months) && initialFilters.months.length > 0) ||
         initialSearch,
     );
 
@@ -192,16 +206,13 @@ export function PayrollIndexContent({
                 onChange={list.onSearchChange}
                 right={
                     <div className="flex flex-wrap items-center gap-2">
-                        {/* Month filter */}
-                        <div className="w-44">
-                            <input
-                                id="payroll-month-filter"
-                                type="month"
-                                className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary/40"
-                                value={currentMonthValue === '__all__' ? '' : currentMonthValue}
-                                onChange={(e) => handleMonthChange(e.target.value)}
-                            />
-                        </div>
+                        {/* Multi-month filter */}
+                        <PayrollMonthFilter
+                            selectedMonths={activeMonths}
+                            isAll={initialFilters.all === '1'}
+                            onChange={handleMonthsChange}
+                            onClearToAll={handleClearToAll}
+                        />
 
                         {/* All periods toggle */}
                         <Button
@@ -209,16 +220,15 @@ export function PayrollIndexContent({
                             variant={initialFilters.all === '1' ? 'secondary' : 'outline'}
                             size="sm"
                             className="h-11 rounded-xl px-4 text-xs"
-                            onClick={() =>
-                                initialFilters.all === '1'
-                                    ? handleMonthChange(
-                                          (() => {
-                                              const now = new Date();
-                                              return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-                                          })()
-                                      )
-                                    : list.applyFilters({ date_from: '', date_to: '', all: '1' })
-                            }
+                            onClick={() => {
+                                if (initialFilters.all === '1') {
+                                    const now = new Date();
+                                    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                                    handleMonthsChange([currentMonth]);
+                                } else {
+                                    handleClearToAll();
+                                }
+                            }}
                         >
                             All periods
                         </Button>
@@ -233,6 +243,9 @@ export function PayrollIndexContent({
                             currentFilters={{
                                 search: initialSearch,
                                 ...initialFilters,
+                                months: Array.isArray(initialFilters.months)
+                                    ? initialFilters.months.join(',')
+                                    : (initialFilters.months || ''),
                             }}
                             views={saved_views}
                         />

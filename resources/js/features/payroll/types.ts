@@ -160,6 +160,7 @@ export type PayrollHubFilters = {
     status: PayrollPeriodStatus | '';
     date_from: string;
     date_to: string;
+    months?: string[];
     all?: string;
 };
 
