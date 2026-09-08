@@ -10,18 +10,21 @@ use App\Http\Requests\Settings\TestApplicationMailRequest;
 use App\Http\Requests\Settings\UpdateApplicationAiRequest;
 use App\Http\Requests\Settings\UpdateApplicationBrandingRequest;
 use App\Http\Requests\Settings\UpdateApplicationGeneralRequest;
+use App\Http\Requests\Settings\UpdateApplicationRetentionRequest;
 use App\Http\Requests\Settings\UpdateApplicationSmtpRequest;
 use App\Services\AiProviderConnectionTester;
 use App\Services\Settings\AiSettingsService;
 use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
 use App\Support\Platform\PlatformAuthorization;
+use App\Support\Queue\JobRunRetention;
 use App\Support\Settings\SettingKey;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Spatie\Activitylog\Models\Activity;
 use Throwable;
 
 class ApplicationSettingsController extends Controller
@@ -64,6 +67,7 @@ class ApplicationSettingsController extends Controller
                 ['value' => 'd-m-Y', 'label' => '21-05-2026'],
                 ['value' => 'M d, Y', 'label' => 'May 21, 2026'],
             ],
+            'retention' => $this->retentionProps(),
             'smtp' => $this->mailSettings->forSettingsPage(),
             'ai' => $this->aiSettings->forSettingsPage(),
             'whatsapp' => WhatsAppIntegrationController::pageProps($user),
@@ -98,6 +102,36 @@ class ApplicationSettingsController extends Controller
             ->log('updated platform general settings');
 
         return back()->with('success', 'Platform settings saved.');
+    }
+
+    public function updateRetention(UpdateApplicationRetentionRequest $request): RedirectResponse
+    {
+        $payload = $request->settingPayload();
+        $previous = app(JobRunRetention::class)->storedValues();
+        $changedKeys = array_values(array_filter(
+            array_keys($payload),
+            fn (string $key): bool => ($previous[$key] ?? null) !== $payload[$key],
+        ));
+
+        $this->settings->setMany($payload);
+
+        if ($changedKeys !== []) {
+            activity('platform')
+                ->event('updated')
+                ->causedBy($request->user())
+                ->withProperties([
+                    'scope' => 'platform',
+                    'keys' => $changedKeys,
+                    'old' => array_intersect_key($previous, array_flip($changedKeys)),
+                    'new' => array_intersect_key($payload, array_flip($changedKeys)),
+                ])
+                ->tap(function (Activity $activity): void {
+                    $activity->company_id = null;
+                })
+                ->log('updated platform job run retention settings');
+        }
+
+        return back()->with('success', 'Retention settings saved.');
     }
 
     public function updateBranding(UpdateApplicationBrandingRequest $request): RedirectResponse
@@ -202,5 +236,30 @@ class ApplicationSettingsController extends Controller
         return response()->json([
             'message' => $message,
         ]);
+    }
+
+    /**
+     * @return array{
+     *     completed_days: int,
+     *     failed_days: int,
+     *     running_days: int,
+     *     deleted_days: int,
+     *     activity_log: array{retention_reference_days: int, automatic_cleanup: bool}
+     * }
+     */
+    private function retentionProps(): array
+    {
+        $retention = app(JobRunRetention::class);
+
+        return [
+            'completed_days' => $retention->completedDays(),
+            'failed_days' => $retention->failedDays(),
+            'running_days' => $retention->runningDays(),
+            'deleted_days' => $retention->deletedDays(),
+            'activity_log' => [
+                'retention_reference_days' => 365,
+                'automatic_cleanup' => false,
+            ],
+        ];
     }
 }

@@ -61,6 +61,7 @@ The scheduler runs fetch commands every minute:
    - Administrative recovery action on the Access Events page (`/hikvision/access-events`).
    - Allows on-demand fetching and recalculation for any selected date.
    - Distinguishable in `job_runs` via explicit `fetch_origin` tracking (`manual`, `scheduled_today`, `scheduled_reconciliation`, `catch_up`).
+   - The every-minute scheduler commands only dispatch `FetchHikvisionAccessEventsJob`. Successful scheduler polls are not stored in `job_runs`. Command failures and the queued fetch job are. See [Job history and activity-log retention](./permissions.md#job-history-and-activity-log-retention).
 
 ## Troubleshooting and Operations
 

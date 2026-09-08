@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Queue\JobRunRetention;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Model;
@@ -57,36 +58,54 @@ class JobRun extends Model
         ];
     }
 
-    public static function retentionDays(): int
-    {
-        return max(1, (int) config('queue.job_run_retention_days', 90));
-    }
-
     /**
      * @return Builder<self>
      */
     public function prunable(): Builder
     {
-        $cutoff = now()->subDays(self::retentionDays());
+        $retention = app(JobRunRetention::class);
+        $completedCutoff = now()->subDays($retention->completedDays());
+        $failedCutoff = now()->subDays($retention->failedDays());
+        $runningCutoff = now()->subDays($retention->runningDays());
+        $deletedCutoff = now()->subDays($retention->deletedDays());
 
         return static::query()
             ->withTrashed()
-            ->where(function (Builder $query) use ($cutoff): void {
-                $query->where(function (Builder $query) use ($cutoff): void {
-                    $query->whereIn('status', [self::STATUS_COMPLETED, self::STATUS_FAILED])
-                        ->where(function (Builder $query) use ($cutoff): void {
-                            $query->where('finished_at', '<=', $cutoff)
-                                ->orWhere(function (Builder $query) use ($cutoff): void {
+            ->where(function (Builder $query) use ($completedCutoff, $failedCutoff, $runningCutoff, $deletedCutoff): void {
+                $query->where(function (Builder $query) use ($completedCutoff): void {
+                    $query->whereNull('deleted_at')
+                        ->where('status', self::STATUS_COMPLETED)
+                        ->where(function (Builder $query) use ($completedCutoff): void {
+                            $query->where('finished_at', '<=', $completedCutoff)
+                                ->orWhere(function (Builder $query) use ($completedCutoff): void {
                                     $query->whereNull('finished_at')
-                                        ->where('created_at', '<=', $cutoff);
+                                        ->where('created_at', '<=', $completedCutoff);
                                 });
                         });
-                })->orWhere(function (Builder $query) use ($cutoff): void {
+                })->orWhere(function (Builder $query) use ($failedCutoff, $deletedCutoff): void {
+                    $query->where('status', self::STATUS_FAILED)
+                        ->where(function (Builder $query) use ($failedCutoff): void {
+                            $query->where('finished_at', '<=', $failedCutoff)
+                                ->orWhere(function (Builder $query) use ($failedCutoff): void {
+                                    $query->whereNull('finished_at')
+                                        ->where('created_at', '<=', $failedCutoff);
+                                });
+                        })
+                        ->where(function (Builder $query) use ($deletedCutoff): void {
+                            $query->whereNull('deleted_at')
+                                ->orWhere('deleted_at', '<=', $deletedCutoff);
+                        });
+                })->orWhere(function (Builder $query) use ($runningCutoff, $deletedCutoff): void {
                     $query->where('status', self::STATUS_RUNNING)
-                        ->where('created_at', '<=', $cutoff);
-                })->orWhere(function (Builder $query) use ($cutoff): void {
-                    $query->whereNotNull('deleted_at')
-                        ->where('deleted_at', '<=', $cutoff);
+                        ->where('created_at', '<=', $runningCutoff)
+                        ->where(function (Builder $query) use ($deletedCutoff): void {
+                            $query->whereNull('deleted_at')
+                                ->orWhere('deleted_at', '<=', $deletedCutoff);
+                        });
+                })->orWhere(function (Builder $query) use ($deletedCutoff): void {
+                    $query->where('status', self::STATUS_COMPLETED)
+                        ->whereNotNull('deleted_at')
+                        ->where('deleted_at', '<=', $deletedCutoff);
                 });
             });
     }

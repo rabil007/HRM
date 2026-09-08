@@ -175,7 +175,7 @@ final class JobRegistry
                 'trigger' => "Artisan Schedule (daily). Runs at {$hikvisionFetchAt} ({$schedulerTimezone}).",
                 'schedule' => self::dailyCronLabel($hikvisionFetchAt, $schedulerTimezone),
                 'signature' => 'hikvision:fetch-access-events',
-                'details' => 'Only runs if enabled in Hikvision settings. Dispatches FetchHikvisionAccessEventsJob.',
+                'details' => 'Only runs if enabled in Hikvision settings. Dispatches FetchHikvisionAccessEventsJob. Successful scheduler polls are not stored in job_runs; failures and the dispatched fetch job are.',
                 'code_snippet' => 'php artisan hikvision:fetch-access-events',
             ],
             [
@@ -186,7 +186,7 @@ final class JobRegistry
                 'trigger' => "Artisan Schedule (daily). Runs at {$hikvisionEveningFetchAt} ({$schedulerTimezone}).",
                 'schedule' => self::dailyCronLabel($hikvisionEveningFetchAt, $schedulerTimezone),
                 'signature' => 'hikvision:fetch-todays-access-events',
-                'details' => 'Ensures recent evening punches are captured promptly for rosters. Only runs if enabled.',
+                'details' => 'Ensures recent evening punches are captured promptly for rosters. Only runs if enabled. Successful scheduler polls are not stored in job_runs; failures and the dispatched fetch job are.',
                 'code_snippet' => 'php artisan hikvision:fetch-todays-access-events',
             ],
             [
@@ -219,7 +219,7 @@ final class JobRegistry
                 'trigger' => 'Artisan Schedule (every minute).',
                 'schedule' => '* * * * * (Every minute)',
                 'signature' => 'crew:dispatch-operational-alert-email-digests {--company= : Limit to a company id} {--force : Force dispatch}',
-                'details' => 'Evaluates active companies and dispatches one consolidated email digest per recipient at each company\'s local scheduled time.',
+                'details' => 'Evaluates active companies and dispatches one consolidated email digest per recipient at each company\'s local scheduled time. Successful scheduler polls are not stored in job_runs; failures and DeliverCrewOperationalAlertEmailJob are.',
                 'code_snippet' => 'php artisan crew:dispatch-operational-alert-email-digests',
             ],
         ];

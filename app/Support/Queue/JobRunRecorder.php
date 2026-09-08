@@ -23,6 +23,15 @@ final class JobRunRecorder
     /** @var array<int, int> */
     private static array $scheduledRunIds = [];
 
+    /** @var array<int, true> */
+    private static array $failuresOnlyScheduled = [];
+
+    public static function flushScheduledState(): void
+    {
+        self::$scheduledRunIds = [];
+        self::$failuresOnlyScheduled = [];
+    }
+
     public function recordQueueStarting(JobProcessing $event): void
     {
         $payload = $event->job->payload();
@@ -124,6 +133,12 @@ final class JobRunRecorder
 
     public function recordScheduledStarting(ScheduledTaskStarting $event): void
     {
+        if ($this->recordsFailuresOnly($event)) {
+            self::$failuresOnlyScheduled[spl_object_id($event->task)] = true;
+
+            return;
+        }
+
         $name = $this->resolveScheduledName($event);
 
         $run = JobRun::query()->create([
@@ -140,6 +155,14 @@ final class JobRunRecorder
 
     public function recordScheduledFinished(ScheduledTaskFinished $event): void
     {
+        $taskId = spl_object_id($event->task);
+
+        if (isset(self::$failuresOnlyScheduled[$taskId]) || $this->recordsFailuresOnly($event)) {
+            unset(self::$failuresOnlyScheduled[$taskId], self::$scheduledRunIds[$taskId]);
+
+            return;
+        }
+
         $run = $this->resolveScheduledRun($event);
 
         if ($run === null) {
@@ -160,6 +183,8 @@ final class JobRunRecorder
 
     public function recordScheduledFailed(ScheduledTaskFailed $event): void
     {
+        unset(self::$failuresOnlyScheduled[spl_object_id($event->task)]);
+
         $run = $this->resolveScheduledRun($event);
 
         $finishedAt = now();
@@ -303,6 +328,13 @@ final class JobRunRecorder
             ->where('status', JobRun::STATUS_RUNNING)
             ->latest('id')
             ->first();
+    }
+
+    private function recordsFailuresOnly(ScheduledTaskStarting|ScheduledTaskFinished|ScheduledTaskFailed $event): bool
+    {
+        $command = $event->task->command ?? null;
+
+        return ScheduledJobRunRecording::recordsFailuresOnly(is_string($command) ? $command : null);
     }
 
     private function resolveScheduledName(ScheduledTaskStarting|ScheduledTaskFinished|ScheduledTaskFailed $event): string

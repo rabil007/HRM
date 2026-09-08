@@ -385,7 +385,7 @@ Installation-wide configuration and tooling require platform authority:
 | Capability | Who                                  | Surfaces                                                                                                                                                                                           |
 | ---------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | View       | `platform_access = view` or `manage` | Application logs (`/log`, export). Queue/job history (`/jobs` GET). Database table browse/export (`/mysql`) only when the database viewer is enabled. Platform settings (`/settings/application`). |
-| Manage     | `platform_access = manage`           | Everything in View, plus clear logs, retry/delete failed jobs, delete history, clear pending jobs, and modify installation-wide application settings, branding, SMTP, and e-sign placement.        |
+| Manage     | `platform_access = manage`           | Everything in View, plus clear logs, retry/delete failed jobs, delete history, clear pending jobs, and modify installation-wide application settings, branding, SMTP, job-run retention, and e-sign placement. |
 
 Arbitrary SQL execution (`/mysql/query`) has been **removed**. Table browsing still exposes tenant data, so it remains platform-only. Credential/session/cache/queue-payload tables are hidden; secret-like columns (passwords, tokens, `app_settings.value`, payloads) are redacted even for platform users.
 
@@ -413,3 +413,38 @@ When `PLATFORM_DATABASE_VIEWER_ENABLED` is unset, the viewer is enabled outside 
 ### Audit
 
 Meaningful platform actions write Spatie activity rows with log name `platform` and `scope=platform`. Logged metadata includes actor, action, table/file/job identifiers, IP, and user agent. Query result bodies, log file contents, and serialized job payloads are never stored in the audit record.
+
+### Job history and activity-log retention
+
+`job_runs` is operational diagnostics for the `/jobs` history viewer. It is not HR, payroll, contract, or e-sign evidence. A daily `model:prune` task named `job-runs-prune` runs at 02:00 in the application timezone and is safe to run more than once.
+
+Retention is a **platform-wide** setting, not a company setting. Platform administrators with `platform_access = manage` change it on **Settings → Application → Retention** (`System & Data Retention`). Values are stored in `app_settings` and take effect on the next prune without a queue restart, `config:clear`, or server restart. `JOB_RUN_*` environment variables are not used.
+
+| Category | Default | Setting key |
+| --- | --- | --- |
+| Completed | 30 days | `job_run_completed_retention_days` |
+| Failed | 90 days | `job_run_failed_retention_days` |
+| Running / stuck | 90 days | `job_run_running_retention_days` |
+| Soft-deleted | 30 days | `job_run_deleted_retention_days` |
+
+The form accepts 1–3650 days. If a stored value is missing or outside that range, pruning clamps it to the same bounds and falls back to the defaults above when `app_settings` is unavailable. Completed and failed rows use `finished_at`, falling back to `created_at` when `finished_at` is null. Running rows use `created_at`. Soft-deleted completed rows can be permanently removed after the deleted retention. Soft-deleted failed or running rows still wait for the longer failed/running retention, so a shorter deleted window cannot erase recent failure history.
+
+Failed history is kept longer so incidents such as a failed `FetchHikvisionAccessEventsJob` remain diagnosable after routine successes have aged out.
+
+High-frequency scheduler commands that only check for work and dispatch separately recorded queue jobs omit successful `job_runs` rows. Failures, exception text, and the downstream queue jobs are still recorded. Configured `failures_only` commands:
+
+- `hikvision:fetch-access-events`
+- `hikvision:fetch-todays-access-events`
+- `crew:dispatch-operational-alert-email-digests`
+
+These stay fully recorded because they perform or repair business work in the command itself, or because a successful exit can hide per-item failures:
+
+- `announcements:publish-scheduled`
+- `documents:dispatch-recipient-emails`
+- `documents:reconcile-recipient-requests`
+- `documents:reconcile-lifecycle-automations`
+- `crew:reconcile-operational-alerts`
+
+`activity_log` is company-scoped business and audit history (employees, contracts, documents, payroll, crew movements, corrections, approvals, users, permissions, and settings). The Retention page shows a read-only note: retention reference 365 days, automatic cleanup disabled. There is no cleanup toggle. `ACTIVITYLOG_CLEAN_AFTER_DAYS` only sets Spatie `activitylog.clean_after_days`. That setting does not delete rows unless `activitylog:clean` is executed. This application does not schedule that command. Do not treat 365 days as an approved payroll, HR, contract, or e-sign retention period.
+
+Pruning `job_runs` reduces the active row count. InnoDB can reuse freed pages without immediately shrinking the table size shown by phpMyAdmin. `OPTIMIZE TABLE job_runs` can reclaim filesystem space, but it may rebuild or lock the table. It is not part of migrations, pruning, or deployment. Use it only as a controlled production-maintenance step if disk reclamation is required.

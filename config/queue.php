@@ -130,15 +130,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Job Run Retention
+    | Scheduled Job Run Recording
     |--------------------------------------------------------------------------
     |
-    | Completed, failed, and soft-deleted job_runs older than this many days are
-    | permanently pruned by the scheduled model:prune task. Values below 1 day
-    | are coerced to 1 so retention cannot be disabled by misconfiguration.
+    | always: record every scheduled execution.
+    | failures_only: omit successful scheduler rows. Failures, exceptions, and
+    | independently recorded queue jobs are still stored.
+    |
+    | Only pollers that dispatch separately recorded queue jobs, or that have
+    | another queryable record of the work, belong in failures_only.
     |
     */
 
-    'job_run_retention_days' => max(1, (int) env('JOB_RUN_RETENTION_DAYS', 90)),
+    'scheduled_job_run_recording' => [
+        'hikvision:fetch-access-events' => 'failures_only',
+        'hikvision:fetch-todays-access-events' => 'failures_only',
+        'crew:dispatch-operational-alert-email-digests' => 'failures_only',
+    ],
 
 ];
