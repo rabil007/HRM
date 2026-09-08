@@ -14,12 +14,14 @@ export function EmployeeFolderItem({
     selected = false,
     onSelectedChange,
     selectionMode = false,
+    openUpload = false,
 }: {
     employee: EmployeeFolder;
     canDownload?: boolean;
     selected?: boolean;
     onSelectedChange?: (selected: boolean) => void;
     selectionMode?: boolean;
+    openUpload?: boolean;
 }) {
     const fileLabel =
         employee.document_count === 1
@@ -54,9 +56,10 @@ export function EmployeeFolderItem({
             ) : null}
 
             <Link
-                href={documentRoutes.employee.url({
-                    employee: employee.employee_id,
-                })}
+                href={documentRoutes.employee.url(
+                    { employee: employee.employee_id },
+                    openUpload ? { query: { action: 'upload' } } : undefined,
+                )}
                 title={`${employee.employee_name} (${employee.employee_no})`}
                 className={cn(
                     'flex h-full min-h-[9rem] w-full flex-col items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-center sm:min-h-[11.5rem] sm:gap-2 sm:px-3 sm:py-4',

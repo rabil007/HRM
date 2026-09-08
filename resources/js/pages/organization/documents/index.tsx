@@ -16,6 +16,8 @@ import { DocumentsIndexDocumentsTable } from '@/features/organization/documents/
 import { DocumentsIndexFolderGrid } from '@/features/organization/documents/index/documents-index-folder-grid';
 import { DocumentsIndexRequirementTable } from '@/features/organization/documents/index/documents-index-requirement-table';
 import { DocumentsIndexSearchResults } from '@/features/organization/documents/index/documents-index-search-results';
+import type { DocumentsLibraryAction } from '@/features/organization/documents/index/documents-library-action';
+import { DocumentsLibraryHeader } from '@/features/organization/documents/index/documents-library-header';
 import { resolveDocumentsIndexSearchMode } from '@/features/organization/documents/index/use-documents-index-search-mode';
 import type { ExpiryFilter } from '@/features/organization/documents/shared/document-expiry';
 import { DocumentManagementDialogs } from '@/features/organization/documents/shared/document-management-dialogs';
@@ -129,6 +131,8 @@ export default function DocumentsIndex({
     const [folderShareModalOpen, setFolderShareModalOpen] = useState(false);
     const [uploadRequirement, setUploadRequirement] =
         useState<RequirementComplianceItem | null>(null);
+    const [libraryAction, setLibraryAction] =
+        useState<DocumentsLibraryAction>(null);
 
     const folderIds = useMemo(
         () => employees.map((employee) => employee.employee_id),
@@ -261,6 +265,19 @@ export default function DocumentsIndex({
         onBulkDownload: handleBulkFolderDownload,
         onBulkShare: () => setFolderShareModalOpen(true),
         isBulkDownloading,
+        openUpload: libraryAction === 'upload',
+    };
+
+    const focusLibrarySearch = () => {
+        document.getElementById('documents-library-search')?.focus();
+    };
+
+    const handleLibraryActionChange = (action: DocumentsLibraryAction) => {
+        setLibraryAction(action);
+
+        if (action === 'upload') {
+            focusLibrarySearch();
+        }
     };
 
     const managementPartialReloadKeys = isComplianceView
@@ -329,6 +346,16 @@ export default function DocumentsIndex({
 
             <DocumentsBreadcrumbs items={[{ title: 'Documents' }]} />
 
+            <DocumentsLibraryHeader
+                documentCount={summary.total_documents}
+                canUpload={can.upload}
+                canShare={can.share}
+                canDownload={can.download}
+                action={libraryAction}
+                onActionChange={handleLibraryActionChange}
+                onFindEmployee={focusLibrarySearch}
+            />
+
             <DocumentsSummaryCards
                 summary={summary}
                 activeExpiry={isRequirementView ? null : initialExpiry}
@@ -355,6 +382,7 @@ export default function DocumentsIndex({
 
             <div className="sticky top-0 z-20 -mx-1 mb-8 border-b border-border/80 bg-background/95 px-1 pb-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 dark:border-white/5">
                 <SearchBar
+                    inputId="documents-library-search"
                     placeholder="Search employee, document no, file name..."
                     value={searchInput}
                     onChange={onSearchChange}
@@ -510,10 +538,21 @@ export default function DocumentsIndex({
                         hasSearch={false}
                     />
                 ) : (
-                    <DocumentsIndexFolderGrid
-                        employees={employees}
-                        {...folderGridProps}
-                    />
+                    <section className="space-y-4">
+                        <div>
+                            <h2 className="text-base font-semibold tracking-tight text-foreground">
+                                Employee folders
+                            </h2>
+                            <p className="text-xs text-muted-foreground">
+                                Open a folder to view, upload, replace, merge,
+                                or share that employee&apos;s files.
+                            </p>
+                        </div>
+                        <DocumentsIndexFolderGrid
+                            employees={employees}
+                            {...folderGridProps}
+                        />
+                    </section>
                 )
             ) : (
                 <DocumentsIndexSearchResults

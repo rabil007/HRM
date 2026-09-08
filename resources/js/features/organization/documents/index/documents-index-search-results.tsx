@@ -23,6 +23,7 @@ type FolderGridProps = {
     onBulkShare?: () => void;
     isBulkDownloading: boolean;
     selectedFolderCount: number;
+    openUpload?: boolean;
 };
 
 type DocumentManagementProps = {

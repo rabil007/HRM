@@ -10,6 +10,7 @@ export function SearchBar({
     right,
     className,
     inputClassName,
+    inputId,
 }: {
     value: string;
     onChange: (value: string) => void;
@@ -17,6 +18,7 @@ export function SearchBar({
     right?: ReactNode;
     className?: string;
     inputClassName?: string;
+    inputId?: string;
 }) {
     return (
         <div
@@ -28,6 +30,7 @@ export function SearchBar({
             <div className="group relative min-w-0 flex-1">
                 <Search className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-foreground" />
                 <Input
+                    id={inputId}
                     placeholder={placeholder}
                     value={value}
                     onChange={(e) => onChange(e.target.value)}

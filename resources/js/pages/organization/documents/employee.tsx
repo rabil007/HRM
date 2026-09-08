@@ -9,6 +9,7 @@ import {
     MessageCircle,
     Send,
     Trash2,
+    Upload,
 } from 'lucide-react';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import {
@@ -33,6 +34,7 @@ import { EmployeeDocumentMobileCard } from '@/features/organization/documents/em
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { filterDocuments } from '@/features/organization/documents/filter-documents';
 import { filterDocumentsByExpiry } from '@/features/organization/documents/filter-documents-by-expiry';
+import { shouldOpenLibraryUpload } from '@/features/organization/documents/index/documents-library-action';
 import type { MergeDocumentItem } from '@/features/organization/documents/pdf-merge/types';
 
 const PdfMergeModal = lazy(() =>
@@ -65,6 +67,7 @@ import type { WhatsAppTemplateOption } from '@/features/organization/documents/w
 import { buildListExportUrl } from '@/lib/build-list-export-url';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { toast } from '@/lib/toast';
+import { UploadDocumentDialog } from '@/pages/organization/_components/documents/upload-dialog';
 import documentRoutes from '@/routes/organization/documents';
 import { shareLinks } from '@/routes/organization/documents/employee/files';
 import { shareLinks as folderShareLinks } from '@/routes/organization/documents/folders';
@@ -95,11 +98,12 @@ export default function EmployeeDocumentsBrowse({
     document_types,
     can,
 }: Props) {
-    const { company_switcher_companies, current_company_id } = usePage()
-        .props as unknown as {
-        company_switcher_companies?: Array<{ id: number; name: string }>;
-        current_company_id?: number | null;
-    };
+    const page = usePage();
+    const { company_switcher_companies, current_company_id } =
+        page.props as unknown as {
+            company_switcher_companies?: Array<{ id: number; name: string }>;
+            current_company_id?: number | null;
+        };
 
     const organizationName =
         company_switcher_companies?.find(
@@ -133,6 +137,9 @@ export default function EmployeeDocumentsBrowse({
         [],
     );
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [uploadDialogOpen, setUploadDialogOpen] = useState(() =>
+        shouldOpenLibraryUpload(page.url),
+    );
     const [isDeleting, setIsDeleting] = useState(false);
     const [shareLinksModalOpen, setShareLinksModalOpen] = useState(false);
     const [folderShareModalOpen, setFolderShareModalOpen] = useState(false);
@@ -324,6 +331,28 @@ export default function EmployeeDocumentsBrowse({
                     { title: employee.name },
                 ]}
             />
+
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                        {employee.name}
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                        {employee.employee_no} · {allDocuments.length}{' '}
+                        {allDocuments.length === 1 ? 'document' : 'documents'}
+                    </p>
+                </div>
+                {canUploadDocuments ? (
+                    <Button
+                        type="button"
+                        className="h-10 rounded-xl px-5 shadow-lg shadow-primary/20"
+                        onClick={() => setUploadDialogOpen(true)}
+                    >
+                        <Upload className="h-4 w-4" />
+                        Upload document
+                    </Button>
+                ) : null}
+            </div>
 
             <DocumentsSummaryCards
                 summary={summary}
@@ -733,6 +762,16 @@ export default function EmployeeDocumentsBrowse({
                 onDeleteDocIdChange={setDeleteDocId}
                 documentTypes={document_types}
             />
+            {canUploadDocuments ? (
+                <UploadDocumentDialog
+                    open={uploadDialogOpen}
+                    onOpenChange={setUploadDialogOpen}
+                    employeeId={employee.id}
+                    employeeName={employee.name}
+                    documentTypes={document_types}
+                    partialReloadKeys={['documents', 'summary']}
+                />
+            ) : null}
         </Main>
     );
 }

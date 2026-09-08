@@ -22,6 +22,7 @@ export function DocumentsIndexFolderGrid({
     onBulkDownload,
     onBulkShare,
     isBulkDownloading,
+    openUpload = false,
 }: {
     employees: EmployeeFolder[];
     canDownload: boolean;
@@ -38,6 +39,7 @@ export function DocumentsIndexFolderGrid({
     onBulkDownload: () => void;
     onBulkShare?: () => void;
     isBulkDownloading: boolean;
+    openUpload?: boolean;
 }) {
     return (
         <div className="space-y-4">
@@ -110,6 +112,7 @@ export function DocumentsIndexFolderGrid({
                             key={employee.employee_id}
                             employee={employee}
                             canDownload={canDownload}
+                            openUpload={openUpload}
                             selectionMode={selectionMode}
                             selected={isFolderSelected(employee.employee_id)}
                             onSelectedChange={() =>
