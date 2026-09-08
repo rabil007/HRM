@@ -1,5 +1,11 @@
-import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import {
+    Calendar,
+    Check,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+} from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Popover,
@@ -27,6 +33,7 @@ function formatMonthLabel(ym: string): string {
     const [year, month] = ym.split('-');
     const mIdx = parseInt(month, 10) - 1;
     const name = MONTH_NAMES[mIdx]?.short ?? month;
+
     return `${name} ${year}`;
 }
 
@@ -53,29 +60,33 @@ export function PayrollMonthFilter({
             const sorted = [...selectedMonths].sort();
             const latest = sorted[sorted.length - 1];
             const parsedYear = parseInt(latest.split('-')[0], 10);
+
             if (!Number.isNaN(parsedYear)) {
                 return parsedYear;
             }
         }
+
         return currentYear;
     }, [selectedMonths, currentYear]);
 
     const [viewYear, setViewYear] = useState(initialViewYear);
     const [draftMonths, setDraftMonths] = useState<string[]>(selectedMonths);
 
-    // Sync draft with incoming prop whenever popover opens or selectedMonths change
-    useEffect(() => {
-        if (open) {
+    const handleOpenChange = (nextOpen: boolean) => {
+        setOpen(nextOpen);
+
+        if (nextOpen) {
             setDraftMonths(selectedMonths);
             setViewYear(initialViewYear);
         }
-    }, [open, selectedMonths, initialViewYear]);
+    };
 
     const toggleMonth = (ym: string) => {
         setDraftMonths((prev) => {
             if (prev.includes(ym)) {
                 return prev.filter((m) => m !== ym);
             }
+
             return [...prev, ym].sort();
         });
     };
@@ -88,10 +99,15 @@ export function PayrollMonthFilter({
     const handleSelectAllInYear = () => {
         const yearMonths = Array.from({ length: 12 }, (_, i) => {
             const m = String(i + 1).padStart(2, '0');
+
             return `${viewYear}-${m}`;
         });
+
         setDraftMonths((prev) => {
-            const otherYears = prev.filter((m) => !m.startsWith(`${viewYear}-`));
+            const otherYears = prev.filter(
+                (m) => !m.startsWith(`${viewYear}-`),
+            );
+
             return [...otherYears, ...yearMonths].sort();
         });
     };
@@ -102,6 +118,7 @@ export function PayrollMonthFilter({
         } else {
             onChange(draftMonths);
         }
+
         setOpen(false);
     };
 
@@ -114,35 +131,39 @@ export function PayrollMonthFilter({
         if (isAll) {
             return 'All periods';
         }
+
         if (selectedMonths.length === 0) {
             return 'Select months';
         }
+
         if (selectedMonths.length === 1) {
             return formatMonthLabel(selectedMonths[0]);
         }
+
         if (selectedMonths.length === 2) {
             return `${formatMonthLabel(selectedMonths[0])}, ${formatMonthLabel(selectedMonths[1])}`;
         }
+
         return `${selectedMonths.length} months selected`;
     }, [selectedMonths, isAll]);
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open} onOpenChange={handleOpenChange}>
             <PopoverTrigger asChild>
                 <button
                     type="button"
                     className={cn(
-                        'group flex h-11 min-w-44 items-center justify-between gap-2 rounded-xl border px-3 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-primary/40',
+                        'group flex h-11 min-w-44 items-center justify-between gap-2 rounded-xl border px-3 text-sm font-medium transition-all focus:ring-2 focus:ring-primary/40 focus:outline-none',
                         !isAll && selectedMonths.length > 0
                             ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
                             : 'border-white/10 bg-white/5 text-foreground/80 hover:bg-white/10 hover:text-foreground',
                     )}
                 >
                     <div className="flex items-center gap-2 truncate">
-                        <Calendar className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
+                        <Calendar className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
                         <span className="truncate">{triggerLabel}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex shrink-0 items-center gap-1.5">
                         {!isAll && selectedMonths.length > 2 && (
                             <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground">
                                 {selectedMonths.length}
@@ -158,7 +179,7 @@ export function PayrollMonthFilter({
                 className="w-80 rounded-2xl border border-white/10 bg-popover/95 p-4 shadow-2xl backdrop-blur-xl"
             >
                 {/* Year navigation */}
-                <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
                     <Button
                         type="button"
                         variant="ghost"
@@ -187,7 +208,7 @@ export function PayrollMonthFilter({
                     <button
                         type="button"
                         onClick={handleSelectCurrentMonth}
-                        className="text-primary hover:underline font-medium"
+                        className="font-medium text-primary hover:underline"
                     >
                         This month
                     </button>
@@ -195,17 +216,19 @@ export function PayrollMonthFilter({
                         <button
                             type="button"
                             onClick={handleSelectAllInYear}
-                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            className="text-muted-foreground transition-colors hover:text-foreground"
                         >
                             All of {viewYear}
                         </button>
                         {draftMonths.length > 0 && (
                             <>
-                                <span className="text-muted-foreground/40">•</span>
+                                <span className="text-muted-foreground/40">
+                                    •
+                                </span>
                                 <button
                                     type="button"
                                     onClick={handleClearAll}
-                                    className="text-muted-foreground hover:text-destructive transition-colors"
+                                    className="text-muted-foreground transition-colors hover:text-destructive"
                                 >
                                     Clear
                                 </button>
@@ -229,9 +252,11 @@ export function PayrollMonthFilter({
                                 className={cn(
                                     'relative flex h-10 items-center justify-center rounded-xl text-xs font-semibold transition-all duration-150',
                                     isSelected
-                                        ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25 font-bold'
+                                        ? 'bg-primary font-bold text-primary-foreground shadow-md shadow-primary/25'
                                         : 'text-foreground/75 hover:bg-white/10 hover:text-foreground',
-                                    isCurrent && !isSelected && 'ring-1 ring-primary/40 text-primary',
+                                    isCurrent &&
+                                        !isSelected &&
+                                        'text-primary ring-1 ring-primary/40',
                                 )}
                             >
                                 <span>{m.short}</span>
@@ -247,7 +272,7 @@ export function PayrollMonthFilter({
                 </div>
 
                 {/* Popover footer */}
-                <div className="mt-3 flex items-center justify-between pt-3 border-t border-white/10">
+                <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
                     <span className="text-xs text-muted-foreground">
                         {draftMonths.length === 0
                             ? 'No months selected'

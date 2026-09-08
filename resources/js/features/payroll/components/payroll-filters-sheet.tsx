@@ -117,7 +117,9 @@ export function PayrollFiltersSheet({
                     <Button
                         type="button"
                         variant={
-                            !value.all && value.date_from ? 'secondary' : 'outline'
+                            !value.all && value.date_from
+                                ? 'secondary'
+                                : 'outline'
                         }
                         size="sm"
                         onClick={setThisMonth}

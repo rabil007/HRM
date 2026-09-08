@@ -70,7 +70,6 @@ export function PayrollIndexContent({
     filters: initialFilters,
     summary,
     payroll_categories,
-    payroll_period_statuses,
     permissions,
     saved_views = [],
 }: {
@@ -80,7 +79,7 @@ export function PayrollIndexContent({
     filters: PayrollHubFilters;
     summary: PayrollHubSummary;
     payroll_categories: PayrollCategoryOption[];
-    payroll_period_statuses: PayrollPeriodStatusOption[];
+    payroll_period_statuses?: PayrollPeriodStatusOption[];
     permissions: PayrollHubPermissions;
     saved_views?: SavedView[];
 }) {
@@ -91,14 +90,23 @@ export function PayrollIndexContent({
         if (initialFilters.all === '1') {
             return [];
         }
-        if (Array.isArray(initialFilters.months) && initialFilters.months.length > 0) {
+
+        if (
+            Array.isArray(initialFilters.months) &&
+            initialFilters.months.length > 0
+        ) {
             return initialFilters.months;
         }
+
         if (initialFilters.date_from) {
             return [initialFilters.date_from.substring(0, 7)];
         }
+
         const now = new Date();
-        return [`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`];
+
+        return [
+            `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+        ];
     }, [initialFilters.all, initialFilters.months, initialFilters.date_from]);
 
     const list = useServerPaginationFilters({
@@ -111,7 +119,7 @@ export function PayrollIndexContent({
             date_to: initialFilters.date_to,
             months: Array.isArray(initialFilters.months)
                 ? initialFilters.months.join(',')
-                : (initialFilters.months || ''),
+                : initialFilters.months || '',
             all: initialFilters.all || '',
         },
         pagination,
@@ -120,8 +128,10 @@ export function PayrollIndexContent({
     const handleMonthsChange = (months: string[]) => {
         if (months.length === 0) {
             handleClearToAll();
+
             return;
         }
+
         list.applyFilters({
             months: months.join(','),
             date_from: '',
@@ -171,7 +181,8 @@ export function PayrollIndexContent({
         initialFilters.category ||
         initialFilters.status ||
         initialFilters.all ||
-        (Array.isArray(initialFilters.months) && initialFilters.months.length > 0) ||
+        (Array.isArray(initialFilters.months) &&
+            initialFilters.months.length > 0) ||
         initialSearch,
     );
 
@@ -217,7 +228,11 @@ export function PayrollIndexContent({
                         {/* All periods toggle */}
                         <Button
                             type="button"
-                            variant={initialFilters.all === '1' ? 'secondary' : 'outline'}
+                            variant={
+                                initialFilters.all === '1'
+                                    ? 'secondary'
+                                    : 'outline'
+                            }
                             size="sm"
                             className="h-11 rounded-xl px-4 text-xs"
                             onClick={() => {
@@ -245,7 +260,7 @@ export function PayrollIndexContent({
                                 ...initialFilters,
                                 months: Array.isArray(initialFilters.months)
                                     ? initialFilters.months.join(',')
-                                    : (initialFilters.months || ''),
+                                    : initialFilters.months || '',
                             }}
                             views={saved_views}
                         />
@@ -483,8 +498,6 @@ export function PayrollIndexContent({
                 payrollCategories={payroll_categories}
                 onSubmit={handleSubmit}
             />
-
-
         </Main>
     );
 }
