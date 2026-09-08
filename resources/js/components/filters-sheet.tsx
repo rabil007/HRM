@@ -28,7 +28,7 @@ export function FiltersSheet({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="right"
-                className="flex w-full flex-col gap-0 rounded-none glass-card border-border/60 p-0 sm:max-w-md"
+                className="flex w-full flex-col gap-0 rounded-none border-border/60 bg-background p-0 sm:max-w-md dark:border-white/10"
             >
                 <SheetHeader className="flex-shrink-0 border-b border-border/60 p-8 pb-6">
                     <SheetTitle className="text-xl font-bold tracking-tight">

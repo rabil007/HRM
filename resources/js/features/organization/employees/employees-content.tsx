@@ -362,7 +362,7 @@ export function EmployeesContent({
                             </PopoverTrigger>
                             <PopoverContent
                                 align="start"
-                                className="w-72 glass-card border-border p-3 dark:border-white/6"
+                                className="max-h-[min(80vh,520px)] w-80 overflow-y-auto rounded-xl border-border bg-popover p-3 text-popover-foreground shadow-xl dark:border-white/10"
                             >
                                 <DepartmentEmployeeTree
                                     nodes={department_tree}
@@ -724,9 +724,9 @@ export function EmployeesContent({
             <Sheet open={isDepartmentsOpen} onOpenChange={setIsDepartmentsOpen}>
                 <SheetContent
                     side="left"
-                    className="w-[min(100%,280px)] border-r glass-card border-border p-0 dark:border-white/6"
+                    className="w-[min(100%,280px)] border-r border-border bg-background p-0 dark:border-white/10"
                 >
-                    <SheetHeader className="border-b border-border px-4 py-4 text-left dark:border-white/6">
+                    <SheetHeader className="border-b border-border px-4 py-4 text-left dark:border-white/10">
                         <SheetTitle className="text-base">
                             Departments
                         </SheetTitle>

@@ -132,12 +132,12 @@ function DepartmentTreeNodeRow({
             className={cn(
                 'flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors',
                 isSelected
-                    ? 'bg-accent text-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                    ? 'bg-accent font-medium text-foreground dark:bg-white/10 dark:text-white'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground dark:text-zinc-200 dark:hover:bg-white/[0.06] dark:hover:text-white',
             )}
         >
             <span className="min-w-0 flex-1 truncate">{node.name}</span>
-            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+            <span className="shrink-0 text-xs text-muted-foreground tabular-nums dark:text-zinc-400">
                 {node.count}
             </span>
         </button>

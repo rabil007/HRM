@@ -89,7 +89,7 @@ export function DepartmentFilterControls({
                 </PopoverTrigger>
                 <PopoverContent
                     align="start"
-                    className="w-72 border-border p-3 dark:border-white/6"
+                    className="max-h-[min(80vh,520px)] w-80 overflow-y-auto rounded-xl border-border bg-popover p-3 text-popover-foreground shadow-xl dark:border-white/10"
                 >
                     <DepartmentEmployeeTree
                         nodes={department_tree}
