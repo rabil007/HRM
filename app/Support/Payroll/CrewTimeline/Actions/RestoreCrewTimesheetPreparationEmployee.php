@@ -3,6 +3,7 @@
 namespace App\Support\Payroll\CrewTimeline\Actions;
 
 use App\Models\CrewTimesheetPreparation;
+use App\Models\CrewTimesheetPreparationLine;
 use App\Models\CrewTimesheetPreparationSkip;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
@@ -63,6 +64,18 @@ final class RestoreCrewTimesheetPreparationEmployee
                 return $skip;
             }
 
+            $originalSkipReason = $skip->reason;
+
+            $warningCodes = CrewTimesheetPreparationLine::query()
+                ->where('company_id', $companyId)
+                ->where('crew_timesheet_preparation_id', $preparation->id)
+                ->where('employee_id', $employee->id)
+                ->whereNotNull('warning_code')
+                ->pluck('warning_code')
+                ->unique()
+                ->values()
+                ->all();
+
             $skip->fill([
                 'restored_by' => $actor->id,
                 'restored_at' => now(),
@@ -81,6 +94,8 @@ final class RestoreCrewTimesheetPreparationEmployee
                     'preparation_version' => $preparation->version,
                     'employee_id' => $employee->id,
                     'actor_id' => $actor->id,
+                    'original_skip_reason' => $originalSkipReason,
+                    'warning_codes' => $warningCodes,
                     'timestamp' => now()->toIso8601String(),
                 ])
                 ->log("Restored timeline data for employee {$employee->name} in preparation v{$preparation->version}");

@@ -423,16 +423,16 @@ Informational: `timeline_gap`, `monthly_contract_not_supported`, `future_actual_
 
 Enables skipping an employee's Crew Operations timeline data for a draft preparation version to prevent bad or incomplete movement data from stalling the entire payroll workflow:
 
-- **Permission:** `payroll.crew_timesheets.skip_timeline` (granted to Owner/Admin, synced via `PermissionsSeeder`).
+- **Permission:** `payroll.crew_timesheets.skip_timeline` (seeded for Owner role; not auto-granted broadly to other roles).
 - **Resolver abstraction:** `CrewTimesheetPreparationSkipResolver` provides a single authoritative engine for:
-    - Resolving active skip records for a preparation (`restored_at IS NULL`).
+    - Resolving tenant-scoped active skip records for a preparation (`restored_at IS NULL` scoped explicitly to active `company_id`).
     - Distinguishing raw warning lines from unresolved blocking lines (ignoring blockers for actively skipped employees).
-    - Enforcing that `cross_company_reference` is strictly non-bypassable and blocks workflow regardless of skip records.
-    - Validating skip and restore eligibility (Draft status, latest version, fresh source hash, employee membership, and warning presence).
+    - Enforcing that `cross_company_reference` is strictly non-bypassable: if any line in the preparation contains a cross-company reference, the preparation cannot be skipped by any employee (`can_skip = false` for all employees).
+    - Validating skip and restore eligibility (Draft status, latest version, fresh source hash, tenant ownership, and warning presence).
 - **Actions:**
     - `Actions/SkipCrewTimesheetPreparationEmployee`: executes under pessimistic row locking (`lockForUpdate`), records mandatory `reason` (5–1,000 chars), sets `skipped_by` and `skipped_at`, clears any previous restore markers, and logs `crew_timeline_employee_skipped` with audit metadata and warning codes present.
-    - `Actions/RestoreCrewTimesheetPreparationEmployee`: executes under pessimistic row locking, sets `restored_by` and `restored_at`, and logs `crew_timeline_employee_skip_restored`.
-- **Workflow guards:** `CrewTimesheetPreparationWorkflowGuard` and `CrewOperationsPayrollGenerationGuard` assert unresolved blocking warnings via the resolver rather than raw blocking preparation lines.
+    - `Actions/RestoreCrewTimesheetPreparationEmployee`: executes under pessimistic row locking, sets `restored_by` and `restored_at`, and logs `crew_timeline_employee_skip_restored` with `original_skip_reason`, immutable line `warning_codes`, and tenant context.
+- **Workflow guards:** `CrewTimesheetPreparationWorkflowGuard` and `CrewOperationsPayrollGenerationGuard` assert unresolved blocking warnings via the resolver rather than raw blocking preparation lines. In exclusive Crew Operations mode, skipped employees are not covered by Crew Operations and block generation unless explicitly excluded via `payroll_periods.excluded_employee_ids`.
 - **Apply behavior:** `ApplyCrewTimesheetPreparation` excludes payable lines of actively skipped employees from line grouping and timesheet creation. Existing Manual and Import timesheets and segments for skipped employees are left untouched. Applying a preparation where all employees are skipped completes successfully without writing dummy timesheets.
 - **Freshness & version isolation:** Skip records are review metadata, not operational source data, and are excluded from `source_hash`. Preparing a new version starts with zero skips (no automatic inheritance).
 - **Routes:**

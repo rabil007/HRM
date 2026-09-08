@@ -23,6 +23,9 @@ export type CrewTimelineWarningBreakdownItem = {
     label: string;
     is_blocking: boolean;
     count: number;
+    total_count?: number;
+    unresolved_count?: number;
+    skipped_count?: number;
 };
 
 export type CrewTimelineLine = {
@@ -129,6 +132,7 @@ export type CrewTimelineEmployeeSummary = {
     can_skip: boolean;
     can_restore: boolean;
     has_cross_company_warning: boolean;
+    has_non_skippable_integrity_error?: boolean;
     blocking_warning_count: number;
     unresolved_blocking_warning_count: number;
     informational_warning_count: number;
@@ -166,6 +170,7 @@ export type CrewTimelinePreparation = {
     applied_at: string | null;
     linked_timesheet_count: number;
     decision_notes: string | null;
+    has_non_skippable_integrity_error?: boolean;
 };
 
 export type CrewTimelinePeriod = {
@@ -187,6 +192,7 @@ export type CrewTimelineSummary = {
     blocking_warning_count: number;
     unresolved_blocking_warning_count: number;
     informational_warning_count: number;
+    has_non_skippable_integrity_error?: boolean;
 };
 
 export type CrewTimelinePagePermissions = {

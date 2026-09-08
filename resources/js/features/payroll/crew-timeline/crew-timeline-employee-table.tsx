@@ -417,7 +417,11 @@ export function CrewTimelineEmployeeTable({
                                         >
                                             Skip Timeline Data
                                         </Button>
-                                    ) : employee.has_cross_company_warning ? (
+                                    ) : employee.has_cross_company_warning ||
+                                      (employee.has_non_skippable_integrity_error &&
+                                          employee.blocking_warning_count +
+                                              employee.informational_warning_count >
+                                              0) ? (
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <span tabIndex={0}>
@@ -431,9 +435,11 @@ export function CrewTimelineEmployeeTable({
                                                 </span>
                                             </TooltipTrigger>
                                             <TooltipContent className="max-w-xs text-xs">
-                                                This issue cannot be skipped
-                                                because it violates company data
-                                                isolation.
+                                                Skipping is unavailable because
+                                                this preparation contains a
+                                                company data-isolation error.
+                                                Correct the source data and
+                                                prepare a new version.
                                             </TooltipContent>
                                         </Tooltip>
                                     ) : null}

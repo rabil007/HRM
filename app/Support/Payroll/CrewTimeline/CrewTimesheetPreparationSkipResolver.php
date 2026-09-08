@@ -31,7 +31,10 @@ final class CrewTimesheetPreparationSkipResolver
             $skips = $preparation->skips;
 
             return $skips
-                ->filter(fn (CrewTimesheetPreparationSkip $skip): bool => $skip->isActive())
+                ->filter(fn (CrewTimesheetPreparationSkip $skip): bool => (int) $skip->company_id === (int) $preparation->company_id
+                    && (int) $skip->crew_timesheet_preparation_id === (int) $preparation->id
+                    && $skip->isActive()
+                )
                 ->pluck('employee_id')
                 ->map(fn ($id): int => (int) $id)
                 ->unique()
@@ -40,7 +43,8 @@ final class CrewTimesheetPreparationSkipResolver
         }
 
         return CrewTimesheetPreparationSkip::query()
-            ->where('crew_timesheet_preparation_id', $preparation->id)
+            ->where('company_id', (int) $preparation->company_id)
+            ->where('crew_timesheet_preparation_id', (int) $preparation->id)
             ->whereNull('restored_at')
             ->pluck('employee_id')
             ->map(fn ($id): int => (int) $id)
@@ -248,9 +252,13 @@ final class CrewTimesheetPreparationSkipResolver
             /** @var Collection<int, CrewTimesheetPreparationLine> $lines */
             $lines = $preparation->lines;
 
-            return $lines;
+            return $lines->filter(fn (CrewTimesheetPreparationLine $line): bool => (int) $line->company_id === (int) $preparation->company_id
+                && (int) $line->crew_timesheet_preparation_id === (int) $preparation->id
+            )->values();
         }
 
-        return $preparation->lines()->get();
+        return $preparation->lines()
+            ->where('company_id', (int) $preparation->company_id)
+            ->get();
     }
 }

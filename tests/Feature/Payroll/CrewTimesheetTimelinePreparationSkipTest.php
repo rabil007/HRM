@@ -5,6 +5,8 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewTimelineWarningCode;
+use App\Enums\CrewTimesheetApprovalStatus;
+use App\Enums\CrewTimesheetMode;
 use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\CrewTimesheetSource;
@@ -17,9 +19,18 @@ use App\Models\CrewTimesheetPreparationSkip;
 use App\Models\CrewTimesheetSegment;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
+use App\Models\PayrollRecord;
 use App\Models\User;
+use App\Support\Payroll\Actions\GenerateCrewPayroll;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
+use App\Support\Payroll\Actions\UpsertCrewTimesheet;
+use App\Support\Payroll\BuildCrewPayrollGenerationPreview;
+use App\Support\Payroll\CrewOperationsPayrollGenerationGuard;
+use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewQuery;
+use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewResource;
+use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationSkipResolver;
 use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
+use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Activity;
 
 function grantTimelineSkipPermissions(User $user, Company $company, array $extra = []): void
@@ -988,8 +999,453 @@ test('34. restore creates expected activity context', function () {
 
     expect($activity)->not->toBeNull()
         ->and($activity->causer_id)->toBe($fixtures['user']->id)
+        ->and($activity->properties['company_id'])->toBe($fixtures['company']->id)
         ->and($activity->properties['payroll_period_id'])->toBe($fixtures['period']->id)
         ->and($activity->properties['preparation_id'])->toBe($preparation->id)
         ->and($activity->properties['preparation_version'])->toBe($preparation->version)
-        ->and($activity->properties['employee_id'])->toBe($fixtures['employee']->id);
+        ->and($activity->properties['employee_id'])->toBe($fixtures['employee']->id)
+        ->and($activity->properties['original_skip_reason'])->toBe('Audited skip reason')
+        ->and($activity->properties['warning_codes'])->toContain(CrewTimelineWarningCode::MissingActualEnd->value);
+});
+
+// -------------------------------------------------------------------------
+// Tenant Isolation Tests (35)
+// -------------------------------------------------------------------------
+
+test('35. skip record from another company cannot affect unresolved warning state even under malformed fixture data', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    grantTimelineSkipPermissions($fixtures['user'], $fixtures['company']);
+
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', null, CrewPhaseStatus::Completed);
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle($fixtures['period'], $fixtures['company']->id, $fixtures['user']->id);
+
+    // Other company fixtures
+    ['company' => $otherCompany, 'user' => $otherUser] = makePayrollFixtures();
+
+    // Create a malformed skip record belonging to $otherCompany pointing to $preparation->id
+    CrewTimesheetPreparationSkip::query()->create([
+        'company_id' => $otherCompany->id,
+        'crew_timesheet_preparation_id' => $preparation->id,
+        'employee_id' => $fixtures['employee']->id,
+        'skipped_by' => $otherUser->id,
+        'skipped_at' => now(),
+        'reason' => 'Malformed cross-tenant skip injection',
+        'created_at' => now(),
+    ]);
+
+    $resolver = app(CrewTimesheetPreparationSkipResolver::class);
+
+    // Query path: Active skipped IDs for this preparation must NOT resolve the malformed foreign company skip
+    $skippedIds = $resolver->activeSkippedEmployeeIds($preparation);
+    expect($skippedIds)->toBe([]);
+
+    // Unresolved warning count must remain 1
+    $unresolvedCount = $resolver->unresolvedBlockingWarningCount($preparation);
+    expect($unresolvedCount)->toBe(1);
+
+    // Eager-loaded path: even if foreign skip is somehow in memory, defensive filtering ignores it
+    $preparation->load('skips');
+    $eagerSkippedIds = $resolver->activeSkippedEmployeeIds($preparation);
+    expect($eagerSkippedIds)->toBe([]);
+    expect($resolver->unresolvedBlockingWarningCount($preparation))->toBe(1);
+});
+
+// -------------------------------------------------------------------------
+// Cross-Company Integrity Error Alignment Tests (36)
+// -------------------------------------------------------------------------
+
+test('36. preparation-level cross-company reference disables can_skip for all employees in review payload and rejects backend skip', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    grantTimelineSkipPermissions($fixtures['user'], $fixtures['company']);
+
+    // Employee 1 has skippable warning (MissingActualEnd)
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', null, CrewPhaseStatus::Completed);
+
+    // Employee 2
+    ['employee' => $secondEmployee] = createSecondValidEmployee($fixtures);
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle($fixtures['period'], $fixtures['company']->id, $fixtures['user']->id);
+
+    // Inject cross_company_reference warning on Employee 2's line
+    CrewTimesheetPreparationLine::query()
+        ->where('crew_timesheet_preparation_id', $preparation->id)
+        ->where('employee_id', $secondEmployee->id)
+        ->firstOrFail()
+        ->update([
+            'warning_code' => CrewTimelineWarningCode::CrossCompanyReference->value,
+            'remarks' => 'Cross-company data isolation violation',
+        ]);
+
+    $loadedPrep = app(CrewTimesheetPreparationReviewQuery::class)->findForReview($fixtures['period'], (int) $preparation->id, (int) $fixtures['company']->id);
+    $payload = app(CrewTimesheetPreparationReviewResource::class)->toArray($fixtures['period'], $loadedPrep);
+
+    expect($payload['preparation']['has_non_skippable_integrity_error'])->toBeTrue()
+        ->and($payload['summary']['has_non_skippable_integrity_error'])->toBeTrue();
+
+    $emp1Payload = collect($payload['employees'])->firstWhere('employee_id', $fixtures['employee']->id);
+    $emp2Payload = collect($payload['employees'])->firstWhere('employee_id', $secondEmployee->id);
+
+    expect($emp1Payload['has_cross_company_warning'])->toBeFalse()
+        ->and($emp1Payload['has_non_skippable_integrity_error'])->toBeTrue()
+        ->and($emp1Payload['can_skip'])->toBeFalse()
+        ->and($emp2Payload['has_cross_company_warning'])->toBeTrue()
+        ->and($emp2Payload['has_non_skippable_integrity_error'])->toBeTrue()
+        ->and($emp2Payload['can_skip'])->toBeFalse();
+
+    // Attempting backend skip for Employee 1 (who only had MissingActualEnd) is rejected
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.employee-skip', [$fixtures['period'], $preparation, $fixtures['employee']]), [
+            'reason' => 'Attempting skip despite cross-company integrity error',
+        ])
+        ->assertSessionHasErrors(['employee']);
+});
+
+// -------------------------------------------------------------------------
+// Warning Breakdown Consistency Tests (37)
+// -------------------------------------------------------------------------
+
+test('37. warning breakdown exposes total_count, unresolved_count, and skipped_count per warning code', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    grantTimelineSkipPermissions($fixtures['user'], $fixtures['company']);
+
+    // Employee 1 has 2 blocking warnings
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', null, CrewPhaseStatus::Completed);
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::DemobStandby, 2, '2026-07-15 08:00:00', null, CrewPhaseStatus::Completed);
+
+    // Employee 2 has 1 blocking warning
+    ['employee' => $secondEmployee, 'assignment' => $secondAssignment] = createSecondValidEmployee($fixtures);
+    addTimelinePhase($secondAssignment, CrewPhaseCode::JoinStandby, 2, '2026-07-20 08:00:00', null, CrewPhaseStatus::Completed);
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle($fixtures['period'], $fixtures['company']->id, $fixtures['user']->id);
+
+    // Skip Employee 1
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.employee-skip', [$fixtures['period'], $preparation, $fixtures['employee']]), [
+            'reason' => 'Skipping Employee 1',
+        ])
+        ->assertRedirect();
+
+    $loadedPrep = app(CrewTimesheetPreparationReviewQuery::class)->findForReview($fixtures['period'], (int) $preparation->id, (int) $fixtures['company']->id);
+    $payload = app(CrewTimesheetPreparationReviewResource::class)->toArray($fixtures['period'], $loadedPrep);
+
+    $missingActualEndBreakdown = collect($payload['warning_breakdown'])
+        ->firstWhere('code', CrewTimelineWarningCode::MissingActualEnd->value);
+
+    expect($missingActualEndBreakdown)->not->toBeNull()
+        ->and($missingActualEndBreakdown['total_count'])->toBe(3)
+        ->and($missingActualEndBreakdown['skipped_count'])->toBe(2)
+        ->and($missingActualEndBreakdown['unresolved_count'])->toBe(1)
+        ->and($missingActualEndBreakdown['count'])->toBe(3)
+        ->and($payload['summary']['unresolved_blocking_warning_count'])->toBe(1)
+        ->and($payload['summary']['blocking_warning_count'])->toBe(3);
+});
+
+// -------------------------------------------------------------------------
+// Final Hybrid Generation Regression Tests (38 - 41)
+// -------------------------------------------------------------------------
+
+test('38. Test A — hybrid mode: skipped timeline + manual replacement is ready and generates payroll using manual data', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['period']->update(['crew_timesheet_mode' => CrewTimesheetMode::Hybrid]);
+
+    $approver = User::factory()->create(['company_id' => $fixtures['company']->id]);
+    grantTimelineSkipPermissions($fixtures['user'], $fixtures['company'], ['payroll.periods.update', 'payroll.periods.view']);
+    grantTimelineSkipPermissions($approver, $fixtures['company'], ['payroll.periods.update', 'payroll.periods.view']);
+
+    // Employee has blocking warning
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', null, CrewPhaseStatus::Completed);
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle($fixtures['period'], $fixtures['company']->id, $fixtures['user']->id);
+
+    // Skip Employee
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.employee-skip', [$fixtures['period'], $preparation, $fixtures['employee']]), [
+            'reason' => 'Using manual replacement data',
+        ])
+        ->assertRedirect();
+
+    // Submit -> Approve -> Apply
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.submit', [$fixtures['period'], $preparation]));
+    $this->actingAs($approver)
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.approve', [$fixtures['period'], $preparation]));
+    $this->actingAs($approver)
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]));
+
+    // Apply created no timesheet for skipped employee
+    expect(CrewTimesheet::query()->where('period_id', $fixtures['period']->id)->where('employee_id', $fixtures['employee']->id)->exists())->toBeFalse();
+
+    // Enter approved manual replacement timesheet
+    $timesheet = app(UpsertCrewTimesheet::class)->handle(
+        $fixtures['period']->fresh(),
+        $fixtures['employee'],
+        [
+            'sign_on_standby_from' => '2026-07-01',
+            'sign_on_standby_to' => '2026-07-03',
+            'sign_on_standby_days' => 3,
+            'onsite_from' => '2026-07-04',
+            'onsite_to' => '2026-07-13',
+            'onsite_days' => 10,
+            'source' => CrewTimesheetSource::Manual,
+        ],
+        $fixtures['user']->id,
+    );
+    expect($timesheet->approval_status)->toBe(CrewTimesheetApprovalStatus::Approved);
+
+    // Preview / readiness check
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($fixtures['period']->fresh(), (int) $fixtures['company']->id);
+    expect($preview->ready)->toBeTrue()
+        ->and($preview->canGenerate)->toBeTrue()
+        ->and($preview->readyEmployeeIds)->toContain((int) $fixtures['employee']->id)
+        ->and($preview->missingTimesheetCount)->toBe(0);
+
+    // Generate payroll
+    $result = app(GenerateCrewPayroll::class)->handle($fixtures['period']->fresh());
+    expect($result->errors)->toBe([]);
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $fixtures['period']->id)
+        ->where('employee_id', $fixtures['employee']->id)
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and((float) $record->basic_salary)->toBeGreaterThan(0);
+});
+
+test('39. Test B — hybrid mode: skipped timeline + import replacement is ready and generates payroll using import data', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['period']->update(['crew_timesheet_mode' => CrewTimesheetMode::Hybrid]);
+
+    $approver = User::factory()->create(['company_id' => $fixtures['company']->id]);
+    grantTimelineSkipPermissions($fixtures['user'], $fixtures['company'], ['payroll.periods.update', 'payroll.periods.view']);
+    grantTimelineSkipPermissions($approver, $fixtures['company'], ['payroll.periods.update', 'payroll.periods.view']);
+
+    // Employee has blocking warning
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', null, CrewPhaseStatus::Completed);
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle($fixtures['period'], $fixtures['company']->id, $fixtures['user']->id);
+
+    // Skip Employee
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.employee-skip', [$fixtures['period'], $preparation, $fixtures['employee']]), [
+            'reason' => 'Using imported replacement data',
+        ])
+        ->assertRedirect();
+
+    // Submit -> Approve -> Apply
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.submit', [$fixtures['period'], $preparation]));
+    $this->actingAs($approver)
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.approve', [$fixtures['period'], $preparation]));
+    $this->actingAs($approver)
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]));
+
+    // Enter approved import replacement timesheet
+    $timesheet = app(UpsertCrewTimesheet::class)->handle(
+        $fixtures['period']->fresh(),
+        $fixtures['employee'],
+        [
+            'sign_on_standby_from' => '2026-07-01',
+            'sign_on_standby_to' => '2026-07-02',
+            'sign_on_standby_days' => 2,
+            'onsite_from' => '2026-07-03',
+            'onsite_to' => '2026-07-10',
+            'onsite_days' => 8,
+            'source' => CrewTimesheetSource::Import,
+        ],
+        $fixtures['user']->id,
+    );
+    expect($timesheet->approval_status)->toBe(CrewTimesheetApprovalStatus::Approved);
+
+    // Preview / readiness check
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($fixtures['period']->fresh(), (int) $fixtures['company']->id);
+    expect($preview->ready)->toBeTrue()
+        ->and($preview->canGenerate)->toBeTrue()
+        ->and($preview->readyEmployeeIds)->toContain((int) $fixtures['employee']->id)
+        ->and($preview->missingTimesheetCount)->toBe(0);
+
+    // Generate payroll
+    $result = app(GenerateCrewPayroll::class)->handle($fixtures['period']->fresh());
+    expect($result->errors)->toBe([]);
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $fixtures['period']->id)
+        ->where('employee_id', $fixtures['employee']->id)
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and((float) $record->basic_salary)->toBeGreaterThan(0);
+});
+
+test('40. Test C — hybrid mode: skipped timeline with no replacement data reports missing timesheet and cannot generate', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['period']->update(['crew_timesheet_mode' => CrewTimesheetMode::Hybrid]);
+
+    $approver = User::factory()->create(['company_id' => $fixtures['company']->id]);
+    grantTimelineSkipPermissions($fixtures['user'], $fixtures['company'], ['payroll.periods.update', 'payroll.periods.view']);
+    grantTimelineSkipPermissions($approver, $fixtures['company'], ['payroll.periods.update', 'payroll.periods.view']);
+
+    // Employee has blocking warning
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', null, CrewPhaseStatus::Completed);
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle($fixtures['period'], $fixtures['company']->id, $fixtures['user']->id);
+
+    // Skip Employee
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.employee-skip', [$fixtures['period'], $preparation, $fixtures['employee']]), [
+            'reason' => 'Skipping employee without replacement data yet',
+        ])
+        ->assertRedirect();
+
+    // Submit -> Approve -> Apply
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.submit', [$fixtures['period'], $preparation]));
+    $this->actingAs($approver)
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.approve', [$fixtures['period'], $preparation]));
+    $this->actingAs($approver)
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]));
+
+    // No manual or import timesheet exists
+    expect(CrewTimesheet::query()->where('period_id', $fixtures['period']->id)->where('employee_id', $fixtures['employee']->id)->exists())->toBeFalse();
+
+    // Preview / readiness check
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($fixtures['period']->fresh(), (int) $fixtures['company']->id);
+    expect($preview->ready)->toBeTrue()
+        ->and($preview->canGenerate)->toBeFalse()
+        ->and($preview->readyCount)->toBe(0)
+        ->and($preview->missingTimesheetEmployeeIds)->toContain((int) $fixtures['employee']->id)
+        ->and($preview->missingTimesheetCount)->toBe(1);
+
+    // Attempting generation must fail with ValidationException
+    expect(fn () => app(GenerateCrewPayroll::class)->handle($fixtures['period']->fresh()))
+        ->toThrow(ValidationException::class);
+});
+
+test('41. Test D — hybrid mode: skipped employee can be excluded and does not block other employees, skipping does not auto-exclude', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['period']->update(['crew_timesheet_mode' => CrewTimesheetMode::Hybrid]);
+
+    $approver = User::factory()->create(['company_id' => $fixtures['company']->id]);
+    grantTimelineSkipPermissions($fixtures['user'], $fixtures['company'], ['payroll.periods.update', 'payroll.periods.view']);
+    grantTimelineSkipPermissions($approver, $fixtures['company'], ['payroll.periods.update', 'payroll.periods.view']);
+
+    // Employee 1 has blocking warning
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', null, CrewPhaseStatus::Completed);
+
+    // Employee 2 is valid
+    ['employee' => $secondEmployee] = createSecondValidEmployee($fixtures);
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle($fixtures['period'], $fixtures['company']->id, $fixtures['user']->id);
+
+    // Skip Employee 1
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.employee-skip', [$fixtures['period'], $preparation, $fixtures['employee']]), [
+            'reason' => 'Skipping Employee 1',
+        ])
+        ->assertRedirect();
+
+    // Verify skipping timeline data did NOT automatically mutate excluded_employee_ids!
+    expect($fixtures['period']->fresh()->excluded_employee_ids ?? [])->toBe([]);
+
+    // Submit -> Approve -> Apply
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.submit', [$fixtures['period'], $preparation]));
+    $this->actingAs($approver)
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.approve', [$fixtures['period'], $preparation]));
+    $this->actingAs($approver)
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]));
+
+    // Employee 2 got a timesheet from Apply
+    expect(CrewTimesheet::query()->where('period_id', $fixtures['period']->id)->where('employee_id', $secondEmployee->id)->exists())->toBeTrue();
+    // Employee 1 got no timesheet
+    expect(CrewTimesheet::query()->where('period_id', $fixtures['period']->id)->where('employee_id', $fixtures['employee']->id)->exists())->toBeFalse();
+
+    // Now explicitly exclude Employee 1 in payroll period
+    $fixtures['period']->update(['excluded_employee_ids' => [(int) $fixtures['employee']->id]]);
+
+    // Preview / readiness check
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($fixtures['period']->fresh(), (int) $fixtures['company']->id);
+    expect($preview->ready)->toBeTrue()
+        ->and($preview->canGenerate)->toBeTrue()
+        ->and($preview->readyEmployeeIds)->toContain((int) $secondEmployee->id)
+        ->and($preview->excludedEmployeeIds)->toContain((int) $fixtures['employee']->id)
+        ->and($preview->missingTimesheetCount)->toBe(0);
+
+    // Generation succeeds for Employee 2
+    $result = app(GenerateCrewPayroll::class)->handle($fixtures['period']->fresh());
+    expect($result->errors)->toBe([])
+        ->and(PayrollRecord::query()->where('period_id', $fixtures['period']->id)->where('employee_id', $secondEmployee->id)->exists())->toBeTrue()
+        ->and(PayrollRecord::query()->where('period_id', $fixtures['period']->id)->where('employee_id', $fixtures['employee']->id)->exists())->toBeFalse();
+});
+
+// -------------------------------------------------------------------------
+// Exclusive Mode Behavior Tests (42)
+// -------------------------------------------------------------------------
+
+test('42. exclusive mode: skipped daily employee is not treated as covered by Crew Operations and blocks readiness', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    // In makeDailyCrewTimelineFixtures, period is already CrewOperations mode
+    expect($fixtures['period']->requiresExclusiveCrewOperationsTimesheets())->toBeTrue();
+
+    $approver = User::factory()->create(['company_id' => $fixtures['company']->id]);
+    grantTimelineSkipPermissions($fixtures['user'], $fixtures['company'], ['payroll.periods.update', 'payroll.periods.view']);
+    grantTimelineSkipPermissions($approver, $fixtures['company'], ['payroll.periods.update', 'payroll.periods.view']);
+
+    // Employee has blocking warning
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', null, CrewPhaseStatus::Completed);
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle($fixtures['period'], $fixtures['company']->id, $fixtures['user']->id);
+
+    // Skip Employee
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.employee-skip', [$fixtures['period'], $preparation, $fixtures['employee']]), [
+            'reason' => 'Skipping employee in exclusive mode',
+        ])
+        ->assertRedirect();
+
+    // Submit -> Approve -> Apply
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.submit', [$fixtures['period'], $preparation]));
+    $this->actingAs($approver)
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.approve', [$fixtures['period'], $preparation]));
+    $this->actingAs($approver)
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]));
+
+    // Validate readiness via CrewOperationsPayrollGenerationGuard
+    $guard = app(CrewOperationsPayrollGenerationGuard::class);
+    $readiness = $guard->validateReadiness($fixtures['period']->fresh(), collect([$fixtures['employee']]), (int) $fixtures['company']->id);
+
+    expect($readiness['ready'])->toBeFalse()
+        ->and($readiness['blocking_reason'])->toContain("Daily crew employee {$fixtures['employee']->name} timeline data was skipped and is not covered by Crew Operations.");
+
+    // And generation is blocked
+    expect(fn () => $guard->assertReadyForGeneration($fixtures['period']->fresh(), collect([$fixtures['employee']]), (int) $fixtures['company']->id))
+        ->toThrow(ValidationException::class);
+
+    // But if excluded via excluded_employee_ids, the period is not blocked by that employee
+    $fixtures['period']->update(['excluded_employee_ids' => [(int) $fixtures['employee']->id]]);
+    $readinessWithExclusion = $guard->validateReadiness($fixtures['period']->fresh(), collect([]), (int) $fixtures['company']->id);
+    expect($readinessWithExclusion['ready'])->toBeTrue();
 });

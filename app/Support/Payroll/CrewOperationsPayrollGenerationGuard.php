@@ -169,6 +169,11 @@ final class CrewOperationsPayrollGenerationGuard
         }
 
         $payableEmployeeIds = PayableCrewPreparationLines::payableEmployeeIds($companyId, (int) $preparation->id);
+        $activeSkippedIds = $this->skipResolver->activeSkippedEmployeeIds($preparation);
+        $effectivePayableEmployeeIds = array_values(
+            array_diff($payableEmployeeIds, $activeSkippedIds)
+        );
+
         $employeeIds = $employees->pluck('id')->map(intval(...))->all();
         $contracts = $this->resolveContract->resolveMany(
             $period,
@@ -196,7 +201,16 @@ final class CrewOperationsPayrollGenerationGuard
                 continue;
             }
 
-            if (! in_array((int) $employee->id, $payableEmployeeIds, true)) {
+            if (in_array((int) $employee->id, $activeSkippedIds, true)) {
+                return $this->result(
+                    false,
+                    "Daily crew employee {$employee->name} timeline data was skipped and is not covered by Crew Operations.",
+                    $preparation,
+                    (int) $employee->id,
+                );
+            }
+
+            if (! in_array((int) $employee->id, $effectivePayableEmployeeIds, true)) {
                 continue;
             }
 

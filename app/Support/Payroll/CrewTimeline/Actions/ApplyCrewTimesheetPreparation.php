@@ -130,7 +130,10 @@ final class ApplyCrewTimesheetPreparation
             $changes = [];
 
             if ($activeSkippedIds !== []) {
-                $activeSkips = $preparation->activeSkips()->with('employee')->get();
+                $activeSkips = $preparation->activeSkips()
+                    ->where('company_id', $companyId)
+                    ->with('employee')
+                    ->get();
 
                 foreach ($activeSkips as $activeSkip) {
                     $skipped[] = [
