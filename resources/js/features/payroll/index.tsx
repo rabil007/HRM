@@ -1,5 +1,5 @@
 import { Link, router, useForm } from '@inertiajs/react';
-import { ChevronRight, Filter, Plus, Receipt } from 'lucide-react';
+import { ChevronRight, Plus, Receipt } from 'lucide-react';
 import { useState } from 'react';
 import {
     index,
@@ -32,6 +32,7 @@ import {
 import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
+
 import { formatDisplayDate } from '@/lib/format-date';
 import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
@@ -42,7 +43,7 @@ import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
 import { PayrollCreationSourceBadge } from './components/payroll-creation-source-badge';
-import { PayrollFiltersSheet } from './components/payroll-filters-sheet';
+
 import { PayrollPeriodCard } from './components/payroll-period-card';
 import { PayrollPeriodFormSheet } from './components/payroll-period-form-sheet';
 import { PayrollPeriodMobileCard } from './components/payroll-period-mobile-card';
@@ -83,8 +84,20 @@ export function PayrollIndexContent({
     saved_views?: SavedView[];
 }) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
-    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [view, setView] = useViewPreference('payroll:view', 'grid');
+
+    /** Derive the current month value (YYYY-MM) from the active date_from filter */
+    const currentMonthValue = (() => {
+        if (initialFilters.all === '1') {
+            return '__all__';
+        }
+        if (initialFilters.date_from) {
+            return initialFilters.date_from.substring(0, 7);
+        }
+        // Default: current month
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    })();
 
     const list = useServerPaginationFilters({
         url: index.url(),
@@ -94,9 +107,23 @@ export function PayrollIndexContent({
             status: initialFilters.status,
             date_from: initialFilters.date_from,
             date_to: initialFilters.date_to,
+            all: initialFilters.all || '',
         },
         pagination,
     });
+
+    const handleMonthChange = (value: string) => {
+        if (!value) {
+            return;
+        }
+        const [year, month] = value.split('-').map(Number);
+        const lastDay = new Date(year, month, 0).getDate();
+        list.applyFilters({
+            date_from: `${value}-01`,
+            date_to: `${value}-${String(lastDay).padStart(2, '0')}`,
+            all: '',
+        });
+    };
 
     const form = useForm<PayrollPeriodFormData>({
         name: '',
@@ -122,26 +149,15 @@ export function PayrollIndexContent({
         });
     };
 
-    const handleFiltersChange = (next: PayrollHubFilters) => {
-        list.applyFilters(next);
-    };
 
     const handleCategoryChange = (category: PayrollCategory | '') => {
         list.applyFilters({ category });
     };
 
-    const activeFiltersCount = [
-        initialFilters.category,
-        initialFilters.status,
-        initialFilters.date_from,
-        initialFilters.date_to,
-    ].filter(Boolean).length;
-
     const hasActiveFilters = Boolean(
         initialFilters.category ||
         initialFilters.status ||
-        initialFilters.date_from ||
-        initialFilters.date_to ||
+        initialFilters.all ||
         initialSearch,
     );
 
@@ -176,25 +192,41 @@ export function PayrollIndexContent({
                 onChange={list.onSearchChange}
                 right={
                     <div className="flex flex-wrap items-center gap-2">
+                        {/* Month filter */}
+                        <div className="w-44">
+                            <input
+                                id="payroll-month-filter"
+                                type="month"
+                                className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                value={currentMonthValue === '__all__' ? '' : currentMonthValue}
+                                onChange={(e) => handleMonthChange(e.target.value)}
+                            />
+                        </div>
+
+                        {/* All periods toggle */}
+                        <Button
+                            type="button"
+                            variant={initialFilters.all === '1' ? 'secondary' : 'outline'}
+                            size="sm"
+                            className="h-11 rounded-xl px-4 text-xs"
+                            onClick={() =>
+                                initialFilters.all === '1'
+                                    ? handleMonthChange(
+                                          (() => {
+                                              const now = new Date();
+                                              return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                                          })()
+                                      )
+                                    : list.applyFilters({ date_from: '', date_to: '', all: '1' })
+                            }
+                        >
+                            All periods
+                        </Button>
+
                         <div className="hidden md:block">
                             <ViewToggle value={view} onChange={setView} />
                         </div>
-                        <div className="flex items-center rounded-xl glass-card p-1">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-11 rounded-lg px-4 hover:bg-accent"
-                                onClick={() => setIsFiltersOpen(true)}
-                            >
-                                <Filter className="mr-2 h-4 w-4" />
-                                Filters
-                                {activeFiltersCount ? (
-                                    <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
-                                        {activeFiltersCount}
-                                    </span>
-                                ) : null}
-                            </Button>
-                        </div>
+
                         <SavedViewsControl
                             pageKey="payroll"
                             indexUrl={index.url()}
@@ -439,27 +471,7 @@ export function PayrollIndexContent({
                 onSubmit={handleSubmit}
             />
 
-            <PayrollFiltersSheet
-                open={isFiltersOpen}
-                onOpenChange={setIsFiltersOpen}
-                payrollCategories={payroll_categories}
-                payrollPeriodStatuses={payroll_period_statuses}
-                value={{
-                    category: initialFilters.category,
-                    status: initialFilters.status,
-                    date_from: initialFilters.date_from,
-                    date_to: initialFilters.date_to,
-                }}
-                onChange={handleFiltersChange}
-                onReset={() =>
-                    handleFiltersChange({
-                        category: '',
-                        status: '',
-                        date_from: '',
-                        date_to: '',
-                    })
-                }
-            />
+
         </Main>
     );
 }

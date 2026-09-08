@@ -68,6 +68,7 @@ use App\Support\Payroll\Wps\WpsExportPreview;
 use App\Support\RecentItems\RecordRecentItem;
 use App\Support\SavedViews\ApplyDefaultSavedView;
 use App\Support\SavedViews\SavedViewsForPage;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -110,6 +111,15 @@ class PayrollController extends Controller
         $status = trim((string) $request->query('status', ''));
         $dateFrom = trim((string) $request->query('date_from', ''));
         $dateTo = trim((string) $request->query('date_to', ''));
+        $showAll = $request->boolean('all');
+
+        if (! $showAll && $dateFrom === '' && $dateTo === '') {
+            $company = Company::query()->find($companyId);
+            $timezone = $company?->timezone ?? config('app.timezone', 'Asia/Dubai');
+            $now = CarbonImmutable::now($timezone);
+            $dateFrom = $now->startOfMonth()->toDateString();
+            $dateTo = $now->endOfMonth()->toDateString();
+        }
 
         $query = PayrollPeriod::query()
             ->where('company_id', $companyId)
@@ -177,8 +187,9 @@ class PayrollController extends Controller
                 'status' => $status,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
+                'all' => $showAll ? '1' : '',
             ],
-            'summary' => PayrollHubSummary::forCompany($companyId),
+            'summary' => PayrollHubSummary::forCompany($companyId, $dateFrom, $dateTo),
             'payroll_categories' => $this->payrollCategoryOptions(),
             'payroll_period_statuses' => $this->payrollPeriodStatusOptions(),
             'permissions' => [

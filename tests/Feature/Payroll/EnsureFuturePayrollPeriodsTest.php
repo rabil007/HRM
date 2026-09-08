@@ -288,8 +288,13 @@ test('payroll hub resource exposes creation source', function () {
 
     grantCompanyPermissions($user, $company, ['payroll.periods.view']);
 
+    $start = now($company->timezone)->startOfMonth()->toDateString();
+    $end = now($company->timezone)->endOfMonth()->toDateString();
+
     PayrollPeriod::factory()->for($company)->automatic()->create([
         'name' => 'Automatic Run',
+        'start_date' => $start,
+        'end_date' => $end,
     ]);
 
     $this->withSession(['current_company_id' => $company->id])

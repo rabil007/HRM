@@ -221,6 +221,7 @@ final class SavedViewCatalog
                 'status' => ['type' => 'enum', 'values' => PayrollPeriodStatus::values()],
                 'date_from' => ['type' => 'date'],
                 'date_to' => ['type' => 'date'],
+                'all' => ['type' => 'bool'],
             ],
         };
     }

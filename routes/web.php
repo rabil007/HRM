@@ -565,6 +565,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('payroll/overview', PayrollOverviewController::class)->middleware('can:payroll.overview.view')->name('payroll.overview');
     Route::get('payroll', [PayrollController::class, 'index'])->name('payroll.index');
+    Route::redirect('payroll/payroll', '/payroll');
     Route::get('payroll/records', [PayrollRecordController::class, 'index'])->middleware('can:payroll.records.view')->name('payroll.records.index');
     Route::get('payroll/salary-inputs', [SalaryInputTypeController::class, 'index'])->name('payroll.salary-inputs.index');
     Route::post('payroll/salary-inputs', [SalaryInputTypeController::class, 'store'])->name('payroll.salary-input-types.store');

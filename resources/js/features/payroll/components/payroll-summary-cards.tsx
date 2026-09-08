@@ -20,7 +20,7 @@ const SUMMARY_ITEMS: {
         category: '',
         title: 'Pay runs',
         value: (summary) => summary.total_periods,
-        hint: () => 'All payroll periods',
+        hint: () => 'Pay runs in period',
         icon: Receipt,
         iconClassName: 'border-primary/20 bg-primary/10 text-primary',
         cardClassName:

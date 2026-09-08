@@ -125,8 +125,20 @@ test('payroll hub can filter periods by payroll category', function () {
 
     grantCompanyPermissions($user, $company, ['payroll.periods.view']);
 
-    PayrollPeriod::factory()->for($company)->create(['name' => 'June Crew', 'payroll_category' => 'crew']);
-    PayrollPeriod::factory()->for($company)->office()->create(['name' => 'June Office']);
+    $start = now($company->timezone)->startOfMonth()->toDateString();
+    $end = now($company->timezone)->endOfMonth()->toDateString();
+
+    PayrollPeriod::factory()->for($company)->create([
+        'name' => 'Current Crew',
+        'payroll_category' => 'crew',
+        'start_date' => $start,
+        'end_date' => $end,
+    ]);
+    PayrollPeriod::factory()->for($company)->office()->create([
+        'name' => 'Current Office',
+        'start_date' => $start,
+        'end_date' => $end,
+    ]);
 
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('payroll.index', ['category' => 'office']))
@@ -134,11 +146,11 @@ test('payroll hub can filter periods by payroll category', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/index')
             ->has('periods', 1)
-            ->where('periods.0.name', 'June Office')
+            ->where('periods.0.name', 'Current Office')
             ->where('filters.category', 'office')
             ->where('filters.status', '')
-            ->where('filters.date_from', '')
-            ->where('filters.date_to', ''));
+            ->where('filters.date_from', $start)
+            ->where('filters.date_to', $end));
 });
 
 test('payroll hub paginates periods and respects the selected page size', function () {
@@ -151,6 +163,7 @@ test('payroll hub paginates periods and respects the selected page size', functi
 
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('payroll.index', [
+            'all' => 1,
             'page' => 2,
             'per_page' => 10,
         ]))
@@ -203,12 +216,19 @@ test('payroll hub can filter periods by status', function () {
 
     grantCompanyPermissions($user, $company, ['payroll.periods.view']);
 
+    $start = now($company->timezone)->startOfMonth()->toDateString();
+    $end = now($company->timezone)->endOfMonth()->toDateString();
+
     PayrollPeriod::factory()->for($company)->create([
         'name' => 'Draft Run',
+        'start_date' => $start,
+        'end_date' => $end,
         'status' => PayrollPeriodStatus::Draft,
     ]);
     PayrollPeriod::factory()->for($company)->create([
         'name' => 'Processing Run',
+        'start_date' => $start,
+        'end_date' => $end,
         'status' => PayrollPeriodStatus::Processing,
     ]);
 
@@ -256,8 +276,13 @@ test('crew hub timesheet progress uses daily employees only', function () {
 
     grantCompanyPermissions($user, $company, ['payroll.periods.view']);
 
+    $start = now($company->timezone)->startOfMonth()->toDateString();
+    $end = now($company->timezone)->endOfMonth()->toDateString();
+
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => 'crew',
+        'start_date' => $start,
+        'end_date' => $end,
         'status' => PayrollPeriodStatus::Draft->value,
     ]);
 
@@ -296,8 +321,13 @@ test('crew hub timesheet progress uses daily payroll records after generation', 
 
     grantCompanyPermissions($user, $company, ['payroll.periods.view']);
 
+    $start = now($company->timezone)->startOfMonth()->toDateString();
+    $end = now($company->timezone)->endOfMonth()->toDateString();
+
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => 'crew',
+        'start_date' => $start,
+        'end_date' => $end,
         'status' => PayrollPeriodStatus::Approved->value,
     ]);
 
@@ -340,4 +370,65 @@ test('crew hub timesheet progress uses daily payroll records after generation', 
             ->where('periods.0.timesheet_eligible_count', 2)
             ->where('periods.0.timesheets_filled_count', 1)
             ->where('periods.0.timesheets_progress_label', '1/2'));
+});
+
+test('payroll hub defaults to current month periods only', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+
+    $tz = $company->timezone;
+    $currentStart = now($tz)->startOfMonth()->toDateString();
+    $currentEnd = now($tz)->endOfMonth()->toDateString();
+    $pastStart = now($tz)->subMonth()->startOfMonth()->toDateString();
+    $pastEnd = now($tz)->subMonth()->endOfMonth()->toDateString();
+    $futureStart = now($tz)->addMonth()->startOfMonth()->toDateString();
+    $futureEnd = now($tz)->addMonth()->endOfMonth()->toDateString();
+
+    PayrollPeriod::factory()->for($company)->create([
+        'name' => 'Past Month Run',
+        'start_date' => $pastStart,
+        'end_date' => $pastEnd,
+    ]);
+    PayrollPeriod::factory()->for($company)->create([
+        'name' => 'Current Month Run',
+        'start_date' => $currentStart,
+        'end_date' => $currentEnd,
+    ]);
+    PayrollPeriod::factory()->for($company)->create([
+        'name' => 'Future Month Run',
+        'start_date' => $futureStart,
+        'end_date' => $futureEnd,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/index')
+            ->has('periods', 1)
+            ->where('periods.0.name', 'Current Month Run')
+            ->where('filters.date_from', $currentStart)
+            ->where('filters.date_to', $currentEnd)
+            ->where('summary.total_periods', 1));
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.index', ['all' => 1]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/index')
+            ->has('periods', 3)
+            ->where('summary.total_periods', 3));
+});
+
+test('payroll/payroll route redirects to payroll index', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get('/payroll/payroll')
+        ->assertRedirect(route('payroll.index'));
 });

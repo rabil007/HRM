@@ -16,12 +16,21 @@ final class PayrollHubSummary
      *     incomplete_crew_runs: int
      * }
      */
-    public static function forCompany(int $companyId): array
+    public static function forCompany(int $companyId, ?string $dateFrom = null, ?string $dateTo = null): array
     {
-        $periods = PayrollPeriod::query()
+        $query = PayrollPeriod::query()
             ->where('company_id', $companyId)
-            ->withCount('crewTimesheets')
-            ->get();
+            ->withCount('crewTimesheets');
+
+        if ($dateFrom !== null && $dateFrom !== '') {
+            $query->whereDate('end_date', '>=', $dateFrom);
+        }
+
+        if ($dateTo !== null && $dateTo !== '') {
+            $query->whereDate('start_date', '<=', $dateTo);
+        }
+
+        $periods = $query->get();
 
         $crewEmployeeCount = PayrollEmployeeQuery::activeCount($companyId, PayrollCategory::Crew);
 
