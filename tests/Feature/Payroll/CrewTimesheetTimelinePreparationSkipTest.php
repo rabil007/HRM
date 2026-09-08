@@ -1050,6 +1050,83 @@ test('35. skip record from another company cannot affect unresolved warning stat
     expect($resolver->unresolvedBlockingWarningCount($preparation))->toBe(1);
 });
 
+test('review resource ignores foreign-company lines and skips when relations are not preloaded', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    grantTimelineSkipPermissions($fixtures['user'], $fixtures['company']);
+
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', null, CrewPhaseStatus::Completed);
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $fixtures['period'],
+        (int) $fixtures['company']->id,
+        (int) $fixtures['user']->id,
+    );
+
+    $baselinePreparation = $preparation->fresh();
+    expect($baselinePreparation->relationLoaded('lines'))->toBeFalse()
+        ->and($baselinePreparation->relationLoaded('skips'))->toBeFalse();
+
+    $baseline = app(CrewTimesheetPreparationReviewResource::class)->toArray($fixtures['period'], $baselinePreparation);
+
+    ['company' => $otherCompany, 'user' => $otherUser, 'employee' => $otherEmployee, 'rank' => $otherRank] = makeCrewAssignmentFixtures();
+    $otherVessel = makeCrewMovementVessel('Foreign Timeline Vessel', $otherCompany);
+    $otherAssignment = CrewAssignment::query()->create([
+        'company_id' => $otherCompany->id,
+        'assignment_no' => 'CA-TL-'.fake()->unique()->numerify('######'),
+        'employee_id' => $otherEmployee->id,
+        'rank_id' => $otherRank->id,
+        'vessel_id' => $otherVessel->id,
+        'status' => CrewAssignmentStatus::Active,
+        'source' => 'manual',
+    ]);
+
+    $foreignLine = CrewTimesheetPreparationLine::query()->create([
+        'company_id' => $otherCompany->id,
+        'crew_timesheet_preparation_id' => $preparation->id,
+        'employee_id' => $otherEmployee->id,
+        'crew_assignment_id' => $otherAssignment->id,
+        'phase_code' => CrewPhaseCode::OnVessel->value,
+        'pay_category' => CrewTimesheetPayCategory::Onsite->value,
+        'from_date' => '2026-07-05',
+        'to_date' => '2026-07-10',
+        'days' => 6,
+        'warning_code' => CrewTimelineWarningCode::MissingActualEnd->value,
+        'remarks' => 'Malformed cross-tenant line injection',
+    ]);
+
+    CrewTimesheetPreparationSkip::query()->create([
+        'company_id' => $otherCompany->id,
+        'crew_timesheet_preparation_id' => $preparation->id,
+        'employee_id' => $fixtures['employee']->id,
+        'skipped_by' => $otherUser->id,
+        'skipped_at' => now(),
+        'reason' => 'Malformed cross-tenant skip injection',
+    ]);
+
+    $unloadedPreparation = $preparation->fresh();
+    expect($unloadedPreparation->relationLoaded('lines'))->toBeFalse()
+        ->and($unloadedPreparation->relationLoaded('skips'))->toBeFalse();
+
+    $payload = app(CrewTimesheetPreparationReviewResource::class)
+        ->toArray($fixtures['period'], $unloadedPreparation);
+
+    $employeeIds = collect($payload['employees'])->pluck('employee_id');
+    $lineIds = collect($payload['employees'])->flatMap(
+        fn (array $employee): array => collect($employee['lines'] ?? [])->pluck('id')->all(),
+    );
+    $companyAEmployee = collect($payload['employees'])->firstWhere('employee_id', $fixtures['employee']->id);
+
+    expect($employeeIds)->not->toContain((int) $otherEmployee->id)
+        ->and($lineIds->all())->not->toContain($foreignLine->id)
+        ->and($companyAEmployee)->not->toBeNull()
+        ->and($companyAEmployee['is_skipped'])->toBeFalse()
+        ->and($companyAEmployee['skip_reason'])->toBeNull()
+        ->and($payload['summary'])->toBe($baseline['summary'])
+        ->and($payload['warning_breakdown'])->toBe($baseline['warning_breakdown'])
+        ->and($payload['preparation']['has_non_skippable_integrity_error'])
+        ->toBe($baseline['preparation']['has_non_skippable_integrity_error']);
+});
+
 // -------------------------------------------------------------------------
 // Cross-Company Integrity Error Alignment Tests (36)
 // -------------------------------------------------------------------------

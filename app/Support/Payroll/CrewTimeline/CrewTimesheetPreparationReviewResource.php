@@ -31,7 +31,7 @@ final class CrewTimesheetPreparationReviewResource
         ?CrewTimesheetPreparationReviewFilters $filters = null,
     ): array {
         $isFresh = $this->freshnessChecker->isFresh($preparation, $period);
-        $prepLines = $preparation->relationLoaded('lines') ? $preparation->lines : $preparation->lines()->get();
+        $prepLines = $this->preparationLines($preparation);
         $hasPreparationCrossCompany = $prepLines->contains(
             fn (CrewTimesheetPreparationLine $line): bool => $line->warning_code === CrewTimelineWarningCode::CrossCompanyReference->value,
         );
@@ -95,7 +95,7 @@ final class CrewTimesheetPreparationReviewResource
         PayrollPeriod $period,
         bool $hasPreparationCrossCompany = false,
     ): array {
-        $prepLines = $preparation->relationLoaded('lines') ? $preparation->lines : $preparation->lines()->get();
+        $prepLines = $this->preparationLines($preparation);
 
         /** @var Collection<int, Collection<int, CrewTimesheetPreparationLine>> $linesByEmployee */
         $linesByEmployee = $prepLines->groupBy(
@@ -108,14 +108,8 @@ final class CrewTimesheetPreparationReviewResource
         $userCanSkip = auth()->user()?->can('payroll.crew_timesheets.skip_timeline') ?? false;
         $isPreparationEditable = $isDraft && $period->status === PayrollPeriodStatus::Draft && $period->isCrew() && $isLatest && $isFresh;
 
-        /** @var Collection<int, CrewTimesheetPreparationSkip> $skips */
-        $skips = $preparation->relationLoaded('skips') ? $preparation->skips : $preparation->skips()->get();
-
         /** @var Collection<int, CrewTimesheetPreparationSkip> $skipsByEmployee */
-        $skipsByEmployee = $skips
-            ->filter(fn (CrewTimesheetPreparationSkip $skip): bool => (int) $skip->company_id === (int) $preparation->company_id
-                && (int) $skip->crew_timesheet_preparation_id === (int) $preparation->id
-            )
+        $skipsByEmployee = $this->preparationSkips($preparation)
             ->keyBy(
                 fn (CrewTimesheetPreparationSkip $skip): int => (int) $skip->employee_id,
             );
@@ -827,6 +821,48 @@ final class CrewTimesheetPreparationReviewResource
             'id' => (int) $user->id,
             'name' => (string) $user->name,
         ];
+    }
+
+    /**
+     * @return Collection<int, CrewTimesheetPreparationLine>
+     */
+    private function preparationLines(CrewTimesheetPreparation $preparation): Collection
+    {
+        if ($preparation->relationLoaded('lines')) {
+            /** @var Collection<int, CrewTimesheetPreparationLine> $lines */
+            $lines = $preparation->lines;
+
+            return $lines
+                ->filter(fn (CrewTimesheetPreparationLine $line): bool => (int) $line->company_id === (int) $preparation->company_id
+                    && (int) $line->crew_timesheet_preparation_id === (int) $preparation->id
+                )
+                ->values();
+        }
+
+        return $preparation->lines()
+            ->where('company_id', (int) $preparation->company_id)
+            ->get();
+    }
+
+    /**
+     * @return Collection<int, CrewTimesheetPreparationSkip>
+     */
+    private function preparationSkips(CrewTimesheetPreparation $preparation): Collection
+    {
+        if ($preparation->relationLoaded('skips')) {
+            /** @var Collection<int, CrewTimesheetPreparationSkip> $skips */
+            $skips = $preparation->skips;
+
+            return $skips
+                ->filter(fn (CrewTimesheetPreparationSkip $skip): bool => (int) $skip->company_id === (int) $preparation->company_id
+                    && (int) $skip->crew_timesheet_preparation_id === (int) $preparation->id
+                )
+                ->values();
+        }
+
+        return $preparation->skips()
+            ->where('company_id', (int) $preparation->company_id)
+            ->get();
     }
 
     private function isLatest(CrewTimesheetPreparation $preparation): bool
