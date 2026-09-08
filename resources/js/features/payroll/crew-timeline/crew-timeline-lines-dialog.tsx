@@ -96,16 +96,34 @@ function AssignmentLinkDivider({
                 {divider.label}
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                <span className="font-medium">
-                    {divider.fromAssignmentNumber ?? 'Previous assignment'}
-                </span>
+                {divider.fromAssignmentId ? (
+                    <Link
+                        href={showAssignment.url(divider.fromAssignmentId)}
+                        className="font-medium text-primary hover:underline"
+                    >
+                        {divider.fromAssignmentNumber ?? 'Previous assignment'}
+                    </Link>
+                ) : (
+                    <span className="font-medium">
+                        {divider.fromAssignmentNumber ?? 'Previous assignment'}
+                    </span>
+                )}
                 <ArrowRight
                     className="size-3.5 text-muted-foreground"
                     aria-hidden
                 />
-                <span className="font-medium">
-                    {divider.toAssignmentNumber ?? 'New assignment'}
-                </span>
+                {divider.toAssignmentId ? (
+                    <Link
+                        href={showAssignment.url(divider.toAssignmentId)}
+                        className="font-medium text-primary hover:underline"
+                    >
+                        {divider.toAssignmentNumber ?? 'New assignment'}
+                    </Link>
+                ) : (
+                    <span className="font-medium">
+                        {divider.toAssignmentNumber ?? 'New assignment'}
+                    </span>
+                )}
             </div>
             {(divider.fromVessel || divider.toVessel) && (
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -412,7 +430,7 @@ function AssignmentSection({
                                 className="inline-flex items-center gap-1.5 text-primary hover:underline"
                             >
                                 {assignment.assignment_number ??
-                                    'Unnumbered assignment'}
+                                    `Assignment #${assignment.id}`}
                                 <ExternalLink
                                     className="size-3.5 shrink-0"
                                     aria-hidden
@@ -424,9 +442,24 @@ function AssignmentSection({
                         )}
                     </h3>
                 </div>
-                <Badge variant="outline" className="rounded-md">
-                    {assignment.source_label}
-                </Badge>
+                <div className="flex items-center gap-2">
+                    {assignment.id ? (
+                        <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1 px-2.5 text-xs"
+                        >
+                            <Link href={showAssignment.url(assignment.id)}>
+                                <span>View Assignment</span>
+                                <ExternalLink className="size-3" aria-hidden />
+                            </Link>
+                        </Button>
+                    ) : null}
+                    <Badge variant="outline" className="rounded-md">
+                        {assignment.source_label}
+                    </Badge>
+                </div>
             </div>
 
             <dl className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -515,13 +548,38 @@ export function CrewTimelineLinesDialog({
     const sections = buildCrewTimelineAssignmentSections(
         employee.assignments ?? [],
     );
+    const assignments = employee.assignments ?? [];
+    const singleAssignmentId =
+        employee.assignment_id ??
+        (assignments.length === 1 ? assignments[0].id : null);
+    const singleAssignmentNumber =
+        employee.assignment_number ??
+        (assignments.length === 1
+            ? (assignments[0].assignment_number ??
+              (assignments[0].id ? `Assignment #${assignments[0].id}` : null))
+            : singleAssignmentId
+              ? `Assignment #${singleAssignmentId}`
+              : null);
+
     const identityDetails = [
         employee.employee_number
-            ? { label: 'Employee', value: employee.employee_number }
+            ? { label: 'Employee', value: employee.employee_number, href: null }
             : null,
-        employee.rank ? { label: 'Rank', value: employee.rank } : null,
-    ].filter((detail): detail is { label: string; value: string } =>
-        Boolean(detail),
+        employee.rank
+            ? { label: 'Rank', value: employee.rank, href: null }
+            : null,
+        singleAssignmentId && singleAssignmentNumber
+            ? {
+                  label: 'Assignment',
+                  value: singleAssignmentNumber,
+                  href: showAssignment.url(singleAssignmentId),
+              }
+            : null,
+    ].filter(
+        (
+            detail,
+        ): detail is { label: string; value: string; href: string | null } =>
+            Boolean(detail),
     );
 
     return (
@@ -566,7 +624,20 @@ export function CrewTimelineLinesDialog({
                                         {detail.label}
                                     </dt>
                                     <dd className="max-w-52 truncate font-medium text-foreground">
-                                        {detail.value}
+                                        {detail.href ? (
+                                            <Link
+                                                href={detail.href}
+                                                className="inline-flex items-center gap-1 text-primary hover:underline"
+                                            >
+                                                {detail.value}
+                                                <ExternalLink
+                                                    className="size-3 shrink-0"
+                                                    aria-hidden
+                                                />
+                                            </Link>
+                                        ) : (
+                                            detail.value
+                                        )}
                                     </dd>
                                 </div>
                             ))}

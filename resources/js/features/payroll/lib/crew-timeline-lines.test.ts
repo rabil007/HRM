@@ -334,6 +334,8 @@ describe('crew timeline line presentation', () => {
 
         assert.equal(sections[0]?.linkFromPrevious, null);
         assert.equal(sections[1]?.linkFromPrevious?.kind, 'vessel_transfer');
+        assert.equal(sections[1]?.linkFromPrevious?.fromAssignmentId, 1);
+        assert.equal(sections[1]?.linkFromPrevious?.toAssignmentId, 2);
         assert.equal(
             sections[1]?.linkFromPrevious?.fromAssignmentNumber,
             'CA-1',
@@ -343,6 +345,8 @@ describe('crew timeline line presentation', () => {
         assert.equal(sections[1]?.linkFromPrevious?.toVessel, 'Vessel B');
         assert.equal(sections[2]?.linkFromPrevious?.kind, 'redeployment');
         assert.equal(sections[2]?.linkFromPrevious?.label, 'Redeployment');
+        assert.equal(sections[2]?.linkFromPrevious?.fromAssignmentId, 2);
+        assert.equal(sections[2]?.linkFromPrevious?.toAssignmentId, 3);
     });
 
     it('labels repeated phase occurrences without generic entry numbers', () => {

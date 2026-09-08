@@ -143,45 +143,41 @@ function AssignmentCell({
         const assignments = employee.assignments ?? [];
 
         return (
-            <div className="space-y-0.5">
-                <div className="font-medium">
-                    {employee.assignment_count} assignments
-                </div>
-                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
+            <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-1.5">
                     {assignments.length > 0 ? (
                         assignments.map((assignment, index) => {
-                            const number = assignment.assignment_number ?? '—';
+                            const number =
+                                assignment.assignment_number ??
+                                (assignment.id
+                                    ? `Assignment #${assignment.id}`
+                                    : '—');
 
-                            return (
+                            return assignment.id ? (
+                                <Link
+                                    key={
+                                        assignment.id ??
+                                        `${employee.employee_id}-${index}`
+                                    }
+                                    href={showAssignment.url(assignment.id)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 hover:underline"
+                                >
+                                    {number}
+                                </Link>
+                            ) : (
                                 <span
                                     key={
                                         assignment.id ??
                                         `${employee.employee_id}-${index}`
                                     }
-                                    className="inline-flex items-center gap-1.5"
+                                    className="rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-xs font-medium text-muted-foreground"
                                 >
-                                    {index > 0 && (
-                                        <span className="text-muted-foreground/60">
-                                            ·
-                                        </span>
-                                    )}
-                                    {assignment.id ? (
-                                        <Link
-                                            href={showAssignment.url(
-                                                assignment.id,
-                                            )}
-                                            className="font-medium text-primary hover:underline"
-                                        >
-                                            {number}
-                                        </Link>
-                                    ) : (
-                                        <span>{number}</span>
-                                    )}
+                                    {number}
                                 </span>
                             );
                         })
                     ) : (
-                        <span>—</span>
+                        <span className="text-muted-foreground">—</span>
                     )}
                 </div>
             </div>
@@ -193,9 +189,9 @@ function AssignmentCell({
     const assignmentNumber =
         employee.assignment_number ??
         employee.assignments?.[0]?.assignment_number ??
-        null;
+        (assignmentId ? `Assignment #${assignmentId}` : null);
 
-    if (!assignmentNumber) {
+    if (!assignmentNumber && !assignmentId) {
         return <span className="text-muted-foreground">—</span>;
     }
 
@@ -205,7 +201,7 @@ function AssignmentCell({
                 href={showAssignment.url(assignmentId)}
                 className="font-medium text-primary hover:underline"
             >
-                {assignmentNumber}
+                {assignmentNumber ?? `Assignment #${assignmentId}`}
             </Link>
         );
     }

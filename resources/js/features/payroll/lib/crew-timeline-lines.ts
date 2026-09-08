@@ -33,6 +33,8 @@ export type CrewTimelineModalSummary = {
 export type CrewTimelineAssignmentLinkDivider = {
     kind: 'vessel_transfer' | 'redeployment';
     label: string;
+    fromAssignmentId: number | null;
+    toAssignmentId: number | null;
     fromAssignmentNumber: string | null;
     toAssignmentNumber: string | null;
     fromVessel: string | null;
@@ -125,6 +127,8 @@ export function buildCrewTimelineAssignmentSections(
                           linkSource === 'vessel_transfer'
                               ? 'Vessel Transfer'
                               : 'Redeployment',
+                      fromAssignmentId: previous.id,
+                      toAssignmentId: assignment.id,
                       fromAssignmentNumber:
                           previous.assignment_number ??
                           assignment.previous_assignment_number,
