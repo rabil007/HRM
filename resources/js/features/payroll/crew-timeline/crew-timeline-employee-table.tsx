@@ -33,6 +33,7 @@ type WarningDetail = {
     remarks: string | null;
     from: string | null;
     to: string | null;
+    is_blocking: boolean;
 };
 
 function PhaseRange({
@@ -65,29 +66,30 @@ function PhaseRange({
     );
 }
 
-function WarningCell({
-    items,
-    tone,
-}: {
-    items: WarningDetail[];
-    tone: 'blocking' | 'info';
-}) {
+function WarningCell({ items }: { items: WarningDetail[] }) {
     if (items.length === 0) {
         return <span className="text-muted-foreground tabular-nums">—</span>;
     }
 
-    const toneClass =
-        tone === 'blocking'
-            ? 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300'
-            : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+    const sortedItems = [...items].sort((a, b) => {
+        if (a.is_blocking === b.is_blocking) {
+            return 0;
+        }
+
+        return a.is_blocking ? -1 : 1;
+    });
 
     return (
         <div className="flex flex-col gap-1">
-            {items.map((item, index) => {
+            {sortedItems.map((item, index) => {
                 const range =
                     item.from || item.to
                         ? `${formatDisplayDate(item.from)} → ${formatDisplayDate(item.to)}`
                         : null;
+
+                const toneClass = item.is_blocking
+                    ? 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300'
+                    : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300';
 
                 return (
                     <Tooltip key={`${item.label}-${index}`}>
@@ -104,6 +106,11 @@ function WarningCell({
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs">
                             <p className="font-semibold">{item.label}</p>
+                            <p className="text-xs font-medium text-muted-foreground">
+                                {item.is_blocking
+                                    ? 'Blocking warning'
+                                    : 'Informational warning'}
+                            </p>
                             {range ? (
                                 <p className="mt-0.5 opacity-80">{range}</p>
                             ) : null}
@@ -122,91 +129,120 @@ function WarningCell({
 
 function warningDetails(
     employee: CrewTimelineEmployeeSummary,
-    blocking: boolean,
 ): WarningDetail[] {
     return employee.lines
-        .filter((line) => line.warning && line.warning.is_blocking === blocking)
+        .filter((line) => line.warning !== null)
         .map((line) => ({
             label: line.warning!.label,
             remarks: line.remarks,
             from: line.from_date,
             to: line.to_date,
+            is_blocking: line.warning!.is_blocking,
         }));
 }
 
-function AssignmentCell({
-    employee,
-}: {
-    employee: CrewTimelineEmployeeSummary;
-}) {
-    if ((employee.assignment_count ?? 1) > 1) {
-        const assignments = employee.assignments ?? [];
+function EmployeeCell({ employee }: { employee: CrewTimelineEmployeeSummary }) {
+    const isMultiAssignment = (employee.assignment_count ?? 1) > 1;
+    const assignments = employee.assignments ?? [];
 
-        return (
-            <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-1.5">
-                    {assignments.length > 0 ? (
-                        assignments.map((assignment, index) => {
-                            const number =
-                                assignment.assignment_number ??
-                                (assignment.id
-                                    ? `Assignment #${assignment.id}`
-                                    : '—');
+    const singleAssignmentId =
+        employee.assignment_id ?? assignments[0]?.id ?? null;
+    const singleAssignmentNumber =
+        employee.assignment_number ??
+        assignments[0]?.assignment_number ??
+        (singleAssignmentId ? `Assignment #${singleAssignmentId}` : null);
 
-                            return assignment.id ? (
+    return (
+        <div className="flex items-center gap-3">
+            <EmployeeAvatar
+                name={employee.employee_name ?? ''}
+                image={employee.employee_image}
+                size="sm"
+                className="shrink-0 rounded-lg"
+            />
+            <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                    {employee.blocking_warning_count > 0 ? (
+                        <span className="size-1.5 shrink-0 rounded-full bg-red-500" />
+                    ) : employee.informational_warning_count > 0 ? (
+                        <span className="size-1.5 shrink-0 rounded-full bg-amber-400" />
+                    ) : null}
+                    <span className="truncate font-medium">
+                        {employee.employee_name ?? '—'}
+                    </span>
+                </div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
+                    <span>{employee.employee_number ?? '—'}</span>
+                    {employee.rank ? (
+                        <>
+                            <span className="text-border">·</span>
+                            <span className="font-medium text-foreground/70">
+                                {employee.rank}
+                            </span>
+                        </>
+                    ) : null}
+                    {isMultiAssignment && assignments.length > 0 ? (
+                        <>
+                            <span className="text-border">·</span>
+                            <span className="inline-flex flex-wrap items-center gap-1">
+                                {assignments.map((assignment, index) => {
+                                    const number =
+                                        assignment.assignment_number ??
+                                        (assignment.id
+                                            ? `Assignment #${assignment.id}`
+                                            : '—');
+
+                                    return (
+                                        <span
+                                            key={
+                                                assignment.id ??
+                                                `${employee.employee_id}-${index}`
+                                            }
+                                            className="inline-flex items-center gap-1"
+                                        >
+                                            {index > 0 && (
+                                                <span className="text-muted-foreground/60">
+                                                    ·
+                                                </span>
+                                            )}
+                                            {assignment.id ? (
+                                                <Link
+                                                    href={showAssignment.url(
+                                                        assignment.id,
+                                                    )}
+                                                    className="font-medium text-primary hover:underline"
+                                                >
+                                                    {number}
+                                                </Link>
+                                            ) : (
+                                                <span>{number}</span>
+                                            )}
+                                        </span>
+                                    );
+                                })}
+                            </span>
+                        </>
+                    ) : singleAssignmentNumber ? (
+                        <>
+                            <span className="text-border">·</span>
+                            {singleAssignmentId ? (
                                 <Link
-                                    key={
-                                        assignment.id ??
-                                        `${employee.employee_id}-${index}`
-                                    }
-                                    href={showAssignment.url(assignment.id)}
-                                    className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 hover:underline"
+                                    href={showAssignment.url(
+                                        singleAssignmentId,
+                                    )}
+                                    className="font-medium text-primary hover:underline"
                                 >
-                                    {number}
+                                    {singleAssignmentNumber}
                                 </Link>
                             ) : (
-                                <span
-                                    key={
-                                        assignment.id ??
-                                        `${employee.employee_id}-${index}`
-                                    }
-                                    className="rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-xs font-medium text-muted-foreground"
-                                >
-                                    {number}
-                                </span>
-                            );
-                        })
-                    ) : (
-                        <span className="text-muted-foreground">—</span>
-                    )}
+                                <span>{singleAssignmentNumber}</span>
+                            )}
+                        </>
+                    ) : null}
                 </div>
             </div>
-        );
-    }
-
-    const assignmentId =
-        employee.assignment_id ?? employee.assignments?.[0]?.id ?? null;
-    const assignmentNumber =
-        employee.assignment_number ??
-        employee.assignments?.[0]?.assignment_number ??
-        (assignmentId ? `Assignment #${assignmentId}` : null);
-
-    if (!assignmentNumber && !assignmentId) {
-        return <span className="text-muted-foreground">—</span>;
-    }
-
-    if (assignmentId) {
-        return (
-            <Link
-                href={showAssignment.url(assignmentId)}
-                className="font-medium text-primary hover:underline"
-            >
-                {assignmentNumber ?? `Assignment #${assignmentId}`}
-            </Link>
-        );
-    }
-
-    return <span>{assignmentNumber}</span>;
+        </div>
+    );
 }
 
 export function CrewTimelineEmployeeTable({
@@ -223,14 +259,12 @@ export function CrewTimelineEmployeeTable({
                 <TableHeader>
                     <DataTableHeaderRow>
                         <DataTableHead>Employee</DataTableHead>
-                        <DataTableHead>Assignment</DataTableHead>
                         <DataTableHead>Vessel</DataTableHead>
                         <DataTableHead>Sign-On Standby</DataTableHead>
                         <DataTableHead>Onsite</DataTableHead>
                         <DataTableHead>Sign-Off Standby</DataTableHead>
                         <DataTableHead>Payable days</DataTableHead>
-                        <DataTableHead>Blocking</DataTableHead>
-                        <DataTableHead>Info</DataTableHead>
+                        <DataTableHead>Warnings</DataTableHead>
                         <DataTableHead className="text-right">
                             Actions
                         </DataTableHead>
@@ -243,47 +277,7 @@ export function CrewTimelineEmployeeTable({
                             className={dataTableBodyRowClass(false)}
                         >
                             <TableCell className={dataTableCellClass()}>
-                                <div className="flex items-center gap-3">
-                                    <EmployeeAvatar
-                                        name={employee.employee_name ?? ''}
-                                        image={employee.employee_image}
-                                        size="sm"
-                                        className="shrink-0 rounded-lg"
-                                    />
-                                    <div className="min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            {employee.blocking_warning_count >
-                                            0 ? (
-                                                <span className="size-1.5 shrink-0 rounded-full bg-red-500" />
-                                            ) : employee.informational_warning_count >
-                                              0 ? (
-                                                <span className="size-1.5 shrink-0 rounded-full bg-amber-400" />
-                                            ) : null}
-                                            <span className="truncate font-medium">
-                                                {employee.employee_name ?? '—'}
-                                            </span>
-                                        </div>
-                                        <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                                            <span>
-                                                {employee.employee_number ??
-                                                    '—'}
-                                            </span>
-                                            {employee.rank ? (
-                                                <>
-                                                    <span className="text-border">
-                                                        ·
-                                                    </span>
-                                                    <span className="font-medium text-foreground/70">
-                                                        {employee.rank}
-                                                    </span>
-                                                </>
-                                            ) : null}
-                                        </div>
-                                    </div>
-                                </div>
-                            </TableCell>
-                            <TableCell className={dataTableCellClass()}>
-                                <AssignmentCell employee={employee} />
+                                <EmployeeCell employee={employee} />
                             </TableCell>
                             <TableCell className={dataTableCellClass()}>
                                 {(employee.assignment_count ?? 1) > 1 ? (
@@ -338,16 +332,7 @@ export function CrewTimelineEmployeeTable({
                                 </span>
                             </TableCell>
                             <TableCell className={dataTableCellClass()}>
-                                <WarningCell
-                                    items={warningDetails(employee, true)}
-                                    tone="blocking"
-                                />
-                            </TableCell>
-                            <TableCell className={dataTableCellClass()}>
-                                <WarningCell
-                                    items={warningDetails(employee, false)}
-                                    tone="info"
-                                />
+                                <WarningCell items={warningDetails(employee)} />
                             </TableCell>
                             <TableCell className={dataTableActionsCellClass()}>
                                 <Button
