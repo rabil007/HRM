@@ -234,16 +234,22 @@ Available from Active P4 On Vessel. Completes the source P4 and assignment at `o
 
 #### Intelligent transfer recommendation
 
-If a recorder tries to put an employee onto a **different** vessel while that employee is already actually On Vessel (active P4) in the same company, Crew Operations recommends **Transfer Vessel** instead of creating another assignment or joining vessel on a second record.
+Active On Vessel conflicts are proactively surfaced in the UI and the recorder is guided toward Vessel Transfer when appropriate.
+
+If a recorder selects an employee who is already actually On Vessel (active P4) in the same company, and tries to place them on a different vessel, Crew Operations recommends **Transfer Vessel** instead of creating another assignment or joining vessel on a second record.
+
+The warning identifies the employee, current assignment, current vessel, active P4 state, and when that P4 started. Creating or joining another vessel assignment may produce conflicting operational history.
 
 This appears when:
 
-- creating a draft assignment and the selected destination vessel differs from the current vessel
+- creating a draft assignment and the selected employee is currently On Vessel, with a destination vessel that differs from the current vessel
 - recording Join Vessel on another assignment for a different destination vessel
 
-**Use Transfer Vessel** opens the existing Transfer Vessel action on the current On Vessel assignment and prefills the destination vessel, rank, client, and movement time when those values were already entered. The mutation still goes through `transfer_vessel`. The system does not create the linked assignment in the browser.
+**Use Transfer Vessel** opens the existing Transfer Vessel action on the current On Vessel assignment and prefills destination vessel, rank, client, visa type, and movement time when those values were already entered. Query parameters are convenience only. The recorder must still review and submit the movement. The mutation still goes through `transfer_vessel` and backend company ownership checks. The system does not create the linked assignment in the browser and does not rewrite history.
 
-Same vessel does not recommend a transfer. A planned future assignment, or a completed tour that has already ended, is not treated as a current vessel transfer.
+Same vessel does not recommend a transfer. A planned future assignment, a completed or cancelled tour, or another company's assignment is not treated as a current vessel transfer. The current assignment is excluded from its own recommendation.
+
+This recommendation is not a new backend hard block. Existing assignment invariants still apply: an employee cannot have two active assignments, and Transfer Vessel / Redeploy still require an authorised movement and a company-owned destination. Historical movement corrections remain the path for repairing already-recorded dates.
 
 #### Direct transfer vs a real gap
 
@@ -254,7 +260,7 @@ HEA KRAKEN P4 ends   26 Aug 16:30
 PLB 648 P4 starts    26 Aug 16:30
 ```
 
-That is the Transfer Vessel case. Intervals are half-open `[start, end)`, so equal start/end is valid.
+That is the Transfer Vessel case. Intervals are half-open: a genuine overlap is `left.start < right.end` and `right.start < left.end`. Equal start/end is a valid handoff, not an overlap.
 
 This is not a transfer:
 
@@ -264,20 +270,7 @@ HEA KRAKEN ends      23 Aug 16:30
 PLB 648 starts       26 Aug 16:30
 ```
 
-That gap can stay a normal assignment or redeploy. Do not rewrite it as a transfer.
-
-#### Actual P4 overlap protection
-
-Crew Operations rejects a positive-duration overlap between actual On Vessel intervals for the same employee in the active company. Planned dates are not actual movements. Open P4 phases are treated as still ongoing.
-
-This check runs when:
-
-- joining vessel
-- transferring vessel (other assignments, excluding the source being closed at the same timestamp)
-- redeploying directly into P4
-- requesting or approving a movement correction that changes P4 `actual_start_at` or `actual_end_at`
-
-An overlapping correction is rejected and does not change official phase dates. Historical records are not auto-corrected. Cross-company assignments are ignored and never shown in the recommendation.
+That gap can stay a normal assignment or redeploy. Do not rewrite it as a transfer. Payroll timeline overlap detection remains independent of this UI recommendation.
 
 ### Redeploy (`redeploy`)
 

@@ -70,7 +70,10 @@ export function VesselTransferRecommendationDialog({
 }): ReactElement {
     const vesselName = current?.vessel_name ?? 'the current vessel';
     const employeeName = current?.employee_name ?? 'This employee';
-    const destination = destinationVesselName?.trim() || 'the selected vessel';
+    const destination = destinationVesselName?.trim() || 'another vessel';
+    const startedAt = current?.actual_start_display
+        ? ` P4 On Vessel started ${current.actual_start_display}.`
+        : '';
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -78,15 +81,25 @@ export function VesselTransferRecommendationDialog({
                 <DialogHeader>
                     <DialogTitle>Possible Vessel Transfer</DialogTitle>
                     <DialogDescription>
-                        {employeeName} is currently On Vessel on {vesselName}.
+                        {employeeName} is already On Vessel on {vesselName}.
                     </DialogDescription>
                 </DialogHeader>
-                <p className="text-sm text-muted-foreground">
-                    If {employeeName} is moving directly from {vesselName} to{' '}
-                    {destination}, use Transfer Vessel instead. Transfer Vessel
-                    will close the current vessel assignment and create the
-                    linked destination assignment at the same movement time.
-                </p>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                    <p>
+                        Current assignment {current?.assignment_no ?? '—'} is
+                        active P4 On Vessel on {vesselName}.{startedAt}
+                    </p>
+                    <p>
+                        Creating or joining another vessel assignment may
+                        produce conflicting operational history. If{' '}
+                        {employeeName} is moving directly from {vesselName} to{' '}
+                        {destination}, Transfer Vessel is the recommended
+                        action. It will close the current assignment and start
+                        the linked destination at the same movement time. You
+                        still review and submit that movement; nothing is
+                        transferred automatically.
+                    </p>
+                </div>
                 <DialogFooter>
                     <Button
                         type="button"

@@ -102,6 +102,9 @@ final class ActiveOnVesselAssignmentFinder
         $query = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->where('status', CrewAssignmentStatus::Active)
+            ->whereHas('employee', function ($employee) use ($companyId): void {
+                $employee->where('company_id', $companyId);
+            })
             ->whereHas('currentPhase', function ($phase) use ($companyId): void {
                 $phase->where('company_id', $companyId)
                     ->where('phase_code', CrewPhaseCode::OnVessel)
@@ -140,14 +143,18 @@ final class ActiveOnVesselAssignmentFinder
         $phase = $assignment->currentPhase;
         $timezone = CompanyTimezone::forCompanyId($companyId);
         $start = $phase?->actual_start_at;
+        $employee = $assignment->employee;
+        $vessel = $assignment->vessel;
+        $sameCompanyEmployee = $employee !== null && (int) $employee->company_id === $companyId;
+        $sameCompanyVessel = $vessel !== null && (int) $vessel->company_id === $companyId;
 
         return [
             'assignment_id' => (int) $assignment->id,
             'assignment_no' => (string) $assignment->assignment_no,
             'employee_id' => (int) $assignment->employee_id,
-            'employee_name' => (string) ($assignment->employee?->name ?? 'This employee'),
-            'vessel_id' => $assignment->vessel_id !== null ? (int) $assignment->vessel_id : null,
-            'vessel_name' => $assignment->vessel?->name,
+            'employee_name' => $sameCompanyEmployee ? (string) $employee->name : 'This employee',
+            'vessel_id' => $sameCompanyVessel ? (int) $vessel->id : null,
+            'vessel_name' => $sameCompanyVessel ? $vessel->name : null,
             'phase_id' => (int) ($phase?->id ?? 0),
             'actual_start_at' => $start instanceof CarbonInterface
                 ? $start->timezone($timezone)->toIso8601String()

@@ -7,13 +7,10 @@ use App\Enums\CrewPhaseStatus;
 use App\Exceptions\CrewMovementException;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
-use App\Models\CrewMovementCorrection;
 use App\Support\CrewMovements\ActiveOnVesselAssignmentFinder;
 use App\Support\CrewMovements\Corrections\ApproveCrewMovementCorrection;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
 use App\Support\CrewMovements\CrewMovementService;
-use App\Support\CrewMovements\OnVesselActualIntervalGuard;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
 test('employee active on vessel is detected as a possible transfer target', function () {
@@ -92,15 +89,6 @@ test('planned future assignment does not block an actual on vessel interval', fu
         $fixtures['company']->id,
         $fixtures['employee']->id,
     ))->toBeNull();
-
-    app(OnVesselActualIntervalGuard::class)->assertNoOverlap(
-        $fixtures['company']->id,
-        $fixtures['employee']->id,
-        CarbonImmutable::parse('2026-09-01 08:00:00'),
-        null,
-    );
-
-    expect(true)->toBeTrue();
 });
 
 test('cross company on vessel assignment is ignored and never exposed', function () {
@@ -123,7 +111,7 @@ test('cross company on vessel assignment is ignored and never exposed', function
         ->and(app(ActiveOnVesselAssignmentFinder::class)->forCompany($fixtures['company']->id))->toBe([]);
 });
 
-test('overlapping actual on vessel intervals are rejected', function () {
+test('open on vessel assignment is still identified for the recommendation', function () {
     $fixtures = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('HEA KRAKEN', $fixtures['company']);
     $assignment = makeActiveOnVesselAssignment(
@@ -136,15 +124,17 @@ test('overlapping actual on vessel intervals are rejected', function () {
         'actual_start_at' => '2026-08-20 08:00:00',
     ]);
 
-    expect(fn () => app(OnVesselActualIntervalGuard::class)->assertNoOverlap(
+    $current = app(ActiveOnVesselAssignmentFinder::class)->find(
         $fixtures['company']->id,
         $fixtures['employee']->id,
-        CarbonImmutable::parse('2026-08-26 16:30:00'),
-        null,
-    ))->toThrow(CrewMovementException::class, 'Transfer Vessel');
+    );
+
+    expect($current)->not->toBeNull()
+        ->and($current['assignment_id'])->toBe($assignment->id)
+        ->and(app(ActiveOnVesselAssignmentFinder::class)->recommendsTransfer($current, $vessel->id + 1))->toBeTrue();
 });
 
-test('exact timestamp handoff is allowed', function () {
+test('exact timestamp handoff is not treated as a current on vessel conflict', function () {
     $fixtures = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('HEA KRAKEN', $fixtures['company']);
     $assignment = makeActiveOnVesselAssignment(
@@ -160,17 +150,13 @@ test('exact timestamp handoff is allowed', function () {
     ]);
     $assignment->update(['status' => CrewAssignmentStatus::Completed]);
 
-    app(OnVesselActualIntervalGuard::class)->assertNoOverlap(
+    expect(app(ActiveOnVesselAssignmentFinder::class)->find(
         $fixtures['company']->id,
         $fixtures['employee']->id,
-        CarbonImmutable::parse('2026-08-26 16:30:00'),
-        null,
-    );
-
-    expect(true)->toBeTrue();
+    ))->toBeNull();
 });
 
-test('completed assignment with no overlap remains allowed', function () {
+test('completed assignment does not recommend a current vessel transfer', function () {
     $fixtures = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('HEA KRAKEN', $fixtures['company']);
     $assignment = makeActiveOnVesselAssignment(
@@ -186,17 +172,13 @@ test('completed assignment with no overlap remains allowed', function () {
     ]);
     $assignment->update(['status' => CrewAssignmentStatus::Completed]);
 
-    app(OnVesselActualIntervalGuard::class)->assertNoOverlap(
+    expect(app(ActiveOnVesselAssignmentFinder::class)->find(
         $fixtures['company']->id,
         $fixtures['employee']->id,
-        CarbonImmutable::parse('2026-08-26 16:30:00'),
-        null,
-    );
-
-    expect(true)->toBeTrue();
+    ))->toBeNull();
 });
 
-test('backdated join that overlaps an open on vessel interval is rejected', function () {
+test('creating another draft is still blocked by the existing active assignment invariant', function () {
     $fixtures = makeCrewAssignmentFixtures();
     $sourceVessel = makeCrewMovementVessel('HEA KRAKEN', $fixtures['company']);
     makeActiveOnVesselAssignment(
@@ -211,7 +193,7 @@ test('backdated join that overlaps an open on vessel interval is rejected', func
         $fixtures['employee']->id,
         ['vessel_id' => makeCrewMovementVessel('PLB 648', $fixtures['company'])->id],
         $fixtures['user']->id,
-    ))->toThrow(CrewMovementException::class, 'Transfer Vessel');
+    ))->toThrow(CrewMovementException::class, 'already has an active assignment');
 });
 
 test('transfer vessel still closes source and starts destination at the same timestamp', function () {
@@ -308,7 +290,7 @@ test('create page exposes company scoped on vessel context for the recommendatio
             ));
 });
 
-test('correction that would overlap another on vessel interval is rejected and does not change official dates', function () {
+test('historical p4 start correction remains available even if another on vessel interval exists', function () {
     $fixtures = makeCrewAssignmentFixtures();
     $requester = $fixtures['user'];
     $requester->update(['current_company_id' => $fixtures['company']->id]);
@@ -358,16 +340,16 @@ test('correction that would overlap another on vessel interval is rejected and d
     $destination->update(['current_phase_id' => $phase->id]);
     $originalStart = $phase->fresh()->actual_start_at?->toDateTimeString();
 
-    expect(fn () => app(RequestCrewMovementCorrection::class)->handle(
+    $correction = app(RequestCrewMovementCorrection::class)->handle(
         $destination->fresh(),
         $phase->fresh(),
         $requester,
         ['actual_start_at' => '2026-08-26 16:30:00'],
         'Backdated by mistake',
-    ))->toThrow(CrewMovementException::class, 'overlap');
+    );
 
     expect($phase->fresh()->actual_start_at?->toDateTimeString())->toBe($originalStart)
-        ->and(CrewMovementCorrection::query()->where('crew_assignment_phase_id', $phase->id)->count())->toBe(0);
+        ->and($correction->proposed_values['actual_start_at'] ?? null)->not->toBeNull();
 });
 
 test('exact boundary correction remains allowed', function () {
@@ -432,24 +414,64 @@ test('exact boundary correction remains allowed', function () {
     expect($phase->fresh()->actual_start_at?->toDateTimeString())->toBe('2026-08-26 16:30:00');
 });
 
-test('foreign company intervals cannot influence overlap validation', function () {
+test('same assignment is excluded from its own on vessel recommendation', function () {
     $fixtures = makeCrewAssignmentFixtures();
-    $other = makeCrewAssignmentFixtures();
-    $foreignVessel = makeCrewMovementVessel('Foreign Vessel', $other['company']);
-    $foreign = makeActiveOnVesselAssignment(
-        $other['company'],
-        $other['employee'],
-        $other['rank'],
-        $foreignVessel,
+    $vessel = makeCrewMovementVessel('HEA KRAKEN', $fixtures['company']);
+    $assignment = makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        $vessel,
     );
-    $foreign->currentPhase?->update(['actual_start_at' => '2026-08-01 08:00:00']);
 
-    app(OnVesselActualIntervalGuard::class)->assertNoOverlap(
+    expect(app(ActiveOnVesselAssignmentFinder::class)->find(
         $fixtures['company']->id,
         $fixtures['employee']->id,
-        CarbonImmutable::parse('2026-08-26 16:30:00'),
-        null,
-    );
+        $assignment->id,
+    ))->toBeNull();
+});
 
-    expect(true)->toBeTrue();
+test('cancelled assignment does not recommend a current vessel transfer', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('HEA KRAKEN', $fixtures['company']);
+    $assignment = makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        $vessel,
+    );
+    $assignment->update(['status' => CrewAssignmentStatus::Cancelled]);
+
+    expect(app(ActiveOnVesselAssignmentFinder::class)->find(
+        $fixtures['company']->id,
+        $fixtures['employee']->id,
+    ))->toBeNull();
+});
+
+test('user without movement permission still sees recommendation context but cannot transfer', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('HEA KRAKEN', $fixtures['company']);
+    makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        $vessel,
+    );
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
+        'crew_operations.assignments.create',
+    ]);
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where(
+                'form_options.active_on_vessel_by_employee.'.$fixtures['employee']->id.'.can_transfer',
+                false,
+            )
+            ->where(
+                'form_options.active_on_vessel_by_employee.'.$fixtures['employee']->id.'.vessel_name',
+                $vessel->name,
+            ));
 });

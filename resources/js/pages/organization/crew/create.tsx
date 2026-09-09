@@ -47,7 +47,6 @@ export default function CrewAssignmentCreate({
     );
     const recommendsTransfer =
         currentOnVessel !== null &&
-        form.data.vessel_id !== null &&
         form.data.vessel_id !== currentOnVessel.vessel_id;
 
     const handleSubmit = (event: React.FormEvent): void => {
@@ -101,6 +100,28 @@ export default function CrewAssignmentCreate({
                                 form={form}
                                 formOptions={form_options}
                             />
+
+                            {currentOnVessel ? (
+                                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-950 dark:text-amber-100">
+                                    <p>
+                                        {currentOnVessel.employee_name} is
+                                        already On Vessel on{' '}
+                                        {currentOnVessel.vessel_name ??
+                                            'another vessel'}{' '}
+                                        ({currentOnVessel.assignment_no}
+                                        {currentOnVessel.actual_start_display
+                                            ? `, P4 started ${currentOnVessel.actual_start_display}`
+                                            : ''}
+                                        ).
+                                    </p>
+                                    <p className="mt-1">
+                                        Creating another assignment may produce
+                                        conflicting operational history. If this
+                                        is a move to a different vessel, use
+                                        Transfer Vessel instead.
+                                    </p>
+                                </div>
+                            ) : null}
 
                             <div className="flex flex-wrap gap-3 border-t border-border/60 pt-6">
                                 <Button
