@@ -40,6 +40,7 @@ export function useEmployeeProfileForm(
         templateRequiredFields?:
             | Record<string, TemplateFieldConfig>
             | undefined;
+        listQuery?: Record<string, string>;
     },
 ): UseEmployeeProfileFormResult {
     const [activeField, setActiveField] = useState<string | null>(null);
@@ -265,7 +266,12 @@ export function useEmployeeProfileForm(
                 return payload;
             });
 
-            form.put(updateEmployee.url({ employee: targetEmployeeId }), {
+            const updateUrl = updateEmployee.url(
+                { employee: targetEmployeeId },
+                { query: options?.listQuery ?? {} },
+            );
+
+            form.put(updateUrl, {
                 forceFormData: hasPendingImage,
                 preserveScroll: true,
                 onSuccess: () => {
@@ -290,6 +296,7 @@ export function useEmployeeProfileForm(
             ensureEmployee,
             focusMissingField,
             form,
+            options?.listQuery,
             options?.templateRequiredFields,
             requiredFields,
         ],

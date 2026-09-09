@@ -76,6 +76,41 @@ final class EmployeeDirectoryFilters
         return self::fromArray($request->all());
     }
 
+    /**
+     * Directory filters carried on the profile URL. Ignores employee form
+     * fields such as department_id that share the same names.
+     *
+     * @return array<string, string>
+     */
+    public static function listQueryFromRequest(Request $request): array
+    {
+        $fromQuery = self::fromArray($request->query())->toQueryArray();
+
+        if ($fromQuery !== []) {
+            return $fromQuery;
+        }
+
+        $referer = $request->headers->get('referer');
+
+        if (! is_string($referer) || $referer === '') {
+            return [];
+        }
+
+        $queryString = parse_url($referer, PHP_URL_QUERY);
+
+        if (! is_string($queryString) || $queryString === '') {
+            return [];
+        }
+
+        parse_str($queryString, $refererQuery);
+
+        if (! is_array($refererQuery)) {
+            return [];
+        }
+
+        return self::fromArray($refererQuery)->toQueryArray();
+    }
+
     public function appliesDefaultActiveStatus(): bool
     {
         return $this->status === '';

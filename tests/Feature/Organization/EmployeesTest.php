@@ -3489,6 +3489,86 @@ test('employee show navigation respects branch filter', function () {
             ->where('employee_navigation.list_query.branch_id', (string) $officeBranch->id));
 });
 
+test('employee profile save keeps directory filters on navigation', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'NSV',
+        'name' => 'Save Filterland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'NSV',
+        'name' => 'Save Filter Currency',
+        'symbol' => 'S$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Save Filter Co',
+        'slug' => 'save-filter-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Offshore',
+        'code' => 'OFF',
+        'status' => 'active',
+    ]);
+
+    $otherDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFC',
+        'status' => 'active',
+    ]);
+
+    Employee::factory()->forCompany($company)->inDepartment($department)->create([
+        'employee_no' => 'NSV001',
+        'name' => 'Alpha Offshore',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->inDepartment($department)->create([
+        'employee_no' => 'NSV002',
+        'name' => 'Bravo Offshore',
+    ]);
+
+    Employee::factory()->forCompany($company)->inDepartment($otherDepartment)->create([
+        'employee_no' => 'NSV003',
+        'name' => 'Charlie Office',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $filteredShow = route('organization.employees.show', [
+        'employee' => $employee,
+        'department_id' => $department->id,
+    ]);
+
+    $this->from($filteredShow)
+        ->put(route('organization.employees.update', $employee), [
+            'employee_no' => $employee->employee_no,
+            'name' => 'Bravo Offshore Updated',
+            'department_id' => $department->id,
+        ])
+        ->assertRedirect($filteredShow);
+
+    $this->get($filteredShow)
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employee_navigation.total', 2)
+            ->where('employee_navigation.list_query.department_id', (string) $department->id));
+});
+
 test('employee show navigation is hidden when employee is outside filtered set', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

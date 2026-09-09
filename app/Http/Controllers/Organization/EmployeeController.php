@@ -324,8 +324,13 @@ class EmployeeController extends Controller
             'sssa_option_ids' => $sssaOptionIds,
         ], fn ($value) => $value !== null));
 
+        $listQuery = EmployeeDirectoryFilters::listQueryFromRequest($request);
+
         return redirect()
-            ->route('organization.employees.show', $employee)
+            ->route('organization.employees.show', array_merge(
+                ['employee' => $employee],
+                $listQuery,
+            ))
             ->with('success', 'Employee updated successfully.');
     }
 
@@ -379,7 +384,10 @@ class EmployeeController extends Controller
         ]);
 
         return redirect()
-            ->route('organization.employees.show', $employee)
+            ->route('organization.employees.show', array_merge(
+                ['employee' => $employee],
+                EmployeeDirectoryFilters::listQueryFromRequest($request),
+            ))
             ->with('success', 'Profile template assigned successfully.');
     }
 }

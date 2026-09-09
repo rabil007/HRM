@@ -257,6 +257,7 @@ function EmployeeDetailsPage({
             templateRequiredFields:
                 employee_tabs.template_fields?.employees ??
                 resolved_template?.fields?.employees,
+            listQuery: employee_navigation?.list_query ?? {},
         },
     );
 
