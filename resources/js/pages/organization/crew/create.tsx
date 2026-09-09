@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { VesselTransferRecommendationDialog } from '@/features/organization/crew/actions/vessel-transfer-recommendation-dialog';
 import { CrewAssignmentFormFields } from '@/features/organization/crew/components/crew-assignment-form-fields';
+import { recommendsVesselTransfer } from '@/features/organization/crew/lib/vessel-transfer-recommendation';
 import type {
     CrewAssignmentCreateFormOptions,
     CrewAssignmentFormData,
@@ -45,9 +46,10 @@ export default function CrewAssignmentCreate({
     const destinationVessel = form_options.vessels.find(
         (vessel) => vessel.id === form.data.vessel_id,
     );
-    const recommendsTransfer =
-        currentOnVessel !== null &&
-        form.data.vessel_id !== currentOnVessel.vessel_id;
+    const recommendsTransfer = recommendsVesselTransfer(
+        currentOnVessel,
+        form.data.vessel_id,
+    );
 
     const handleSubmit = (event: React.FormEvent): void => {
         event.preventDefault();

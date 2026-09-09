@@ -10,6 +10,8 @@ use App\Models\CrewAssignmentPhase;
 use App\Support\CrewMovements\ActiveOnVesselAssignmentFinder;
 use App\Support\CrewMovements\Corrections\ApproveCrewMovementCorrection;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
+use App\Support\CrewMovements\CrewAssignmentPagePermissions;
+use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewMovementService;
 use Illuminate\Support\Str;
 
@@ -61,6 +63,28 @@ test('same vessel does not recommend a vessel transfer', function () {
     );
 
     expect(app(ActiveOnVesselAssignmentFinder::class)->recommendsTransfer($current, $vessel->id))->toBeFalse();
+});
+
+test('transfer recommendation requires a selected destination vessel that differs from the current vessel', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $currentVessel = makeCrewMovementVessel('HEA KRAKEN', $fixtures['company']);
+    $destinationVessel = makeCrewMovementVessel('PLB 648', $fixtures['company']);
+    makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        $currentVessel,
+    );
+
+    $finder = app(ActiveOnVesselAssignmentFinder::class);
+    $current = $finder->find($fixtures['company']->id, $fixtures['employee']->id);
+
+    expect($finder->recommendsTransfer(null, $destinationVessel->id))->toBeFalse()
+        ->and($finder->recommendsTransfer($current, null))->toBeFalse()
+        ->and($finder->recommendsTransfer($current, 0))->toBeFalse()
+        ->and($finder->recommendsTransfer($current, -1))->toBeFalse()
+        ->and($finder->recommendsTransfer($current, $currentVessel->id))->toBeFalse()
+        ->and($finder->recommendsTransfer($current, $destinationVessel->id))->toBeTrue();
 });
 
 test('planned future assignment does not block an actual on vessel interval', function () {
@@ -267,6 +291,7 @@ test('create page exposes company scoped on vessel context for the recommendatio
         $vessel,
     );
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
+        'crew_operations.assignments.view',
         'crew_operations.assignments.create',
         'crew_operations.movements.perform',
     ]);
@@ -475,3 +500,75 @@ test('user without movement permission still sees recommendation context but can
                 $vessel->name,
             ));
 });
+
+test('transfer recommendation action requires assignment view and movement permission', function (array $permissions, bool $canTransfer) {
+    $fixtures = makeCrewAssignmentFixtures();
+    $currentVessel = makeCrewMovementVessel('HEA KRAKEN', $fixtures['company']);
+    $draftVessel = makeCrewMovementVessel('PLB 648', $fixtures['company']);
+    $active = makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        $currentVessel,
+    );
+    $draft = CrewAssignment::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'assignment_no' => 'CA-DRAFT-'.Str::upper(Str::random(4)),
+        'employee_id' => $fixtures['employee']->id,
+        'rank_id' => $fixtures['rank']->id,
+        'vessel_id' => $draftVessel->id,
+        'status' => CrewAssignmentStatus::Draft,
+        'source' => 'manual',
+    ]);
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], $permissions);
+
+    expect(CrewAssignmentPagePermissions::canTransfer($fixtures['user']))->toBe($canTransfer);
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where(
+                'form_options.active_on_vessel_by_employee.'.$fixtures['employee']->id.'.can_transfer',
+                $canTransfer,
+            )
+            ->where(
+                'form_options.active_on_vessel_by_employee.'.$fixtures['employee']->id.'.assignment_id',
+                $active->id,
+            ));
+
+    if (! in_array('crew_operations.assignments.view', $permissions, true)) {
+        return;
+    }
+
+    $draft->load(['company', 'employee', 'rank', 'vessel', 'currentPhase', 'phases']);
+
+    $detail = CrewAssignmentPresenter::detail($draft, $fixtures['user']);
+
+    expect($detail['movement_context']['active_on_vessel_elsewhere']['assignment_id'] ?? null)->toBe($active->id)
+        ->and($detail['movement_context']['active_on_vessel_elsewhere']['can_transfer'] ?? null)->toBe($canTransfer);
+})->with([
+    'view and perform' => [
+        [
+            'crew_operations.assignments.view',
+            'crew_operations.assignments.create',
+            'crew_operations.movements.perform',
+        ],
+        true,
+    ],
+    'view without perform' => [
+        [
+            'crew_operations.assignments.view',
+            'crew_operations.assignments.create',
+        ],
+        false,
+    ],
+    'perform without view' => [
+        [
+            'crew_operations.assignments.create',
+            'crew_operations.movements.perform',
+        ],
+        false,
+    ],
+]);

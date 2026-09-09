@@ -55,6 +55,20 @@ final class CrewTimesheetPreparationSkipResolver
 
     public function hasUnresolvedBlockingWarnings(CrewTimesheetPreparation $preparation): bool
     {
+        return $this->hasBlockingWarningsAffectingIncludedEmployees($preparation, null);
+    }
+
+    /**
+     * Hybrid generation may exclude a skipped employee. Their timeline warnings
+     * must not keep the rest of the pay run unready. A null included list means
+     * every employee still counts. cross_company_reference is never ignored.
+     *
+     * @param  list<int>|null  $includedEmployeeIds
+     */
+    public function hasBlockingWarningsAffectingIncludedEmployees(
+        CrewTimesheetPreparation $preparation,
+        ?array $includedEmployeeIds,
+    ): bool {
         $lines = $this->getPreparationLines($preparation);
 
         // cross_company_reference can NEVER be bypassed or skipped.
@@ -67,19 +81,36 @@ final class CrewTimesheetPreparationSkipResolver
         }
 
         $activeSkippedIds = $this->activeSkippedEmployeeIds($preparation);
+        $includedLookup = $includedEmployeeIds === null
+            ? null
+            : array_fill_keys(array_map(intval(...), $includedEmployeeIds), true);
 
-        return $lines->contains(function (CrewTimesheetPreparationLine $line) use ($activeSkippedIds): bool {
+        return $lines->contains(function (CrewTimesheetPreparationLine $line) use ($activeSkippedIds, $includedLookup): bool {
             if ($line->warning_code === null) {
-                return false;
-            }
-
-            if (in_array((int) $line->employee_id, $activeSkippedIds, true)) {
                 return false;
             }
 
             $code = CrewTimelineWarningCode::tryFrom((string) $line->warning_code);
 
-            return $code !== null && $code->isBlocking();
+            if ($code === null || ! $code->isBlocking()) {
+                return false;
+            }
+
+            if ($line->employee_id === null) {
+                return true;
+            }
+
+            $employeeId = (int) $line->employee_id;
+
+            if (in_array($employeeId, $activeSkippedIds, true)) {
+                return false;
+            }
+
+            if ($includedLookup !== null && ! isset($includedLookup[$employeeId])) {
+                return false;
+            }
+
+            return true;
         });
     }
 

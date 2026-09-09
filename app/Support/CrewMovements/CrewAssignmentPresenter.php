@@ -330,7 +330,7 @@ class CrewAssignmentPresenter
 
         return [
             ...$current,
-            'can_transfer' => (bool) $user?->can('crew_operations.movements.perform'),
+            'can_transfer' => CrewAssignmentPagePermissions::canTransfer($user),
         ];
     }
 

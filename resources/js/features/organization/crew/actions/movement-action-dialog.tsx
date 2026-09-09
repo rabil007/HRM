@@ -18,6 +18,7 @@ import {
     findRankTourOption,
     normalizeTourSignoffPayload,
 } from '@/features/organization/crew/lib/tour-signoff';
+import { recommendsVesselTransfer } from '@/features/organization/crew/lib/vessel-transfer-recommendation';
 import { cn } from '@/lib/utils';
 import { performAction } from '@/routes/organization/crew-assignments';
 import type {
@@ -280,9 +281,7 @@ export function MovementActionDialog({
     );
     const recommendsTransfer =
         action === 'join_vessel' &&
-        currentOnVessel !== null &&
-        form.data.vessel_id !== null &&
-        form.data.vessel_id !== currentOnVessel.vessel_id;
+        recommendsVesselTransfer(currentOnVessel, form.data.vessel_id);
 
     const submit = (): void => {
         if (!action) {

@@ -108,7 +108,7 @@ class CrewAssignmentController extends Controller
         Gate::authorize('create', CrewAssignment::class);
 
         $companyId = (int) $request->attributes->get('current_company_id');
-        $canTransfer = (bool) $request->user()?->can('crew_operations.movements.perform');
+        $canTransfer = CrewAssignmentPagePermissions::canTransfer($request->user());
         $activeOnVessel = collect(app(ActiveOnVesselAssignmentFinder::class)->forCompany($companyId))
             ->map(fn (array $current): array => [
                 ...$current,

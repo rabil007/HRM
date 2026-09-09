@@ -46,7 +46,7 @@ function makeDailyCrewTimelineFixtures(): array
         'payment_date' => '2026-07-31',
     ]);
 
-    $vessel = makeCrewMovementVessel('Timeline Vessel');
+    $vessel = makeCrewMovementVessel('Timeline Vessel', $company);
 
     $assignment = CrewAssignment::query()->create([
         'company_id' => $company->id,

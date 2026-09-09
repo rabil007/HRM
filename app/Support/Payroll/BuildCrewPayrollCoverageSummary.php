@@ -105,7 +105,16 @@ final class BuildCrewPayrollCoverageSummary
 
         $preparation = $applied->count() === 1 ? $applied->first() : null;
 
-        if ($preparation !== null && $this->legacyGuard->preparationHasBlockingWarnings($preparation)) {
+        $includedEmployeeIds = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
+            ->when($excluded !== [], fn ($query) => $query->whereNotIn('employees.id', $excluded))
+            ->pluck('employees.id')
+            ->map(intval(...))
+            ->all();
+
+        if ($preparation !== null && $this->legacyGuard->preparationHasBlockingWarningsForIncludedEmployees(
+            $preparation,
+            $includedEmployeeIds,
+        )) {
             $periodBlocking = CrewOperationsPayrollGenerationGuard::BLOCKING_WARNINGS_MESSAGE;
             $blockingCount = 1;
             $blockingIssues = [[
@@ -116,9 +125,7 @@ final class BuildCrewPayrollCoverageSummary
             ]];
         }
 
-        $employeeCount = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
-            ->when($excluded !== [], fn ($query) => $query->whereNotIn('employees.id', $excluded))
-            ->count();
+        $employeeCount = count($includedEmployeeIds);
 
         return [
             'ready' => $blockingCount === 0,

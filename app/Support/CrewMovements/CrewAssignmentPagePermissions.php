@@ -7,6 +7,20 @@ use App\Models\User;
 class CrewAssignmentPagePermissions
 {
     /**
+     * Transfer Vessel is opened from the source assignment page, so the
+     * recommendation action requires both the movement and the assignment view.
+     */
+    public static function canTransfer(?User $user): bool
+    {
+        if ($user === null) {
+            return false;
+        }
+
+        return $user->can('crew_operations.movements.perform')
+            && $user->can('crew_operations.assignments.view');
+    }
+
+    /**
      * @return array{
      *     view: bool,
      *     create: bool,

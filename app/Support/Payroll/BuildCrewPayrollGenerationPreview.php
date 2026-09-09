@@ -162,7 +162,10 @@ final class BuildCrewPayrollGenerationPreview
         /** @var CrewTimesheetPreparation|null $preparation */
         $preparation = $applied->count() === 1 ? $applied->first() : null;
 
-        if ($preparation !== null && $this->legacyGuard->preparationHasBlockingWarnings($preparation)) {
+        if ($preparation !== null && $this->legacyGuard->preparationHasBlockingWarningsForIncludedEmployees(
+            $preparation,
+            $included->pluck('id')->map(intval(...))->all(),
+        )) {
             $blockingIssues[] = [
                 'employee_id' => null,
                 'employee_name' => null,

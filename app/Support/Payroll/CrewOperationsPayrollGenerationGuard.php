@@ -336,6 +336,19 @@ final class CrewOperationsPayrollGenerationGuard
         return $this->skipResolver->hasUnresolvedBlockingWarnings($preparation);
     }
 
+    /**
+     * @param  list<int>  $includedEmployeeIds
+     */
+    public function preparationHasBlockingWarningsForIncludedEmployees(
+        CrewTimesheetPreparation $preparation,
+        array $includedEmployeeIds,
+    ): bool {
+        return $this->skipResolver->hasBlockingWarningsAffectingIncludedEmployees(
+            $preparation,
+            $includedEmployeeIds,
+        );
+    }
+
     public function dailyTimesheetLinkReason(
         Employee $employee,
         PayrollPeriod $period,
