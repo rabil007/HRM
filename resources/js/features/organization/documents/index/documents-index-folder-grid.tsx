@@ -98,13 +98,13 @@ export function DocumentsIndexFolderGrid({
 
             <section
                 className={cn(
-                    'rounded-xl border border-border bg-muted/20 p-4 sm:p-6 dark:border-white/5 dark:bg-white/[0.02]',
+                    'min-w-0',
                     'transition-opacity duration-200',
                     isSearching && 'pointer-events-none opacity-60',
                 )}
                 aria-busy={isSearching}
             >
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] sm:gap-5">
+                <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                     {employees.map((employee) => (
                         <EmployeeFolderItem
                             key={employee.employee_id}

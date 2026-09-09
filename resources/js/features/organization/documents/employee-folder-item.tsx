@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Download, Folder } from 'lucide-react';
+import { ChevronRight, Download, Folder } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { EmployeeFolder } from '@/features/organization/documents/types';
@@ -33,15 +33,15 @@ export function EmployeeFolderItem({
     return (
         <div
             className={cn(
-                'group relative flex min-h-[9rem] w-full flex-col items-center rounded-xl border border-transparent sm:min-h-[11.5rem]',
+                'group relative flex w-full min-w-0 flex-col rounded-xl border bg-card shadow-sm',
                 'transition-[border-color,box-shadow,background-color] duration-150',
-                'hover:border-border hover:bg-muted/25 hover:shadow-sm dark:hover:border-white/10',
+                'hover:border-primary/30 hover:bg-muted/25 hover:shadow-md',
                 selected &&
                     'border-primary/25 bg-primary/5 ring-1 ring-primary/30',
             )}
         >
             {selectionMode ? (
-                <div className="absolute top-2 left-2 z-10">
+                <div className="absolute top-3 right-3 z-10">
                     <Checkbox
                         checked={selected}
                         onCheckedChange={(value) =>
@@ -59,28 +59,29 @@ export function EmployeeFolderItem({
                 })}
                 title={`${employee.employee_name} (${employee.employee_no})`}
                 className={cn(
-                    'flex h-full min-h-[9rem] w-full flex-col items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-center sm:min-h-[11.5rem] sm:gap-2 sm:px-3 sm:py-4',
+                    'flex h-full min-h-36 w-full flex-col items-start gap-3 rounded-xl p-4 text-left',
                     'cursor-pointer',
                     'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
                 )}
             >
                 <Folder
-                    className="h-12 w-12 shrink-0 text-amber-400/95 drop-shadow-sm transition-transform duration-150 group-hover:scale-[1.03] group-hover:text-amber-300 sm:h-16 sm:w-16"
+                    className="size-9 shrink-0 text-amber-600 dark:text-amber-400"
                     strokeWidth={1.15}
                     fill="currentColor"
                     fillOpacity={0.2}
                     aria-hidden
                 />
-                <div className="flex w-full min-w-0 flex-col items-center gap-0.5">
-                    <span className="line-clamp-2 w-full text-xs leading-snug font-semibold text-foreground sm:text-sm">
+                <div className="flex w-full min-w-0 flex-col gap-1">
+                    <span className="line-clamp-2 w-full text-sm leading-snug font-semibold text-foreground">
                         {employee.employee_name}
                     </span>
-                    <span className="w-full truncate font-mono text-[11px] text-muted-foreground/75">
+                    <span className="w-full truncate font-mono text-xs text-muted-foreground">
                         {employee.employee_no}
                     </span>
-                    <span className="mt-0.5 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground tabular-nums">
-                        {fileLabel}
-                    </span>
+                    <div className="mt-2 flex items-center justify-between border-t pt-2 text-xs text-muted-foreground">
+                        <span className="tabular-nums">{fileLabel}</span>
+                        <ChevronRight className="size-3.5" aria-hidden />
+                    </div>
                 </div>
             </Link>
 

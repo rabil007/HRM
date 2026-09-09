@@ -23,8 +23,31 @@ describe('inertiaPageLayoutKind', () => {
         assert.equal(inertiaPageLayoutKind('settings/profile'), 'settings');
         assert.equal(inertiaPageLayoutKind('dashboard'), 'app');
         assert.equal(
-            inertiaPageLayoutKind('organization/documents/show'),
+            inertiaPageLayoutKind('organization/employees/show'),
             'app',
         );
+    });
+
+    it('uses the Documents workspace across its pages and nested flows', () => {
+        for (const page of [
+            'overview',
+            'index',
+            'employee',
+            'show',
+            'templates',
+            'templates/design',
+            'bulk/index',
+            'requests/index',
+            'requests/show',
+            'recipient-requests/respond',
+            'configuration/document-types',
+            'workflow-presets/index',
+            'signing-presets/index',
+        ]) {
+            assert.equal(
+                inertiaPageLayoutKind(`organization/documents/${page}`),
+                'documents',
+            );
+        }
     });
 });

@@ -12,7 +12,7 @@ const MISSING_CARD = {
     cardClass:
         'border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30',
     activeClass: 'border-violet-500/40 ring-1 ring-violet-500/25',
-    valueClass: 'text-violet-400',
+    valueClass: 'text-violet-700 dark:text-violet-400',
 };
 
 export function DocumentRequirementSummaryCards({
@@ -35,7 +35,7 @@ export function DocumentRequirementSummaryCards({
         >
             <Card
                 className={cn(
-                    'glass-card transition-all duration-200',
+                    'h-full gap-0 py-0 shadow-none transition-colors duration-200',
                     MISSING_CARD.cardClass,
                     isActive && MISSING_CARD.activeClass,
                 )}

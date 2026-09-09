@@ -34,7 +34,7 @@ const SUMMARY_ITEMS: {
         cardClass:
             'border-red-500/15 bg-red-500/[0.04] hover:border-red-500/30',
         activeClass: 'border-red-500/40 ring-1 ring-red-500/25',
-        valueClass: 'text-red-400',
+        valueClass: 'text-red-700 dark:text-red-400',
     },
     {
         key: 'expiring_30',
@@ -42,7 +42,7 @@ const SUMMARY_ITEMS: {
         cardClass:
             'border-sky-500/15 bg-sky-500/[0.04] hover:border-sky-500/30',
         activeClass: 'border-sky-500/40 ring-1 ring-sky-500/25',
-        valueClass: 'text-sky-400',
+        valueClass: 'text-sky-700 dark:text-sky-400',
     },
     {
         key: 'expiring_15',
@@ -50,7 +50,7 @@ const SUMMARY_ITEMS: {
         cardClass:
             'border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30',
         activeClass: 'border-amber-500/40 ring-1 ring-amber-500/25',
-        valueClass: 'text-amber-400',
+        valueClass: 'text-amber-700 dark:text-amber-400',
     },
     {
         key: 'expiring_7',
@@ -58,7 +58,7 @@ const SUMMARY_ITEMS: {
         cardClass:
             'border-orange-500/20 bg-orange-500/[0.06] hover:border-orange-500/35',
         activeClass: 'border-orange-500/45 ring-1 ring-orange-500/30',
-        valueClass: 'text-orange-400',
+        valueClass: 'text-orange-700 dark:text-orange-400',
     },
 ];
 
@@ -77,7 +77,7 @@ export function DocumentsSummaryCards({
         <div
             className={cn(
                 'mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:gap-4',
-                trailing ? 'md:grid-cols-6' : 'md:grid-cols-5',
+                trailing ? 'xl:grid-cols-6' : 'lg:grid-cols-5',
             )}
         >
             {SUMMARY_ITEMS.map((item) => {
@@ -97,7 +97,7 @@ export function DocumentsSummaryCards({
                     >
                         <Card
                             className={cn(
-                                'glass-card transition-all duration-200',
+                                'h-full gap-0 py-0 shadow-none transition-colors duration-200',
                                 item.cardClass,
                                 isActive && item.activeClass,
                             )}

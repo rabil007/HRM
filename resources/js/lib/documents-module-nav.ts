@@ -38,7 +38,7 @@ const DOCUMENTS_MODULE_ORDER: DocumentsModuleSection[] = [
 ];
 
 function normalizePath(url: string): { path: string; search: string } {
-    const [rawPath = url, search = ''] = url.split('?');
+    const [rawPath = url, search = ''] = url.split('#')[0].split('?');
     const path =
         rawPath.length > 1 && rawPath.endsWith('/')
             ? rawPath.slice(0, -1)
@@ -148,11 +148,14 @@ export function documentsModuleSectionFromUrl(
         return 'library';
     }
 
-    if (path.startsWith('/organization/documents/employees')) {
+    if (path.startsWith('/organization/documents/employees/')) {
         return 'library';
     }
 
-    if (path === DOCUMENTS_MODULE_PATHS.templates) {
+    if (
+        path === DOCUMENTS_MODULE_PATHS.templates ||
+        path.startsWith(`${DOCUMENTS_MODULE_PATHS.templates}/`)
+    ) {
         return 'templates';
     }
 
@@ -167,7 +170,13 @@ export function documentsModuleSectionFromUrl(
         return 'generate';
     }
 
-    if (path === DOCUMENTS_MODULE_PATHS.requests) {
+    if (
+        path === DOCUMENTS_MODULE_PATHS.requests ||
+        path.startsWith(`${DOCUMENTS_MODULE_PATHS.requests}/`) ||
+        path.startsWith('/organization/documents/recipient-requests/') ||
+        path === '/organization/documents/workflow-presets' ||
+        path === '/organization/documents/signing-presets'
+    ) {
         return 'requests';
     }
 

@@ -810,9 +810,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('organization.documents.bulk.selection');
         Route::get('organization/documents/bulk/email-batches/{batch}/sends', BulkDocumentEmailBatchSendsController::class)
             ->name('organization.documents.bulk.email-batches.sends');
-        Route::get('organization/documents/journey', DocumentJourneyController::class)
-            ->name('organization.documents.journey');
     });
+    Route::get('organization/documents/journey', DocumentJourneyController::class)
+        ->name('organization.documents.journey');
     Route::get('organization/documents/configuration', [DocumentTypeController::class, 'index'])
         ->middleware('can:settings.master-data.document-types.view')
         ->name('organization.documents.configuration');

@@ -13,6 +13,31 @@ import {
 } from './documents-module-nav.ts';
 
 describe('documents module URL mapping', () => {
+    it('keeps nested workspace pages in their parent section', () => {
+        const cases = [
+            [
+                '/organization/documents/employees/12/files/9?from=library#preview',
+                'library',
+            ],
+            ['/organization/documents/templates/create', 'templates'],
+            ['/organization/documents/templates/42/design', 'templates'],
+            ['/organization/documents/requests/42', 'requests'],
+            [
+                '/organization/documents/recipient-requests/42/respond',
+                'requests',
+            ],
+            ['/organization/documents/workflow-presets', 'requests'],
+            ['/organization/documents/signing-presets', 'requests'],
+            ['/organization/documents/configuration/4', 'configuration'],
+            ['/organization/documents/library/#files', 'library'],
+            ['/organization/documents/employees-unrelated', null],
+            ['/organization/documents/templates-unrelated', null],
+        ] as const;
+
+        for (const [url, section] of cases) {
+            assert.equal(documentsModuleSectionFromUrl(url), section, url);
+        }
+    });
     it('labels the document types section for users', () => {
         assert.equal(DOCUMENTS_MODULE_LABELS.configuration, 'Document Types');
     });

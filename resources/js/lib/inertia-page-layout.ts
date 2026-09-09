@@ -1,4 +1,9 @@
-export type InertiaPageLayoutKind = 'none' | 'auth' | 'settings' | 'app';
+export type InertiaPageLayoutKind =
+    | 'none'
+    | 'auth'
+    | 'settings'
+    | 'documents'
+    | 'app';
 
 export function inertiaPageLayoutKind(name: string): InertiaPageLayoutKind {
     if (
@@ -18,6 +23,10 @@ export function inertiaPageLayoutKind(name: string): InertiaPageLayoutKind {
 
     if (name.startsWith('settings/')) {
         return 'settings';
+    }
+
+    if (name.startsWith('organization/documents/')) {
+        return 'documents';
     }
 
     return 'app';

@@ -43,7 +43,25 @@ test('unauthorized users cannot access document journey endpoint', function () {
         ->assertForbidden();
 });
 
-test('users with bulk_documents.view can access document journey and view timeline events', function () {
+test('library-only viewers can inspect uploaded document journeys without gaining download access', function () {
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    $document = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, 'documents/passport.pdf', 'Passport.pdf');
+    $user = User::factory()->create();
+    grantCompanyPermissions($user, $company, ['documents.view']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->getJson(route('organization.documents.journey', ['employee_document_id' => $document->id]))
+        ->assertOk()
+        ->assertJsonPath('document.id', $document->id)
+        ->assertJsonPath('employee.id', $employee->id)
+        ->assertJsonPath('document.details_url', route('organization.documents.employee.files.show', [$employee, $document]))
+        ->assertJsonPath('document.download_url', null);
+
+    $this->get(route('organization.documents.generate'))->assertForbidden();
+});
+
+test('document viewers can access document journey and view timeline events', function (string $permission) {
     $fixtures = makeGeneratedDocumentWorkflowFixtures();
     $company = $fixtures['company'];
     $employee = $fixtures['employee'];
@@ -51,7 +69,7 @@ test('users with bulk_documents.view can access document journey and view timeli
     $version = $fixtures['version'];
 
     $user = User::factory()->create();
-    grantCompanyPermissions($user, $company, ['bulk_documents.view']);
+    grantCompanyPermissions($user, $company, [$permission]);
 
     // Create workflow request & review task
     $workflow = DocumentWorkflowRequest::query()->create([
@@ -139,9 +157,9 @@ test('users with bulk_documents.view can access document journey and view timeli
         ->and($json['process']['waiting_for'])->toBe($employee->name)
         ->and($json['events'])->toBeArray()
         ->and(count($json['events']))->toBeGreaterThanOrEqual(2);
-});
+})->with(['bulk_documents.view', 'documents.view']);
 
-test('document journey respects tenancy isolation', function () {
+test('document journey respects tenancy isolation', function (string $permission) {
     $fixtures = makeGeneratedDocumentWorkflowFixtures();
     $companyA = $fixtures['company'];
     $instance = $fixtures['instance'];
@@ -149,7 +167,7 @@ test('document journey respects tenancy isolation', function () {
     // Different company
     ['company' => $companyB] = makeDocumentFixtures();
     $userB = User::factory()->create();
-    grantCompanyPermissions($userB, $companyB, ['bulk_documents.view']);
+    grantCompanyPermissions($userB, $companyB, [$permission]);
 
     $this->actingAs($userB)
         ->withSession(['current_company_id' => $companyB->id])
@@ -157,7 +175,7 @@ test('document journey respects tenancy isolation', function () {
             'document_instance_id' => $instance->id,
         ]))
         ->assertNotFound();
-});
+})->with(['bulk_documents.view', 'documents.view']);
 
 test('document journey surfaces delivery failure banner and human message', function () {
     $fixtures = makeGeneratedDocumentWorkflowFixtures();

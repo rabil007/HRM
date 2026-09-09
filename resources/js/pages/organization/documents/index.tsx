@@ -3,11 +3,11 @@ import { Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
+import { PageHeader } from '@/components/page-header';
 import { SavedViewsControl } from '@/components/saved-views-control';
 import { SearchBar } from '@/components/search-bar';
 import { DocumentRequirementSummaryCards } from '@/features/organization/documents/document-requirement-summary-cards';
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
-import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
 import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
@@ -325,9 +325,14 @@ export default function DocumentsIndex({
 
     return (
         <Main>
-            <Head title="Library" />
+            <Head title="Document Library" />
 
-            <DocumentsBreadcrumbs items={[{ title: 'Documents' }]} />
+            <PageHeader
+                kicker="Employee documents"
+                title="Document Library"
+                description="Browse employee files, track renewals, and find missing requirements."
+                className="mb-6"
+            />
 
             <DocumentsSummaryCards
                 summary={summary}
@@ -342,25 +347,15 @@ export default function DocumentsIndex({
                 }
             />
 
-            <DocumentsActiveFilters
-                expiryFilter={initialExpiry}
-                requirementStatus={initialRequirementStatus}
-                search={initialSearch}
-                departmentSelected={Boolean(department_tree_selected_id)}
-                onClearExpiry={() => onExpiryChange('all')}
-                onClearRequirement={() => onRequirementStatusChange('')}
-                onClearSearch={() => onSearchChange('')}
-                onClearDepartment={() => onDepartmentChange(null)}
-            />
-
-            <div className="sticky top-0 z-20 -mx-1 mb-8 border-b border-border/80 bg-background/95 px-1 pb-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 dark:border-white/5">
+            <div className="mb-6 space-y-4 rounded-xl border bg-card p-4 shadow-sm">
                 <SearchBar
+                    className="mb-0"
                     placeholder="Search employee, document no, file name..."
                     value={searchInput}
                     onChange={onSearchChange}
                     aria-label="Search documents and employees"
                     right={
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             {department_tree.length > 0 ? (
                                 <DepartmentFilterControls
                                     department_tree={department_tree}
@@ -403,8 +398,21 @@ export default function DocumentsIndex({
                         </div>
                     }
                 />
+                <DocumentsActiveFilters
+                    expiryFilter={initialExpiry}
+                    requirementStatus={initialRequirementStatus}
+                    search={initialSearch}
+                    departmentSelected={Boolean(department_tree_selected_id)}
+                    onClearExpiry={() => onExpiryChange('all')}
+                    onClearRequirement={() => onRequirementStatusChange('')}
+                    onClearSearch={() => onSearchChange('')}
+                    onClearDepartment={() => onDepartmentChange(null)}
+                />
                 {isSearching ? (
-                    <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <p
+                        role="status"
+                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+                    >
                         <Loader2
                             className="h-3.5 w-3.5 animate-spin"
                             aria-hidden
@@ -413,6 +421,31 @@ export default function DocumentsIndex({
                     </p>
                 ) : null}
             </div>
+
+            {searchMode === 'browse' &&
+            !isComplianceView &&
+            !isRequirementView ? (
+                <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+                    <div className="space-y-1">
+                        <h2 className="text-base font-semibold">
+                            Employee folders{' '}
+                            <span className="font-normal text-muted-foreground tabular-nums">
+                                ({employees.length})
+                            </span>
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                            {can.upload
+                                ? 'Open an employee folder to view or upload documents.'
+                                : 'Open an employee folder to view their documents.'}
+                        </p>
+                    </div>
+                    {can.download || can.share ? (
+                        <p className="text-xs text-muted-foreground">
+                            Select folders for bulk actions
+                        </p>
+                    ) : null}
+                </div>
+            ) : null}
 
             {!isRequirementView ? (
                 <DocumentsIndexDocumentBulkActions
