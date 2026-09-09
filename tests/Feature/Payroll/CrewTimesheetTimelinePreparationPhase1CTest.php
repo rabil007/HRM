@@ -68,7 +68,10 @@ test('preparation review falls back to employee position title for rank', functi
         'title' => 'Chief Engineer',
         'status' => 'active',
     ]);
-    $fixtures['employee']->forceFill(['position_id' => $position->id])->save();
+    $fixtures['employee']->forceFill([
+        'position_id' => $position->id,
+        'image' => 'employees/photos/timeline-employee.jpg',
+    ])->save();
     $fixtures['assignment']->forceFill(['rank_id' => null])->save();
 
     $preparation = prepareFreshTimeline($fixtures);
@@ -81,6 +84,7 @@ test('preparation review falls back to employee position title for rank', functi
             ->component('payroll/crew-timeline/show')
             ->where('preparation.id', $preparation->id)
             ->where('employees.0.rank', 'Chief Engineer')
+            ->where('employees.0.employee_image', 'employees/photos/timeline-employee.jpg')
             ->has('employees.0.lines'));
 });
 
