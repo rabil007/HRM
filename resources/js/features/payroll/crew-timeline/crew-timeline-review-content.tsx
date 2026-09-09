@@ -72,6 +72,7 @@ export function CrewTimelineReviewContent({
         onSearchChange,
         onDepartmentChange,
         onPositionChange,
+        onSummaryChange,
     } = useCrewTimelineFilters({
         url: crewTimelineShow.url([period.id, preparation.id]),
         initialSearch,
@@ -79,7 +80,10 @@ export function CrewTimelineReviewContent({
     });
 
     const filtersActive = Boolean(
-        initialSearch || filters.department_id || filters.position_id,
+        initialSearch ||
+        filters.department_id ||
+        filters.position_id ||
+        filters.summary,
     );
 
     const departmentTreeSelectionCount =
@@ -313,7 +317,11 @@ export function CrewTimelineReviewContent({
                     </CardContent>
                 </Card>
 
-                <CrewTimelineSummaryCards summary={summary} />
+                <CrewTimelineSummaryCards
+                    summary={summary}
+                    activeFilter={filters.summary || ''}
+                    onSelect={onSummaryChange}
+                />
 
                 <div className="space-y-3">
                     <div className="flex items-center gap-3">
@@ -365,7 +373,7 @@ export function CrewTimelineReviewContent({
                             }
                             description={
                                 filtersActive
-                                    ? 'Try adjusting your search or department filter.'
+                                    ? 'Try adjusting your search, department, or summary filter.'
                                     : undefined
                             }
                         />

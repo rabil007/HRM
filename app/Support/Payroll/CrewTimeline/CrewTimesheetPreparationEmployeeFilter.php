@@ -21,15 +21,39 @@ final class CrewTimesheetPreparationEmployeeFilter
             return $employees;
         }
 
-        if ($filters->departmentId === '' && $filters->positionId === '') {
-            $search = mb_strtolower($filters->search);
+        $filtered = $employees;
 
-            return array_values(array_filter(
-                $employees,
+        if ($filters->departmentId !== '' || $filters->positionId !== '') {
+            $filtered = $this->filterByDirectory($companyId, $filtered, $filters);
+        }
+
+        if ($filters->search !== '') {
+            $search = mb_strtolower($filters->search);
+            $filtered = array_values(array_filter(
+                $filtered,
                 fn (array $employee): bool => $this->matchesSearch($employee, $search),
             ));
         }
 
+        if ($filters->summary !== '') {
+            $filtered = array_values(array_filter(
+                $filtered,
+                fn (array $employee): bool => $this->matchesSummary($employee, $filters->summary),
+            ));
+        }
+
+        return $filtered;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $employees
+     * @return list<array<string, mixed>>
+     */
+    private function filterByDirectory(
+        int $companyId,
+        array $employees,
+        CrewTimesheetPreparationReviewFilters $filters,
+    ): array {
         $employeeIds = array_values(array_unique(array_map(
             fn (array $employee): int => (int) $employee['employee_id'],
             $employees,
@@ -54,22 +78,25 @@ final class CrewTimesheetPreparationEmployeeFilter
             true,
         );
 
-        $search = mb_strtolower($filters->search);
-
         return array_values(array_filter(
             $employees,
-            function (array $employee) use ($matchingIds, $search): bool {
-                if (! isset($matchingIds[(int) $employee['employee_id']])) {
-                    return false;
-                }
-
-                if ($search === '') {
-                    return true;
-                }
-
-                return $this->matchesSearch($employee, $search);
-            },
+            fn (array $employee): bool => isset($matchingIds[(int) $employee['employee_id']]),
         ));
+    }
+
+    /**
+     * @param  array<string, mixed>  $employee
+     */
+    private function matchesSummary(array $employee, string $summary): bool
+    {
+        return match ($summary) {
+            CrewTimesheetPreparationReviewFilters::SUMMARY_SIGN_ON_STANDBY => (float) ($employee['sign_on_standby_days'] ?? 0) > 0,
+            CrewTimesheetPreparationReviewFilters::SUMMARY_ONSITE => (float) ($employee['onsite_days'] ?? 0) > 0,
+            CrewTimesheetPreparationReviewFilters::SUMMARY_SIGN_OFF_STANDBY => (float) ($employee['sign_off_standby_days'] ?? 0) > 0,
+            CrewTimesheetPreparationReviewFilters::SUMMARY_BLOCKING => (int) ($employee['unresolved_blocking_warning_count'] ?? 0) > 0,
+            CrewTimesheetPreparationReviewFilters::SUMMARY_INFORMATIONAL => (int) ($employee['informational_warning_count'] ?? 0) > 0,
+            default => true,
+        };
     }
 
     /**

@@ -1,7 +1,10 @@
 import { router } from '@inertiajs/react';
 import { useCallback } from 'react';
 import { useDebouncedSearchInput } from '@/hooks/use-debounced-search-input';
-import type { CrewTimelineReviewFilters } from './types';
+import type {
+    CrewTimelineReviewFilters,
+    CrewTimelineSummaryFilter,
+} from './types';
 
 function cleanParams(
     params: Record<string, string | number | null | undefined>,
@@ -42,8 +45,14 @@ export function useCrewTimelineFilters({
             search: initialSearch || undefined,
             department_id: filters.department_id || undefined,
             position_id: filters.position_id || undefined,
+            summary: filters.summary || undefined,
         }),
-        [filters.department_id, filters.position_id, initialSearch],
+        [
+            filters.department_id,
+            filters.position_id,
+            filters.summary,
+            initialSearch,
+        ],
     );
 
     const visit = useCallback(
@@ -97,10 +106,21 @@ export function useCrewTimelineFilters({
         [baseParams, visit],
     );
 
+    const onSummaryChange = useCallback(
+        (summary: CrewTimelineSummaryFilter) => {
+            visit({
+                ...baseParams(),
+                summary: summary || undefined,
+            });
+        },
+        [baseParams, visit],
+    );
+
     return {
         searchInput,
         onSearchChange,
         onDepartmentChange,
         onPositionChange,
+        onSummaryChange,
     };
 }

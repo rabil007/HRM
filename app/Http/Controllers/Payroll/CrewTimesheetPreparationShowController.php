@@ -35,6 +35,7 @@ class CrewTimesheetPreparationShowController extends Controller
             'filters' => [
                 'department_id' => $filters->departmentId,
                 'position_id' => $filters->positionId,
+                'summary' => $filters->summary,
             ],
             'department_tree' => CrewTimelineDepartmentTree::for(
                 $companyId,

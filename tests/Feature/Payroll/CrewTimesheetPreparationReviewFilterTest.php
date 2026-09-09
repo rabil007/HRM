@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\CrewPhaseCode;
+use App\Enums\CrewTimelineWarningCode;
 use App\Enums\CrewTimesheetPayCategory;
 use App\Models\CrewAssignment;
 use App\Models\CrewTimesheetPreparation;
@@ -164,6 +165,7 @@ test('crew timeline review exposes search and department filter props', function
             ->where('search', '')
             ->where('filters.department_id', '')
             ->where('filters.position_id', '')
+            ->where('filters.summary', '')
             ->where('department_tree_selected_id', null)
             ->has('department_tree')
             ->where('summary.total_employees', 2));
@@ -303,4 +305,116 @@ test('crew timeline review department filter stays isolated to the current compa
         ->assertInertia(fn (Assert $page) => $page
             ->has('employees', 0)
             ->where('summary.total_employees', 2));
+});
+
+test('crew timeline review summary cards filter employees and keep preparation totals', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    grantCrewTimelineReviewFilterPermissions($fixtures);
+    $review = makeFilteredCrewTimelineReview($fixtures);
+
+    $signOnPhase = addTimelinePhase(
+        $review['operationsAssignment'],
+        CrewPhaseCode::JoinStandby,
+        2,
+        '2026-07-01 08:00:00',
+        '2026-07-03 18:00:00',
+    );
+    $signOffPhase = addTimelinePhase(
+        $review['hrAssignment'],
+        CrewPhaseCode::DemobStandby,
+        2,
+        '2026-07-13 08:00:00',
+        '2026-07-14 18:00:00',
+    );
+
+    CrewTimesheetPreparationLine::factory()
+        ->forPreparation($review['preparation'])
+        ->forAssignment($review['operationsAssignment'], $signOnPhase)
+        ->create([
+            'pay_category' => CrewTimesheetPayCategory::SignOnStandby,
+            'from_date' => '2026-07-01',
+            'to_date' => '2026-07-03',
+            'days' => 3,
+        ]);
+
+    CrewTimesheetPreparationLine::factory()
+        ->forPreparation($review['preparation'])
+        ->forAssignment($review['hrAssignment'], $signOffPhase)
+        ->create([
+            'pay_category' => CrewTimesheetPayCategory::SignOffStandby,
+            'from_date' => '2026-07-13',
+            'to_date' => '2026-07-14',
+            'days' => 2,
+        ]);
+
+    CrewTimesheetPreparationLine::factory()
+        ->forPreparation($review['preparation'])
+        ->forAssignment($review['operationsAssignment'], $signOnPhase)
+        ->create([
+            'pay_category' => CrewTimesheetPayCategory::Excluded,
+            'days' => 0,
+            'warning_code' => CrewTimelineWarningCode::MissingActualStart->value,
+            'remarks' => 'Missing actual start',
+        ]);
+
+    CrewTimesheetPreparationLine::factory()
+        ->forPreparation($review['preparation'])
+        ->forAssignment($review['hrAssignment'], $signOffPhase)
+        ->create([
+            'pay_category' => CrewTimesheetPayCategory::Excluded,
+            'days' => 0,
+            'warning_code' => CrewTimelineWarningCode::TimelineGap->value,
+            'remarks' => 'Timeline gap',
+        ]);
+
+    $show = fn (array $query = []) => $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.crew-timeline.show', [
+            'payrollPeriod' => $fixtures['period'],
+            'preparation' => $review['preparation'],
+            ...$query,
+        ]));
+
+    $show(['summary' => 'sign_on_standby'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.employee_id', $review['operationsEmployee']->id)
+            ->where('filters.summary', 'sign_on_standby')
+            ->where('summary.total_employees', 2));
+
+    $show(['summary' => 'sign_off_standby'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.employee_id', $review['hrEmployee']->id)
+            ->where('filters.summary', 'sign_off_standby')
+            ->where('summary.total_employees', 2));
+
+    $show(['summary' => 'onsite'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 2)
+            ->where('filters.summary', 'onsite')
+            ->where('summary.total_employees', 2));
+
+    $show(['summary' => 'blocking'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.employee_id', $review['operationsEmployee']->id)
+            ->where('filters.summary', 'blocking'));
+
+    $show(['summary' => 'informational'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.employee_id', $review['hrEmployee']->id)
+            ->where('filters.summary', 'informational'));
+
+    $show(['summary' => 'not-a-card'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 2)
+            ->where('filters.summary', ''));
 });

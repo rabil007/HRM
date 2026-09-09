@@ -206,9 +206,18 @@ export type CrewTimelinePagePermissions = {
     view_audit: boolean;
 };
 
+export type CrewTimelineSummaryFilter =
+    | ''
+    | 'sign_on_standby'
+    | 'onsite'
+    | 'sign_off_standby'
+    | 'blocking'
+    | 'informational';
+
 export type CrewTimelineReviewFilters = {
     department_id: string;
     position_id: string;
+    summary: CrewTimelineSummaryFilter;
 };
 
 export type CrewTimelineShowProps = {
