@@ -232,6 +232,53 @@ See also [crew-movement-corrections.md](./crew-movement-corrections.md).
 
 Available from Active P4 On Vessel. Completes the source P4 and assignment at `occurred_at`, syncs sea service and planning for the source, then creates a linked Active assignment (`previous_assignment_id`, `source = vessel_transfer`) that starts directly in active P4 on the destination vessel. Destination vessel must start blank in the form, must differ from the source, and is required. Rank/client may default from the current assignment. No artificial P5/P6/P0–P3 phases are created. The destination receives a fresh Tour of Duty snapshot (destination rank + handoff timestamp) via the same resolver/applier as Join Vessel. The movement controller redirects to the new assignment.
 
+#### Intelligent transfer recommendation
+
+If a recorder tries to put an employee onto a **different** vessel while that employee is already actually On Vessel (active P4) in the same company, Crew Operations recommends **Transfer Vessel** instead of creating another assignment or joining vessel on a second record.
+
+This appears when:
+
+- creating a draft assignment and the selected destination vessel differs from the current vessel
+- recording Join Vessel on another assignment for a different destination vessel
+
+**Use Transfer Vessel** opens the existing Transfer Vessel action on the current On Vessel assignment and prefills the destination vessel, rank, client, and movement time when those values were already entered. The mutation still goes through `transfer_vessel`. The system does not create the linked assignment in the browser.
+
+Same vessel does not recommend a transfer. A planned future assignment, or a completed tour that has already ended, is not treated as a current vessel transfer.
+
+#### Direct transfer vs a real gap
+
+A direct handoff is an exact timestamp boundary:
+
+```text
+HEA KRAKEN P4 ends   26 Aug 16:30
+PLB 648 P4 starts    26 Aug 16:30
+```
+
+That is the Transfer Vessel case. Intervals are half-open `[start, end)`, so equal start/end is valid.
+
+This is not a transfer:
+
+```text
+HEA KRAKEN ends      23 Aug 16:30
+24–25 Aug            uncovered / standby / home / other state
+PLB 648 starts       26 Aug 16:30
+```
+
+That gap can stay a normal assignment or redeploy. Do not rewrite it as a transfer.
+
+#### Actual P4 overlap protection
+
+Crew Operations rejects a positive-duration overlap between actual On Vessel intervals for the same employee in the active company. Planned dates are not actual movements. Open P4 phases are treated as still ongoing.
+
+This check runs when:
+
+- joining vessel
+- transferring vessel (other assignments, excluding the source being closed at the same timestamp)
+- redeploying directly into P4
+- requesting or approving a movement correction that changes P4 `actual_start_at` or `actual_end_at`
+
+An overlapping correction is rejected and does not change official phase dates. Historical records are not auto-corrected. Cross-company assignments are ignored and never shown in the recommendation.
+
 ### Redeploy (`redeploy`)
 
 Available from Active P5 or P6. Completes the source phase and assignment, then creates a linked assignment (`source = redeployment`) starting only at the chosen real phase: P0 (Draft + planned; vessel optional; planned sign-off cleared when not applicable), or P1 / P2A / P3 / P4 (Active; vessel optional except P4 requires vessel and rank). Same or different vessel/client is allowed. Direct P4 redeploy applies a fresh Tour snapshot; pre-P4 starts do not — Tour is applied later on Join Vessel. Hidden stale destination fields must not be submitted for P0. Earlier phases are never invented.

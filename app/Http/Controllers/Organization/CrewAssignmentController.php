@@ -15,6 +15,7 @@ use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\Rank;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\CrewMovements\ActiveOnVesselAssignmentFinder;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionPresenter;
 use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewAssignmentEditability;
@@ -107,6 +108,13 @@ class CrewAssignmentController extends Controller
         Gate::authorize('create', CrewAssignment::class);
 
         $companyId = (int) $request->attributes->get('current_company_id');
+        $canTransfer = (bool) $request->user()?->can('crew_operations.movements.perform');
+        $activeOnVessel = collect(app(ActiveOnVesselAssignmentFinder::class)->forCompany($companyId))
+            ->map(fn (array $current): array => [
+                ...$current,
+                'can_transfer' => $canTransfer,
+            ])
+            ->all();
 
         $formOptions = [
             'employees' => Employee::query()
@@ -122,6 +130,7 @@ class CrewAssignmentController extends Controller
                 ])
                 ->values()
                 ->all(),
+            'active_on_vessel_by_employee' => $activeOnVessel,
             'ranks' => $this->activeRanks(),
             'vessels' => $this->activeVessels($companyId),
             'clients' => $this->activeClients(),

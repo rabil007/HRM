@@ -1,6 +1,7 @@
 import { useForm } from '@inertiajs/react';
 import type { ReactElement, RefObject } from 'react';
-import { useEffect, useRef } from 'react';
+import { Fragment } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,6 +42,8 @@ import { TravelHomeForm } from './forms/travel-home-form';
 import { getMovementActionConfig } from './movement-action-config';
 import { MovementContextCard } from './movement-context-card';
 import { MovementImpactCard } from './movement-impact-card';
+import { VesselTransferRecommendationDialog } from './vessel-transfer-recommendation-dialog';
+import type { VesselTransferPrefill } from './vessel-transfer-recommendation-dialog';
 
 function defaultDateTimeLocal(): string {
     const now = new Date();
@@ -81,15 +84,35 @@ function resolveInitialSignoffChoice(
     return 'manual_override';
 }
 
+function applyTransferPrefill(
+    data: CrewMovementActionFormData,
+    prefill?: VesselTransferPrefill | null,
+): CrewMovementActionFormData {
+    if (!prefill) {
+        return data;
+    }
+
+    return {
+        ...data,
+        vessel_id: prefill.vessel_id ?? data.vessel_id,
+        rank_id: prefill.rank_id ?? data.rank_id,
+        client_id: prefill.client_id ?? data.client_id,
+        company_visa_type_id:
+            prefill.company_visa_type_id ?? data.company_visa_type_id,
+        occurred_at: prefill.occurred_at || data.occurred_at,
+    };
+}
+
 function buildInitialForm(
     action: CrewMovementAction,
     context: CrewMovementContext,
     formOptions?: CrewAssignmentFormOptions,
+    prefill?: VesselTransferPrefill | null,
 ): CrewMovementActionFormData {
     const config = getMovementActionConfig(action);
     const nextPhase = config.nextPhaseOptions?.[0]?.value ?? '';
 
-    return {
+    const data: CrewMovementActionFormData = {
         action,
         occurred_at: defaultDateTimeLocal(),
         next_phase: nextPhase,
@@ -133,6 +156,10 @@ function buildInitialForm(
         ),
         planned_signoff_override_reason: '',
     };
+
+    return action === 'transfer_vessel'
+        ? applyTransferPrefill(data, prefill)
+        : data;
 }
 
 function ActionForm({
@@ -191,6 +218,7 @@ export function MovementActionDialog({
     assignmentId,
     movementContext,
     formOptions,
+    transferPrefill = null,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -198,15 +226,18 @@ export function MovementActionDialog({
     assignmentId: number;
     movementContext: CrewMovementContext;
     formOptions?: CrewAssignmentFormOptions;
+    transferPrefill?: VesselTransferPrefill | null;
 }): ReactElement {
     const firstFieldRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(
         null,
     );
+    const [transferPromptOpen, setTransferPromptOpen] = useState(false);
     const form = useForm<CrewMovementActionFormData>(
         buildInitialForm(
             action ?? 'approve_mobilisation',
             movementContext,
             formOptions,
+            transferPrefill,
         ),
     );
 
@@ -216,9 +247,16 @@ export function MovementActionDialog({
         }
 
         form.clearErrors();
-        form.setData(buildInitialForm(action, movementContext, formOptions));
+        form.setData(
+            buildInitialForm(
+                action,
+                movementContext,
+                formOptions,
+                transferPrefill,
+            ),
+        );
         // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when dialog opens for an action
-    }, [open, action, movementContext.assignment_id]);
+    }, [open, action, movementContext.assignment_id, transferPrefill]);
 
     useEffect(() => {
         if (!open || !action) {
@@ -236,8 +274,24 @@ export function MovementActionDialog({
         onOpenChange(nextOpen);
     };
 
+    const currentOnVessel = movementContext.active_on_vessel_elsewhere ?? null;
+    const destinationVessel = formOptions?.vessels.find(
+        (vessel) => vessel.id === form.data.vessel_id,
+    );
+    const recommendsTransfer =
+        action === 'join_vessel' &&
+        currentOnVessel !== null &&
+        form.data.vessel_id !== null &&
+        form.data.vessel_id !== currentOnVessel.vessel_id;
+
     const submit = (): void => {
         if (!action) {
+            return;
+        }
+
+        if (recommendsTransfer) {
+            setTransferPromptOpen(true);
+
             return;
         }
 
@@ -290,66 +344,85 @@ export function MovementActionDialog({
     const cancelLabel = config.keepOpenLabel ?? 'Cancel';
 
     return (
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent
-                className={cn(
-                    'flex max-h-[90vh] flex-col gap-0 overflow-hidden glass-card p-0',
-                    isLarge ? 'sm:max-w-2xl' : 'sm:max-w-lg',
-                )}
-            >
-                <DialogHeader className="shrink-0 space-y-1.5 border-b border-border/60 px-6 py-4 text-left">
-                    <DialogTitle>{config.title}</DialogTitle>
-                    <DialogDescription>{config.description}</DialogDescription>
-                </DialogHeader>
+        <Fragment>
+            <Dialog open={open} onOpenChange={handleOpenChange}>
+                <DialogContent
+                    className={cn(
+                        'flex max-h-[90vh] flex-col gap-0 overflow-hidden glass-card p-0',
+                        isLarge ? 'sm:max-w-2xl' : 'sm:max-w-lg',
+                    )}
+                >
+                    <DialogHeader className="shrink-0 space-y-1.5 border-b border-border/60 px-6 py-4 text-left">
+                        <DialogTitle>{config.title}</DialogTitle>
+                        <DialogDescription>
+                            {config.description}
+                        </DialogDescription>
+                    </DialogHeader>
 
-                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
-                    <MovementContextCard context={movementContext} />
+                    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
+                        <MovementContextCard context={movementContext} />
 
-                    <ActionForm
-                        action={action}
-                        form={form}
-                        config={config}
-                        context={movementContext}
-                        formOptions={formOptions}
-                        firstFieldRef={firstFieldRef}
-                    />
+                        <ActionForm
+                            action={action}
+                            form={form}
+                            config={config}
+                            context={movementContext}
+                            formOptions={formOptions}
+                            firstFieldRef={firstFieldRef}
+                        />
 
-                    <MovementImpactCard
-                        title={config.impactTitle}
-                        description={config.impactDescription}
-                        destructive={isDestructive}
-                    />
+                        <MovementImpactCard
+                            title={config.impactTitle}
+                            description={config.impactDescription}
+                            destructive={isDestructive}
+                        />
 
-                    <InputError
-                        message={
-                            'error' in form.errors
-                                ? String(form.errors.error ?? '')
-                                : undefined
-                        }
-                    />
-                    <InputError message={form.errors.action} />
-                </div>
+                        <InputError
+                            message={
+                                'error' in form.errors
+                                    ? String(form.errors.error ?? '')
+                                    : undefined
+                            }
+                        />
+                        <InputError message={form.errors.action} />
+                    </div>
 
-                <DialogFooter className="shrink-0 border-t border-border/60 px-6 py-4 sm:justify-end">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => onOpenChange(false)}
-                        disabled={form.processing}
-                    >
-                        {cancelLabel}
-                    </Button>
-                    <Button
-                        type="button"
-                        variant={isDestructive ? 'destructive' : 'default'}
-                        onClick={submit}
-                        disabled={form.processing}
-                    >
-                        {form.processing ? <Spinner className="mr-2" /> : null}
-                        {config.submitLabel}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                    <DialogFooter className="shrink-0 border-t border-border/60 px-6 py-4 sm:justify-end">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => onOpenChange(false)}
+                            disabled={form.processing}
+                        >
+                            {cancelLabel}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={isDestructive ? 'destructive' : 'default'}
+                            onClick={submit}
+                            disabled={form.processing}
+                        >
+                            {form.processing ? (
+                                <Spinner className="mr-2" />
+                            ) : null}
+                            {config.submitLabel}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <VesselTransferRecommendationDialog
+                open={transferPromptOpen}
+                onOpenChange={setTransferPromptOpen}
+                current={currentOnVessel}
+                destinationVesselName={destinationVessel?.name}
+                prefill={{
+                    vessel_id: form.data.vessel_id,
+                    rank_id: form.data.rank_id,
+                    client_id: form.data.client_id,
+                    company_visa_type_id: form.data.company_visa_type_id,
+                    occurred_at: form.data.occurred_at,
+                }}
+            />
+        </Fragment>
     );
 }

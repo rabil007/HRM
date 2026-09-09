@@ -43,6 +43,8 @@ final class CrewMovementService
         private CrewTourOfDutyResolver $tourOfDutyResolver = new CrewTourOfDutyResolver,
         private CrewJoinVesselSignoffApplier $signoffApplier = new CrewJoinVesselSignoffApplier,
         private SyncCrewTrainingToEmployeeTraining $trainingSync = new SyncCrewTrainingToEmployeeTraining,
+        private OnVesselActualIntervalGuard $onVesselIntervals = new OnVesselActualIntervalGuard,
+        private ActiveOnVesselAssignmentFinder $activeOnVessel = new ActiveOnVesselAssignmentFinder,
     ) {}
 
     /**
@@ -75,7 +77,7 @@ final class CrewMovementService
                 );
             }
 
-            $this->assertNoActiveAssignment($companyId, $employeeId);
+            $this->assertNoConflictingActiveAssignment($companyId, $employeeId);
 
             $assignmentNo = $this->numbers->next($companyId);
 
@@ -414,6 +416,13 @@ final class CrewMovementService
         }
 
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
+        $this->onVesselIntervals->assertNoOverlap(
+            (int) $assignment->company_id,
+            (int) $assignment->employee_id,
+            $occurredAt,
+            null,
+            (int) $assignment->id,
+        );
         $vesselId = (int) ($payload['vessel_id'] ?? 0);
         $rankId = (int) ($payload['rank_id'] ?? 0);
 
@@ -606,6 +615,13 @@ final class CrewMovementService
         $this->assertNoActiveAssignment($assignment->company_id, $assignment->employee_id, $assignment->id);
 
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
+        $this->onVesselIntervals->assertNoOverlap(
+            (int) $assignment->company_id,
+            (int) $assignment->employee_id,
+            $occurredAt,
+            null,
+            (int) $assignment->id,
+        );
         $destinationVesselId = (int) ($payload['vessel_id'] ?? 0);
         $destinationRankId = (int) ($payload['rank_id'] ?? 0);
         $destinationClientId = isset($payload['client_id']) ? (int) $payload['client_id'] : null;
@@ -750,6 +766,15 @@ final class CrewMovementService
             CrewPhaseCode::ReadyToJoin,
             CrewPhaseCode::OnVessel,
         ]);
+
+        if ($startingPhase === CrewPhaseCode::OnVessel) {
+            $this->onVesselIntervals->assertNoOverlap(
+                (int) $assignment->company_id,
+                (int) $assignment->employee_id,
+                $occurredAt,
+                null,
+            );
+        }
 
         $destinationVesselId = isset($payload['vessel_id']) ? (int) $payload['vessel_id'] : null;
         $destinationRankId = isset($payload['rank_id']) ? (int) $payload['rank_id'] : null;
@@ -1304,6 +1329,22 @@ final class CrewMovementService
         ]);
 
         return $assignment;
+    }
+
+    private function assertNoConflictingActiveAssignment(int $companyId, int $employeeId): void
+    {
+        $activeOnVessel = $this->activeOnVessel->find($companyId, $employeeId);
+
+        if ($activeOnVessel !== null) {
+            $vesselName = $activeOnVessel['vessel_name'] ?? 'another vessel';
+
+            throw CrewMovementException::make(
+                $activeOnVessel['employee_name'].' is currently On Vessel on '.$vesselName.'. Use Transfer Vessel for a direct vessel handoff instead of creating another assignment.',
+                'active_on_vessel_assignment',
+            );
+        }
+
+        $this->assertNoActiveAssignment($companyId, $employeeId);
     }
 
     private function assertNoActiveAssignment(int $companyId, int $employeeId, ?int $exceptId = null): void

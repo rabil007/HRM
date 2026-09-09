@@ -6,7 +6,7 @@ import {
     FilePenLine,
     Pencil,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { RecentActivityCard } from '@/components/recent-activity-card';
@@ -15,6 +15,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ApplyTourOfDutyDialog } from '@/features/organization/crew/actions/apply-tour-of-duty-dialog';
+import { MovementActionDialog } from '@/features/organization/crew/actions/movement-action-dialog';
+import type { VesselTransferPrefill } from '@/features/organization/crew/actions/vessel-transfer-recommendation-dialog';
 import { VoidErroneousAssignmentDialog } from '@/features/organization/crew/actions/void-erroneous-assignment-dialog';
 import { CrewMetadataField } from '@/features/organization/crew/components/crew-metadata-field';
 import { CrewMobilisationReadinessCard } from '@/features/organization/crew/components/crew-mobilisation-readiness-card';
@@ -43,6 +45,43 @@ import {
 } from '@/routes/organization/crew-assignments';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
 import { show as showEmployeeTraining } from '@/routes/organization/employees/training';
+
+function requestedTransferPrefill(
+    canPerformMovement: boolean,
+    availableActions: string[],
+): VesselTransferPrefill | null {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get('action') !== 'transfer_vessel') {
+        return null;
+    }
+
+    if (!canPerformMovement || !availableActions.includes('transfer_vessel')) {
+        return null;
+    }
+
+    const numberOrNull = (value: string | null): number | null => {
+        if (!value) {
+            return null;
+        }
+
+        const parsed = Number(value);
+
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    };
+
+    return {
+        vessel_id: numberOrNull(params.get('vessel_id')),
+        rank_id: numberOrNull(params.get('rank_id')),
+        client_id: numberOrNull(params.get('client_id')),
+        company_visa_type_id: numberOrNull(params.get('company_visa_type_id')),
+        occurred_at: params.get('occurred_at'),
+    };
+}
 
 function reliefActionHref(assignment: CrewAssignmentDetail): string {
     const status = assignment.relief_status;
@@ -99,8 +138,19 @@ export default function CrewAssignmentShow({
     can: CrewAssignmentPagePermissions;
 }) {
     const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = useState(false);
+    const [transferDismissed, setTransferDismissed] = useState(false);
     const [isVoidDialogOpen, setIsVoidDialogOpen] = useState(false);
     const [isApplyTourDialogOpen, setIsApplyTourDialogOpen] = useState(false);
+    const requestedTransfer = useMemo(
+        () =>
+            requestedTransferPrefill(
+                can.perform_movement,
+                assignment.available_actions,
+            ),
+        [assignment.available_actions, can.perform_movement],
+    );
+    const transferPrefill = transferDismissed ? null : requestedTransfer;
+
     const showMovementActions =
         (can.perform_movement || can.cancel) &&
         assignment.available_actions.length > 0;
@@ -935,6 +985,20 @@ export default function CrewAssignmentShow({
                 open={isApplyTourDialogOpen}
                 onOpenChange={setIsApplyTourDialogOpen}
                 assignment={assignment}
+            />
+
+            <MovementActionDialog
+                open={transferPrefill !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setTransferDismissed(true);
+                    }
+                }}
+                action={transferPrefill ? 'transfer_vessel' : null}
+                assignmentId={assignment.id}
+                movementContext={assignment.movement_context}
+                formOptions={form_options}
+                transferPrefill={transferPrefill}
             />
         </>
     );

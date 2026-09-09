@@ -33,6 +33,7 @@ Derived updates on approve:
 - No nulling existing values; no topology changes (`phase_code`, `status`, `sequence`, `current_phase_id`, `employee_id`)
 - Active phases stay open-ended (cannot add `actual_end_at` via correction)
 - Neighbor-phase boundary checks and company-timezone parsing
+- P4 actual start/end corrections that would genuinely overlap another On Vessel interval for the same employee in the company are rejected. Exact timestamp handoffs remain valid. Rejected overlap corrections do not change official dates.
 - Self-approval denied unless `crew_operations.corrections.override`
 - Operational phase status is never flipped to `corrected` for badges — badges come from correction relations
 - **Course correction consistency**: If a Training phase is linked to an `EmployeeTraining` record, free-text `details.course` cannot be modified without `details.course_id`. Structured `details.course_id` must reference an active, valid Course, snapshots the title to `details.course`, and atomically updates `EmployeeTraining.course_id`.

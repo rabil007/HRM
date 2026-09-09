@@ -248,7 +248,10 @@ class CrewAssignmentPresenter
                     ])
                     ->all()
                 : [],
-            'movement_context' => self::movementContext($assignment, $tourProgress),
+            'movement_context' => [
+                ...self::movementContext($assignment, $tourProgress),
+                'active_on_vessel_elsewhere' => self::activeOnVesselElsewhere($assignment, $user),
+            ],
         ];
     }
 
@@ -307,6 +310,27 @@ class CrewAssignmentPresenter
             'training_expected_completion_at' => $trainingPhase?->planned_end_at?->toDateString(),
             'company_timezone' => $timezone,
             ...$tourProgress,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function activeOnVesselElsewhere(CrewAssignment $assignment, ?User $user): ?array
+    {
+        $current = app(ActiveOnVesselAssignmentFinder::class)->find(
+            (int) $assignment->company_id,
+            (int) $assignment->employee_id,
+            (int) $assignment->id,
+        );
+
+        if ($current === null) {
+            return null;
+        }
+
+        return [
+            ...$current,
+            'can_transfer' => (bool) $user?->can('crew_operations.movements.perform'),
         ];
     }
 

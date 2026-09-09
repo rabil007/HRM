@@ -17,6 +17,20 @@ export type CrewTourProgressFields = {
     tour_status_severity: string | null;
 };
 
+export type ActiveOnVesselAssignment = {
+    assignment_id: number;
+    assignment_no: string;
+    employee_id: number;
+    employee_name: string;
+    vessel_id: number | null;
+    vessel_name: string | null;
+    phase_id: number;
+    actual_start_at: string | null;
+    actual_start_display: string | null;
+    status: string;
+    can_transfer?: boolean;
+};
+
 export type CrewMovementContext = {
     assignment_id: number;
     assignment_no: string;
@@ -49,6 +63,7 @@ export type CrewMovementContext = {
     training_started_at: string | null;
     training_expected_completion_at: string | null;
     company_timezone: string;
+    active_on_vessel_elsewhere?: ActiveOnVesselAssignment | null;
 } & CrewTourProgressFields;
 
 export type CrewReliefEmployee = {
@@ -308,6 +323,10 @@ export interface CrewAssignmentFormOptions {
     clients: Array<{ id: number; name: string }>;
     visa_types: Array<{ id: number; name: string }>;
     courses: Array<{ id: number; name: string }>;
+}
+
+export interface CrewAssignmentCreateFormOptions extends CrewAssignmentFormOptions {
+    active_on_vessel_by_employee?: Record<string, ActiveOnVesselAssignment>;
 }
 
 export interface CrewAssignmentSummary {

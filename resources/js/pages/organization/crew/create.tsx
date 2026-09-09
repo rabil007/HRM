@@ -1,14 +1,16 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Info } from 'lucide-react';
+import { useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
+import { VesselTransferRecommendationDialog } from '@/features/organization/crew/actions/vessel-transfer-recommendation-dialog';
 import { CrewAssignmentFormFields } from '@/features/organization/crew/components/crew-assignment-form-fields';
 import type {
+    CrewAssignmentCreateFormOptions,
     CrewAssignmentFormData,
-    CrewAssignmentFormOptions,
     CrewAssignmentPagePermissions,
 } from '@/features/organization/crew/types';
 import {
@@ -19,9 +21,10 @@ import {
 export default function CrewAssignmentCreate({
     form_options,
 }: {
-    form_options: CrewAssignmentFormOptions;
+    form_options: CrewAssignmentCreateFormOptions;
     can: CrewAssignmentPagePermissions;
 }) {
+    const [transferPromptOpen, setTransferPromptOpen] = useState(false);
     const form = useForm<CrewAssignmentFormData>({
         employee_id: null,
         rank_id: null,
@@ -34,8 +37,28 @@ export default function CrewAssignmentCreate({
         remarks: '',
     });
 
+    const currentOnVessel = form.data.employee_id
+        ? (form_options.active_on_vessel_by_employee?.[
+              String(form.data.employee_id)
+          ] ?? null)
+        : null;
+    const destinationVessel = form_options.vessels.find(
+        (vessel) => vessel.id === form.data.vessel_id,
+    );
+    const recommendsTransfer =
+        currentOnVessel !== null &&
+        form.data.vessel_id !== null &&
+        form.data.vessel_id !== currentOnVessel.vessel_id;
+
     const handleSubmit = (event: React.FormEvent): void => {
         event.preventDefault();
+
+        if (recommendsTransfer) {
+            setTransferPromptOpen(true);
+
+            return;
+        }
+
         form.post(storeAssignment.url());
     };
 
@@ -104,6 +127,19 @@ export default function CrewAssignmentCreate({
                         </form>
                     </CardContent>
                 </Card>
+
+                <VesselTransferRecommendationDialog
+                    open={transferPromptOpen}
+                    onOpenChange={setTransferPromptOpen}
+                    current={currentOnVessel}
+                    destinationVesselName={destinationVessel?.name}
+                    prefill={{
+                        vessel_id: form.data.vessel_id,
+                        rank_id: form.data.rank_id,
+                        client_id: form.data.client_id,
+                        company_visa_type_id: form.data.company_visa_type_id,
+                    }}
+                />
             </Main>
         </>
     );

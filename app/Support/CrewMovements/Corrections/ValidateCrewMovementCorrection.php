@@ -17,6 +17,7 @@ use App\Models\EmployeeTraining;
 use App\Models\Rank;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewMovementMasterDataGuard;
+use App\Support\CrewMovements\OnVesselActualIntervalGuard;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
@@ -26,6 +27,7 @@ final class ValidateCrewMovementCorrection
         private readonly CrewMovementCorrectionFieldCatalog $catalog = new CrewMovementCorrectionFieldCatalog,
         private readonly CrewMovementCorrectionValueSnapshot $snapshot = new CrewMovementCorrectionValueSnapshot,
         private readonly CrewMovementMasterDataGuard $masterDataGuard = new CrewMovementMasterDataGuard,
+        private readonly OnVesselActualIntervalGuard $onVesselIntervals = new OnVesselActualIntervalGuard,
     ) {}
 
     /**
@@ -139,6 +141,7 @@ final class ValidateCrewMovementCorrection
         }
 
         $this->assertTimeline($assignment, $phase, $normalized);
+        $this->assertOnVesselInterval($assignment, $phase, $normalized);
 
         return $normalized;
     }
@@ -355,6 +358,44 @@ final class ValidateCrewMovementCorrection
                 'correction_p4_incomplete',
             );
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $normalized
+     */
+    private function assertOnVesselInterval(
+        CrewAssignment $assignment,
+        CrewAssignmentPhase $phase,
+        array $normalized,
+    ): void {
+        if ($phase->phase_code !== CrewPhaseCode::OnVessel) {
+            return;
+        }
+
+        if (! array_key_exists('actual_start_at', $normalized) && ! array_key_exists('actual_end_at', $normalized)) {
+            return;
+        }
+
+        $start = array_key_exists('actual_start_at', $normalized)
+            ? $normalized['actual_start_at']
+            : $phase->actual_start_at;
+        $end = array_key_exists('actual_end_at', $normalized)
+            ? $normalized['actual_end_at']
+            : $phase->actual_end_at;
+
+        if (! $start instanceof CarbonInterface) {
+            return;
+        }
+
+        $this->onVesselIntervals->assertNoOverlap(
+            (int) $assignment->company_id,
+            (int) $assignment->employee_id,
+            $start,
+            $end instanceof CarbonInterface ? $end : null,
+            null,
+            (int) $phase->id,
+            'correction',
+        );
     }
 
     private function valuesEqual(mixed $left, mixed $right): bool
