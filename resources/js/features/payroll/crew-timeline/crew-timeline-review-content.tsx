@@ -372,6 +372,7 @@ export function CrewTimelineReviewContent({
                     ) : (
                         <CrewTimelineEmployeeTable
                             employees={employees}
+                            period={period}
                             periodId={period.id}
                             preparationId={preparation.id}
                         />

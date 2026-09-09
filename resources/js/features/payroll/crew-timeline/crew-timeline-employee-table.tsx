@@ -28,7 +28,7 @@ import { show as showAssignment } from '@/routes/organization/crew-assignments';
 import { restore as restoreEmployeeSkip } from '@/routes/payroll/crew-timeline/employee-skip';
 import { CrewTimelineLinesDialog } from './crew-timeline-lines-dialog';
 import { CrewTimelineSkipDialog } from './crew-timeline-skip-dialog';
-import type { CrewTimelineEmployeeSummary } from './types';
+import type { CrewTimelineEmployeeSummary, CrewTimelinePeriod } from './types';
 
 type WarningDetail = {
     label: string;
@@ -266,10 +266,12 @@ function EmployeeCell({ employee }: { employee: CrewTimelineEmployeeSummary }) {
 
 export function CrewTimelineEmployeeTable({
     employees,
+    period,
     periodId,
     preparationId,
 }: {
     employees: CrewTimelineEmployeeSummary[];
+    period: Pick<CrewTimelinePeriod, 'name' | 'start_date'>;
     periodId: number;
     preparationId: number;
 }) {
@@ -448,7 +450,7 @@ export function CrewTimelineEmployeeTable({
                                         size="sm"
                                         onClick={() => setSelected(employee)}
                                     >
-                                        View Details
+                                        Payroll Breakdown
                                     </Button>
                                 </div>
                             </TableCell>
@@ -458,6 +460,7 @@ export function CrewTimelineEmployeeTable({
             </OrganizationDataTable>
             <CrewTimelineLinesDialog
                 employee={selected}
+                period={period}
                 open={selected !== null}
                 onOpenChange={(open) => {
                     if (!open) {

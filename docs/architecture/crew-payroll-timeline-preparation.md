@@ -254,43 +254,56 @@ Inertia page: `resources/js/pages/payroll/crew-timeline/show.tsx`
 
 Feature UI: `resources/js/features/payroll/crew-timeline/`
 
-### Review modal presentation hierarchy
+### Payroll Breakdown modal
 
-The payroll review **View Details** modal presents preparation data as:
+The payroll review **Payroll Breakdown** modal answers which operational days this preparation will use for the employee, and why. It is not a Crew Planning history screen.
 
 ```text
 Employee
-└── Assignment
-    └── Real phase occurrence
-        ├── Planned dates
-        ├── Actual dates
-        ├── Payroll treatment
-        ├── Payable days
-        └── Related warnings
+├── Payroll payable summary
+│   ├── Sign-On Standby
+│   ├── Onsite
+│   ├── Sign-Off Standby
+│   └── Total Payable
+│
+├── Assignment
+│   └── Phase occurrence
+│       ├── Actual movement
+│       ├── Payroll-counted period(s)
+│       ├── Pay category
+│       ├── Payable days
+│       └── Warnings
+│
+└── Non-payable / excluded activity
 ```
 
-Rules:
+Planned dates are intentionally not shown in the payroll breakdown because they are not payroll inputs. Planned fields may remain in the review payload for other features, but this modal must not display planned schedule, planned join/leave, or Crew Planning date provenance.
 
-- Group timeline content by `crew_assignment_id`, then by `crew_assignment_phase_id`.
-- Linked assignments created by `vessel_transfer` or `redeployment` are shown as separate assignment sections with a transfer/redeployment divider derived from assignment `source` and `previous_assignment_id`.
-- Warning-only zero-day preparation lines are nested under their related phase card; they must not appear as separate phase occurrences.
-- Actual dates come from the linked `CrewAssignmentPhase` (`actual_start_at` / `actual_end_at`), not only from nullable preparation-line source date fields.
-- Employee-level header shows identity and assignment count; it does not pick a single assignment/vessel when multiple assignments are included.
-- Payable-day totals, blocking/informational warning behaviour, and preparation workflows are unchanged by modal presentation.
+Presentation rules:
+
+- Category totals come from the employee summary (`sign_on_standby_days`, `onsite_days`, `sign_off_standby_days`, `total_payable_days`). The modal does not recalculate them.
+- Sign-On Standby, Onsite, and Sign-Off Standby stay separate. Do not merge Sign-On and Sign-Off into a generic Standby total.
+- Every positive-day non-excluded preparation line remains visible. Do not collapse separate payroll lines into the employee-level earliest `from` and latest `to`.
+- Actual movement comes from the linked `CrewAssignmentPhase` (`actual_start_at` / `actual_end_at`). Payroll counted dates come from the preparation line `from_date` / `to_date` / `days`.
+- Linked assignments created by `vessel_transfer` or `redeployment` stay separate, with a transfer/redeployment divider. Multiple P4 periods are not merged into one continuous range.
+- P0, P1, and P6 excluded lines appear after the payable breakdown and do not contribute to Total Payable.
+- Blocking and informational warnings remain visible, including warning-only zero-day lines.
+- A skipped employee must show detected Crew Operations payable days separately from applied Crew Operations days (`0`). Original movement data stays visible for audit, but the modal must not imply the employee receives zero payroll.
+- The modal does not show salary amounts. Those are calculated later during payroll generation.
 
 ### Date provenance (planned vs actual vs payroll)
 
 Preparation-line `from_date` / `to_date` are **payroll allocation or warning ranges**, never phase planned dates.
 
-Phase cards separate:
+The payroll breakdown modal shows only:
 
-| Section                              | Source fields                                                                     | Origin examples                       |
-| ------------------------------------ | --------------------------------------------------------------------------------- | ------------------------------------- |
-| Planned schedule                     | `crew_assignment_phases.planned_*` (or assignment planned fields when applicable) | `user_entered`, `crew_planning`       |
-| Actual activity                      | `crew_assignment_phases.actual_start_at` / `actual_end_at` only                   | `movement_actual`                     |
-| Payroll allocation / Affected period | preparation-line `from_date` / `to_date`                                          | `payroll_allocation`, `warning_range` |
+| Section          | Source fields                                                   | Meaning                                                         |
+| ---------------- | --------------------------------------------------------------- | --------------------------------------------------------------- |
+| Actual movement  | `crew_assignment_phases.actual_start_at` / `actual_end_at` only | What happened operationally                                     |
+| Payroll counted  | preparation-line `from_date` / `to_date` / `days`               | Which dates from that movement this preparation includes        |
+| Warning period   | warning-line `from_date` / `to_date`                            | Affected range for a blocking or informational warning          |
 
-Hide Planned schedule when phase planned timestamps are blank. Do not fall back to payroll ranges or actual timestamps.
+Planned schedule is not a payroll input and is not rendered in this modal.
 
 Automatic write behaviour:
 
@@ -300,7 +313,7 @@ Automatic write behaviour:
 
 Crew Planning conversion still copies planning join/leave into assignment planned fields with origin `crew_planning`.
 
-Dates display as `dd-mm-yyyy`. Backend values remain ISO.
+The payroll breakdown displays dates as `04 Aug 2026`. Backend values remain ISO.
 
 Phase 1C does not write to `crew_timesheets`.
 
