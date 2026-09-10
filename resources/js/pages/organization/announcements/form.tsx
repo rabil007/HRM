@@ -1402,24 +1402,7 @@ export default function AnnouncementFormPage({
                                         );
                                     })}
                                 </div>
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <InputError
-                                        message={form.errors.channels}
-                                    />
-                                    {can.publish &&
-                                    (emailSelected || whatsappSelected) ? (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={!canSendTest}
-                                            onClick={openTestDialog}
-                                        >
-                                            <FlaskConical className="size-3.5" />
-                                            Send test to me
-                                        </Button>
-                                    ) : null}
-                                </div>
+                                <InputError message={form.errors.channels} />
                             </SectionCard>
 
                             <SectionCard
@@ -2070,19 +2053,6 @@ export default function AnnouncementFormPage({
 
                         <aside className="hidden xl:block">
                             <div className="sticky top-24 space-y-4">
-                                {can.publish &&
-                                (emailSelected || whatsappSelected) ? (
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className="w-full"
-                                        disabled={!canSendTest}
-                                        onClick={openTestDialog}
-                                    >
-                                        <FlaskConical className="size-4" />
-                                        Send test to me
-                                    </Button>
-                                ) : null}
                                 <div className="rounded-xl border glass-card p-5">
                                     <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                                         Summary
@@ -2185,6 +2155,18 @@ export default function AnnouncementFormPage({
                                 : ''}
                         </div>
                         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                            {can.publish &&
+                            (emailSelected || whatsappSelected) ? (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={!canSendTest || form.processing}
+                                    onClick={openTestDialog}
+                                >
+                                    <FlaskConical className="size-4" /> Send
+                                    test to me
+                                </Button>
+                            ) : null}
                             <Button
                                 type="button"
                                 variant="outline"
