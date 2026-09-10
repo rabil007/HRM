@@ -35,6 +35,8 @@ final class SendAnnouncementTest
      *     category: string,
      *     priority: string,
      *     whatsapp_link?: string|null,
+     *     whatsapp_message?: string|null,
+     *     whatsapp_template_id?: int|null,
      *     channels: list<string>,
      *     announcement_id?: int|null
      * }  $data
@@ -109,6 +111,8 @@ final class SendAnnouncementTest
      *     category: string,
      *     priority: string,
      *     whatsapp_link?: string|null,
+     *     whatsapp_message?: string|null,
+     *     whatsapp_template_id?: int|null,
      *     channels: list<string>,
      *     announcement_id?: int|null
      * }  $data
@@ -140,6 +144,9 @@ final class SendAnnouncementTest
             }
         }
 
+        $usesWhatsApp = in_array(AnnouncementChannel::WhatsApp->value, $channels, true);
+        $whatsAppMessage = isset($data['whatsapp_message']) ? trim((string) $data['whatsapp_message']) : '';
+
         $announcement = new Announcement([
             'company_id' => $companyId,
             'title' => $data['title'],
@@ -148,8 +155,10 @@ final class SendAnnouncementTest
             'priority' => AnnouncementPriority::from($data['priority']),
             'status' => AnnouncementStatus::Draft,
             'channels' => $channels,
-            'whatsapp_link' => in_array(AnnouncementChannel::WhatsApp->value, $channels, true)
-                ? ($data['whatsapp_link'] ?? null)
+            'whatsapp_link' => $usesWhatsApp ? ($data['whatsapp_link'] ?? null) : null,
+            'whatsapp_message' => $usesWhatsApp && $whatsAppMessage !== '' ? $whatsAppMessage : null,
+            'whatsapp_template_id' => $usesWhatsApp
+                ? ($data['whatsapp_template_id'] ?? null)
                 : null,
             'created_by' => $user->id,
         ]);

@@ -117,9 +117,18 @@ function WhatsAppPreview({
             templateName={preview.template_name}
             templateLanguage={preview.template_language}
             bodyText={preview.body_text}
-            headerType="none"
-            accountName={preview.company_name}
+            headerType={
+                (preview.header_type as 'document' | 'text' | 'none') ?? 'none'
+            }
+            headerText={preview.header_text ?? ''}
+            accountName="Company"
             className="mx-auto"
+            hint={
+                preview.available === false
+                    ? (preview.message ??
+                      'WhatsApp template is not configured.')
+                    : false
+            }
         />
     );
 }

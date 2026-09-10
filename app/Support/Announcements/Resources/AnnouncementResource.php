@@ -53,6 +53,8 @@ final class AnnouncementResource
             'body_html' => $announcement->body_html,
             'expires_at' => $announcement->expires_at?->toIso8601String(),
             'whatsapp_link' => $announcement->whatsapp_link,
+            'whatsapp_message' => $announcement->whatsapp_message,
+            'whatsapp_template_id' => $announcement->whatsapp_template_id,
             'published_by' => $announcement->publisher?->name,
             'audiences' => $announcement->audiences->map(fn (AnnouncementAudience $audience): array => [
                 'type' => $audience->audience_type->value,
@@ -94,6 +96,8 @@ final class AnnouncementResource
             'status' => $announcement->status->value,
             'channels' => $announcement->channels ?? [],
             'whatsapp_link' => $announcement->whatsapp_link ?? '',
+            'whatsapp_message' => $announcement->whatsapp_message ?? '',
+            'whatsapp_template_id' => $announcement->whatsapp_template_id,
             'expires_at' => $announcement->expires_at?->format('Y-m-d\TH:i'),
             'scheduled_at' => $announcement->scheduled_at?->format('Y-m-d\TH:i'),
             'audiences' => $announcement->audiences->map(fn (AnnouncementAudience $audience): array => [

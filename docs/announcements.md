@@ -22,6 +22,70 @@ Browser Web Push remains an automatic extension of the **In-app** channel. See [
 
 Frontend `can` flags are UX only. Routes enforce Spatie permissions with the active company team.
 
+## WhatsApp templates
+
+OMS-HRM supports **multiple** Announcement-compatible WhatsApp Meta templates.
+
+- Templates are platform-global (`whatsapp_templates`), not company-owned.
+- Only enabled templates with category `announcement` and an explicit `payload_profile` appear in the Announcement composer.
+- Document/Payroll templates are never offered for Announcements.
+- The composer shows a business-friendly **label** first (for example `Promotion Announcement`), with Meta name/language as secondary text.
+- Selected template is stored on the announcement as nullable `whatsapp_template_id`.
+- Submitted template IDs are validated against the enabled Announcement-template set. Invalid IDs are rejected; there is no silent fallback to an unrelated template.
+- Announcements without a selected template keep backward-compatible resolution of the legacy enabled `announcement` slug.
+
+### Payload profiles
+
+OMS-HRM does **not** map arbitrary Meta templates at send time. Profile is stored on the template row:
+
+| Profile | Contract |
+|---------|----------|
+| `announcement_legacy_v1` | Body variables: company, title, summary, priority, view link |
+| `announcement_title_body_v2` | Header `{{1}}` = title; Body `{{1}}` = resolved WhatsApp message |
+
+New Announcement templates should use **Title + Message** (`announcement_title_body_v2`).
+
+Resolved WhatsApp message:
+
+1. `whatsapp_message` when present
+2. otherwise plain text derived from canonical `body_html`
+3. optional `whatsapp_link` is **appended** to the body value for v2 (not a separate Meta variable)
+4. blank link does **not** send `N/A` for v2
+
+Canonical Announcement content remains `title` + `body_html`. Priority remains in the module for in-app/email/reporting, but is **not** included in the v2 WhatsApp payload.
+
+Pending Meta review templates must stay disabled until an administrator enables them after Meta approval. Shipping this code does not auto-activate pending templates.
+
+### Shared builder parity
+
+Preview, Test Send, and production WhatsApp delivery all use `BuildAnnouncementWhatsAppContent` (via `BuildAnnouncementWhatsAppTemplatePayload` for send call sites).
+
+```text
+Announcement
+        ↓
+selected template / legacy fallback
+        ↓
+BuildAnnouncementWhatsAppContent
+     ↙        ↓          ↘
+Preview   Test Send   Production
+```
+
+Composer channel preview is loaded from `POST /organization/announcements/preview-channels`, which also reuses `BuildAnnouncementEmailContent` + the Blade email renderer for Email exact preview.
+
+## AI Assist
+
+Optional content assistance reuses Application AI (`AiSettingsService` / Laravel AI). It does **not** depend on the Smart Employee Search enable toggle.
+
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/organization/announcements/ai-assist` | create **or** update permission; throttled `20,1` |
+
+Capabilities: generate/improve/make professional/friendly/shorten/fix grammar/create WhatsApp version/suggest template purpose.
+
+Structured output is validated server-side. `template_purpose` is a closed enum. Laravel maps purpose to a trusted enabled Announcement template. The model never selects database IDs or Meta names. The user must explicitly confirm a suggested template.
+
+AI never publishes or sends. Provider requests include only writing instructions and authored content (title/body/optional WhatsApp message, optional company display name). No employee/recipient/payroll/document/credentials data.
+
 ## Send test to me
 
 Publishers with `announcements.publish` can send a **test** of the current draft/scheduled (or unsaved create-form) content to their own company-linked contact details before publishing.
@@ -68,9 +132,7 @@ Test Send reuses production builders — no separate fake templates:
 | Channel | Shared path |
 |---------|-------------|
 | Email | `BuildAnnouncementEmailContent` + `resources/views/mail/announcement.blade.php` (subject prefixed with `[TEST]`) |
-| WhatsApp | `BuildAnnouncementWhatsAppTemplatePayload` + enabled Meta template slug `announcement` via `WhatsAppService::sendTemplate()` |
-
-Preview, Test Send, and production delivery share `ResolveAnnouncementWhatsAppTemplate` (enabled `announcement` slug only — no General-template fallback).
+| WhatsApp | `BuildAnnouncementWhatsAppContent` + selected/enabled Announcement template via `WhatsAppService::sendTemplate()` |
 
 Body HTML is sanitized with `SanitizeAnnouncementHtml` before Email Test Send.
 
@@ -114,3 +176,4 @@ On create/edit, **Send test to me** appears when Email and/or WhatsApp are selec
 - [Announcement Web Push](./announcements-web-push.md)
 - [Email configuration](./email-configuration.md)
 - [WhatsApp integration](./whatsapp-integration.md)
+- [AI settings](./ai-settings.md)

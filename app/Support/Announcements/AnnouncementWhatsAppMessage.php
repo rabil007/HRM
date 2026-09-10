@@ -26,11 +26,34 @@ final class AnnouncementWhatsAppMessage
         return Str::limit($message, self::MAX_LENGTH, '');
     }
 
+    /**
+     * Title + Body (v2) body parameter: custom/canonical message with optional link appended.
+     * Never emits N/A for a blank link.
+     */
+    public static function resolvedBodyWithOptionalLink(Announcement $announcement): string
+    {
+        $message = self::for($announcement);
+        $link = trim((string) ($announcement->whatsapp_link ?? ''));
+
+        if ($link !== '') {
+            $message = self::normalize($message.' '.$link);
+        }
+
+        return Str::limit($message, self::MAX_LENGTH, '');
+    }
+
     public static function viewLink(Announcement $announcement): string
     {
         $link = trim((string) ($announcement->whatsapp_link ?? ''));
 
         return $link !== '' ? $link : self::EMPTY_VIEW_LINK;
+    }
+
+    public static function optionalLink(Announcement $announcement): ?string
+    {
+        $link = trim((string) ($announcement->whatsapp_link ?? ''));
+
+        return $link !== '' ? $link : null;
     }
 
     public static function fromHtml(string $html): string

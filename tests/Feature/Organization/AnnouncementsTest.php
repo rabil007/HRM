@@ -275,13 +275,15 @@ test('announcement show includes structured channel previews for selected channe
             ->where('announcement.channel_previews.in_app.priority_label', 'Urgent')
             ->where('announcement.channel_previews.email.subject', 'Urgent Announcement — Test Announcement')
             ->where('announcement.channel_previews.email.html', fn ($html) => is_string($html) && str_contains($html, 'Test Announcement By Rabil'))
+            ->where('announcement.channel_previews.whatsapp.available', true)
             ->where('announcement.channel_previews.whatsapp.body_text', fn ($text) => is_string($text)
                 && str_contains($text, "Hello,\n")
                 && str_contains($text, "Title: Test Announcement\n")
                 && str_contains($text, 'Summary:')
                 && str_contains($text, "Priority: Urgent\n")
                 && str_contains($text, 'View link:'))
-            ->where('announcement.channel_previews.whatsapp.company_name', 'Announcement Co')
+            ->where('announcement.channel_previews.whatsapp.resolved_message', fn ($text) => is_string($text)
+                && str_contains($text, 'Test Announcement By Rabil'))
         );
 });
 

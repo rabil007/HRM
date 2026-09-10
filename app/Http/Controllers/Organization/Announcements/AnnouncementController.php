@@ -15,11 +15,12 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Models\User;
+use App\Services\Settings\AiSettingsService;
 use App\Support\Announcements\Actions\PersistAnnouncement;
 use App\Support\Announcements\Actions\PublishAnnouncement;
 use App\Support\Announcements\AnnouncementPagePermissions;
+use App\Support\Announcements\ListAnnouncementWhatsAppTemplates;
 use App\Support\Announcements\ResolveAnnouncementTestDestination;
-use App\Support\Announcements\ResolveAnnouncementWhatsAppTemplate;
 use App\Support\Announcements\Resources\AnnouncementResource;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
@@ -207,7 +208,7 @@ class AnnouncementController extends Controller
      */
     private function formOptions(int $companyId, ?User $user = null, bool $includeTestDestinations = false): array
     {
-        $whatsAppTemplate = app(ResolveAnnouncementWhatsAppTemplate::class)->handle();
+        $aiSettings = app(AiSettingsService::class);
 
         return [
             'company_name' => (string) Company::query()
@@ -248,9 +249,8 @@ class AnnouncementController extends Controller
                 ->orderBy('name')
                 ->limit(500)
                 ->get(['id', 'name', 'employee_no']),
-            'whatsapp_template' => $whatsAppTemplate === null
-                ? null
-                : $whatsAppTemplate->only(['meta_name', 'meta_language', 'body_preview']),
+            'whatsapp_templates' => app(ListAnnouncementWhatsAppTemplates::class)->handle(),
+            'ai_assist_available' => $aiSettings->isProviderConfigured(),
             'test_destinations' => $includeTestDestinations && $user !== null
                 ? app(ResolveAnnouncementTestDestination::class)->forFrontend($user, $companyId)
                 : null,

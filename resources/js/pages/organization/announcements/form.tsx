@@ -16,6 +16,7 @@ import {
     MessageCircle,
     Send,
     Smartphone,
+    Sparkles,
     Trash2,
     Upload,
     UserCheck,
@@ -45,13 +46,18 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { AnnouncementAiAssistDialog } from '@/features/organization/announcements/announcement-ai-assist-dialog';
 import { AnnouncementMessageEditorSkeleton } from '@/features/organization/announcements/announcement-message-editor-skeleton';
-import { buildEmailPreview } from '@/features/organization/announcements/build-email-preview';
-import { buildWhatsAppTemplatePreview } from '@/features/organization/announcements/build-whatsapp-template-preview';
 import { EmailPreview } from '@/features/organization/announcements/email-preview';
 import { SendAnnouncementTestDialog } from '@/features/organization/announcements/send-announcement-test-dialog';
 import type {
+    AnnouncementAiAssistAction,
+    AnnouncementAiAssistResponse,
+    AnnouncementAiAssistResult,
     AnnouncementCan,
+    AnnouncementChannelPreviewResponse,
+    AnnouncementChannelPreviews,
     AnnouncementFormData,
     AnnouncementFormOptions,
     AnnouncementFormPayload,
@@ -60,7 +66,11 @@ import type {
 } from '@/features/organization/announcements/types';
 import { WhatsAppDocumentTemplatePreview } from '@/features/settings/whatsapp-document-template-preview';
 import { cn } from '@/lib/utils';
-import { sendTest as sendAnnouncementTest } from '@/routes/organization/announcements';
+import {
+    aiAssist as announcementAiAssist,
+    previewChannels as previewAnnouncementChannels,
+    sendTest as sendAnnouncementTest,
+} from '@/routes/organization/announcements';
 
 /**
  * Tiptap and ProseMirror are the heaviest dependency on this page, so the
@@ -757,6 +767,8 @@ export default function AnnouncementFormPage({
         category: string;
         priority: string;
         whatsapp_link: string | null;
+        whatsapp_message: string | null;
+        whatsapp_template_id: number | null;
         channels: string[];
         announcement_id: number | null;
     }>({
@@ -765,24 +777,78 @@ export default function AnnouncementFormPage({
         category: 'general',
         priority: 'normal',
         whatsapp_link: null,
+        whatsapp_message: null,
+        whatsapp_template_id: null,
         channels: [],
         announcement_id: null,
+    });
+    const channelPreviewHttp = useHttp<{
+        title: string;
+        body_html: string;
+        category: string;
+        priority: string;
+        channels: string[];
+        whatsapp_link: string | null;
+        whatsapp_message: string | null;
+        whatsapp_template_id: number | null;
+    }>({
+        title: '',
+        body_html: '',
+        category: 'general',
+        priority: 'normal',
+        channels: [],
+        whatsapp_link: null,
+        whatsapp_message: null,
+        whatsapp_template_id: null,
+    });
+    const aiAssistHttp = useHttp<{
+        action: AnnouncementAiAssistAction;
+        instructions: string | null;
+        title: string | null;
+        body_html: string | null;
+        whatsapp_message: string | null;
+    }>({
+        action: 'improve',
+        instructions: null,
+        title: null,
+        body_html: null,
+        whatsapp_message: null,
     });
     const [preview, setPreview] = useState<RecipientPreview | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
     const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
         null,
     );
+    const channelPreviewDebounceRef = useRef<ReturnType<
+        typeof setTimeout
+    > | null>(null);
+    const [channelPreviews, setChannelPreviews] =
+        useState<AnnouncementChannelPreviews | null>(null);
+    const [channelPreviewLoading, setChannelPreviewLoading] = useState(false);
     const [testDialogOpen, setTestDialogOpen] = useState(false);
     const [testSending, setTestSending] = useState(false);
     const [testError, setTestError] = useState<string | null>(null);
     const [testResult, setTestResult] =
         useState<AnnouncementTestSendResponse | null>(null);
+    const [aiDialogOpen, setAiDialogOpen] = useState(false);
+    const [aiProcessing, setAiProcessing] = useState(false);
+    const [aiError, setAiError] = useState<string | null>(null);
+    const [aiResult, setAiResult] = useState<AnnouncementAiAssistResult | null>(
+        null,
+    );
+    const [pendingSuggestedTemplateId, setPendingSuggestedTemplateId] =
+        useState<number | null>(null);
     const [activeAudienceType, setActiveAudienceType] = useState<string>(
         announcement?.audiences.some((a) => a.type === 'all_employees')
             ? 'all_employees'
             : (announcement?.audiences[0]?.type ?? 'all_employees'),
     );
+
+    const defaultWhatsAppTemplateId =
+        announcement?.whatsapp_template_id ??
+        options.whatsapp_templates.find((template) => template.is_legacy)?.id ??
+        options.whatsapp_templates[0]?.id ??
+        null;
 
     const form = useForm<AnnouncementFormData>({
         title: announcement?.title ?? '',
@@ -791,6 +857,8 @@ export default function AnnouncementFormPage({
         priority: announcement?.priority ?? 'normal',
         channels: announcement?.channels ?? ['in_app'],
         whatsapp_link: announcement?.whatsapp_link ?? '',
+        whatsapp_message: announcement?.whatsapp_message ?? '',
+        whatsapp_template_id: defaultWhatsAppTemplateId,
         audiences: announcement?.audiences?.length
             ? announcement.audiences
             : [{ type: 'all_employees', id: null }],
@@ -808,6 +876,12 @@ export default function AnnouncementFormPage({
             ...data,
             channels: next,
             whatsapp_link: next.includes('whatsapp') ? data.whatsapp_link : '',
+            whatsapp_message: next.includes('whatsapp')
+                ? data.whatsapp_message
+                : '',
+            whatsapp_template_id: next.includes('whatsapp')
+                ? (data.whatsapp_template_id ?? defaultWhatsAppTemplateId)
+                : null,
         }));
     };
 
@@ -1019,6 +1093,10 @@ export default function AnnouncementFormPage({
         setTestDialogOpen(true);
     };
 
+    const priorityLabel =
+        options.priorities.find((option) => option.value === form.data.priority)
+            ?.label ?? form.data.priority;
+
     const handleSendTest = (channels: Array<'email' | 'whatsapp'>) => {
         setTestSending(true);
         setTestError(null);
@@ -1031,6 +1109,12 @@ export default function AnnouncementFormPage({
             priority: form.data.priority,
             whatsapp_link: whatsappSelected
                 ? form.data.whatsapp_link || null
+                : null,
+            whatsapp_message: whatsappSelected
+                ? form.data.whatsapp_message || null
+                : null,
+            whatsapp_template_id: whatsappSelected
+                ? form.data.whatsapp_template_id
                 : null,
             channels,
             announcement_id: announcement?.id ?? null,
@@ -1050,67 +1134,197 @@ export default function AnnouncementFormPage({
             });
     };
 
-    const priorityLabel =
-        options.priorities.find((option) => option.value === form.data.priority)
-            ?.label ?? form.data.priority;
+    const selectedWhatsAppTemplate =
+        options.whatsapp_templates.find(
+            (template) => template.id === form.data.whatsapp_template_id,
+        ) ?? null;
 
-    const whatsappPreviewText = useMemo(
-        () =>
-            buildWhatsAppTemplatePreview({
-                bodyPreview: options.whatsapp_template?.body_preview,
-                companyName: options.company_name,
-                title: form.data.title,
-                bodyHtml: form.data.body_html,
-                priorityLabel,
-                viewLink: form.data.whatsapp_link,
-            }),
-        [
-            form.data.body_html,
-            form.data.title,
-            form.data.whatsapp_link,
-            options.company_name,
-            options.whatsapp_template?.body_preview,
-            priorityLabel,
-        ],
-    );
+    useEffect(() => {
+        if (!emailSelected && !whatsappSelected) {
+            setChannelPreviews(null);
 
-    const emailPreviewData = useMemo(
-        () =>
-            buildEmailPreview({
-                companyName: options.company_name,
+            return;
+        }
+
+        if (
+            form.data.title.trim() === '' ||
+            form.data.body_html.trim() === ''
+        ) {
+            return;
+        }
+
+        if (channelPreviewDebounceRef.current) {
+            clearTimeout(channelPreviewDebounceRef.current);
+        }
+
+        channelPreviewDebounceRef.current = setTimeout(() => {
+            setChannelPreviewLoading(true);
+            channelPreviewHttp.transform(() => ({
                 title: form.data.title,
-                bodyHtml: form.data.body_html,
-                priorityLabel,
-            }),
-        [
-            form.data.body_html,
-            form.data.title,
-            options.company_name,
-            priorityLabel,
-        ],
-    );
+                body_html: form.data.body_html,
+                category: form.data.category,
+                priority: form.data.priority,
+                channels: form.data.channels,
+                whatsapp_link: whatsappSelected
+                    ? form.data.whatsapp_link || null
+                    : null,
+                whatsapp_message: whatsappSelected
+                    ? form.data.whatsapp_message || null
+                    : null,
+                whatsapp_template_id: whatsappSelected
+                    ? form.data.whatsapp_template_id
+                    : null,
+            }));
+
+            channelPreviewHttp
+                .post(previewAnnouncementChannels.url())
+                .then((data) => {
+                    const response = data as AnnouncementChannelPreviewResponse;
+                    setChannelPreviews(response.channel_previews);
+                })
+                .catch(() => {
+                    // Keep last successful preview; exact errors surface on Test Send.
+                })
+                .finally(() => {
+                    channelPreviewHttp.transform((data) => data);
+                    setChannelPreviewLoading(false);
+                });
+        }, 450);
+
+        return () => {
+            if (channelPreviewDebounceRef.current) {
+                clearTimeout(channelPreviewDebounceRef.current);
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        emailSelected,
+        form.data.body_html,
+        form.data.category,
+        form.data.channels,
+        form.data.priority,
+        form.data.title,
+        form.data.whatsapp_link,
+        form.data.whatsapp_message,
+        form.data.whatsapp_template_id,
+        whatsappSelected,
+    ]);
+
+    const runAiAssist = (
+        action: AnnouncementAiAssistAction,
+        instructions: string,
+    ) => {
+        setAiProcessing(true);
+        setAiError(null);
+        setAiResult(null);
+
+        aiAssistHttp.transform(() => ({
+            action,
+            instructions: instructions.trim() !== '' ? instructions : null,
+            title: form.data.title || null,
+            body_html: form.data.body_html || null,
+            whatsapp_message: form.data.whatsapp_message || null,
+        }));
+
+        aiAssistHttp
+            .post(announcementAiAssist.url())
+            .then((data) => {
+                const response = data as AnnouncementAiAssistResponse;
+                setAiResult(response.result);
+
+                if (response.result.suggested_template) {
+                    setPendingSuggestedTemplateId(
+                        response.result.suggested_template.id,
+                    );
+                }
+            })
+            .catch(() => {
+                setAiError('AI assistance is temporarily unavailable.');
+            })
+            .finally(() => {
+                aiAssistHttp.transform((data) => data);
+                setAiProcessing(false);
+            });
+    };
+
+    const applyAiContent = (result: AnnouncementAiAssistResult) => {
+        form.setData((data) => ({
+            ...data,
+            title: result.title !== '' ? result.title : data.title,
+            body_html:
+                result.main_body !== '' ? result.main_body : data.body_html,
+            whatsapp_message:
+                result.whatsapp_message !== ''
+                    ? result.whatsapp_message
+                    : data.whatsapp_message,
+        }));
+    };
+
+    const whatsappPreviewPayload = channelPreviews?.whatsapp ?? null;
+    const emailPreviewPayload = channelPreviews?.email ?? null;
 
     const whatsappPreview = whatsappSelected ? (
-        <WhatsAppDocumentTemplatePreview
-            templateName={
-                options.whatsapp_template?.meta_name ??
-                'employee_announcement_notice'
-            }
-            templateLanguage={options.whatsapp_template?.meta_language ?? 'en'}
-            bodyText={whatsappPreviewText}
-            headerType="none"
-            accountName={options.company_name || 'Company'}
-            hint="Live preview of the approved Meta template."
-        />
+        whatsappPreviewPayload?.available === false ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                {whatsappPreviewPayload.message ??
+                    'WhatsApp template is not configured.'}
+            </div>
+        ) : (
+            <WhatsAppDocumentTemplatePreview
+                templateName={
+                    whatsappPreviewPayload?.template_name ??
+                    selectedWhatsAppTemplate?.meta_name ??
+                    'announcement'
+                }
+                templateLanguage={
+                    whatsappPreviewPayload?.template_language ??
+                    selectedWhatsAppTemplate?.meta_language ??
+                    'en'
+                }
+                bodyText={whatsappPreviewPayload?.body_text ?? ''}
+                headerType={
+                    (whatsappPreviewPayload?.header_type as
+                        | 'document'
+                        | 'text'
+                        | 'none'
+                        | undefined) ??
+                    (selectedWhatsAppTemplate?.header_type as
+                        | 'document'
+                        | 'text'
+                        | 'none'
+                        | undefined) ??
+                    'none'
+                }
+                headerText={whatsappPreviewPayload?.header_text ?? ''}
+                accountName={options.company_name || 'Company'}
+                hint={
+                    channelPreviewLoading
+                        ? 'Refreshing exact production preview…'
+                        : 'Exact preview from the production WhatsApp builder.'
+                }
+            />
+        )
     ) : null;
 
     const emailPreview = emailSelected ? (
-        <EmailPreview
-            subject={emailPreviewData.subject}
-            html={emailPreviewData.html}
-            accountName={options.company_name || 'Company'}
-            hint="Live preview of the email that will be sent."
-        />
+        emailPreviewPayload ? (
+            <EmailPreview
+                subject={emailPreviewPayload.subject}
+                html={emailPreviewPayload.html}
+                accountName={options.company_name || 'Company'}
+                hint={
+                    channelPreviewLoading
+                        ? 'Refreshing exact production preview…'
+                        : 'Exact preview from the production email renderer.'
+                }
+            />
+        ) : (
+            <div className="rounded-xl border border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+                {channelPreviewLoading
+                    ? 'Loading email preview…'
+                    : 'Enter a title and body to preview the email.'}
+            </div>
+        )
     ) : null;
 
     return (
@@ -1214,7 +1428,24 @@ export default function AnnouncementFormPage({
                                     <FileText className="size-4 text-primary" />
                                 }
                                 title="Message content"
-                                description="Title and body are shared across channels. WhatsApp uses a Meta template filled from these fields."
+                                description="Title and body are shared across channels. Customize WhatsApp text and template when WhatsApp is selected."
+                                headerRight={
+                                    can.create || can.update ? (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                setAiError(null);
+                                                setAiResult(null);
+                                                setAiDialogOpen(true);
+                                            }}
+                                        >
+                                            <Sparkles className="size-4" />
+                                            AI Assist
+                                        </Button>
+                                    ) : null
+                                }
                             >
                                 <div className="space-y-5">
                                     <div className="space-y-2">
@@ -1356,11 +1587,147 @@ export default function AnnouncementFormPage({
                                         <div className="space-y-4 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.04] p-4">
                                             <div className="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
                                                 <MessageCircle className="size-4" />
-                                                WhatsApp options
+                                                WhatsApp
                                             </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="whatsapp_template_id">
+                                                    Template
+                                                </Label>
+                                                <Select
+                                                    value={
+                                                        form.data
+                                                            .whatsapp_template_id
+                                                            ? String(
+                                                                  form.data
+                                                                      .whatsapp_template_id,
+                                                              )
+                                                            : undefined
+                                                    }
+                                                    onValueChange={(value) =>
+                                                        form.setData(
+                                                            'whatsapp_template_id',
+                                                            Number(value),
+                                                        )
+                                                    }
+                                                >
+                                                    <SelectTrigger id="whatsapp_template_id">
+                                                        <SelectValue placeholder="Select a WhatsApp template" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {options.whatsapp_templates.map(
+                                                            (template) => (
+                                                                <SelectItem
+                                                                    key={
+                                                                        template.id
+                                                                    }
+                                                                    value={String(
+                                                                        template.id,
+                                                                    )}
+                                                                >
+                                                                    <div className="flex flex-col items-start">
+                                                                        <span>
+                                                                            {
+                                                                                template.label
+                                                                            }
+                                                                        </span>
+                                                                        <span className="text-xs text-muted-foreground">
+                                                                            {
+                                                                                template.meta_name
+                                                                            }{' '}
+                                                                            ·{' '}
+                                                                            {
+                                                                                template.meta_language
+                                                                            }
+                                                                        </span>
+                                                                    </div>
+                                                                </SelectItem>
+                                                            ),
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
+                                                <InputError
+                                                    message={
+                                                        form.errors
+                                                            .whatsapp_template_id
+                                                    }
+                                                />
+                                                {pendingSuggestedTemplateId &&
+                                                pendingSuggestedTemplateId !==
+                                                    form.data
+                                                        .whatsapp_template_id ? (
+                                                    <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-sm">
+                                                        <p className="font-medium">
+                                                            Suggested template
+                                                            ready to apply
+                                                        </p>
+                                                        <div className="mt-2 flex flex-wrap gap-2">
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    form.setData(
+                                                                        'whatsapp_template_id',
+                                                                        pendingSuggestedTemplateId,
+                                                                    );
+                                                                    setPendingSuggestedTemplateId(
+                                                                        null,
+                                                                    );
+                                                                }}
+                                                            >
+                                                                Use suggestion
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() =>
+                                                                    setPendingSuggestedTemplateId(
+                                                                        null,
+                                                                    )
+                                                                }
+                                                            >
+                                                                Keep current
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ) : null}
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="whatsapp_message">
+                                                    WhatsApp message{' '}
+                                                    <span className="text-xs font-normal text-muted-foreground">
+                                                        optional
+                                                    </span>
+                                                </Label>
+                                                <Textarea
+                                                    id="whatsapp_message"
+                                                    rows={3}
+                                                    maxLength={500}
+                                                    placeholder="Leave blank to derive from the announcement body"
+                                                    value={
+                                                        form.data
+                                                            .whatsapp_message
+                                                    }
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'whatsapp_message',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        form.errors
+                                                            .whatsapp_message
+                                                    }
+                                                />
+                                            </div>
+
                                             <div className="space-y-2">
                                                 <Label htmlFor="whatsapp_link">
-                                                    View link{' '}
+                                                    Link{' '}
                                                     <span className="text-xs font-normal text-muted-foreground">
                                                         optional
                                                     </span>
@@ -1381,9 +1748,11 @@ export default function AnnouncementFormPage({
                                                     }
                                                 />
                                                 <p className="text-xs text-muted-foreground">
-                                                    Fills Meta template view
-                                                    link. Leave empty to send
-                                                    with N/A.
+                                                    Appended to the WhatsApp
+                                                    message for Title + Message
+                                                    templates. Legacy templates
+                                                    still use a dedicated link
+                                                    parameter.
                                                 </p>
                                                 <InputError
                                                     message={
@@ -1860,6 +2229,23 @@ export default function AnnouncementFormPage({
                     result={testResult}
                     error={testError}
                     onSubmit={handleSendTest}
+                />
+                <AnnouncementAiAssistDialog
+                    open={aiDialogOpen}
+                    onOpenChange={setAiDialogOpen}
+                    available={options.ai_assist_available}
+                    processing={aiProcessing}
+                    error={aiError}
+                    result={aiResult}
+                    onRun={runAiAssist}
+                    onApplyContent={applyAiContent}
+                    onUseSuggestedTemplate={(templateId) => {
+                        form.setData('whatsapp_template_id', templateId);
+                        setPendingSuggestedTemplateId(null);
+                    }}
+                    onKeepCurrentTemplate={() =>
+                        setPendingSuggestedTemplateId(null)
+                    }
                 />
             </Main>
         </>

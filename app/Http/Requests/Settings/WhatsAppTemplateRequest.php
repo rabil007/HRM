@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Enums\AnnouncementWhatsAppPayloadProfile;
+use App\Enums\AnnouncementWhatsAppTemplatePurpose;
 use App\Enums\WhatsAppTemplateCategory;
 use App\Enums\WhatsAppTemplateHeaderType;
 use App\Support\Platform\PlatformAuthorization;
@@ -33,11 +35,30 @@ abstract class WhatsAppTemplateRequest extends FormRequest
             'meta_name' => ['required', 'string', 'max:255', 'regex:/^[a-z0-9_]+$/'],
             'meta_language' => ['required', 'string', 'max:16', 'regex:/^[a-z]{2}(_[A-Z]{2})?$/'],
             'header_type' => ['required', Rule::enum(WhatsAppTemplateHeaderType::class)],
+            'payload_profile' => [
+                'nullable',
+                Rule::enum(AnnouncementWhatsAppPayloadProfile::class),
+                Rule::requiredIf(fn (): bool => $this->input('category') === WhatsAppTemplateCategory::Announcement->value),
+            ],
+            'purpose' => [
+                'nullable',
+                Rule::enum(AnnouncementWhatsAppTemplatePurpose::class),
+            ],
             'body_preview' => ['required', 'string', 'max:1024'],
             'is_default' => ['required', 'boolean'],
             'enabled' => ['required', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('category') !== WhatsAppTemplateCategory::Announcement->value) {
+            $this->merge([
+                'payload_profile' => null,
+                'purpose' => null,
+            ]);
+        }
     }
 
     /** @return array<string, string> */
@@ -47,6 +68,7 @@ abstract class WhatsAppTemplateRequest extends FormRequest
             'slug.regex' => 'Use lowercase letters, numbers, and underscores only.',
             'meta_name.regex' => 'Meta template name must use lowercase letters, numbers, and underscores only.',
             'meta_language.regex' => 'Use a Meta locale code such as en or en_US.',
+            'payload_profile.required' => 'Announcement templates require a payload profile.',
         ];
     }
 }

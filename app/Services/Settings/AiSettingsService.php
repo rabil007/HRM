@@ -43,6 +43,15 @@ class AiSettingsService
             return false;
         }
 
+        return $this->isProviderConfigured();
+    }
+
+    /**
+     * Whether the selected Application AI provider has usable credentials.
+     * Independent of the Smart Employee Search enable toggle.
+     */
+    public function isProviderConfigured(): bool
+    {
         try {
             $this->runtimeConfig();
         } catch (EmployeeSmartSearchUnavailableException) {

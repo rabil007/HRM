@@ -1,8 +1,6 @@
 <?php
 
 use App\Enums\AnnouncementStatus;
-use App\Enums\WhatsAppTemplateCategory;
-use App\Enums\WhatsAppTemplateHeaderType;
 use App\Jobs\DeliverAnnouncementWebPushJob;
 use App\Mail\AnnouncementMail;
 use App\Models\Announcement;
@@ -13,7 +11,6 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\User;
-use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\BuildAnnouncementEmailContent;
 use App\Support\Announcements\MaskAnnouncementContact;
@@ -63,24 +60,6 @@ function makeAnnouncementSendTestFixtures(array $employeeOverrides = []): array
     ], $employeeOverrides));
 
     return compact('user', 'company', 'employee');
-}
-
-function ensureAnnouncementWhatsAppTemplate(): WhatsAppTemplate
-{
-    return WhatsAppTemplate::query()->updateOrCreate(
-        ['slug' => 'announcement'],
-        [
-            'label' => 'Announcement',
-            'category' => WhatsAppTemplateCategory::General,
-            'meta_name' => 'announcement',
-            'meta_language' => 'en_US',
-            'header_type' => WhatsAppTemplateHeaderType::None,
-            'body_preview' => '{{1}} — {{2}}: {{3}}. Priority: {{4}}. Open: {{5}}',
-            'is_default' => true,
-            'enabled' => true,
-            'sort_order' => 1,
-        ],
-    );
 }
 
 /**

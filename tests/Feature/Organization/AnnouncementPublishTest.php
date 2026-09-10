@@ -3,6 +3,8 @@
 use App\Enums\AnnouncementChannel;
 use App\Enums\AnnouncementDeliveryStatus;
 use App\Enums\AnnouncementStatus;
+use App\Enums\AnnouncementWhatsAppPayloadProfile;
+use App\Enums\AnnouncementWhatsAppTemplatePurpose;
 use App\Enums\WhatsAppTemplateCategory;
 use App\Enums\WhatsAppTemplateHeaderType;
 use App\Jobs\DeliverAnnouncementEmailJob;
@@ -182,10 +184,12 @@ test('email is queued individually and whatsapp failure does not block email', f
         ['slug' => 'announcement'],
         [
             'label' => 'Announcement',
-            'category' => WhatsAppTemplateCategory::General,
+            'category' => WhatsAppTemplateCategory::Announcement,
             'meta_name' => 'announcement',
             'meta_language' => 'en',
             'header_type' => WhatsAppTemplateHeaderType::None,
+            'payload_profile' => AnnouncementWhatsAppPayloadProfile::LegacyV1,
+            'purpose' => AnnouncementWhatsAppTemplatePurpose::General,
             'body_preview' => 'Announcement',
             'is_default' => true,
             'enabled' => true,

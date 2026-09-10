@@ -11,13 +11,17 @@ use App\Models\Announcement;
 use App\Models\AnnouncementAudience;
 use App\Models\User;
 use App\Support\Announcements\ResolveAnnouncementAudience;
+use App\Support\Announcements\ResolveAnnouncementWhatsAppTemplate;
 use App\Support\Announcements\SanitizeAnnouncementHtml;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class PersistAnnouncement
 {
-    public function __construct(private ResolveAnnouncementAudience $resolveAudience) {}
+    public function __construct(
+        private ResolveAnnouncementAudience $resolveAudience,
+        private ResolveAnnouncementWhatsAppTemplate $resolveWhatsAppTemplate,
+    ) {}
 
     /**
      * @param  array{
@@ -27,6 +31,8 @@ final class PersistAnnouncement
      *     priority: string,
      *     channels: list<string>,
      *     whatsapp_link?: string|null,
+     *     whatsapp_message?: string|null,
+     *     whatsapp_template_id?: int|null,
      *     audiences: list<array{type: string, id?: int|null}>,
      *     expires_at?: string|null,
      *     publish_mode: string,
@@ -37,8 +43,9 @@ final class PersistAnnouncement
     {
         $this->resolveAudience->assertAudiencesBelongToCompany($companyId, $data['audiences']);
         $data['audiences'] = $this->resolveAudience->normalizeAudiences($companyId, $data['audiences']);
+        $whatsAppFields = $this->whatsAppFields($data);
 
-        return DB::transaction(function () use ($companyId, $user, $data): Announcement {
+        return DB::transaction(function () use ($companyId, $user, $data, $whatsAppFields): Announcement {
             $status = $this->statusForPublishMode($data['publish_mode']);
             $channels = array_values($data['channels']);
 
@@ -50,9 +57,9 @@ final class PersistAnnouncement
                 'priority' => AnnouncementPriority::from($data['priority']),
                 'status' => $status,
                 'channels' => $channels,
-                'whatsapp_link' => in_array(AnnouncementChannel::WhatsApp->value, $channels, true)
-                    ? ($data['whatsapp_link'] ?? null)
-                    : null,
+                'whatsapp_link' => $whatsAppFields['whatsapp_link'],
+                'whatsapp_message' => $whatsAppFields['whatsapp_message'],
+                'whatsapp_template_id' => $whatsAppFields['whatsapp_template_id'],
                 'scheduled_at' => $status === AnnouncementStatus::Scheduled ? $data['scheduled_at'] : null,
                 'expires_at' => $data['expires_at'] ?? null,
                 'created_by' => $user->id,
@@ -60,7 +67,7 @@ final class PersistAnnouncement
 
             $this->syncAudiences($announcement, $companyId, $data['audiences']);
 
-            return $announcement->fresh(['audiences', 'attachments', 'creator']) ?? $announcement;
+            return $announcement->fresh(['audiences', 'attachments', 'creator', 'whatsappTemplate']) ?? $announcement;
         });
     }
 
@@ -72,6 +79,8 @@ final class PersistAnnouncement
      *     priority: string,
      *     channels: list<string>,
      *     whatsapp_link?: string|null,
+     *     whatsapp_message?: string|null,
+     *     whatsapp_template_id?: int|null,
      *     audiences: list<array{type: string, id?: int|null}>,
      *     expires_at?: string|null,
      *     publish_mode: string,
@@ -88,8 +97,9 @@ final class PersistAnnouncement
 
         $this->resolveAudience->assertAudiencesBelongToCompany((int) $announcement->company_id, $data['audiences']);
         $data['audiences'] = $this->resolveAudience->normalizeAudiences((int) $announcement->company_id, $data['audiences']);
+        $whatsAppFields = $this->whatsAppFields($data);
 
-        return DB::transaction(function () use ($announcement, $data): Announcement {
+        return DB::transaction(function () use ($announcement, $data, $whatsAppFields): Announcement {
             $status = $this->statusForPublishMode($data['publish_mode']);
             $channels = array_values($data['channels']);
 
@@ -102,9 +112,9 @@ final class PersistAnnouncement
                     ? $status
                     : $announcement->status,
                 'channels' => $channels,
-                'whatsapp_link' => in_array(AnnouncementChannel::WhatsApp->value, $channels, true)
-                    ? ($data['whatsapp_link'] ?? null)
-                    : null,
+                'whatsapp_link' => $whatsAppFields['whatsapp_link'],
+                'whatsapp_message' => $whatsAppFields['whatsapp_message'],
+                'whatsapp_template_id' => $whatsAppFields['whatsapp_template_id'],
                 'scheduled_at' => $status === AnnouncementStatus::Scheduled ? $data['scheduled_at'] : null,
                 'expires_at' => $data['expires_at'] ?? null,
             ]);
@@ -115,8 +125,49 @@ final class PersistAnnouncement
 
             $this->syncAudiences($announcement, (int) $announcement->company_id, $data['audiences']);
 
-            return $announcement->fresh(['audiences', 'attachments', 'creator']) ?? $announcement;
+            return $announcement->fresh(['audiences', 'attachments', 'creator', 'whatsappTemplate']) ?? $announcement;
         });
+    }
+
+    /**
+     * @param  array{
+     *     channels: list<string>,
+     *     whatsapp_link?: string|null,
+     *     whatsapp_message?: string|null,
+     *     whatsapp_template_id?: int|null
+     * }  $data
+     * @return array{whatsapp_link: string|null, whatsapp_message: string|null, whatsapp_template_id: int|null}
+     */
+    private function whatsAppFields(array $data): array
+    {
+        $channels = array_values(array_map('strval', $data['channels'] ?? []));
+        $usesWhatsApp = in_array(AnnouncementChannel::WhatsApp->value, $channels, true);
+
+        if (! $usesWhatsApp) {
+            return [
+                'whatsapp_link' => null,
+                'whatsapp_message' => null,
+                'whatsapp_template_id' => null,
+            ];
+        }
+
+        $templateId = array_key_exists('whatsapp_template_id', $data) && $data['whatsapp_template_id'] !== null
+            ? (int) $data['whatsapp_template_id']
+            : null;
+
+        if ($templateId !== null && $this->resolveWhatsAppTemplate->findEnabledAnnouncementTemplate($templateId) === null) {
+            throw ValidationException::withMessages([
+                'whatsapp_template_id' => 'Select an enabled Announcement WhatsApp template.',
+            ]);
+        }
+
+        $message = isset($data['whatsapp_message']) ? trim((string) $data['whatsapp_message']) : '';
+
+        return [
+            'whatsapp_link' => $data['whatsapp_link'] ?? null,
+            'whatsapp_message' => $message !== '' ? $message : null,
+            'whatsapp_template_id' => $templateId,
+        ];
     }
 
     /**

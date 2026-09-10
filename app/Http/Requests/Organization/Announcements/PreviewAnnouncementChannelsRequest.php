@@ -11,11 +11,16 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class SendAnnouncementTestRequest extends FormRequest
+class PreviewAnnouncementChannelsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user()?->can('announcements.publish');
+        $user = $this->user();
+
+        return $user !== null && (
+            $user->can('announcements.create')
+            || $user->can('announcements.update')
+        );
     }
 
     /**
@@ -28,6 +33,8 @@ class SendAnnouncementTestRequest extends FormRequest
             'body_html' => ['required', 'string'],
             'category' => ['required', Rule::in(AnnouncementCategory::values())],
             'priority' => ['required', Rule::in(AnnouncementPriority::values())],
+            'channels' => ['required', 'array', 'min:1'],
+            'channels.*' => ['required', Rule::in(AnnouncementChannel::values())],
             'whatsapp_link' => [
                 'nullable',
                 'string',
@@ -49,25 +56,11 @@ class SendAnnouncementTestRequest extends FormRequest
                         ->whereNull('deleted_at');
                 }),
             ],
-            'channels' => ['required', 'array', 'min:1'],
-            'channels.*' => [
-                'required',
-                Rule::in([
-                    AnnouncementChannel::Email->value,
-                    AnnouncementChannel::WhatsApp->value,
-                ]),
-            ],
-            'announcement_id' => ['nullable', 'integer', 'min:1'],
         ];
     }
 
     protected function prepareForValidation(): void
     {
-        // Never trust client-supplied destinations or company identity.
-        $this->request->remove('email');
-        $this->request->remove('phone');
-        $this->request->remove('user_id');
-        $this->request->remove('employee_id');
         $this->request->remove('company_id');
 
         $channels = $this->input('channels');

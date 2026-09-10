@@ -58,6 +58,10 @@ export type WhatsAppTemplateItem = {
     meta_language: string;
     header_type: string;
     header_type_label: string;
+    payload_profile: string | null;
+    payload_profile_label: string | null;
+    purpose: string | null;
+    purpose_label: string | null;
     body_preview: string;
     is_default: boolean;
     enabled: boolean;
@@ -70,6 +74,8 @@ type Props = {
     templates: WhatsAppTemplateItem[];
     categories: Option[];
     header_types: Option[];
+    payload_profiles: Option[];
+    purposes: Option[];
     language_options: Option[];
     meta_template_manager_url: string;
     can: { create: boolean; update: boolean; delete: boolean };
@@ -82,6 +88,8 @@ type FormState = {
     meta_name: string;
     meta_language: string;
     header_type: string;
+    payload_profile: string;
+    purpose: string;
     body_preview: string;
     is_default: boolean;
     enabled: boolean;
@@ -94,11 +102,16 @@ const emptyForm = (category = 'document'): FormState => ({
     category,
     meta_name: '',
     meta_language: 'en',
-    header_type: 'document',
+    header_type: category === 'announcement' ? 'text' : 'document',
+    payload_profile:
+        category === 'announcement' ? 'announcement_title_body_v2' : '',
+    purpose: category === 'announcement' ? 'general' : '',
     body_preview:
-        'Hello {{name}}, Please find the attached document from Overseas Marine Services. Thank you.',
+        category === 'announcement'
+            ? "Here's an update from OMS:\n\n{{1}}\n\nThank you."
+            : 'Hello {{name}}, Please find the attached document from Overseas Marine Services. Thank you.',
     is_default: false,
-    enabled: true,
+    enabled: false,
     sort_order: 0,
 });
 
@@ -106,6 +119,8 @@ export default function WhatsAppTemplatesSettings({
     templates,
     categories,
     header_types,
+    payload_profiles,
+    purposes,
     language_options,
     meta_template_manager_url,
     can,
@@ -182,6 +197,8 @@ export default function WhatsAppTemplatesSettings({
             meta_name: template.meta_name,
             meta_language: template.meta_language,
             header_type: template.header_type,
+            payload_profile: template.payload_profile ?? '',
+            purpose: template.purpose ?? '',
             body_preview: template.body_preview,
             is_default: template.is_default,
             enabled: template.enabled,
@@ -505,9 +522,15 @@ export default function WhatsAppTemplatesSettings({
                     >
                         <Select
                             value={form.data.category}
-                            onValueChange={(value) =>
-                                form.setData('category', value)
-                            }
+                            onValueChange={(value) => {
+                                if (editing) {
+                                    form.setData('category', value);
+
+                                    return;
+                                }
+
+                                form.setData(emptyForm(value));
+                            }}
                             disabled={!canMutateForm}
                         >
                             <SelectTrigger
@@ -529,6 +552,72 @@ export default function WhatsAppTemplatesSettings({
                         </Select>
                     </MasterDataField>
                 </div>
+
+                {form.data.category === 'announcement' ? (
+                    <div className="grid gap-5 sm:grid-cols-2">
+                        <MasterDataField
+                            id="payload_profile"
+                            label="Payload profile"
+                            error={form.errors.payload_profile}
+                        >
+                            <Select
+                                value={form.data.payload_profile}
+                                onValueChange={(value) =>
+                                    form.setData('payload_profile', value)
+                                }
+                                disabled={!canMutateForm}
+                            >
+                                <SelectTrigger
+                                    id="payload_profile"
+                                    className={masterDataInputClass}
+                                >
+                                    <SelectValue placeholder="Select profile" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {payload_profiles.map((option) => (
+                                        <SelectItem
+                                            key={option.value}
+                                            value={option.value}
+                                        >
+                                            {option.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </MasterDataField>
+
+                        <MasterDataField
+                            id="purpose"
+                            label="Purpose (AI suggestion)"
+                            error={form.errors.purpose}
+                        >
+                            <Select
+                                value={form.data.purpose || undefined}
+                                onValueChange={(value) =>
+                                    form.setData('purpose', value)
+                                }
+                                disabled={!canMutateForm}
+                            >
+                                <SelectTrigger
+                                    id="purpose"
+                                    className={masterDataInputClass}
+                                >
+                                    <SelectValue placeholder="Optional purpose" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {purposes.map((option) => (
+                                        <SelectItem
+                                            key={option.value}
+                                            value={option.value}
+                                        >
+                                            {option.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </MasterDataField>
+                    </div>
+                ) : null}
 
                 <div className="grid gap-5 sm:grid-cols-2">
                     <MasterDataField

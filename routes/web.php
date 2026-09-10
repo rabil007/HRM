@@ -25,10 +25,12 @@ use App\Http\Controllers\Notifications\OpenDocumentGenerationRunNotificationCont
 use App\Http\Controllers\Notifications\StorePushSubscriptionController;
 use App\Http\Controllers\Notifications\TestPushSubscriptionController;
 use App\Http\Controllers\Organization\ActivityLogController;
+use App\Http\Controllers\Organization\Announcements\AnnouncementAiAssistController;
 use App\Http\Controllers\Organization\Announcements\AnnouncementAttachmentController;
 use App\Http\Controllers\Organization\Announcements\AnnouncementController;
 use App\Http\Controllers\Organization\Announcements\CancelAnnouncementController;
 use App\Http\Controllers\Organization\Announcements\EmployeeAnnouncementController;
+use App\Http\Controllers\Organization\Announcements\PreviewAnnouncementChannelsController;
 use App\Http\Controllers\Organization\Announcements\PreviewAnnouncementRecipientsController;
 use App\Http\Controllers\Organization\Announcements\PublishAnnouncementController;
 use App\Http\Controllers\Organization\Announcements\RetryAnnouncementDeliveriesController;
@@ -399,6 +401,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/announcements/preview-recipients', PreviewAnnouncementRecipientsController::class)
         ->middleware('can:announcements.create')
         ->name('organization.announcements.preview-recipients');
+    Route::post('organization/announcements/preview-channels', PreviewAnnouncementChannelsController::class)
+        ->middleware('throttle:30,1')
+        ->name('organization.announcements.preview-channels');
+    Route::post('organization/announcements/ai-assist', AnnouncementAiAssistController::class)
+        ->middleware('throttle:20,1')
+        ->name('organization.announcements.ai-assist');
     Route::post('organization/announcements/send-test', SendAnnouncementTestController::class)
         ->middleware(['can:announcements.publish', 'throttle:5,1'])
         ->name('organization.announcements.send-test');

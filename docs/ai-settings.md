@@ -40,6 +40,8 @@ An unsupported value stored in `ai_provider` does not fall back to OpenAI. Smart
 
 Smart Search is a fast, automatic filter box. Interpretation runs after a short debounce (~450ms) while typing, or immediately when the user presses Enter. There is no Interpret button and no Apply Filters confirmation. The request is not made on page load, on every keystroke, or for an empty value. Prompts of two or more characters (for example `AB`) remain valid. Enter cancels a pending debounce. Duplicate in-flight prompts are skipped. The latest request wins; an aborted or stale browser response cannot overwrite a newer interpretation.
 
+Announcement **AI Assist** is a separate product capability. It reuses the same Application AI provider credentials via `AiSettingsService::isProviderConfigured()` / `applySelectedProviderToRuntime()`, and does **not** require Smart Employee Search to be enabled. See [Announcements](./announcements.md#ai-assist).
+
 Architecture:
 
 ```text

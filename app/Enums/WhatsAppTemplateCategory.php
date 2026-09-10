@@ -7,6 +7,7 @@ enum WhatsAppTemplateCategory: string
     case Document = 'document';
     case Payroll = 'payroll';
     case General = 'general';
+    case Announcement = 'announcement';
 
     public function label(): string
     {
@@ -14,6 +15,7 @@ enum WhatsAppTemplateCategory: string
             self::Document => 'Document',
             self::Payroll => 'Payroll',
             self::General => 'General',
+            self::Announcement => 'Announcement',
         };
     }
 

@@ -5,9 +5,12 @@ namespace App\Support\Announcements;
 use App\Models\Announcement;
 use App\Models\WhatsAppTemplate;
 
+/**
+ * @deprecated Prefer BuildAnnouncementWhatsAppContent. Kept as a thin alias for existing call sites.
+ */
 final class BuildAnnouncementWhatsAppTemplatePayload
 {
-    public function __construct(private ResolveAnnouncementWhatsAppTemplate $resolveTemplate) {}
+    public function __construct(private BuildAnnouncementWhatsAppContent $content) {}
 
     /**
      * @return array{
@@ -15,40 +18,17 @@ final class BuildAnnouncementWhatsAppTemplatePayload
      *     components: list<array{type: string, parameters: list<array{type: string, text: string}>}>
      * }|null
      */
-    public function handle(Announcement $announcement): ?array
+    public function handle(Announcement $announcement, ?int $templateId = null): ?array
     {
-        $template = $this->resolveTemplate->handle();
+        $built = $this->content->handle($announcement, $templateId);
 
-        if ($template === null) {
+        if ($built === null) {
             return null;
         }
 
-        $announcement->loadMissing('company:id,name');
-
-        $companyName = AnnouncementWhatsAppMessage::templateParameter(
-            (string) ($announcement->company?->name ?? config('app.name')),
-        );
-        $title = AnnouncementWhatsAppMessage::templateParameter((string) $announcement->title);
-        $shortSummary = AnnouncementWhatsAppMessage::for($announcement);
-        $priority = AnnouncementWhatsAppMessage::templateParameter($announcement->priority->label());
-        $linkParameter = AnnouncementWhatsAppMessage::templateParameter(
-            AnnouncementWhatsAppMessage::viewLink($announcement),
-        );
-
         return [
-            'template' => $template,
-            'components' => [
-                [
-                    'type' => 'body',
-                    'parameters' => [
-                        ['type' => 'text', 'text' => $companyName],
-                        ['type' => 'text', 'text' => $title],
-                        ['type' => 'text', 'text' => $shortSummary],
-                        ['type' => 'text', 'text' => $priority],
-                        ['type' => 'text', 'text' => $linkParameter],
-                    ],
-                ],
-            ],
+            'template' => $built['template'],
+            'components' => $built['components'],
         ];
     }
 }

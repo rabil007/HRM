@@ -25,6 +25,19 @@ export type AnnouncementCan = {
     download_attachments: boolean;
 };
 
+export type AnnouncementWhatsAppTemplateOption = {
+    id: number;
+    label: string;
+    slug: string;
+    meta_name: string;
+    meta_language: string;
+    payload_profile: string;
+    purpose: string | null;
+    body_preview: string;
+    header_type: string;
+    is_legacy: boolean;
+};
+
 export type AnnouncementFormOptions = {
     company_name: string;
     categories: { value: string; label: string }[];
@@ -33,11 +46,8 @@ export type AnnouncementFormOptions = {
     departments: { id: number; name: string; parent_id?: number | null }[];
     positions: { id: number; name: string }[];
     employees: { id: number; name: string; employee_no: string | null }[];
-    whatsapp_template: {
-        meta_name: string;
-        meta_language: string;
-        body_preview: string;
-    } | null;
+    whatsapp_templates: AnnouncementWhatsAppTemplateOption[];
+    ai_assist_available: boolean;
     test_destinations?: AnnouncementTestDestinations | null;
 };
 
@@ -73,6 +83,8 @@ export type AnnouncementFormData = {
     priority: string;
     channels: string[];
     whatsapp_link: string;
+    whatsapp_message: string;
+    whatsapp_template_id: number | null;
     audiences: { type: string; id: number | null }[];
     expires_at: string;
     publish_mode: 'draft' | 'schedule' | 'send_now';
@@ -88,6 +100,8 @@ export type AnnouncementFormPayload = {
     status: string;
     channels: string[];
     whatsapp_link: string;
+    whatsapp_message: string;
+    whatsapp_template_id: number | null;
     expires_at: string | null;
     scheduled_at: string | null;
     audiences: { type: string; id: number | null }[];
@@ -112,11 +126,16 @@ export type AnnouncementChannelPreviews = {
         html: string;
     } | null;
     whatsapp: {
+        template_id: number | null;
+        template_label: string | null;
         template_name: string;
         template_language: string;
+        payload_profile: string | null;
+        header_type: string;
+        header_text: string | null;
         body_text: string;
-        company_name: string;
-        view_link: string;
+        resolved_message: string | null;
+        view_link: string | null;
         available?: boolean;
         message?: string | null;
     } | null;
@@ -126,6 +145,8 @@ export type AnnouncementShow = AnnouncementListItem & {
     body_html: string;
     expires_at: string | null;
     whatsapp_link: string | null;
+    whatsapp_message?: string | null;
+    whatsapp_template_id?: number | null;
     published_by: string | null;
     audiences: { type: string; id: number | null }[];
     attachments: {
@@ -161,4 +182,36 @@ export type RecipientPreview = {
     whatsapp_available: number;
     missing_email: number;
     missing_phone: number;
+};
+
+export type AnnouncementAiAssistAction =
+    | 'generate'
+    | 'improve'
+    | 'make_professional'
+    | 'make_friendly'
+    | 'shorten'
+    | 'fix_grammar'
+    | 'create_whatsapp_version'
+    | 'suggest_template';
+
+export type AnnouncementAiAssistResult = {
+    title: string;
+    main_body: string;
+    whatsapp_message: string;
+    template_purpose: string | null;
+    suggested_template: {
+        id: number;
+        label: string;
+        purpose: string;
+    } | null;
+};
+
+export type AnnouncementAiAssistResponse = {
+    ok: boolean;
+    result: AnnouncementAiAssistResult;
+};
+
+export type AnnouncementChannelPreviewResponse = {
+    ok: boolean;
+    channel_previews: AnnouncementChannelPreviews;
 };

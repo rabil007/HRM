@@ -2,9 +2,13 @@
 
 namespace App\Models;
 
+use App\Enums\AnnouncementWhatsAppPayloadProfile;
+use App\Enums\AnnouncementWhatsAppTemplatePurpose;
 use App\Enums\WhatsAppTemplateCategory;
 use App\Enums\WhatsAppTemplateHeaderType;
+use Database\Factories\WhatsAppTemplateFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use InvalidArgumentException;
@@ -12,6 +16,9 @@ use RuntimeException;
 
 class WhatsAppTemplate extends Model
 {
+    /** @use HasFactory<WhatsAppTemplateFactory> */
+    use HasFactory;
+
     use SoftDeletes;
 
     protected $table = 'whatsapp_templates';
@@ -23,6 +30,8 @@ class WhatsAppTemplate extends Model
         'meta_name',
         'meta_language',
         'header_type',
+        'payload_profile',
+        'purpose',
         'body_preview',
         'is_default',
         'enabled',
@@ -40,6 +49,8 @@ class WhatsAppTemplate extends Model
             'sort_order' => 'integer',
             'category' => WhatsAppTemplateCategory::class,
             'header_type' => WhatsAppTemplateHeaderType::class,
+            'payload_profile' => AnnouncementWhatsAppPayloadProfile::class,
+            'purpose' => AnnouncementWhatsAppTemplatePurpose::class,
         ];
     }
 
@@ -129,6 +140,10 @@ class WhatsAppTemplate extends Model
             'meta_language' => $this->meta_language,
             'header_type' => $this->header_type->value,
             'header_type_label' => $this->header_type->label(),
+            'payload_profile' => $this->payload_profile?->value,
+            'payload_profile_label' => $this->payload_profile?->label(),
+            'purpose' => $this->purpose?->value,
+            'purpose_label' => $this->purpose?->label(),
             'body_preview' => $this->body_preview,
             'is_default' => $this->is_default,
             'enabled' => $this->enabled,

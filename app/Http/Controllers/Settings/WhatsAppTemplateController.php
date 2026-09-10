@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Enums\AnnouncementWhatsAppPayloadProfile;
+use App\Enums\AnnouncementWhatsAppTemplatePurpose;
 use App\Enums\WhatsAppTemplateCategory;
 use App\Enums\WhatsAppTemplateHeaderType;
 use App\Http\Controllers\Controller;
@@ -42,6 +44,18 @@ class WhatsAppTemplateController extends Controller
                 ->map(fn (WhatsAppTemplateHeaderType $type) => [
                     'value' => $type->value,
                     'label' => $type->label(),
+                ])
+                ->values(),
+            'payload_profiles' => collect(AnnouncementWhatsAppPayloadProfile::cases())
+                ->map(fn (AnnouncementWhatsAppPayloadProfile $profile) => [
+                    'value' => $profile->value,
+                    'label' => $profile->label(),
+                ])
+                ->values(),
+            'purposes' => collect(AnnouncementWhatsAppTemplatePurpose::cases())
+                ->map(fn (AnnouncementWhatsAppTemplatePurpose $purpose) => [
+                    'value' => $purpose->value,
+                    'label' => $purpose->label(),
                 ])
                 ->values(),
             'language_options' => [

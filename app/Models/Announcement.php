@@ -70,6 +70,11 @@ class Announcement extends Model
         return $this->belongsTo(User::class, 'cancelled_by');
     }
 
+    public function whatsappTemplate(): BelongsTo
+    {
+        return $this->belongsTo(WhatsAppTemplate::class, 'whatsapp_template_id');
+    }
+
     public function audiences(): HasMany
     {
         return $this->hasMany(AnnouncementAudience::class);

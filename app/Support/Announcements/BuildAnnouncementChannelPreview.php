@@ -9,7 +9,7 @@ final class BuildAnnouncementChannelPreview
 {
     public function __construct(
         private BuildAnnouncementEmailContent $emailContent,
-        private ResolveAnnouncementWhatsAppTemplate $resolveWhatsAppTemplate,
+        private BuildAnnouncementWhatsAppContent $whatsAppContent,
     ) {}
 
     /**
@@ -17,10 +17,23 @@ final class BuildAnnouncementChannelPreview
      *     channels: list<string>,
      *     in_app: array{title: string, body_html: string, priority_label: string, category_label: string}|null,
      *     email: array{subject: string, html: string}|null,
-     *     whatsapp: array{template_name: string, template_language: string, body_text: string, company_name: string, view_link: string, available: bool, message: string|null}|null
+     *     whatsapp: array{
+     *         template_id: int|null,
+     *         template_label: string|null,
+     *         template_name: string,
+     *         template_language: string,
+     *         payload_profile: string|null,
+     *         header_type: string,
+     *         header_text: string|null,
+     *         body_text: string,
+     *         resolved_message: string|null,
+     *         view_link: string|null,
+     *         available: bool,
+     *         message: string|null
+     *     }|null
      * }
      */
-    public function handle(Announcement $announcement): array
+    public function handle(Announcement $announcement, ?int $whatsAppTemplateId = null): array
     {
         $announcement->loadMissing(['company:id,name', 'attachments']);
 
@@ -43,72 +56,8 @@ final class BuildAnnouncementChannelPreview
                 ? $this->emailContent->preview($announcement)
                 : null,
             'whatsapp' => in_array(AnnouncementChannel::WhatsApp->value, $channelSet, true)
-                ? $this->whatsappPreview($announcement)
+                ? $this->whatsAppContent->previewOrError($announcement, $whatsAppTemplateId)
                 : null,
-        ];
-    }
-
-    /**
-     * @return array{template_name: string, template_language: string, body_text: string, company_name: string, view_link: string, available: bool, message: string|null}
-     */
-    private function whatsappPreview(Announcement $announcement): array
-    {
-        $template = $this->resolveWhatsAppTemplate->handle();
-        $companyName = (string) ($announcement->company?->name ?? config('app.name'));
-        $message = AnnouncementWhatsAppMessage::for($announcement);
-        $priority = $announcement->priority->label();
-        $viewLink = AnnouncementWhatsAppMessage::viewLink($announcement);
-
-        if ($template === null) {
-            return [
-                'template_name' => ResolveAnnouncementWhatsAppTemplate::SLUG,
-                'template_language' => 'en',
-                'body_text' => '',
-                'company_name' => $companyName,
-                'view_link' => $viewLink,
-                'available' => false,
-                'message' => 'WhatsApp announcement template is not configured.',
-            ];
-        }
-
-        $bodyText = filled($template->body_preview)
-            ? str_replace(
-                [
-                    '{{company}}',
-                    '{{title}}',
-                    '{{message}}',
-                    '{{priority}}',
-                    '{{url}}',
-                    '{{1}}',
-                    '{{2}}',
-                    '{{3}}',
-                    '{{4}}',
-                    '{{5}}',
-                ],
-                [
-                    $companyName,
-                    $announcement->title,
-                    $message,
-                    $priority,
-                    $viewLink,
-                    $companyName,
-                    $announcement->title,
-                    $message,
-                    $priority,
-                    $viewLink,
-                ],
-                (string) $template->body_preview,
-            )
-            : "Hello,\nA company notice from {$companyName} is available for you.\n\nTitle: {$announcement->title}\nSummary: {$message}\nPriority: {$priority}\nView link: {$viewLink}";
-
-        return [
-            'template_name' => (string) $template->meta_name,
-            'template_language' => (string) $template->meta_language,
-            'body_text' => $bodyText,
-            'company_name' => $companyName,
-            'view_link' => $viewLink,
-            'available' => true,
-            'message' => null,
         ];
     }
 }

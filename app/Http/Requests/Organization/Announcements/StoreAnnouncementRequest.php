@@ -6,7 +6,9 @@ use App\Enums\AnnouncementAudienceType;
 use App\Enums\AnnouncementCategory;
 use App\Enums\AnnouncementChannel;
 use App\Enums\AnnouncementPriority;
+use App\Enums\WhatsAppTemplateCategory;
 use App\Support\Announcements\Actions\PersistAnnouncement;
+use App\Support\Announcements\AnnouncementWhatsAppMessage;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -36,6 +38,21 @@ class StoreAnnouncementRequest extends FormRequest
                 'url:http,https',
                 'max:2048',
             ],
+            'whatsapp_message' => [
+                'nullable',
+                'string',
+                'max:'.AnnouncementWhatsAppMessage::MAX_LENGTH,
+            ],
+            'whatsapp_template_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('whatsapp_templates', 'id')->where(function ($query): void {
+                    $query->where('category', WhatsAppTemplateCategory::Announcement->value)
+                        ->where('enabled', true)
+                        ->whereNotNull('payload_profile')
+                        ->whereNull('deleted_at');
+                }),
+            ],
             'audiences' => ['required', 'array', 'min:1'],
             'audiences.*.type' => ['required', Rule::in(AnnouncementAudienceType::values())],
             'audiences.*.id' => ['nullable', 'integer'],
@@ -50,7 +67,11 @@ class StoreAnnouncementRequest extends FormRequest
         $channels = array_values(array_map('strval', $this->input('channels', [])));
 
         if (! in_array(AnnouncementChannel::WhatsApp->value, $channels, true)) {
-            $this->merge(['whatsapp_link' => null]);
+            $this->merge([
+                'whatsapp_link' => null,
+                'whatsapp_message' => null,
+                'whatsapp_template_id' => null,
+            ]);
         }
     }
 
