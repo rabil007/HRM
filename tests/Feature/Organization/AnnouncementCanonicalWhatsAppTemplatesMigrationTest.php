@@ -4,6 +4,10 @@ use App\Enums\AnnouncementWhatsAppPayloadProfile;
 use App\Enums\AnnouncementWhatsAppTemplatePurpose;
 use App\Enums\WhatsAppTemplateCategory;
 use App\Enums\WhatsAppTemplateHeaderType;
+use App\Models\Announcement;
+use App\Models\Company;
+use App\Models\Country;
+use App\Models\Currency;
 use App\Models\WhatsAppTemplate;
 use Illuminate\Support\Facades\DB;
 
@@ -101,4 +105,58 @@ test('obsolete announcement purpose values can be normalized to null without enu
     expect($model->purpose)->toBeNull();
 
     $model->forceDelete();
+});
+
+test('canonical template migration down preserves referenced rows with safe purpose', function () {
+    $referenced = WhatsAppTemplate::query()->where('slug', 'announcement_action_required')->firstOrFail();
+    $unreferenced = WhatsAppTemplate::query()->where('slug', 'announcement_reminder')->firstOrFail();
+
+    expect($referenced->purpose)->toBe(AnnouncementWhatsAppTemplatePurpose::ActionRequired)
+        ->and($unreferenced->purpose)->toBe(AnnouncementWhatsAppTemplatePurpose::Reminder);
+
+    $code = 'RB'.fake()->unique()->numerify('##');
+    $country = Country::query()->create([
+        'code' => $code,
+        'name' => 'Rollbackland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+    $currency = Currency::query()->create([
+        'code' => $code,
+        'name' => 'Rollback Currency',
+        'symbol' => 'R$',
+        'is_active' => true,
+    ]);
+    $company = Company::query()->create([
+        'name' => 'Rollback Co',
+        'slug' => 'rollback-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $announcement = Announcement::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Referenced canonical template',
+        'body_html' => '<p>Keep this FK.</p>',
+        'category' => 'general',
+        'priority' => 'normal',
+        'status' => 'draft',
+        'channels' => ['whatsapp'],
+        'whatsapp_template_id' => $referenced->id,
+    ]);
+
+    $migration = require database_path('migrations/2026_09_10_140000_seed_canonical_announcement_whatsapp_templates.php');
+    $migration->down();
+
+    expect(DB::table('whatsapp_templates')->where('slug', 'announcement_action_required')->exists())->toBeTrue()
+        ->and(DB::table('whatsapp_templates')->where('slug', 'announcement_reminder')->exists())->toBeFalse()
+        ->and(DB::table('whatsapp_templates')->where('id', $referenced->id)->value('purpose'))->toBeNull()
+        ->and((bool) DB::table('whatsapp_templates')->where('id', $referenced->id)->value('is_default'))->toBeFalse()
+        ->and($announcement->fresh()->whatsapp_template_id)->toBe($referenced->id);
+
+    $migration->up();
 });

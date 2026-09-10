@@ -63,13 +63,14 @@ Resolved WhatsApp message:
 
 1. `whatsapp_message` when present
 2. otherwise plain text derived from canonical `body_html`
-3. optional `whatsapp_link` is **appended** to the body value for v2 (not a separate Meta variable)
+3. optional `whatsapp_link` is **appended** to the body value for **TitleBodyV2 only** (not a separate Meta variable)
 4. blank link does **not** send `N/A` for v2
-5. the optional URL is never partially truncated — only the message portion may be shortened to keep the full URL within the shared body max length; a URL that cannot fit is rejected with validation errors
+5. for TitleBodyV2, the optional URL is never partially truncated — only the message portion may be shortened to keep the full URL within the shared **500-character** body max length; a URL that cannot fit is rejected with validation errors
+6. **LegacyV1** keeps the URL as a separate fifth Meta body parameter and does **not** use the V2 combined 500-character message+link restriction (normal `url` / `max:2048` field rules still apply)
 
-Canonical Announcement content remains `title` + `body_html` (title still up to 255 for Email/In-app). Priority remains in the module for in-app/email/reporting, but is **not** included in the v2 WhatsApp payload. WhatsApp TitleBodyV2 uses a server-owned 60-character Meta text-header value derived from the title; Preview, Test Send, and Production share that value.
+Canonical Announcement content remains `title` + `body_html` (title still up to 255 for Email/In-app). Priority remains in the module for in-app/email/reporting, but is **not** included in the v2 WhatsApp payload. WhatsApp TitleBodyV2 uses a server-owned 60-character Meta text-header value derived from the title; Preview, Test Send, and Production share that value. The composer WhatsApp bubble is an approximate visual shell (newlines and basic `*bold*` / `_italic_` markers) around those exact dynamic values.
 
-Pending Meta review templates must stay disabled until an administrator enables them after Meta approval. The four canonical templates above are seeded enabled because Meta review is complete.
+Pending Meta review templates must stay disabled until an administrator enables them after Meta approval. The four canonical templates above are seeded enabled because Meta review is complete. Migrating them down preserves any announcement-referenced rows (normalizes `purpose` to null and `is_default` to false) instead of deleting history-breaking FKs.
 
 ### Shared builder parity
 

@@ -1305,7 +1305,7 @@ export default function AnnouncementFormPage({
                 hint={
                     channelPreviewLoading
                         ? 'Refreshing exact production preview…'
-                        : 'Exact preview from the production WhatsApp builder.'
+                        : 'Exact dynamic values from the production WhatsApp builder. Visual shell formatting is an approximation of Meta’s approved template.'
                 }
             />
         )

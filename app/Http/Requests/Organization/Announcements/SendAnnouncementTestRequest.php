@@ -6,14 +6,16 @@ use App\Enums\AnnouncementCategory;
 use App\Enums\AnnouncementChannel;
 use App\Enums\AnnouncementPriority;
 use App\Enums\WhatsAppTemplateCategory;
+use App\Http\Requests\Organization\Announcements\Concerns\ValidatesAnnouncementWhatsAppLink;
 use App\Support\Announcements\AnnouncementWhatsAppMessage;
-use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class SendAnnouncementTestRequest extends FormRequest
 {
+    use ValidatesAnnouncementWhatsAppLink;
+
     public function authorize(): bool
     {
         return (bool) $this->user()?->can('announcements.publish');
@@ -29,23 +31,7 @@ class SendAnnouncementTestRequest extends FormRequest
             'body_html' => ['required', 'string'],
             'category' => ['required', Rule::in(AnnouncementCategory::values())],
             'priority' => ['required', Rule::in(AnnouncementPriority::values())],
-            'whatsapp_link' => [
-                'nullable',
-                'string',
-                'url:http,https',
-                'max:2048',
-                function (string $attribute, mixed $value, Closure $fail): void {
-                    $link = is_string($value) ? trim($value) : '';
-
-                    if ($link === '') {
-                        return;
-                    }
-
-                    if (! AnnouncementWhatsAppMessage::optionalLinkFits($link)) {
-                        $fail('The WhatsApp link is too long to fit in the WhatsApp message body.');
-                    }
-                },
-            ],
+            'whatsapp_link' => $this->whatsappLinkRules(),
             'whatsapp_message' => [
                 'nullable',
                 'string',

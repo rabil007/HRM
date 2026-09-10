@@ -65,8 +65,9 @@ Authenticated matching events map Meta statuses to announcement delivery states:
 - Enabled templates in category `announcement` with an explicit `payload_profile` may be selected on the Announcement form.
 - Four Meta-approved system templates are seeded by migration: General (`employee_general_announcement`, default for new announcements), Promotion, Action Required, and Reminder. All use Title + Message (`announcement_title_body_v2`).
 - Profiles:
-  - `announcement_legacy_v1` — five body variables (company, title, summary, priority, view link); kept for announcements with `whatsapp_template_id = null`
-  - `announcement_title_body_v2` — header title (≤ 60 Meta text-header characters) + body message (optional link appended in full by OMS-HRM; never partially truncated)
+  - `announcement_legacy_v1` — five body variables (company, title, summary, priority, view link); kept for announcements with `whatsapp_template_id = null`. The URL remains a separate Meta parameter and is not subject to the TitleBodyV2 combined 500-character body limit.
+  - `announcement_title_body_v2` — header title (≤ 60 Meta text-header characters) + body message (optional link appended in full by OMS-HRM within the shared 500-character body parameter; never partially truncated)
+- Rolling back the canonical-template seed migration preserves announcement-referenced template rows and clears `purpose` / `is_default` so older enum casts remain safe.
 - AI Assist purpose values are only `general`, `promotion`, `action_required`, and `reminder`.
 - Existing announcements without `whatsapp_template_id` keep the legacy enabled `announcement` slug fallback.
 - Missing, disabled, or incompatible selected templates fail Preview/Test/Production safely — no silent switch to an unrelated template.

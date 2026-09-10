@@ -155,6 +155,7 @@ return new class extends Migration
         }
 
         $slugs = array_column(self::TEMPLATES, 'slug');
+        $now = now();
 
         $referencedIds = [];
 
@@ -170,6 +171,18 @@ return new class extends Migration
                 ->unique()
                 ->values()
                 ->all();
+        }
+
+        // Keep referenced rows for announcement FK history, but normalize fields that older
+        // application versions cannot hydrate (e.g. purpose = action_required / reminder).
+        if ($referencedIds !== []) {
+            DB::table('whatsapp_templates')
+                ->whereIn('id', $referencedIds)
+                ->update([
+                    'purpose' => null,
+                    'is_default' => false,
+                    'updated_at' => $now,
+                ]);
         }
 
         DB::table('whatsapp_templates')

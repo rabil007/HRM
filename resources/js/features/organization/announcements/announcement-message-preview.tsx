@@ -127,7 +127,7 @@ function WhatsAppPreview({
                 preview.available === false
                     ? (preview.message ??
                       'WhatsApp template is not configured.')
-                    : false
+                    : 'Approximate visual preview of the approved Meta template shell. Newlines and basic *bold* / _italic_ markers are shown for readability; WhatsApp delivers Meta’s approved wording.'
             }
         />
     );

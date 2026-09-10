@@ -73,17 +73,21 @@ final class BuildAnnouncementWhatsAppContent
     public function previewOrError(Announcement $announcement, ?int $templateId = null): array
     {
         $optionalLink = AnnouncementWhatsAppMessage::optionalLink($announcement);
+        $template = $this->resolveTemplate->handle($announcement, $templateId);
 
-        if ($optionalLink !== null && ! AnnouncementWhatsAppMessage::optionalLinkFits($optionalLink)) {
-            $selected = $templateId ?? $announcement->whatsapp_template_id;
-
+        if (
+            $template !== null
+            && $optionalLink !== null
+            && $this->resolveTemplate->profileFor($template) === AnnouncementWhatsAppPayloadProfile::TitleBodyV2
+            && ! AnnouncementWhatsAppMessage::optionalLinkFits($optionalLink)
+        ) {
             return [
-                'template_id' => $selected !== null ? (int) $selected : null,
-                'template_label' => null,
-                'template_name' => ResolveAnnouncementWhatsAppTemplate::LEGACY_SLUG,
-                'template_language' => 'en',
-                'payload_profile' => null,
-                'header_type' => WhatsAppTemplateHeaderType::None->value,
+                'template_id' => (int) $template->id,
+                'template_label' => (string) $template->label,
+                'template_name' => (string) $template->meta_name,
+                'template_language' => (string) $template->meta_language,
+                'payload_profile' => AnnouncementWhatsAppPayloadProfile::TitleBodyV2->value,
+                'header_type' => $template->header_type->value,
                 'header_text' => null,
                 'body_text' => '',
                 'resolved_message' => null,

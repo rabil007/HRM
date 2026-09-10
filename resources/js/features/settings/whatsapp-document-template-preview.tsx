@@ -1,6 +1,11 @@
 import { FileText } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import {
+    tokenizeWhatsAppPreviewBody,
+    tokenizeWhatsAppPreviewFormatting,
+} from '@/features/settings/whatsapp-preview-formatting';
+import type { WhatsAppPreviewToken } from '@/features/settings/whatsapp-preview-formatting';
 import { cn } from '@/lib/utils';
 
 export type WhatsAppTemplateHeaderType = 'document' | 'text' | 'none';
@@ -29,23 +34,54 @@ const VARIABLE_LABELS: Record<string, string> = {
     expiry_date: 'Expiry date ({{expiry_date}})',
 };
 
+function renderPreviewToken(
+    token: WhatsAppPreviewToken,
+    index: number,
+): ReactNode {
+    if (token.type === 'link') {
+        return (
+            <span
+                key={`wa-link-${index}`}
+                className="break-all text-[#53bdeb] underline underline-offset-2"
+            >
+                {token.value}
+            </span>
+        );
+    }
+
+    if (token.type === 'bold') {
+        return (
+            <strong key={`wa-bold-${index}`} className="font-semibold">
+                {token.value}
+            </strong>
+        );
+    }
+
+    if (token.type === 'italic') {
+        return (
+            <em key={`wa-italic-${index}`} className="italic">
+                {token.value}
+            </em>
+        );
+    }
+
+    return <span key={`wa-text-${index}`}>{token.value}</span>;
+}
+
 function renderBodyWithLinks(bodyText: string): ReactNode {
-    const parts = bodyText.split(/(https?:\/\/[^\s]+)/g);
+    return tokenizeWhatsAppPreviewBody(bodyText).map((token, index) =>
+        renderPreviewToken(token, index),
+    );
+}
 
-    return parts.map((part, index) => {
-        if (/^https?:\/\/[^\s]+$/.test(part)) {
-            return (
-                <span
-                    key={`${index}-${part}`}
-                    className="break-all text-[#53bdeb] underline underline-offset-2"
-                >
-                    {part}
-                </span>
-            );
-        }
-
-        return <span key={`${index}-${part.slice(0, 12)}`}>{part}</span>;
-    });
+/**
+ * Preview-only rendering of minimal WhatsApp markup (*bold*, _italic_).
+ * Does not affect Meta payload construction.
+ */
+export function renderWhatsAppPreviewFormatting(text: string): ReactNode {
+    return tokenizeWhatsAppPreviewFormatting(text).map((token, index) =>
+        renderPreviewToken(token, index),
+    );
 }
 
 type WhatsAppDocumentTemplatePreviewProps = {
