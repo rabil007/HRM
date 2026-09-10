@@ -2,6 +2,7 @@
 
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
+use App\Models\EmployeeTraining;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewMovements\CrewMovementService;
@@ -101,4 +102,23 @@ test('presenter includes employee image in list and detail payloads', function (
     $detail = CrewAssignmentPresenter::detail($assignment);
     expect($detail['employee'])->toBeArray()
         ->and($detail['employee']['image'])->toBe('employees/1/images/avatar.jpg');
+});
+
+test('presenter includes employee training id when relation is eager loaded', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Presenter Training Vessel');
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel)
+        ->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'phases.employeeTraining', 'company', 'planningAssignment', 'companyVisaType']);
+
+    $phase = $assignment->phases->first();
+    $training = EmployeeTraining::factory()
+        ->forEmployee($employee)
+        ->create(['source_crew_assignment_phase_id' => $phase->id]);
+
+    $assignment->load('phases.employeeTraining');
+
+    $detail = CrewAssignmentPresenter::detail($assignment);
+    $timelinePhase = collect($detail['phase_timeline'])->firstWhere('id', $phase->id);
+
+    expect($timelinePhase['employee_training_id'])->toBe($training->id);
 });

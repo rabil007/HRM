@@ -261,6 +261,7 @@ class CrewAssignmentController extends Controller
             'vessel',
             'companyVisaType',
             'currentPhase',
+            'phases.employeeTraining:id,source_crew_assignment_phase_id',
         ]);
 
         $formOptions = [

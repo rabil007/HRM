@@ -125,6 +125,9 @@ class CrewAssignmentPresenter
                 $hasApproved = $phase->relationLoaded('corrections')
                     ? $phase->corrections->where('status', CrewMovementCorrectionStatus::Approved)->isNotEmpty()
                     : false;
+                $employeeTrainingId = $phase->relationLoaded('employeeTraining')
+                    ? $phase->employeeTraining?->id
+                    : null;
 
                 return [
                     'id' => $phase->id,
@@ -141,7 +144,7 @@ class CrewAssignmentPresenter
                     'remarks' => $phase->remarks,
                     'has_pending_correction' => $hasPending,
                     'has_approved_correction' => $hasApproved,
-                    'employee_training_id' => $phase->employeeTraining?->id,
+                    'employee_training_id' => $employeeTrainingId,
                 ];
             })
             ->sortBy('sequence')

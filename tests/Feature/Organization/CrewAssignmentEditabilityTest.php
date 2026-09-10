@@ -9,6 +9,7 @@ use App\Models\CompanyVisaType;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
+use App\Models\EmployeeTraining;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
@@ -155,6 +156,27 @@ test('3. Active P1, P2A, P2B, P3 assignments are editable', function (CrewPhaseC
     'P2B Training' => CrewPhaseCode::Training,
     'P3 ReadyToJoin' => CrewPhaseCode::ReadyToJoin,
 ]);
+
+test('edit page includes linked employee training id without lazy loading', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
+    $vessel = makeCrewMovementVessel('Training Edit Vessel');
+
+    $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, CrewPhaseCode::Training);
+    $phase = $assignment->currentPhase;
+
+    $training = EmployeeTraining::factory()
+        ->forEmployee($employee)
+        ->create([
+            'source_crew_assignment_phase_id' => $phase->id,
+        ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.edit', $assignment))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/edit')
+            ->where('assignment.phase_timeline.0.employee_training_id', $training->id));
+});
 
 test('4. Active P4 assignment edit route redirects and update is rejected', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
