@@ -210,6 +210,53 @@ test('preview recipients returns channel availability counts', function () {
         ->assertJsonPath('missing_phone', 1);
 });
 
+test('announcement form and audience resolution only include active employees', function () {
+    ['user' => $user, 'company' => $company] = makeAnnouncementFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, announcementPermissions());
+
+    $active = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Active Announcement Employee',
+        'work_email' => 'active@example.test',
+    ]);
+    $inactive = Employee::factory()->forCompany($company)->create([
+        'status' => 'inactive',
+        'name' => 'Inactive Announcement Employee',
+        'work_email' => 'inactive@example.test',
+    ]);
+    Employee::factory()->forCompany($company)->create([
+        'status' => 'terminated',
+        'name' => 'Terminated Announcement Employee',
+        'work_email' => 'terminated@example.test',
+    ]);
+    Employee::factory()->forCompany($company)->create([
+        'status' => 'on_leave',
+        'name' => 'On Leave Announcement Employee',
+        'work_email' => 'onleave@example.test',
+    ]);
+
+    $this->get('/organization/announcements/create')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/announcements/form')
+            ->has('options.employees', 1)
+            ->where('options.employees.0.id', $active->id)
+        );
+
+    $this->postJson('/organization/announcements/preview-recipients', [
+        'channels' => ['email'],
+        'audiences' => [['type' => 'all_employees', 'id' => null]],
+    ])->assertOk()
+        ->assertJsonPath('selected_employees', 1);
+
+    $this->postJson('/organization/announcements/preview-recipients', [
+        'channels' => ['email'],
+        'audiences' => [['type' => 'employee', 'id' => $inactive->id]],
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors(['audiences']);
+});
+
 test('selecting every employee as specific audience resolves as all employees', function () {
     ['user' => $user, 'company' => $company] = makeAnnouncementFixtures();
     $this->actingAs($user);
