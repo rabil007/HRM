@@ -1,5 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { Undo2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import type {
+    SignaturePoint,
+    SignatureStroke,
+} from '@/features/esign/signature-strokes';
+import {
+    commitStroke,
+    signaturePayloadFromStrokes,
+    undoLastStroke,
+} from '@/features/esign/signature-strokes';
 import { cn } from '@/lib/utils';
 
 export function SignaturePad({
@@ -19,6 +29,15 @@ export function SignaturePad({
 }) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const drawingRef = useRef(false);
+    const strokesRef = useRef<SignatureStroke[]>([]);
+    const currentStrokeRef = useRef<SignatureStroke | null>(null);
+    const onChangeRef = useRef(onChange);
+    const sizeRef = useRef({ width: 0, height: 0 });
+    const [strokeCount, setStrokeCount] = useState(0);
+
+    useEffect(() => {
+        onChangeRef.current = onChange;
+    }, [onChange]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -33,29 +52,102 @@ export function SignaturePad({
             return;
         }
 
-        const resize = () => {
-            const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width * window.devicePixelRatio;
-            canvas.height = rect.height * window.devicePixelRatio;
+        const configure = () => {
             context.setTransform(1, 0, 0, 1, 0, 0);
             context.scale(window.devicePixelRatio, window.devicePixelRatio);
             context.lineCap = 'round';
             context.lineJoin = 'round';
             context.lineWidth = lineWidth;
             context.strokeStyle = '#111827';
+            context.fillStyle = '#111827';
+        };
+
+        const paintStrokes = () => {
+            context.setTransform(1, 0, 0, 1, 0, 0);
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            configure();
+
+            for (const stroke of strokesRef.current) {
+                paintStroke(context, stroke, lineWidth);
+            }
+        };
+
+        const resize = () => {
+            const rect = canvas.getBoundingClientRect();
+            const width = Math.max(
+                1,
+                Math.round(rect.width * window.devicePixelRatio),
+            );
+            const height = Math.max(
+                1,
+                Math.round(rect.height * window.devicePixelRatio),
+            );
+
+            if (
+                width === sizeRef.current.width &&
+                height === sizeRef.current.height
+            ) {
+                return;
+            }
+
+            sizeRef.current = { width, height };
+            canvas.width = width;
+            canvas.height = height;
+            paintStrokes();
         };
 
         resize();
+        const observer = new ResizeObserver(resize);
+        observer.observe(canvas);
         window.addEventListener('resize', resize);
 
-        return () => window.removeEventListener('resize', resize);
+        return () => {
+            observer.disconnect();
+            window.removeEventListener('resize', resize);
+        };
     }, [lineWidth]);
+
+    const emitChange = () => {
+        const canvas = canvasRef.current;
+
+        if (!canvas) {
+            return;
+        }
+
+        onChangeRef.current(
+            signaturePayloadFromStrokes(strokesRef.current, () =>
+                canvas.toDataURL('image/png'),
+            ),
+        );
+    };
+
+    const paintCurrentCanvas = () => {
+        const canvas = canvasRef.current;
+        const context = canvas?.getContext('2d');
+
+        if (!canvas || !context) {
+            return;
+        }
+
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.scale(window.devicePixelRatio, window.devicePixelRatio);
+        context.lineCap = 'round';
+        context.lineJoin = 'round';
+        context.lineWidth = lineWidth;
+        context.strokeStyle = '#111827';
+        context.fillStyle = '#111827';
+
+        for (const stroke of strokesRef.current) {
+            paintStroke(context, stroke, lineWidth);
+        }
+    };
 
     const getPoint = (
         event:
             | React.MouseEvent<HTMLCanvasElement>
             | React.TouchEvent<HTMLCanvasElement>,
-    ) => {
+    ): SignaturePoint | null => {
         const canvas = canvasRef.current;
 
         if (!canvas) {
@@ -97,6 +189,7 @@ export function SignaturePad({
         }
 
         drawingRef.current = true;
+        currentStrokeRef.current = [point];
         context.beginPath();
         context.moveTo(point.x, point.y);
         event.preventDefault();
@@ -119,6 +212,7 @@ export function SignaturePad({
             return;
         }
 
+        currentStrokeRef.current?.push(point);
         context.lineTo(point.x, point.y);
         context.stroke();
         event.preventDefault();
@@ -130,26 +224,38 @@ export function SignaturePad({
         }
 
         drawingRef.current = false;
-        const canvas = canvasRef.current;
+        strokesRef.current = commitStroke(
+            strokesRef.current,
+            currentStrokeRef.current,
+        );
+        currentStrokeRef.current = null;
+        setStrokeCount(strokesRef.current.length);
+        paintCurrentCanvas();
+        emitChange();
+    };
 
-        if (!canvas) {
+    const undo = () => {
+        if (strokesRef.current.length === 0) {
             return;
         }
 
-        onChange(canvas.toDataURL('image/png'));
+        strokesRef.current = undoLastStroke(strokesRef.current);
+        setStrokeCount(strokesRef.current.length);
+        paintCurrentCanvas();
+        emitChange();
     };
 
     const clear = () => {
-        const canvas = canvasRef.current;
-        const context = canvas?.getContext('2d');
-
-        if (!canvas || !context) {
-            return;
-        }
-
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        onChange(null);
+        strokesRef.current = [];
+        currentStrokeRef.current = null;
+        drawingRef.current = false;
+        setStrokeCount(0);
+        paintCurrentCanvas();
+        onChangeRef.current(null);
     };
+
+    const showActions = !hideClear && !fill;
+    const canUndo = strokeCount > 0;
 
     return (
         <div className={cn('space-y-2', className)}>
@@ -173,28 +279,86 @@ export function SignaturePad({
                     onTouchStart={startDrawing}
                     onTouchMove={draw}
                     onTouchEnd={stopDrawing}
+                    onTouchCancel={stopDrawing}
                 />
             </div>
-            {hideClear || fill ? (
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={clear}
-                    className="sr-only"
-                >
-                    Clear signature
-                </Button>
+            {showActions ? (
+                <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!canUndo}
+                        onClick={undo}
+                    >
+                        <Undo2 className="size-3.5" />
+                        Undo last stroke
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!canUndo}
+                        onClick={clear}
+                    >
+                        Clear
+                    </Button>
+                </div>
             ) : (
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={clear}
-                >
-                    Clear signature
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={undo}
+                        className="sr-only"
+                    >
+                        Undo last stroke
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={clear}
+                        className="sr-only"
+                    >
+                        Clear signature
+                    </Button>
+                </div>
             )}
         </div>
     );
+}
+
+function paintStroke(
+    context: CanvasRenderingContext2D,
+    stroke: SignatureStroke,
+    lineWidth: number,
+): void {
+    if (stroke.length === 0) {
+        return;
+    }
+
+    if (stroke.length === 1) {
+        context.beginPath();
+        context.arc(
+            stroke[0].x,
+            stroke[0].y,
+            Math.max(lineWidth / 2, 1),
+            0,
+            Math.PI * 2,
+        );
+        context.fill();
+
+        return;
+    }
+
+    context.beginPath();
+    context.moveTo(stroke[0].x, stroke[0].y);
+
+    for (let index = 1; index < stroke.length; index++) {
+        context.lineTo(stroke[index].x, stroke[index].y);
+    }
+
+    context.stroke();
 }

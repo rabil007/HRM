@@ -1,5 +1,5 @@
 import { ImageUp, PenLine } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SignaturePad } from '@/components/signature-pad';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -36,11 +36,18 @@ export function SignatureCapture({
     const [mode, setMode] = useState<Mode>('draw');
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [isReading, setIsReading] = useState(false);
+    const [uploadedPreview, setUploadedPreview] = useState<string | null>(null);
+
+    useEffect(() => {
+        setUploadedPreview(null);
+        setUploadError(null);
+    }, [clearToken]);
 
     const handleModeChange = (value: string) => {
         const next = value === 'upload' ? 'upload' : 'draw';
         setMode(next);
         setUploadError(null);
+        setUploadedPreview(null);
         onModeChange?.(next);
         onChange(null);
     };
@@ -61,8 +68,10 @@ export function SignatureCapture({
 
         try {
             const dataUrl = await fileToSignatureDataUrl(file);
+            setUploadedPreview(dataUrl);
             onChange(dataUrl);
         } catch (error) {
+            setUploadedPreview(null);
             onChange(null);
             setUploadError(
                 error instanceof Error
@@ -77,6 +86,8 @@ export function SignatureCapture({
             }
         }
     };
+
+    const displayPreview = uploadedPreview ?? previewUrl;
 
     return (
         <div className={cn('space-y-3', className)}>
@@ -96,7 +107,8 @@ export function SignatureCapture({
                     {showDrawPad ? (
                         <>
                             <p className="text-sm text-muted-foreground">
-                                Sign inside the white box below.
+                                Sign inside the white box below. Use undo if you
+                                make a mistake.
                             </p>
                             <SignaturePad
                                 key={`draw-${clearToken}`}
@@ -104,7 +116,6 @@ export function SignatureCapture({
                                 className="w-full"
                                 canvasClassName={drawCanvasClassName}
                                 lineWidth={drawLineWidth}
-                                hideClear
                             />
                         </>
                     ) : (
@@ -141,7 +152,7 @@ export function SignatureCapture({
                         <ImageUp className="mr-2 size-4" />
                         {isReading
                             ? 'Reading image…'
-                            : previewUrl
+                            : displayPreview
                               ? 'Replace signature image'
                               : 'Choose signature image'}
                     </Button>
@@ -152,15 +163,15 @@ export function SignatureCapture({
                         </p>
                     ) : null}
 
-                    {previewUrl ? (
-                        <div className="overflow-hidden rounded-xl border bg-white p-4">
+                    {displayPreview ? (
+                        <div className="overflow-hidden rounded-xl border bg-muted/30 p-4">
                             <p className="mb-2 text-xs font-medium text-muted-foreground">
                                 Preview
                             </p>
                             <img
-                                src={previewUrl}
+                                src={displayPreview}
                                 alt="Uploaded signature preview"
-                                className="mx-auto h-28 w-full object-contain"
+                                className="mx-auto h-28 w-full bg-white object-contain"
                             />
                         </div>
                     ) : null}
