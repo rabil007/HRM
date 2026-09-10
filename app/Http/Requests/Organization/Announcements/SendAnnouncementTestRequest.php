@@ -7,6 +7,7 @@ use App\Enums\AnnouncementChannel;
 use App\Enums\AnnouncementPriority;
 use App\Enums\WhatsAppTemplateCategory;
 use App\Support\Announcements\AnnouncementWhatsAppMessage;
+use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -33,6 +34,17 @@ class SendAnnouncementTestRequest extends FormRequest
                 'string',
                 'url:http,https',
                 'max:2048',
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    $link = is_string($value) ? trim($value) : '';
+
+                    if ($link === '') {
+                        return;
+                    }
+
+                    if (! AnnouncementWhatsAppMessage::optionalLinkFits($link)) {
+                        $fail('The WhatsApp link is too long to fit in the WhatsApp message body.');
+                    }
+                },
             ],
             'whatsapp_message' => [
                 'nullable',

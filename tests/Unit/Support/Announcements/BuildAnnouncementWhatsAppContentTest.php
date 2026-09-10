@@ -246,3 +246,92 @@ test('document category templates are never resolved for announcements', functio
         ->and($builder->handle($announcement))->toBeNull()
         ->and($builder->previewOrError($announcement)['available'])->toBeFalse();
 });
+
+test('title body v2 header is constrained to 60 characters for preview and payload', function () {
+    $template = ensureAnnouncementTitleBodyWhatsAppTemplate();
+    $title59 = str_repeat('A', 59);
+    $title60 = str_repeat('B', 60);
+    $title61 = str_repeat('C', 61);
+    $multibyte = str_repeat(' ind', 20).'X'; // multibyte-safe truncation probe
+
+    foreach ([
+        [$title59, $title59],
+        [$title60, $title60],
+        [$title61, str_repeat('C', 60)],
+        [$multibyte, AnnouncementWhatsAppMessage::metaTextHeader($multibyte)],
+    ] as [$title, $expectedHeader]) {
+        ['announcement' => $announcement] = makeWhatsAppContentFixtures([
+            'whatsapp_template_id' => $template->id,
+            'title' => $title,
+            'whatsapp_message' => 'Body message',
+            'whatsapp_link' => null,
+        ]);
+
+        $built = app(BuildAnnouncementWhatsAppContent::class)->handle($announcement);
+
+        expect(mb_strlen($expectedHeader))->toBeLessThanOrEqual(AnnouncementWhatsAppMessage::META_TEXT_HEADER_MAX_LENGTH)
+            ->and($built['components'][0]['parameters'][0]['text'])->toBe($expectedHeader)
+            ->and($built['preview']['header_text'])->toBe($expectedHeader)
+            ->and($announcement->title)->toBe($title);
+    }
+});
+
+test('resolved body preserves complete url and only shortens the message', function () {
+    $url = 'https://example.com/announcements/'.str_repeat('a', 40);
+    $message = str_repeat('M', 490);
+
+    $composed = AnnouncementWhatsAppMessage::composeResolvedBody($message, $url);
+
+    expect(mb_strlen($composed))->toBeLessThanOrEqual(AnnouncementWhatsAppMessage::MAX_LENGTH)
+        ->and($composed)->toEndWith($url)
+        ->and($composed)->toContain($url)
+        ->and(str_contains($composed, 'https://example.com/announcements/'.str_repeat('a', 40)))->toBeTrue();
+
+    $normal = AnnouncementWhatsAppMessage::composeResolvedBody('Short message', $url);
+    expect($normal)->toBe('Short message '.$url)
+        ->and(mb_strlen($normal))->toBeLessThanOrEqual(AnnouncementWhatsAppMessage::MAX_LENGTH);
+
+    expect(AnnouncementWhatsAppMessage::composeResolvedBody('Blank link case', ''))->toBe('Blank link case')
+        ->and(AnnouncementWhatsAppMessage::composeResolvedBody('Blank link case', null))->toBe('Blank link case');
+});
+
+test('url near max length is preserved and oversized url is rejected', function () {
+    $nearMax = 'https://example.com/'.str_repeat('x', AnnouncementWhatsAppMessage::MAX_LENGTH - 20);
+    expect(mb_strlen($nearMax))->toBeLessThanOrEqual(AnnouncementWhatsAppMessage::MAX_LENGTH);
+
+    $composed = AnnouncementWhatsAppMessage::composeResolvedBody(str_repeat('Z', 200), $nearMax);
+
+    expect($composed)->toEndWith($nearMax)
+        ->and(mb_strlen($composed))->toBeLessThanOrEqual(AnnouncementWhatsAppMessage::MAX_LENGTH)
+        ->and(AnnouncementWhatsAppMessage::optionalLinkFits($nearMax))->toBeTrue();
+
+    $tooLarge = 'https://example.com/'.str_repeat('y', AnnouncementWhatsAppMessage::MAX_LENGTH);
+
+    expect(AnnouncementWhatsAppMessage::optionalLinkFits($tooLarge))->toBeFalse();
+    expect(fn () => AnnouncementWhatsAppMessage::composeResolvedBody('hi', $tooLarge))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+test('title body v2 uses the same truncated header in preview as production components', function () {
+    $template = ensureAnnouncementTitleBodyWhatsAppTemplate();
+    $longTitle = str_repeat('PromotionLaunch', 5); // 75 chars, no trailing space after truncate
+
+    expect(mb_strlen($longTitle))->toBeGreaterThan(AnnouncementWhatsAppMessage::META_TEXT_HEADER_MAX_LENGTH);
+
+    ['announcement' => $announcement] = makeWhatsAppContentFixtures([
+        'whatsapp_template_id' => $template->id,
+        'title' => $longTitle,
+        'whatsapp_message' => 'Share this update.',
+        'whatsapp_link' => 'https://example.com/share',
+    ]);
+
+    $builder = app(BuildAnnouncementWhatsAppContent::class);
+    $built = $builder->handle($announcement);
+    $preview = $builder->previewOrError($announcement);
+    $header = AnnouncementWhatsAppMessage::metaTextHeader($longTitle);
+
+    expect(mb_strlen($header))->toBe(AnnouncementWhatsAppMessage::META_TEXT_HEADER_MAX_LENGTH)
+        ->and($built['components'][0]['parameters'][0]['text'])->toBe($header)
+        ->and($preview['header_text'])->toBe($header)
+        ->and($built['preview']['header_text'])->toBe($preview['header_text']);
+});

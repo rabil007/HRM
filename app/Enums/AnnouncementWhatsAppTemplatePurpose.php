@@ -4,22 +4,18 @@ namespace App\Enums;
 
 enum AnnouncementWhatsAppTemplatePurpose: string
 {
-    case Promotion = 'promotion';
-    case Internal = 'internal';
-    case Safety = 'safety';
-    case Crew = 'crew';
-    case Training = 'training';
     case General = 'general';
+    case Promotion = 'promotion';
+    case ActionRequired = 'action_required';
+    case Reminder = 'reminder';
 
     public function label(): string
     {
         return match ($this) {
-            self::Promotion => 'Promotion',
-            self::Internal => 'Internal',
-            self::Safety => 'Safety',
-            self::Crew => 'Crew',
-            self::Training => 'Training',
             self::General => 'General',
+            self::Promotion => 'Promotion',
+            self::ActionRequired => 'Action Required',
+            self::Reminder => 'Reminder',
         };
     }
 

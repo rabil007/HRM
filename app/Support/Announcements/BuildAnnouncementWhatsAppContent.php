@@ -6,6 +6,7 @@ use App\Enums\AnnouncementWhatsAppPayloadProfile;
 use App\Enums\WhatsAppTemplateHeaderType;
 use App\Models\Announcement;
 use App\Models\WhatsAppTemplate;
+use InvalidArgumentException;
 
 final class BuildAnnouncementWhatsAppContent
 {
@@ -43,10 +44,14 @@ final class BuildAnnouncementWhatsAppContent
         $profile = $this->resolveTemplate->profileFor($template);
         $announcement->loadMissing('company:id,name');
 
-        return match ($profile) {
-            AnnouncementWhatsAppPayloadProfile::TitleBodyV2 => $this->buildTitleBodyV2($announcement, $template, $profile),
-            AnnouncementWhatsAppPayloadProfile::LegacyV1 => $this->buildLegacyV1($announcement, $template, $profile),
-        };
+        try {
+            return match ($profile) {
+                AnnouncementWhatsAppPayloadProfile::TitleBodyV2 => $this->buildTitleBodyV2($announcement, $template, $profile),
+                AnnouncementWhatsAppPayloadProfile::LegacyV1 => $this->buildLegacyV1($announcement, $template, $profile),
+            };
+        } catch (InvalidArgumentException) {
+            return null;
+        }
     }
 
     /**
@@ -67,6 +72,27 @@ final class BuildAnnouncementWhatsAppContent
      */
     public function previewOrError(Announcement $announcement, ?int $templateId = null): array
     {
+        $optionalLink = AnnouncementWhatsAppMessage::optionalLink($announcement);
+
+        if ($optionalLink !== null && ! AnnouncementWhatsAppMessage::optionalLinkFits($optionalLink)) {
+            $selected = $templateId ?? $announcement->whatsapp_template_id;
+
+            return [
+                'template_id' => $selected !== null ? (int) $selected : null,
+                'template_label' => null,
+                'template_name' => ResolveAnnouncementWhatsAppTemplate::LEGACY_SLUG,
+                'template_language' => 'en',
+                'payload_profile' => null,
+                'header_type' => WhatsAppTemplateHeaderType::None->value,
+                'header_text' => null,
+                'body_text' => '',
+                'resolved_message' => null,
+                'view_link' => $optionalLink,
+                'available' => false,
+                'message' => 'The WhatsApp link is too long to fit in the WhatsApp message body.',
+            ];
+        }
+
         $built = $this->handle($announcement, $templateId);
 
         if ($built === null) {
@@ -82,7 +108,7 @@ final class BuildAnnouncementWhatsAppContent
                 'header_text' => null,
                 'body_text' => '',
                 'resolved_message' => null,
-                'view_link' => AnnouncementWhatsAppMessage::optionalLink($announcement),
+                'view_link' => $optionalLink,
                 'available' => false,
                 'message' => $selected !== null
                     ? 'The selected WhatsApp template is missing, disabled, or incompatible.'
@@ -174,7 +200,7 @@ final class BuildAnnouncementWhatsAppContent
         WhatsAppTemplate $template,
         AnnouncementWhatsAppPayloadProfile $profile,
     ): array {
-        $title = AnnouncementWhatsAppMessage::templateParameter((string) $announcement->title);
+        $headerTitle = AnnouncementWhatsAppMessage::metaTextHeader((string) $announcement->title);
         $bodyMessage = AnnouncementWhatsAppMessage::resolvedBodyWithOptionalLink($announcement);
         $optionalLink = AnnouncementWhatsAppMessage::optionalLink($announcement);
 
@@ -184,7 +210,7 @@ final class BuildAnnouncementWhatsAppContent
             $components[] = [
                 'type' => 'header',
                 'parameters' => [
-                    ['type' => 'text', 'text' => $title],
+                    ['type' => 'text', 'text' => $headerTitle],
                 ],
             ];
         }
@@ -199,7 +225,7 @@ final class BuildAnnouncementWhatsAppContent
         $bodyText = $this->fillBodyPreview(
             (string) $template->body_preview,
             [
-                '{{title}}' => $title,
+                '{{title}}' => $headerTitle,
                 '{{message}}' => $bodyMessage,
                 '{{1}}' => $bodyMessage,
             ],
@@ -213,7 +239,7 @@ final class BuildAnnouncementWhatsAppContent
             'preview' => $this->previewArray(
                 $template,
                 $profile,
-                headerText: $template->header_type === WhatsAppTemplateHeaderType::Text ? $title : null,
+                headerText: $template->header_type === WhatsAppTemplateHeaderType::Text ? $headerTitle : null,
                 bodyText: $bodyText,
                 resolvedMessage: $bodyMessage,
                 viewLink: $optionalLink,

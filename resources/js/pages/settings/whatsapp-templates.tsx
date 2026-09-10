@@ -275,9 +275,14 @@ export default function WhatsAppTemplatesSettings({
                             WhatsApp templates
                         </h1>
                         <p className="max-w-2xl text-sm text-muted-foreground">
-                            Link each HRM template to an approved Meta template.
-                            WhatsApp sends the Meta-approved wording; HRM only
-                            passes the employee name and document.
+                            Link each OMS-HRM template to an approved Meta
+                            template. Meta owns the static approved template
+                            shell; OMS-HRM supplies profile-specific dynamic
+                            values. Document templates continue to use document
+                            values (for example employee name and document).
+                            Announcement Title + Message templates use the
+                            announcement title and the resolved WhatsApp
+                            message.
                         </p>
                     </div>
 
@@ -715,14 +720,36 @@ export default function WhatsAppTemplatesSettings({
                         className="min-h-[100px] rounded-xl border-border bg-card px-4 py-3 transition-all focus-visible:ring-primary/40"
                     />
                     <p className="text-xs text-muted-foreground/80">
-                        Copy the approved body from Meta. Use Meta placeholders{' '}
-                        {'{{1}}'}, {'{{2}}'}, {'{{3}}'} in the same order as
-                        WhatsApp Manager, or friendly aliases like{' '}
-                        {'{{document_type}}'}, {'{{employee_name}}'},{' '}
-                        {'{{expiry_date}}'}. Sample values below only affect
-                        this preview — at send time, HRM fills each variable
-                        from the relevant feature (e.g. document type, employee
-                        name, expiry date).
+                        {form.data.category === 'announcement' &&
+                        form.data.payload_profile ===
+                            'announcement_title_body_v2' ? (
+                            <>
+                                For Announcement Title + Message templates,
+                                Header {'{{1}}'} is the announcement title and
+                                Body {'{{1}}'} is the resolved WhatsApp message
+                                (optional link appended by OMS-HRM). Copy the
+                                approved Meta body text exactly.
+                            </>
+                        ) : form.data.category === 'announcement' ? (
+                            <>
+                                Copy the approved body from Meta. Legacy
+                                Announcement templates use five body variables
+                                (company, title, summary, priority, view link).
+                                Sample values below only affect this preview.
+                            </>
+                        ) : (
+                            <>
+                                Copy the approved body from Meta. Use Meta
+                                placeholders {'{{1}}'}, {'{{2}}'}, {'{{3}}'} in
+                                the same order as WhatsApp Manager, or friendly
+                                aliases like {'{{document_type}}'},{' '}
+                                {'{{employee_name}}'}, {'{{expiry_date}}'}.
+                                Sample values below only affect this preview —
+                                at send time, OMS-HRM fills each variable from
+                                the relevant feature (e.g. document type,
+                                employee name, expiry date).
+                            </>
+                        )}
                     </p>
                 </MasterDataField>
 

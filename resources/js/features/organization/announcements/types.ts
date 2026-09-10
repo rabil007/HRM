@@ -35,6 +35,7 @@ export type AnnouncementWhatsAppTemplateOption = {
     purpose: string | null;
     body_preview: string;
     header_type: string;
+    is_default: boolean;
     is_legacy: boolean;
 };
 

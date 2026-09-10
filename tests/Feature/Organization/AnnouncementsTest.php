@@ -360,3 +360,75 @@ test('channel previews omit channels that were not selected', function () {
             ->where('announcement.channel_previews.email.subject', 'Normal Announcement — Email only')
         );
 });
+
+test('malformed store and update channels return 422 instead of 500', function () {
+    ensureAnnouncementWhatsAppTemplate();
+    ['user' => $user, 'company' => $company] = makeAnnouncementFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, announcementPermissions());
+
+    Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $base = [
+        'title' => 'Channels validation',
+        'body_html' => '<p>Body</p>',
+        'category' => 'general',
+        'priority' => 'normal',
+        'whatsapp_link' => null,
+        'whatsapp_message' => null,
+        'audiences' => [['type' => 'all_employees', 'id' => null]],
+        'publish_mode' => 'draft',
+    ];
+
+    $this->postJson(route('organization.announcements.store'), [
+        ...$base,
+        'channels' => 'in_app',
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors(['channels']);
+
+    $this->postJson(route('organization.announcements.store'), [
+        ...$base,
+        'channels' => null,
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors(['channels']);
+
+    $this->postJson(route('organization.announcements.store'), [
+        ...$base,
+        'channels' => ['in_app' => true],
+    ])->assertUnprocessable();
+
+    expect(Announcement::query()->where('company_id', $company->id)->count())->toBe(0);
+
+    $announcement = Announcement::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Existing draft',
+        'body_html' => '<p>Body</p>',
+        'category' => 'general',
+        'priority' => 'normal',
+        'status' => AnnouncementStatus::Draft,
+        'channels' => ['in_app'],
+        'created_by' => $user->id,
+    ]);
+
+    $this->putJson(route('organization.announcements.update', $announcement), [
+        ...$base,
+        'title' => 'Updated',
+        'channels' => 'email',
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors(['channels']);
+
+    $this->putJson(route('organization.announcements.update', $announcement), [
+        ...$base,
+        'title' => 'Updated',
+        'channels' => null,
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors(['channels']);
+
+    $this->putJson(route('organization.announcements.update', $announcement), [
+        ...$base,
+        'title' => 'Updated',
+        'channels' => ['email' => true],
+    ])->assertUnprocessable();
+
+    expect($announcement->fresh()->title)->toBe('Existing draft');
+});

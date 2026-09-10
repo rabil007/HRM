@@ -66,16 +66,16 @@ class WhatsAppTemplateFactory extends Factory
             'meta_language' => 'en_US',
             'header_type' => WhatsAppTemplateHeaderType::None,
             'payload_profile' => AnnouncementWhatsAppPayloadProfile::LegacyV1,
-            'purpose' => AnnouncementWhatsAppTemplatePurpose::General,
+            'purpose' => null,
             'body_preview' => '{{1}} — {{2}}: {{3}}. Priority: {{4}}. Open: {{5}}',
-            'is_default' => true,
+            'is_default' => false,
             'enabled' => true,
-            'sort_order' => 1,
+            'sort_order' => 50,
         ]);
     }
 
     public function announcementTitleBody(
-        string $slug = 'employee_promotion_announcement',
+        string $slug = 'announcement_promotion',
         string $label = 'Promotion Announcement',
         AnnouncementWhatsAppTemplatePurpose $purpose = AnnouncementWhatsAppTemplatePurpose::Promotion,
         bool $enabled = false,
@@ -84,7 +84,9 @@ class WhatsAppTemplateFactory extends Factory
             'slug' => $slug,
             'label' => $label,
             'category' => WhatsAppTemplateCategory::Announcement,
-            'meta_name' => $slug,
+            'meta_name' => $slug === 'announcement_promotion'
+                ? 'employee_promotion_announcement'
+                : $slug,
             'meta_language' => 'en',
             'header_type' => WhatsAppTemplateHeaderType::Text,
             'payload_profile' => AnnouncementWhatsAppPayloadProfile::TitleBodyV2,
@@ -92,7 +94,7 @@ class WhatsAppTemplateFactory extends Factory
             'body_preview' => "Here's an update from OMS:\n\n{{1}}\n\nThank you.",
             'is_default' => false,
             'enabled' => $enabled,
-            'sort_order' => 10,
+            'sort_order' => 20,
         ]);
     }
 }

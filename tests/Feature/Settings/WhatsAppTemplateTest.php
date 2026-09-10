@@ -126,3 +126,76 @@ test('users without platform manage cannot delete whatsapp templates', function 
         ->delete(route('application.whatsapp-templates.destroy', $template))
         ->assertForbidden();
 });
+
+test('announcement title body v2 templates require text header and single body parameter', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
+
+    $valid = [
+        'slug' => 'announcement_profile_valid',
+        'label' => 'Valid Announcement Profile',
+        'category' => 'announcement',
+        'meta_name' => 'employee_profile_valid',
+        'meta_language' => 'en',
+        'header_type' => 'text',
+        'payload_profile' => 'announcement_title_body_v2',
+        'purpose' => 'general',
+        'body_preview' => "Update from OMS:\n\n{{1}}\n\nThank you.",
+        'is_default' => false,
+        'enabled' => true,
+        'sort_order' => 99,
+    ];
+
+    $this->actingAs($user)
+        ->post(route('application.whatsapp-templates.store'), [
+            ...$valid,
+            'header_type' => 'none',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('header_type');
+
+    $this->actingAs($user)
+        ->post(route('application.whatsapp-templates.store'), [
+            ...$valid,
+            'header_type' => 'document',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('header_type');
+
+    $this->actingAs($user)
+        ->post(route('application.whatsapp-templates.store'), [
+            ...$valid,
+            'body_preview' => 'Hello {{1}} and {{2}}',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('body_preview');
+
+    $this->actingAs($user)
+        ->post(route('application.whatsapp-templates.store'), $valid)
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(WhatsAppTemplate::query()->where('slug', 'announcement_profile_valid')->exists())->toBeTrue();
+});
+
+test('document templates are not subject to announcement payload profile rules', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
+
+    $this->actingAs($user)
+        ->post(route('application.whatsapp-templates.store'), [
+            'slug' => 'document_no_announcement_rules',
+            'label' => 'Document without announcement rules',
+            'category' => 'document',
+            'meta_name' => 'document_no_announcement_rules',
+            'meta_language' => 'en',
+            'header_type' => 'document',
+            'body_preview' => 'Hello {{name}}, Please find the attached document.',
+            'is_default' => false,
+            'enabled' => true,
+            'sort_order' => 12,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success')
+        ->assertSessionDoesntHaveErrors();
+});

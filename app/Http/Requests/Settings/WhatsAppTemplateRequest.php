@@ -9,6 +9,7 @@ use App\Enums\WhatsAppTemplateHeaderType;
 use App\Support\Platform\PlatformAuthorization;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 abstract class WhatsAppTemplateRequest extends FormRequest
 {
@@ -61,6 +62,35 @@ abstract class WhatsAppTemplateRequest extends FormRequest
         }
     }
 
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($this->input('category') !== WhatsAppTemplateCategory::Announcement->value) {
+                return;
+            }
+
+            $profile = $this->input('payload_profile');
+            $headerType = $this->input('header_type');
+            $bodyPreview = (string) $this->input('body_preview', '');
+
+            if ($profile === AnnouncementWhatsAppPayloadProfile::TitleBodyV2->value) {
+                if ($headerType !== WhatsAppTemplateHeaderType::Text->value) {
+                    $validator->errors()->add(
+                        'header_type',
+                        'Announcement Title + Message templates require a text header.',
+                    );
+                }
+
+                if (! $this->bodyPreviewHasExactlyOneDynamicBodyParameter($bodyPreview)) {
+                    $validator->errors()->add(
+                        'body_preview',
+                        'Announcement Title + Message templates require exactly one dynamic body parameter {{1}}.',
+                    );
+                }
+            }
+        });
+    }
+
     /** @return array<string, string> */
     public function messages(): array
     {
@@ -70,5 +100,20 @@ abstract class WhatsAppTemplateRequest extends FormRequest
             'meta_language.regex' => 'Use a Meta locale code such as en or en_US.',
             'payload_profile.required' => 'Announcement templates require a payload profile.',
         ];
+    }
+
+    private function bodyPreviewHasExactlyOneDynamicBodyParameter(string $bodyPreview): bool
+    {
+        preg_match_all('/\{\{(\d+)\}\}/', $bodyPreview, $matches);
+
+        $numbers = array_map('intval', $matches[1] ?? []);
+
+        if ($numbers === []) {
+            return false;
+        }
+
+        $unique = array_values(array_unique($numbers));
+
+        return $unique === [1];
     }
 }

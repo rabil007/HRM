@@ -844,11 +844,18 @@ export default function AnnouncementFormPage({
             : (announcement?.audiences[0]?.type ?? 'all_employees'),
     );
 
-    const defaultWhatsAppTemplateId =
-        announcement?.whatsapp_template_id ??
-        options.whatsapp_templates.find((template) => template.is_legacy)?.id ??
-        options.whatsapp_templates[0]?.id ??
-        null;
+    const defaultWhatsAppTemplateId = announcement
+        ? (announcement.whatsapp_template_id ??
+          options.whatsapp_templates.find((template) => template.is_legacy)
+              ?.id ??
+          null)
+        : (options.whatsapp_templates.find((template) => template.is_default)
+              ?.id ??
+          options.whatsapp_templates.find((template) => !template.is_legacy)
+              ?.id ??
+          options.whatsapp_templates.find((template) => template.is_legacy)
+              ?.id ??
+          null);
 
     const form = useForm<AnnouncementFormData>({
         title: announcement?.title ?? '',
@@ -1217,6 +1224,7 @@ export default function AnnouncementFormPage({
         setAiProcessing(true);
         setAiError(null);
         setAiResult(null);
+        setPendingSuggestedTemplateId(null);
 
         aiAssistHttp.transform(() => ({
             action,
@@ -1231,12 +1239,9 @@ export default function AnnouncementFormPage({
             .then((data) => {
                 const response = data as AnnouncementAiAssistResponse;
                 setAiResult(response.result);
-
-                if (response.result.suggested_template) {
-                    setPendingSuggestedTemplateId(
-                        response.result.suggested_template.id,
-                    );
-                }
+                setPendingSuggestedTemplateId(
+                    response.result.suggested_template?.id ?? null,
+                );
             })
             .catch(() => {
                 setAiError('AI assistance is temporarily unavailable.');

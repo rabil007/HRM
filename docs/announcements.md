@@ -32,7 +32,21 @@ OMS-HRM supports **multiple** Announcement-compatible WhatsApp Meta templates.
 - The composer shows a business-friendly **label** first (for example `Promotion Announcement`), with Meta name/language as secondary text.
 - Selected template is stored on the announcement as nullable `whatsapp_template_id`.
 - Submitted template IDs are validated against the enabled Announcement-template set. Invalid IDs are rejected; there is no silent fallback to an unrelated template.
-- Announcements without a selected template keep backward-compatible resolution of the legacy enabled `announcement` slug.
+- Announcements without a selected template keep backward-compatible resolution of the legacy enabled `announcement` slug (`announcement_legacy_v1`). Legacy remains available for historical rows; it is **not** the default for new announcements.
+- New announcements default to the enabled Announcement template with `is_default = true` (General Announcement), otherwise the first enabled non-legacy template, otherwise legacy, otherwise null. Existing rows with `whatsapp_template_id = null` keep legacy resolution on edit/delivery and are **not** silently migrated to General.
+
+### Canonical Meta-approved templates
+
+These four system templates are seeded by a production-safe data migration (not a manual-only seeder):
+
+| Label | Slug | Meta name | Purpose | Default |
+|-------|------|-----------|---------|---------|
+| General Announcement | `announcement_general` | `employee_general_announcement` | `general` | yes |
+| Promotion Announcement | `announcement_promotion` | `employee_promotion_announcement` | `promotion` | no |
+| Action Required | `announcement_action_required` | `employee_action_required` | `action_required` | no |
+| Reminder | `announcement_reminder` | `employee_reminder` | `reminder` | no |
+
+All four use Meta language `en`, category `announcement`, header type `text`, payload profile `announcement_title_body_v2`, and are enabled. There is no CTA button. Priority is **not** part of the v2 WhatsApp payload.
 
 ### Payload profiles
 
@@ -41,9 +55,9 @@ OMS-HRM does **not** map arbitrary Meta templates at send time. Profile is store
 | Profile | Contract |
 |---------|----------|
 | `announcement_legacy_v1` | Body variables: company, title, summary, priority, view link |
-| `announcement_title_body_v2` | Header `{{1}}` = title; Body `{{1}}` = resolved WhatsApp message |
+| `announcement_title_body_v2` | Header `{{1}}` = title (Meta text-header max **60** characters); Body `{{1}}` = resolved WhatsApp message |
 
-New Announcement templates should use **Title + Message** (`announcement_title_body_v2`).
+New Announcement templates should use **Title + Message** (`announcement_title_body_v2`). TitleBodyV2 settings validation requires `header_type = text` and exactly one dynamic body parameter `{{1}}`.
 
 Resolved WhatsApp message:
 
@@ -51,10 +65,11 @@ Resolved WhatsApp message:
 2. otherwise plain text derived from canonical `body_html`
 3. optional `whatsapp_link` is **appended** to the body value for v2 (not a separate Meta variable)
 4. blank link does **not** send `N/A` for v2
+5. the optional URL is never partially truncated — only the message portion may be shortened to keep the full URL within the shared body max length; a URL that cannot fit is rejected with validation errors
 
-Canonical Announcement content remains `title` + `body_html`. Priority remains in the module for in-app/email/reporting, but is **not** included in the v2 WhatsApp payload.
+Canonical Announcement content remains `title` + `body_html` (title still up to 255 for Email/In-app). Priority remains in the module for in-app/email/reporting, but is **not** included in the v2 WhatsApp payload. WhatsApp TitleBodyV2 uses a server-owned 60-character Meta text-header value derived from the title; Preview, Test Send, and Production share that value.
 
-Pending Meta review templates must stay disabled until an administrator enables them after Meta approval. Shipping this code does not auto-activate pending templates.
+Pending Meta review templates must stay disabled until an administrator enables them after Meta approval. The four canonical templates above are seeded enabled because Meta review is complete.
 
 ### Shared builder parity
 
@@ -82,7 +97,14 @@ Optional content assistance reuses Application AI (`AiSettingsService` / Laravel
 
 Capabilities: generate/improve/make professional/friendly/shorten/fix grammar/create WhatsApp version/suggest template purpose.
 
-Structured output is validated server-side. `template_purpose` is a closed enum. Laravel maps purpose to a trusted enabled Announcement template. The model never selects database IDs or Meta names. The user must explicitly confirm a suggested template.
+Structured output is validated server-side. `template_purpose` is a closed enum of exactly:
+
+- `general` — informational company/office updates with no specific employee action
+- `promotion` — vacancies, social/recruitment outreach, shareable campaigns
+- `action_required` — employee must submit/update/confirm/complete something
+- `reminder` — reminder of an already known event, deadline, training, or appointment
+
+Safety/crew/training may still be OMS announcement **content categories**, but they are not WhatsApp template-purpose values. Laravel maps purpose to a trusted enabled Announcement template. The model never selects database IDs or Meta names. The user must explicitly confirm a suggested template. A later AI response with no matching suggestion clears any previous pending suggestion in the composer.
 
 AI never publishes or sends. Provider requests include only writing instructions and authored content (title/body/optional WhatsApp message, optional company display name). No employee/recipient/payroll/document/credentials data.
 

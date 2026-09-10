@@ -63,9 +63,11 @@ Authenticated matching events map Meta statuses to announcement delivery states:
 
 - Announcement WhatsApp delivery, channel preview, and **Send test to me** resolve templates through `ResolveAnnouncementWhatsAppTemplate` / `BuildAnnouncementWhatsAppContent`.
 - Enabled templates in category `announcement` with an explicit `payload_profile` may be selected on the Announcement form.
+- Four Meta-approved system templates are seeded by migration: General (`employee_general_announcement`, default for new announcements), Promotion, Action Required, and Reminder. All use Title + Message (`announcement_title_body_v2`).
 - Profiles:
-  - `announcement_legacy_v1` — five body variables (company, title, summary, priority, view link)
-  - `announcement_title_body_v2` — header title + body message (optional link appended by OMS-HRM)
+  - `announcement_legacy_v1` — five body variables (company, title, summary, priority, view link); kept for announcements with `whatsapp_template_id = null`
+  - `announcement_title_body_v2` — header title (≤ 60 Meta text-header characters) + body message (optional link appended in full by OMS-HRM; never partially truncated)
+- AI Assist purpose values are only `general`, `promotion`, `action_required`, and `reminder`.
 - Existing announcements without `whatsapp_template_id` keep the legacy enabled `announcement` slug fallback.
 - Missing, disabled, or incompatible selected templates fail Preview/Test/Production safely — no silent switch to an unrelated template.
 - Document/Payroll templates are not Announcement-compatible selectors.

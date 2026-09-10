@@ -18,6 +18,7 @@ final class ListAnnouncementWhatsAppTemplates
      *     purpose: string|null,
      *     body_preview: string,
      *     header_type: string,
+     *     is_default: bool,
      *     is_legacy: bool
      * }>
      */
@@ -44,6 +45,7 @@ final class ListAnnouncementWhatsAppTemplates
                     : ($template->purpose !== null ? (string) $template->purpose : null),
                 'body_preview' => (string) $template->body_preview,
                 'header_type' => $template->header_type->value,
+                'is_default' => (bool) $template->is_default,
                 'is_legacy' => $template->slug === ResolveAnnouncementWhatsAppTemplate::LEGACY_SLUG,
             ])
             ->values()

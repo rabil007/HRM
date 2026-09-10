@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use App\Models\WhatsAppTemplate;
 use App\Services\AnnouncementContentAssistInterpreter;
 use App\Support\Announcements\AnnouncementAiAssistResult;
 use App\Support\Announcements\ListAnnouncementWhatsAppTemplates;
@@ -265,4 +266,92 @@ test('ai assist does not create or publish announcements', function () {
         ->assertJsonPath('ok', true);
 
     expect(Announcement::query()->count())->toBe($before);
+});
+
+test('ai maps each canonical purpose to its trusted enabled template', function (AnnouncementWhatsAppTemplatePurpose $purpose, string $slug) {
+    enableAnnouncementAiAssist();
+    ensureAnnouncementWhatsAppTemplate(['purpose' => null]);
+    ensureAnnouncementGeneralWhatsAppTemplate();
+    ensureAnnouncementTitleBodyWhatsAppTemplate();
+    ensureAnnouncementTitleBodyWhatsAppTemplate([
+        'slug' => 'announcement_action_required',
+        'label' => 'Action Required',
+        'meta_name' => 'employee_action_required',
+        'purpose' => AnnouncementWhatsAppTemplatePurpose::ActionRequired,
+        'body_preview' => "Action required:\n\n{{1}}\n\nThank you.",
+        'sort_order' => 30,
+    ]);
+    ensureAnnouncementTitleBodyWhatsAppTemplate([
+        'slug' => 'announcement_reminder',
+        'label' => 'Reminder',
+        'meta_name' => 'employee_reminder',
+        'purpose' => AnnouncementWhatsAppTemplatePurpose::Reminder,
+        'body_preview' => "Reminder:\n\n{{1}}\n\nThank you.",
+        'sort_order' => 40,
+    ]);
+
+    ['user' => $user, 'company' => $company] = makeAnnouncementAiAssistFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['announcements.create']);
+
+    AnnouncementContentAssistInterpreter::fake([
+        fakeAnnouncementAiAssistResult([
+            'template_purpose' => $purpose->value,
+        ]),
+    ]);
+
+    $expected = WhatsAppTemplate::query()->where('slug', $slug)->firstOrFail();
+
+    $this->postJson(route('organization.announcements.ai-assist'), announcementAiAssistPayload())
+        ->assertOk()
+        ->assertJsonPath('result.template_purpose', $purpose->value)
+        ->assertJsonPath('result.suggested_template.id', $expected->id)
+        ->assertJsonPath('result.suggested_template.purpose', $purpose->value);
+})->with([
+    'general' => [AnnouncementWhatsAppTemplatePurpose::General, 'announcement_general'],
+    'promotion' => [AnnouncementWhatsAppTemplatePurpose::Promotion, 'announcement_promotion'],
+    'action_required' => [AnnouncementWhatsAppTemplatePurpose::ActionRequired, 'announcement_action_required'],
+    'reminder' => [AnnouncementWhatsAppTemplatePurpose::Reminder, 'announcement_reminder'],
+]);
+
+test('obsolete ai purposes fail closed and disabled templates are never suggested', function () {
+    enableAnnouncementAiAssist();
+    ensureAnnouncementGeneralWhatsAppTemplate(['enabled' => false]);
+
+    ['user' => $user, 'company' => $company] = makeAnnouncementAiAssistFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['announcements.create']);
+
+    expect(fn () => AnnouncementAiAssistResult::fromDecoded(
+        [
+            'title' => 'Title',
+            'main_body' => '<p>Body</p>',
+            'whatsapp_message' => 'Message',
+            'template_purpose' => 'safety',
+        ],
+        app(ListAnnouncementWhatsAppTemplates::class),
+    ))->toThrow(InvalidArgumentException::class);
+
+    expect(fn () => AnnouncementAiAssistResult::fromDecoded(
+        [
+            'title' => 'Title',
+            'main_body' => '<p>Body</p>',
+            'whatsapp_message' => 'Message',
+            'template_purpose' => 'internal',
+        ],
+        app(ListAnnouncementWhatsAppTemplates::class),
+    ))->toThrow(InvalidArgumentException::class);
+
+    $result = AnnouncementAiAssistResult::fromDecoded(
+        [
+            'title' => 'Title',
+            'main_body' => '<p>Body</p>',
+            'whatsapp_message' => 'Message',
+            'template_purpose' => AnnouncementWhatsAppTemplatePurpose::General->value,
+        ],
+        app(ListAnnouncementWhatsAppTemplates::class),
+    );
+
+    expect($result->templatePurpose)->toBe(AnnouncementWhatsAppTemplatePurpose::General)
+        ->and($result->suggestedTemplate)->toBeNull();
 });

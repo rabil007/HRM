@@ -76,12 +76,13 @@ function announcementTemplateSelectionPayload(array $overrides = []): array
 
 test('create form options include enabled announcement templates only', function () {
     $legacy = ensureAnnouncementWhatsAppTemplate();
+    $general = ensureAnnouncementGeneralWhatsAppTemplate();
     $promotion = ensureAnnouncementTitleBodyWhatsAppTemplate();
     $disabled = ensureAnnouncementTitleBodyWhatsAppTemplate([
         'slug' => 'disabled_internal_notice',
         'label' => 'Disabled Internal',
         'meta_name' => 'disabled_internal_notice',
-        'purpose' => AnnouncementWhatsAppTemplatePurpose::Internal,
+        'purpose' => AnnouncementWhatsAppTemplatePurpose::ActionRequired,
         'enabled' => false,
         'sort_order' => 20,
     ]);
@@ -116,13 +117,73 @@ test('create form options include enabled announcement templates only', function
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/announcements/form')
-            ->has('options.whatsapp_templates', 2)
-            ->where('options.whatsapp_templates.0.id', $legacy->id)
-            ->where('options.whatsapp_templates.1.id', $promotion->id)
             ->where('options.whatsapp_templates', fn ($templates) => collect($templates)
                 ->pluck('id')
-                ->doesntContain($disabled->id)
-                && collect($templates)->every(fn ($template) => $template['payload_profile'] !== null)
+                ->contains($legacy->id)
+                && collect($templates)->pluck('id')->contains($general->id)
+                && collect($templates)->pluck('id')->contains($promotion->id)
+                && collect($templates)->pluck('id')->doesntContain($disabled->id)
+                && collect($templates)->every(fn ($template) => $template['payload_profile'] !== null
+                    && array_key_exists('is_default', $template))
+                && collect($templates)->firstWhere('id', $general->id)['is_default'] === true
+            )
+        );
+});
+
+test('create form defaults to the general announcement template for new announcements', function () {
+    ensureAnnouncementWhatsAppTemplate();
+    $general = ensureAnnouncementGeneralWhatsAppTemplate();
+    ensureAnnouncementTitleBodyWhatsAppTemplate();
+
+    ['user' => $user, 'company' => $company] = makeAnnouncementTemplateSelectionFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'announcements.view',
+        'announcements.create',
+    ]);
+
+    $this->get(route('organization.announcements.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/announcements/form')
+            ->where('options.whatsapp_templates', fn ($templates) => collect($templates)
+                ->firstWhere('is_default', true)['id'] === $general->id)
+            ->where('announcement', null)
+        );
+});
+
+test('edit form keeps legacy selection for announcements with null whatsapp_template_id', function () {
+    $legacy = ensureAnnouncementWhatsAppTemplate();
+    ensureAnnouncementGeneralWhatsAppTemplate();
+    ensureAnnouncementTitleBodyWhatsAppTemplate();
+
+    ['user' => $user, 'company' => $company] = makeAnnouncementTemplateSelectionFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'announcements.view',
+        'announcements.create',
+        'announcements.update',
+    ]);
+
+    $announcement = Announcement::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Historical null template draft',
+        'body_html' => '<p>Legacy body.</p>',
+        'category' => 'general',
+        'priority' => 'normal',
+        'status' => AnnouncementStatus::Draft,
+        'channels' => ['whatsapp'],
+        'whatsapp_template_id' => null,
+        'created_by' => $user->id,
+    ]);
+
+    $this->get(route('organization.announcements.edit', $announcement))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/announcements/form')
+            ->where('announcement.whatsapp_template_id', null)
+            ->where('options.whatsapp_templates', fn ($templates) => collect($templates)
+                ->contains(fn ($template) => $template['id'] === $legacy->id && $template['is_legacy'] === true)
             )
         );
 });
