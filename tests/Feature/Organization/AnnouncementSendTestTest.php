@@ -464,3 +464,210 @@ test('send test endpoint is rate limited', function () {
         'channels' => ['email'],
     ]))->assertTooManyRequests();
 });
+
+test('cross-company announcement_id is rejected with 404', function () {
+    Mail::fake();
+    ['user' => $user, 'company' => $company] = makeAnnouncementSendTestFixtures();
+
+    $otherCode = 'XC'.fake()->unique()->numerify('##');
+    $otherCountry = Country::query()->create([
+        'code' => $otherCode,
+        'name' => 'Crossland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+    $otherCurrency = Currency::query()->create([
+        'code' => $otherCode,
+        'name' => 'Cross Currency',
+        'symbol' => 'X$',
+        'is_active' => true,
+    ]);
+    $otherCompany = Company::query()->create([
+        'name' => 'Cross Co',
+        'slug' => 'cross-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $otherCountry->id,
+        'currency_id' => $otherCurrency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $foreignAnnouncement = Announcement::query()->create([
+        'company_id' => $otherCompany->id,
+        'title' => 'Foreign draft',
+        'body_html' => '<p>Other company</p>',
+        'category' => 'general',
+        'priority' => 'normal',
+        'status' => AnnouncementStatus::Draft,
+        'channels' => ['email'],
+        'created_by' => $user->id,
+    ]);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['announcements.publish']);
+
+    $this->mock(WhatsAppService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('normalizePhone')
+            ->andReturnUsing(fn (string $phone): string => preg_replace('/\D+/', '', $phone) ?: '');
+        $mock->shouldReceive('sendTemplate')->never();
+    });
+
+    $this->postJson(route('organization.announcements.send-test'), announcementSendTestPayload([
+        'channels' => ['email', 'whatsapp'],
+        'announcement_id' => $foreignAnnouncement->id,
+    ]))->assertNotFound();
+
+    Mail::assertNothingSent();
+    expect(AnnouncementRecipient::query()->count())->toBe(0)
+        ->and(AnnouncementDelivery::query()->count())->toBe(0);
+});
+
+test('unknown announcement_id is rejected with 404', function () {
+    Mail::fake();
+    ['user' => $user, 'company' => $company] = makeAnnouncementSendTestFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['announcements.publish']);
+
+    $this->mock(WhatsAppService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('normalizePhone')
+            ->andReturnUsing(fn (string $phone): string => preg_replace('/\D+/', '', $phone) ?: '');
+        $mock->shouldReceive('sendTemplate')->never();
+    });
+
+    $this->postJson(route('organization.announcements.send-test'), announcementSendTestPayload([
+        'channels' => ['email'],
+        'announcement_id' => 999999999,
+    ]))->assertNotFound();
+
+    Mail::assertNothingSent();
+});
+
+test('published announcement_id is rejected and not treated as unsaved', function () {
+    Mail::fake();
+    ['user' => $user, 'company' => $company] = makeAnnouncementSendTestFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['announcements.publish']);
+
+    $announcement = Announcement::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Already published',
+        'body_html' => '<p>Live content</p>',
+        'category' => 'general',
+        'priority' => 'normal',
+        'status' => AnnouncementStatus::Published,
+        'channels' => ['email'],
+        'created_by' => $user->id,
+        'published_at' => now(),
+        'published_by' => $user->id,
+    ]);
+
+    $this->mock(WhatsAppService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('normalizePhone')
+            ->andReturnUsing(fn (string $phone): string => preg_replace('/\D+/', '', $phone) ?: '');
+        $mock->shouldReceive('sendTemplate')->never();
+    });
+
+    $this->postJson(route('organization.announcements.send-test'), announcementSendTestPayload([
+        'title' => 'Should not send as unsaved',
+        'channels' => ['email'],
+        'announcement_id' => $announcement->id,
+    ]))->assertUnprocessable()
+        ->assertJsonValidationErrors(['announcement_id']);
+
+    Mail::assertNothingSent();
+    expect($announcement->fresh())
+        ->status->toBe(AnnouncementStatus::Published)
+        ->title->toBe('Already published')
+        ->and(AnnouncementRecipient::query()->count())->toBe(0)
+        ->and(AnnouncementDelivery::query()->count())->toBe(0);
+});
+
+test('null announcement_id still allows unsaved create-form test send', function () {
+    Mail::fake();
+    ['user' => $user, 'company' => $company] = makeAnnouncementSendTestFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['announcements.publish']);
+
+    $this->mock(WhatsAppService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('normalizePhone')
+            ->andReturnUsing(fn (string $phone): string => preg_replace('/\D+/', '', $phone) ?: '');
+    });
+
+    $this->postJson(route('organization.announcements.send-test'), announcementSendTestPayload([
+        'channels' => ['email'],
+        'announcement_id' => null,
+    ]))->assertOk()
+        ->assertJsonPath('email.success', true);
+
+    Mail::assertSent(AnnouncementMail::class);
+    expect(Announcement::query()->count())->toBe(0);
+});
+
+test('malformed channels string returns 422 instead of 500', function () {
+    Mail::fake();
+    ['user' => $user, 'company' => $company] = makeAnnouncementSendTestFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['announcements.publish']);
+
+    $this->mock(WhatsAppService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('normalizePhone')
+            ->andReturnUsing(fn (string $phone): string => preg_replace('/\D+/', '', $phone) ?: '');
+        $mock->shouldReceive('sendTemplate')->never();
+    });
+
+    $this->postJson(route('organization.announcements.send-test'), announcementSendTestPayload([
+        'channels' => 'email',
+    ]))->assertUnprocessable()
+        ->assertJsonValidationErrors(['channels']);
+
+    Mail::assertNothingSent();
+});
+
+test('malformed null and object channels return 422', function () {
+    Mail::fake();
+    ['user' => $user, 'company' => $company] = makeAnnouncementSendTestFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['announcements.publish']);
+
+    $this->mock(WhatsAppService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('normalizePhone')
+            ->andReturnUsing(fn (string $phone): string => preg_replace('/\D+/', '', $phone) ?: '');
+        $mock->shouldReceive('sendTemplate')->never();
+    });
+
+    $this->postJson(route('organization.announcements.send-test'), announcementSendTestPayload([
+        'channels' => null,
+    ]))->assertUnprocessable()
+        ->assertJsonValidationErrors(['channels']);
+
+    $this->postJson(route('organization.announcements.send-test'), announcementSendTestPayload([
+        'channels' => ['email' => true],
+    ]))->assertUnprocessable();
+
+    Mail::assertNothingSent();
+});
+
+test('duplicate channels are normalized without duplicate sends', function () {
+    Mail::fake();
+    ensureAnnouncementWhatsAppTemplate();
+    ['user' => $user, 'company' => $company] = makeAnnouncementSendTestFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['announcements.publish']);
+
+    $this->mock(WhatsAppService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('normalizePhone')
+            ->andReturnUsing(fn (string $phone): string => preg_replace('/\D+/', '', $phone) ?: '');
+        $mock->shouldReceive('sendTemplate')
+            ->once()
+            ->andReturn(['success' => true, 'message_id' => 'wamid.dup']);
+    });
+
+    $this->postJson(route('organization.announcements.send-test'), announcementSendTestPayload([
+        'channels' => ['email', 'email', 'whatsapp'],
+    ]))->assertOk()
+        ->assertJsonPath('email.success', true)
+        ->assertJsonPath('whatsapp.success', true);
+
+    Mail::assertSentCount(1);
+});

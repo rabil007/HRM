@@ -53,7 +53,13 @@ class SendAnnouncementTestRequest extends FormRequest
         $this->request->remove('employee_id');
         $this->request->remove('company_id');
 
-        $channels = array_values(array_unique(array_map('strval', $this->input('channels', []))));
+        $channels = $this->input('channels');
+
+        if (! is_array($channels)) {
+            return;
+        }
+
+        $channels = array_values(array_unique(array_map('strval', $channels)));
 
         if (! in_array(AnnouncementChannel::WhatsApp->value, $channels, true)) {
             $this->merge(['whatsapp_link' => null]);

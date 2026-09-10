@@ -117,20 +117,27 @@ final class SendAnnouncementTest
     private function buildAnnouncement(int $companyId, User $user, array $data): array
     {
         $channels = array_values(array_unique(array_map('strval', $data['channels'])));
-        $persistedId = isset($data['announcement_id']) ? (int) $data['announcement_id'] : null;
+        $persistedId = array_key_exists('announcement_id', $data) && $data['announcement_id'] !== null
+            ? (int) $data['announcement_id']
+            : null;
         $company = Company::query()->whereKey($companyId)->first();
 
         $source = null;
-        if ($persistedId !== null && $persistedId > 0) {
+        if ($persistedId !== null) {
+            // Supplied IDs must resolve in the active company. Missing/cross-company → 404.
             $source = Announcement::query()
                 ->whereKey($persistedId)
                 ->where('company_id', $companyId)
-                ->whereIn('status', [
-                    AnnouncementStatus::Draft->value,
-                    AnnouncementStatus::Scheduled->value,
-                ])
                 ->with(['attachments', 'company:id,name'])
                 ->first();
+
+            abort_unless($source !== null, 404);
+
+            if (! $source->status->isEditable()) {
+                throw ValidationException::withMessages([
+                    'announcement_id' => 'Only draft or scheduled announcements can be tested.',
+                ]);
+            }
         }
 
         $announcement = new Announcement([

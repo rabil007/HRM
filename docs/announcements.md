@@ -88,6 +88,17 @@ Draft remains draft; scheduled remains scheduled.
 
 Unsaved create forms can test without persisting an announcement. Persisted draft/scheduled attachments are represented the same way as Email preview (`#` placeholder links in V1).
 
+### `announcement_id` and `channels`
+
+| Input | Behavior |
+|-------|----------|
+| `announcement_id` omitted / `null` | Unsaved create-form Test Send (transient content only) |
+| Same-company **Draft** or **Scheduled** id | Allowed; may reuse that announcement’s persisted attachment context |
+| Missing id, or id belonging to another company | Rejected with **404** (no existence leak) |
+| Same-company Published / Cancelled / otherwise non-editable id | Rejected with **422** validation (`announcement_id`) — never treated as unsaved |
+
+`channels` must be an array of `email` and/or `whatsapp`. Malformed values (string, `null`, object) return **422** validation errors; they must not produce a 500. Duplicate channel values are normalized before send.
+
 ### Audit
 
 Activity log event: `announcement_test_sent` (log `announcements`), company-scoped.
