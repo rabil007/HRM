@@ -45,7 +45,9 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { AnnouncementMessageEditorSkeleton } from '@/features/organization/announcements/announcement-message-editor-skeleton';
+import { buildEmailPreview } from '@/features/organization/announcements/build-email-preview';
 import { buildWhatsAppTemplatePreview } from '@/features/organization/announcements/build-whatsapp-template-preview';
+import { EmailPreview } from '@/features/organization/announcements/email-preview';
 import type {
     AnnouncementCan,
     AnnouncementFormData,
@@ -977,6 +979,7 @@ export default function AnnouncementFormPage({
           : 'No audience selected';
 
     const whatsappSelected = form.data.channels.includes('whatsapp');
+    const emailSelected = form.data.channels.includes('email');
 
     const priorityLabel =
         options.priorities.find((option) => option.value === form.data.priority)
@@ -1002,6 +1005,22 @@ export default function AnnouncementFormPage({
         ],
     );
 
+    const emailPreviewData = useMemo(
+        () =>
+            buildEmailPreview({
+                companyName: options.company_name,
+                title: form.data.title,
+                bodyHtml: form.data.body_html,
+                priorityLabel,
+            }),
+        [
+            form.data.body_html,
+            form.data.title,
+            options.company_name,
+            priorityLabel,
+        ],
+    );
+
     const whatsappPreview = whatsappSelected ? (
         <WhatsAppDocumentTemplatePreview
             templateName={
@@ -1013,6 +1032,15 @@ export default function AnnouncementFormPage({
             headerType="none"
             accountName={options.company_name || 'Company'}
             hint="Live preview of the approved Meta template."
+        />
+    ) : null;
+
+    const emailPreview = emailSelected ? (
+        <EmailPreview
+            subject={emailPreviewData.subject}
+            html={emailPreviewData.html}
+            accountName={options.company_name || 'Company'}
+            hint="Live preview of the email that will be sent."
         />
     ) : null;
 
@@ -1281,6 +1309,12 @@ export default function AnnouncementFormPage({
                                             <div className="xl:hidden">
                                                 {whatsappPreview}
                                             </div>
+                                        </div>
+                                    ) : null}
+
+                                    {emailSelected ? (
+                                        <div className="space-y-4 rounded-xl border border-sky-500/25 bg-sky-500/[0.04] p-4 xl:hidden">
+                                            {emailPreview}
                                         </div>
                                     ) : null}
                                 </div>
@@ -1654,6 +1688,12 @@ export default function AnnouncementFormPage({
                                         </div>
                                     </div>
                                 </div>
+
+                                {emailSelected ? (
+                                    <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.03] p-4">
+                                        {emailPreview}
+                                    </div>
+                                ) : null}
 
                                 {whatsappSelected ? (
                                     <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.03] p-4">
