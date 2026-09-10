@@ -32,6 +32,7 @@ use App\Http\Controllers\Organization\Announcements\EmployeeAnnouncementControll
 use App\Http\Controllers\Organization\Announcements\PreviewAnnouncementRecipientsController;
 use App\Http\Controllers\Organization\Announcements\PublishAnnouncementController;
 use App\Http\Controllers\Organization\Announcements\RetryAnnouncementDeliveriesController;
+use App\Http\Controllers\Organization\Announcements\SendAnnouncementTestController;
 use App\Http\Controllers\Organization\ApplyCrewTourOfDutyController;
 use App\Http\Controllers\Organization\BankAccountsExportController;
 use App\Http\Controllers\Organization\BankAccountsImportController;
@@ -398,6 +399,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/announcements/preview-recipients', PreviewAnnouncementRecipientsController::class)
         ->middleware('can:announcements.create')
         ->name('organization.announcements.preview-recipients');
+    Route::post('organization/announcements/send-test', SendAnnouncementTestController::class)
+        ->middleware(['can:announcements.publish', 'throttle:5,1'])
+        ->name('organization.announcements.send-test');
     Route::get('organization/announcements/inbox/feed', NotificationFeedController::class)
         ->name('organization.announcements.inbox.feed');
     Route::get('organization/announcements/inbox/{recipient}', [EmployeeAnnouncementController::class, 'show'])

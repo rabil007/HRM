@@ -25,6 +25,8 @@ Controller: `App\Http\Controllers\Settings\ApplicationSettingsController`
 
 Use test mail to verify credentials before relying on document email or system notifications.
 
+Announcement **Send test to me** (separate from SMTP settings test) reuses `BuildAnnouncementEmailContent` and the production `mail/announcement` Blade templates, with a `[TEST]` subject prefix. See [Announcements](./announcements.md).
+
 ## Branding (related)
 
 Platform branding (logos, platform name, email footer) is managed in **Settings → Application**. Company logos and salary-certificate signature/stamp live on **Organization → Companies**.

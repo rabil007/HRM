@@ -17,6 +17,7 @@ use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\Actions\RefreshAnnouncementDeliveryStatus;
 use App\Support\Announcements\AnnouncementWhatsAppMessage;
+use App\Support\Announcements\BuildAnnouncementWhatsAppTemplatePayload;
 use Mockery\MockInterface;
 
 /**
@@ -143,6 +144,7 @@ test('whatsapp job sends five body parameters with custom announcement link', fu
 
     (new DeliverAnnouncementWhatsAppJob($delivery->id))->handle(
         app(WhatsAppService::class),
+        app(BuildAnnouncementWhatsAppTemplatePayload::class),
         app(RefreshAnnouncementDeliveryStatus::class),
     );
 
@@ -191,6 +193,7 @@ test('whatsapp job sends with N/A when custom view link is missing', function ()
 
     (new DeliverAnnouncementWhatsAppJob($delivery->id))->handle(
         app(WhatsAppService::class),
+        app(BuildAnnouncementWhatsAppTemplatePayload::class),
         app(RefreshAnnouncementDeliveryStatus::class),
     );
 
@@ -211,6 +214,7 @@ test('already successful whatsapp deliveries are not resent', function () {
 
     (new DeliverAnnouncementWhatsAppJob($delivery->id))->handle(
         app(WhatsAppService::class),
+        app(BuildAnnouncementWhatsAppTemplatePayload::class),
         app(RefreshAnnouncementDeliveryStatus::class),
     );
 
@@ -232,6 +236,7 @@ test('missing phone numbers remain skipped for whatsapp delivery', function () {
 
     (new DeliverAnnouncementWhatsAppJob($delivery->id))->handle(
         app(WhatsAppService::class),
+        app(BuildAnnouncementWhatsAppTemplatePayload::class),
         app(RefreshAnnouncementDeliveryStatus::class),
     );
 

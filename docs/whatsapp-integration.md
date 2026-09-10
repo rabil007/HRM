@@ -61,6 +61,8 @@ Exact retries are idempotent and do not rewrite delivery timestamps. Provider pr
 
 Authenticated matching events map Meta statuses to announcement delivery states:
 
+- Announcement WhatsApp delivery, channel preview, and **Send test to me** all resolve the enabled template with slug `announcement` via `ResolveAnnouncementWhatsAppTemplate` / `BuildAnnouncementWhatsAppTemplatePayload`. There is no General-template fallback for announcement content.
+
 - `sent`
 - `delivered`
 - `read`

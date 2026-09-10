@@ -7,6 +7,7 @@ import {
     ChevronDown,
     ChevronRight,
     FileText,
+    FlaskConical,
     Folder,
     FolderOpen,
     GitBranch,
@@ -48,15 +49,18 @@ import { AnnouncementMessageEditorSkeleton } from '@/features/organization/annou
 import { buildEmailPreview } from '@/features/organization/announcements/build-email-preview';
 import { buildWhatsAppTemplatePreview } from '@/features/organization/announcements/build-whatsapp-template-preview';
 import { EmailPreview } from '@/features/organization/announcements/email-preview';
+import { SendAnnouncementTestDialog } from '@/features/organization/announcements/send-announcement-test-dialog';
 import type {
     AnnouncementCan,
     AnnouncementFormData,
     AnnouncementFormOptions,
     AnnouncementFormPayload,
+    AnnouncementTestSendResponse,
     RecipientPreview,
 } from '@/features/organization/announcements/types';
 import { WhatsAppDocumentTemplatePreview } from '@/features/settings/whatsapp-document-template-preview';
 import { cn } from '@/lib/utils';
+import { sendTest as sendAnnouncementTest } from '@/routes/organization/announcements';
 
 /**
  * Tiptap and ProseMirror are the heaviest dependency on this page, so the
@@ -733,6 +737,7 @@ function AudiencePicker({
 export default function AnnouncementFormPage({
     announcement,
     options,
+    can,
 }: {
     announcement: AnnouncementFormPayload | null;
     options: AnnouncementFormOptions;
@@ -746,11 +751,33 @@ export default function AnnouncementFormPage({
         channels: ['in_app'],
         audiences: [{ type: 'all_employees', id: null }],
     });
+    const testHttp = useHttp<{
+        title: string;
+        body_html: string;
+        category: string;
+        priority: string;
+        whatsapp_link: string | null;
+        channels: string[];
+        announcement_id: number | null;
+    }>({
+        title: '',
+        body_html: '',
+        category: 'general',
+        priority: 'normal',
+        whatsapp_link: null,
+        channels: [],
+        announcement_id: null,
+    });
     const [preview, setPreview] = useState<RecipientPreview | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
     const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
         null,
     );
+    const [testDialogOpen, setTestDialogOpen] = useState(false);
+    const [testSending, setTestSending] = useState(false);
+    const [testError, setTestError] = useState<string | null>(null);
+    const [testResult, setTestResult] =
+        useState<AnnouncementTestSendResponse | null>(null);
     const [activeAudienceType, setActiveAudienceType] = useState<string>(
         announcement?.audiences.some((a) => a.type === 'all_employees')
             ? 'all_employees'
@@ -980,6 +1007,48 @@ export default function AnnouncementFormPage({
 
     const whatsappSelected = form.data.channels.includes('whatsapp');
     const emailSelected = form.data.channels.includes('email');
+    const canSendTest =
+        can.publish &&
+        (emailSelected || whatsappSelected) &&
+        form.data.title.trim() !== '' &&
+        form.data.body_html.trim() !== '';
+
+    const openTestDialog = () => {
+        setTestError(null);
+        setTestResult(null);
+        setTestDialogOpen(true);
+    };
+
+    const handleSendTest = (channels: Array<'email' | 'whatsapp'>) => {
+        setTestSending(true);
+        setTestError(null);
+        setTestResult(null);
+
+        testHttp.transform(() => ({
+            title: form.data.title,
+            body_html: form.data.body_html,
+            category: form.data.category,
+            priority: form.data.priority,
+            whatsapp_link: whatsappSelected
+                ? form.data.whatsapp_link || null
+                : null,
+            channels,
+            announcement_id: announcement?.id ?? null,
+        }));
+
+        testHttp
+            .post(sendAnnouncementTest.url())
+            .then((data) => {
+                setTestResult(data as AnnouncementTestSendResponse);
+            })
+            .catch(() => {
+                setTestError('Test could not be sent.');
+            })
+            .finally(() => {
+                testHttp.transform((data) => data);
+                setTestSending(false);
+            });
+    };
 
     const priorityLabel =
         options.priorities.find((option) => option.value === form.data.priority)
@@ -1119,7 +1188,24 @@ export default function AnnouncementFormPage({
                                         );
                                     })}
                                 </div>
-                                <InputError message={form.errors.channels} />
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <InputError
+                                        message={form.errors.channels}
+                                    />
+                                    {can.publish &&
+                                    (emailSelected || whatsappSelected) ? (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={!canSendTest}
+                                            onClick={openTestDialog}
+                                        >
+                                            <FlaskConical className="size-3.5" />
+                                            Send test to me
+                                        </Button>
+                                    ) : null}
+                                </div>
                             </SectionCard>
 
                             <SectionCard
@@ -1615,6 +1701,19 @@ export default function AnnouncementFormPage({
 
                         <aside className="hidden xl:block">
                             <div className="sticky top-24 space-y-4">
+                                {can.publish &&
+                                (emailSelected || whatsappSelected) ? (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full"
+                                        disabled={!canSendTest}
+                                        onClick={openTestDialog}
+                                    >
+                                        <FlaskConical className="size-4" />
+                                        Send test to me
+                                    </Button>
+                                ) : null}
                                 <div className="rounded-xl border glass-card p-5">
                                     <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                                         Summary
@@ -1745,6 +1844,23 @@ export default function AnnouncementFormPage({
                         </div>
                     </div>
                 </div>
+                <SendAnnouncementTestDialog
+                    open={testDialogOpen}
+                    onOpenChange={(open) => {
+                        setTestDialogOpen(open);
+
+                        if (!open) {
+                            setTestError(null);
+                            setTestResult(null);
+                        }
+                    }}
+                    destinations={options.test_destinations}
+                    selectedChannels={form.data.channels}
+                    processing={testSending}
+                    result={testResult}
+                    error={testError}
+                    onSubmit={handleSendTest}
+                />
             </Main>
         </>
     );

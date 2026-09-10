@@ -3,20 +3,21 @@
 namespace App\Support\Announcements;
 
 use App\Enums\AnnouncementChannel;
-use App\Enums\WhatsAppTemplateCategory;
 use App\Models\Announcement;
-use App\Models\WhatsAppTemplate;
 
 final class BuildAnnouncementChannelPreview
 {
-    public function __construct(private BuildAnnouncementEmailContent $emailContent) {}
+    public function __construct(
+        private BuildAnnouncementEmailContent $emailContent,
+        private ResolveAnnouncementWhatsAppTemplate $resolveWhatsAppTemplate,
+    ) {}
 
     /**
      * @return array{
      *     channels: list<string>,
      *     in_app: array{title: string, body_html: string, priority_label: string, category_label: string}|null,
      *     email: array{subject: string, html: string}|null,
-     *     whatsapp: array{template_name: string, template_language: string, body_text: string, company_name: string, view_link: string}|null
+     *     whatsapp: array{template_name: string, template_language: string, body_text: string, company_name: string, view_link: string, available: bool, message: string|null}|null
      * }
      */
     public function handle(Announcement $announcement): array
@@ -48,27 +49,29 @@ final class BuildAnnouncementChannelPreview
     }
 
     /**
-     * @return array{template_name: string, template_language: string, body_text: string, company_name: string, view_link: string}
+     * @return array{template_name: string, template_language: string, body_text: string, company_name: string, view_link: string, available: bool, message: string|null}
      */
     private function whatsappPreview(Announcement $announcement): array
     {
-        $template = WhatsAppTemplate::query()
-            ->where('slug', 'announcement')
-            ->where('enabled', true)
-            ->first()
-            ?? WhatsAppTemplate::query()
-                ->enabled()
-                ->forCategory(WhatsAppTemplateCategory::General)
-                ->orderByDesc('is_default')
-                ->orderBy('sort_order')
-                ->first();
-
+        $template = $this->resolveWhatsAppTemplate->handle();
         $companyName = (string) ($announcement->company?->name ?? config('app.name'));
         $message = AnnouncementWhatsAppMessage::for($announcement);
         $priority = $announcement->priority->label();
         $viewLink = AnnouncementWhatsAppMessage::viewLink($announcement);
 
-        $bodyText = filled($template?->body_preview)
+        if ($template === null) {
+            return [
+                'template_name' => ResolveAnnouncementWhatsAppTemplate::SLUG,
+                'template_language' => 'en',
+                'body_text' => '',
+                'company_name' => $companyName,
+                'view_link' => $viewLink,
+                'available' => false,
+                'message' => 'WhatsApp announcement template is not configured.',
+            ];
+        }
+
+        $bodyText = filled($template->body_preview)
             ? str_replace(
                 [
                     '{{company}}',
@@ -99,11 +102,13 @@ final class BuildAnnouncementChannelPreview
             : "Hello,\nA company notice from {$companyName} is available for you.\n\nTitle: {$announcement->title}\nSummary: {$message}\nPriority: {$priority}\nView link: {$viewLink}";
 
         return [
-            'template_name' => (string) ($template?->meta_name ?? 'announcement'),
-            'template_language' => (string) ($template?->meta_language ?? 'en'),
+            'template_name' => (string) $template->meta_name,
+            'template_language' => (string) $template->meta_language,
             'body_text' => $bodyText,
             'company_name' => $companyName,
             'view_link' => $viewLink,
+            'available' => true,
+            'message' => null,
         ];
     }
 }

@@ -14,10 +14,12 @@ use App\Models\Company;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
-use App\Models\WhatsAppTemplate;
+use App\Models\User;
 use App\Support\Announcements\Actions\PersistAnnouncement;
 use App\Support\Announcements\Actions\PublishAnnouncement;
 use App\Support\Announcements\AnnouncementPagePermissions;
+use App\Support\Announcements\ResolveAnnouncementTestDestination;
+use App\Support\Announcements\ResolveAnnouncementWhatsAppTemplate;
 use App\Support\Announcements\Resources\AnnouncementResource;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
@@ -87,10 +89,13 @@ class AnnouncementController extends Controller
 
     public function create(Request $request): Response
     {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $can = AnnouncementPagePermissions::for($request->user());
+
         return Inertia::render('organization/announcements/form', [
             'announcement' => null,
-            'options' => $this->formOptions((int) $request->attributes->get('current_company_id')),
-            'can' => AnnouncementPagePermissions::for($request->user()),
+            'options' => $this->formOptions($companyId, $request->user(), $can['publish']),
+            'can' => $can,
         ]);
     }
 
@@ -138,10 +143,13 @@ class AnnouncementController extends Controller
         $this->assertCompany($request, $announcement);
         abort_unless($announcement->status->isEditable(), 403);
 
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $can = AnnouncementPagePermissions::for($request->user());
+
         return Inertia::render('organization/announcements/form', [
             'announcement' => AnnouncementResource::toFormArray($announcement),
-            'options' => $this->formOptions((int) $request->attributes->get('current_company_id')),
-            'can' => AnnouncementPagePermissions::for($request->user()),
+            'options' => $this->formOptions($companyId, $request->user(), $can['publish']),
+            'can' => $can,
         ]);
     }
 
@@ -197,8 +205,10 @@ class AnnouncementController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function formOptions(int $companyId): array
+    private function formOptions(int $companyId, ?User $user = null, bool $includeTestDestinations = false): array
     {
+        $whatsAppTemplate = app(ResolveAnnouncementWhatsAppTemplate::class)->handle();
+
         return [
             'company_name' => (string) Company::query()
                 ->whereKey($companyId)
@@ -238,11 +248,12 @@ class AnnouncementController extends Controller
                 ->orderBy('name')
                 ->limit(500)
                 ->get(['id', 'name', 'employee_no']),
-            'whatsapp_template' => WhatsAppTemplate::query()
-                ->where('slug', 'announcement')
-                ->where('enabled', true)
-                ->first(['meta_name', 'meta_language', 'body_preview'])
-                ?->only(['meta_name', 'meta_language', 'body_preview']),
+            'whatsapp_template' => $whatsAppTemplate === null
+                ? null
+                : $whatsAppTemplate->only(['meta_name', 'meta_language', 'body_preview']),
+            'test_destinations' => $includeTestDestinations && $user !== null
+                ? app(ResolveAnnouncementTestDestination::class)->forFrontend($user, $companyId)
+                : null,
         ];
     }
 }

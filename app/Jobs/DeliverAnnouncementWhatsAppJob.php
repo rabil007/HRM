@@ -4,10 +4,9 @@ namespace App\Jobs;
 
 use App\Enums\AnnouncementDeliveryStatus;
 use App\Models\AnnouncementDelivery;
-use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\Actions\RefreshAnnouncementDeliveryStatus;
-use App\Support\Announcements\AnnouncementWhatsAppMessage;
+use App\Support\Announcements\BuildAnnouncementWhatsAppTemplatePayload;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -30,6 +29,7 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
 
     public function handle(
         WhatsAppService $whatsApp,
+        BuildAnnouncementWhatsAppTemplatePayload $buildWhatsAppPayload,
         RefreshAnnouncementDeliveryStatus $refreshStatus,
     ): void {
         $delivery = AnnouncementDelivery::query()
@@ -65,12 +65,9 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $template = WhatsAppTemplate::query()
-            ->where('slug', 'announcement')
-            ->where('enabled', true)
-            ->first();
+        $payload = $buildWhatsAppPayload->handle($announcement);
 
-        if ($template === null) {
+        if ($payload === null) {
             $delivery->update([
                 'status' => AnnouncementDeliveryStatus::Failed,
                 'failed_at' => now(),
@@ -82,35 +79,12 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $viewLink = AnnouncementWhatsAppMessage::viewLink($announcement);
-
-        $companyName = AnnouncementWhatsAppMessage::templateParameter(
-            (string) ($announcement->company?->name ?? config('app.name')),
-        );
-        $shortSummary = AnnouncementWhatsAppMessage::for($announcement);
-        $title = AnnouncementWhatsAppMessage::templateParameter((string) $announcement->title);
-        $priority = AnnouncementWhatsAppMessage::templateParameter($announcement->priority->label());
-        $linkParameter = AnnouncementWhatsAppMessage::templateParameter($viewLink);
-
-        $components = [
-            [
-                'type' => 'body',
-                'parameters' => [
-                    ['type' => 'text', 'text' => $companyName],
-                    ['type' => 'text', 'text' => $title],
-                    ['type' => 'text', 'text' => $shortSummary],
-                    ['type' => 'text', 'text' => $priority],
-                    ['type' => 'text', 'text' => $linkParameter],
-                ],
-            ],
-        ];
-
         try {
             $result = $whatsApp->sendTemplate(
                 (string) $recipient->phone,
-                (string) $template->meta_name,
-                (string) $template->meta_language,
-                $components,
+                (string) $payload['template']->meta_name,
+                (string) $payload['template']->meta_language,
+                $payload['components'],
             );
         } catch (Throwable $exception) {
             $delivery->update([

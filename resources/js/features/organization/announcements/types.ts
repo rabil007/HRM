@@ -38,6 +38,32 @@ export type AnnouncementFormOptions = {
         meta_language: string;
         body_preview: string;
     } | null;
+    test_destinations?: AnnouncementTestDestinations | null;
+};
+
+export type AnnouncementTestDestinations = {
+    email: {
+        available: boolean;
+        masked: string | null;
+    };
+    whatsapp: {
+        available: boolean;
+        masked: string | null;
+    };
+};
+
+export type AnnouncementTestChannelResult = {
+    attempted: boolean;
+    success: boolean;
+    message: string;
+};
+
+export type AnnouncementTestSendResponse = {
+    ok: boolean;
+    message: string;
+    destinations: AnnouncementTestDestinations;
+    email: AnnouncementTestChannelResult | null;
+    whatsapp: AnnouncementTestChannelResult | null;
 };
 
 export type AnnouncementFormData = {
@@ -91,6 +117,8 @@ export type AnnouncementChannelPreviews = {
         body_text: string;
         company_name: string;
         view_link: string;
+        available?: boolean;
+        message?: string | null;
     } | null;
 };
 

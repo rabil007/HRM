@@ -84,6 +84,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 | [AI settings](./ai-settings.md) | Admins, developers | Platform OpenAI/OpenRouter credentials, Smart Employee Search toggle, Employee Directory Beta UI |
 | [WhatsApp integration](./whatsapp-integration.md) | Admins, developers | Meta Cloud API settings, webhook verification, signed status callbacks |
 | [Announcement Web Push](./announcements-web-push.md) | Admins, developers | Browser push as an extension of in-app announcements |
+| [Announcements](./announcements.md) | HR, developers | Channels, publish flow, Send test to me |
 | [Document compliance Web Push](./document-compliance-web-push.md) | Admins, developers | Browser push for the daily document expiry summary |
 | [Hikvision integration](./hikvision-integration.md) | Admins, developers | Company settings, webhooks, scheduled syncs |
 | [Payroll](./payroll.md) | Payroll users, developers | Periods, salary inputs, timesheets, payslips, WPS, state transitions |

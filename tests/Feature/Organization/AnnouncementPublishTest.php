@@ -23,6 +23,7 @@ use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\Actions\RefreshAnnouncementDeliveryStatus;
 use App\Support\Announcements\BuildAnnouncementEmailContent;
+use App\Support\Announcements\BuildAnnouncementWhatsAppTemplatePayload;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
@@ -207,6 +208,7 @@ test('email is queued individually and whatsapp failure does not block email', f
 
     (new DeliverAnnouncementWhatsAppJob($whatsappDelivery->id))->handle(
         app(WhatsAppService::class),
+        app(BuildAnnouncementWhatsAppTemplatePayload::class),
         app(RefreshAnnouncementDeliveryStatus::class),
     );
 
