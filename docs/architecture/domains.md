@@ -37,6 +37,10 @@ erDiagram
     CrewAssignment }o--o| Rank : rank
     CrewAssignment ||--o| CrewPlanningAssignment : syncs
     CrewAssignmentPhase ||--o| EmployeeSeaService : completed_P4
+
+    Client ||--o{ Project : has
+    Client ||--o{ Vessel : "current/default"
+    Vessel }o--|| Company : owned_by
 ```
 
 Most operational data is **scoped by `company_id`**. Users switch the active company in the sidebar; permissions and queries run in that tenant context.
@@ -596,15 +600,23 @@ Company-owned vessel registry and manning configuration live under **Crew Operat
 
 Ownership chain:
 
-`VesselType` (global) → `Vessel` (company) → `VesselManning` (company) → Crew Assignments / Planning
+```text
+Client (global master data)
+├── Projects (global master data)
+└── Vessels (company-owned; current/default Client)
+
+VesselType (global) → Vessel (company + optional client_id) → VesselManning (company)
+```
 
 `vessels` and `vessel_manning` remain separate tables. Existing vessel rows were backfilled to `company_id = 1` in a one-time migration (no permanent DB default of `1`). Vessel IDs were preserved in place.
 
+`Vessel.client_id` is the **current/default operational Client**. It does **not** replace `company_id`. Changing a vessel’s Client never rewrites historical `CrewAssignment.client_id` or `EmployeeSeaService.client_id` snapshots.
+
 ### Main models
 
-- `Vessel` — `company_id`, identification fields, soft deletes; unique `(company_id, name)`
+- `Vessel` — `company_id`, optional `client_id` → `clients` (restrict on delete), identification fields, soft deletes; unique `(company_id, name)`
 - `VesselManning` — `company_id`, `vessel_id`, `rank_id`, `required_count` (child of Vessel; must match vessel company)
-- Global reference: `VesselType`, `Rank`
+- Global reference: `VesselType`, `Rank`, `Client`
 
 ### Controllers
 
@@ -902,7 +914,8 @@ Master-data catalogs and company vessels block deletion when a record is still r
 - Index/list payloads include `is_in_use`, `can_delete`, and optional `usage_count` / `usage_label` from `App\Support\MasterData\MasterDataUsage` (not computed client-side).
 - UI shows a small **In use** badge beside the name and keeps Delete visible but disabled with an explanation.
 - `destroy` actions call `MasterDataUsage::denyDeleteRedirect()` and return a validation error such as `“Captain” cannot be deleted because it is currently in use.` or, when usage is safely scoped to the active company, `“MV Ocean” cannot be deleted because it is used by crew assignments.`
-- **Global masters** (countries, ranks, banks, courses, …) evaluate deletion protection across all companies, but **must not expose cross-tenant usage counts or source labels** in Inertia payloads. When another company still references the record, the UI receives `is_in_use: true`, `can_delete: false`, and `usage_count` / `usage_label` omitted (`null`).
+- **Global masters** (countries, ranks, banks, courses, clients, projects, …) evaluate deletion protection across all companies, but **must not expose cross-tenant usage counts or source labels** in Inertia payloads. When another company still references the record, the UI receives `is_in_use: true`, `can_delete: false`, and `usage_count` / `usage_label` omitted (`null`).
+- **Clients** are also protected by `projects.client_id` (global) and `vessels.client_id` (company-scoped). Vessel usage metadata for a Client remains tenant-safe: another company’s vessels can block delete without exposing vessel counts/names to the active company.
 - **Tenant-owned vessels** scope usage to trusted `current_company_id` and may expose counts/labels when useful. Frontend metadata always uses company-scoped counts, never cross-tenant totals.
 - **Document Requirement rank/project pivots** resolve tenancy through `document_requirements.company_id` (the pivot tables themselves have no `company_id`).
 - **Soft-delete policy is explicit per usage source** in `MasterDataUsage::sourcesFor()`. Profile-style employee references ignore soft-deleted employees; historical/operational records such as sea service, crew assignments/phases, payroll records, and employee trainings continue to protect referenced master data even when soft-deleted, so restored history does not point at deleted masters.

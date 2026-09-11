@@ -8,6 +8,7 @@ use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\ImportProjectsRequest;
 use App\Http\Requests\Settings\MasterData\StoreProjectRequest;
 use App\Http\Requests\Settings\MasterData\UpdateProjectRequest;
+use App\Models\Client;
 use App\Models\Project;
 use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
@@ -22,21 +23,58 @@ class ProjectController extends Controller
 
     public function index()
     {
+        $request = request();
+        $clientId = $request->query('client_id');
+        $clientId = $clientId !== null && $clientId !== '' ? (int) $clientId : null;
+
+        $query = Project::query()
+            ->with('client:id,name')
+            ->orderBy('title')
+            ->select(['id', 'client_id', 'title', 'is_active']);
+
+        if ($clientId !== null) {
+            $query->where('client_id', $clientId);
+        }
+
         $page = $this->withMasterDataUsage(
             $this->paginateMasterDataIndex(
-                request(),
-                Project::query()
-                    ->orderBy('title')
-                    ->select(['id', 'title', 'is_active']),
-                ['title'],
+                $request,
+                $query,
+                ['title', 'client.name'],
             ),
             'settings.master-data.projects.delete',
         );
+
+        $page['items'] = collect($page['items'])->map(function (Project $project): array {
+            return [
+                'id' => $project->id,
+                'client_id' => $project->client_id,
+                'client_name' => $project->client?->name,
+                'title' => $project->title,
+                'is_active' => (bool) $project->is_active,
+                'is_in_use' => (bool) $project->getAttribute('is_in_use'),
+                'can_delete' => (bool) $project->getAttribute('can_delete'),
+                'usage_count' => $project->getAttribute('usage_count'),
+                'usage_label' => $project->getAttribute('usage_label'),
+            ];
+        })->all();
 
         return Inertia::render('settings/master-data/projects', [
             'projects' => $page['items'],
             'pagination' => $page['pagination'],
             'search' => $page['search'],
+            'filters' => [
+                'client_id' => $clientId,
+            ],
+            'clients' => Client::query()
+                ->orderBy('name')
+                ->get(['id', 'name', 'is_active'])
+                ->map(fn (Client $client): array => [
+                    'id' => $client->id,
+                    'name' => $client->name,
+                    'is_active' => (bool) $client->is_active,
+                ])
+                ->all(),
         ]);
     }
 
@@ -74,7 +112,7 @@ class ProjectController extends Controller
 
     public function importTemplate(): Response
     {
-        $csv = "title,is_active\nNorth Field,yes\nSouth Field,yes\n";
+        $csv = "client,project,is_active\nADNOC,Upper Zakum,yes\nADNOC,Das Island,yes\n";
 
         return response($csv, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -109,6 +147,9 @@ class ProjectController extends Controller
             if (in_array($key, ['title', 'name', 'project'], true)) {
                 $map['title'] = (int) $index;
             }
+            if (in_array($key, ['client', 'client_name'], true)) {
+                $map['client'] = (int) $index;
+            }
             if (in_array($key, ['active', 'is_active', 'status', 'enabled'], true)) {
                 $map['active'] = (int) $index;
             }
@@ -119,11 +160,26 @@ class ProjectController extends Controller
 
             return redirect()
                 ->route('settings.master-data.projects.index')
-                ->withErrors(['file' => 'The CSV must include a title column.']);
+                ->withErrors(['file' => 'The CSV must include a project/title column.']);
         }
+
+        if (! isset($map['client'])) {
+            fclose($handle);
+
+            return redirect()
+                ->route('settings.master-data.projects.index')
+                ->withErrors(['file' => 'The CSV must include a client column.']);
+        }
+
+        $clientsByName = Client::query()
+            ->where('is_active', true)
+            ->get(['id', 'name'])
+            ->keyBy(fn (Client $client): string => mb_strtolower(trim($client->name)));
 
         $imported = 0;
         $emptyTitles = 0;
+        $unknownClients = 0;
+        $unknownClientNames = [];
 
         while (($row = fgetcsv($handle)) !== false) {
             if (! is_array($row)) {
@@ -137,6 +193,21 @@ class ProjectController extends Controller
                 continue;
             }
 
+            $clientName = trim((string) ($row[$map['client']] ?? ''));
+            if ($clientName === '') {
+                $unknownClients++;
+
+                continue;
+            }
+
+            $client = $clientsByName->get(mb_strtolower($clientName));
+            if ($client === null) {
+                $unknownClients++;
+                $unknownClientNames[$clientName] = true;
+
+                continue;
+            }
+
             $active = true;
             if (isset($map['active'])) {
                 $v = mb_strtolower(trim((string) ($row[$map['active']] ?? '')));
@@ -145,7 +216,10 @@ class ProjectController extends Controller
 
             Project::query()->updateOrCreate(
                 ['title' => $title],
-                ['is_active' => $active],
+                [
+                    'client_id' => $client->id,
+                    'is_active' => $active,
+                ],
             );
             $imported++;
 
@@ -157,17 +231,30 @@ class ProjectController extends Controller
         fclose($handle);
 
         if ($imported === 0) {
+            $unknownList = implode(', ', array_keys($unknownClientNames));
+
             return redirect()
                 ->route('settings.master-data.projects.index')
                 ->withErrors([
-                    'file' => $emptyTitles > 0
-                        ? "No rows were imported. {$emptyTitles} row(s) had an empty title."
-                        : 'No rows were imported. Ensure each row has a title.',
+                    'file' => match (true) {
+                        $unknownClients > 0 && $unknownList !== '' => "No rows were imported. Unknown or inactive client(s): {$unknownList}.",
+                        $unknownClients > 0 => 'No rows were imported. One or more rows had a missing or unknown client.',
+                        $emptyTitles > 0 => "No rows were imported. {$emptyTitles} row(s) had an empty project title.",
+                        default => 'No rows were imported. Ensure each row has a client and project title.',
+                    },
                 ]);
+        }
+
+        $message = "Imported {$imported} project row(s).";
+        if ($unknownClients > 0) {
+            $unknownList = implode(', ', array_keys($unknownClientNames));
+            $message .= $unknownList !== ''
+                ? " Skipped {$unknownClients} row(s) with unknown/inactive client(s): {$unknownList}."
+                : " Skipped {$unknownClients} row(s) with missing or unknown clients.";
         }
 
         return redirect()
             ->route('settings.master-data.projects.index')
-            ->with('success', "Imported {$imported} project row(s).");
+            ->with('success', $message);
     }
 }

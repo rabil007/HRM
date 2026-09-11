@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { VesselsContent } from '@/features/organization/vessels/index';
 import type {
+    ClientOption,
     VesselPageCan,
     VesselRow,
     VesselTypeOption,
@@ -13,6 +14,7 @@ export default function VesselsIndex({
     search,
     filters,
     vessel_types,
+    clients = [],
     can,
     stats,
 }: {
@@ -20,11 +22,13 @@ export default function VesselsIndex({
     pagination: PaginationMeta;
     search: string;
     filters: {
+        client_id: number | null;
         vessel_type_id: number | null;
         manning: string | null;
         health: string | null;
     };
     vessel_types: VesselTypeOption[];
+    clients?: ClientOption[];
     can: VesselPageCan;
     stats: {
         total: number;
@@ -41,6 +45,7 @@ export default function VesselsIndex({
                 search={search}
                 filters={filters}
                 vessel_types={vessel_types}
+                clients={clients}
                 can={can}
                 stats={stats}
             />

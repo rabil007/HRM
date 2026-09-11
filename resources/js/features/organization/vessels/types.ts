@@ -5,6 +5,12 @@ export type VesselTypeOption = {
     name: string;
 };
 
+export type ClientOption = {
+    id: number;
+    name: string;
+    is_active: boolean;
+};
+
 export type VesselManningLine = {
     id: number;
     rank_id: number;
@@ -15,6 +21,8 @@ export type VesselManningLine = {
 export type VesselRow = {
     id: number;
     name: string;
+    client_id: number | null;
+    client_name: string | null;
     vessel_type_id: number;
     vessel_type: { id: number; name: string } | null;
     vessel_type_name: string | null;
@@ -133,6 +141,7 @@ export type VesselManningHealthCompact = {
 
 export type VesselFormData = {
     name: string;
+    client_id: number | '';
     vessel_type_id: number | '';
     grt: string;
     bhp: string;

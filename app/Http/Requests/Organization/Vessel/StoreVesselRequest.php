@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Organization\Vessel;
 
+use App\Support\MasterData\ClientAssignmentRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,6 +30,7 @@ class StoreVesselRequest extends FormRequest
                     ->where(fn ($q) => $q->where('company_id', $companyId))
                     ->whereNull('deleted_at'),
             ],
+            'client_id' => ClientAssignmentRules::activeClientIdRules(required: true),
             'vessel_type_id' => ['required', 'integer', Rule::exists('vessel_types', 'id')],
             'grt' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'bhp' => ['nullable', 'integer', 'min:0', 'max:2147483647'],

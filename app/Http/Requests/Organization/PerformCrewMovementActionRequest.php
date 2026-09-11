@@ -6,6 +6,7 @@ use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Models\CrewAssignment;
 use App\Support\CrewOperations\CrewOperationsSettings;
+use App\Support\MasterData\ClientAssignmentRules;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -21,7 +22,27 @@ class PerformCrewMovementActionRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->input('action') !== 'redeploy') {
+        $action = (string) $this->input('action');
+        $companyId = (int) $this->attributes->get('current_company_id');
+
+        if (in_array($action, ['join_vessel', 'transfer_vessel', 'redeploy'], true)) {
+            $vesselId = $this->input('vessel_id');
+            $clientId = $this->input('client_id');
+
+            if (($clientId === null || $clientId === '')
+                && $vesselId !== null
+                && $vesselId !== ''
+                && $companyId > 0
+                && ! ($action === 'redeploy' && $this->input('starting_phase') === CrewPhaseCode::PreMobilisation->value)) {
+                $resolved = ClientAssignmentRules::resolveClientIdFromVessel($companyId, (int) $vesselId);
+
+                if ($resolved !== null) {
+                    $this->merge(['client_id' => $resolved]);
+                }
+            }
+        }
+
+        if ($action !== 'redeploy') {
             return;
         }
 
@@ -355,6 +376,19 @@ class PerformCrewMovementActionRequest extends FormRequest
                         'Destination vessel must differ from the current vessel.',
                     );
                 }
+            }
+
+            if (in_array($action, ['join_vessel', 'transfer_vessel', 'redeploy'], true)) {
+                $companyId = (int) $assignment->company_id;
+                $clientId = $this->input('client_id');
+                $vesselId = $this->input('vessel_id');
+
+                ClientAssignmentRules::vesselBelongsToClient(
+                    $validator,
+                    $companyId,
+                    $clientId !== null && $clientId !== '' ? (int) $clientId : null,
+                    $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null,
+                );
             }
 
             if ($action === 'plan_signoff') {

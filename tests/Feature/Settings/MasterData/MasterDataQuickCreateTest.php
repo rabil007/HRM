@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Bank;
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\CompanyVisaType;
 use App\Models\Country;
@@ -229,6 +230,10 @@ test('json quick-create returns id and label for vessels with vessel type contex
         'name' => 'AHTS',
         'is_active' => true,
     ]);
+    $client = Client::query()->create([
+        'name' => 'Quick Create Client',
+        'is_active' => true,
+    ]);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.vessels.create',
@@ -236,6 +241,7 @@ test('json quick-create returns id and label for vessels with vessel type contex
 
     $this->postJson(route('organization.vessels.store'), [
         'name' => 'MV Horizon',
+        'client_id' => $client->id,
         'vessel_type_id' => $vesselType->id,
         'is_active' => true,
     ])

@@ -10,6 +10,7 @@ use App\Http\Requests\Organization\Vessel\ImportVesselsRequest;
 use App\Http\Requests\Organization\Vessel\StoreVesselRequest;
 use App\Http\Requests\Organization\Vessel\UpdateVesselRequest;
 use App\Http\Requests\Organization\VesselManning\UpdateVesselManningRequest;
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\EmployeeSeaService;
@@ -51,6 +52,9 @@ class VesselController extends Controller
         $vesselTypeId = $request->query('vessel_type_id');
         $vesselTypeId = $vesselTypeId !== null && $vesselTypeId !== '' ? (int) $vesselTypeId : null;
 
+        $clientId = $request->query('client_id');
+        $clientId = $clientId !== null && $clientId !== '' ? (int) $clientId : null;
+
         $manning = $request->query('manning');
         $manning = in_array($manning, ['configured', 'pending'], true) ? $manning : null;
 
@@ -90,6 +94,7 @@ class VesselController extends Controller
             $manning,
             $healthVesselIds,
             $healthOrderIds,
+            $clientId,
         );
 
         $canDeletePermission = $user?->can('crew_operations.vessels.delete') ?? false;
@@ -119,11 +124,13 @@ class VesselController extends Controller
             'pagination' => $this->paginationMeta($paginator),
             'search' => $search,
             'filters' => [
+                'client_id' => $clientId,
                 'vessel_type_id' => $vesselTypeId,
                 'manning' => $manning,
                 'health' => $health,
             ],
             'vessel_types' => $this->vesselTypes(),
+            'clients' => $this->clients(),
             'can' => VesselPagePermissions::for($request->user()),
             'stats' => [
                 'total' => $totalFleet,
@@ -149,6 +156,7 @@ class VesselController extends Controller
         return Inertia::render('organization/vessels/show', [
             'vessel' => VesselIndexQuery::toArray($record, includeDetails: true),
             'vessel_types' => $this->vesselTypes(),
+            'clients' => $this->clients(),
             'summary' => [
                 'manning_ranks' => VesselManning::query()
                     ->where('company_id', $companyId)
@@ -298,7 +306,7 @@ class VesselController extends Controller
 
     public function importTemplate(): Response
     {
-        $csv = "name,vessel_type,grt,bhp,is_active\nADNOC 951,H/LIFT,4500,12000,yes\n";
+        $csv = "client,name,vessel_type,grt,bhp,is_active\nADNOC,ADNOC 951,H/LIFT,4500,12000,yes\n";
 
         return response($csv, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -334,6 +342,9 @@ class VesselController extends Controller
             if (in_array($key, ['name', 'vessel', 'vessel name', 'vessel_name'], true)) {
                 $map['name'] = (int) $index;
             }
+            if (in_array($key, ['client', 'client_name'], true)) {
+                $map['client'] = (int) $index;
+            }
             if (in_array($key, ['vessel_type', 'vessel type', 'type'], true)) {
                 $map['vessel_type'] = (int) $index;
             }
@@ -348,18 +359,25 @@ class VesselController extends Controller
             }
         }
 
-        if (! isset($map['name'], $map['vessel_type'])) {
+        if (! isset($map['name'], $map['vessel_type'], $map['client'])) {
             fclose($handle);
 
             return redirect()
                 ->route('organization.vessels.index')
-                ->withErrors(['file' => 'The CSV must include name and vessel_type columns.']);
+                ->withErrors(['file' => 'The CSV must include client, name, and vessel_type columns.']);
         }
 
         $vesselTypes = VesselType::query()->get(['id', 'name']);
+        $clientsByName = Client::query()
+            ->where('is_active', true)
+            ->get(['id', 'name'])
+            ->keyBy(fn (Client $client): string => mb_strtolower(trim($client->name)));
+
         $imported = 0;
         $emptyNames = 0;
         $unknownTypes = 0;
+        $unknownClients = 0;
+        $unknownClientNames = [];
 
         while (($row = fgetcsv($handle)) !== false) {
             if (! is_array($row)) {
@@ -369,6 +387,21 @@ class VesselController extends Controller
             $name = trim((string) ($row[$map['name']] ?? ''));
             if ($name === '') {
                 $emptyNames++;
+
+                continue;
+            }
+
+            $clientName = trim((string) ($row[$map['client']] ?? ''));
+            if ($clientName === '') {
+                $unknownClients++;
+
+                continue;
+            }
+
+            $client = $clientsByName->get(mb_strtolower($clientName));
+            if ($client === null) {
+                $unknownClients++;
+                $unknownClientNames[$clientName] = true;
 
                 continue;
             }
@@ -410,6 +443,7 @@ class VesselController extends Controller
                     'name' => $name,
                 ],
                 [
+                    'client_id' => $client->id,
                     'vessel_type_id' => $vesselType->id,
                     'grt' => $grt,
                     'bhp' => $bhp,
@@ -426,18 +460,28 @@ class VesselController extends Controller
         fclose($handle);
 
         if ($imported === 0) {
+            $unknownList = implode(', ', array_keys($unknownClientNames));
+
             return redirect()
                 ->route('organization.vessels.index')
                 ->withErrors([
-                    'file' => $emptyNames > 0
-                        ? "No rows were imported. {$emptyNames} row(s) had an empty name."
-                        : ($unknownTypes > 0
-                            ? "No rows were imported. {$unknownTypes} row(s) had an unknown vessel type."
-                            : 'No rows were imported. Ensure each row has a name and vessel type.'),
+                    'file' => match (true) {
+                        $unknownClients > 0 && $unknownList !== '' => "No rows were imported. Unknown or inactive client(s): {$unknownList}.",
+                        $unknownClients > 0 => 'No rows were imported. One or more rows had a missing or unknown client.',
+                        $emptyNames > 0 => "No rows were imported. {$emptyNames} row(s) had an empty name.",
+                        $unknownTypes > 0 => "No rows were imported. {$unknownTypes} row(s) had an unknown vessel type.",
+                        default => 'No rows were imported. Ensure each row has a client, name, and vessel type.',
+                    },
                 ]);
         }
 
         $message = "Imported {$imported} vessel row(s).";
+        if ($unknownClients > 0) {
+            $unknownList = implode(', ', array_keys($unknownClientNames));
+            $message .= $unknownList !== ''
+                ? " Skipped {$unknownClients} row(s) with unknown/inactive client(s): {$unknownList}."
+                : " Skipped {$unknownClients} row(s) with missing or unknown clients.";
+        }
         if ($unknownTypes > 0) {
             $message .= " Skipped {$unknownTypes} row(s) with unknown vessel types.";
         }
@@ -455,6 +499,22 @@ class VesselController extends Controller
         return VesselType::query()
             ->orderBy('name')
             ->get(['id', 'name'])
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, name: string, is_active: bool}>
+     */
+    private function clients(): array
+    {
+        return Client::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'is_active'])
+            ->map(fn (Client $client): array => [
+                'id' => $client->id,
+                'name' => $client->name,
+                'is_active' => (bool) $client->is_active,
+            ])
             ->all();
     }
 

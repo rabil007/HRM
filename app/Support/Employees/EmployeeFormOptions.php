@@ -300,7 +300,7 @@ final class EmployeeFormOptions
         return once(fn () => Project::query()
             ->where('is_active', true)
             ->orderBy('title')
-            ->get(['id', 'title']));
+            ->get(['id', 'title', 'client_id']));
     }
 
     private static function activeClients()
@@ -361,7 +361,7 @@ final class EmployeeFormOptions
                 }
             })
             ->orderBy('title')
-            ->get(['id', 'title']);
+            ->get(['id', 'title', 'client_id']);
     }
 
     private static function clientsForProfile(Employee $employee)

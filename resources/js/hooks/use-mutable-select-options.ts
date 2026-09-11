@@ -5,6 +5,7 @@ type SourceOption = {
     id: number | string;
     name?: string | null;
     title?: string | null;
+    client_id?: number | null;
 };
 
 export function useMutableSelectOptions<T extends SourceOption>(

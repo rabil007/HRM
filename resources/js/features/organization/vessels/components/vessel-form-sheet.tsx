@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import type {
+    ClientOption,
     VesselDetails,
     VesselFormData,
     VesselRow,
@@ -30,6 +31,7 @@ export function VesselFormSheet({
     open,
     onOpenChange,
     vessel,
+    clients,
     vesselTypes,
     form,
     onSubmit,
@@ -37,6 +39,7 @@ export function VesselFormSheet({
     open: boolean;
     onOpenChange: (open: boolean) => void;
     vessel: VesselLike;
+    clients: ClientOption[];
     vesselTypes: VesselTypeOption[];
     form: InertiaFormProps<VesselFormData>;
     onSubmit: () => void;
@@ -50,6 +53,21 @@ export function VesselFormSheet({
         vessel && 'certificate_original_filename' in vessel
             ? vessel.certificate_original_filename
             : null;
+
+    const activeClients = clients.filter((client) => client.is_active);
+    const formClients =
+        isEditing &&
+        vessel?.client_id &&
+        !activeClients.some((client) => client.id === vessel.client_id)
+            ? [
+                  ...activeClients,
+                  {
+                      id: vessel.client_id,
+                      name: vessel.client_name ?? `Client #${vessel.client_id}`,
+                      is_active: false,
+                  },
+              ]
+            : activeClients;
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -70,6 +88,53 @@ export function VesselFormSheet({
 
                 <div className="flex-1 space-y-8 overflow-y-auto p-8">
                     <div className="space-y-5">
+                        <div className="space-y-2">
+                            <Label
+                                htmlFor="vessel-client-id"
+                                className={fieldLabelClass}
+                            >
+                                Client
+                                {!isEditing ? (
+                                    <span className="text-destructive"> *</span>
+                                ) : null}
+                            </Label>
+                            <AppSelect
+                                value={
+                                    form.data.client_id === ''
+                                        ? ''
+                                        : String(form.data.client_id)
+                                }
+                                onValueChange={(v) =>
+                                    form.setData(
+                                        'client_id',
+                                        v ? Number(v) : '',
+                                    )
+                                }
+                                variant="dark"
+                                placeholder="Select client"
+                                className="h-11 rounded-xl"
+                            >
+                                {isEditing ? (
+                                    <AppSelectItem value="">
+                                        Unassigned
+                                    </AppSelectItem>
+                                ) : null}
+                                {formClients.map((client) => (
+                                    <AppSelectItem
+                                        key={client.id}
+                                        value={String(client.id)}
+                                    >
+                                        {client.name}
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+                            {form.errors.client_id ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.client_id}
+                                </div>
+                            ) : null}
+                        </div>
+
                         <div className="space-y-2">
                             <Label
                                 htmlFor="vessel-name"

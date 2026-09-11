@@ -220,7 +220,11 @@ export function EmployeeHeaderCard({
     visa_types?: Option[];
     company_visa_types?: Option[];
     ranks: Option[];
-    projects?: Array<{ id: number; title: string | null }>;
+    projects?: Array<{
+        id: number;
+        title: string | null;
+        client_id?: number | null;
+    }>;
     clients?: Array<{ id: number; name: string | null }>;
     form: any;
     activeField: string | null;
@@ -297,11 +301,45 @@ export function EmployeeHeaderCard({
         'title',
     );
     const { selectOptions: rankOptions } = useMutableSelectOptions(ranks);
-    const { selectOptions: projectOptions } = useMutableSelectOptions(
-        projects,
-        'title',
-    );
+    const { sourceItems: projectItems, selectOptions: projectOptions } =
+        useMutableSelectOptions(projects, 'title');
     const { selectOptions: clientOptions } = useMutableSelectOptions(clients);
+
+    const selectedClientId = String(form.data.client_id || '');
+    const filteredProjectOptions = projectOptions.filter((option) => {
+        if (!selectedClientId) {
+            return false;
+        }
+
+        const project = projectItems.find(
+            (item) => String(item.id) === option.value,
+        );
+
+        return (
+            project?.client_id != null &&
+            String(project.client_id) === selectedClientId
+        );
+    });
+
+    const clearProjectIfMismatched = (nextClientId: string): void => {
+        const currentProjectId = String(form.data.project_id || '');
+
+        if (!currentProjectId) {
+            return;
+        }
+
+        const project = projectItems.find(
+            (item) => String(item.id) === currentProjectId,
+        );
+
+        if (
+            !project ||
+            project.client_id == null ||
+            String(project.client_id) !== nextClientId
+        ) {
+            form.setData('project_id', '');
+        }
+    };
     const { selectOptions: genderOptions } = useMutableSelectOptions(genders);
     const { selectOptions: religionOptions } =
         useMutableSelectOptions(religions);
@@ -734,37 +772,6 @@ export function EmployeeHeaderCard({
                         />
                     )}
 
-                    {showField('project_id') && (
-                        <EditableDetailSelectField
-                            label="Project name"
-                            field="project_id"
-                            value={form.data.project_id}
-                            displayValue={
-                                projectOptions.find(
-                                    (option) =>
-                                        option.value ===
-                                        String(
-                                            form.data.project_id ||
-                                                employee.project_id ||
-                                                '',
-                                        ),
-                                )?.label ??
-                                employee.project?.title ??
-                                '—'
-                            }
-                            options={projectOptions}
-                            creatableKey="project"
-                            activeField={activeField}
-                            setActiveField={setActiveField}
-                            beginEdit={beginEdit}
-                            canEdit={canUpdate}
-                            onChange={(value) =>
-                                form.setData('project_id', value)
-                            }
-                            highlightMissing={isMissingRequired('project_id')}
-                        />
-                    )}
-
                     {showField('client_id') && (
                         <EditableDetailSelectField
                             label="Client"
@@ -789,10 +796,49 @@ export function EmployeeHeaderCard({
                             setActiveField={setActiveField}
                             beginEdit={beginEdit}
                             canEdit={canUpdate}
-                            onChange={(value) =>
-                                form.setData('client_id', value)
-                            }
+                            onChange={(value) => {
+                                form.setData('client_id', value);
+                                clearProjectIfMismatched(value);
+                            }}
                             highlightMissing={isMissingRequired('client_id')}
+                        />
+                    )}
+
+                    {showField('project_id') && (
+                        <EditableDetailSelectField
+                            label="Project name"
+                            field="project_id"
+                            value={form.data.project_id}
+                            displayValue={
+                                projectOptions.find(
+                                    (option) =>
+                                        option.value ===
+                                        String(
+                                            form.data.project_id ||
+                                                employee.project_id ||
+                                                '',
+                                        ),
+                                )?.label ??
+                                employee.project?.title ??
+                                '—'
+                            }
+                            options={filteredProjectOptions}
+                            creatableKey={
+                                selectedClientId ? 'project' : undefined
+                            }
+                            creatableContext={
+                                selectedClientId
+                                    ? { clientId: selectedClientId }
+                                    : undefined
+                            }
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            canEdit={canUpdate && Boolean(selectedClientId)}
+                            onChange={(value) =>
+                                form.setData('project_id', value)
+                            }
+                            highlightMissing={isMissingRequired('project_id')}
                         />
                     )}
 

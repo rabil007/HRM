@@ -71,6 +71,50 @@ export function CrewAssignmentFormFields({
         form.setData(key, value ? Number(value) : null);
     };
 
+    const vesselsForClient = formOptions.vessels.filter((vessel) => {
+        if (form.data.client_id === null) {
+            return true;
+        }
+
+        return (
+            vessel.client_id == null || vessel.client_id === form.data.client_id
+        );
+    });
+
+    const setClientId = (value: string): void => {
+        const nextClientId = value ? Number(value) : null;
+        const selectedVessel = formOptions.vessels.find(
+            (vessel) => vessel.id === form.data.vessel_id,
+        );
+        const vesselMatches =
+            selectedVessel == null ||
+            selectedVessel.client_id == null ||
+            nextClientId === null ||
+            selectedVessel.client_id === nextClientId;
+
+        form.setData({
+            ...form.data,
+            client_id: nextClientId,
+            vessel_id: vesselMatches ? form.data.vessel_id : null,
+        });
+    };
+
+    const setVesselId = (value: string): void => {
+        const nextVesselId = value ? Number(value) : null;
+        const selectedVessel = formOptions.vessels.find(
+            (vessel) => vessel.id === nextVesselId,
+        );
+
+        form.setData({
+            ...form.data,
+            vessel_id: nextVesselId,
+            client_id:
+                selectedVessel?.client_id != null
+                    ? selectedVessel.client_id
+                    : form.data.client_id,
+        });
+    };
+
     return (
         <div className="space-y-8">
             <section className="space-y-4">
@@ -160,7 +204,7 @@ export function CrewAssignmentFormFields({
                         Assignment details
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                        Vessel, rank, client, and visa can be refined before
+                        Vessel, client, rank, and visa can be refined before
                         join.
                     </p>
                 </div>
@@ -202,35 +246,6 @@ export function CrewAssignmentFormFields({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="crew-vessel">
-                            Vessel{' '}
-                            <span className="font-normal text-muted-foreground">
-                                (optional until vessel joining)
-                            </span>
-                        </Label>
-                        <AppSelect
-                            value={form.data.vessel_id?.toString() ?? ''}
-                            onValueChange={(value) =>
-                                setOptionalId('vessel_id', value)
-                            }
-                            variant="dark"
-                            placeholder="Select vessel..."
-                            searchPlaceholder="Search vessel..."
-                        >
-                            <AppSelectItem value="">No vessel</AppSelectItem>
-                            {formOptions.vessels.map((vessel) => (
-                                <AppSelectItem
-                                    key={vessel.id}
-                                    value={String(vessel.id)}
-                                >
-                                    {vessel.name}
-                                </AppSelectItem>
-                            ))}
-                        </AppSelect>
-                        <InputError message={form.errors.vessel_id} />
-                    </div>
-
-                    <div className="space-y-2">
                         <Label htmlFor="crew-client">
                             Client{' '}
                             <span className="font-normal text-muted-foreground">
@@ -239,9 +254,7 @@ export function CrewAssignmentFormFields({
                         </Label>
                         <AppSelect
                             value={form.data.client_id?.toString() ?? ''}
-                            onValueChange={(value) =>
-                                setOptionalId('client_id', value)
-                            }
+                            onValueChange={setClientId}
                             variant="dark"
                             placeholder="Select client..."
                             searchPlaceholder="Search client..."
@@ -257,6 +270,33 @@ export function CrewAssignmentFormFields({
                             ))}
                         </AppSelect>
                         <InputError message={form.errors.client_id} />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="crew-vessel">
+                            Vessel{' '}
+                            <span className="font-normal text-muted-foreground">
+                                (optional until vessel joining)
+                            </span>
+                        </Label>
+                        <AppSelect
+                            value={form.data.vessel_id?.toString() ?? ''}
+                            onValueChange={setVesselId}
+                            variant="dark"
+                            placeholder="Select vessel..."
+                            searchPlaceholder="Search vessel..."
+                        >
+                            <AppSelectItem value="">No vessel</AppSelectItem>
+                            {vesselsForClient.map((vessel) => (
+                                <AppSelectItem
+                                    key={vessel.id}
+                                    value={String(vessel.id)}
+                                >
+                                    {vessel.name}
+                                </AppSelectItem>
+                            ))}
+                        </AppSelect>
+                        <InputError message={form.errors.vessel_id} />
                     </div>
 
                     <div className="space-y-2">

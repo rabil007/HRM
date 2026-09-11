@@ -81,6 +81,7 @@ import {
     vesselManningHealthDot,
 } from './lib/vessel-manning-health';
 import type {
+    ClientOption,
     VesselFormData,
     VesselPageCan,
     VesselRow,
@@ -146,6 +147,7 @@ function VesselAvatar() {
 function emptyFormData(): VesselFormData {
     return {
         name: '',
+        client_id: '',
         vessel_type_id: '',
         grt: '',
         bhp: '',
@@ -160,6 +162,7 @@ function emptyFormData(): VesselFormData {
 function fromVesselRow(row: VesselRow): VesselFormData {
     return {
         name: row.name,
+        client_id: row.client_id ?? '',
         vessel_type_id: row.vessel_type_id,
         grt: row.grt !== null && row.grt !== undefined ? String(row.grt) : '',
         bhp: row.bhp !== null && row.bhp !== undefined ? String(row.bhp) : '',
@@ -177,6 +180,7 @@ function toPayload(
 ): Record<string, unknown> {
     return {
         name: data.name,
+        client_id: data.client_id === '' ? null : data.client_id,
         vessel_type_id: data.vessel_type_id,
         grt: data.grt.trim() === '' ? null : Number(data.grt),
         bhp: data.bhp.trim() === '' ? null : Number.parseInt(data.bhp, 10),
@@ -195,6 +199,7 @@ export function VesselsContent({
     search: initialSearch,
     filters: initialFilters,
     vessel_types,
+    clients = [],
     can,
     stats,
 }: {
@@ -202,11 +207,13 @@ export function VesselsContent({
     pagination: PaginationMeta;
     search: string;
     filters: {
+        client_id: number | null;
         vessel_type_id: number | null;
         manning: string | null;
         health: string | null;
     };
     vessel_types: VesselTypeOption[];
+    clients?: ClientOption[];
     can: VesselPageCan;
     stats: {
         total: number;
@@ -218,6 +225,9 @@ export function VesselsContent({
         url: vesselsIndex.url(),
         search: initialSearch,
         filters: {
+            client_id: initialFilters.client_id
+                ? String(initialFilters.client_id)
+                : '',
             vessel_type_id: initialFilters.vessel_type_id
                 ? String(initialFilters.vessel_type_id)
                 : '',
@@ -232,6 +242,10 @@ export function VesselsContent({
 
         if (initialSearch.trim() !== '') {
             query.search = initialSearch;
+        }
+
+        if (initialFilters.client_id) {
+            query.client_id = String(initialFilters.client_id);
         }
 
         if (initialFilters.vessel_type_id) {
@@ -256,6 +270,7 @@ export function VesselsContent({
 
         return query;
     }, [
+        initialFilters.client_id,
         initialFilters.vessel_type_id,
         initialFilters.manning,
         initialFilters.health,
@@ -450,8 +465,10 @@ export function VesselsContent({
         );
     };
 
+    const hasClientFilter = Boolean(initialFilters.client_id);
     const hasVesselTypeFilter = Boolean(initialFilters.vessel_type_id);
     const hasActiveFilters =
+        hasClientFilter ||
         hasVesselTypeFilter ||
         Boolean(initialFilters.health) ||
         initialSearch.trim() !== '';
@@ -521,6 +538,9 @@ export function VesselsContent({
                             aria-pressed={isActive}
                             onClick={() =>
                                 list.applyFilters({
+                                    client_id: initialFilters.client_id
+                                        ? String(initialFilters.client_id)
+                                        : '',
                                     vessel_type_id:
                                         initialFilters.vessel_type_id
                                             ? String(
@@ -574,6 +594,30 @@ export function VesselsContent({
                             placeholder="Search vessels…"
                             className="mb-0 min-w-0 flex-1"
                         />
+
+                        <AppSelect
+                            value={
+                                initialFilters.client_id
+                                    ? String(initialFilters.client_id)
+                                    : ''
+                            }
+                            onValueChange={(clientId) =>
+                                list.applyFilters({ client_id: clientId })
+                            }
+                            placeholder="All clients"
+                            variant="dark"
+                            className="h-10 lg:w-56"
+                        >
+                            <AppSelectItem value="">All clients</AppSelectItem>
+                            {clients.map((client) => (
+                                <AppSelectItem
+                                    key={client.id}
+                                    value={String(client.id)}
+                                >
+                                    {client.name}
+                                </AppSelectItem>
+                            ))}
+                        </AppSelect>
 
                         <AppSelect
                             value={
@@ -648,7 +692,7 @@ export function VesselsContent({
                     }
                     description={
                         hasActiveFilters
-                            ? 'Try adjusting your search, vessel type, or health filter.'
+                            ? 'Try adjusting your search, client, vessel type, or health filter.'
                             : 'Add your first vessel to get started.'
                     }
                     action={
@@ -677,10 +721,11 @@ export function VesselsContent({
                     </div>
 
                     <div className={DESKTOP_OPERATIONAL_TABLE_CLASS}>
-                        <OrganizationDataTable minWidth="min-w-[1240px]">
+                        <OrganizationDataTable minWidth="min-w-[1360px]">
                             <TableHeader>
                                 <DataTableHeaderRow>
                                     <DataTableHead>Vessel</DataTableHead>
+                                    <DataTableHead>Client</DataTableHead>
                                     <DataTableHead>Type</DataTableHead>
                                     <DataTableHead>
                                         Identification
@@ -727,6 +772,15 @@ export function VesselsContent({
                                                     ) : null}
                                                 </div>
                                             </div>
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {vessel.client_name ?? (
+                                                <span className="text-muted-foreground/50">
+                                                    Unassigned
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell
                                             className={dataTableCellClass()}
@@ -922,6 +976,7 @@ export function VesselsContent({
                     }
                 }}
                 vessel={editingVessel}
+                clients={clients}
                 vesselTypes={vessel_types}
                 form={form}
                 onSubmit={submit}
@@ -982,6 +1037,13 @@ export function VesselsContent({
                             <Info className="text-primary" aria-hidden />
                             <AlertDescription>
                                 <ul className="list-inside list-disc space-y-1 text-muted-foreground">
+                                    <li>
+                                        <span className="font-medium text-foreground">
+                                            client
+                                        </span>{' '}
+                                        — required (must match an existing
+                                        client)
+                                    </li>
                                     <li>
                                         <span className="font-medium text-foreground">
                                             name

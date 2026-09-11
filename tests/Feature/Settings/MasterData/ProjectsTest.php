@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
@@ -7,6 +8,7 @@ use App\Models\Project;
 use App\Models\User;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
+use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests cannot access projects page', function () {
     $this->get('/settings/master-data/projects')->assertRedirect(route('login'));
@@ -48,23 +50,37 @@ test('authorized users can view, create, update, and delete projects', function 
         'settings.master-data.projects.delete',
     ]);
 
-    $this->get('/settings/master-data/projects')->assertOk();
+    $client = Client::query()->create([
+        'name' => 'ADNOC',
+        'is_active' => true,
+    ]);
+
+    $this->get('/settings/master-data/projects')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/projects')
+            ->has('clients')
+            ->where('filters.client_id', null));
 
     $this->post('/settings/master-data/projects', [
+        'client_id' => $client->id,
         'title' => 'North Field',
         'is_active' => true,
     ])->assertRedirect(route('settings.master-data.projects.index'));
 
     $id = Project::query()->where('title', 'North Field')->value('id');
     expect($id)->not->toBeNull();
+    expect(Project::query()->whereKey($id)->value('client_id'))->toBe($client->id);
 
     $this->put("/settings/master-data/projects/{$id}", [
+        'client_id' => $client->id,
         'title' => 'South Field',
         'is_active' => false,
     ])->assertRedirect(route('settings.master-data.projects.index'));
 
     $this->assertDatabaseHas('projects', [
         'id' => $id,
+        'client_id' => $client->id,
         'title' => 'South Field',
         'is_active' => 0,
     ]);
@@ -111,11 +127,16 @@ test('authorized users can download csv template and import projects', function 
         'settings.master-data.projects.create',
     ]);
 
+    Client::query()->create([
+        'name' => 'ADNOC',
+        'is_active' => true,
+    ]);
+
     $this->get('/settings/master-data/projects/import/template')
         ->assertOk()
         ->assertDownload();
 
-    $csvContent = "title,is_active\nAlpha Platform,no\nBeta Field,yes\n";
+    $csvContent = "client,project,is_active\nADNOC,Alpha Platform,no\nADNOC,Beta Field,yes\n";
 
     $this->post('/settings/master-data/projects/import', [
         'file' => UploadedFile::fake()->createWithContent('projects.csv', $csvContent),
@@ -123,4 +144,6 @@ test('authorized users can download csv template and import projects', function 
 
     expect(Project::query()->where('title', 'Alpha Platform')->value('is_active'))->toBe(false);
     expect(Project::query()->where('title', 'Beta Field')->value('is_active'))->toBe(true);
+    expect(Project::query()->where('title', 'Alpha Platform')->value('client_id'))->not->toBeNull();
+    expect(Project::query()->where('title', 'Beta Field')->value('client_id'))->not->toBeNull();
 });

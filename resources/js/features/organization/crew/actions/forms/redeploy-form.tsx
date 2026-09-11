@@ -75,6 +75,50 @@ export function RedeployForm({
         });
     };
 
+    const vesselsForClient = (formOptions?.vessels ?? []).filter((vessel) => {
+        if (form.data.client_id === null) {
+            return true;
+        }
+
+        return (
+            vessel.client_id == null || vessel.client_id === form.data.client_id
+        );
+    });
+
+    const setDestinationClient = (value: string): void => {
+        const nextClientId = value ? Number(value) : null;
+        const selectedVessel = formOptions?.vessels.find(
+            (vessel) => vessel.id === form.data.vessel_id,
+        );
+        const vesselMatches =
+            selectedVessel == null ||
+            selectedVessel.client_id == null ||
+            nextClientId === null ||
+            selectedVessel.client_id === nextClientId;
+
+        form.setData({
+            ...form.data,
+            client_id: nextClientId,
+            vessel_id: vesselMatches ? form.data.vessel_id : null,
+        });
+    };
+
+    const setDestinationVessel = (value: string): void => {
+        const nextVesselId = value ? Number(value) : null;
+        const selectedVessel = formOptions?.vessels.find(
+            (vessel) => vessel.id === nextVesselId,
+        );
+
+        form.setData({
+            ...form.data,
+            vessel_id: nextVesselId,
+            client_id:
+                selectedVessel?.client_id != null
+                    ? selectedVessel.client_id
+                    : form.data.client_id,
+        });
+    };
+
     return (
         <div className="space-y-4">
             <div className="space-y-1 rounded-lg border bg-muted/20 p-3 text-sm">
@@ -199,6 +243,30 @@ export function RedeployForm({
                 <>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
+                            <Label htmlFor="redeploy-client">
+                                Destination client / project (optional)
+                            </Label>
+                            <Select
+                                value={form.data.client_id?.toString() ?? ''}
+                                onValueChange={setDestinationClient}
+                            >
+                                <SelectTrigger id="redeploy-client">
+                                    <SelectValue placeholder="Select client..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {formOptions.clients.map((client) => (
+                                        <SelectItem
+                                            key={client.id}
+                                            value={client.id.toString()}
+                                        >
+                                            {client.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <InputError message={form.errors.client_id} />
+                        </div>
+                        <div className="space-y-2">
                             <Label htmlFor="redeploy-vessel">
                                 Destination vessel
                                 {requiresVessel ? (
@@ -209,18 +277,13 @@ export function RedeployForm({
                             </Label>
                             <Select
                                 value={form.data.vessel_id?.toString() ?? ''}
-                                onValueChange={(value) =>
-                                    form.setData(
-                                        'vessel_id',
-                                        value ? Number(value) : null,
-                                    )
-                                }
+                                onValueChange={setDestinationVessel}
                             >
                                 <SelectTrigger id="redeploy-vessel">
                                     <SelectValue placeholder="Select vessel..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {formOptions.vessels.map((vessel) => (
+                                    {vesselsForClient.map((vessel) => (
                                         <SelectItem
                                             key={vessel.id}
                                             value={vessel.id.toString()}
@@ -232,6 +295,9 @@ export function RedeployForm({
                             </Select>
                             <InputError message={form.errors.vessel_id} />
                         </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                             <Label htmlFor="redeploy-rank">
                                 Destination rank
@@ -264,38 +330,6 @@ export function RedeployForm({
                                 </SelectContent>
                             </Select>
                             <InputError message={form.errors.rank_id} />
-                        </div>
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="redeploy-client">
-                                Destination client / project (optional)
-                            </Label>
-                            <Select
-                                value={form.data.client_id?.toString() ?? ''}
-                                onValueChange={(value) =>
-                                    form.setData(
-                                        'client_id',
-                                        value ? Number(value) : null,
-                                    )
-                                }
-                            >
-                                <SelectTrigger id="redeploy-client">
-                                    <SelectValue placeholder="Select client..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {formOptions.clients.map((client) => (
-                                        <SelectItem
-                                            key={client.id}
-                                            value={client.id.toString()}
-                                        >
-                                            {client.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <InputError message={form.errors.client_id} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="redeploy-visa">

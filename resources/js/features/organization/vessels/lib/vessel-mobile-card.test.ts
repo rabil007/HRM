@@ -7,6 +7,8 @@ function vessel(overrides: Partial<VesselRow> = {}): VesselRow {
     return {
         id: 7,
         name: 'Horizon Star',
+        client_id: 3,
+        client_name: 'ADNOC',
         vessel_type_id: 1,
         vessel_type: { id: 1, name: 'AHTS' },
         vessel_type_name: 'AHTS',

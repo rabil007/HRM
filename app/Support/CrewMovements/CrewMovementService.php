@@ -19,6 +19,7 @@ use App\Models\Rank;
 use App\Models\Vessel;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
+use App\Support\MasterData\ClientAssignmentRules;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -427,12 +428,15 @@ final class CrewMovementService
         $this->assertCompanyOwnedMaster($assignment->company_id, Vessel::class, $vesselId, 'vessel');
         $this->assertCompanyOwnedMaster($assignment->company_id, Rank::class, $rankId, 'rank');
 
-        $clientId = isset($payload['client_id']) ? (int) $payload['client_id'] : null;
+        $submittedClientId = isset($payload['client_id']) ? (int) $payload['client_id'] : null;
         $visaTypeId = isset($payload['company_visa_type_id']) ? (int) $payload['company_visa_type_id'] : null;
+        $clientId = $this->resolveOperationalClientId(
+            companyId: (int) $assignment->company_id,
+            vesselId: $vesselId,
+            submittedClientId: $submittedClientId,
+            fallbackClientId: $assignment->client_id !== null ? (int) $assignment->client_id : null,
+        );
 
-        if ($clientId) {
-            $this->assertCompanyOwnedMaster($assignment->company_id, Client::class, $clientId, 'client');
-        }
         if ($visaTypeId) {
             $this->assertCompanyOwnedMaster($assignment->company_id, CompanyVisaType::class, $visaTypeId, 'visa type');
         }
@@ -463,7 +467,7 @@ final class CrewMovementService
         $assignment->update([
             'vessel_id' => $vesselId,
             'rank_id' => $rankId,
-            'client_id' => $clientId ?? $assignment->client_id,
+            'client_id' => $clientId,
             'company_visa_type_id' => $visaTypeId ?? $assignment->company_visa_type_id,
             'planned_signoff_at' => $signoff['planned_signoff_at'],
             'tour_of_duty_days' => $signoff['tour_of_duty_days'],
@@ -608,7 +612,6 @@ final class CrewMovementService
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
         $destinationVesselId = (int) ($payload['vessel_id'] ?? 0);
         $destinationRankId = (int) ($payload['rank_id'] ?? 0);
-        $destinationClientId = isset($payload['client_id']) ? (int) $payload['client_id'] : null;
         $destinationVisaTypeId = isset($payload['company_visa_type_id'])
             ? (int) $payload['company_visa_type_id']
             : null;
@@ -630,9 +633,14 @@ final class CrewMovementService
         $this->assertCompanyOwnedMaster($assignment->company_id, Vessel::class, $destinationVesselId, 'vessel');
         $this->assertCompanyOwnedMaster($assignment->company_id, Rank::class, $destinationRankId, 'rank');
 
-        if ($destinationClientId) {
-            $this->assertCompanyOwnedMaster($assignment->company_id, Client::class, $destinationClientId, 'client');
-        }
+        $destinationClientId = $this->resolveOperationalClientId(
+            companyId: (int) $assignment->company_id,
+            vesselId: $destinationVesselId,
+            submittedClientId: isset($payload['client_id']) ? (int) $payload['client_id'] : null,
+            // Prefer destination vessel client; inherit source only for legacy unassigned vessels.
+            fallbackClientId: $assignment->client_id !== null ? (int) $assignment->client_id : null,
+            preferVesselOverFallback: true,
+        );
 
         if ($destinationVisaTypeId) {
             $this->assertCompanyOwnedMaster(
@@ -682,7 +690,7 @@ final class CrewMovementService
             plannedJoinAt: null,
             vesselId: $destinationVesselId,
             rankId: $destinationRankId,
-            clientId: $destinationClientId ?? $assignment->client_id,
+            clientId: $destinationClientId,
             companyVisaTypeId: $destinationVisaTypeId ?? $assignment->company_visa_type_id,
             plannedSignoffAt: $signoff['planned_signoff_at'],
             remarks: isset($payload['remarks']) ? (string) $payload['remarks'] : null,
@@ -753,7 +761,7 @@ final class CrewMovementService
 
         $destinationVesselId = isset($payload['vessel_id']) ? (int) $payload['vessel_id'] : null;
         $destinationRankId = isset($payload['rank_id']) ? (int) $payload['rank_id'] : null;
-        $destinationClientId = isset($payload['client_id']) ? (int) $payload['client_id'] : null;
+        $submittedClientId = isset($payload['client_id']) ? (int) $payload['client_id'] : null;
         $destinationVisaTypeId = isset($payload['company_visa_type_id'])
             ? (int) $payload['company_visa_type_id']
             : null;
@@ -776,10 +784,6 @@ final class CrewMovementService
             $this->assertCompanyOwnedMaster($assignment->company_id, Rank::class, $destinationRankId, 'rank');
         }
 
-        if ($destinationClientId) {
-            $this->assertCompanyOwnedMaster($assignment->company_id, Client::class, $destinationClientId, 'client');
-        }
-
         if ($destinationVisaTypeId) {
             $this->assertCompanyOwnedMaster(
                 $assignment->company_id,
@@ -791,6 +795,20 @@ final class CrewMovementService
 
         $isDraftStart = $startingPhase === CrewPhaseCode::PreMobilisation;
         $isDirectOnVessel = $startingPhase === CrewPhaseCode::OnVessel;
+
+        $resolvedVesselId = $isDraftStart
+            ? $destinationVesselId
+            : ($destinationVesselId ?? ($assignment->vessel_id !== null ? (int) $assignment->vessel_id : null));
+
+        $destinationClientId = $isDraftStart
+            ? $submittedClientId
+            : $this->resolveOperationalClientId(
+                companyId: (int) $assignment->company_id,
+                vesselId: $resolvedVesselId,
+                submittedClientId: $submittedClientId,
+                fallbackClientId: $assignment->client_id !== null ? (int) $assignment->client_id : null,
+                preferVesselOverFallback: $destinationVesselId !== null,
+            );
 
         // Direct P4 redeploy resolves Tour before mutating source so validation failures roll back.
         // Pre-P4 redeploy must not snapshot Tour — JoinVessel applies it later.
@@ -827,15 +845,11 @@ final class CrewMovementService
             status: $isDraftStart ? CrewAssignmentStatus::Draft : CrewAssignmentStatus::Active,
             startedAt: $isDraftStart ? null : $occurredAt,
             plannedJoinAt: null,
-            vesselId: $isDraftStart
-                ? $destinationVesselId
-                : ($destinationVesselId ?? $assignment->vessel_id),
+            vesselId: $resolvedVesselId,
             rankId: $isDraftStart
                 ? $destinationRankId
                 : ($destinationRankId ?? $assignment->rank_id),
-            clientId: $isDraftStart
-                ? $destinationClientId
-                : ($destinationClientId ?? $assignment->client_id),
+            clientId: $destinationClientId,
             companyVisaTypeId: $isDraftStart
                 ? $destinationVisaTypeId
                 : ($destinationVisaTypeId ?? $assignment->company_visa_type_id),
@@ -864,8 +878,8 @@ final class CrewMovementService
             $source,
             $destination,
             $startingPhase,
-            $destinationVesselId ?? $assignment->vessel_id,
-            $destinationClientId ?? $assignment->client_id,
+            $resolvedVesselId,
+            $destinationClientId,
             $occurredAt,
             $actorId,
             $signoff,
@@ -1426,6 +1440,55 @@ final class CrewMovementService
     {
         return (string) (Company::query()->whereKey($companyId)->value('timezone')
             ?? config('app.timezone', 'UTC'));
+    }
+
+    /**
+     * Resolve the Client snapshot for a mobilisation destination.
+     *
+     * Vessel.client_id is the current/default operational client.
+     * CrewAssignment.client_id remains a historical snapshot once stored.
+     */
+    private function resolveOperationalClientId(
+        int $companyId,
+        ?int $vesselId,
+        ?int $submittedClientId,
+        ?int $fallbackClientId = null,
+        bool $preferVesselOverFallback = true,
+    ): ?int {
+        $vesselClientId = null;
+
+        if ($vesselId !== null && $vesselId > 0) {
+            $vesselClientId = ClientAssignmentRules::resolveClientIdFromVessel($companyId, $vesselId);
+        }
+
+        if ($submittedClientId !== null && $submittedClientId > 0) {
+            if ($vesselClientId !== null && $submittedClientId !== $vesselClientId) {
+                throw CrewMovementException::make(
+                    'The selected client does not match the destination vessel’s current client.',
+                    'client_vessel_mismatch',
+                );
+            }
+
+            $this->assertCompanyOwnedMaster($companyId, Client::class, $submittedClientId, 'client');
+
+            return $submittedClientId;
+        }
+
+        if ($preferVesselOverFallback && $vesselClientId !== null) {
+            return $vesselClientId;
+        }
+
+        if ($vesselClientId !== null) {
+            return $vesselClientId;
+        }
+
+        if ($fallbackClientId !== null && $fallbackClientId > 0) {
+            $this->assertCompanyOwnedMaster($companyId, Client::class, $fallbackClientId, 'client');
+
+            return $fallbackClientId;
+        }
+
+        return null;
     }
 
     /**

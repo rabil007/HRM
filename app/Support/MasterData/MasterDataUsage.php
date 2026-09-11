@@ -332,6 +332,10 @@ final class MasterDataUsage
                 MasterDataUsageSource::model('employees', Employee::class, 'client_id', 'company_id'),
                 MasterDataUsageSource::model('sea service records', EmployeeSeaService::class, 'client_id', 'company_id', includeSoftDeletedReferences: true),
                 MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'client_id', 'company_id', includeSoftDeletedReferences: true),
+                // Projects are global master data (no company_id); counts contribute to global usage only.
+                MasterDataUsageSource::model('projects', Project::class, 'client_id', includeSoftDeletedReferences: true),
+                // Vessels are company-scoped; scoped metadata stays tenant-safe via company_id.
+                MasterDataUsageSource::model('vessels', Vessel::class, 'client_id', 'company_id', includeSoftDeletedReferences: true),
             ],
             DocumentType::class => [
                 MasterDataUsageSource::model('employee documents', EmployeeDocument::class, 'document_type_id', 'company_id', includeSoftDeletedReferences: true),

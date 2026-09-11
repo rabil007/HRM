@@ -6,6 +6,7 @@ import type {
 } from '@/features/organization/vessel-manning/types';
 import { VesselShowContent } from '@/features/organization/vessels/show';
 import type {
+    ClientOption,
     VesselDetails,
     VesselManningHealth,
     VesselPageCan,
@@ -16,6 +17,7 @@ import type {
 export default function VesselShow({
     vessel,
     vessel_types,
+    clients = [],
     summary,
     can,
     recent_activity,
@@ -27,6 +29,7 @@ export default function VesselShow({
 }: {
     vessel: VesselDetails;
     vessel_types: VesselTypeOption[];
+    clients?: ClientOption[];
     summary: VesselSummary;
     can: VesselPageCan;
     recent_activity: RecentActivityItem[];
@@ -42,6 +45,7 @@ export default function VesselShow({
             <VesselShowContent
                 vessel={vessel}
                 vessel_types={vessel_types}
+                clients={clients}
                 summary={summary}
                 can={can}
                 recent_activity={recent_activity}

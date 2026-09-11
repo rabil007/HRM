@@ -28,11 +28,13 @@ final class VesselIndexQuery
         ?string $manning = null,
         ?array $healthVesselIds = null,
         ?array $healthOrderIds = null,
+        ?int $clientId = null,
     ): LengthAwarePaginator {
         return Vessel::query()
             ->where('company_id', $companyId)
             ->with([
                 'vesselType:id,name',
+                'client:id,name',
                 'manning' => fn ($query) => $query
                     ->where('company_id', $companyId)
                     ->with('rank:id,name')
@@ -44,10 +46,12 @@ final class VesselIndexQuery
                         ->orWhere('official_no', 'like', "%{$search}%")
                         ->orWhere('call_sign', 'like', "%{$search}%")
                         ->orWhere('imo_no', 'like', "%{$search}%")
-                        ->orWhereHas('vesselType', fn (Builder $type) => $type->where('name', 'like', "%{$search}%"));
+                        ->orWhereHas('vesselType', fn (Builder $type) => $type->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('client', fn (Builder $client) => $client->where('name', 'like', "%{$search}%"));
                 });
             })
             ->when($vesselTypeId !== null, fn (Builder $query) => $query->where('vessel_type_id', $vesselTypeId))
+            ->when($clientId !== null, fn (Builder $query) => $query->where('client_id', $clientId))
             ->when($manning === 'configured', fn (Builder $query) => $query->whereHas('manning', fn (Builder $q) => $q->where('company_id', $companyId)))
             ->when($manning === 'pending', fn (Builder $query) => $query->whereDoesntHave('manning', fn (Builder $q) => $q->where('company_id', $companyId)))
             ->when($healthVesselIds !== null, function (Builder $query) use ($healthVesselIds): void {
@@ -80,6 +84,8 @@ final class VesselIndexQuery
      * @return array{
      *     id: int,
      *     name: string,
+     *     client_id: int|null,
+     *     client_name: string|null,
      *     vessel_type_id: int,
      *     vessel_type: array{id: int, name: string}|null,
      *     vessel_type_name: string|null,
@@ -116,6 +122,8 @@ final class VesselIndexQuery
         $payload = [
             'id' => $vessel->id,
             'name' => $vessel->name,
+            'client_id' => $vessel->client_id !== null ? (int) $vessel->client_id : null,
+            'client_name' => $vessel->client?->name,
             'vessel_type_id' => $vessel->vessel_type_id,
             'vessel_type' => $vessel->vesselType
                 ? [
@@ -151,6 +159,7 @@ final class VesselIndexQuery
             ->where('company_id', $companyId)
             ->with([
                 'vesselType:id,name',
+                'client:id,name',
                 'manning' => fn ($query) => $query
                     ->where('company_id', $companyId)
                     ->with('rank:id,name')
@@ -167,7 +176,7 @@ final class VesselIndexQuery
     {
         $query = [];
 
-        foreach (['search', 'vessel_type_id', 'manning', 'health', 'page', 'per_page'] as $key) {
+        foreach (['search', 'client_id', 'vessel_type_id', 'manning', 'health', 'page', 'per_page'] as $key) {
             $value = $request->query($key);
 
             if ($value !== null && $value !== '') {

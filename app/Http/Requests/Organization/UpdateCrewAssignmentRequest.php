@@ -2,15 +2,35 @@
 
 namespace App\Http\Requests\Organization;
 
+use App\Support\MasterData\ClientAssignmentRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateCrewAssignmentRequest extends FormRequest
 {
     public function authorize(): bool
     {
         return (bool) $this->user();
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $companyId = (int) $this->attributes->get('current_company_id');
+        $vesselId = $this->input('vessel_id');
+        $clientId = $this->input('client_id');
+
+        if (($clientId === null || $clientId === '')
+            && $vesselId !== null
+            && $vesselId !== ''
+            && $companyId > 0) {
+            $resolved = ClientAssignmentRules::resolveClientIdFromVessel($companyId, (int) $vesselId);
+
+            if ($resolved !== null) {
+                $this->merge(['client_id' => $resolved]);
+            }
+        }
     }
 
     /**
@@ -30,5 +50,25 @@ class UpdateCrewAssignmentRequest extends FormRequest
             'planned_travel_at' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $companyId = (int) $this->attributes->get('current_company_id');
+            $clientId = $this->input('client_id');
+            $vesselId = $this->input('vessel_id');
+
+            ClientAssignmentRules::vesselBelongsToClient(
+                $validator,
+                $companyId,
+                $clientId !== null && $clientId !== '' ? (int) $clientId : null,
+                $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null,
+            );
+        });
     }
 }

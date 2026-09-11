@@ -27,6 +27,7 @@ class Vessel extends Model
         return LogOptions::defaults()
             ->logOnly([
                 'company_id',
+                'client_id',
                 'name',
                 'vessel_type_id',
                 'grt',
@@ -45,6 +46,7 @@ class Vessel extends Model
     {
         return [
             'company_id' => 'integer',
+            'client_id' => 'integer',
             'vessel_type_id' => 'integer',
             'grt' => 'decimal:2',
             'bhp' => 'integer',
@@ -55,6 +57,11 @@ class Vessel extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
     }
 
     public function vesselType(): BelongsTo

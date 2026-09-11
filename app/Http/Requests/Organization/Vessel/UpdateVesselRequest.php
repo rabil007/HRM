@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization\Vessel;
 
 use App\Models\Vessel;
+use App\Support\MasterData\ClientAssignmentRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -23,6 +24,7 @@ class UpdateVesselRequest extends FormRequest
         /** @var Vessel|null $vessel */
         $vessel = $this->route('vessel');
         $vesselId = (int) ($vessel?->id ?? 0);
+        $existingClientId = $vessel?->client_id !== null ? (int) $vessel->client_id : null;
 
         return [
             'name' => [
@@ -34,6 +36,10 @@ class UpdateVesselRequest extends FormRequest
                     ->whereNull('deleted_at')
                     ->ignore($vesselId),
             ],
+            'client_id' => ClientAssignmentRules::assignableClientIdRules(
+                existingClientId: $existingClientId,
+                required: false,
+            ),
             'vessel_type_id' => ['required', 'integer', Rule::exists('vessel_types', 'id')],
             'grt' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'bhp' => ['nullable', 'integer', 'min:0', 'max:2147483647'],

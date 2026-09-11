@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\CrewAssignment;
@@ -60,6 +61,11 @@ function makeOrganizationVesselFixtures(): array
         'is_active' => true,
     ]);
 
+    $client = Client::query()->create([
+        'name' => 'Org Vessel Client',
+        'is_active' => true,
+    ]);
+
     grantCompanyPermissions($user, $company, [
         'crew_operations.vessels.view',
         'crew_operations.vessels.create',
@@ -68,7 +74,7 @@ function makeOrganizationVesselFixtures(): array
         'crew_operations.vessel_manning.view',
     ]);
 
-    return compact('user', 'company', 'otherCompany', 'vesselType');
+    return compact('user', 'company', 'otherCompany', 'vesselType', 'client');
 }
 
 test('guests cannot access organization vessels page', function () {
@@ -76,7 +82,7 @@ test('guests cannot access organization vessels page', function () {
 });
 
 test('authorized users can view create update and delete company vessels', function () {
-    ['user' => $user, 'company' => $company, 'vesselType' => $vesselType] = makeOrganizationVesselFixtures();
+    ['user' => $user, 'company' => $company, 'vesselType' => $vesselType, 'client' => $client] = makeOrganizationVesselFixtures();
 
     $this->actingAs($user)
         ->get(route('organization.vessels.index'))
@@ -84,12 +90,15 @@ test('authorized users can view create update and delete company vessels', funct
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/vessels/index', false)
             ->has('vessels')
+            ->has('clients')
+            ->where('filters.client_id', null)
             ->where('can.create', true)
         );
 
     $this->actingAs($user)
         ->post(route('organization.vessels.store'), [
             'name' => 'ADNOC 951',
+            'client_id' => $client->id,
             'vessel_type_id' => $vesselType->id,
             'grt' => 4500,
             'bhp' => 12000,
@@ -99,11 +108,13 @@ test('authorized users can view create update and delete company vessels', funct
 
     $vessel = Vessel::query()->where('name', 'ADNOC 951')->first();
     expect($vessel)->not->toBeNull()
-        ->and((int) $vessel->company_id)->toBe((int) $company->id);
+        ->and((int) $vessel->company_id)->toBe((int) $company->id)
+        ->and((int) $vessel->client_id)->toBe((int) $client->id);
 
     $this->actingAs($user)
         ->put(route('organization.vessels.update', $vessel), [
             'name' => 'ADNOC 951 Updated',
+            'client_id' => $client->id,
             'vessel_type_id' => $vesselType->id,
             'grt' => 4600,
             'bhp' => 12500,
@@ -114,6 +125,7 @@ test('authorized users can view create update and delete company vessels', funct
     $this->assertDatabaseHas('vessels', [
         'id' => $vessel->id,
         'company_id' => $company->id,
+        'client_id' => $client->id,
         'name' => 'ADNOC 951 Updated',
         'grt' => '4600.00',
         'bhp' => 12500,
@@ -127,12 +139,13 @@ test('authorized users can view create update and delete company vessels', funct
 });
 
 test('created vessels always use current_company_id and ignore client company_id', function () {
-    ['user' => $user, 'company' => $company, 'otherCompany' => $otherCompany, 'vesselType' => $vesselType] = makeOrganizationVesselFixtures();
+    ['user' => $user, 'company' => $company, 'otherCompany' => $otherCompany, 'vesselType' => $vesselType, 'client' => $client] = makeOrganizationVesselFixtures();
 
     $this->actingAs($user)
         ->post(route('organization.vessels.store'), [
             'name' => 'Scoped Vessel',
             'company_id' => $otherCompany->id,
+            'client_id' => $client->id,
             'vessel_type_id' => $vesselType->id,
             'is_active' => true,
         ])
@@ -141,6 +154,7 @@ test('created vessels always use current_company_id and ignore client company_id
     $this->assertDatabaseHas('vessels', [
         'name' => 'Scoped Vessel',
         'company_id' => $company->id,
+        'client_id' => $client->id,
     ]);
 
     $this->assertDatabaseMissing('vessels', [
@@ -203,7 +217,7 @@ test('vessels index and show are isolated by company', function () {
 });
 
 test('vessel names are unique per company but can repeat across companies', function () {
-    ['user' => $user, 'company' => $company, 'otherCompany' => $otherCompany, 'vesselType' => $vesselType] = makeOrganizationVesselFixtures();
+    ['user' => $user, 'company' => $company, 'otherCompany' => $otherCompany, 'vesselType' => $vesselType, 'client' => $client] = makeOrganizationVesselFixtures();
 
     Vessel::query()->create([
         'company_id' => $company->id,
@@ -222,6 +236,7 @@ test('vessel names are unique per company but can repeat across companies', func
     $this->actingAs($user)
         ->post(route('organization.vessels.store'), [
             'name' => 'Shared Name',
+            'client_id' => $client->id,
             'vessel_type_id' => $vesselType->id,
             'is_active' => true,
         ])
@@ -232,7 +247,7 @@ test('vessel names are unique per company but can repeat across companies', func
 });
 
 test('authorized users can download template and import vessels scoped to company', function () {
-    ['user' => $user, 'company' => $company, 'vesselType' => $vesselType] = makeOrganizationVesselFixtures();
+    ['user' => $user, 'company' => $company, 'vesselType' => $vesselType, 'client' => $client] = makeOrganizationVesselFixtures();
 
     VesselType::query()->whereKey($vesselType->id)->update(['name' => 'H/LIFT']);
 
@@ -241,7 +256,7 @@ test('authorized users can download template and import vessels scoped to compan
         ->assertOk()
         ->assertHeader('content-type', 'text/csv; charset=UTF-8');
 
-    $csv = "name,vessel_type,grt,bhp,is_active\nSAPURA 1200,H/LIFT,5000,9000,yes\n";
+    $csv = "client,name,vessel_type,grt,bhp,is_active\n{$client->name},SAPURA 1200,H/LIFT,5000,9000,yes\n";
     $file = UploadedFile::fake()->createWithContent('vessels.csv', $csv);
 
     $this->actingAs($user)
@@ -306,13 +321,14 @@ test('deleting a vessel is blocked when referenced by sea service or crew assign
 test('authorized users can store vessel identification and certificate', function () {
     Storage::fake('public');
 
-    ['user' => $user, 'company' => $company, 'vesselType' => $vesselType] = makeOrganizationVesselFixtures();
+    ['user' => $user, 'company' => $company, 'vesselType' => $vesselType, 'client' => $client] = makeOrganizationVesselFixtures();
 
     $certificate = UploadedFile::fake()->create('vessel-cert.pdf', 120, 'application/pdf');
 
     $this->actingAs($user)
         ->post(route('organization.vessels.store'), [
             'name' => 'MV Certificate',
+            'client_id' => $client->id,
             'vessel_type_id' => $vesselType->id,
             'grt' => 3200,
             'bhp' => 8000,
@@ -327,6 +343,7 @@ test('authorized users can store vessel identification and certificate', functio
     $vessel = Vessel::query()->where('name', 'MV Certificate')->first();
     expect($vessel)->not->toBeNull()
         ->and((int) $vessel->company_id)->toBe((int) $company->id)
+        ->and((int) $vessel->client_id)->toBe((int) $client->id)
         ->and($vessel->official_no)->toBe('OFF-1001')
         ->and($vessel->call_sign)->toBe('A6XYZ')
         ->and($vessel->imo_no)->toBe('9123456')
@@ -344,6 +361,7 @@ test('authorized users can store vessel identification and certificate', functio
             ->where('vessels.0.official_no', 'OFF-1001')
             ->where('vessels.0.call_sign', 'A6XYZ')
             ->where('vessels.0.imo_no', '9123456')
+            ->where('vessels.0.client_name', $client->name)
             ->where('vessels.0.certificate_original_filename', 'vessel-cert.pdf')
             ->whereNot('vessels.0.certificate_url', null)
         );
@@ -354,6 +372,7 @@ test('authorized users can store vessel identification and certificate', functio
     $this->actingAs($user)
         ->put(route('organization.vessels.update', $vessel), [
             'name' => 'MV Certificate',
+            'client_id' => $client->id,
             'vessel_type_id' => $vesselType->id,
             'grt' => 3200,
             'bhp' => 8000,

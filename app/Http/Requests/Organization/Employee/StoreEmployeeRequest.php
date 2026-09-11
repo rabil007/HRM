@@ -4,8 +4,10 @@ namespace App\Http\Requests\Organization\Employee;
 
 use App\Enums\SalaryPaymentMethod;
 use App\Http\Requests\Organization\Employee\Concerns\ValidatesEmployeeNumber;
+use App\Support\MasterData\ClientAssignmentRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreEmployeeRequest extends FormRequest
 {
@@ -102,5 +104,23 @@ class StoreEmployeeRequest extends FormRequest
             'documents.*.expiry_date' => ['nullable', 'date'],
             'documents.*.document_number' => ['nullable', 'string', 'max:120'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $clientId = $this->input('client_id');
+            $projectId = $this->input('project_id');
+
+            ClientAssignmentRules::projectBelongsToClient(
+                $validator,
+                $clientId !== null && $clientId !== '' ? (int) $clientId : null,
+                $projectId !== null && $projectId !== '' ? (int) $projectId : null,
+            );
+        });
     }
 }

@@ -230,7 +230,7 @@ See also [crew-movement-corrections.md](./crew-movement-corrections.md).
 
 ### Transfer Vessel (`transfer_vessel`)
 
-Available from Active P4 On Vessel. Completes the source P4 and assignment at `occurred_at`, syncs sea service and planning for the source, then creates a linked Active assignment (`previous_assignment_id`, `source = vessel_transfer`) that starts directly in active P4 on the destination vessel. Destination vessel must start blank in the form, must differ from the source, and is required. Rank/client may default from the current assignment. No artificial P5/P6/P0–P3 phases are created. The destination receives a fresh Tour of Duty snapshot (destination rank + handoff timestamp) via the same resolver/applier as Join Vessel. The movement controller redirects to the new assignment.
+Available from Active P4 On Vessel. Completes the source P4 and assignment at `occurred_at`, syncs sea service and planning for the source, then creates a linked Active assignment (`previous_assignment_id`, `source = vessel_transfer`) that starts directly in active P4 on the destination vessel. Destination vessel must start blank in the form, must differ from the source, and is required. Destination **Client** defaults from the destination Vessel’s current `client_id` (not the source assignment Client). An explicitly submitted destination Client must match that vessel Client when the vessel is assigned. Rank may still default from the current assignment. No artificial P5/P6/P0–P3 phases are created. The destination receives a fresh Tour of Duty snapshot (destination rank + handoff timestamp) via the same resolver/applier as Join Vessel. The movement controller redirects to the new assignment.
 
 #### Intelligent transfer recommendation
 
@@ -357,6 +357,19 @@ Legacy `crew_operations.deployments.*` permissions are removed and migrated onto
 `CrewMovementService` runs every create/action in a company-scoped transaction with `lockForUpdate()`, invariant checks, and atomic phase updates. Completed P4 (`actual_end_at` set) syncs sea service via `SeaServiceSyncService` in the same transaction.
 
 Tour resolution uses `CrewTourOfDutyResolver` / `CrewTourOfDutyCalculator`. Progress and status buckets use `CrewTourProgress` / `CrewTourStatusQuery`.
+
+### Client snapshots vs vessel current Client
+
+```text
+Client
+├── Projects          (current Project → Client)
+└── Vessels           (Vessel.client_id = current/default operational Client)
+
+CrewAssignment.client_id      = Client during that mobilisation cycle (snapshot)
+EmployeeSeaService.client_id  = Client during that service period (from assignment snapshot)
+```
+
+`SeaServiceSyncService` copies `CrewAssignment.client_id` into `EmployeeSeaService.client_id`. Changing `Vessel.client_id` later must **never** rewrite historical assignments, phases, timesheets, payroll, or sea service.
 
 ## P2B Training → Employee Training synchronization
 

@@ -319,7 +319,7 @@ export interface CrewAssignmentFormOptions {
         max_tour_of_duty_days?: number | null;
         resolved_tour_of_duty_days?: number | null;
     }>;
-    vessels: Array<{ id: number; name: string }>;
+    vessels: Array<{ id: number; name: string; client_id?: number | null }>;
     clients: Array<{ id: number; name: string }>;
     visa_types: Array<{ id: number; name: string }>;
     courses: Array<{ id: number; name: string }>;
@@ -341,7 +341,7 @@ export type CrewFilterOption = {
 };
 
 export interface CrewAssignmentFilterOptions {
-    vessels: Array<{ id: number; name: string }>;
+    vessels: Array<{ id: number; name: string; client_id?: number | null }>;
     ranks: Array<{ id: number; name: string }>;
     clients: Array<{ id: number; name: string }>;
     employees: Array<{

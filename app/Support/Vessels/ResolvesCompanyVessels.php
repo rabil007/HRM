@@ -8,17 +8,18 @@ use Illuminate\Database\Eloquent\Builder;
 final class ResolvesCompanyVessels
 {
     /**
-     * @return list<array{id: int, name: string}>
+     * @return list<array{id: int, name: string, client_id: int|null}>
      */
     public static function activeOptions(int $companyId): array
     {
         return self::queryForCompany($companyId)
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name'])
+            ->get(['id', 'name', 'client_id'])
             ->map(fn (Vessel $vessel) => [
                 'id' => (int) $vessel->id,
                 'name' => (string) $vessel->name,
+                'client_id' => $vessel->client_id !== null ? (int) $vessel->client_id : null,
             ])
             ->values()
             ->all();

@@ -51,6 +51,7 @@ import {
 import { VesselFormSheet } from './components/vessel-form-sheet';
 import { VesselManningHealthCard } from './components/vessel-manning-health-card';
 import type {
+    ClientOption,
     VesselDetails,
     VesselFormData,
     VesselManningHealth,
@@ -157,6 +158,7 @@ function StatChip({
 export function VesselShowContent({
     vessel,
     vessel_types,
+    clients = [],
     summary,
     can,
     recent_activity,
@@ -168,6 +170,7 @@ export function VesselShowContent({
 }: {
     vessel: VesselDetails;
     vessel_types: VesselTypeOption[];
+    clients?: ClientOption[];
     summary: VesselSummary;
     can: VesselPageCan;
     recent_activity: RecentActivityItem[];
@@ -192,6 +195,7 @@ export function VesselShowContent({
 
     const vesselForm = useForm<VesselFormData>({
         name: vessel.name,
+        client_id: vessel.client_id ?? '',
         vessel_type_id: vessel.vessel_type_id as number | '',
         grt:
             vessel.grt !== null && vessel.grt !== undefined
@@ -212,6 +216,7 @@ export function VesselShowContent({
         vesselForm.clearErrors();
         vesselForm.setData({
             name: vessel.name,
+            client_id: vessel.client_id ?? '',
             vessel_type_id: vessel.vessel_type_id,
             grt:
                 vessel.grt !== null && vessel.grt !== undefined
@@ -235,6 +240,10 @@ export function VesselShowContent({
 
         vesselForm.transform(() => ({
             name: vesselForm.data.name,
+            client_id:
+                vesselForm.data.client_id === ''
+                    ? null
+                    : vesselForm.data.client_id,
             vessel_type_id: vesselForm.data.vessel_type_id,
             grt:
                 vesselForm.data.grt.trim() === ''
@@ -429,6 +438,10 @@ export function VesselShowContent({
                             />
 
                             <SectionLabel>Technical</SectionLabel>
+                            <Field
+                                label="Client"
+                                value={vessel.client_name ?? 'Unassigned'}
+                            />
                             <Field
                                 label="Vessel Type"
                                 value={
@@ -673,6 +686,7 @@ export function VesselShowContent({
                 open={editOpen}
                 onOpenChange={setEditOpen}
                 vessel={vessel}
+                clients={clients}
                 vesselTypes={vessel_types}
                 form={vesselForm}
                 onSubmit={submitVesselEdit}

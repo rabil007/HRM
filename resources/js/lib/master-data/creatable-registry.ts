@@ -32,6 +32,7 @@ export type CreatableMasterDataKey =
 export type CreatableMasterDataContext = {
     departmentId?: string | number | null;
     vesselTypeId?: string | number | null;
+    clientId?: string | number | null;
 };
 
 type CreatableRegistryEntry = {
@@ -94,7 +95,18 @@ export const creatableRegistry: Record<
         permission: 'settings.master-data.projects.create',
         labelField: 'title',
         url: () => storeProject.url(),
-        body: (query) => ({ title: query, is_active: true }),
+        body: (query, context) => {
+            const body: Record<string, unknown> = {
+                title: query,
+                is_active: true,
+            };
+
+            if (context?.clientId) {
+                body.client_id = Number(context.clientId);
+            }
+
+            return body;
+        },
     },
     client: {
         permission: 'settings.master-data.clients.create',
@@ -120,6 +132,10 @@ export const creatableRegistry: Record<
 
             if (context?.vesselTypeId) {
                 body.vessel_type_id = Number(context.vesselTypeId);
+            }
+
+            if (context?.clientId) {
+                body.client_id = Number(context.clientId);
             }
 
             return body;

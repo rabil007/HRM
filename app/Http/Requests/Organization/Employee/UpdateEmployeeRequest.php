@@ -6,8 +6,10 @@ use App\Enums\SalaryPaymentMethod;
 use App\Http\Requests\Organization\Employee\Concerns\ValidatesEmployeeNumber;
 use App\Models\Employee;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\MasterData\ClientAssignmentRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateEmployeeRequest extends FormRequest
 {
@@ -83,6 +85,36 @@ class UpdateEmployeeRequest extends FormRequest
         }
 
         return $this->onlyValidatePresentFields($rules);
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            if (! $this->has('client_id') && ! $this->has('project_id')) {
+                return;
+            }
+
+            /** @var Employee|null $employee */
+            $employee = $this->route('employee');
+
+            $clientId = $this->has('client_id')
+                ? ($this->input('client_id') !== null && $this->input('client_id') !== ''
+                    ? (int) $this->input('client_id')
+                    : null)
+                : ($employee?->client_id !== null ? (int) $employee->client_id : null);
+
+            $projectId = $this->has('project_id')
+                ? ($this->input('project_id') !== null && $this->input('project_id') !== ''
+                    ? (int) $this->input('project_id')
+                    : null)
+                : ($employee?->project_id !== null ? (int) $employee->project_id : null);
+
+            ClientAssignmentRules::projectBelongsToClient($validator, $clientId, $projectId);
+        });
     }
 
     /**

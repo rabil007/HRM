@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import Heading from '@/components/heading';
 import { Pagination } from '@/components/pagination';
 import { MasterDataDeleteButton } from '@/components/settings/master-data-delete-button';
@@ -53,27 +54,44 @@ import type { MasterDataUsageFlags } from '@/lib/master-data/usage';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 
+type ClientOption = {
+    id: number;
+    name: string;
+    is_active: boolean;
+};
+
 type Project = {
     id: number;
+    client_id: number | null;
+    client_name: string | null;
     title: string;
     is_active: boolean;
 } & MasterDataUsageFlags;
 
+const fieldLabelClass =
+    'text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase';
+
 export default function Projects({
     projects,
+    clients = [],
     pagination,
     search = '',
+    filters = { client_id: null },
 }: {
     projects: Project[];
+    clients?: ClientOption[];
     pagination: PaginationMeta;
     search?: string;
+    filters?: { client_id: number | null };
 }) {
     const can = useSettingsMasterDataCan('projects');
 
     const list = useServerPaginationFilters({
         url: '/settings/master-data/projects',
         search,
-        filters: {},
+        filters: {
+            client_id: filters.client_id ? String(filters.client_id) : '',
+        },
         pagination,
     });
 
@@ -87,18 +105,38 @@ export default function Projects({
     const [importDragActive, setImportDragActive] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const form = useForm({
+    const form = useForm<{
+        client_id: number | '';
+        title: string;
+        is_active: boolean;
+    }>({
+        client_id: '',
         title: '',
         is_active: true,
     });
 
     const rows = projects;
+    const activeClients = clients.filter((client) => client.is_active);
+    const formClients =
+        current?.client_id &&
+        !activeClients.some((client) => client.id === current.client_id)
+            ? [
+                  ...activeClients,
+                  {
+                      id: current.client_id,
+                      name:
+                          current.client_name ?? `Client #${current.client_id}`,
+                      is_active: false,
+                  },
+              ]
+            : activeClients;
 
     const openCreate = () => {
         setCurrent(null);
         form.reset();
         form.clearErrors();
         form.setData({
+            client_id: '',
             title: '',
             is_active: true,
         });
@@ -110,6 +148,7 @@ export default function Projects({
         form.reset();
         form.clearErrors();
         form.setData({
+            client_id: project.client_id ?? '',
             title: project.title,
             is_active: project.is_active,
         });
@@ -117,6 +156,11 @@ export default function Projects({
     };
 
     const submit = () => {
+        form.transform((data) => ({
+            ...data,
+            client_id: data.client_id === '' ? null : data.client_id,
+        }));
+
         if (current) {
             form.put(`/settings/master-data/projects/${current.id}`, {
                 preserveScroll: true,
@@ -155,6 +199,7 @@ export default function Projects({
         router.put(
             `/settings/master-data/projects/${project.id}`,
             {
+                client_id: project.client_id,
                 title: project.title,
                 is_active: !project.is_active,
             },
@@ -274,14 +319,38 @@ export default function Projects({
                 />
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1">
+                    <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
                         <Input
                             value={list.searchInput}
                             onChange={(e) =>
                                 list.onSearchChange(e.target.value)
                             }
                             placeholder="Search projects..."
+                            className="sm:max-w-xs"
                         />
+                        <AppSelect
+                            value={
+                                filters.client_id
+                                    ? String(filters.client_id)
+                                    : ''
+                            }
+                            onValueChange={(clientId) =>
+                                list.applyFilters({ client_id: clientId })
+                            }
+                            placeholder="All clients"
+                            variant="dark"
+                            className="h-10 sm:w-56"
+                        >
+                            <AppSelectItem value="">All clients</AppSelectItem>
+                            {clients.map((client) => (
+                                <AppSelectItem
+                                    key={client.id}
+                                    value={String(client.id)}
+                                >
+                                    {client.name}
+                                </AppSelectItem>
+                            ))}
+                        </AppSelect>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         <Button
@@ -300,9 +369,10 @@ export default function Projects({
 
                 <div className="overflow-hidden rounded-xl border border-border/60">
                     <div className="overflow-x-auto">
-                        <div className="min-w-[640px]">
+                        <div className="min-w-[720px]">
                             <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
-                                <div className="col-span-7">Title</div>
+                                <div className="col-span-4">Title</div>
+                                <div className="col-span-3">Client</div>
                                 <div className="col-span-2">Active</div>
                                 <div className="col-span-3 text-right">
                                     Actions
@@ -314,11 +384,14 @@ export default function Projects({
                                     key={p.id}
                                     className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
                                 >
-                                    <div className="col-span-7 flex min-w-0 items-center gap-2 text-sm">
+                                    <div className="col-span-4 flex min-w-0 items-center gap-2 text-sm">
                                         <span className="truncate">
                                             {p.title}
                                         </span>
                                         <MasterDataInUseBadge item={p} />
+                                    </div>
+                                    <div className="col-span-3 truncate text-sm text-muted-foreground">
+                                        {p.client_name ?? 'Unassigned'}
                                     </div>
                                     <div className="col-span-2 flex items-center">
                                         <Switch
@@ -405,9 +478,16 @@ export default function Projects({
                                 <ul className="list-inside list-disc space-y-1 text-muted-foreground">
                                     <li>
                                         <span className="font-medium text-foreground">
-                                            title
+                                            client
                                         </span>{' '}
-                                        — required header and value on each row
+                                        — required; must match an existing
+                                        client name
+                                    </li>
+                                    <li>
+                                        <span className="font-medium text-foreground">
+                                            project
+                                        </span>{' '}
+                                        — required project title on each row
                                     </li>
                                     <li>
                                         <span className="font-medium text-foreground">
@@ -607,10 +687,54 @@ export default function Projects({
                     <div className="flex-1 space-y-5 overflow-y-auto p-8">
                         <div className="space-y-2">
                             <Label
-                                htmlFor="title"
-                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                                htmlFor="client_id"
+                                className={fieldLabelClass}
                             >
-                                Title
+                                Client
+                                {!current ? (
+                                    <span className="text-destructive"> *</span>
+                                ) : null}
+                            </Label>
+                            <AppSelect
+                                value={
+                                    form.data.client_id === ''
+                                        ? ''
+                                        : String(form.data.client_id)
+                                }
+                                onValueChange={(value) =>
+                                    form.setData(
+                                        'client_id',
+                                        value ? Number(value) : '',
+                                    )
+                                }
+                                variant="dark"
+                                placeholder="Select client"
+                                className="h-11 rounded-xl"
+                            >
+                                {current ? (
+                                    <AppSelectItem value="">
+                                        Unassigned
+                                    </AppSelectItem>
+                                ) : null}
+                                {formClients.map((client) => (
+                                    <AppSelectItem
+                                        key={client.id}
+                                        value={String(client.id)}
+                                    >
+                                        {client.name}
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+                            {form.errors.client_id ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.client_id}
+                                </div>
+                            ) : null}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="title" className={fieldLabelClass}>
+                                Project Name
                             </Label>
                             <Input
                                 id="title"
