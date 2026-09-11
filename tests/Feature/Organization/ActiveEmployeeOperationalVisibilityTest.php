@@ -177,7 +177,7 @@ test('leave create rejects inactive employees while historical leave remains lis
         ->assertRedirect();
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get('/attendance/leave-requests?scope=all')
+        ->get('/attendance/leave-approvals?scope=all')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('leave_requests', 1)

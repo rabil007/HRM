@@ -127,7 +127,7 @@ test('unacted pending request may be deleted by authorised owner', function () {
     $this->actingAs($owner)
         ->withSession(['current_company_id' => $company->id])
         ->delete("/attendance/leave-requests/{$context['leaveRequest']->id}")
-        ->assertRedirect(route('attendance.leave-requests.index'))
+        ->assertRedirect(route('attendance.my-leave.index'))
         ->assertSessionHas('success');
 
     expect(LeaveRequest::query()->whereKey($context['leaveRequest']->id)->exists())->toBeFalse()
@@ -152,9 +152,9 @@ test('partially approved request cannot be deleted', function () {
 
     $this->actingAs($owner)
         ->withSession(['current_company_id' => $company->id])
-        ->from('/attendance/leave-requests')
+        ->from('/attendance/my-leave')
         ->delete("/attendance/leave-requests/{$leaveRequest->id}")
-        ->assertRedirect(route('attendance.leave-requests.index'))
+        ->assertRedirect(route('attendance.my-leave.index'))
         ->assertSessionHasErrors([
             'leave_request' => 'This leave request cannot be deleted because the approval process has already started. Cancel it instead to preserve approval history.',
         ]);
@@ -192,9 +192,9 @@ test('cancelled request with acted approval history remains preserved and cannot
 
     $this->actingAs($owner)
         ->withSession(['current_company_id' => $company->id])
-        ->from('/attendance/leave-requests')
+        ->from('/attendance/my-leave')
         ->delete("/attendance/leave-requests/{$leaveRequest->id}")
-        ->assertRedirect(route('attendance.leave-requests.index'))
+        ->assertRedirect(route('attendance.my-leave.index'))
         ->assertSessionHasErrors('leave_request');
 
     expect($leaveRequest->fresh())->not->toBeNull()

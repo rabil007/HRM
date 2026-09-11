@@ -115,7 +115,7 @@ test('production mock drill: full leave balance lifecycle with carry forward', f
         'start_date' => '2026-03-01',
         'end_date' => '2026-03-05',
         'reason' => 'Family trip',
-    ])->assertRedirect(route('attendance.leave-requests.index'));
+    ])->assertRedirect(route('attendance.my-leave.index'));
 
     $pendingRequest = LeaveRequest::query()
         ->where('employee_id', $employee->id)
@@ -130,7 +130,7 @@ test('production mock drill: full leave balance lifecycle with carry forward', f
         ->and((float) $afterPending->remaining_days)->toBe(25.0);
 
     // Step 3: Over-limit request is blocked
-    $this->from('/attendance/leave-requests')
+    $this->from('/attendance/my-leave')
         ->post('/attendance/leave-requests', [
             'employee_id' => $employee->id,
             'leave_type_id' => $annualLeave->id,
@@ -142,7 +142,7 @@ test('production mock drill: full leave balance lifecycle with carry forward', f
     // Step 4: Assigned department manager approves the 5-day request
     $this->actingAs($approvalContext['managerUser'])
         ->put("/attendance/leave-requests/{$pendingRequest->id}/approve")
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.leave-approvals.index'));
 
     $this->actingAs($hrUser);
 
@@ -211,7 +211,7 @@ test('production mock drill: full leave balance lifecycle with carry forward', f
         'start_date' => '2026-08-01',
         'end_date' => '2026-08-02',
         'reason' => 'Short leave',
-    ])->assertRedirect(route('attendance.leave-requests.index'));
+    ])->assertRedirect(route('attendance.my-leave.index'));
 
     $rejectable = LeaveRequest::query()
         ->where('employee_id', $employee->id)
@@ -225,7 +225,7 @@ test('production mock drill: full leave balance lifecycle with carry forward', f
     $this->actingAs($approvalContext['managerUser'])
         ->put("/attendance/leave-requests/{$rejectable->id}/reject", [
             'rejection_reason' => 'Coverage needed',
-        ])->assertRedirect(route('attendance.leave-requests.index'));
+        ])->assertRedirect(route('attendance.leave-approvals.index'));
 
     expect($rejectable->fresh()->status)->toBe('rejected')
         ->and((float) $initialBalance->fresh()->pending_days)->toBe(0.0)

@@ -1,3 +1,5 @@
+export type LeaveRequestListMode = 'mine' | 'approvals';
+
 export type LeaveRequestStatus =
     | 'pending'
     | 'approved'

@@ -114,7 +114,7 @@ test('pending leave request can be edited before any approval step acts', functi
         'start_date' => '2026-06-01',
         'end_date' => '2026-06-02',
         'reason' => 'Short trip',
-    ])->assertRedirect(route('attendance.leave-requests.index'));
+    ])->assertRedirect(route('attendance.my-leave.index'));
 
     $leaveRequest = LeaveRequest::query()->where('employee_id', $employee->id)->firstOrFail();
     expect($leaveRequest->approvals)->toHaveCount(2);
@@ -125,7 +125,7 @@ test('pending leave request can be edited before any approval step acts', functi
         'start_date' => '2026-06-10',
         'end_date' => '2026-06-12',
         'reason' => 'Updated trip',
-    ])->assertRedirect(route('attendance.leave-requests.index'))
+    ])->assertRedirect(route('attendance.my-leave.index'))
         ->assertSessionHas('success');
 
     $leaveRequest->refresh();
@@ -234,7 +234,7 @@ test('editing after an intermediate approval is rejected', function () {
 
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
-        ->from('/attendance/leave-requests')
+        ->from('/attendance/my-leave')
         ->put("/attendance/leave-requests/{$leaveRequest->id}", [
             'employee_id' => $employee->id,
             'leave_type_id' => $leaveType->id,
@@ -242,7 +242,7 @@ test('editing after an intermediate approval is rejected', function () {
             'end_date' => '2026-08-20',
             'reason' => 'Should fail',
         ])
-        ->assertRedirect(route('attendance.leave-requests.index'))
+        ->assertRedirect(route('attendance.my-leave.index'))
         ->assertSessionHasErrors([
             'leave_request' => 'This leave request can no longer be edited because the approval process has already started.',
         ]);
@@ -292,7 +292,7 @@ test('edit cannot race successfully after approval starts', function () {
         ->update(['status' => LeaveRequestApprovalStatus::Pending->value]);
 
     $this->actingAs($user)
-        ->from('/attendance/leave-requests')
+        ->from('/attendance/my-leave')
         ->put("/attendance/leave-requests/{$leaveRequest->id}", [
             'employee_id' => $employee->id,
             'leave_type_id' => $leaveType->id,

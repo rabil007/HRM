@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import { LeaveRequestsContent } from '@/features/attendance/leave-requests';
+import { MyLeaveContent } from '@/features/attendance/leave-requests/my-leave-content';
 import type {
     LeaveRequest,
     LeaveRequestEmployeeOption,
@@ -10,7 +10,7 @@ import type {
 import type { SavedView } from '@/lib/saved-views';
 import type { PaginationMeta } from '@/types/pagination';
 
-export default function LeaveRequests({
+export default function MyLeave({
     leave_requests,
     pagination,
     status_counts,
@@ -41,8 +41,8 @@ export default function LeaveRequests({
 }) {
     return (
         <>
-            <Head title="Leave Requests Management" />
-            <LeaveRequestsContent
+            <Head title="My leave" />
+            <MyLeaveContent
                 leave_requests={leave_requests}
                 pagination={pagination}
                 status_counts={status_counts}

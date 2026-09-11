@@ -197,7 +197,7 @@ test('administrative deletion requires a reason', function () {
     grantAdministrativeDeletePermissions($context['admin'], $context['company']);
 
     $this->actingAs($context['admin'])
-        ->from(route('attendance.leave-requests.index'))
+        ->from(route('attendance.my-leave.index'))
         ->delete(route('attendance.leave-requests.administrative-destroy', $leaveRequest), [
             'administrative_deletion_reason' => '',
         ])
@@ -217,7 +217,7 @@ test('pending request releases pending balance exactly once and preserves cancel
         ->delete(route('attendance.leave-requests.administrative-destroy', $leaveRequest), [
             'administrative_deletion_reason' => 'Void pending allocation',
         ])
-        ->assertRedirect(route('attendance.leave-requests.index'))
+        ->assertRedirect(route('attendance.leave-approvals.index'))
         ->assertSessionHas('success');
 
     expect(LeaveRequest::query()->whereKey($leaveRequest->id)->exists())->toBeFalse()
@@ -247,7 +247,7 @@ test('approved request subtracts used balance and restores remaining', function 
         ->delete(route('attendance.leave-requests.administrative-destroy', $leaveRequest), [
             'administrative_deletion_reason' => 'Void approved leave',
         ])
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.leave-approvals.index'));
 
     expect(balanceUsed($context))->toBe(0.0)
         ->and(balancePending($context))->toBe(0.0)

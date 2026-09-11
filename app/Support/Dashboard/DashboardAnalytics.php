@@ -684,7 +684,7 @@ final class DashboardAnalytics
                         'description' => sprintf('You have %d leave request(s) waiting for your decision.', $awaitingCount),
                         'count' => $awaitingCount,
                         'severity' => 'warning',
-                        'href' => route('attendance.leave-requests.index', ['view' => 'awaiting_my_approval']),
+                        'href' => route('attendance.leave-approvals.index'),
                         'action_label' => 'Review Approvals',
                     ];
                 }

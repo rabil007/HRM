@@ -90,10 +90,10 @@
             "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
         },
         {
-            "name": "Leave Requests",
+            "name": "My leave",
             "short_name": "Leave",
-            "url": "/attendance/leave-requests",
-            "description": "Manage Leave Requests",
+            "url": "/attendance/my-leave",
+            "description": "View and request your leave",
             "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
         }
     ]

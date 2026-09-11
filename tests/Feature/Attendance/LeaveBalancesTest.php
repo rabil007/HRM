@@ -190,7 +190,7 @@ test('first leave request succeeds when employee has no pre-provisioned balance'
         'start_date' => '2026-06-21',
         'end_date' => '2026-06-23',
         'reason' => 'First request',
-    ])->assertRedirect(route('attendance.leave-requests.index'));
+    ])->assertRedirect(route('attendance.my-leave.index'));
 
     $balance = LeaveBalance::query()
         ->where('employee_id', $employee->id)

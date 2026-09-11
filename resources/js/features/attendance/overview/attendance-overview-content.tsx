@@ -40,7 +40,8 @@ import {
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { index as calendarIndex } from '@/routes/attendance/calendar';
-import { index as leaveRequestsIndex } from '@/routes/attendance/leave-requests';
+import { index as leaveApprovalsIndex } from '@/routes/attendance/leave-approvals';
+import { index as myLeaveIndex } from '@/routes/attendance/my-leave';
 import { index as recordsIndex } from '@/routes/attendance/records';
 
 /* ─────────────────────── types ─────────────────────── */
@@ -345,9 +346,9 @@ export function AttendanceOverviewContent({
                             className="rounded-xl glass-card"
                             asChild
                         >
-                            <Link href={leaveRequestsIndex.url()}>
+                            <Link href={myLeaveIndex.url()}>
                                 <CalendarCheck2 className="mr-2 h-4 w-4" />
-                                Leave requests
+                                My leave
                             </Link>
                         </Button>
                     )}
@@ -365,9 +366,7 @@ export function AttendanceOverviewContent({
             {/* ── Urgent alert: pending leave requests ── */}
             {hasPendingLeaves && can.approve_leave_requests && (
                 <Link
-                    href={leaveRequestsIndex.url({
-                        query: { status: 'pending' },
-                    })}
+                    href={leaveApprovalsIndex.url()}
                     className="group mb-8 flex items-center gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 px-5 py-4 transition-all duration-300 hover:border-amber-500/40 hover:bg-amber-500/10"
                 >
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10">
@@ -710,9 +709,16 @@ export function AttendanceOverviewContent({
                 <Link
                     href={
                         can.view_leave_requests
-                            ? leaveRequestsIndex.url({
-                                  query: { status: 'pending' },
-                              })
+                            ? can.approve_leave_requests
+                                ? leaveApprovalsIndex.url({
+                                      query: {
+                                          status: 'pending',
+                                          scope: 'all',
+                                      },
+                                  })
+                                : myLeaveIndex.url({
+                                      query: { status: 'pending' },
+                                  })
                             : '#'
                     }
                     className="group flex flex-col gap-3 rounded-2xl border glass-card border-amber-500/20 p-5 transition-all hover:-translate-y-0.5 hover:border-amber-500/35 hover:shadow-lg"
@@ -735,9 +741,16 @@ export function AttendanceOverviewContent({
                 <Link
                     href={
                         can.view_leave_requests
-                            ? leaveRequestsIndex.url({
-                                  query: { status: 'approved' },
-                              })
+                            ? can.approve_leave_requests
+                                ? leaveApprovalsIndex.url({
+                                      query: {
+                                          status: 'approved',
+                                          scope: 'all',
+                                      },
+                                  })
+                                : myLeaveIndex.url({
+                                      query: { status: 'approved' },
+                                  })
                             : '#'
                     }
                     className="group flex flex-col gap-3 rounded-2xl border glass-card border-emerald-500/20 p-5 transition-all hover:-translate-y-0.5 hover:border-emerald-500/35 hover:shadow-lg"
@@ -760,9 +773,16 @@ export function AttendanceOverviewContent({
                 <Link
                     href={
                         can.view_leave_requests
-                            ? leaveRequestsIndex.url({
-                                  query: { status: 'rejected' },
-                              })
+                            ? can.approve_leave_requests
+                                ? leaveApprovalsIndex.url({
+                                      query: {
+                                          status: 'rejected',
+                                          scope: 'all',
+                                      },
+                                  })
+                                : myLeaveIndex.url({
+                                      query: { status: 'rejected' },
+                                  })
                             : '#'
                     }
                     className="group flex flex-col gap-3 rounded-2xl border glass-card border-red-500/20 p-5 transition-all hover:-translate-y-0.5 hover:border-red-500/35 hover:shadow-lg"
@@ -991,9 +1011,15 @@ export function AttendanceOverviewContent({
                                     summary.recent_pending_leaves.length && (
                                     <div className="border-t border-border/40 px-5 py-3">
                                         <Link
-                                            href={leaveRequestsIndex.url({
-                                                query: { status: 'pending' },
-                                            })}
+                                            href={
+                                                can.approve_leave_requests
+                                                    ? leaveApprovalsIndex.url()
+                                                    : myLeaveIndex.url({
+                                                          query: {
+                                                              status: 'pending',
+                                                          },
+                                                      })
+                                            }
                                             className="text-xs font-semibold text-primary hover:underline"
                                         >
                                             View all {summary.leave_pending}{' '}

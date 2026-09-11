@@ -50,9 +50,44 @@ class LeaveRequestController extends Controller
         private LeaveRequestAuthorization $authorization,
     ) {}
 
-    public function index(Request $request): Response|RedirectResponse
+    public function index(): RedirectResponse
     {
-        $redirect = ApplyDefaultSavedView::maybeRedirect($request, SavedViewPage::Leave);
+        return redirect()->route('attendance.my-leave.index', request()->query());
+    }
+
+    public function myLeave(Request $request): Response|RedirectResponse
+    {
+        return $this->renderList(
+            $request,
+            listMode: 'mine',
+            defaultScope: 'my',
+            savedViewPage: SavedViewPage::Leave,
+            inertiaPage: 'attendance/my-leave',
+        );
+    }
+
+    public function approvals(Request $request): Response|RedirectResponse
+    {
+        return $this->renderList(
+            $request,
+            listMode: 'approvals',
+            defaultScope: 'awaiting_my_approval',
+            savedViewPage: SavedViewPage::LeaveApprovals,
+            inertiaPage: 'attendance/leave-approvals',
+        );
+    }
+
+    /**
+     * @param  'mine'|'approvals'  $listMode
+     */
+    private function renderList(
+        Request $request,
+        string $listMode,
+        string $defaultScope,
+        SavedViewPage $savedViewPage,
+        string $inertiaPage,
+    ): Response|RedirectResponse {
+        $redirect = ApplyDefaultSavedView::maybeRedirect($request, $savedViewPage);
 
         if ($redirect !== null) {
             return $redirect;
@@ -64,14 +99,19 @@ class LeaveRequestController extends Controller
         $status = trim((string) $request->query('status', ''));
         $employeeId = trim((string) $request->query('employee_id', ''));
         $leaveTypeId = trim((string) $request->query('leave_type_id', ''));
-        $scope = $this->resolveScope($request);
+        $scope = $this->resolveScope($request, $defaultScope, $listMode);
 
         $user = $request->user();
         $canViewAll = $this->visibility->canViewAll($user);
         $linkedEmployeeId = $this->visibility->linkedEmployeeId($user, $companyId);
 
-        if ($scope === 'all' && ! $canViewAll) {
+        if ($listMode === 'mine') {
             $scope = 'my';
+            $employeeId = '';
+        } elseif ($scope === 'all' && ! $canViewAll) {
+            $scope = $defaultScope;
+        } elseif ($scope === 'my') {
+            $scope = $defaultScope;
         }
 
         $paginator = LeaveRequest::query()
@@ -90,7 +130,7 @@ class LeaveRequestController extends Controller
             ->where('company_id', $companyId)
             ->tap(fn ($query) => $this->applyScopeFilter($query, $scope, $user, $companyId, $linkedEmployeeId, $canViewAll))
             ->when($status, fn ($query) => $query->where('status', $status))
-            ->when($employeeId, fn ($query) => $query->where('employee_id', $employeeId))
+            ->when($employeeId !== '', fn ($query) => $query->where('employee_id', $employeeId))
             ->when($leaveTypeId, fn ($query) => $query->where('leave_type_id', $leaveTypeId))
             ->when($search, function ($query) use ($search) {
                 $query->whereHas('employee', function ($employeeQuery) use ($search) {
@@ -125,7 +165,7 @@ class LeaveRequestController extends Controller
         $countsQuery = LeaveRequest::query()
             ->where('company_id', $companyId)
             ->tap(fn ($query) => $this->applyScopeFilter($query, $scope, $user, $companyId, $linkedEmployeeId, $canViewAll))
-            ->when($employeeId, fn ($query) => $query->where('employee_id', $employeeId))
+            ->when($employeeId !== '', fn ($query) => $query->where('employee_id', $employeeId))
             ->when($leaveTypeId, fn ($query) => $query->where('leave_type_id', $leaveTypeId))
             ->when($search, function ($query) use ($search) {
                 $query->whereHas('employee', function ($employeeQuery) use ($search) {
@@ -142,7 +182,8 @@ class LeaveRequestController extends Controller
 
         $totalCount = array_sum($statusCounts);
 
-        return Inertia::render('attendance/leave-requests', [
+        return Inertia::render($inertiaPage, [
+            'list_mode' => $listMode,
             'leave_requests' => $leaveRequests->items(),
             'pagination' => $this->paginationMeta($paginator),
             'status_counts' => [
@@ -173,7 +214,7 @@ class LeaveRequestController extends Controller
                 'approve' => $user?->can('attendance.leave-requests.approve') ?? false,
                 'view_all' => $canViewAll,
             ],
-            'saved_views' => SavedViewsForPage::props($user, $companyId, SavedViewPage::Leave),
+            'saved_views' => SavedViewsForPage::props($user, $companyId, $savedViewPage),
         ]);
     }
 
@@ -273,7 +314,7 @@ class LeaveRequestController extends Controller
         }
 
         return redirect()
-            ->route('attendance.leave-requests.index')
+            ->route('attendance.my-leave.index')
             ->with('success', 'Leave request created successfully.');
     }
 
@@ -315,7 +356,7 @@ class LeaveRequestController extends Controller
         }
 
         return redirect()
-            ->route('attendance.leave-requests.index')
+            ->route('attendance.my-leave.index')
             ->with('success', 'Leave request updated successfully.');
     }
 
@@ -330,16 +371,16 @@ class LeaveRequestController extends Controller
             $deleteLeaveRequest->handle($leaveRequest, $companyId);
         } catch (ValidationException $exception) {
             return redirect()
-                ->route('attendance.leave-requests.index')
+                ->route('attendance.my-leave.index')
                 ->withErrors($exception->errors());
         } catch (RuntimeException $exception) {
             return redirect()
-                ->route('attendance.leave-requests.index')
+                ->route('attendance.my-leave.index')
                 ->withErrors(['leave_request' => $exception->getMessage()]);
         }
 
         return redirect()
-            ->route('attendance.leave-requests.index')
+            ->route('attendance.my-leave.index')
             ->with('success', 'Leave request deleted successfully.');
     }
 
@@ -370,7 +411,7 @@ class LeaveRequestController extends Controller
         }
 
         return redirect()
-            ->route('attendance.leave-requests.index')
+            ->route('attendance.leave-approvals.index')
             ->with('success', 'Leave request voided, balance restored and record removed successfully.');
     }
 
@@ -400,7 +441,7 @@ class LeaveRequestController extends Controller
         }
 
         return redirect()
-            ->route('attendance.leave-requests.index')
+            ->route('attendance.leave-approvals.index')
             ->with('success', 'Leave request approved successfully.');
     }
 
@@ -430,7 +471,7 @@ class LeaveRequestController extends Controller
         }
 
         return redirect()
-            ->route('attendance.leave-requests.index')
+            ->route('attendance.leave-approvals.index')
             ->with('success', 'Leave request rejected successfully.');
     }
 
@@ -460,7 +501,7 @@ class LeaveRequestController extends Controller
         }
 
         return redirect()
-            ->route('attendance.leave-requests.index')
+            ->route('attendance.my-leave.index')
             ->with('success', 'Leave request cancelled successfully.');
     }
 
@@ -569,13 +610,20 @@ class LeaveRequestController extends Controller
         ];
     }
 
-    private function resolveScope(Request $request): string
+    /**
+     * @param  'mine'|'approvals'  $listMode
+     */
+    private function resolveScope(Request $request, string $defaultScope, string $listMode): string
     {
-        $scope = trim((string) $request->query('scope', 'my'));
+        $scope = trim((string) $request->query('scope', $defaultScope));
 
-        return in_array($scope, ['my', 'awaiting_my_approval', 'assigned_to_me', 'all'], true)
+        if ($listMode === 'mine') {
+            return 'my';
+        }
+
+        return in_array($scope, ['awaiting_my_approval', 'assigned_to_me', 'all'], true)
             ? $scope
-            : 'my';
+            : $defaultScope;
     }
 
     /**

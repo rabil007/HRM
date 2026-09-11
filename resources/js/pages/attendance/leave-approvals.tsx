@@ -1,0 +1,59 @@
+import { Head } from '@inertiajs/react';
+import { LeaveApprovalsContent } from '@/features/attendance/leave-requests/leave-approvals-content';
+import type {
+    LeaveRequest,
+    LeaveRequestEmployeeOption,
+    LeaveRequestFilters,
+    LeaveRequestPermissions,
+    LeaveRequestTypeOption,
+} from '@/features/attendance/leave-requests/types';
+import type { SavedView } from '@/lib/saved-views';
+import type { PaginationMeta } from '@/types/pagination';
+
+export default function LeaveApprovals({
+    leave_requests,
+    pagination,
+    status_counts,
+    search,
+    filters,
+    employees,
+    leave_types,
+    linked_employee_id,
+    can,
+    saved_views = [],
+}: {
+    leave_requests: LeaveRequest[];
+    pagination: PaginationMeta;
+    status_counts: {
+        all: number;
+        pending: number;
+        approved: number;
+        rejected: number;
+        cancelled: number;
+    };
+    search: string;
+    filters: LeaveRequestFilters;
+    employees: LeaveRequestEmployeeOption[];
+    leave_types: LeaveRequestTypeOption[];
+    linked_employee_id: number | null;
+    can: LeaveRequestPermissions;
+    saved_views?: SavedView[];
+}) {
+    return (
+        <>
+            <Head title="Leave approvals" />
+            <LeaveApprovalsContent
+                leave_requests={leave_requests}
+                pagination={pagination}
+                status_counts={status_counts}
+                search={search}
+                filters={filters}
+                employees={employees}
+                leave_types={leave_types}
+                linkedEmployeeId={linked_employee_id}
+                can={can}
+                saved_views={saved_views}
+            />
+        </>
+    );
+}

@@ -1,5 +1,6 @@
 import { Calendar, UserMinus, Clock, AlertCircle } from 'lucide-react';
-import { index as leaveRequestsIndex } from '@/routes/attendance/leave-requests';
+import { index as leaveApprovalsIndex } from '@/routes/attendance/leave-approvals';
+import { index as myLeaveIndex } from '@/routes/attendance/my-leave';
 import { DashboardMetricCard } from '../components/dashboard-metric-card';
 import { DashboardSection } from '../components/dashboard-section';
 import type { LeaveDashboardSummary } from '../dashboard-types';
@@ -18,8 +19,8 @@ export function LeaveSection({ summary }: LeaveSectionProps) {
             title="Leave Management"
             description="Employees on leave, upcoming schedules, and approval backlog"
             icon={Calendar}
-            actionLabel="Leave Requests"
-            actionHref={leaveRequestsIndex.url()}
+            actionLabel="My leave"
+            actionHref={myLeaveIndex.url()}
         >
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <DashboardMetricCard
@@ -28,7 +29,7 @@ export function LeaveSection({ summary }: LeaveSectionProps) {
                     subtitle={`${summary.upcoming_this_week} starting this week`}
                     icon={UserMinus}
                     iconColor="text-blue-500"
-                    href={leaveRequestsIndex.url()}
+                    href={myLeaveIndex.url()}
                 />
 
                 <DashboardMetricCard
@@ -37,8 +38,8 @@ export function LeaveSection({ summary }: LeaveSectionProps) {
                     subtitle="Company-wide pending requests"
                     icon={Clock}
                     iconColor="text-amber-500"
-                    href={leaveRequestsIndex.url({
-                        query: { status: 'pending' },
+                    href={leaveApprovalsIndex.url({
+                        query: { status: 'pending', scope: 'all' },
                     })}
                 />
 
@@ -60,9 +61,7 @@ export function LeaveSection({ summary }: LeaveSectionProps) {
                     badgeVariant={
                         summary.awaiting_my_approval > 0 ? 'warning' : 'default'
                     }
-                    href={leaveRequestsIndex.url({
-                        query: { view: 'awaiting_my_approval' },
-                    })}
+                    href={leaveApprovalsIndex.url()}
                 />
 
                 <DashboardMetricCard
@@ -71,7 +70,7 @@ export function LeaveSection({ summary }: LeaveSectionProps) {
                     subtitle="Scheduled leave starting soon"
                     icon={Calendar}
                     iconColor="text-emerald-500"
-                    href={leaveRequestsIndex.url()}
+                    href={myLeaveIndex.url()}
                 />
             </div>
         </DashboardSection>

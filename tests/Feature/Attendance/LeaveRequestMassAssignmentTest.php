@@ -123,7 +123,7 @@ test('HTTP create ignores client-supplied company_id and scopes to active compan
             'end_date' => '2026-06-12',
             'reason' => 'Scoped create',
         ])
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.my-leave.index'));
 
     $leaveRequest = LeaveRequest::query()->where('employee_id', $employee->id)->firstOrFail();
 

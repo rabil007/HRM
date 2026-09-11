@@ -151,7 +151,7 @@ test('failed update transaction sends no notification', function () {
 
     Mail::fake();
 
-    $this->from('/attendance/leave-requests')
+    $this->from('/attendance/my-leave')
         ->put("/attendance/leave-requests/{$leaveRequest->id}", [
             'employee_id' => $employee->id,
             'leave_type_id' => $leaveType->id,
@@ -159,7 +159,7 @@ test('failed update transaction sends no notification', function () {
             'end_date' => '2026-06-12',
             'reason' => 'Should fail',
         ])
-        ->assertRedirect('/attendance/leave-requests')
+        ->assertRedirect('/attendance/my-leave')
         ->assertSessionHasErrors('leave_request');
 
     Mail::assertNothingQueued();

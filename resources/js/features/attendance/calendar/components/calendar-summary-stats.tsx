@@ -80,7 +80,7 @@ export function CalendarSummaryStats({
                 hint={`In ${year}`}
                 icon={CalendarCheck2}
                 accent="bg-emerald-500"
-                href="/attendance/leave-requests?status=approved"
+                href="/attendance/my-leave?status=approved"
             />
             <StatCard
                 label="Pending requests"
@@ -88,7 +88,7 @@ export function CalendarSummaryStats({
                 hint="Awaiting approval"
                 icon={Clock3}
                 accent="bg-amber-500"
-                href="/attendance/leave-requests?status=pending"
+                href="/attendance/my-leave?status=pending"
             />
             <StatCard
                 label="Leave days"
@@ -96,7 +96,7 @@ export function CalendarSummaryStats({
                 hint="Marked on calendar"
                 icon={CalendarDays}
                 accent="bg-violet-500"
-                href="/attendance/leave-requests?status=approved"
+                href="/attendance/my-leave?status=approved"
             />
         </div>
     );

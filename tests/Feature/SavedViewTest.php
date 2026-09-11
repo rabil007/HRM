@@ -368,7 +368,7 @@ test('document crew leave and payroll pages save and list supported filters', fu
         'page_key' => 'leave',
         'name' => 'Pending approvals',
         'filters' => ['status' => 'pending'],
-    ], '/attendance/leave-requests')->assertRedirect();
+    ], '/attendance/my-leave')->assertRedirect();
 
     saveView($user, $company->id, [
         'page_key' => 'payroll',
@@ -397,7 +397,7 @@ test('document crew leave and payroll pages save and list supported filters', fu
         ->where('filters.vessel_id', (string) $vessel->id)
     );
 
-    visitList($user, $company->id, 'attendance.leave-requests.index', ['status' => 'pending'])
+    visitList($user, $company->id, 'attendance.my-leave.index', ['status' => 'pending'])
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->where('filters.status', 'pending'));
 

@@ -7,7 +7,7 @@ import {
     CreditCard,
     CheckCircle,
 } from 'lucide-react';
-import { index as leaveRequestsIndex } from '@/routes/attendance/leave-requests';
+import { index as myLeaveIndex } from '@/routes/attendance/my-leave';
 import { index as attendanceRecordsIndex } from '@/routes/attendance/records';
 import { documents } from '@/routes/organization';
 import { index as payrollIndex } from '@/routes/payroll';
@@ -143,7 +143,7 @@ export function PersonalSection({ data }: PersonalSectionProps) {
                         </div>
                         {is_active_workforce ? (
                             <Link
-                                href={leaveRequestsIndex.url()}
+                                href={myLeaveIndex.url()}
                                 className="text-xs font-semibold text-primary hover:underline"
                             >
                                 Request Leave →
@@ -166,7 +166,7 @@ export function PersonalSection({ data }: PersonalSectionProps) {
                                 My Leave Balances
                             </span>
                             <Link
-                                href={leaveRequestsIndex.url()}
+                                href={myLeaveIndex.url()}
                                 className="text-xs font-medium text-primary hover:underline"
                             >
                                 View all

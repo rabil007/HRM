@@ -211,9 +211,14 @@ final class SavedViewCatalog
             SavedViewPage::Leave => [
                 'search' => ['type' => 'search'],
                 'status' => ['type' => 'enum', 'values' => ['pending', 'approved', 'rejected', 'cancelled']],
+                'leave_type_id' => ['type' => 'id', 'model' => LeaveType::class, 'company' => true],
+            ],
+            SavedViewPage::LeaveApprovals => [
+                'search' => ['type' => 'search'],
+                'status' => ['type' => 'enum', 'values' => ['pending', 'approved', 'rejected', 'cancelled']],
                 'employee_id' => ['type' => 'id', 'model' => Employee::class, 'company' => true],
                 'leave_type_id' => ['type' => 'id', 'model' => LeaveType::class, 'company' => true],
-                'scope' => ['type' => 'enum', 'values' => ['awaiting_my_approval', 'assigned_to_me', 'all'], 'omit' => ['my']],
+                'scope' => ['type' => 'enum', 'values' => ['assigned_to_me', 'all'], 'omit' => ['awaiting_my_approval']],
             ],
             SavedViewPage::Payroll => [
                 'search' => ['type' => 'search'],

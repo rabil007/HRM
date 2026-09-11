@@ -7,7 +7,7 @@ use App\Support\SavedViews\SavedViewCatalog;
 use Illuminate\Validation\ValidationException;
 
 test('page keys are a closed catalog', function () {
-    expect(SavedViewPage::cases())->toHaveCount(5)
+    expect(SavedViewPage::cases())->toHaveCount(6)
         ->and(SavedViewPage::tryFrom('branches'))->toBeNull()
         ->and(SavedViewPage::Employees->routeName())->toBe('organization.employees');
 });
@@ -104,6 +104,10 @@ test('empty and default values are omitted', function () {
         ->and(SavedViewCatalog::forApply(SavedViewPage::Leave, [
             'status' => 'pending',
             'scope' => 'my',
+        ]))->toBe(['status' => 'pending'])
+        ->and(SavedViewCatalog::forApply(SavedViewPage::LeaveApprovals, [
+            'status' => 'pending',
+            'scope' => 'awaiting_my_approval',
         ]))->toBe(['status' => 'pending']);
 });
 

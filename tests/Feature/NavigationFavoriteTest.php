@@ -303,7 +303,8 @@ test('catalog keys used by the product examples exist', function () {
         'crew.current',
         'crew.planning',
         'crew.vessels',
-        'leave.requests',
+        'leave.my',
+        'leave.approvals',
         'payroll',
         'attendance.records',
     );

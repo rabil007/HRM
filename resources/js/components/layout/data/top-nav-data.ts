@@ -62,6 +62,8 @@ export function getTopNavLinks(
             href: attendanceLanding,
             isActive:
                 url.startsWith('/attendance/') &&
+                !url.startsWith('/attendance/my-leave') &&
+                !url.startsWith('/attendance/leave-approvals') &&
                 !url.startsWith('/attendance/leave-requests'),
         });
     }
@@ -69,8 +71,11 @@ export function getTopNavLinks(
     if (has(permissions, 'attendance.leave-requests.view')) {
         links.push({
             title: 'Leave',
-            href: '/attendance/leave-requests',
-            isActive: url.startsWith('/attendance/leave-requests'),
+            href: '/attendance/my-leave',
+            isActive:
+                url.startsWith('/attendance/my-leave') ||
+                url.startsWith('/attendance/leave-approvals') ||
+                url.startsWith('/attendance/leave-requests'),
         });
     }
 

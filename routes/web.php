@@ -1211,6 +1211,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:attendance.leave-approval-settings.update')
         ->name('attendance.leave-approval-settings.update');
 
+    Route::get('attendance/my-leave', [LeaveRequestController::class, 'myLeave'])
+        ->middleware('can:attendance.leave-requests.view')
+        ->name('attendance.my-leave.index');
+
+    Route::get('attendance/leave-approvals', [LeaveRequestController::class, 'approvals'])
+        ->middleware(['can:attendance.leave-requests.view', 'can:attendance.leave-requests.approve'])
+        ->name('attendance.leave-approvals.index');
+
     Route::get('attendance/leave-requests', [LeaveRequestController::class, 'index'])
         ->middleware('can:attendance.leave-requests.view')
         ->name('attendance.leave-requests.index');

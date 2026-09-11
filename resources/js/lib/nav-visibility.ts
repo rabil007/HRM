@@ -259,6 +259,11 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
         has(permissions, 'attendance.types.view'),
     '/attendance/leave-approval-policies': (permissions) =>
         has(permissions, 'attendance.leave-approval-policies.view'),
+    '/attendance/my-leave': (permissions) =>
+        has(permissions, 'attendance.leave-requests.view'),
+    '/attendance/leave-approvals': (permissions) =>
+        has(permissions, 'attendance.leave-requests.view') &&
+        has(permissions, 'attendance.leave-requests.approve'),
     '/attendance/leave-requests': (permissions) =>
         has(permissions, 'attendance.leave-requests.view'),
     '/attendance/records': (permissions) =>

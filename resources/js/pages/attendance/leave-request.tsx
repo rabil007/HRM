@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import {
     approve as leaveRequestApprove,
     destroy as leaveRequestDestroy,
-    index as leaveRequestIndex,
+    myLeave as leaveMyLeave,
     update as leaveRequestUpdate,
 } from '@/actions/App/Http/Controllers/Attendance/LeaveRequestController';
 import { DetailsHeader } from '@/components/details-header';
@@ -234,8 +234,8 @@ export default function LeaveRequestDetails({
                 kicker="Attendance"
                 title={leave_request.employee?.name ?? 'Leave request'}
                 description={`${leave_request.leave_type?.name ?? '—'} • ${formatDisplayDate(leave_request.start_date)} — ${formatDisplayDate(leave_request.end_date)}`}
-                backHref={leaveRequestIndex.url()}
-                backLabel="Back to leave requests"
+                backHref={leaveMyLeave.url()}
+                backLabel="Back to my leave"
                 actions={
                     <LeaveRequestRowActions
                         leaveRequest={leave_request}
@@ -448,7 +448,7 @@ export default function LeaveRequestDetails({
                 leaveRequest={leave_request}
                 onConfirm={() => {
                     router.delete(leaveRequestDestroy.url(leave_request.id), {
-                        onSuccess: () => router.visit(leaveRequestIndex.url()),
+                        onSuccess: () => router.visit(leaveMyLeave.url()),
                     });
                 }}
             />
@@ -457,7 +457,7 @@ export default function LeaveRequestDetails({
                 open={isAdministrativeDeleteOpen}
                 onOpenChange={setIsAdministrativeDeleteOpen}
                 leaveRequest={leave_request}
-                onSuccess={() => router.visit(leaveRequestIndex.url())}
+                onSuccess={() => router.visit(leaveMyLeave.url())}
             />
 
             <LeaveRequestRejectDialog

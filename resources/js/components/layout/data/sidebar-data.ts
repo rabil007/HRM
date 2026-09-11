@@ -265,9 +265,14 @@ const baseSidebarData: SidebarData = {
                     icon: CalendarDays,
                 },
                 {
-                    title: 'Leave requests',
-                    url: '/attendance/leave-requests',
+                    title: 'My leave',
+                    url: '/attendance/my-leave',
                     icon: CalendarCheck2,
+                },
+                {
+                    title: 'Approvals',
+                    url: '/attendance/leave-approvals',
+                    icon: ShieldCheck,
                 },
                 {
                     title: 'Attendance records',

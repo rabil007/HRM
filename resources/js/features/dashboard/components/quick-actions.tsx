@@ -10,7 +10,7 @@ import {
     Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { index as leaveRequestsIndex } from '@/routes/attendance/leave-requests';
+import { index as leaveApprovalsIndex } from '@/routes/attendance/leave-approvals';
 import { contracts, documents } from '@/routes/organization';
 import { create as createAnnouncement } from '@/routes/organization/announcements';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
@@ -108,11 +108,7 @@ export function QuickActions({ can }: QuickActionsProps) {
                         variant="outline"
                         className="h-9 shrink-0 gap-1.5 rounded-xl bg-background/70 px-3 text-xs"
                     >
-                        <Link
-                            href={leaveRequestsIndex.url({
-                                query: { view: 'awaiting_my_approval' },
-                            })}
-                        >
+                        <Link href={leaveApprovalsIndex.url()}>
                             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                             Approve Leave
                         </Link>

@@ -92,7 +92,7 @@ function validLeaveRequestPayload(Employee $employee, LeaveType $leaveType, arra
 }
 
 test('guests cannot access leave requests page', function () {
-    $this->get('/attendance/leave-requests')->assertRedirect(route('login'));
+    $this->get('/attendance/my-leave')->assertRedirect(route('login'));
 });
 
 test('authorized users can view create update and delete leave requests', function () {
@@ -109,10 +109,10 @@ test('authorized users can view create update and delete leave requests', functi
         'attendance.leave-requests.delete',
     ]);
 
-    $this->get('/attendance/leave-requests')->assertOk();
+    $this->get('/attendance/my-leave')->assertOk();
 
     $this->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType))
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.my-leave.index'));
 
     $leaveRequest = LeaveRequest::query()->where('employee_id', $employee->id)->first();
     expect($leaveRequest)->not->toBeNull()
@@ -124,13 +124,13 @@ test('authorized users can view create update and delete leave requests', functi
         'start_date' => '2026-06-10',
         'end_date' => '2026-06-11',
         'reason' => 'Updated reason',
-    ]))->assertRedirect(route('attendance.leave-requests.index'));
+    ]))->assertRedirect(route('attendance.my-leave.index'));
 
     expect((float) $leaveRequest->fresh()->total_days)->toBe(2.0)
         ->and($leaveRequest->fresh()->reason)->toBe('Updated reason');
 
     $this->delete("/attendance/leave-requests/{$leaveRequest->id}")
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.my-leave.index'));
 
     $this->assertSoftDeleted('leave_requests', ['id' => $leaveRequest->id]);
 });
@@ -153,7 +153,7 @@ test('leave requests can be approved rejected and cancelled', function () {
 
     $this->actingAs($managed['managerUser']);
     $this->put("/attendance/leave-requests/{$leaveRequest->id}/approve")
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.leave-approvals.index'));
 
     expect($leaveRequest->fresh()->status)->toBe('approved')
         ->and($leaveRequest->fresh()->approved_by)->toBe($managed['managerUser']->id)
@@ -168,11 +168,11 @@ test('leave requests can be approved rejected and cancelled', function () {
     $rejectable = LeaveRequest::query()->where('status', 'pending')->latest('id')->firstOrFail();
 
     $this->actingAs($managed['managerUser']);
-    $this->from('/attendance/leave-requests')
+    $this->from('/attendance/leave-approvals')
         ->put("/attendance/leave-requests/{$rejectable->id}/reject", [
             'rejection_reason' => 'Insufficient staffing',
         ])
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.leave-approvals.index'));
 
     expect($rejectable->fresh()->status)->toBe('rejected')
         ->and($rejectable->fresh()->rejection_reason)->toBe('Insufficient staffing');
@@ -185,11 +185,11 @@ test('leave requests can be approved rejected and cancelled', function () {
 
     $cancellable = LeaveRequest::query()->where('status', 'pending')->latest('id')->firstOrFail();
 
-    $this->from('/attendance/leave-requests')
+    $this->from('/attendance/my-leave')
         ->put("/attendance/leave-requests/{$cancellable->id}/cancel", [
             'cancellation_reason' => 'Plans changed',
         ])
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.my-leave.index'));
 
     expect($cancellable->fresh()->status)->toBe('cancelled')
         ->and($cancellable->fresh()->cancellation_reason)->toBe('Plans changed');
@@ -212,14 +212,14 @@ test('reject and cancel require a reason', function () {
     $leaveRequest = LeaveRequest::query()->where('employee_id', $employee->id)->firstOrFail();
 
     $this->actingAs($managed['managerUser']);
-    $this->from('/attendance/leave-requests')
+    $this->from('/attendance/my-leave')
         ->put("/attendance/leave-requests/{$leaveRequest->id}/reject", [
             'rejection_reason' => '',
         ])
         ->assertSessionHasErrors('rejection_reason');
 
     $this->actingAs($user);
-    $this->from('/attendance/leave-requests')
+    $this->from('/attendance/my-leave')
         ->put("/attendance/leave-requests/{$leaveRequest->id}/cancel", [
             'cancellation_reason' => '   ',
         ])
@@ -248,7 +248,7 @@ test('approved leave requests cannot be updated', function () {
         'decided_at' => now(),
     ]);
 
-    $this->from('/attendance/leave-requests')
+    $this->from('/attendance/my-leave')
         ->put("/attendance/leave-requests/{$leaveRequest->id}", validLeaveRequestPayload($employee, $leaveType))
         ->assertForbidden();
 });
@@ -305,11 +305,11 @@ test('leave request employee and leave type must belong to current company', fun
     $this->actingAs($user);
     grantCompanyPermissions($user, $company, ['attendance.leave-requests.create']);
 
-    $this->from('/attendance/leave-requests')
+    $this->from('/attendance/my-leave')
         ->post('/attendance/leave-requests', validLeaveRequestPayload($foreignEmployee, $leaveType))
         ->assertSessionHasErrors('employee_id');
 
-    $this->from('/attendance/leave-requests')
+    $this->from('/attendance/my-leave')
         ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $foreignLeaveType))
         ->assertSessionHasErrors('leave_type_id');
 });
@@ -321,7 +321,7 @@ test('leave request employee and leave type are required', function () {
 
     grantCompanyPermissions($user, $company, ['attendance.leave-requests.create']);
 
-    $this->from('/attendance/leave-requests')
+    $this->from('/attendance/my-leave')
         ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType, [
             'employee_id' => '',
             'leave_type_id' => '',
@@ -349,7 +349,7 @@ test('leave requests can store download and remove optional attachments', functi
     $this->post('/attendance/leave-requests', array_merge(
         validLeaveRequestPayload($employee, $leaveType),
         ['attachment' => $file],
-    ))->assertRedirect(route('attendance.leave-requests.index'));
+    ))->assertRedirect(route('attendance.my-leave.index'));
 
     $leaveRequest = LeaveRequest::query()->where('employee_id', $employee->id)->firstOrFail();
     $storedPath = $leaveRequest->attachments[0]['path'] ?? null;
@@ -365,7 +365,7 @@ test('leave requests can store download and remove optional attachments', functi
     $this->put("/attendance/leave-requests/{$leaveRequest->id}", array_merge(
         validLeaveRequestPayload($employee, $leaveType),
         ['remove_attachment' => true],
-    ))->assertRedirect(route('attendance.leave-requests.index'));
+    ))->assertRedirect(route('attendance.my-leave.index'));
 
     expect($leaveRequest->fresh()->attachments)->toBeNull()
         ->and(Storage::disk('local')->exists($storedPath))->toBeFalse();
@@ -401,9 +401,11 @@ test('users without approve permission only see their own leave requests', funct
     $this->actingAs($user);
     grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
 
-    $this->get('/attendance/leave-requests')
+    $this->get('/attendance/my-leave')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
+            ->component('attendance/my-leave')
+            ->where('list_mode', 'mine')
             ->has('leave_requests', 1)
             ->where('leave_requests.0.employee.id', $ownEmployee->id)
             ->where('linked_employee_id', $ownEmployee->id));
@@ -440,11 +442,15 @@ test('users with view_all permission see all leave requests', function () {
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.view',
         'attendance.leave-requests.view_all',
+        'attendance.leave-requests.approve',
     ]);
 
-    $this->get('/attendance/leave-requests?scope=all')
+    $this->get('/attendance/leave-approvals?scope=all')
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->has('leave_requests', 2));
+        ->assertInertia(fn ($page) => $page
+            ->component('attendance/leave-approvals')
+            ->where('list_mode', 'approvals')
+            ->has('leave_requests', 2));
 });
 
 test('authorized users can view leave request detail page', function () {
@@ -589,7 +595,7 @@ test('leave request form only exposes linked employee without view_all permissio
         'attendance.leave-requests.create',
     ]);
 
-    $this->get('/attendance/leave-requests')
+    $this->get('/attendance/my-leave')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('linked_employee_id', $ownEmployee->id)
@@ -609,7 +615,7 @@ test('leave request form exposes all employees with view_all permission', functi
         'attendance.leave-requests.view_all',
     ]);
 
-    $this->get('/attendance/leave-requests')
+    $this->get('/attendance/my-leave')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('can.view_all', true)
@@ -642,7 +648,7 @@ test('leave requests cannot overlap pending or approved dates for the same emplo
         'decided_at' => now(),
     ]);
 
-    $response = $this->from('/attendance/leave-requests')
+    $response = $this->from('/attendance/my-leave')
         ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $otherLeaveType, [
             'start_date' => '2026-06-13',
             'end_date' => '2026-06-13',
@@ -660,7 +666,7 @@ test('leave requests cannot overlap pending or approved dates for the same emplo
         'status' => 'pending',
     ]);
 
-    $this->from('/attendance/leave-requests')
+    $this->from('/attendance/my-leave')
         ->put("/attendance/leave-requests/{$pendingRequest->id}", validLeaveRequestPayload($employee, $otherLeaveType, [
             'start_date' => '2026-06-12',
             'end_date' => '2026-06-14',
@@ -688,12 +694,12 @@ test('leave requests may reuse dates when prior requests are rejected or cancell
         'cancellation_reason' => 'Plans changed',
     ]);
 
-    $this->from('/attendance/leave-requests')
+    $this->from('/attendance/my-leave')
         ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType, [
             'start_date' => '2026-06-13',
             'end_date' => '2026-06-13',
         ]))
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.my-leave.index'));
 
     expect(LeaveRequest::query()->where('employee_id', $employee->id)->where('status', 'pending')->count())->toBe(1);
 });
@@ -722,7 +728,7 @@ test('users without approve permission cannot manage other employees leave reque
         'attendance.leave-requests.update',
     ]);
 
-    $this->from('/attendance/leave-requests')
+    $this->from('/attendance/my-leave')
         ->post('/attendance/leave-requests', validLeaveRequestPayload($otherEmployee, $leaveType))
         ->assertSessionHasErrors('employee_id');
 
@@ -765,7 +771,7 @@ test('leave request creation queues submitted email when template is enabled', f
 
     $this->withSession(['current_company_id' => $company->id])
         ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType))
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.my-leave.index'));
 
     Mail::assertQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail) use ($leaveType) {
         return $mail->hasTo('dept-manager@example.com')
@@ -798,7 +804,7 @@ test('leave request submitted email goes to pending approver', function () {
 
     $this->withSession(['current_company_id' => $company->id])
         ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType))
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.my-leave.index'));
 
     Mail::assertQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail) {
         return $mail->hasTo('dept-manager@example.com')
@@ -827,7 +833,7 @@ test('leave request submitted email is not queued when template is disabled', fu
 
     $this->withSession(['current_company_id' => $company->id])
         ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType))
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.my-leave.index'));
 
     Mail::assertNothingQueued();
 });
@@ -863,7 +869,7 @@ test('leave request submitted email is not queued when no recipients are availab
 
     $this->withSession(['current_company_id' => $company->id])
         ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType))
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.my-leave.index'));
 
     Mail::assertNothingQueued();
 });
@@ -928,7 +934,7 @@ test('leave request approval queues approved email when template is enabled', fu
     $this->actingAs($managed['managerUser']);
     $this->withSession(['current_company_id' => $company->id])
         ->put("/attendance/leave-requests/{$leaveRequest->id}/approve")
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.leave-approvals.index'));
 
     Mail::assertQueued(LeaveRequestDecidedMail::class, function (LeaveRequestDecidedMail $mail) use ($leaveType) {
         return $mail->hasTo('employee@example.com')
@@ -978,7 +984,7 @@ test('leave request rejection queues rejected email with reason when template is
         ->put("/attendance/leave-requests/{$leaveRequest->id}/reject", [
             'rejection_reason' => 'Resource planning constraints',
         ])
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.leave-approvals.index'));
 
     Mail::assertQueued(LeaveRequestDecidedMail::class, function (LeaveRequestDecidedMail $mail) use ($leaveType) {
         return $mail->hasTo('employee@example.com')

@@ -116,6 +116,7 @@ test('leave request index keeps total and approval query counts bounded as page 
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.view',
         'attendance.leave-requests.view_all',
+        'attendance.leave-requests.approve',
     ]);
 
     $this->actingAs($user)->withSession(['current_company_id' => $company->id]);
@@ -123,7 +124,7 @@ test('leave request index keeps total and approval query counts bounded as page 
     DB::flushQueryLog();
     DB::enableQueryLog();
 
-    $this->get('/attendance/leave-requests?scope=all&per_page=50')
+    $this->get('/attendance/leave-approvals?scope=all&per_page=50')
         ->assertOk();
 
     $smallTotalQueries = count(DB::getQueryLog());
@@ -134,7 +135,7 @@ test('leave request index keeps total and approval query counts bounded as page 
     DB::flushQueryLog();
     DB::enableQueryLog();
 
-    $this->get('/attendance/leave-requests?scope=all&per_page=50')
+    $this->get('/attendance/leave-approvals?scope=all&per_page=50')
         ->assertOk()
         ->assertInertia(fn ($page) => $page->has('leave_requests', 50));
 

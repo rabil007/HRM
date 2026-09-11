@@ -4,7 +4,8 @@ import { useState } from 'react';
 import {
     approve as leaveRequestApprove,
     destroy as leaveRequestDestroy,
-    index as leaveRequestIndex,
+    myLeave as leaveMyLeave,
+    approvals as leaveApprovals,
     store as leaveRequestStore,
     update as leaveRequestUpdate,
 } from '@/actions/App/Http/Controllers/Attendance/LeaveRequestController';
@@ -41,7 +42,7 @@ import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
     MOBILE_OPERATIONAL_LIST_CLASS,
 } from '@/lib/mobile-operational-list';
-import type { SavedView } from '@/lib/saved-views';
+import type { SavedView, SavedViewPageKey } from '@/lib/saved-views';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
@@ -55,17 +56,21 @@ import { LeaveRequestMobileCard } from './components/leave-request-mobile-card';
 import { LeaveRequestRejectDialog } from './components/leave-request-reject-dialog';
 import { LeaveRequestRowActions } from './components/leave-request-row-actions';
 import { LeaveRequestStatusBadge } from './components/leave-request-status-badge';
+import { LeaveRequestSummaryCards } from './components/leave-request-summary-cards';
 import { defaultLeaveRequestFormData, leaveRequestToFormData } from './types';
 import type {
     LeaveRequest,
     LeaveRequestEmployeeOption,
     LeaveRequestFilters,
+    LeaveRequestListMode,
     LeaveRequestPermissions,
     LeaveRequestScope,
+    LeaveRequestStatus,
     LeaveRequestTypeOption,
 } from './types';
 
 export function LeaveRequestsContent({
+    listMode,
     leave_requests,
     pagination,
     status_counts,
@@ -77,6 +82,7 @@ export function LeaveRequestsContent({
     can,
     saved_views = [],
 }: {
+    listMode: LeaveRequestListMode;
     leave_requests: LeaveRequest[];
     pagination: PaginationMeta;
     status_counts: {
@@ -94,16 +100,22 @@ export function LeaveRequestsContent({
     can: LeaveRequestPermissions;
     saved_views?: SavedView[];
 }) {
+    const isMine = listMode === 'mine';
+    const indexUrl = isMine ? leaveMyLeave.url() : leaveApprovals.url();
+    const savedViewPageKey: SavedViewPageKey = isMine
+        ? 'leave'
+        : 'leave_approvals';
+    const viewPreferenceKey = isMine
+        ? 'attendance-my-leave:view'
+        : 'attendance-leave-approvals:view';
+
     const list = useServerPaginationFilters({
-        url: leaveRequestIndex.url(),
+        url: indexUrl,
         search: initialSearch,
         filters: initialFilters,
         pagination,
     });
-    const [view, setView] = useViewPreference(
-        'attendance-leave-requests:view',
-        'grid',
-    );
+    const [view, setView] = useViewPreference(viewPreferenceKey, 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isAdministrativeDeleteOpen, setIsAdministrativeDeleteOpen] =
@@ -118,23 +130,26 @@ export function LeaveRequestsContent({
         status: initialFilters.status,
         employee_id: initialFilters.employee_id,
         leave_type_id: initialFilters.leave_type_id,
-        scope: initialFilters.scope ?? 'my',
+        scope: initialFilters.scope ?? (isMine ? 'my' : 'awaiting_my_approval'),
     };
 
     const activeFiltersCount = [
-        initialFilters.employee_id,
+        !isMine ? initialFilters.employee_id : '',
         initialFilters.leave_type_id,
     ].filter(Boolean).length;
 
     const scopeOptions: Array<{
         value: LeaveRequestScope;
         label: string;
-    }> = [
-        { value: 'my', label: 'My' },
-        { value: 'awaiting_my_approval', label: 'Awaiting My Approval' },
-        { value: 'assigned_to_me', label: 'Assigned to Me' },
-        ...(can.view_all ? ([{ value: 'all', label: 'All' }] as const) : []),
-    ];
+    }> = isMine
+        ? []
+        : [
+              { value: 'awaiting_my_approval', label: 'Needs action' },
+              { value: 'assigned_to_me', label: 'Assigned to me' },
+              ...(can.view_all
+                  ? ([{ value: 'all', label: 'Everyone' }] as const)
+                  : []),
+          ];
 
     const form = useForm(defaultLeaveRequestFormData());
 
@@ -245,154 +260,87 @@ export function LeaveRequestsContent({
         list.applyFilters(next);
     };
 
+    const emptyTitle = isMine
+        ? 'You have no leave requests yet.'
+        : filters.scope === 'awaiting_my_approval'
+          ? 'Nothing waiting for you.'
+          : 'No leave requests found.';
+
     return (
         <Main>
             <PageHeader
-                title="Leave requests"
-                description="Manage employee leave requests and approvals."
+                title={isMine ? 'My leave' : 'Approvals'}
+                description={
+                    isMine
+                        ? 'Request leave and track the status of your requests.'
+                        : 'Review leave requests that need your decision.'
+                }
                 right={
-                    can.create ? (
+                    isMine && can.create ? (
                         <Button
                             onClick={handleAdd}
                             className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
                         >
                             <Plus className="mr-2 h-4 w-4" />
-                            Add Leave Request
+                            Request leave
                         </Button>
                     ) : null
                 }
             />
 
-            {/* Unified Filter Bar */}
-            <div className="mb-6 overflow-hidden rounded-2xl border glass-card border-border/60">
-                {/* Row 1: Scope */}
-                <div className="flex items-center gap-0 border-b border-border/40 px-1 py-1">
-                    <span className="shrink-0 px-3 text-[10px] font-bold tracking-[0.18em] text-muted-foreground/50 uppercase">
-                        View
-                    </span>
-                    <div className="mx-1 h-4 w-px shrink-0 bg-border/50" />
-                    <div className="flex flex-wrap gap-1">
-                        {scopeOptions.map((opt) => {
-                            const isActive = filters.scope === opt.value;
+            <LeaveRequestSummaryCards
+                counts={status_counts}
+                activeStatus={filters.status}
+                onSelect={(status: '' | LeaveRequestStatus) =>
+                    list.applyFilters({ status })
+                }
+            />
 
-                            return (
-                                <button
-                                    key={opt.value}
-                                    type="button"
-                                    onClick={() =>
-                                        list.applyFilters({ scope: opt.value })
-                                    }
-                                    className={cn(
-                                        'rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150',
-                                        isActive
-                                            ? 'bg-primary text-primary-foreground shadow-sm'
-                                            : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                                    )}
-                                >
-                                    {opt.label}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
+            {!isMine && scopeOptions.length > 0 ? (
+                <div className="mb-4 overflow-hidden rounded-2xl border glass-card border-border/60">
+                    <div className="flex items-center gap-0 px-1 py-1">
+                        <span className="shrink-0 px-3 text-[10px] font-bold tracking-[0.18em] text-muted-foreground/50 uppercase">
+                            Queue
+                        </span>
+                        <div className="mx-1 h-4 w-px shrink-0 bg-border/50" />
+                        <div className="flex flex-wrap gap-1">
+                            {scopeOptions.map((opt) => {
+                                const isActive = filters.scope === opt.value;
 
-                {/* Row 2: Status */}
-                <div className="flex items-center gap-0 px-1 py-1">
-                    <span className="shrink-0 px-3 text-[10px] font-bold tracking-[0.18em] text-muted-foreground/50 uppercase">
-                        Status
-                    </span>
-                    <div className="mx-1 h-4 w-px shrink-0 bg-border/50" />
-                    <div className="flex flex-wrap gap-1">
-                        {[
-                            {
-                                value: '',
-                                label: 'All',
-                                count: status_counts.all,
-                                activeClass:
-                                    'bg-primary text-primary-foreground shadow-sm',
-                                dotClass: 'bg-primary',
-                            },
-                            {
-                                value: 'pending',
-                                label: 'Pending',
-                                count: status_counts.pending,
-                                activeClass:
-                                    'bg-amber-500/15 text-amber-500 ring-1 ring-amber-500/30',
-                                dotClass: 'bg-amber-500',
-                            },
-                            {
-                                value: 'approved',
-                                label: 'Approved',
-                                count: status_counts.approved,
-                                activeClass:
-                                    'bg-emerald-500/15 text-emerald-500 ring-1 ring-emerald-500/30',
-                                dotClass: 'bg-emerald-500',
-                            },
-                            {
-                                value: 'rejected',
-                                label: 'Rejected',
-                                count: status_counts.rejected,
-                                activeClass:
-                                    'bg-red-500/15 text-red-500 ring-1 ring-red-500/30',
-                                dotClass: 'bg-red-500',
-                            },
-                            {
-                                value: 'cancelled',
-                                label: 'Cancelled',
-                                count: status_counts.cancelled,
-                                activeClass:
-                                    'bg-muted/40 text-muted-foreground ring-1 ring-border/60',
-                                dotClass: 'bg-muted-foreground',
-                            },
-                        ].map((opt) => {
-                            const isActive = filters.status === opt.value;
-
-                            return (
-                                <button
-                                    key={opt.value}
-                                    type="button"
-                                    onClick={() =>
-                                        list.applyFilters({ status: opt.value })
-                                    }
-                                    className={cn(
-                                        'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150',
-                                        isActive
-                                            ? opt.activeClass
-                                            : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                                    )}
-                                >
-                                    <span
+                                return (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() =>
+                                            list.applyFilters({
+                                                scope: opt.value,
+                                            })
+                                        }
                                         className={cn(
-                                            'h-1.5 w-1.5 shrink-0 rounded-full transition-opacity',
-                                            opt.dotClass,
+                                            'rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150',
                                             isActive
-                                                ? 'opacity-100'
-                                                : 'opacity-50',
-                                        )}
-                                    />
-                                    {opt.label}
-                                    <span
-                                        className={cn(
-                                            'ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
-                                            isActive
-                                                ? 'bg-black/10 dark:bg-white/15'
-                                                : 'bg-muted/60 text-muted-foreground/70',
+                                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                                         )}
                                     >
-                                        {opt.count}
-                                    </span>
-                                </button>
-                            );
-                        })}
+                                        {opt.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
-            </div>
+            ) : null}
 
             <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
                 <div className="relative min-w-0 flex-1">
                     <Search className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                        placeholder="Search by employee..."
+                        placeholder={
+                            isMine
+                                ? 'Search your leave requests...'
+                                : 'Search by employee...'
+                        }
                         value={list.searchInput}
                         onChange={(e) => list.onSearchChange(e.target.value)}
                         className="h-12 w-full rounded-xl border-input bg-background/80 pl-10 text-sm dark:border-white/5 dark:bg-white/5"
@@ -418,8 +366,8 @@ export function LeaveRequestsContent({
                         ) : null}
                     </Button>
                     <SavedViewsControl
-                        pageKey="leave"
-                        indexUrl={leaveRequestIndex.url()}
+                        pageKey={savedViewPageKey}
+                        indexUrl={indexUrl}
                         currentFilters={{
                             search: initialSearch,
                             ...filters,
@@ -430,7 +378,20 @@ export function LeaveRequestsContent({
             </div>
 
             {leave_requests.length === 0 ? (
-                <EmptyState title="No leave requests found." />
+                <EmptyState
+                    title={emptyTitle}
+                    action={
+                        isMine && can.create ? (
+                            <Button
+                                onClick={handleAdd}
+                                className="h-11 rounded-xl px-5"
+                            >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Request leave
+                            </Button>
+                        ) : undefined
+                    }
+                />
             ) : (
                 <>
                     <div className={MOBILE_OPERATIONAL_LIST_CLASS}>
@@ -606,7 +567,7 @@ export function LeaveRequestsContent({
                 onOpenChange={setIsFiltersOpen}
                 employees={employees}
                 leaveTypes={leave_types}
-                showEmployeeFilter={can.approve}
+                showEmployeeFilter={!isMine && can.approve}
                 value={filters}
                 onChange={handleFiltersChange}
                 onReset={() =>

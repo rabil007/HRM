@@ -16,7 +16,8 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { useHasPermission } from '@/hooks/use-has-permission';
 import { overview as attendanceOverview } from '@/routes/attendance';
-import { index as leaveRequestsIndex } from '@/routes/attendance/leave-requests';
+import { index as leaveApprovalsIndex } from '@/routes/attendance/leave-approvals';
+import { index as myLeaveIndex } from '@/routes/attendance/my-leave';
 import {
     bankAccounts,
     contracts,
@@ -288,7 +289,7 @@ function LeaveTile({ summary }: { summary: LeaveDashboardSummary }) {
             name="Leave"
             href={
                 canViewLeaveRequests
-                    ? leaveRequestsIndex.url()
+                    ? myLeaveIndex.url()
                     : attendanceOverview.url()
             }
             tone="emerald"

@@ -209,9 +209,15 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         group: 'Attendance',
     },
     {
-        key: 'leave.requests',
-        label: 'Leave requests',
-        href: '/attendance/leave-requests',
+        key: 'leave.my',
+        label: 'My leave',
+        href: '/attendance/my-leave',
+        group: 'Attendance',
+    },
+    {
+        key: 'leave.approvals',
+        label: 'Approvals',
+        href: '/attendance/leave-approvals',
         group: 'Attendance',
     },
     {

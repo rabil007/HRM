@@ -105,7 +105,7 @@ test('manager-only policy creates a single pending approval step', function () {
             'end_date' => '2026-06-12',
             'reason' => 'Trip',
         ])
-        ->assertRedirect(route('attendance.leave-requests.index'));
+        ->assertRedirect(route('attendance.my-leave.index'));
 
     $leaveRequest = LeaveRequest::query()->where('employee_id', $employee->id)->first();
 
@@ -207,7 +207,7 @@ test('store leave request surfaces specific error when hr approver lacks approve
     ]);
 
     $response = $this->withSession(['current_company_id' => $company->id])
-        ->from(route('attendance.leave-requests.index'))
+        ->from(route('attendance.my-leave.index'))
         ->post('/attendance/leave-requests', [
             'employee_id' => $employee->id,
             'leave_type_id' => $leaveType->id,
@@ -285,7 +285,7 @@ test('self-approval is prevented when requester is the department manager', func
 
     $this->actingAs($user);
     $this->withSession(['current_company_id' => $company->id])
-        ->from('/attendance/leave-requests')
+        ->from('/attendance/my-leave')
         ->post('/attendance/leave-requests', [
             'employee_id' => $employee->id,
             'leave_type_id' => $leaveType->id,
@@ -328,7 +328,7 @@ test('view_all can list all leave requests while approve alone cannot', function
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get('/attendance/leave-requests?scope=all')
+        ->get('/attendance/leave-approvals?scope=all')
         ->assertOk()
         ->assertInertia(fn ($page) => $page->has('leave_requests', 0));
 
@@ -336,10 +336,11 @@ test('view_all can list all leave requests while approve alone cannot', function
     grantCompanyPermissions($viewer, $company, [
         'attendance.leave-requests.view',
         'attendance.leave-requests.view_all',
+        'attendance.leave-requests.approve',
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get('/attendance/leave-requests?scope=all')
+        ->get('/attendance/leave-approvals?scope=all')
         ->assertOk()
         ->assertInertia(fn ($page) => $page->has('leave_requests', 1));
 });
@@ -478,7 +479,7 @@ test('awaiting_my_approval scope lists only pending steps for the actor', functi
 
     $this->actingAs($managed['managerUser']);
     $this->withSession(['current_company_id' => $company->id])
-        ->get('/attendance/leave-requests?scope=awaiting_my_approval')
+        ->get('/attendance/leave-approvals')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->has('leave_requests', 1)
@@ -535,7 +536,7 @@ test('assigned_to_me includes historical approvals without granting action right
 
     $this->actingAs($managed['managerUser']);
     $this->withSession(['current_company_id' => $company->id])
-        ->get('/attendance/leave-requests?scope=assigned_to_me')
+        ->get('/attendance/leave-approvals?scope=assigned_to_me')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->has('leave_requests', 1)
@@ -543,7 +544,7 @@ test('assigned_to_me includes historical approvals without granting action right
             ->where('leave_requests.0.can_approve_current_step', false));
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get('/attendance/leave-requests?scope=awaiting_my_approval')
+        ->get('/attendance/leave-approvals')
         ->assertOk()
         ->assertInertia(fn ($page) => $page->has('leave_requests', 0));
 
