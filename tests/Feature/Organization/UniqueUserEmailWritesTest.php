@@ -2,9 +2,12 @@
 
 use App\Models\Employee;
 use App\Models\User;
+use App\Models\UserInvitation;
 use Spatie\Permission\Models\Role;
 
-test('user creation rejects an email already used by another company', function () {
+test('user invitation can be sent for an email already used by another company', function () {
+    Mail::fake();
+
     $auth = User::factory()->create();
     $this->actingAs($auth);
 
@@ -21,13 +24,11 @@ test('user creation rejects an email already used by another company', function 
         ->post('/organization/users', [
             'name' => 'New Person',
             'email' => 'shared@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
-            'status' => 'active',
         ])->assertRedirect('/organization/users')
-        ->assertSessionHasErrors('email');
+        ->assertSessionHasNoErrors();
 
-    expect(User::query()->whereRaw('LOWER(email) = ?', ['shared@example.com'])->count())->toBe(1);
+    expect(User::query()->whereRaw('LOWER(email) = ?', ['shared@example.com'])->count())->toBe(1)
+        ->and(UserInvitation::query()->where('email', 'shared@example.com')->exists())->toBeTrue();
 });
 
 test('user update rejects another users email globally', function () {
@@ -124,7 +125,9 @@ test('existing user is granted another company through membership without a dupl
     ]);
 });
 
-test('client company_id cannot create a user in another tenant', function () {
+test('client company_id cannot create a user invitation in another tenant', function () {
+    Mail::fake();
+
     $auth = User::factory()->create();
     $this->actingAs($auth);
 
@@ -136,21 +139,23 @@ test('client company_id cannot create a user in another tenant', function () {
         ->post('/organization/users', [
             'name' => 'Forged Tenant User',
             'email' => 'forged-tenant@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
-            'status' => 'active',
             'company_id' => $companyB->id,
         ])->assertRedirect('/organization/users')
         ->assertSessionHasNoErrors();
 
-    $created = User::query()->where('email', 'forged-tenant@example.com')->first();
+    $invitation = UserInvitation::query()
+        ->where('email', 'forged-tenant@example.com')
+        ->first();
 
-    expect($created)->not->toBeNull()
-        ->and((int) $created->company_id)->toBe($companyA->id)
-        ->and((int) $created->company_id)->not->toBe($companyB->id);
+    expect($invitation)->not->toBeNull()
+        ->and((int) $invitation->company_id)->toBe($companyA->id)
+        ->and((int) $invitation->company_id)->not->toBe($companyB->id)
+        ->and(User::query()->where('email', 'forged-tenant@example.com')->exists())->toBeFalse();
 });
 
-test('a soft-deleted users email can be reused by a live user in another company', function () {
+test('a soft-deleted users email can receive a new invitation in another company', function () {
+    Mail::fake();
+
     $auth = User::factory()->create();
     $this->actingAs($auth);
 
@@ -168,21 +173,17 @@ test('a soft-deleted users email can be reused by a live user in another company
         ->post('/organization/users', [
             'name' => 'Replacement Identity',
             'email' => 'reusable@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
-            'status' => 'active',
         ])->assertRedirect('/organization/users')
         ->assertSessionHasNoErrors();
 
-    $live = User::query()->where('email', 'reusable@example.com')->first();
-
-    expect($live)->not->toBeNull()
-        ->and((int) $live->company_id)->toBe($companyB->id)
-        ->and($live->id)->not->toBe($deleted->id)
-        ->and(User::withTrashed()->whereRaw('LOWER(email) = ?', ['reusable@example.com'])->count())->toBe(2);
+    expect(UserInvitation::query()->where('email', 'reusable@example.com')->exists())->toBeTrue()
+        ->and(User::query()->where('email', 'reusable@example.com')->exists())->toBeFalse()
+        ->and(User::withTrashed()->whereRaw('LOWER(email) = ?', ['reusable@example.com'])->count())->toBe(1);
 });
 
-test('creating a user for an employee rejects an email owned by another company', function () {
+test('creating a user invitation for an employee can use an email owned by another company', function () {
+    Mail::fake();
+
     $auth = User::factory()->create();
     $this->actingAs($auth);
 
@@ -209,9 +210,11 @@ test('creating a user for an employee rejects an email owned by another company'
             'role_id' => $role->id,
             'email' => 'employee-taken@example.com',
             'name' => 'Employee User',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
-        ])->assertSessionHasErrors('email');
+        ])->assertSessionHasNoErrors();
 
-    expect($employee->fresh()->user_id)->toBeNull();
+    expect($employee->fresh()->user_id)->toBeNull()
+        ->and(UserInvitation::query()
+            ->where('email', 'employee-taken@example.com')
+            ->where('employee_id', $employee->id)
+            ->exists())->toBeTrue();
 });

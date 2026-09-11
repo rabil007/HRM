@@ -2,19 +2,15 @@
 
 namespace App\Http\Requests\Organization\Employee;
 
-use App\Concerns\PasswordValidationRules;
-use App\Rules\UniqueUserEmail;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreEmployeeUserRequest extends FormRequest
 {
-    use PasswordValidationRules;
-
     public function authorize(): bool
     {
-        return (bool) $this->user();
+        return (bool) $this->user()?->can('users.create');
     }
 
     /**
@@ -30,9 +26,8 @@ class StoreEmployeeUserRequest extends FormRequest
                 'integer',
                 Rule::exists('spatie_roles', 'id')->where(fn ($q) => $q->where('company_id', $companyId)),
             ],
-            'email' => ['required', 'email', 'max:255', new UniqueUserEmail],
+            'email' => ['required', 'string', 'email', 'max:255'],
             'name' => ['required', 'string', 'max:255'],
-            'password' => $this->passwordRules(),
         ];
     }
 }

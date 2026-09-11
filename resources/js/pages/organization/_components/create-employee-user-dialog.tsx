@@ -18,8 +18,6 @@ export type CreateEmployeeUserFormData = {
     role_id: string;
     email: string;
     name: string;
-    password: string;
-    password_confirmation: string;
 };
 
 function defaultEmailFromEmployee(employee: EmployeeDetails): string {
@@ -33,8 +31,6 @@ function buildInitialForm(
         role_id: '',
         email: defaultEmailFromEmployee(employee),
         name: employee.name?.trim() ?? '',
-        password: '',
-        password_confirmation: '',
     };
 }
 
@@ -79,10 +75,10 @@ export function CreateEmployeeUserDialog({
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Create user account</DialogTitle>
+                    <DialogTitle>Invite user account</DialogTitle>
                     <DialogDescription>
-                        Create a login for {employee.name}. They can sign in
-                        with the email and password below.
+                        Send {employee.name} an invitation email to create their
+                        login and set their own password.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -146,42 +142,6 @@ export function CreateEmployeeUserDialog({
                             </p>
                         ) : null}
                     </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="create-user-password">Password</Label>
-                        <Input
-                            id="create-user-password"
-                            type="password"
-                            autoComplete="new-password"
-                            value={form.data.password}
-                            onChange={(e) =>
-                                form.setData('password', e.target.value)
-                            }
-                        />
-                        {form.errors.password ? (
-                            <p className="text-xs text-destructive">
-                                {form.errors.password}
-                            </p>
-                        ) : null}
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="create-user-password-confirmation">
-                            Confirm password
-                        </Label>
-                        <Input
-                            id="create-user-password-confirmation"
-                            type="password"
-                            autoComplete="new-password"
-                            value={form.data.password_confirmation}
-                            onChange={(e) =>
-                                form.setData(
-                                    'password_confirmation',
-                                    e.target.value,
-                                )
-                            }
-                        />
-                    </div>
                 </div>
 
                 <DialogFooter>
@@ -198,7 +158,7 @@ export function CreateEmployeeUserDialog({
                         onClick={submit}
                         disabled={form.processing}
                     >
-                        Create User
+                        Send invitation
                     </Button>
                 </DialogFooter>
             </DialogContent>

@@ -116,45 +116,47 @@ export function UserFormSheet({
                     <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
                         {user
                             ? 'Update user profile and access.'
-                            : 'Create a new user.'}
+                            : 'Send an invitation email so the recipient can set up their account and password.'}
                     </SheetDescription>
                 </SheetHeader>
 
                 <div className="flex-1 space-y-8 overflow-y-auto p-8">
                     <div className="space-y-5">
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="status"
-                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
-                            >
-                                Status
-                            </Label>
-                            <AppSelect
-                                value={form.data.status}
-                                onValueChange={(v) =>
-                                    form.setData(
-                                        'status',
-                                        v as UserFormData['status'],
-                                    )
-                                }
-                                variant="card"
-                            >
-                                <AppSelectItem value="active">
-                                    Active
-                                </AppSelectItem>
-                                <AppSelectItem value="inactive">
-                                    Inactive
-                                </AppSelectItem>
-                                <AppSelectItem value="suspended">
-                                    Suspended
-                                </AppSelectItem>
-                            </AppSelect>
-                            {form.errors.status ? (
-                                <div className="text-xs font-medium text-destructive">
-                                    {form.errors.status}
-                                </div>
-                            ) : null}
-                        </div>
+                        {user ? (
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="status"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                                >
+                                    Status
+                                </Label>
+                                <AppSelect
+                                    value={form.data.status}
+                                    onValueChange={(v) =>
+                                        form.setData(
+                                            'status',
+                                            v as UserFormData['status'],
+                                        )
+                                    }
+                                    variant="card"
+                                >
+                                    <AppSelectItem value="active">
+                                        Active
+                                    </AppSelectItem>
+                                    <AppSelectItem value="inactive">
+                                        Inactive
+                                    </AppSelectItem>
+                                    <AppSelectItem value="suspended">
+                                        Suspended
+                                    </AppSelectItem>
+                                </AppSelect>
+                                {form.errors.status ? (
+                                    <div className="text-xs font-medium text-destructive">
+                                        {form.errors.status}
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
 
                         <div className="space-y-2">
                             <Label
@@ -216,104 +218,106 @@ export function UserFormSheet({
                             ) : null}
                         </div>
 
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor={avatarId}
-                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
-                            >
-                                Avatar (optional)
-                            </Label>
-                            <Input
-                                id={avatarId}
-                                type="file"
-                                accept="image/*"
-                                className="sr-only"
-                                onChange={(e) => {
-                                    const file =
-                                        e.currentTarget.files?.[0] ?? null;
-                                    form.setData((data) => ({
-                                        ...data,
-                                        avatar: file,
-                                        use_employee_avatar: false,
-                                    }));
-                                }}
-                            />
-                            <div className="rounded-2xl border border-border/80 bg-card/50 p-4">
-                                <div className="flex gap-4">
-                                    <div
-                                        className={cn(
-                                            'relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/80 bg-muted/30',
-                                            form.data.use_employee_avatar &&
-                                                'ring-2 ring-primary/40 ring-offset-2 ring-offset-background',
-                                        )}
-                                    >
-                                        {previewSrc ? (
-                                            <img
-                                                src={previewSrc}
-                                                alt=""
-                                                className="size-full object-cover"
-                                            />
-                                        ) : (
-                                            <UserRound className="size-9 text-muted-foreground/50" />
-                                        )}
-                                    </div>
+                        {user ? (
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor={avatarId}
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                                >
+                                    Avatar (optional)
+                                </Label>
+                                <Input
+                                    id={avatarId}
+                                    type="file"
+                                    accept="image/*"
+                                    className="sr-only"
+                                    onChange={(e) => {
+                                        const file =
+                                            e.currentTarget.files?.[0] ?? null;
+                                        form.setData((data) => ({
+                                            ...data,
+                                            avatar: file,
+                                            use_employee_avatar: false,
+                                        }));
+                                    }}
+                                />
+                                <div className="rounded-2xl border border-border/80 bg-card/50 p-4">
+                                    <div className="flex gap-4">
+                                        <div
+                                            className={cn(
+                                                'relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/80 bg-muted/30',
+                                                form.data.use_employee_avatar &&
+                                                    'ring-2 ring-primary/40 ring-offset-2 ring-offset-background',
+                                            )}
+                                        >
+                                            {previewSrc ? (
+                                                <img
+                                                    src={previewSrc}
+                                                    alt=""
+                                                    className="size-full object-cover"
+                                                />
+                                            ) : (
+                                                <UserRound className="size-9 text-muted-foreground/50" />
+                                            )}
+                                        </div>
 
-                                    <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
-                                        <p className="text-xs leading-relaxed text-muted-foreground">
-                                            {avatarHint}
-                                        </p>
-                                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                                            <Button
-                                                asChild
-                                                type="button"
-                                                variant="secondary"
-                                                size="sm"
-                                                className="h-9 rounded-xl px-3"
-                                            >
-                                                <label
-                                                    htmlFor={avatarId}
-                                                    className="cursor-pointer"
-                                                >
-                                                    <Upload className="size-3.5" />
-                                                    Upload photo
-                                                </label>
-                                            </Button>
-                                            {canUseEmployeePhoto ? (
+                                        <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
+                                            <p className="text-xs leading-relaxed text-muted-foreground">
+                                                {avatarHint}
+                                            </p>
+                                            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                                                 <Button
+                                                    asChild
                                                     type="button"
+                                                    variant="secondary"
                                                     size="sm"
-                                                    variant={
-                                                        form.data
-                                                            .use_employee_avatar
-                                                            ? 'default'
-                                                            : 'outline'
-                                                    }
                                                     className="h-9 rounded-xl px-3"
-                                                    onClick={() => {
-                                                        form.setData(
-                                                            (data) => ({
-                                                                ...data,
-                                                                avatar: null,
-                                                                use_employee_avatar:
-                                                                    !data.use_employee_avatar,
-                                                            }),
-                                                        );
-                                                    }}
                                                 >
-                                                    <ImageDown className="size-3.5" />
-                                                    Use employee photo
+                                                    <label
+                                                        htmlFor={avatarId}
+                                                        className="cursor-pointer"
+                                                    >
+                                                        <Upload className="size-3.5" />
+                                                        Upload photo
+                                                    </label>
                                                 </Button>
-                                            ) : null}
+                                                {canUseEmployeePhoto ? (
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant={
+                                                            form.data
+                                                                .use_employee_avatar
+                                                                ? 'default'
+                                                                : 'outline'
+                                                        }
+                                                        className="h-9 rounded-xl px-3"
+                                                        onClick={() => {
+                                                            form.setData(
+                                                                (data) => ({
+                                                                    ...data,
+                                                                    avatar: null,
+                                                                    use_employee_avatar:
+                                                                        !data.use_employee_avatar,
+                                                                }),
+                                                            );
+                                                        }}
+                                                    >
+                                                        <ImageDown className="size-3.5" />
+                                                        Use employee photo
+                                                    </Button>
+                                                ) : null}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                                {form.errors.avatar ? (
+                                    <div className="text-xs font-medium text-destructive">
+                                        {form.errors.avatar}
+                                    </div>
+                                ) : null}
                             </div>
-                            {form.errors.avatar ? (
-                                <div className="text-xs font-medium text-destructive">
-                                    {form.errors.avatar}
-                                </div>
-                            ) : null}
-                        </div>
+                        ) : null}
 
                         <div className="space-y-2">
                             <Label
@@ -410,7 +414,7 @@ export function UserFormSheet({
                         onClick={onSubmit}
                         disabled={form.processing}
                     >
-                        {user ? 'Save' : 'Create'}
+                        {user ? 'Save' : 'Send invitation'}
                     </Button>
                 </div>
             </SheetContent>

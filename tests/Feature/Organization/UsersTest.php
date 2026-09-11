@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Models\UserInvitation;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
@@ -93,6 +94,8 @@ test('authenticated users can view a user details page', function () {
 });
 
 test('authenticated users can create, update, and delete a user', function () {
+    Mail::fake();
+
     $auth = User::factory()->create();
     $this->actingAs($auth);
 
@@ -132,25 +135,23 @@ test('authenticated users can create, update, and delete a user', function () {
     $this->post('/organization/users', [
         'name' => 'John Doe',
         'email' => 'john@example.com',
-        'password' => 'password123',
-        'password_confirmation' => 'password123',
         'role_id' => $role->id,
-        'status' => 'active',
-    ])->assertRedirect('/organization/users');
+    ])->assertRedirect('/organization/users')
+        ->assertSessionHas('success', 'Invitation sent successfully.');
 
-    $userId = User::query()->where('email', 'john@example.com')->value('id');
-    expect($userId)->not->toBeNull();
-    $this->assertDatabaseHas('users', ['id' => $userId, 'company_id' => $company->id]);
-    $this->assertDatabaseHas('spatie_model_has_roles', [
+    expect(UserInvitation::query()->where('email', 'john@example.com')->exists())->toBeTrue()
+        ->and(User::query()->where('email', 'john@example.com')->exists())->toBeFalse();
+
+    $userId = User::factory()->create([
         'company_id' => $company->id,
-        'role_id' => $role->id,
-        'model_type' => User::class,
-        'model_id' => $userId,
-    ]);
+        'name' => 'John Doe',
+        'email' => 'john.manage@example.com',
+        'status' => 'active',
+    ])->id;
 
     $this->put("/organization/users/{$userId}", [
         'name' => 'John Updated',
-        'email' => 'john@example.com',
+        'email' => 'john.manage@example.com',
         'password' => '',
         'role_id' => '',
         'status' => 'inactive',

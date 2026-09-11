@@ -5,13 +5,16 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\StoreEmployeeUserRequest;
 use App\Models\Employee;
-use App\Support\Users\Actions\CreateOrganizationUser;
+use App\Support\Users\InviteUser;
 use Illuminate\Http\RedirectResponse;
 
 class EmployeeUserController extends Controller
 {
-    public function store(StoreEmployeeUserRequest $request, Employee $employee): RedirectResponse
-    {
+    public function store(
+        StoreEmployeeUserRequest $request,
+        Employee $employee,
+        InviteUser $inviteUser,
+    ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $employee->company_id === $companyId, 404);
 
@@ -21,18 +24,15 @@ class EmployeeUserController extends Controller
 
         $data = $request->validated();
 
-        $user = app(CreateOrganizationUser::class)->handle(
-            $companyId,
-            (string) $data['name'],
-            (string) $data['email'],
-            (string) $data['password'],
-            (int) $data['role_id'],
-        );
-
-        $employee->update(['user_id' => $user->id]);
+        $inviteUser->execute([
+            'email' => $data['email'],
+            'name' => $data['name'],
+            'role_id' => (int) $data['role_id'],
+            'employee_id' => $employee->id,
+        ], $companyId, (int) $request->user()->id);
 
         return redirect()
             ->back()
-            ->with('success', 'User account created and linked to employee.');
+            ->with('success', 'Invitation sent successfully.');
     }
 }

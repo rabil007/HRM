@@ -16,11 +16,9 @@ use App\Models\User;
 use App\Models\UserInvitation;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\Pagination\ResolvesPerPage;
-use App\Support\Users\Actions\CopyEmployeeAvatarToUser;
-use App\Support\Users\Actions\CreateOrganizationUser;
-use App\Support\Users\Actions\SyncUserEmployeeLink;
 use App\Support\Users\Actions\UpdateOrganizationUser;
 use App\Support\Users\GlobalIdentityAccessGuard;
+use App\Support\Users\InviteUser;
 use App\Support\Users\LastCompanyOwnerGuard;
 use App\Support\Users\UserAvatar;
 use App\Support\Users\UserDirectoryQuery;
@@ -316,36 +314,21 @@ class UserController extends Controller
         ]);
     }
 
-    public function store(StoreUserRequest $request)
+    public function store(StoreUserRequest $request, InviteUser $inviteUser)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         $data = $request->validated();
-        $data['company_id'] = $companyId;
-        $roleId = $data['role_id'] ?? null;
-        $employeeId = isset($data['employee_id']) && $data['employee_id'] !== '' ? (int) $data['employee_id'] : null;
-        unset($data['role_id'], $data['employee_id']);
 
-        $createdUser = app(CreateOrganizationUser::class)->handle(
-            $companyId,
-            (string) $data['name'],
-            (string) $data['email'],
-            (string) $data['password'],
-            $roleId ? (int) $roleId : null,
-            ['status' => $data['status'] ?? 'active'],
-            $request->file('avatar'),
-        );
-
-        if ($employeeId !== null) {
-            app(SyncUserEmployeeLink::class)->handle($createdUser, $companyId, $employeeId);
-
-            if ($request->boolean('use_employee_avatar')) {
-                app(CopyEmployeeAvatarToUser::class)->handle($createdUser->fresh(), $companyId);
-            }
-        }
+        $inviteUser->execute([
+            'email' => $data['email'],
+            'name' => $data['name'],
+            'role_id' => $data['role_id'] ?? null,
+            'employee_id' => isset($data['employee_id']) ? (int) $data['employee_id'] : null,
+        ], $companyId, (int) $request->user()->id);
 
         return redirect()
             ->route('organization.users')
-            ->with('success', 'User created successfully.');
+            ->with('success', 'Invitation sent successfully.');
     }
 
     public function update(UpdateUserRequest $request, User $user)

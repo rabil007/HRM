@@ -1,10 +1,13 @@
 <?php
 
+use App\Mail\UserInvitationMail;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\User;
+use App\Models\UserInvitation;
+use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\Models\Role;
 
 test('guests cannot create user for employee', function () {
@@ -14,8 +17,6 @@ test('guests cannot create user for employee', function () {
         'role_id' => 1,
         'email' => 'new@example.com',
         'name' => 'New User',
-        'password' => 'password123',
-        'password_confirmation' => 'password123',
     ])->assertRedirect(route('login'));
 });
 
@@ -31,8 +32,6 @@ test('users without users.create cannot create user for employee', function () {
         'role_id' => 1,
         'email' => 'new@example.com',
         'name' => 'New User',
-        'password' => 'password123',
-        'password_confirmation' => 'password123',
     ])->assertForbidden();
 });
 
@@ -58,12 +57,12 @@ test('cannot create user when employee already has linked user', function () {
         'role_id' => $role->id,
         'email' => 'another@example.com',
         'name' => 'Another User',
-        'password' => 'password123',
-        'password_confirmation' => 'password123',
     ])->assertStatus(422);
 });
 
-test('password must be at least 8 characters when creating user for employee', function () {
+test('authenticated users can invite and link user for employee', function () {
+    Mail::fake();
+
     $auth = User::factory()->create();
     $this->actingAs($auth);
 
@@ -71,33 +70,38 @@ test('password must be at least 8 characters when creating user for employee', f
 
     grantCompanyPermissions($auth, $company, ['users.create', 'employees.update']);
 
-    $this->post("/organization/employees/{$employee->id}/user", [
-        'role_id' => $role->id,
-        'email' => 'new@example.com',
-        'name' => 'New User',
-        'password' => 'short',
-        'password_confirmation' => 'short',
-    ])->assertSessionHasErrors('password');
+    $this->from("/organization/employees/{$employee->id}")
+        ->post("/organization/employees/{$employee->id}/user", [
+            'role_id' => $role->id,
+            'email' => 'employee.user@example.com',
+            'name' => 'Employee User',
+        ])
+        ->assertRedirect("/organization/employees/{$employee->id}")
+        ->assertSessionHas('success', 'Invitation sent successfully.');
+
+    $employee->refresh();
+
+    expect($employee->user_id)->toBeNull();
+
+    $invitation = UserInvitation::query()
+        ->where('email', 'employee.user@example.com')
+        ->first();
+
+    expect($invitation)->not->toBeNull()
+        ->and($invitation->company_id)->toBe($company->id)
+        ->and($invitation->employee_id)->toBe($employee->id)
+        ->and($invitation->role_id)->toBe($role->id)
+        ->and($invitation->name)->toBe('Employee User');
+
+    Mail::assertQueued(UserInvitationMail::class, function (UserInvitationMail $mail) use ($invitation) {
+        return $mail->hasTo('employee.user@example.com')
+            && hash('sha256', $mail->token) === $invitation->token_hash;
+    });
 });
 
-test('password confirmation must match when creating user for employee', function () {
-    $auth = User::factory()->create();
-    $this->actingAs($auth);
+test('employee user invitation can use an email already owned by another company', function () {
+    Mail::fake();
 
-    [$company, $employee, $role] = createEmployeeForUserCreationTest(withRole: true);
-
-    grantCompanyPermissions($auth, $company, ['users.create', 'employees.update']);
-
-    $this->post("/organization/employees/{$employee->id}/user", [
-        'role_id' => $role->id,
-        'email' => 'new@example.com',
-        'name' => 'New User',
-        'password' => 'password123',
-        'password_confirmation' => 'different',
-    ])->assertSessionHasErrors('password');
-});
-
-test('email must be unique globally when creating user for employee', function () {
     $auth = User::factory()->create();
     $this->actingAs($auth);
 
@@ -117,47 +121,10 @@ test('email must be unique globally when creating user for employee', function (
         'role_id' => $role->id,
         'email' => 'taken@example.com',
         'name' => 'New User',
-        'password' => 'password123',
-        'password_confirmation' => 'password123',
-    ])->assertSessionHasErrors('email');
-});
+    ])->assertSessionHasNoErrors();
 
-test('authenticated users can create and link user for employee', function () {
-    $auth = User::factory()->create();
-    $this->actingAs($auth);
-
-    [$company, $employee, $role] = createEmployeeForUserCreationTest(withRole: true);
-
-    grantCompanyPermissions($auth, $company, ['users.create', 'employees.update']);
-
-    $this->from("/organization/employees/{$employee->id}")
-        ->post("/organization/employees/{$employee->id}/user", [
-            'role_id' => $role->id,
-            'email' => 'employee.user@example.com',
-            'name' => 'Employee User',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
-        ])
-        ->assertRedirect("/organization/employees/{$employee->id}")
-        ->assertSessionHas('success');
-
-    $employee->refresh();
-
-    expect($employee->user_id)->not->toBeNull();
-
-    $createdUser = User::query()->find($employee->user_id);
-
-    expect($createdUser)->not->toBeNull()
-        ->and($createdUser->email)->toBe('employee.user@example.com')
-        ->and($createdUser->name)->toBe('Employee User')
-        ->and($createdUser->company_id)->toBe($company->id);
-
-    $this->assertDatabaseHas('spatie_model_has_roles', [
-        'company_id' => $company->id,
-        'role_id' => $role->id,
-        'model_type' => User::class,
-        'model_id' => $createdUser->id,
-    ]);
+    expect(UserInvitation::query()->where('email', 'taken@example.com')->exists())->toBeTrue()
+        ->and($employee->fresh()->user_id)->toBeNull();
 });
 
 /**
