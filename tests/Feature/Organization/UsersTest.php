@@ -349,6 +349,66 @@ test('user update can copy avatar from linked employee photo', function () {
         ->and(Storage::disk('public')->exists($employeeImagePath))->toBeTrue();
 });
 
+test('user update accepts method-spoofed post with an avatar upload', function () {
+    Storage::fake('public');
+
+    $auth = User::factory()->create();
+    $this->actingAs($auth);
+
+    $country = Country::query()->create([
+        'code' => 'SPF',
+        'name' => 'Spoofland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'SPF',
+        'name' => 'Spoof Currency',
+        'symbol' => 'S$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Spoof Co',
+        'slug' => 'spoof-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $targetUser = User::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Original Name',
+        'email' => 'spoof-user@example.com',
+        'password' => bcrypt('password123'),
+        'status' => 'active',
+        'avatar' => null,
+    ]);
+
+    grantCompanyPermissions($auth, $company, ['users.update']);
+
+    $this->from('/organization/users')
+        ->post("/organization/users/{$targetUser->id}", [
+            '_method' => 'PUT',
+            'name' => 'Updated Name',
+            'email' => 'spoof-user@example.com',
+            'status' => 'active',
+            'avatar' => UploadedFile::fake()->image('avatar.jpg'),
+        ])
+        ->assertRedirect('/organization/users')
+        ->assertSessionHas('success', 'User updated successfully.');
+
+    $targetUser->refresh();
+
+    expect($targetUser->name)->toBe('Updated Name')
+        ->and($targetUser->avatar)->not->toBeNull()
+        ->and(Storage::disk('public')->exists($targetUser->avatar))->toBeTrue();
+});
+
 test('user update can link and unlink an employee', function () {
     $auth = User::factory()->create();
     $this->actingAs($auth);

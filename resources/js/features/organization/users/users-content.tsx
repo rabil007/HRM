@@ -54,6 +54,7 @@ import type { UserFilters } from './components/user-filters-sheet';
 import { UserFormSheet } from './components/user-form-sheet';
 import { UserInvitationSheet } from './components/user-invitation-sheet';
 import { UserSummaryCards } from './components/user-summary-cards';
+import { submitUserForm } from './lib/submit-user-form';
 import type {
     EmployeeForLinking,
     User,
@@ -205,21 +206,9 @@ export function UsersContent({
     };
 
     const submit = () => {
-        if (crud.currentEntity) {
-            form.put(`/organization/users/${crud.currentEntity.id}`, {
-                preserveScroll: true,
-                forceFormData: true,
-                onSuccess: () => crud.setIsSheetOpen(false),
-            });
-
-            return;
-        }
-
-        form.post('/organization/users', {
-            preserveScroll: true,
-            forceFormData: true,
-            onSuccess: () => crud.setIsSheetOpen(false),
-        });
+        submitUserForm(form, crud.currentEntity?.id ?? null, () =>
+            crud.setIsSheetOpen(false),
+        );
     };
 
     const handleFiltersChange = (next: UserFilters) => {

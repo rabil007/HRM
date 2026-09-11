@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { UserFormSheet } from '@/features/organization/users/components/user-form-sheet';
+import { submitUserForm } from '@/features/organization/users/lib/submit-user-form';
 import type {
     EmployeeForLinking,
     User,
@@ -575,11 +576,7 @@ export default function UserDetails({
                         employeesForLinking={employees_for_linking}
                         form={form}
                         onSubmit={() => {
-                            form.put(`/organization/users/${user.id}`, {
-                                preserveScroll: true,
-                                forceFormData: true,
-                                onSuccess: () => setOpen(false),
-                            });
+                            submitUserForm(form, user.id, () => setOpen(false));
                         }}
                     />
                 ) : null}
