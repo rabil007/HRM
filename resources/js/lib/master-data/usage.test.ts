@@ -29,7 +29,7 @@ describe('master-data usage helpers', () => {
         );
 
         assert.equal(
-            masterDataUsageTooltip({ is_in_use: true }),
+            masterDataUsageTooltip({ is_in_use: true, usage_count: null }),
             MASTER_DATA_DELETE_BLOCKED_MESSAGE,
         );
     });

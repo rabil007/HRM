@@ -99,12 +99,12 @@ class VesselController extends Controller
             $companyId,
         );
 
-        $vessels = $paginator->through(function (Vessel $vessel) use ($healthByVessel, $usageById, $canDeletePermission): array {
+        $vessels = $paginator->through(function (Vessel $vessel) use ($healthByVessel, $usageById, $canDeletePermission, $companyId): array {
             $row = VesselIndexQuery::toArray($vessel);
             $row['manning_health'] = $healthByVessel[$vessel->id] ?? null;
             $summary = $usageById[(int) $vessel->id] ?? MasterDataUsageSummary::none();
 
-            return [...$row, ...$summary->flags($canDeletePermission)];
+            return [...$row, ...$summary->flags($canDeletePermission, $companyId)];
         });
 
         $vesselsWith = (int) VesselManning::query()

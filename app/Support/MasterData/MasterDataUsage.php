@@ -2,6 +2,7 @@
 
 namespace App\Support\MasterData;
 
+use App\Enums\CrewPhaseCode;
 use App\Models\ApprovalLocation;
 use App\Models\Bank;
 use App\Models\Client;
@@ -11,6 +12,7 @@ use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Course;
 use App\Models\CrewAssignment;
+use App\Models\CrewAssignmentPhase;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Currency;
 use App\Models\DocumentGenerationTemplate;
@@ -81,12 +83,12 @@ final class MasterDataUsage
 
         $summaries = self::summariesForIds($resolvedClass, $ids, $companyId);
 
-        return $rows->map(function (Model|array $item) use ($summaries, $canDeletePermission): Model|array {
+        return $rows->map(function (Model|array $item) use ($summaries, $canDeletePermission, $companyId): Model|array {
             $id = $item instanceof Model
                 ? (int) $item->getKey()
                 : (int) ($item['id'] ?? 0);
 
-            $flags = ($summaries[$id] ?? MasterDataUsageSummary::none())->flags($canDeletePermission);
+            $flags = ($summaries[$id] ?? MasterDataUsageSummary::none())->flags($canDeletePermission, $companyId);
 
             if ($item instanceof Model) {
                 foreach ($flags as $key => $value) {
@@ -104,13 +106,13 @@ final class MasterDataUsage
      * @return array{
      *     is_in_use: bool,
      *     can_delete: bool,
-     *     usage_count: int,
+     *     usage_count: int|null,
      *     usage_label: string|null
      * }
      */
     public static function flagsFor(Model $record, bool $canDeletePermission, ?int $companyId = null): array
     {
-        return self::summary($record, $companyId)->flags($canDeletePermission);
+        return self::summary($record, $companyId)->flags($canDeletePermission, $companyId);
     }
 
     public static function summary(Model $record, ?int $companyId = null): MasterDataUsageSummary
@@ -133,28 +135,50 @@ final class MasterDataUsage
             return [];
         }
 
-        $totals = [];
-        $labels = [];
+        $tenantScoped = self::isTenantScoped($modelClass);
+        $globalTotals = [];
+        $globalLabels = [];
+        $scopedTotals = [];
+        $scopedLabels = [];
 
         foreach (self::sourcesFor($modelClass) as $source) {
-            foreach (self::countsById($source, $ids, $companyId) as $id => $count) {
+            foreach (self::countsById($source, $ids, null) as $id => $count) {
                 if ($count < 1) {
                     continue;
                 }
 
-                $totals[$id] = ($totals[$id] ?? 0) + $count;
-                $labels[$id][$source->label] = true;
+                $globalTotals[$id] = ($globalTotals[$id] ?? 0) + $count;
+                $globalLabels[$id][$source->label] = true;
+            }
+
+            if ($companyId !== null) {
+                foreach (self::countsById($source, $ids, $companyId) as $id => $count) {
+                    if ($count < 1) {
+                        continue;
+                    }
+
+                    $scopedTotals[$id] = ($scopedTotals[$id] ?? 0) + $count;
+                    $scopedLabels[$id][$source->label] = true;
+                }
             }
         }
 
         $summaries = [];
 
         foreach ($ids as $id) {
-            $count = $totals[$id] ?? 0;
-            $sourceLabels = array_keys($labels[$id] ?? []);
-            $usageLabel = count($sourceLabels) === 1 ? $sourceLabels[0] : null;
+            $globalCount = $globalTotals[$id] ?? 0;
+            $scopedCount = $tenantScoped && $companyId !== null
+                ? $globalCount
+                : ($scopedTotals[$id] ?? 0);
+            $labelSource = $scopedLabels[$id] ?? [];
+            $scopedLabel = count($labelSource) === 1 ? array_key_first($labelSource) : null;
 
-            $summaries[$id] = new MasterDataUsageSummary($count, $usageLabel);
+            $summaries[$id] = new MasterDataUsageSummary(
+                globalUsageCount: $globalCount,
+                scopedUsageCount: $scopedCount,
+                scopedUsageLabel: $scopedLabel,
+                tenantScoped: $tenantScoped,
+            );
         }
 
         return $summaries;
@@ -169,7 +193,7 @@ final class MasterDataUsage
         }
 
         throw ValidationException::withMessages([
-            'record' => $summary->blockingMessage(self::displayName($record)),
+            'record' => $summary->blockingMessage(self::displayName($record), $companyId),
         ]);
     }
 
@@ -184,7 +208,7 @@ final class MasterDataUsage
         return redirect()
             ->route($routeName)
             ->withErrors([
-                'record' => $summary->blockingMessage(self::displayName($record)),
+                'record' => $summary->blockingMessage(self::displayName($record), $companyId),
             ]);
     }
 
@@ -203,6 +227,14 @@ final class MasterDataUsage
 
     /**
      * @param  class-string<Model>  $modelClass
+     */
+    public static function isTenantScoped(string $modelClass): bool
+    {
+        return $modelClass === Vessel::class;
+    }
+
+    /**
+     * @param  class-string<Model>  $modelClass
      * @return list<MasterDataUsageSource>
      */
     public static function sourcesFor(string $modelClass): array
@@ -211,24 +243,27 @@ final class MasterDataUsage
         $requirement = new DocumentRequirement;
 
         return match ($modelClass) {
+            // Profile-style employee references ignore soft-deleted employees.
+            // Historical/operational records keep soft-deleted rows to protect restore/audit integrity.
             Country::class => [
-                MasterDataUsageSource::model('companies', Company::class, 'country_id'),
-                MasterDataUsageSource::model('employees', Employee::class, 'nationality_id'),
+                MasterDataUsageSource::model('companies', Company::class, 'country_id', 'id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('employees', Employee::class, 'nationality_id', 'company_id'),
                 MasterDataUsageSource::model('banks', Bank::class, 'country_id'),
-                MasterDataUsageSource::model('education records', EmployeeEducationQualification::class, 'country_id'),
-                MasterDataUsageSource::model('trainings', EmployeeTraining::class, 'country_id'),
-                MasterDataUsageSource::model('vaccinations', EmployeeVaccination::class, 'country_id'),
+                MasterDataUsageSource::model('education records', EmployeeEducationQualification::class, 'country_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('trainings', EmployeeTraining::class, 'country_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('vaccinations', EmployeeVaccination::class, 'country_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::table('recruitment candidates', 'candidates', 'nationality_id', 'company_id'),
             ],
             Currency::class => [
-                MasterDataUsageSource::model('companies', Company::class, 'currency_id'),
+                MasterDataUsageSource::model('companies', Company::class, 'currency_id', 'id', includeSoftDeletedReferences: true),
             ],
             VisaType::class => [
-                MasterDataUsageSource::model('employees', Employee::class, 'visa_type_id'),
+                MasterDataUsageSource::model('employees', Employee::class, 'visa_type_id', 'company_id'),
             ],
             CompanyVisaType::class => [
-                MasterDataUsageSource::model('employees', Employee::class, 'company_visa_type_id'),
-                MasterDataUsageSource::model('contracts', EmployeeContract::class, 'company_visa_type_id'),
-                MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'company_visa_type_id'),
+                MasterDataUsageSource::model('employees', Employee::class, 'company_visa_type_id', 'company_id'),
+                MasterDataUsageSource::model('contracts', EmployeeContract::class, 'company_visa_type_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'company_visa_type_id', 'company_id', includeSoftDeletedReferences: true),
             ],
             ApprovalLocation::class => [
                 MasterDataUsageSource::pivot(
@@ -249,34 +284,44 @@ final class MasterDataUsage
                 ),
             ],
             Religion::class => [
-                MasterDataUsageSource::model('employees', Employee::class, 'religion_id'),
+                MasterDataUsageSource::model('employees', Employee::class, 'religion_id', 'company_id'),
             ],
             Gender::class => [
-                MasterDataUsageSource::model('employees', Employee::class, 'gender_id'),
+                MasterDataUsageSource::model('employees', Employee::class, 'gender_id', 'company_id'),
             ],
             Course::class => [
-                MasterDataUsageSource::model('employee trainings', EmployeeTraining::class, 'course_id'),
+                MasterDataUsageSource::model('employee trainings', EmployeeTraining::class, 'course_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::json(
+                    'crew training phases',
+                    CrewAssignmentPhase::class,
+                    'details',
+                    'course_id',
+                    'company_id',
+                    includeSoftDeletedReferences: true,
+                    whereColumn: 'phase_code',
+                    whereValue: CrewPhaseCode::Training->value,
+                ),
             ],
             Bank::class => [
-                MasterDataUsageSource::model('employee bank accounts', EmployeeBankAccount::class, 'bank_id'),
-                MasterDataUsageSource::model('pay run records', PayrollRecord::class, 'bank_id'),
+                MasterDataUsageSource::model('employee bank accounts', EmployeeBankAccount::class, 'bank_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('pay run records', PayrollRecord::class, 'bank_id', 'company_id', includeSoftDeletedReferences: true),
             ],
             VesselType::class => [
-                MasterDataUsageSource::model('vessels', Vessel::class, 'vessel_type_id'),
-                MasterDataUsageSource::model('sea service records', EmployeeSeaService::class, 'vessel_type_id'),
+                MasterDataUsageSource::model('vessels', Vessel::class, 'vessel_type_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('sea service records', EmployeeSeaService::class, 'vessel_type_id', 'company_id', includeSoftDeletedReferences: true),
             ],
             Vessel::class => [
-                MasterDataUsageSource::model('sea service records', EmployeeSeaService::class, 'vessel_id', 'company_id'),
-                MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'vessel_id', 'company_id'),
+                MasterDataUsageSource::model('sea service records', EmployeeSeaService::class, 'vessel_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'vessel_id', 'company_id', includeSoftDeletedReferences: true),
                 MasterDataUsageSource::model('vessel manning', VesselManning::class, 'vessel_id', 'company_id'),
-                MasterDataUsageSource::model('crew planning', CrewPlanningAssignment::class, 'vessel_id', 'company_id'),
+                MasterDataUsageSource::model('crew planning', CrewPlanningAssignment::class, 'vessel_id', 'company_id', includeSoftDeletedReferences: true),
             ],
             Rank::class => [
-                MasterDataUsageSource::model('employees', Employee::class, 'rank_id'),
-                MasterDataUsageSource::model('sea service records', EmployeeSeaService::class, 'rank_id'),
-                MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'rank_id'),
-                MasterDataUsageSource::model('crew planning', CrewPlanningAssignment::class, 'rank_id'),
-                MasterDataUsageSource::model('vessel manning', VesselManning::class, 'rank_id'),
+                MasterDataUsageSource::model('employees', Employee::class, 'rank_id', 'company_id'),
+                MasterDataUsageSource::model('sea service records', EmployeeSeaService::class, 'rank_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'rank_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('crew planning', CrewPlanningAssignment::class, 'rank_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('vessel manning', VesselManning::class, 'rank_id', 'company_id'),
                 new MasterDataUsageSource(
                     label: 'document requirements',
                     table: $requirement->ranks()->getTable(),
@@ -284,19 +329,19 @@ final class MasterDataUsage
                 ),
             ],
             Client::class => [
-                MasterDataUsageSource::model('employees', Employee::class, 'client_id'),
-                MasterDataUsageSource::model('sea service records', EmployeeSeaService::class, 'client_id'),
-                MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'client_id'),
+                MasterDataUsageSource::model('employees', Employee::class, 'client_id', 'company_id'),
+                MasterDataUsageSource::model('sea service records', EmployeeSeaService::class, 'client_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'client_id', 'company_id', includeSoftDeletedReferences: true),
             ],
             DocumentType::class => [
-                MasterDataUsageSource::model('employee documents', EmployeeDocument::class, 'document_type_id'),
-                MasterDataUsageSource::model('company documents', CompanyDocument::class, 'document_type_id'),
-                MasterDataUsageSource::model('document requirements', DocumentRequirement::class, 'document_type_id'),
-                MasterDataUsageSource::model('document templates', DocumentGenerationTemplate::class, 'document_type_id'),
-                MasterDataUsageSource::model('generated documents', DocumentInstance::class, 'document_type_id'),
+                MasterDataUsageSource::model('employee documents', EmployeeDocument::class, 'document_type_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('company documents', CompanyDocument::class, 'document_type_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('document requirements', DocumentRequirement::class, 'document_type_id', 'company_id'),
+                MasterDataUsageSource::model('document templates', DocumentGenerationTemplate::class, 'document_type_id', 'company_id'),
+                MasterDataUsageSource::model('generated documents', DocumentInstance::class, 'document_type_id', 'company_id'),
             ],
             Project::class => [
-                MasterDataUsageSource::model('employees', Employee::class, 'project_id'),
+                MasterDataUsageSource::model('employees', Employee::class, 'project_id', 'company_id'),
                 new MasterDataUsageSource(
                     label: 'document requirements',
                     table: $requirement->projects()->getTable(),
@@ -313,11 +358,21 @@ final class MasterDataUsage
      */
     private static function countsById(MasterDataUsageSource $source, array $ids, ?int $companyId): array
     {
-        $query = DB::table($source->table)
-            ->whereIn($source->table.'.'.$source->column, $ids);
+        $query = DB::table($source->table);
 
-        if ($source->softDeletes) {
+        if ($source->jsonPath !== null) {
+            $referencedExpression = self::jsonReferencedIdExpression($source->table, $source->column, $source->jsonPath);
+            $query->whereIn(DB::raw($referencedExpression), $ids);
+        } else {
+            $query->whereIn($source->table.'.'.$source->column, $ids);
+        }
+
+        if ($source->tableUsesSoftDeletes && ! $source->includeSoftDeletedReferences) {
             $query->whereNull($source->table.'.deleted_at');
+        }
+
+        if ($source->whereColumn !== null) {
+            $query->where($source->table.'.'.$source->whereColumn, $source->whereValue);
         }
 
         if ($source->companyColumn !== null && $companyId !== null) {
@@ -332,19 +387,36 @@ final class MasterDataUsage
                 $source->table.'.'.$source->relatedLocalKey,
             );
 
-            if ($source->relatedSoftDeletes) {
+            if ($source->relatedUsesSoftDeletes && ! $source->includeSoftDeletedRelatedReferences) {
                 $query->whereNull($source->relatedTable.'.deleted_at');
+            }
+
+            if ($source->relatedCompanyColumn !== null && $companyId !== null) {
+                $query->where($source->relatedTable.'.'.$source->relatedCompanyColumn, $companyId);
             }
         }
 
-        $referencedColumn = $source->table.'.'.$source->column;
+        $referencedExpression = $source->jsonPath !== null
+            ? self::jsonReferencedIdExpression($source->table, $source->column, $source->jsonPath)
+            : $source->table.'.'.$source->column;
 
         return $query
-            ->selectRaw("{$referencedColumn} as referenced_id")
+            ->selectRaw("{$referencedExpression} as referenced_id")
             ->selectRaw('COUNT(*) as aggregate_count')
-            ->groupBy($referencedColumn)
+            ->groupBy(DB::raw($referencedExpression))
             ->pluck('aggregate_count', 'referenced_id')
             ->mapWithKeys(fn (mixed $count, mixed $id): array => [(int) $id => (int) $count])
             ->all();
+    }
+
+    private static function jsonReferencedIdExpression(string $table, string $jsonColumn, string $jsonPath): string
+    {
+        $qualifiedColumn = "{$table}.{$jsonColumn}";
+
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            return "CAST(json_extract({$qualifiedColumn}, '$.{$jsonPath}') AS INTEGER)";
+        }
+
+        return "CAST(JSON_UNQUOTE(JSON_EXTRACT({$qualifiedColumn}, '$.{$jsonPath}')) AS UNSIGNED)";
     }
 }

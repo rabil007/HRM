@@ -897,13 +897,16 @@ Manage security and appearance preferences, application/email/integration config
 
 ### Usage protection (“In use”)
 
-Master-data catalogs and company vessels block deletion when a record is still referenced by live (non-soft-deleted) data.
+Master-data catalogs and company vessels block deletion when a record is still referenced by live or historically protected data.
 
-- Index/list payloads include `is_in_use`, `can_delete`, optional `usage_count` / `usage_label` from `App\Support\MasterData\MasterDataUsage` (not computed client-side).
+- Index/list payloads include `is_in_use`, `can_delete`, and optional `usage_count` / `usage_label` from `App\Support\MasterData\MasterDataUsage` (not computed client-side).
 - UI shows a small **In use** badge beside the name and keeps Delete visible but disabled with an explanation.
-- `destroy` actions call `MasterDataUsage::assertDeletable()` and return a validation error such as `“Captain” cannot be deleted because it is used by vessel manning.`
-- Soft-deleted historical rows do not block deletion unless the FK must remain for required live integrity.
-- Global masters (countries, ranks, banks, …) check references across companies; tenant-owned vessels scope usage to `current_company_id`.
+- `destroy` actions call `MasterDataUsage::denyDeleteRedirect()` and return a validation error such as `“Captain” cannot be deleted because it is currently in use.` or, when usage is safely scoped to the active company, `“MV Ocean” cannot be deleted because it is used by crew assignments.`
+- **Global masters** (countries, ranks, banks, courses, …) evaluate deletion protection across all companies, but **must not expose cross-tenant usage counts or source labels** in Inertia payloads. When another company still references the record, the UI receives `is_in_use: true`, `can_delete: false`, and `usage_count` / `usage_label` omitted (`null`).
+- **Tenant-owned vessels** scope usage to trusted `current_company_id` and may expose counts/labels when useful.
+- **Soft-delete policy is explicit per usage source** in `MasterDataUsage::sourcesFor()`. Profile-style employee references ignore soft-deleted employees; historical/operational records such as sea service, crew assignments/phases, payroll records, and employee trainings continue to protect referenced master data even when soft-deleted, so restored history does not point at deleted masters.
+- **Courses** also count Crew Operations P2B / Training phases via `crew_assignment_phases.details.course_id` (JSON), including completed/historical phases.
+- **Countries** also count recruitment candidates via `candidates.nationality_id`.
 - Document Types use the same protection on Documents → Configuration; vessels use Crew Operations vessel permissions.
 
 Integration secrets are server-side values. Inertia props expose masked placeholders and `has_*` flags, never decrypted credentials.

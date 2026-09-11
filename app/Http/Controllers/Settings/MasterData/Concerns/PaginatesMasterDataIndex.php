@@ -117,10 +117,12 @@ trait PaginatesMasterDataIndex
         ?int $companyId = null,
         ?string $modelClass = null,
     ): array {
+        $resolvedCompanyId = $companyId ?? (int) request()->attributes->get('current_company_id');
+
         $page['items'] = MasterDataUsage::decorate(
             $page['items'],
             request()->user()?->can($deletePermission) ?? false,
-            $companyId,
+            $resolvedCompanyId > 0 ? $resolvedCompanyId : null,
             $modelClass,
         );
 

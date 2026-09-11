@@ -5,39 +5,62 @@ namespace App\Support\MasterData;
 final readonly class MasterDataUsageSummary
 {
     public function __construct(
-        public int $usageCount,
-        public ?string $usageLabel,
+        public int $globalUsageCount,
+        public int $scopedUsageCount,
+        public ?string $scopedUsageLabel,
+        public bool $tenantScoped,
     ) {}
 
     public static function none(): self
     {
-        return new self(0, null);
+        return new self(0, 0, null, false);
     }
 
     public function isInUse(): bool
     {
-        return $this->usageCount > 0;
+        return $this->globalUsageCount > 0;
     }
 
-    public function tooltip(): ?string
+    public function exposesUsageDetails(?int $companyId): bool
+    {
+        if (! $this->isInUse()) {
+            return false;
+        }
+
+        if ($this->tenantScoped) {
+            return true;
+        }
+
+        if ($companyId === null) {
+            return false;
+        }
+
+        return $this->scopedUsageCount === $this->globalUsageCount;
+    }
+
+    public function tooltip(?int $companyId): ?string
     {
         if (! $this->isInUse()) {
             return null;
         }
 
-        if ($this->usageLabel !== null) {
-            return "Used by {$this->usageLabel}. Delete is unavailable.";
+        if (! $this->exposesUsageDetails($companyId)) {
+            return 'This record is currently in use. Delete is unavailable.';
         }
 
-        $noun = $this->usageCount === 1 ? 'record' : 'records';
+        if ($this->scopedUsageLabel !== null) {
+            return "Used by {$this->scopedUsageLabel}. Delete is unavailable.";
+        }
 
-        return "Used by {$this->usageCount} {$noun}. Delete is unavailable.";
+        $noun = $this->scopedUsageCount === 1 ? 'record' : 'records';
+
+        return "Used by {$this->scopedUsageCount} {$noun}. Delete is unavailable.";
     }
 
-    public function blockingMessage(string $displayName): string
+    public function blockingMessage(string $displayName, ?int $companyId): string
     {
-        if ($this->usageLabel !== null) {
-            return "“{$displayName}” cannot be deleted because it is used by {$this->usageLabel}.";
+        if ($this->scopedUsageLabel !== null && $this->exposesUsageDetails($companyId)) {
+            return "“{$displayName}” cannot be deleted because it is used by {$this->scopedUsageLabel}.";
         }
 
         return "“{$displayName}” cannot be deleted because it is currently in use.";
@@ -47,19 +70,20 @@ final readonly class MasterDataUsageSummary
      * @return array{
      *     is_in_use: bool,
      *     can_delete: bool,
-     *     usage_count: int,
+     *     usage_count: int|null,
      *     usage_label: string|null
      * }
      */
-    public function flags(bool $canDeletePermission): array
+    public function flags(bool $canDeletePermission, ?int $companyId): array
     {
         $inUse = $this->isInUse();
+        $exposeDetails = $this->exposesUsageDetails($companyId);
 
         return [
             'is_in_use' => $inUse,
             'can_delete' => $canDeletePermission && ! $inUse,
-            'usage_count' => $this->usageCount,
-            'usage_label' => $this->usageLabel,
+            'usage_count' => $exposeDetails ? $this->scopedUsageCount : null,
+            'usage_label' => $exposeDetails ? $this->scopedUsageLabel : null,
         ];
     }
 }

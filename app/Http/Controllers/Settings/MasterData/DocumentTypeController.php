@@ -69,7 +69,7 @@ class DocumentTypeController extends Controller
         return Inertia::render('organization/documents/configuration/document-type-show', [
             'document_type' => [
                 ...DocumentTypeDetailPresenter::toArray($documentType, $companyId, $user),
-                ...MasterDataUsage::flagsFor($documentType, $canDeletePermission),
+                ...MasterDataUsage::flagsFor($documentType, $canDeletePermission, $companyId),
             ],
             'can' => [
                 'update' => $user?->can('settings.master-data.document-types.update') ?? false,
@@ -312,6 +312,7 @@ class DocumentTypeController extends Controller
             ...MasterDataUsage::flagsFor(
                 $documentType,
                 $request->user()?->can('settings.master-data.document-types.delete') ?? false,
+                $companyId,
             ),
         ];
     }

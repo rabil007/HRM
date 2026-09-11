@@ -6,8 +6,8 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-    MASTER_DATA_DELETE_BLOCKED_MESSAGE,
     masterDataCanDelete,
+    masterDataUsageTooltip,
 } from '@/lib/master-data/usage';
 import type { MasterDataUsageFlags } from '@/lib/master-data/usage';
 
@@ -44,7 +44,8 @@ export function MasterDataDeleteButton({
                 </span>
             </TooltipTrigger>
             <TooltipContent>
-                {MASTER_DATA_DELETE_BLOCKED_MESSAGE}
+                {masterDataUsageTooltip(item) ??
+                    'This record is currently in use. Delete is unavailable.'}
             </TooltipContent>
         </Tooltip>
     );

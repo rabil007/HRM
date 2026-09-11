@@ -1,19 +1,25 @@
 <?php
 
+use App\Enums\CrewPhaseCode;
 use App\Models\Bank;
 use App\Models\Client;
 use App\Models\Company;
 use App\Models\Country;
+use App\Models\Course;
+use App\Models\CrewAssignment;
+use App\Models\CrewAssignmentPhase;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeSeaService;
+use App\Models\EmployeeTraining;
 use App\Models\Gender;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselManning;
 use App\Models\VesselType;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 
 function makeMasterDataUsageFixtures(array $permissions = []): array
@@ -300,4 +306,265 @@ test('cross-company vessel usage does not block another company vessel delete', 
         ->assertRedirect(route('organization.vessels.index'));
 
     $this->assertSoftDeleted('vessels', ['id' => $ownVessel->id]);
+});
+
+test('course used only by employee training cannot be deleted', function () {
+    ['user' => $user, 'company' => $company] = makeMasterDataUsageFixtures([
+        'settings.master-data.courses.view',
+        'settings.master-data.courses.delete',
+    ]);
+
+    $this->actingAs($user);
+
+    $course = Course::query()->create(['name' => 'BOSIET Only Training', 'is_active' => true]);
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    EmployeeTraining::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'course_id' => $course->id,
+        'issue_date' => now()->toDateString(),
+    ]);
+
+    $this->from(route('settings.master-data.courses.index'))
+        ->delete("/settings/master-data/courses/{$course->id}")
+        ->assertRedirect(route('settings.master-data.courses.index'))
+        ->assertSessionHasErrors('record');
+});
+
+test('course used only by crew p2b phase details cannot be deleted', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.courses.view',
+        'settings.master-data.courses.delete',
+    ]);
+
+    $this->actingAs($user);
+
+    $course = Course::query()->create(['name' => 'P2B Only Course', 'is_active' => true]);
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active', 'rank_id' => $rank->id]);
+
+    $assignment = CrewAssignment::query()->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-2026-P2B',
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+        'started_at' => now(),
+        'source' => 'manual',
+    ]);
+
+    CrewAssignmentPhase::query()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'phase_code' => CrewPhaseCode::Training,
+        'sequence' => 2,
+        'status' => 'completed',
+        'details' => ['course_id' => $course->id, 'course' => $course->name],
+    ]);
+
+    $this->from(route('settings.master-data.courses.index'))
+        ->delete("/settings/master-data/courses/{$course->id}")
+        ->assertRedirect(route('settings.master-data.courses.index'))
+        ->assertSessionHasErrors('record');
+
+    expect(Course::query()->whereKey($course->id)->exists())->toBeTrue();
+});
+
+test('unused course can still be deleted', function () {
+    ['user' => $user] = makeMasterDataUsageFixtures([
+        'settings.master-data.courses.view',
+        'settings.master-data.courses.delete',
+    ]);
+
+    $this->actingAs($user);
+
+    $course = Course::query()->create(['name' => 'Disposable Course', 'is_active' => true]);
+
+    $this->delete("/settings/master-data/courses/{$course->id}")
+        ->assertRedirect(route('settings.master-data.courses.index'));
+
+    $this->assertSoftDeleted('courses', ['id' => $course->id]);
+});
+
+test('historical soft-deleted crew p2b phase still protects course deletion', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.courses.view',
+        'settings.master-data.courses.delete',
+    ]);
+
+    $this->actingAs($user);
+
+    $course = Course::query()->create(['name' => 'Historical P2B Course', 'is_active' => true]);
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active', 'rank_id' => $rank->id]);
+
+    $assignment = CrewAssignment::query()->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-2026-HIST',
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'status' => 'completed',
+        'started_at' => now()->subMonths(2),
+        'closed_at' => now()->subMonth(),
+        'source' => 'manual',
+    ]);
+
+    $phase = CrewAssignmentPhase::query()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'phase_code' => CrewPhaseCode::Training,
+        'sequence' => 2,
+        'status' => 'completed',
+        'details' => ['course_id' => (string) $course->id],
+    ]);
+
+    $phase->delete();
+
+    $this->from(route('settings.master-data.courses.index'))
+        ->delete("/settings/master-data/courses/{$course->id}")
+        ->assertRedirect(route('settings.master-data.courses.index'))
+        ->assertSessionHasErrors('record');
+});
+
+test('global master used by another company hides cross-tenant usage metadata', function () {
+    ['user' => $user, 'company' => $companyA] = makeMasterDataUsageFixtures([
+        'settings.master-data.genders.view',
+        'settings.master-data.genders.delete',
+    ]);
+    $companyB = makeMasterDataUsageFixtures()['company'];
+
+    $gender = Gender::query()->create(['name' => 'Cross Tenant Gender', 'is_active' => true]);
+
+    Employee::factory()->forCompany($companyB)->create([
+        'gender_id' => $gender->id,
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($user)
+        ->get('/settings/master-data/genders')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('genders.0.id', $gender->id)
+            ->where('genders.0.is_in_use', true)
+            ->where('genders.0.can_delete', false)
+            ->where('genders.0.usage_count', null)
+            ->where('genders.0.usage_label', null));
+
+    $this->from(route('settings.master-data.genders.index'))
+        ->delete("/settings/master-data/genders/{$gender->id}")
+        ->assertRedirect(route('settings.master-data.genders.index'))
+        ->assertSessionHasErrors('record');
+});
+
+test('global master exposes usage metadata when usage is only in the active company', function () {
+    ['user' => $user, 'company' => $company] = makeMasterDataUsageFixtures([
+        'settings.master-data.genders.view',
+        'settings.master-data.genders.delete',
+    ]);
+
+    $gender = Gender::query()->create(['name' => 'Single Tenant Gender', 'is_active' => true]);
+
+    Employee::factory()->forCompany($company)->create([
+        'gender_id' => $gender->id,
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($user)
+        ->get('/settings/master-data/genders')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('genders.0.id', $gender->id)
+            ->where('genders.0.is_in_use', true)
+            ->where('genders.0.usage_count', 1)
+            ->where('genders.0.usage_label', 'employees'));
+});
+
+test('soft-deleted sea service still protects rank deletion', function () {
+    ['user' => $user, 'company' => $company] = makeMasterDataUsageFixtures([
+        'settings.master-data.ranks.view',
+        'settings.master-data.ranks.delete',
+    ]);
+
+    $this->actingAs($user);
+
+    $rank = Rank::query()->create(['name' => 'Historical Rank', 'is_active' => true]);
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $vesselType = VesselType::query()->create(['name' => 'History Type', 'is_active' => true]);
+
+    $seaService = EmployeeSeaService::factory()->forEmployee($employee)->create([
+        'rank_id' => $rank->id,
+        'vessel_type_id' => $vesselType->id,
+    ]);
+    $seaService->delete();
+
+    $this->from(route('settings.master-data.ranks.index'))
+        ->delete("/settings/master-data/ranks/{$rank->id}")
+        ->assertRedirect(route('settings.master-data.ranks.index'))
+        ->assertSessionHasErrors('record');
+});
+
+test('country referenced by candidate nationality cannot be deleted', function () {
+    ['user' => $user, 'company' => $company, 'country' => $country] = makeMasterDataUsageFixtures([
+        'settings.master-data.countries.view',
+        'settings.master-data.countries.delete',
+    ]);
+
+    $this->actingAs($user);
+
+    $jobPostingId = DB::table('job_postings')->insertGetId([
+        'company_id' => $company->id,
+        'title' => 'Recruitment Officer',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    DB::table('candidates')->insert([
+        'company_id' => $company->id,
+        'job_posting_id' => $jobPostingId,
+        'first_name' => 'Recruit',
+        'last_name' => 'Candidate',
+        'email' => 'recruit.candidate@example.com',
+        'nationality_id' => $country->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $this->from(route('settings.master-data.countries.index'))
+        ->delete("/settings/master-data/countries/{$country->id}")
+        ->assertRedirect(route('settings.master-data.countries.index'))
+        ->assertSessionHasErrors('record');
+});
+
+test('tenant-scoped vessel exposes usage metadata for the active company', function () {
+    ['user' => $user, 'company' => $company] = makeMasterDataUsageFixtures([
+        'crew_operations.vessels.view',
+        'crew_operations.vessels.delete',
+    ]);
+
+    $this->actingAs($user);
+
+    $vesselType = VesselType::query()->create(['name' => 'Usage OSV', 'is_active' => true]);
+    $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Scoped Usage Vessel',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+    $rank = Rank::query()->create(['name' => 'Usage Rank', 'is_active' => true]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 1,
+    ]);
+
+    $this->get(route('organization.vessels.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('vessels.0.id', $vessel->id)
+            ->where('vessels.0.is_in_use', true)
+            ->where('vessels.0.usage_count', 1)
+            ->where('vessels.0.usage_label', 'vessel manning'));
 });

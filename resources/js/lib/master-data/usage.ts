@@ -1,12 +1,12 @@
 export type MasterDataUsageFlags = {
     is_in_use?: boolean;
     can_delete?: boolean;
-    usage_count?: number;
+    usage_count?: number | null;
     usage_label?: string | null;
 };
 
 export const MASTER_DATA_DELETE_BLOCKED_MESSAGE =
-    'Cannot delete because this record is currently in use.';
+    'This record is currently in use. Delete is unavailable.';
 
 export function masterDataIsInUse(item: MasterDataUsageFlags): boolean {
     return item.is_in_use === true;
@@ -38,12 +38,10 @@ export function masterDataUsageTooltip(
         return `Used by ${item.usage_label}. Delete is unavailable.`;
     }
 
-    const count = item.usage_count ?? 0;
+    if (typeof item.usage_count === 'number' && item.usage_count > 0) {
+        const noun = item.usage_count === 1 ? 'record' : 'records';
 
-    if (count > 0) {
-        const noun = count === 1 ? 'record' : 'records';
-
-        return `Used by ${count} ${noun}. Delete is unavailable.`;
+        return `Used by ${item.usage_count} ${noun}. Delete is unavailable.`;
     }
 
     return MASTER_DATA_DELETE_BLOCKED_MESSAGE;
