@@ -741,7 +741,12 @@ Company leave email notification controls (Attendance → Leave Approval Policie
 
 On submit, `SubmitLeaveRequestWithApprovals` atomically validates the active employee/leave type, serializes concurrent same-employee submissions under an employee row lock, re-checks date overlap, reserves balance under year-row locks, stores attachments inside the same transaction, and snapshots the resolved chain into `leave_request_approvals` (including policy id/name and step label provenance). Notifications queue only after commit when company notification settings and the matching EmailTemplate allow it; attachment or policy failure rolls everything back.
 
-Approvers act only on the single current pending step (`ApproveLeaveRequestStep` / `RejectLeaveRequestStep`). Actionable approvers must have an active employee, linked active user, active company membership, and both `attendance.leave-requests.view` and `attendance.leave-requests.approve`. `attendance.leave-requests.view_all` is required to list/manage all employees’ requests.
+Approvers act only on the single current pending **required** step (`ApproveLeaveRequestStep` / `RejectLeaveRequestStep`). Actionable approvers must have an active employee, linked active user, active company membership, and both `attendance.leave-requests.view` and `attendance.leave-requests.approve`. `attendance.leave-requests.view_all` is required to list/manage all employees’ requests.
+
+Policy step `is_required` semantics:
+
+- `is_required = true` — sequential approval step. Only these steps become `Pending` / `Waiting`, block progression, appear in Approvals → **Needs action**, and count toward `auth.leave_approvals_count`.
+- `is_required = false` — notify-only / FYI listener. Snapshot status is `Skipped` immediately; the person is emailed for information on submission when `notify_on_submission` and the `leave_request_notification_only` template allow it. They never approve/reject, never become `Pending`, never block the workflow, and never affect Needs action or the Approvals sidebar badge. If the same employee appears as both required and notify-only, the required step wins and they do not receive duplicate FYI mail.
 
 Pending leave requests may be edited only before any approval step has acted. Pre-action edits are no-op safe, re-check overlap under lock, replace balance reservations with same-key credit only, rebuild the unacted approval snapshot, write a company-scoped audit entry for real edits, and notify the newly resolved current pending approver after commit. After approval starts, updates are rejected.
 
@@ -786,6 +791,7 @@ Also seed email templates when deploying notification changes: `php artisan db:s
 - Controllers under `app/Http/Controllers/Attendance/`
 - Pages under `resources/js/pages/attendance/`
 - `LeaveApprovalNeedsActionCounter` (sidebar Approvals badge / shared `auth.leave_approvals_count`)
+- `SendLeaveRequestNotificationOnlyEmail` (FYI mail for `is_required = false` policy steps)
 
 ### Permissions involved
 

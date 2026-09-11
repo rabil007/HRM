@@ -29,6 +29,7 @@ final class SubmitLeaveRequestWithApprovals
         private ValidateLeaveRequestDateRange $validateDateRange,
         private AssertLeaveApprovalWorkflowInvariant $assertInvariant,
         private SendLeaveRequestSubmittedEmail $sendSubmittedEmail,
+        private SendLeaveRequestNotificationOnlyEmail $sendNotificationOnlyEmail,
     ) {}
 
     /**
@@ -205,8 +206,16 @@ final class SubmitLeaveRequestWithApprovals
 
         if ($notify) {
             DB::afterCommit(function () use ($leaveRequest): void {
+                $fresh = $leaveRequest->fresh() ?? $leaveRequest;
+
                 try {
-                    $this->sendSubmittedEmail->handle($leaveRequest->fresh() ?? $leaveRequest);
+                    $this->sendSubmittedEmail->handle($fresh);
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
+
+                try {
+                    $this->sendNotificationOnlyEmail->handle($fresh);
                 } catch (Throwable $exception) {
                     report($exception);
                 }

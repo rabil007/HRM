@@ -459,11 +459,14 @@ export function LeaveApprovalPolicyFormSheet({
                                             <div className="flex items-center justify-between rounded-xl border border-border/60 px-4 py-3">
                                                 <div>
                                                     <p className="text-sm font-medium">
-                                                        Required
+                                                        {step.is_required
+                                                            ? 'Required'
+                                                            : 'Notify only'}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">
-                                                        Must approve before the
-                                                        next step
+                                                        {step.is_required
+                                                            ? 'Must approve before the next step'
+                                                            : 'This person will be informed but does not need to approve.'}
                                                     </p>
                                                 </div>
                                                 <Switch

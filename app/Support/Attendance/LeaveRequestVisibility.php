@@ -80,7 +80,8 @@ final class LeaveRequestVisibility
                 $approvals
                     ->where('company_id', $companyId)
                     ->where('approver_user_id', $user->id)
-                    ->where('status', LeaveRequestApprovalStatus::Pending);
+                    ->where('status', LeaveRequestApprovalStatus::Pending)
+                    ->where('is_required', true);
             });
     }
 
@@ -146,6 +147,7 @@ final class LeaveRequestVisibility
             ->where('leave_request_id', $leaveRequest->id)
             ->where('approver_user_id', $user->id)
             ->where('status', LeaveRequestApprovalStatus::Pending)
+            ->where('is_required', true)
             ->exists();
     }
 

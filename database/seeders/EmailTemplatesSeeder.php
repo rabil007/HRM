@@ -15,6 +15,7 @@ class EmailTemplatesSeeder extends Seeder
         self::seedLeaveRequestSubmittedTemplate();
         self::seedLeaveRequestUpdatedTemplate();
         self::seedLeaveRequestApproverActionRequiredTemplate();
+        self::seedLeaveRequestNotificationOnlyTemplate();
         self::seedLeaveRequestApprovedTemplate();
         self::seedLeaveRequestRejectedTemplate();
         self::seedPasswordResetTemplate();
@@ -137,6 +138,21 @@ class EmailTemplatesSeeder extends Seeder
         ]);
     }
 
+    public static function seedLeaveRequestNotificationOnlyTemplate(): EmailTemplate
+    {
+        return self::seedLeaveTemplateIfMissing('leave_request_notification_only', [
+            'label' => 'Leave request notification only',
+            'category' => EmailTemplateCategory::Hr,
+            'to_preset' => null,
+            'cc_preset' => null,
+            'dispatch_at' => null,
+            'subject' => 'Leave request submitted for your information — {{employee_name}} ({{leave_type}})',
+            'body_html' => self::leaveRequestNotificationOnlyBody(),
+            'enabled' => true,
+            'sort_order' => 3,
+        ]);
+    }
+
     public static function seedLeaveRequestApprovedTemplate(): EmailTemplate
     {
         return self::seedLeaveTemplateIfMissing('leave_request_approved', [
@@ -148,7 +164,7 @@ class EmailTemplatesSeeder extends Seeder
             'subject' => 'Leave request approved — {{leave_type}}',
             'body_html' => self::leaveRequestApprovedBody(),
             'enabled' => true,
-            'sort_order' => 3,
+            'sort_order' => 4,
         ]);
     }
 
@@ -163,7 +179,7 @@ class EmailTemplatesSeeder extends Seeder
             'subject' => 'Leave request declined — {{leave_type}}',
             'body_html' => self::leaveRequestRejectedBody(),
             'enabled' => true,
-            'sort_order' => 4,
+            'sort_order' => 5,
         ]);
     }
 
@@ -212,6 +228,19 @@ TEXT;
     {
         return <<<'TEXT'
 A leave request now requires your approval.
+
+Employee: {{employee_name}}
+Leave type: {{leave_type}}
+Dates: {{start_date}} to {{end_date}}
+Total days: {{total_days}}
+Reason: {{reason}}
+TEXT;
+    }
+
+    private static function leaveRequestNotificationOnlyBody(): string
+    {
+        return <<<'TEXT'
+A leave request has been submitted for your information. No approval is required from you.
 
 Employee: {{employee_name}}
 Leave type: {{leave_type}}

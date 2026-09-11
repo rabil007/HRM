@@ -29,6 +29,7 @@ final class LeaveApproverEligibility
      *     has_view_permission: bool,
      *     has_approve_permission: bool,
      *     actionable: bool,
+     *     notifiable: bool,
      *     warnings: list<string>,
      * }
      */
@@ -55,6 +56,7 @@ final class LeaveApproverEligibility
      *     has_view_permission: bool,
      *     has_approve_permission: bool,
      *     actionable: bool,
+     *     notifiable: bool,
      *     warnings: list<string>,
      * }>
      */
@@ -99,6 +101,7 @@ final class LeaveApproverEligibility
      *     has_view_permission: bool,
      *     has_approve_permission: bool,
      *     actionable: bool,
+     *     notifiable: bool,
      *     warnings: list<string>,
      * }
      */
@@ -121,6 +124,10 @@ final class LeaveApproverEligibility
             && $hasViewPermission
             && $hasApprovePermission;
 
+        $notifiable = $employeeActive
+            && $linkedUserActive
+            && $hasActiveMembership;
+
         return [
             'employee_active' => $employeeActive,
             'has_linked_user' => $hasLinkedUser,
@@ -129,6 +136,7 @@ final class LeaveApproverEligibility
             'has_view_permission' => $hasViewPermission,
             'has_approve_permission' => $hasApprovePermission,
             'actionable' => $actionable,
+            'notifiable' => $notifiable,
             'warnings' => $this->warnings(
                 employee: $employee,
                 employeeActive: $employeeActive,

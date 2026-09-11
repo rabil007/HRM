@@ -92,8 +92,8 @@ final class ResolveLeaveApprovalChain
                 continue;
             }
 
-            if (! $this->isActionable($candidate['employee'], $companyId, $requesterId)) {
-                if ($step->is_required) {
+            if ($step->is_required) {
+                if (! $this->isActionable($candidate['employee'], $companyId, $requesterId)) {
                     $evaluation = $this->eligibility->evaluate($candidate['employee'], $companyId);
                     $detail = $evaluation['warnings'][0]
                         ?? 'The resolved employee is not an actionable approver (active employee, linked active user, active company membership, and leave-request view and approve permissions).';
@@ -104,7 +104,7 @@ final class ResolveLeaveApprovalChain
                         $detail,
                     ));
                 }
-
+            } elseif (! $this->isNotifiableListener($candidate['employee'], $companyId, $requesterId)) {
                 continue;
             }
 
@@ -166,8 +166,9 @@ final class ResolveLeaveApprovalChain
 
     /**
      * Persist a resolved approval snapshot onto a leave request.
-     * Optional steps before the first required step are skipped immediately;
-     * the first required step becomes pending; later steps wait.
+     *
+     * Required steps remain sequential: the first becomes Pending, later ones Waiting.
+     * Non-required (notify-only) steps are always Skipped and never become actionable.
      *
      * @return list<LeaveRequestApproval>
      */
@@ -179,7 +180,7 @@ final class ResolveLeaveApprovalChain
         $actedAt = now();
 
         foreach ($chain->steps as $resolvedStep) {
-            if (! $pendingAssigned && ! $resolvedStep->isRequired) {
+            if (! $resolvedStep->isRequired) {
                 $created[] = LeaveRequestApproval::query()->create([
                     ...$resolvedStep->toPersistenceArray(
                         companyId: $companyId,
@@ -198,7 +199,7 @@ final class ResolveLeaveApprovalChain
             $status = LeaveRequestApprovalStatus::Waiting;
             $stepActedAt = null;
 
-            if (! $pendingAssigned && $resolvedStep->isRequired) {
+            if (! $pendingAssigned) {
                 $status = LeaveRequestApprovalStatus::Pending;
                 $pendingAssigned = true;
             }
@@ -419,6 +420,23 @@ final class ResolveLeaveApprovalChain
         return $this->eligibility->evaluate($employee, $companyId)['actionable'];
     }
 
+    /**
+     * Notify-only (Required = OFF) recipients need an active identity in the company,
+     * but must not require leave approve permission.
+     */
+    private function isNotifiableListener(Employee $employee, int $companyId, int $requesterEmployeeId): bool
+    {
+        if ((int) $employee->company_id !== $companyId) {
+            return false;
+        }
+
+        if ((int) $employee->id === $requesterEmployeeId) {
+            return false;
+        }
+
+        return $this->eligibility->evaluate($employee, $companyId)['notifiable'];
+    }
+
     private function isManagerChainType(LeaveApprovalApproverType $type): bool
     {
         return $type === LeaveApprovalApproverType::DepartmentManager
@@ -426,30 +444,40 @@ final class ResolveLeaveApprovalChain
     }
 
     /**
+     * Prefer a required approval step when the same employee appears as both
+     * required approver and notify-only listener.
+     *
      * @param  list<array{step: LeaveApprovalPolicyStep, employee: Employee, user: User|null, source_department: Department|null}>  $resolved
      * @return list<array{step: LeaveApprovalPolicyStep, employee: Employee, user: User, source_department: Department|null}>
      */
     private function dedupeByEmployee(array $resolved): array
     {
-        $seen = [];
-        $deduped = [];
+        /** @var array<int, array{step: LeaveApprovalPolicyStep, employee: Employee, user: User, source_department: Department|null}> $byEmployee */
+        $byEmployee = [];
 
         foreach ($resolved as $entry) {
-            $employeeId = (int) $entry['employee']->id;
-
-            if (isset($seen[$employeeId])) {
-                continue;
-            }
-
             if ($entry['user'] === null) {
                 continue;
             }
 
-            $seen[$employeeId] = true;
-            $deduped[] = $entry;
+            $employeeId = (int) $entry['employee']->id;
+            $existing = $byEmployee[$employeeId] ?? null;
+
+            if ($existing === null) {
+                $byEmployee[$employeeId] = $entry;
+
+                continue;
+            }
+
+            $existingRequired = (bool) $existing['step']->is_required;
+            $incomingRequired = (bool) $entry['step']->is_required;
+
+            if (! $existingRequired && $incomingRequired) {
+                $byEmployee[$employeeId] = $entry;
+            }
         }
 
-        return $deduped;
+        return array_values($byEmployee);
     }
 
     private function missingStepMessage(LeaveApprovalPolicyStep $step): string
