@@ -41,10 +41,7 @@ import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { AssignEmployeeProfileTemplate } from '@/pages/organization/_components/assign-employee-profile-template';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
-import type {
-    EmployeeCrewStatus,
-    ProfileTemplateOption,
-} from '@/pages/organization/employee-page.types';
+import type { ProfileTemplateOption } from '@/pages/organization/employee-page.types';
 type Option = { id: number; name?: string | null; title?: string | null };
 
 const EMPLOYEE_STATUS_OPTIONS = [
@@ -186,18 +183,6 @@ function optionLabel(
     );
 
     return found?.name ?? fallback ?? '—';
-}
-
-function EmployeeCrewStatusBadge({
-    crewStatus,
-}: {
-    crewStatus: EmployeeCrewStatus;
-}) {
-    return (
-        <Badge variant="secondary" className="font-normal">
-            {crewStatus.label}
-        </Badge>
-    );
 }
 
 export function EmployeeHeaderCard({
@@ -602,13 +587,6 @@ export function EmployeeHeaderCard({
                                         employeeId={employee.id}
                                         status={employee.status}
                                         canUpdate={canUpdate}
-                                    />
-                                ) : null}
-
-                                {employee.crew_status &&
-                                showField('crew_status') ? (
-                                    <EmployeeCrewStatusBadge
-                                        crewStatus={employee.crew_status}
                                     />
                                 ) : null}
                             </div>

@@ -19,7 +19,6 @@ use App\Models\EmployeeWorkExperience;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
-use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
@@ -85,7 +84,6 @@ final class EmployeeProfilePageData
         $needsProfileTemplate = $employee->employee_profile_template_id === null;
 
         $employeePayload = EmployeeDetailResource::toArray($employee);
-        $employeePayload['crew_status'] = (new CrewAssignmentStatusResolver)->forEmployee($employee);
 
         return [
             'mode' => 'edit',
@@ -238,12 +236,7 @@ final class EmployeeProfilePageData
 
         $employeeId = $employee?->id;
         $employeePayload = $employee !== null
-            ? array_merge(
-                EmployeeDetailResource::toArray($employee),
-                [
-                    'crew_status' => (new CrewAssignmentStatusResolver)->forEmployee($employee),
-                ],
-            )
+            ? EmployeeDetailResource::toArray($employee)
             : self::placeholderEmployee();
 
         $base = [

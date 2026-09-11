@@ -209,48 +209,18 @@ test('employee crew status resolver returns needs update when active assignment 
         ->warning->toBe('Active assignment has no current phase.');
 });
 
-test('employee profile includes crew status available when employee has no assignments', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee] = makeEmployeeCrewStatusFixtures();
-
-    grantCompanyPermissions($user, $company, ['employees.view']);
-
-    $this->actingAs($user)
-        ->get(route('organization.employees.show', $employee))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('employee.crew_status.status', 'in_home')
-            ->where('employee.crew_status.label', 'Available')
-            ->where('employee.crew_status.assignment_id', null));
-});
-
-test('employee profile includes crew status from latest assignment', function () {
+test('employee profile does not include crew status payload', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
 
     $vessel = makeEmployeeCrewStatusVessel('Current Vessel', $company);
-
     makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
-
-    $olderVessel = makeEmployeeCrewStatusVessel('Older Vessel', $company);
-    CrewAssignment::query()->create([
-        'company_id' => $company->id,
-        'assignment_no' => 'CA-'.now()->year.'-OLD',
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => $olderVessel->id,
-        'status' => CrewAssignmentStatus::Completed,
-        'started_at' => CarbonImmutable::today()->subDays(60),
-        'closed_at' => CarbonImmutable::today()->subDays(50),
-        'source' => 'manual',
-    ]);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
 
     $this->actingAs($user)
         ->get(route('organization.employees.show', $employee))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('employee.crew_status.status', 'on_vessel')
-            ->where('employee.crew_status.label', 'On vessel'));
+        ->assertInertia(fn ($page) => $page->missing('employee.crew_status'));
 });
 
 test('employee profile exposes assignments view permission in can payload', function () {
@@ -288,8 +258,7 @@ test('employee profile hides crew status when disabled in profile template', fun
         ->get(route('organization.employees.show', $employee));
 
     $response->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('employee.crew_status.status', 'on_vessel'));
+        ->assertInertia(fn ($page) => $page->missing('employee.crew_status'));
 
     $profileFields = $response->inertiaProps('employee_tabs.profile_fields');
 
@@ -316,8 +285,7 @@ test('employee profile includes crew status in profile fields when enabled in te
         ->get(route('organization.employees.show', $employee));
 
     $response->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('employee.crew_status.status', 'on_vessel'));
+        ->assertInertia(fn ($page) => $page->missing('employee.crew_status'));
 
     $profileFields = $response->inertiaProps('employee_tabs.profile_fields');
 

@@ -34,16 +34,6 @@ export type ResolvedEmployeeTemplate = {
     employee_tabs: EmployeeProfileTabVisibility;
 };
 
-export type EmployeeCrewStatus = {
-    assignment_id: number | null;
-    status: string;
-    label: string;
-    hint?: string | null;
-    current_vessel?: string | null;
-    in_home_days?: number | null;
-    vessel_name?: string | null;
-};
-
 export type EmployeeDetails = {
     id: number | null;
     user: {
@@ -118,7 +108,6 @@ export type EmployeeDetails = {
     start_date?: string | null;
     end_date?: string | null;
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
-    crew_status?: EmployeeCrewStatus | null;
     salary_payment_method?: SalaryPaymentMethodValue;
     salary_payment_method_label?: string;
     employee_profile_template?: { id: number; name: string | null } | null;
