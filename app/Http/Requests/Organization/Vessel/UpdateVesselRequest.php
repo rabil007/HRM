@@ -15,6 +15,13 @@ class UpdateVesselRequest extends FormRequest
         return (bool) $this->user()?->can('crew_operations.vessels.update');
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->exists('client_id') && $this->input('client_id') === '') {
+            $this->merge(['client_id' => null]);
+        }
+    }
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */

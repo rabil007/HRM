@@ -58,6 +58,7 @@ function createSecondValidEmployee(array $fixtures): array
         'salary_structure' => ContractSalaryStructure::Daily,
         'status' => 'active',
         'start_date' => '2026-01-01',
+        'end_date' => null,
         'basic_salary' => 120,
     ]);
     (new SyncContractSalaryComponentsFromContract)->handle($contract);

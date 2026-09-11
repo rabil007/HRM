@@ -10,6 +10,7 @@ use App\Http\Requests\Settings\MasterData\StoreProjectRequest;
 use App\Http\Requests\Settings\MasterData\UpdateProjectRequest;
 use App\Models\Client;
 use App\Models\Project;
+use App\Support\MasterData\GuardProjectClientChange;
 use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -180,6 +181,8 @@ class ProjectController extends Controller
         $emptyTitles = 0;
         $unknownClients = 0;
         $unknownClientNames = [];
+        $blockedReparent = 0;
+        $blockedTitles = [];
 
         while (($row = fgetcsv($handle)) !== false) {
             if (! is_array($row)) {
@@ -214,13 +217,29 @@ class ProjectController extends Controller
                 $active = $v === '' || in_array($v, ['1', 'yes', 'true', 'y', 'active'], true);
             }
 
-            Project::query()->updateOrCreate(
-                ['title' => $title],
-                [
+            $existing = Project::query()->where('title', $title)->first();
+
+            if ($existing instanceof Project
+                && GuardProjectClientChange::wouldBreakEmployeeConsistency($existing, (int) $client->id)) {
+                $blockedReparent++;
+                $blockedTitles[$title] = true;
+
+                continue;
+            }
+
+            if ($existing instanceof Project) {
+                $existing->update([
                     'client_id' => $client->id,
                     'is_active' => $active,
-                ],
-            );
+                ]);
+            } else {
+                Project::query()->create([
+                    'title' => $title,
+                    'client_id' => $client->id,
+                    'is_active' => $active,
+                ]);
+            }
+
             $imported++;
 
             if ($imported > 2000) {
@@ -232,11 +251,13 @@ class ProjectController extends Controller
 
         if ($imported === 0) {
             $unknownList = implode(', ', array_keys($unknownClientNames));
+            $blockedList = implode(', ', array_keys($blockedTitles));
 
             return redirect()
                 ->route('settings.master-data.projects.index')
                 ->withErrors([
                     'file' => match (true) {
+                        $blockedReparent > 0 && $blockedList !== '' => "No rows were imported. Project(s) cannot change client because employees are assigned: {$blockedList}.",
                         $unknownClients > 0 && $unknownList !== '' => "No rows were imported. Unknown or inactive client(s): {$unknownList}.",
                         $unknownClients > 0 => 'No rows were imported. One or more rows had a missing or unknown client.',
                         $emptyTitles > 0 => "No rows were imported. {$emptyTitles} row(s) had an empty project title.",
@@ -251,6 +272,12 @@ class ProjectController extends Controller
             $message .= $unknownList !== ''
                 ? " Skipped {$unknownClients} row(s) with unknown/inactive client(s): {$unknownList}."
                 : " Skipped {$unknownClients} row(s) with missing or unknown clients.";
+        }
+        if ($blockedReparent > 0) {
+            $blockedList = implode(', ', array_keys($blockedTitles));
+            $message .= $blockedList !== ''
+                ? " Skipped {$blockedReparent} row(s) that cannot change client because employees are assigned: {$blockedList}."
+                : " Skipped {$blockedReparent} row(s) that cannot change client because employees are assigned.";
         }
 
         return redirect()

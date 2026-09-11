@@ -711,7 +711,7 @@ export default function Projects({
                                 placeholder="Select client"
                                 className="h-11 rounded-xl"
                             >
-                                {current ? (
+                                {current && current.client_id === null ? (
                                     <AppSelectItem value="">
                                         Unassigned
                                     </AppSelectItem>

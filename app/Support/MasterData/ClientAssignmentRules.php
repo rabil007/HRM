@@ -46,33 +46,62 @@ final class ClientAssignmentRules
     }
 
     /**
-     * Allow keeping a legacy/inactive Client already stored on the record,
-     * but require newly selected Clients to be active.
+     * Client rules for updating an existing Project/Vessel.
+     *
+     * - Legacy null may remain null or be assigned an active Client.
+     * - Already-mapped records cannot return to null (Client stays required).
+     * - Newly selected Clients must be active (keeping the existing Client is allowed even if inactive).
      *
      * @return list<ValidationRule|string>
      */
     public static function assignableClientIdRules(?int $existingClientId, bool $required = false): array
     {
-        $presence = $required ? 'required' : 'nullable';
+        // Once mapped, Client must remain present. Do not use `nullable` here —
+        // Laravel skips later rules (including closures) when the value is null.
+        if ($existingClientId !== null || $required) {
+            return [
+                'required',
+                'integer',
+                function (string $attribute, mixed $value, \Closure $fail) use ($existingClientId): void {
+                    if ($value === null || $value === '') {
+                        $fail('An assigned client cannot be cleared. Select another client instead.');
+
+                        return;
+                    }
+
+                    $clientId = (int) $value;
+                    $client = Client::query()->find($clientId);
+
+                    if ($client === null) {
+                        $fail('The selected client is invalid.');
+
+                        return;
+                    }
+
+                    if ($existingClientId !== null && $clientId === $existingClientId) {
+                        return;
+                    }
+
+                    if (! $client->is_active) {
+                        $fail('The selected client is inactive.');
+                    }
+                },
+            ];
+        }
 
         return [
-            $presence,
+            'nullable',
             'integer',
-            function (string $attribute, mixed $value, \Closure $fail) use ($existingClientId): void {
+            function (string $attribute, mixed $value, \Closure $fail): void {
                 if ($value === null || $value === '') {
                     return;
                 }
 
-                $clientId = (int) $value;
-                $client = Client::query()->find($clientId);
+                $client = Client::query()->find((int) $value);
 
                 if ($client === null) {
                     $fail('The selected client is invalid.');
 
-                    return;
-                }
-
-                if ($existingClientId !== null && $clientId === $existingClientId) {
                     return;
                 }
 
@@ -89,6 +118,19 @@ final class ClientAssignmentRules
             return;
         }
 
+        $project = Project::query()->find($projectId);
+
+        if ($project === null) {
+            $validator->errors()->add('project_id', 'The selected project is invalid.');
+
+            return;
+        }
+
+        // Legacy unassigned projects remain assignable until mapped.
+        if ($project->client_id === null) {
+            return;
+        }
+
         if ($clientId === null || $clientId === 0) {
             $validator->errors()->add(
                 'project_id',
@@ -98,12 +140,7 @@ final class ClientAssignmentRules
             return;
         }
 
-        $matches = Project::query()
-            ->whereKey($projectId)
-            ->where('client_id', $clientId)
-            ->exists();
-
-        if (! $matches) {
+        if ((int) $project->client_id !== (int) $clientId) {
             $validator->errors()->add(
                 'project_id',
                 'The selected project does not belong to the selected client.',

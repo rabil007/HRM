@@ -114,7 +114,7 @@ export function VesselFormSheet({
                                 placeholder="Select client"
                                 className="h-11 rounded-xl"
                             >
-                                {isEditing ? (
+                                {isEditing && vessel?.client_id == null ? (
                                     <AppSelectItem value="">
                                         Unassigned
                                     </AppSelectItem>

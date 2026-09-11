@@ -4,15 +4,24 @@ namespace App\Http\Requests\Settings\MasterData;
 
 use App\Models\Project;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\MasterData\GuardProjectClientChange;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateProjectRequest extends FormRequest
 {
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->exists('client_id') && $this->input('client_id') === '') {
+            $this->merge(['client_id' => null]);
+        }
     }
 
     /**
@@ -41,5 +50,33 @@ class UpdateProjectRequest extends FormRequest
             ),
             'is_active' => ['nullable', 'boolean'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            /** @var Project|null $project */
+            $project = $this->route('project');
+
+            if (! $project instanceof Project) {
+                return;
+            }
+
+            $newClientId = $this->input('client_id');
+            $resolvedNewClientId = $newClientId !== null && $newClientId !== ''
+                ? (int) $newClientId
+                : null;
+
+            if (GuardProjectClientChange::wouldBreakEmployeeConsistency($project, $resolvedNewClientId)) {
+                $validator->errors()->add(
+                    'client_id',
+                    'This project cannot be moved to another client because employees are currently assigned to it.',
+                );
+            }
+        });
     }
 }

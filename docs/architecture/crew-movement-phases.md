@@ -362,12 +362,14 @@ Tour resolution uses `CrewTourOfDutyResolver` / `CrewTourOfDutyCalculator`. Prog
 
 ```text
 Client
-├── Projects          (current Project → Client)
+├── Projects          (current Project → Client; re-parenting blocked when Employees conflict)
 └── Vessels           (Vessel.client_id = current/default operational Client)
 
 CrewAssignment.client_id      = Client during that mobilisation cycle (snapshot)
 EmployeeSeaService.client_id  = Client during that service period (from assignment snapshot)
 ```
+
+`projects.client_id` / `vessels.client_id` stay nullable only for legacy unassigned rows. Mapped records cannot clear Client back to null in normal editing. Project Client changes that would leave Employees with a mismatched Client are rejected.
 
 `SeaServiceSyncService` copies `CrewAssignment.client_id` into `EmployeeSeaService.client_id`. Changing `Vessel.client_id` later must **never** rewrite historical assignments, phases, timesheets, payroll, or sea service.
 

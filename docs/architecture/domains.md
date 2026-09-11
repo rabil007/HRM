@@ -610,7 +610,13 @@ VesselType (global) → Vessel (company + optional client_id) → VesselManning 
 
 `vessels` and `vessel_manning` remain separate tables. Existing vessel rows were backfilled to `company_id = 1` in a one-time migration (no permanent DB default of `1`). Vessel IDs were preserved in place.
 
-`Vessel.client_id` is the **current/default operational Client**. It does **not** replace `company_id`. Changing a vessel’s Client never rewrites historical `CrewAssignment.client_id` or `EmployeeSeaService.client_id` snapshots.
+`projects.client_id` and `vessels.client_id` are nullable for **legacy compatibility** only.
+
+- New Projects and Vessels require an assigned Client.
+- Already-mapped records cannot return to `Unassigned` (`client_id = null`) through normal Master Data editing.
+- Legacy-null records may remain null while other fields are edited, or be assigned a Client for the first time.
+- Project Client reassignment (A → B) is blocked when Employees already reference the Project with a conflicting non-null Client. First-time assignment (`null` → Client) is allowed. Import uses the same guard.
+- `Vessel.client_id` is the **current/default operational Client**. Changing it does **not** rewrite historical `CrewAssignment.client_id` or `EmployeeSeaService.client_id` snapshots.
 
 ### Main models
 
