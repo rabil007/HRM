@@ -11,18 +11,20 @@ import {
 } from './saved-views.ts';
 
 describe('saved view catalog', () => {
-    it('is limited to the five operational list pages', () => {
+    it('is limited to the six operational list pages', () => {
         assert.deepEqual(SAVED_VIEW_PAGE_KEYS, [
             'employees',
             'documents',
             'crew',
             'leave',
+            'leave_approvals',
             'payroll',
         ]);
         assert.equal(isSupportedSavedViewPage('employees'), true);
         assert.equal(isSupportedSavedViewPage('documents'), true);
         assert.equal(isSupportedSavedViewPage('crew'), true);
         assert.equal(isSupportedSavedViewPage('leave'), true);
+        assert.equal(isSupportedSavedViewPage('leave_approvals'), true);
         assert.equal(isSupportedSavedViewPage('payroll'), true);
         assert.equal(isSupportedSavedViewPage('branches'), false);
         assert.equal(isSupportedSavedViewPage('positions'), false);
@@ -76,6 +78,20 @@ describe('saved view catalog', () => {
                 scope: 'my',
             }),
             { status: 'pending' },
+        );
+        assert.deepEqual(
+            captureCurrentFilters('leave_approvals', {
+                status: 'pending',
+                scope: 'awaiting_my_approval',
+            }),
+            { status: 'pending' },
+        );
+        assert.deepEqual(
+            captureCurrentFilters('leave_approvals', {
+                status: 'pending',
+                scope: 'assigned_to_me',
+            }),
+            { status: 'pending', scope: 'assigned_to_me' },
         );
         assert.deepEqual(
             captureCurrentFilters('crew', {

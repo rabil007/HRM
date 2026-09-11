@@ -145,6 +145,7 @@ test('leave create rejects inactive employees while historical leave remains lis
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.view',
         'attendance.leave-requests.view_all',
+        'attendance.leave-requests.approve',
         'attendance.leave-requests.create',
         'employees.update',
     ]);

@@ -1,3 +1,5 @@
+import type { SavedView } from '@/lib/saved-views';
+import type { PaginationMeta } from '@/types/pagination';
 import { LeaveRequestsContent } from './leave-requests-content';
 import type {
     LeaveRequest,
@@ -6,8 +8,6 @@ import type {
     LeaveRequestPermissions,
     LeaveRequestTypeOption,
 } from './types';
-import type { SavedView } from '@/lib/saved-views';
-import type { PaginationMeta } from '@/types/pagination';
 
 export function LeaveApprovalsContent(props: {
     leave_requests: LeaveRequest[];
