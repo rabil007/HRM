@@ -35,11 +35,11 @@ import {
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
 import { ListTableCrudActions } from '@/components/list-table-actions';
-import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import { MobileRecordList } from '@/components/mobile-record-list';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
+import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

@@ -10,9 +10,9 @@ import {
 import { useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
 import Heading from '@/components/heading';
+import { Pagination } from '@/components/pagination';
 import { MasterDataDeleteButton } from '@/components/settings/master-data-delete-button';
 import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
-import { Pagination } from '@/components/pagination';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     AlertDialog,

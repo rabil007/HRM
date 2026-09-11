@@ -7,11 +7,11 @@ import {
     update as updateDocumentType,
 } from '@/actions/App/Http/Controllers/Settings/MasterData/DocumentTypeController';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
-import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
 import { RecentActivityCard } from '@/components/recent-activity-card';
+import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

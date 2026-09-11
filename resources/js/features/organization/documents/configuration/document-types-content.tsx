@@ -7,7 +7,6 @@ import {
     update as updateDocumentType,
 } from '@/actions/App/Http/Controllers/Settings/MasterData/DocumentTypeController';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
-import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import {
     DataTableHead,
     DataTableHeaderRow,
@@ -28,6 +27,7 @@ import type { MobileRecordOverflowAction } from '@/components/mobile-record-list
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
+import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -54,12 +54,12 @@ import type {
     RankOption,
 } from '@/features/organization/documents/configuration/types';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import {
     MASTER_DATA_DELETE_BLOCKED_MESSAGE,
     masterDataCanDelete,
     masterDataIsInUse,
 } from '@/lib/master-data/usage';
-import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { cn } from '@/lib/utils';
 import { configuration as documentsConfiguration } from '@/routes/organization/documents';
 import { show as documentTypeShow } from '@/routes/organization/documents/configuration';

@@ -1,12 +1,12 @@
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { MasterDataDeleteButton } from '@/components/settings/master-data-delete-button';
-import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import {
     MasterDataField,
     MasterDataFormSheet,
     MasterDataFormSheetFooter,
     masterDataInputClass,
 } from '@/components/settings/master-data-form-sheet';
+import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import { MasterDataListShell } from '@/components/settings/master-data-list-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
