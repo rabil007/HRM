@@ -36,6 +36,7 @@ import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { formatDisplayDate } from '@/lib/format-date';
+import { firstValidationError } from '@/lib/first-validation-error';
 import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
     MOBILE_OPERATIONAL_LIST_CLASS,
@@ -220,6 +221,15 @@ export function LeaveRequestsContent({
             preserveScroll: true,
             forceFormData: true,
             onSuccess: () => setIsSheetOpen(false),
+            onError: (errors: Record<string, string>) => {
+                toast.error(
+                    firstValidationError(
+                        errors,
+                        'leave_request',
+                        'Failed to save leave request. Please try again.',
+                    ),
+                );
+            },
         };
 
         if (currentLeaveRequest) {

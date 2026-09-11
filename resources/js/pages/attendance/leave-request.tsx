@@ -30,6 +30,7 @@ import type {
     LeaveRequestTypeOption,
 } from '@/features/attendance/leave-requests/types';
 import { formatDisplayDate } from '@/lib/format-date';
+import { firstValidationError } from '@/lib/first-validation-error';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -190,6 +191,14 @@ export default function LeaveRequestDetails({
             preserveScroll: true,
             forceFormData: true,
             onSuccess: () => setEditOpen(false),
+            onError: (errors) =>
+                toast.error(
+                    firstValidationError(
+                        errors,
+                        'leave_request',
+                        'Failed to save leave request. Please try again.',
+                    ),
+                ),
         });
     };
 

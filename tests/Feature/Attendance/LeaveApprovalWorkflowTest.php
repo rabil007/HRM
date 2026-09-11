@@ -19,6 +19,7 @@ use App\Support\Attendance\LeaveBalanceManager;
 use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * @return array{user: User, company: Company}
@@ -176,6 +177,52 @@ test('manager then hr policy creates ordered steps and advances on approve', fun
         ->assertRedirect();
 
     expect($leaveRequest->fresh()->status)->toBe('approved');
+});
+
+test('store leave request surfaces specific error when hr approver lacks approve permission', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company);
+    ['employee' => $hr, 'user' => $hrUser] = makeActionableApprover($company, [
+        'name' => 'HR Without Approve',
+    ]);
+    configureCompanyLeaveApprovalSettings($company, $hr);
+
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+        ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
+    ]);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $hrRole = $hrUser->roles->first();
+    expect($hrRole)->not->toBeNull();
+    $hrRole->revokePermissionTo('attendance.leave-requests.approve');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeWorkflowActors($company, $managed['department']);
+    $employee->update(['user_id' => $user->id]);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.create',
+    ]);
+
+    $response = $this->withSession(['current_company_id' => $company->id])
+        ->from(route('attendance.leave-requests.index'))
+        ->post('/attendance/leave-requests', [
+            'employee_id' => $employee->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-12',
+        ]);
+
+    $response->assertSessionHasErrors('leave_request');
+
+    $message = $response->getSession()->get('errors')->first('leave_request');
+
+    expect($message)
+        ->toContain('HR Approver')
+        ->toContain('leave-request approve permission')
+        ->and(LeaveRequest::query()->where('employee_id', $employee->id)->exists())->toBeFalse();
 });
 
 test('parent manager step resolves distinct parent-level manager', function () {

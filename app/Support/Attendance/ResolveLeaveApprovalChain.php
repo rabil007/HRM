@@ -94,9 +94,14 @@ final class ResolveLeaveApprovalChain
 
             if (! $this->isActionable($candidate['employee'], $companyId, $requesterId)) {
                 if ($step->is_required) {
+                    $evaluation = $this->eligibility->evaluate($candidate['employee'], $companyId);
+                    $detail = $evaluation['warnings'][0]
+                        ?? 'The resolved employee is not an actionable approver (active employee, linked active user, active company membership, and leave-request view and approve permissions).';
+
                     throw new RuntimeException(sprintf(
-                        'Required approval step "%s" resolved to an employee who is not an actionable approver (active employee, linked active user, active company membership, and leave-request view and approve permissions).',
+                        'Required approval step "%s" cannot be completed: %s',
                         $step->approver_type->label(),
+                        $detail,
                     ));
                 }
 

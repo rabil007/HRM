@@ -51,6 +51,7 @@ export function LeaveRequestFormSheet({
     const attachmentId = useId();
     const existingAttachment = leaveRequest?.attachments[0] ?? null;
     const pendingAttachment = form.data.attachment;
+    const bagErrors = form.errors as Record<string, string | undefined>;
     const showExistingAttachment =
         existingAttachment &&
         !form.data.remove_attachment &&
@@ -97,6 +98,14 @@ export function LeaveRequestFormSheet({
                 </SheetHeader>
 
                 <div className="flex-1 space-y-8 overflow-y-auto p-8">
+                    {bagErrors.leave_request ? (
+                        <div className="flex gap-2 rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
+                            <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                            <p className="font-medium">
+                                {bagErrors.leave_request}
+                            </p>
+                        </div>
+                    ) : null}
                     <div className="space-y-5">
                         <div className="space-y-2">
                             <Label
