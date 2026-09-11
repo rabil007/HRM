@@ -8,6 +8,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\User;
+use App\Models\UserInvitation;
 use App\Models\WhatsAppSetting;
 use App\Support\Auth\PrivilegedTwoFactorPolicy;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
@@ -215,17 +216,16 @@ test('unenrolled users cannot create a linked employee user', function () {
             'role_id' => $role->id,
             'email' => 'linked.employee.2fa@example.com',
             'name' => 'Linked Employee',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
         ])
         ->assertRedirect(route('security.edit'))
         ->assertSessionHas('error', PrivilegedTwoFactorRequiredException::MESSAGE);
 
     expect($employee->fresh()->user_id)->toBeNull()
-        ->and(User::query()->where('email', 'linked.employee.2fa@example.com')->exists())->toBeFalse();
+        ->and(User::query()->where('email', 'linked.employee.2fa@example.com')->exists())->toBeFalse()
+        ->and(UserInvitation::query()->where('email', 'linked.employee.2fa@example.com')->exists())->toBeFalse();
 });
 
-test('enrolled users can create a linked employee user', function () {
+test('enrolled users can invite a linked employee user', function () {
     enablePrivilegedTwoFactorEnforcement();
 
     $actor = User::factory()->withTwoFactor()->create();
@@ -253,19 +253,21 @@ test('enrolled users can create a linked employee user', function () {
             'role_id' => $role->id,
             'email' => 'linked.employee.enrolled@example.com',
             'name' => 'Linked Enrolled',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
         ])
-        ->assertRedirect();
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Invitation sent successfully.');
 
     $employee->refresh();
 
-    expect($employee->user_id)->not->toBeNull();
+    expect($employee->user_id)->toBeNull()
+        ->and(User::query()->where('email', 'linked.employee.enrolled@example.com')->exists())->toBeFalse();
 
-    $this->assertDatabaseHas('users', [
-        'id' => $employee->user_id,
-        'email' => 'linked.employee.enrolled@example.com',
+    $this->assertDatabaseHas('user_invitations', [
         'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'email' => 'linked.employee.enrolled@example.com',
+        'name' => 'Linked Enrolled',
+        'role_id' => $role->id,
     ]);
 });
 
