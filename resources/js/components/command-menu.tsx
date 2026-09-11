@@ -75,8 +75,14 @@ export function CommandMenu() {
                 auth?.permissions ?? [],
                 auth?.platform,
                 auth?.my_tasks_count,
+                auth?.leave_approvals_count,
             ),
-        [auth?.permissions, auth?.platform, auth?.my_tasks_count],
+        [
+            auth?.permissions,
+            auth?.platform,
+            auth?.my_tasks_count,
+            auth?.leave_approvals_count,
+        ],
     );
     const commandGroups = React.useMemo(() => {
         const favoriteUrls = new Set(accessibleItems.map((item) => item.url));

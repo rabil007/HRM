@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\NavigationFavorite;
 use App\Models\User;
 use App\Services\Settings\SettingService;
+use App\Support\Attendance\LeaveApprovalNeedsActionCounter;
 use App\Support\Auth\PrivilegedTwoFactorPolicy;
 use App\Support\Auth\UnrestrictedCompanyAccess;
 use App\Support\Companies\ResolveCompanyAccess;
@@ -210,6 +211,9 @@ class HandleInertiaRequests extends Middleware
                 'two_factor' => PrivilegedTwoFactorPolicy::sharedFlags($user),
                 'my_tasks_count' => ($user && $currentCompanyId !== null)
                     ? app(MyTasksCounter::class)->count($user, (int) $currentCompanyId)
+                    : 0,
+                'leave_approvals_count' => ($user && $currentCompanyId !== null)
+                    ? app(LeaveApprovalNeedsActionCounter::class)->count($user, (int) $currentCompanyId)
                     : 0,
             ],
             'company_switcher_companies' => $companies,

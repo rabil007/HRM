@@ -28,6 +28,7 @@ export type Auth = {
     platform?: PlatformAccess;
     two_factor?: TwoFactorStatus;
     my_tasks_count?: number;
+    leave_approvals_count?: number;
 };
 
 export type TwoFactorSetupData = {

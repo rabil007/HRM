@@ -747,6 +747,8 @@ Pending leave requests may be edited only before any approval step has acted. Pr
 
 List scopes: `my`, `awaiting_my_approval` (current pending steps), `assigned_to_me` (current and historical assignments; does not grant approve rights), and `all` (requires `view_all`).
 
+Navigation splits leave into **My leave** (`/attendance/my-leave`, scope fixed to `my`) and **Approvals** (`/attendance/leave-approvals`, default `awaiting_my_approval`). The Approvals sidebar badge (`auth.leave_approvals_count`) shows only the current user's actionable pending approvals — the same set as Approvals → **Needs action**. Historical `assigned_to_me` rows are not counted. The count is company-scoped via trusted `current_company_id` and is `0` unless the user has both `attendance.leave-requests.view` and `attendance.leave-requests.approve`.
+
 Balance operations use focused methods (`reserveIfAvailable`, `releasePendingReservation`, `convertPendingToUsed`, `replacePendingReservation`, `synchronizeBalanceKey`). Approval conversion fails if the pending reservation is missing rather than increasing used alone.
 
 Backfill (`leave-approvals:backfill`) is non-destructive: existing approval rows are never deleted or replaced (`--force` only warns and skips). Dry-run performs no writes (settings resolution is read-only) and reports **Would create** separately from **Created**. Approver emails require explicit `--notify`, are never sent in dry-run, and increment **Notifications scheduled** only when scheduling is actually attempted for an actionable pending approver.
@@ -783,6 +785,7 @@ Also seed email templates when deploying notification changes: `php artisan db:s
 - `AttendanceRecord`, `LeaveType`, `LeaveBalance`, `LeaveRequest`, `LeaveApprovalPolicy`, `LeaveApprovalPolicyStep`, `LeaveRequestApproval`, `CompanyLeaveApprovalSetting`
 - Controllers under `app/Http/Controllers/Attendance/`
 - Pages under `resources/js/pages/attendance/`
+- `LeaveApprovalNeedsActionCounter` (sidebar Approvals badge / shared `auth.leave_approvals_count`)
 
 ### Permissions involved
 

@@ -34,8 +34,14 @@ export function AppSidebar() {
                 auth?.permissions ?? [],
                 auth?.platform,
                 auth?.my_tasks_count,
+                auth?.leave_approvals_count,
             ),
-        [auth?.permissions, auth?.platform, auth?.my_tasks_count],
+        [
+            auth?.permissions,
+            auth?.platform,
+            auth?.my_tasks_count,
+            auth?.leave_approvals_count,
+        ],
     );
     const { accessibleItems } = useNavigationFavorites();
     const favoriteNavItems = useMemo((): NavLink[] => {

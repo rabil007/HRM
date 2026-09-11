@@ -343,6 +343,7 @@ export function getSidebarData(
     permissions: string[],
     platform: NavPlatformAccess = NO_PLATFORM_ACCESS,
     myTasksCount?: number,
+    leaveApprovalsCount?: number,
 ): SidebarData {
     const groups = baseSidebarData.navGroups
         .map((group) => {
@@ -402,9 +403,22 @@ export function getSidebarData(
                         return item;
                     }
 
-                    return isSidebarUrlVisible(item.url, permissions, platform)
-                        ? item
-                        : null;
+                    if (!isSidebarUrlVisible(item.url, permissions, platform)) {
+                        return null;
+                    }
+
+                    if (
+                        item.url === '/attendance/leave-approvals' &&
+                        typeof leaveApprovalsCount === 'number' &&
+                        leaveApprovalsCount > 0
+                    ) {
+                        return {
+                            ...item,
+                            badge: String(leaveApprovalsCount),
+                        };
+                    }
+
+                    return item;
                 })
                 .filter(Boolean);
 
