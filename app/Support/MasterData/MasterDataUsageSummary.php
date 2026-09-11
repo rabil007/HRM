@@ -28,7 +28,7 @@ final readonly class MasterDataUsageSummary
         }
 
         if ($this->tenantScoped) {
-            return true;
+            return $this->scopedUsageCount > 0;
         }
 
         if ($companyId === null) {

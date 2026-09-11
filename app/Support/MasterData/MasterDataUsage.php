@@ -167,9 +167,7 @@ final class MasterDataUsage
 
         foreach ($ids as $id) {
             $globalCount = $globalTotals[$id] ?? 0;
-            $scopedCount = $tenantScoped && $companyId !== null
-                ? $globalCount
-                : ($scopedTotals[$id] ?? 0);
+            $scopedCount = $scopedTotals[$id] ?? 0;
             $labelSource = $scopedLabels[$id] ?? [];
             $scopedLabel = count($labelSource) === 1 ? array_key_first($labelSource) : null;
 
@@ -322,10 +320,12 @@ final class MasterDataUsage
                 MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'rank_id', 'company_id', includeSoftDeletedReferences: true),
                 MasterDataUsageSource::model('crew planning', CrewPlanningAssignment::class, 'rank_id', 'company_id', includeSoftDeletedReferences: true),
                 MasterDataUsageSource::model('vessel manning', VesselManning::class, 'rank_id', 'company_id'),
-                new MasterDataUsageSource(
-                    label: 'document requirements',
-                    table: $requirement->ranks()->getTable(),
-                    column: 'rank_id',
+                MasterDataUsageSource::pivot(
+                    'document requirements',
+                    $requirement->ranks()->getTable(),
+                    'rank_id',
+                    DocumentRequirement::class,
+                    'document_requirement_id',
                 ),
             ],
             Client::class => [
@@ -342,10 +342,12 @@ final class MasterDataUsage
             ],
             Project::class => [
                 MasterDataUsageSource::model('employees', Employee::class, 'project_id', 'company_id'),
-                new MasterDataUsageSource(
-                    label: 'document requirements',
-                    table: $requirement->projects()->getTable(),
-                    column: 'project_id',
+                MasterDataUsageSource::pivot(
+                    'document requirements',
+                    $requirement->projects()->getTable(),
+                    'project_id',
+                    DocumentRequirement::class,
+                    'document_requirement_id',
                 ),
             ],
             default => throw new InvalidArgumentException("Master-data usage is not defined for {$modelClass}."),

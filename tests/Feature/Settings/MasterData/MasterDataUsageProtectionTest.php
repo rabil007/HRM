@@ -9,11 +9,14 @@ use App\Models\Course;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Currency;
+use App\Models\DocumentRequirement;
+use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\Gender;
+use App\Models\Project;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
@@ -534,6 +537,179 @@ test('country referenced by candidate nationality cannot be deleted', function (
         ->delete("/settings/master-data/countries/{$country->id}")
         ->assertRedirect(route('settings.master-data.countries.index'))
         ->assertSessionHasErrors('record');
+});
+
+test('rank used by another company document requirement hides cross-tenant usage metadata', function () {
+    ['user' => $userA, 'company' => $companyA] = makeMasterDataUsageFixtures([
+        'settings.master-data.ranks.view',
+        'settings.master-data.ranks.delete',
+    ]);
+    $companyB = makeMasterDataUsageFixtures()['company'];
+
+    $this->actingAs($userA);
+
+    $rank = Rank::query()->create(['name' => 'Captain', 'is_active' => true]);
+    $documentType = DocumentType::query()->create(['title' => 'Passport Copy', 'is_active' => true]);
+
+    $requirement = DocumentRequirement::factory()
+        ->forCompany($companyB)
+        ->forDocumentType($documentType)
+        ->create();
+
+    $requirement->ranks()->attach($rank->id);
+
+    $this->get('/settings/master-data/ranks')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('ranks.0.id', $rank->id)
+            ->where('ranks.0.is_in_use', true)
+            ->where('ranks.0.can_delete', false)
+            ->where('ranks.0.usage_count', null)
+            ->where('ranks.0.usage_label', null));
+
+    $this->from(route('settings.master-data.ranks.index'))
+        ->delete("/settings/master-data/ranks/{$rank->id}")
+        ->assertRedirect(route('settings.master-data.ranks.index'))
+        ->assertSessionHasErrors('record');
+});
+
+test('rank used by active company document requirement exposes local usage metadata', function () {
+    ['user' => $user, 'company' => $company] = makeMasterDataUsageFixtures([
+        'settings.master-data.ranks.view',
+        'settings.master-data.ranks.delete',
+    ]);
+
+    $this->actingAs($user);
+
+    $rank = Rank::query()->create(['name' => 'Chief Engineer', 'is_active' => true]);
+    $documentType = DocumentType::query()->create(['title' => 'Medical Certificate', 'is_active' => true]);
+
+    $requirement = DocumentRequirement::factory()
+        ->forCompany($company)
+        ->forDocumentType($documentType)
+        ->create();
+
+    $requirement->ranks()->attach($rank->id);
+
+    $this->get('/settings/master-data/ranks')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('ranks.0.id', $rank->id)
+            ->where('ranks.0.is_in_use', true)
+            ->where('ranks.0.can_delete', false)
+            ->where('ranks.0.usage_count', 1)
+            ->where('ranks.0.usage_label', 'document requirements'));
+});
+
+test('project used by another company document requirement hides cross-tenant usage metadata', function () {
+    ['user' => $userA, 'company' => $companyA] = makeMasterDataUsageFixtures([
+        'settings.master-data.projects.view',
+        'settings.master-data.projects.delete',
+    ]);
+    $companyB = makeMasterDataUsageFixtures()['company'];
+
+    $this->actingAs($userA);
+
+    $project = Project::query()->create(['title' => 'ADNOC Project', 'is_active' => true]);
+    $documentType = DocumentType::query()->create(['title' => 'Site Induction', 'is_active' => true]);
+
+    $requirement = DocumentRequirement::factory()
+        ->forCompany($companyB)
+        ->forDocumentType($documentType)
+        ->create();
+
+    $requirement->projects()->attach($project->id);
+
+    $this->get('/settings/master-data/projects')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('projects.0.id', $project->id)
+            ->where('projects.0.is_in_use', true)
+            ->where('projects.0.can_delete', false)
+            ->where('projects.0.usage_count', null)
+            ->where('projects.0.usage_label', null));
+
+    $this->from(route('settings.master-data.projects.index'))
+        ->delete("/settings/master-data/projects/{$project->id}")
+        ->assertRedirect(route('settings.master-data.projects.index'))
+        ->assertSessionHasErrors('record');
+});
+
+test('project used by active company document requirement exposes local usage metadata', function () {
+    ['user' => $user, 'company' => $company] = makeMasterDataUsageFixtures([
+        'settings.master-data.projects.view',
+        'settings.master-data.projects.delete',
+    ]);
+
+    $this->actingAs($user);
+
+    $project = Project::query()->create(['title' => 'Local Project', 'is_active' => true]);
+    $documentType = DocumentType::query()->create(['title' => 'Project Clearance', 'is_active' => true]);
+
+    $requirement = DocumentRequirement::factory()
+        ->forCompany($company)
+        ->forDocumentType($documentType)
+        ->create();
+
+    $requirement->projects()->attach($project->id);
+
+    $this->get('/settings/master-data/projects')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('projects.0.id', $project->id)
+            ->where('projects.0.is_in_use', true)
+            ->where('projects.0.can_delete', false)
+            ->where('projects.0.usage_count', 1)
+            ->where('projects.0.usage_label', 'document requirements'));
+});
+
+test('tenant-scoped vessel usage metadata excludes foreign company references', function () {
+    ['user' => $userA, 'company' => $companyA] = makeMasterDataUsageFixtures([
+        'crew_operations.vessels.view',
+        'crew_operations.vessels.delete',
+    ]);
+    $other = makeMasterDataUsageFixtures();
+    $companyB = $other['company'];
+
+    $this->actingAs($userA);
+
+    $vesselType = VesselType::query()->create(['name' => 'Privacy OSV', 'is_active' => true]);
+    $vessel = Vessel::query()->create([
+        'company_id' => $companyA->id,
+        'name' => 'Scoped Privacy Vessel',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+    $rank = Rank::query()->create(['name' => 'Privacy Rank', 'is_active' => true]);
+
+    VesselManning::query()->create([
+        'company_id' => $companyA->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 1,
+    ]);
+
+    $employeeB = Employee::factory()->forCompany($companyB)->create(['status' => 'active', 'rank_id' => $rank->id]);
+
+    CrewAssignment::query()->create([
+        'company_id' => $companyB->id,
+        'assignment_no' => 'CA-FOREIGN-REF',
+        'employee_id' => $employeeB->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'status' => 'active',
+        'started_at' => now(),
+        'source' => 'manual',
+    ]);
+
+    $this->get(route('organization.vessels.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('vessels.0.id', $vessel->id)
+            ->where('vessels.0.is_in_use', true)
+            ->where('vessels.0.can_delete', false)
+            ->where('vessels.0.usage_count', 1)
+            ->where('vessels.0.usage_label', 'vessel manning'));
 });
 
 test('tenant-scoped vessel exposes usage metadata for the active company', function () {
