@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Settings\MasterData\Concerns;
 
+use App\Support\MasterData\MasterDataUsage;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 
 trait PaginatesMasterDataIndex
@@ -80,5 +82,48 @@ trait PaginatesMasterDataIndex
             'pagination' => $this->paginationMeta($paginator),
             'search' => $search,
         ];
+    }
+
+    /**
+     * @param  array{
+     *     items: list<mixed>,
+     *     pagination: array{
+     *         current_page: int,
+     *         last_page: int,
+     *         per_page: int,
+     *         total: int,
+     *         from: int|null,
+     *         to: int|null
+     *     },
+     *     search: string
+     * }  $page
+     * @param  class-string<Model>|null  $modelClass
+     * @return array{
+     *     items: list<mixed>,
+     *     pagination: array{
+     *         current_page: int,
+     *         last_page: int,
+     *         per_page: int,
+     *         total: int,
+     *         from: int|null,
+     *         to: int|null
+     *     },
+     *     search: string
+     * }
+     */
+    protected function withMasterDataUsage(
+        array $page,
+        string $deletePermission,
+        ?int $companyId = null,
+        ?string $modelClass = null,
+    ): array {
+        $page['items'] = MasterDataUsage::decorate(
+            $page['items'],
+            request()->user()?->can($deletePermission) ?? false,
+            $companyId,
+            $modelClass,
+        );
+
+        return $page;
     }
 }

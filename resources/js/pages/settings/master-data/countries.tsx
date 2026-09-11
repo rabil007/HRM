@@ -1,15 +1,18 @@
+import { MasterDataDeleteButton } from '@/components/settings/master-data-delete-button';
 import {
     MasterDataField,
     MasterDataFormSheet,
     MasterDataFormSheetFooter,
     masterDataInputClass,
 } from '@/components/settings/master-data-form-sheet';
+import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import { MasterDataListShell } from '@/components/settings/master-data-list-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useMasterDataCrud } from '@/hooks/use-master-data-crud';
+import type { MasterDataUsageFlags } from '@/lib/master-data/usage';
 import type { PaginationMeta } from '@/types/pagination';
 
 type Country = {
@@ -18,7 +21,7 @@ type Country = {
     name: string;
     dial_code: string | null;
     is_active: boolean;
-};
+} & MasterDataUsageFlags;
 
 type CountryFormData = {
     code: string;
@@ -101,8 +104,12 @@ export default function Countries({
             deleteOpen={deleteOpen}
             onDeleteOpenChange={setDeleteOpen}
             deleteTitle="Delete country"
-            deleteDescription="This will delete the country if it is not in use. If it is in use, it will be deactivated."
-            deleteConfirmText="Confirm"
+            deleteDescription={
+                current
+                    ? `This will permanently delete “${current.name}”.`
+                    : 'This will permanently delete this country.'
+            }
+            deleteConfirmText="Delete"
             onConfirmDelete={confirmDelete}
             sheet={
                 <MasterDataFormSheet
@@ -184,8 +191,9 @@ export default function Countries({
                     <div className="col-span-2 font-mono text-sm">
                         {country.code}
                     </div>
-                    <div className="col-span-4 truncate text-sm">
-                        {country.name}
+                    <div className="col-span-4 flex min-w-0 items-center gap-2 text-sm">
+                        <span className="truncate">{country.name}</span>
+                        <MasterDataInUseBadge item={country} />
                     </div>
                     <div className="col-span-2 text-sm text-muted-foreground">
                         {country.dial_code ?? '—'}
@@ -207,15 +215,11 @@ export default function Countries({
                                 Edit
                             </Button>
                         ) : null}
-                        {can.delete ? (
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => requestDelete(country)}
-                            >
-                                Delete
-                            </Button>
-                        ) : null}
+                        <MasterDataDeleteButton
+                            item={country}
+                            hasDeletePermission={can.delete}
+                            onDelete={() => requestDelete(country)}
+                        />
                     </div>
                 </div>
             ))}

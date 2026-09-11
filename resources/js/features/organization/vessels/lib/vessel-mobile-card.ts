@@ -11,6 +11,7 @@ export type VesselMobileCardModel = {
     attention: string | null;
     showEdit: boolean;
     showDelete: boolean;
+    deleteDisabled: boolean;
 };
 
 export function vesselMobileCardModel(
@@ -47,5 +48,10 @@ export function vesselMobileCardModel(
                   : null,
         showEdit: can.update,
         showDelete: can.delete,
+        deleteDisabled:
+            can.delete &&
+            (typeof vessel.can_delete === 'boolean'
+                ? !vessel.can_delete
+                : vessel.is_in_use === true),
     };
 }

@@ -15,6 +15,7 @@ use App\Support\EmployeeDocuments\DocumentRequirementFormOptions;
 use App\Support\EmployeeDocuments\DocumentRequirementPresenter;
 use App\Support\EmployeeDocuments\DocumentTypeDetailPresenter;
 use App\Support\EmployeeDocuments\DocumentTypeRecentActivityQuery;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -34,14 +35,18 @@ class DocumentTypeController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        $page = $this->paginateMasterDataIndex(
-            $request,
-            DocumentType::query()
-                ->orderBy('title')
-                ->with($this->requirementRelationsForCompany($companyId))
-                ->select(['id', 'title', 'is_active']),
-            ['title'],
-            fn (DocumentType $documentType) => $this->toIndexArray($documentType),
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                $request,
+                DocumentType::query()
+                    ->orderBy('title')
+                    ->with($this->requirementRelationsForCompany($companyId))
+                    ->select(['id', 'title', 'is_active']),
+                ['title'],
+                fn (DocumentType $documentType) => $this->toIndexArray($documentType),
+            ),
+            'settings.master-data.document-types.delete',
+            modelClass: DocumentType::class,
         );
 
         return Inertia::render('organization/documents/configuration/document-types', [
@@ -57,14 +62,18 @@ class DocumentTypeController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         $user = $request->user();
+        $canDeletePermission = $user?->can('settings.master-data.document-types.delete') ?? false;
 
         $documentType->load($this->requirementRelationsForCompany($companyId));
 
         return Inertia::render('organization/documents/configuration/document-type-show', [
-            'document_type' => DocumentTypeDetailPresenter::toArray($documentType, $companyId, $user),
+            'document_type' => [
+                ...DocumentTypeDetailPresenter::toArray($documentType, $companyId, $user),
+                ...MasterDataUsage::flagsFor($documentType, $canDeletePermission),
+            ],
             'can' => [
                 'update' => $user?->can('settings.master-data.document-types.update') ?? false,
-                'delete' => $user?->can('settings.master-data.document-types.delete') ?? false,
+                'delete' => $canDeletePermission,
             ],
             'recent_activity' => DocumentTypeRecentActivityQuery::for(
                 $user,
@@ -137,6 +146,10 @@ class DocumentTypeController extends Controller
 
     public function destroy(DocumentType $document_type): RedirectResponse
     {
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($document_type, 'organization.documents.configuration')) {
+            return $blocked;
+        }
+
         $document_type->delete();
 
         return $this->indexRedirect()->with('success', 'Document type deleted successfully.');
@@ -294,7 +307,13 @@ class DocumentTypeController extends Controller
             return null;
         }
 
-        return $this->toIndexArray($documentType);
+        return [
+            ...$this->toIndexArray($documentType),
+            ...MasterDataUsage::flagsFor(
+                $documentType,
+                $request->user()?->can('settings.master-data.document-types.delete') ?? false,
+            ),
+        ];
     }
 
     /**

@@ -7,6 +7,7 @@ use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreCountryRequest;
 use App\Http\Requests\Settings\MasterData\UpdateCountryRequest;
 use App\Models\Country;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
@@ -16,12 +17,15 @@ class CountryController extends Controller
 
     public function index()
     {
-        $page = $this->paginateMasterDataIndex(
-            request(),
-            Country::query()
-                ->orderBy('name')
-                ->select(['id', 'code', 'name', 'dial_code', 'is_active']),
-            ['code', 'name', 'dial_code'],
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                request(),
+                Country::query()
+                    ->orderBy('name')
+                    ->select(['id', 'code', 'name', 'dial_code', 'is_active']),
+                ['code', 'name', 'dial_code'],
+            ),
+            'settings.master-data.countries.delete',
         );
 
         return Inertia::render('settings/master-data/countries', [
@@ -54,10 +58,8 @@ class CountryController extends Controller
 
     public function destroy(Country $country)
     {
-        if ($country->companies()->exists()) {
-            $country->update(['is_active' => false]);
-
-            return redirect()->route('settings.master-data.countries.index');
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($country, 'settings.master-data.countries.index')) {
+            return $blocked;
         }
 
         $country->delete();

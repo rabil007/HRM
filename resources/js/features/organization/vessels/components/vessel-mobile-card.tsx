@@ -29,12 +29,16 @@ export function VesselMobileCard({
         });
     }
 
-    if (model.showDelete && onDelete) {
+    if (model.showDelete) {
         overflowActions.push({
             key: 'delete',
             label: 'Delete',
             destructive: true,
-            onSelect: () => onDelete(vessel),
+            disabled: model.deleteDisabled,
+            onSelect:
+                model.deleteDisabled || !onDelete
+                    ? undefined
+                    : () => onDelete(vessel),
         });
     }
 

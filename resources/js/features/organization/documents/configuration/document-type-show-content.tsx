@@ -7,6 +7,7 @@ import {
     update as updateDocumentType,
 } from '@/actions/App/Http/Controllers/Settings/MasterData/DocumentTypeController';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
+import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
@@ -20,6 +21,11 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { DocumentTypeFormSheet } from '@/features/organization/documents/configuration/document-type-form-sheet';
 import {
     documentTypeToRow,
@@ -33,6 +39,10 @@ import type {
     RankOption,
 } from '@/features/organization/documents/configuration/types';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
+import {
+    MASTER_DATA_DELETE_BLOCKED_MESSAGE,
+    masterDataCanDelete,
+} from '@/lib/master-data/usage';
 import { documents as documentsOverview } from '@/routes/organization';
 import { configuration as documentsConfiguration } from '@/routes/organization/documents';
 
@@ -115,6 +125,7 @@ export function DocumentTypeShowContent({
 
     const row = documentTypeToRow(documentType);
     const form = useForm(requirementToFormData(row, { redirectToShow: true }));
+    const canDeleteRecord = masterDataCanDelete(documentType, can.delete);
 
     const openEdit = () => {
         form.reset();
@@ -190,13 +201,31 @@ export function DocumentTypeShowContent({
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <DropdownMenuItem
-                                        className="text-destructive focus:text-destructive"
-                                        onClick={() => setDeleteOpen(true)}
-                                    >
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        Delete
-                                    </DropdownMenuItem>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span className="inline-flex w-full">
+                                                <DropdownMenuItem
+                                                    className="text-destructive focus:text-destructive"
+                                                    disabled={!canDeleteRecord}
+                                                    onClick={() => {
+                                                        if (canDeleteRecord) {
+                                                            setDeleteOpen(true);
+                                                        }
+                                                    }}
+                                                >
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    Delete
+                                                </DropdownMenuItem>
+                                            </span>
+                                        </TooltipTrigger>
+                                        {!canDeleteRecord ? (
+                                            <TooltipContent>
+                                                {
+                                                    MASTER_DATA_DELETE_BLOCKED_MESSAGE
+                                                }
+                                            </TooltipContent>
+                                        ) : null}
+                                    </Tooltip>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : null}
@@ -216,6 +245,7 @@ export function DocumentTypeShowContent({
                 >
                     {requirement.requirement_label}
                 </Badge>
+                <MasterDataInUseBadge item={documentType} />
             </div>
 
             <div className="grid gap-6 lg:grid-cols-3">

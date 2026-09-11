@@ -1,15 +1,18 @@
+import { MasterDataDeleteButton } from '@/components/settings/master-data-delete-button';
 import {
     MasterDataField,
     MasterDataFormSheet,
     MasterDataFormSheetFooter,
     masterDataInputClass,
 } from '@/components/settings/master-data-form-sheet';
+import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import { MasterDataListShell } from '@/components/settings/master-data-list-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useMasterDataCrud } from '@/hooks/use-master-data-crud';
+import type { MasterDataUsageFlags } from '@/lib/master-data/usage';
 import type { PaginationMeta } from '@/types/pagination';
 
 type Currency = {
@@ -18,7 +21,7 @@ type Currency = {
     name: string;
     symbol: string | null;
     is_active: boolean;
-};
+} & MasterDataUsageFlags;
 
 type CurrencyFormData = {
     code: string;
@@ -101,8 +104,12 @@ export default function Currencies({
             deleteOpen={deleteOpen}
             onDeleteOpenChange={setDeleteOpen}
             deleteTitle="Delete currency"
-            deleteDescription="This will delete the currency if it is not in use. If it is in use, it will be deactivated."
-            deleteConfirmText="Confirm"
+            deleteDescription={
+                current
+                    ? `This will permanently delete “${current.name}”.`
+                    : 'This will permanently delete this currency.'
+            }
+            deleteConfirmText="Delete"
             onConfirmDelete={confirmDelete}
             sheet={
                 <MasterDataFormSheet
@@ -184,8 +191,9 @@ export default function Currencies({
                     <div className="col-span-2 font-mono text-sm">
                         {currency.code}
                     </div>
-                    <div className="col-span-5 truncate text-sm">
-                        {currency.name}
+                    <div className="col-span-5 flex min-w-0 items-center gap-2 text-sm">
+                        <span className="truncate">{currency.name}</span>
+                        <MasterDataInUseBadge item={currency} />
                     </div>
                     <div className="col-span-2 text-sm text-muted-foreground">
                         {currency.symbol ?? '—'}
@@ -207,15 +215,11 @@ export default function Currencies({
                                 Edit
                             </Button>
                         ) : null}
-                        {can.delete ? (
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => requestDelete(currency)}
-                            >
-                                Delete
-                            </Button>
-                        ) : null}
+                        <MasterDataDeleteButton
+                            item={currency}
+                            hasDeletePermission={can.delete}
+                            onDelete={() => requestDelete(currency)}
+                        />
                     </div>
                 </div>
             ))}

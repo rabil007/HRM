@@ -8,6 +8,7 @@ use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreSssaOptionRequest;
 use App\Http\Requests\Settings\MasterData\UpdateSssaOptionRequest;
 use App\Models\SssaOption;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -19,12 +20,15 @@ class SssaOptionController extends Controller
 
     public function index()
     {
-        $page = $this->paginateMasterDataIndex(
-            request(),
-            SssaOption::query()
-                ->orderBy('name')
-                ->select(['id', 'name', 'is_active']),
-            ['name'],
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                request(),
+                SssaOption::query()
+                    ->orderBy('name')
+                    ->select(['id', 'name', 'is_active']),
+                ['name'],
+            ),
+            'settings.master-data.sssa-options.delete',
         );
 
         return Inertia::render('settings/master-data/sssa-options', [
@@ -56,6 +60,10 @@ class SssaOptionController extends Controller
 
     public function destroy(SssaOption $sssaOption)
     {
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($sssaOption, 'settings.master-data.sssa-options.index')) {
+            return $blocked;
+        }
+
         $sssaOption->delete();
 
         return redirect()->route('settings.master-data.sssa-options.index');

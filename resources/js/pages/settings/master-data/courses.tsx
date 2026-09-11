@@ -10,6 +10,8 @@ import {
 import { useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
 import Heading from '@/components/heading';
+import { MasterDataDeleteButton } from '@/components/settings/master-data-delete-button';
+import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import { Pagination } from '@/components/pagination';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -47,6 +49,7 @@ import {
     firstValidationError,
     hasFlashSuccess,
 } from '@/lib/first-validation-error';
+import type { MasterDataUsageFlags } from '@/lib/master-data/usage';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -54,7 +57,7 @@ type Course = {
     id: number;
     name: string;
     is_active: boolean;
-};
+} & MasterDataUsageFlags;
 
 export default function Courses({
     courses,
@@ -311,8 +314,11 @@ export default function Courses({
                                     key={c.id}
                                     className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
                                 >
-                                    <div className="col-span-7 truncate text-sm">
-                                        {c.name}
+                                    <div className="col-span-7 flex min-w-0 items-center gap-2 text-sm">
+                                        <span className="truncate">
+                                            {c.name}
+                                        </span>
+                                        <MasterDataInUseBadge item={c} />
                                     </div>
                                     <div className="col-span-2 flex items-center">
                                         <Switch
@@ -333,15 +339,11 @@ export default function Courses({
                                                 Edit
                                             </Button>
                                         ) : null}
-                                        {can.delete ? (
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={() => requestDelete(c)}
-                                            >
-                                                Delete
-                                            </Button>
-                                        ) : null}
+                                        <MasterDataDeleteButton
+                                            item={c}
+                                            hasDeletePermission={can.delete}
+                                            onDelete={() => requestDelete(c)}
+                                        />
                                     </div>
                                 </div>
                             ))}

@@ -9,7 +9,7 @@ use App\Http\Requests\Settings\MasterData\StoreBankRequest;
 use App\Http\Requests\Settings\MasterData\UpdateBankRequest;
 use App\Models\Bank;
 use App\Models\Country;
-use App\Support\Payroll\PayrollRecordLinkage;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -25,19 +25,22 @@ class BankController extends Controller
             ->orderBy('name')
             ->get(['id', 'code', 'name']);
 
-        $page = $this->paginateMasterDataIndex(
-            request(),
-            Bank::query()
-                ->with(['country:id,name,code'])
-                ->orderBy('name')
-                ->select([
-                    'id',
-                    'name',
-                    'uae_routing_code_agent_id',
-                    'country_id',
-                    'is_active',
-                ]),
-            ['name', 'uae_routing_code_agent_id', 'country.name', 'country.code'],
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                request(),
+                Bank::query()
+                    ->with(['country:id,name,code'])
+                    ->orderBy('name')
+                    ->select([
+                        'id',
+                        'name',
+                        'uae_routing_code_agent_id',
+                        'country_id',
+                        'is_active',
+                    ]),
+                ['name', 'uae_routing_code_agent_id', 'country.name', 'country.code'],
+            ),
+            'settings.master-data.banks.delete',
         );
 
         return Inertia::render('settings/master-data/banks', [
@@ -72,12 +75,8 @@ class BankController extends Controller
 
     public function destroy(Bank $bank)
     {
-        if (PayrollRecordLinkage::bankHasRecords((int) $bank->id)) {
-            return redirect()
-                ->route('settings.master-data.banks.index')
-                ->withErrors([
-                    'bank' => 'This bank cannot be deleted because it is used on pay run records.',
-                ]);
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($bank, 'settings.master-data.banks.index')) {
+            return $blocked;
         }
 
         $bank->delete();

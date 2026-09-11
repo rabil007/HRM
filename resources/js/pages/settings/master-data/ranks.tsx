@@ -10,6 +10,8 @@ import {
 import { useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
 import Heading from '@/components/heading';
+import { MasterDataDeleteButton } from '@/components/settings/master-data-delete-button';
+import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import { Pagination } from '@/components/pagination';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -47,6 +49,7 @@ import {
     firstValidationError,
     hasFlashSuccess,
 } from '@/lib/first-validation-error';
+import type { MasterDataUsageFlags } from '@/lib/master-data/usage';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -55,7 +58,7 @@ type Rank = {
     name: string;
     is_active: boolean;
     max_tour_of_duty_days: number | null;
-};
+} & MasterDataUsageFlags;
 
 export default function Ranks({
     ranks,
@@ -317,8 +320,11 @@ export default function Ranks({
                                     key={v.id}
                                     className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
                                 >
-                                    <div className="col-span-5 truncate text-sm">
-                                        {v.name}
+                                    <div className="col-span-5 flex min-w-0 items-center gap-2 text-sm">
+                                        <span className="truncate">
+                                            {v.name}
+                                        </span>
+                                        <MasterDataInUseBadge item={v} />
                                     </div>
                                     <div className="col-span-3 text-sm text-muted-foreground">
                                         {v.max_tour_of_duty_days != null ? (
@@ -350,15 +356,11 @@ export default function Ranks({
                                                 Edit
                                             </Button>
                                         ) : null}
-                                        {can.delete ? (
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={() => requestDelete(v)}
-                                            >
-                                                Delete
-                                            </Button>
-                                        ) : null}
+                                        <MasterDataDeleteButton
+                                            item={v}
+                                            hasDeletePermission={can.delete}
+                                            onDelete={() => requestDelete(v)}
+                                        />
                                     </div>
                                 </div>
                             ))}

@@ -8,6 +8,7 @@ use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreReligionRequest;
 use App\Http\Requests\Settings\MasterData\UpdateReligionRequest;
 use App\Models\Religion;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -19,12 +20,15 @@ class ReligionController extends Controller
 
     public function index()
     {
-        $page = $this->paginateMasterDataIndex(
-            request(),
-            Religion::query()
-                ->orderBy('name')
-                ->select(['id', 'name', 'is_active']),
-            ['name'],
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                request(),
+                Religion::query()
+                    ->orderBy('name')
+                    ->select(['id', 'name', 'is_active']),
+                ['name'],
+            ),
+            'settings.master-data.religions.delete',
         );
 
         return Inertia::render('settings/master-data/religions', [
@@ -58,6 +62,10 @@ class ReligionController extends Controller
 
     public function destroy(Religion $religion)
     {
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($religion, 'settings.master-data.religions.index')) {
+            return $blocked;
+        }
+
         $religion->delete();
 
         return redirect()->route('settings.master-data.religions.index');

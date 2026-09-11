@@ -197,7 +197,7 @@ test('cannot delete vessel type used on employee sea service records', function 
     $this->from(route('settings.master-data.vessel-types.index'))
         ->delete("/settings/master-data/vessel-types/{$vesselType->id}")
         ->assertRedirect(route('settings.master-data.vessel-types.index'))
-        ->assertSessionHasErrors('name');
+        ->assertSessionHasErrors('record');
 
     expect(VesselType::query()->whereKey($vesselType->id)->exists())->toBeTrue();
 });
@@ -251,7 +251,7 @@ test('cannot delete vessel type used by vessels in master data', function () {
     $this->from(route('settings.master-data.vessel-types.index'))
         ->delete("/settings/master-data/vessel-types/{$vesselType->id}")
         ->assertRedirect(route('settings.master-data.vessel-types.index'))
-        ->assertSessionHasErrors('name');
+        ->assertSessionHasErrors('record');
 
     expect(VesselType::query()->whereKey($vesselType->id)->exists())->toBeTrue();
 });

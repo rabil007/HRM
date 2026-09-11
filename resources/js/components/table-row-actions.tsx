@@ -1,6 +1,11 @@
 import type { LucideIcon } from 'lucide-react';
 import type { MouseEvent, ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 export type TableRowActionItem = {
@@ -12,6 +17,8 @@ export type TableRowActionItem = {
     rel?: string;
     variant?: 'default' | 'primary' | 'danger' | 'success';
     hidden?: boolean;
+    disabled?: boolean;
+    disabledTitle?: string;
 };
 
 function ghostIconClass(variant?: TableRowActionItem['variant']): string {
@@ -56,8 +63,11 @@ export function TableRowActions({
             {visible.map((action) => {
                 const Icon = action.icon;
                 const iconTint = ghostIconClass(action.variant);
+                const title = action.disabled
+                    ? (action.disabledTitle ?? action.label)
+                    : action.label;
 
-                if (action.href) {
+                if (action.href && !action.disabled) {
                     return (
                         <Button
                             key={action.label}
@@ -70,7 +80,7 @@ export function TableRowActions({
                                 href={action.href}
                                 target={action.target ?? undefined}
                                 rel={action.rel}
-                                title={action.label}
+                                title={title}
                                 aria-label={action.label}
                             >
                                 <Icon className="size-4" />
@@ -79,19 +89,38 @@ export function TableRowActions({
                     );
                 }
 
-                return (
+                const button = (
                     <Button
-                        key={action.label}
                         type="button"
                         variant="ghost"
                         size="icon"
                         className={iconTint}
-                        title={action.label}
+                        title={title}
                         aria-label={action.label}
-                        onClick={action.onClick}
+                        disabled={action.disabled}
+                        onClick={action.disabled ? undefined : action.onClick}
                     >
                         <Icon className="size-4" />
                     </Button>
+                );
+
+                if (action.disabled && action.disabledTitle) {
+                    return (
+                        <Tooltip key={action.label}>
+                            <TooltipTrigger asChild>
+                                <span className="inline-flex">{button}</span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                {action.disabledTitle}
+                            </TooltipContent>
+                        </Tooltip>
+                    );
+                }
+
+                return (
+                    <span key={action.label} className="inline-flex">
+                        {button}
+                    </span>
                 );
             })}
         </div>

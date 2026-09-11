@@ -7,6 +7,7 @@ use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreCurrencyRequest;
 use App\Http\Requests\Settings\MasterData\UpdateCurrencyRequest;
 use App\Models\Currency;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
@@ -16,12 +17,15 @@ class CurrencyController extends Controller
 
     public function index()
     {
-        $page = $this->paginateMasterDataIndex(
-            request(),
-            Currency::query()
-                ->orderBy('code')
-                ->select(['id', 'code', 'name', 'symbol', 'is_active']),
-            ['code', 'name', 'symbol'],
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                request(),
+                Currency::query()
+                    ->orderBy('code')
+                    ->select(['id', 'code', 'name', 'symbol', 'is_active']),
+                ['code', 'name', 'symbol'],
+            ),
+            'settings.master-data.currencies.delete',
         );
 
         return Inertia::render('settings/master-data/currencies', [
@@ -54,10 +58,8 @@ class CurrencyController extends Controller
 
     public function destroy(Currency $currency)
     {
-        if ($currency->companies()->exists()) {
-            $currency->update(['is_active' => false]);
-
-            return redirect()->route('settings.master-data.currencies.index');
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($currency, 'settings.master-data.currencies.index')) {
+            return $blocked;
         }
 
         $currency->delete();

@@ -7,6 +7,7 @@ import {
     update as updateDocumentType,
 } from '@/actions/App/Http/Controllers/Settings/MasterData/DocumentTypeController';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
+import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import {
     DataTableHead,
     DataTableHeaderRow,
@@ -53,6 +54,11 @@ import type {
     RankOption,
 } from '@/features/organization/documents/configuration/types';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
+import {
+    MASTER_DATA_DELETE_BLOCKED_MESSAGE,
+    masterDataCanDelete,
+    masterDataIsInUse,
+} from '@/lib/master-data/usage';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { cn } from '@/lib/utils';
 import { configuration as documentsConfiguration } from '@/routes/organization/documents';
@@ -289,18 +295,33 @@ export function DocumentTypesContent({
                                 }
 
                                 if (can.delete) {
+                                    const deleteDisabled = !masterDataCanDelete(
+                                        documentType,
+                                        can.delete,
+                                    );
+
                                     overflowActions.push({
                                         key: 'delete',
                                         label: 'Delete',
                                         destructive: true,
-                                        onSelect: () =>
-                                            requestDelete(documentType),
+                                        disabled: deleteDisabled,
+                                        onSelect: deleteDisabled
+                                            ? undefined
+                                            : () => requestDelete(documentType),
                                     });
                                 }
 
                                 return (
                                     <MobileRecordCard
                                         key={documentType.id}
+                                        leading={
+                                            masterDataIsInUse(documentType) ? (
+                                                <MasterDataInUseBadge
+                                                    item={documentType}
+                                                    className="mt-1"
+                                                />
+                                            ) : undefined
+                                        }
                                         title={documentType.title}
                                         subtitle={
                                             isRequired ? 'Required' : 'Optional'
@@ -372,7 +393,14 @@ export function DocumentTypesContent({
                                             <TableCell
                                                 className={dataTableCellPrimaryClass()}
                                             >
-                                                {documentType.title}
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <span className="truncate">
+                                                        {documentType.title}
+                                                    </span>
+                                                    <MasterDataInUseBadge
+                                                        item={documentType}
+                                                    />
+                                                </div>
                                             </TableCell>
                                             <TableCell
                                                 className={dataTableCellClass()}
@@ -464,10 +492,26 @@ export function DocumentTypesContent({
                                                     onEdit={() =>
                                                         openEdit(documentType)
                                                     }
-                                                    onDelete={() =>
-                                                        requestDelete(
+                                                    onDelete={
+                                                        masterDataCanDelete(
                                                             documentType,
+                                                            can.delete,
                                                         )
+                                                            ? () =>
+                                                                  requestDelete(
+                                                                      documentType,
+                                                                  )
+                                                            : undefined
+                                                    }
+                                                    deleteDisabled={
+                                                        can.delete &&
+                                                        !masterDataCanDelete(
+                                                            documentType,
+                                                            can.delete,
+                                                        )
+                                                    }
+                                                    deleteDisabledTitle={
+                                                        MASTER_DATA_DELETE_BLOCKED_MESSAGE
                                                     }
                                                 />
                                             </TableCell>

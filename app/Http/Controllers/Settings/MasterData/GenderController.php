@@ -8,6 +8,7 @@ use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreGenderRequest;
 use App\Http\Requests\Settings\MasterData\UpdateGenderRequest;
 use App\Models\Gender;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -19,11 +20,14 @@ class GenderController extends Controller
 
     public function index()
     {
-        $page = $this->paginateMasterDataIndex(
-            request(),
-            Gender::query()
-                ->orderBy('name')
-                ->select(['id', 'name', 'is_active']),
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                request(),
+                Gender::query()
+                    ->orderBy('name')
+                    ->select(['id', 'name', 'is_active']),
+            ),
+            'settings.master-data.genders.delete',
         );
 
         return Inertia::render('settings/master-data/genders', [
@@ -57,6 +61,10 @@ class GenderController extends Controller
 
     public function destroy(Gender $gender)
     {
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($gender, 'settings.master-data.genders.index')) {
+            return $blocked;
+        }
+
         $gender->delete();
 
         return redirect()->route('settings.master-data.genders.index');

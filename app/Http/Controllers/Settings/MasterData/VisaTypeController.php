@@ -8,6 +8,7 @@ use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreVisaTypeRequest;
 use App\Http\Requests\Settings\MasterData\UpdateVisaTypeRequest;
 use App\Models\VisaType;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -19,12 +20,15 @@ class VisaTypeController extends Controller
 
     public function index()
     {
-        $page = $this->paginateMasterDataIndex(
-            request(),
-            VisaType::query()
-                ->orderBy('name')
-                ->select(['id', 'name', 'is_active']),
-            ['name'],
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                request(),
+                VisaType::query()
+                    ->orderBy('name')
+                    ->select(['id', 'name', 'is_active']),
+                ['name'],
+            ),
+            'settings.master-data.visa-types.delete',
         );
 
         return Inertia::render('settings/master-data/visa-types', [
@@ -58,6 +62,10 @@ class VisaTypeController extends Controller
 
     public function destroy(VisaType $visaType)
     {
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($visaType, 'settings.master-data.visa-types.index')) {
+            return $blocked;
+        }
+
         $visaType->delete();
 
         return redirect()->route('settings.master-data.visa-types.index');

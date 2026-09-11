@@ -280,7 +280,7 @@ test('deleting a vessel is blocked when referenced by sea service or crew assign
         ->from(route('organization.vessels.index'))
         ->delete(route('organization.vessels.destroy', $seaServiceVessel))
         ->assertRedirect(route('organization.vessels.index'))
-        ->assertSessionHasErrors('name');
+        ->assertSessionHasErrors('record');
 
     expect(Vessel::query()->find($seaServiceVessel->id))->not->toBeNull();
 
@@ -297,7 +297,7 @@ test('deleting a vessel is blocked when referenced by sea service or crew assign
         ->from(route('organization.vessels.index'))
         ->delete(route('organization.vessels.destroy', $assignmentVessel))
         ->assertRedirect(route('organization.vessels.index'))
-        ->assertSessionHasErrors('name');
+        ->assertSessionHasErrors('record');
 
     expect(Vessel::query()->find($assignmentVessel->id))->not->toBeNull();
     expect(CrewAssignment::query()->where('vessel_id', $assignmentVessel->id)->exists())->toBeTrue();

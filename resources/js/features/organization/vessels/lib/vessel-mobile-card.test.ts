@@ -46,6 +46,7 @@ describe('vesselMobileCardModel', () => {
         assert.equal(model.attention, null);
         assert.equal(model.showEdit, false);
         assert.equal(model.showDelete, false);
+        assert.equal(model.deleteDisabled, false);
     });
 
     it('does not put certificate files on the card model', () => {
@@ -79,6 +80,17 @@ describe('vesselMobileCardModel', () => {
         assert.equal(viewOnly.showDelete, false);
         assert.equal(updater.showEdit, true);
         assert.equal(deleter.showDelete, true);
+        assert.equal(deleter.deleteDisabled, false);
+    });
+
+    it('disables delete when the vessel is in use', () => {
+        const model = vesselMobileCardModel(
+            vessel({ is_in_use: true, can_delete: false }),
+            { update: false, delete: true },
+        );
+
+        assert.equal(model.showDelete, true);
+        assert.equal(model.deleteDisabled, true);
     });
 
     it('flags vessels without manning', () => {

@@ -8,6 +8,7 @@ use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreApprovalLocationRequest;
 use App\Http\Requests\Settings\MasterData\UpdateApprovalLocationRequest;
 use App\Models\ApprovalLocation;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -19,12 +20,15 @@ class ApprovalLocationController extends Controller
 
     public function index()
     {
-        $page = $this->paginateMasterDataIndex(
-            request(),
-            ApprovalLocation::query()
-                ->orderBy('name')
-                ->select(['id', 'name', 'is_active']),
-            ['name'],
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                request(),
+                ApprovalLocation::query()
+                    ->orderBy('name')
+                    ->select(['id', 'name', 'is_active']),
+                ['name'],
+            ),
+            'settings.master-data.approval-locations.delete',
         );
 
         return Inertia::render('settings/master-data/approval-locations', [
@@ -56,6 +60,10 @@ class ApprovalLocationController extends Controller
 
     public function destroy(ApprovalLocation $approvalLocation)
     {
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($approvalLocation, 'settings.master-data.approval-locations.index')) {
+            return $blocked;
+        }
+
         $approvalLocation->delete();
 
         return redirect()->route('settings.master-data.approval-locations.index');

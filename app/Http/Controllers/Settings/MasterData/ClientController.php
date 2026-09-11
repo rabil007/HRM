@@ -9,6 +9,7 @@ use App\Http\Requests\Settings\MasterData\ImportClientsRequest;
 use App\Http\Requests\Settings\MasterData\StoreClientRequest;
 use App\Http\Requests\Settings\MasterData\UpdateClientRequest;
 use App\Models\Client;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
@@ -22,12 +23,15 @@ class ClientController extends Controller
 
     public function index(): InertiaResponse
     {
-        $page = $this->paginateMasterDataIndex(
-            request(),
-            Client::query()
-                ->orderBy('name')
-                ->select(['id', 'name', 'is_active']),
-            ['name'],
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                request(),
+                Client::query()
+                    ->orderBy('name')
+                    ->select(['id', 'name', 'is_active']),
+                ['name'],
+            ),
+            'settings.master-data.clients.delete',
         );
 
         return Inertia::render('settings/master-data/clients', [
@@ -59,6 +63,10 @@ class ClientController extends Controller
 
     public function destroy(Client $client): RedirectResponse
     {
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($client, 'settings.master-data.clients.index')) {
+            return $blocked;
+        }
+
         $client->delete();
 
         return redirect()->route('settings.master-data.clients.index');

@@ -1,3 +1,5 @@
+import type { MasterDataUsageFlags } from '@/lib/master-data/usage';
+
 export type VesselTypeOption = {
     id: number;
     name: string;
@@ -28,7 +30,7 @@ export type VesselRow = {
     total_required: number;
     ranks_configured: number;
     manning_health?: VesselManningHealthCompact | null;
-};
+} & MasterDataUsageFlags;
 
 export type VesselDetails = VesselRow & {
     created_at: string | null;

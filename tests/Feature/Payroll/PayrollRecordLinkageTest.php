@@ -90,7 +90,7 @@ test('banks linked to pay runs cannot be deleted', function () {
     $this->withSession(['current_company_id' => $company->id])
         ->delete(route('settings.master-data.banks.destroy', $bank))
         ->assertRedirect(route('settings.master-data.banks.index'))
-        ->assertSessionHasErrors('bank');
+        ->assertSessionHasErrors('record');
 
     $this->assertDatabaseHas('banks', ['id' => $bank->id, 'deleted_at' => null]);
 });

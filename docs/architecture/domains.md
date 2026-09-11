@@ -895,6 +895,17 @@ Manage security and appearance preferences, application/email/integration config
 - `settings.integrations.whatsapp.*`, `settings.integrations.hikvision.*`, and template permissions
 - `settings.master-data.{resource}.view|create|update|delete`
 
+### Usage protection (“In use”)
+
+Master-data catalogs and company vessels block deletion when a record is still referenced by live (non-soft-deleted) data.
+
+- Index/list payloads include `is_in_use`, `can_delete`, optional `usage_count` / `usage_label` from `App\Support\MasterData\MasterDataUsage` (not computed client-side).
+- UI shows a small **In use** badge beside the name and keeps Delete visible but disabled with an explanation.
+- `destroy` actions call `MasterDataUsage::assertDeletable()` and return a validation error such as `“Captain” cannot be deleted because it is used by vessel manning.`
+- Soft-deleted historical rows do not block deletion unless the FK must remain for required live integrity.
+- Global masters (countries, ranks, banks, …) check references across companies; tenant-owned vessels scope usage to `current_company_id`.
+- Document Types use the same protection on Documents → Configuration; vessels use Crew Operations vessel permissions.
+
 Integration secrets are server-side values. Inertia props expose masked placeholders and `has_*` flags, never decrypted credentials.
 
 ---

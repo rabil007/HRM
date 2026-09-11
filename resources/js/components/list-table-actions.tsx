@@ -11,6 +11,8 @@ type ListTableCrudActionsProps = {
     showView?: boolean;
     showEdit?: boolean;
     showDelete?: boolean;
+    deleteDisabled?: boolean;
+    deleteDisabledTitle?: string;
 };
 
 /** Standard View / Edit / Delete row actions (ghost icon buttons — matches employee record tabs). */
@@ -22,6 +24,8 @@ export function ListTableCrudActions({
     showView = true,
     showEdit = true,
     showDelete = true,
+    deleteDisabled = false,
+    deleteDisabledTitle,
 }: ListTableCrudActionsProps) {
     const actions: TableRowActionItem[] = [
         {
@@ -42,7 +46,9 @@ export function ListTableCrudActions({
             icon: Trash2,
             variant: 'danger',
             onClick: onDelete,
-            hidden: !showDelete || !onDelete,
+            hidden: !showDelete || (!onDelete && !deleteDisabled),
+            disabled: deleteDisabled,
+            disabledTitle: deleteDisabledTitle,
         },
     ];
 

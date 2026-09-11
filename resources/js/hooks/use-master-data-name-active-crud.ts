@@ -2,13 +2,14 @@ import type { InertiaFormProps } from '@inertiajs/react';
 import { router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
+import type { MasterDataUsageFlags } from '@/lib/master-data/usage';
 import type { PaginationMeta } from '@/types/pagination';
 
 export type MasterDataNameActiveItem = {
     id: number;
     name: string;
     is_active: boolean;
-};
+} & MasterDataUsageFlags;
 
 export type MasterDataNameActiveFormData = {
     name: string;

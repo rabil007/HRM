@@ -1,3 +1,5 @@
+import type { MasterDataUsageFlags } from '@/lib/master-data/usage';
+
 export type DocumentRequirementPayload = {
     is_required: boolean;
     required_for_all: boolean;
@@ -46,14 +48,14 @@ export type DocumentTypeDetail = {
     status_label: string;
     requirement: DocumentTypeDetailRequirement;
     compliance_links: DocumentTypeComplianceLink[];
-};
+} & MasterDataUsageFlags;
 
 export type DocumentTypeRow = {
     id: number;
     title: string;
     is_active: boolean;
     requirement: DocumentRequirementPayload;
-};
+} & MasterDataUsageFlags;
 
 export type DepartmentOption = {
     id: number;
@@ -153,7 +155,8 @@ export function documentTypeToRow(
     documentType: Pick<
         DocumentTypeDetail,
         'id' | 'title' | 'is_active' | 'requirement'
-    >,
+    > &
+        MasterDataUsageFlags,
 ): DocumentTypeRow {
     const requirement = documentType.requirement;
 
@@ -173,6 +176,10 @@ export function documentTypeToRow(
             require_document_number: requirement.require_document_number,
             label: requirement.label,
         },
+        is_in_use: documentType.is_in_use,
+        can_delete: documentType.can_delete,
+        usage_count: documentType.usage_count,
+        usage_label: documentType.usage_label,
     };
 }
 

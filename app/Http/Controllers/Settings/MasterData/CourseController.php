@@ -9,6 +9,7 @@ use App\Http\Requests\Settings\MasterData\ImportCoursesRequest;
 use App\Http\Requests\Settings\MasterData\StoreCourseRequest;
 use App\Http\Requests\Settings\MasterData\UpdateCourseRequest;
 use App\Models\Course;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
@@ -22,12 +23,15 @@ class CourseController extends Controller
 
     public function index(): InertiaResponse
     {
-        $page = $this->paginateMasterDataIndex(
-            request(),
-            Course::query()
-                ->orderBy('name')
-                ->select(['id', 'name', 'is_active']),
-            ['name'],
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                request(),
+                Course::query()
+                    ->orderBy('name')
+                    ->select(['id', 'name', 'is_active']),
+                ['name'],
+            ),
+            'settings.master-data.courses.delete',
         );
 
         return Inertia::render('settings/master-data/courses', [
@@ -59,6 +63,10 @@ class CourseController extends Controller
 
     public function destroy(Course $course): RedirectResponse
     {
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($course, 'settings.master-data.courses.index')) {
+            return $blocked;
+        }
+
         $course->delete();
 
         return redirect()->route('settings.master-data.courses.index');

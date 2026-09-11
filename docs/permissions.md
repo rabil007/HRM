@@ -164,7 +164,7 @@ Tenant-specific configurations are scoped to `current_company_id` and use Spatie
 - **Company Document Library**: Membership-based document storage (`company_documents.*`).
 - **Hikvision Access Control Integration** (`/settings/integrations/hikvision`): Per-company device endpoints, OpenAPI credentials, and sync settings (`settings.integrations.hikvision.view|update`, `hikvision.webhook.manage`, `hikvision.devices.sync`).
 - **Security & Appearance**: Tenant security settings (`settings.security.view|update`) and visual theme overrides (`settings.appearance.view|update`).
-- **Master Data**: Tenant-managed dictionaries (`settings.master-data.{resource}.view|create|update|delete`). Document Types use these same permissions but are managed at **Documents → Configuration → Document Types**; `/settings/master-data/document-types` redirects there.
+- **Master Data**: Tenant-managed dictionaries (`settings.master-data.{resource}.view|create|update|delete`). Document Types use these same permissions but are managed at **Documents → Configuration → Document Types**; `/settings/master-data/document-types` redirects there. Records referenced by live data expose `is_in_use` / `can_delete` and cannot be deleted (UI disabled + backend `MasterDataUsage` guard). See [domains.md](architecture/domains.md#usage-protection-in-use).
 
 ### Ownership Matrix
 

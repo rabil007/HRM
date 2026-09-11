@@ -35,6 +35,7 @@ import {
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
 import { ListTableCrudActions } from '@/components/list-table-actions';
+import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import { MobileRecordList } from '@/components/mobile-record-list';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
@@ -62,6 +63,10 @@ import {
     firstValidationError,
     hasFlashSuccess,
 } from '@/lib/first-validation-error';
+import {
+    MASTER_DATA_DELETE_BLOCKED_MESSAGE,
+    masterDataCanDelete,
+} from '@/lib/master-data/usage';
 import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
     MOBILE_OPERATIONAL_LIST_CLASS,
@@ -707,8 +712,13 @@ export function VesselsContent({
                                             <div className="flex items-center gap-3">
                                                 <VesselAvatar />
                                                 <div className="min-w-0">
-                                                    <div className="truncate font-semibold">
-                                                        {vessel.name}
+                                                    <div className="flex min-w-0 items-center gap-2 font-semibold">
+                                                        <span className="truncate">
+                                                            {vessel.name}
+                                                        </span>
+                                                        <MasterDataInUseBadge
+                                                            item={vessel}
+                                                        />
                                                     </div>
                                                     {vessel.call_sign ? (
                                                         <div className="text-xs text-muted-foreground/70">
@@ -866,7 +876,11 @@ export function VesselsContent({
                                                 }
                                                 showEdit={can.update}
                                                 onDelete={
-                                                    can.delete
+                                                    can.delete &&
+                                                    masterDataCanDelete(
+                                                        vessel,
+                                                        can.delete,
+                                                    )
                                                         ? (event) => {
                                                               event.stopPropagation();
                                                               requestDelete(
@@ -876,6 +890,16 @@ export function VesselsContent({
                                                         : undefined
                                                 }
                                                 showDelete={can.delete}
+                                                deleteDisabled={
+                                                    can.delete &&
+                                                    !masterDataCanDelete(
+                                                        vessel,
+                                                        can.delete,
+                                                    )
+                                                }
+                                                deleteDisabledTitle={
+                                                    MASTER_DATA_DELETE_BLOCKED_MESSAGE
+                                                }
                                             />
                                         </TableCell>
                                     </TableRow>

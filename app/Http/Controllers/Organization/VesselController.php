@@ -18,6 +18,8 @@ use App\Models\Vessel;
 use App\Models\VesselManning;
 use App\Models\VesselType;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\MasterData\MasterDataUsage;
+use App\Support\MasterData\MasterDataUsageSummary;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\RecentItems\RecordRecentItem;
 use App\Support\VesselManning\SyncVesselManning;
@@ -90,11 +92,19 @@ class VesselController extends Controller
             $healthOrderIds,
         );
 
-        $vessels = $paginator->through(function (Vessel $vessel) use ($healthByVessel): array {
+        $canDeletePermission = $user?->can('crew_operations.vessels.delete') ?? false;
+        $usageById = MasterDataUsage::summariesForIds(
+            Vessel::class,
+            $paginator->getCollection()->map(fn (Vessel $vessel): int => (int) $vessel->id)->all(),
+            $companyId,
+        );
+
+        $vessels = $paginator->through(function (Vessel $vessel) use ($healthByVessel, $usageById, $canDeletePermission): array {
             $row = VesselIndexQuery::toArray($vessel);
             $row['manning_health'] = $healthByVessel[$vessel->id] ?? null;
+            $summary = $usageById[(int) $vessel->id] ?? MasterDataUsageSummary::none();
 
-            return $row;
+            return [...$row, ...$summary->flags($canDeletePermission)];
         });
 
         $vesselsWith = (int) VesselManning::query()
@@ -246,26 +256,8 @@ class VesselController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $vessel->company_id === $companyId, 404);
 
-        if (EmployeeSeaService::query()
-            ->where('company_id', $companyId)
-            ->where('vessel_id', $vessel->id)
-            ->exists()) {
-            return redirect()
-                ->route('organization.vessels.index')
-                ->withErrors([
-                    'name' => 'This vessel is used on employee sea service records and cannot be deleted.',
-                ]);
-        }
-
-        if (CrewAssignment::query()
-            ->where('company_id', $companyId)
-            ->where('vessel_id', $vessel->id)
-            ->exists()) {
-            return redirect()
-                ->route('organization.vessels.index')
-                ->withErrors([
-                    'name' => 'This vessel is used on crew assignments and cannot be deleted.',
-                ]);
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($vessel, 'organization.vessels.index', $companyId)) {
+            return $blocked;
         }
 
         $vessel->delete();

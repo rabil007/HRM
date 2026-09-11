@@ -8,6 +8,7 @@ use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\StoreCompanyVisaTypeRequest;
 use App\Http\Requests\Settings\MasterData\UpdateCompanyVisaTypeRequest;
 use App\Models\CompanyVisaType;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -19,12 +20,15 @@ class CompanyVisaTypeController extends Controller
 
     public function index()
     {
-        $page = $this->paginateMasterDataIndex(
-            request(),
-            CompanyVisaType::query()
-                ->orderBy('name')
-                ->select(['id', 'name', 'is_active']),
-            ['name'],
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                request(),
+                CompanyVisaType::query()
+                    ->orderBy('name')
+                    ->select(['id', 'name', 'is_active']),
+                ['name'],
+            ),
+            'settings.master-data.company-visa-types.delete',
         );
 
         return Inertia::render('settings/master-data/company-visa-types', [
@@ -58,6 +62,10 @@ class CompanyVisaTypeController extends Controller
 
     public function destroy(CompanyVisaType $companyVisaType)
     {
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($companyVisaType, 'settings.master-data.company-visa-types.index')) {
+            return $blocked;
+        }
+
         $companyVisaType->delete();
 
         return redirect()->route('settings.master-data.company-visa-types.index');

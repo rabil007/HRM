@@ -9,6 +9,7 @@ use App\Http\Requests\Settings\MasterData\ImportRanksRequest;
 use App\Http\Requests\Settings\MasterData\StoreRankRequest;
 use App\Http\Requests\Settings\MasterData\UpdateRankRequest;
 use App\Models\Rank;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
@@ -22,12 +23,15 @@ class RankController extends Controller
 
     public function index(): InertiaResponse
     {
-        $page = $this->paginateMasterDataIndex(
-            request(),
-            Rank::query()
-                ->orderBy('name')
-                ->select(['id', 'name', 'is_active', 'max_tour_of_duty_days']),
-            ['name'],
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                request(),
+                Rank::query()
+                    ->orderBy('name')
+                    ->select(['id', 'name', 'is_active', 'max_tour_of_duty_days']),
+                ['name'],
+            ),
+            'settings.master-data.ranks.delete',
         );
 
         return Inertia::render('settings/master-data/ranks', [
@@ -59,6 +63,10 @@ class RankController extends Controller
 
     public function destroy(Rank $rank): RedirectResponse
     {
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($rank, 'settings.master-data.ranks.index')) {
+            return $blocked;
+        }
+
         $rank->delete();
 
         return redirect()->route('settings.master-data.ranks.index');

@@ -8,8 +8,8 @@ use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
 use App\Http\Requests\Settings\MasterData\ImportVesselTypesRequest;
 use App\Http\Requests\Settings\MasterData\StoreVesselTypeRequest;
 use App\Http\Requests\Settings\MasterData\UpdateVesselTypeRequest;
-use App\Models\EmployeeSeaService;
 use App\Models\VesselType;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
@@ -23,12 +23,15 @@ class VesselTypeController extends Controller
 
     public function index(): InertiaResponse
     {
-        $page = $this->paginateMasterDataIndex(
-            request(),
-            VesselType::query()
-                ->orderBy('name')
-                ->select(['id', 'name', 'is_active']),
-            ['name'],
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                request(),
+                VesselType::query()
+                    ->orderBy('name')
+                    ->select(['id', 'name', 'is_active']),
+                ['name'],
+            ),
+            'settings.master-data.vessel-types.delete',
         );
 
         return Inertia::render('settings/master-data/vessel-types', [
@@ -60,20 +63,8 @@ class VesselTypeController extends Controller
 
     public function destroy(VesselType $vesselType): RedirectResponse
     {
-        if (EmployeeSeaService::query()->where('vessel_type_id', $vesselType->id)->exists()) {
-            return redirect()
-                ->route('settings.master-data.vessel-types.index')
-                ->withErrors([
-                    'name' => 'This vessel type is used on employee sea service records and cannot be deleted.',
-                ]);
-        }
-
-        if ($vesselType->vessels()->exists()) {
-            return redirect()
-                ->route('settings.master-data.vessel-types.index')
-                ->withErrors([
-                    'name' => 'This vessel type is used by vessels in master data and cannot be deleted.',
-                ]);
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($vesselType, 'settings.master-data.vessel-types.index')) {
+            return $blocked;
         }
 
         $vesselType->delete();

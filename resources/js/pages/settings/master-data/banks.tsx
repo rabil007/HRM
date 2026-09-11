@@ -1,4 +1,6 @@
 import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { MasterDataDeleteButton } from '@/components/settings/master-data-delete-button';
+import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
 import {
     MasterDataField,
     MasterDataFormSheet,
@@ -12,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useMasterDataCrud } from '@/hooks/use-master-data-crud';
 import { firstValidationError } from '@/lib/first-validation-error';
+import type { MasterDataUsageFlags } from '@/lib/master-data/usage';
 import { toast } from '@/lib/toast';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -22,7 +25,7 @@ type Bank = {
     country_id: number | null;
     country?: { id: number; name: string; code: string } | null;
     is_active: boolean;
-};
+} & MasterDataUsageFlags;
 
 type CountryOption = {
     id: number;
@@ -102,7 +105,7 @@ export default function Banks({
             toast.error(
                 firstValidationError(
                     errors,
-                    'bank',
+                    'record',
                     'This bank could not be deleted.',
                 ),
             );
@@ -251,8 +254,9 @@ export default function Banks({
                     key={bank.id}
                     className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
                 >
-                    <div className="col-span-4 truncate text-sm">
-                        {bank.name}
+                    <div className="col-span-4 flex min-w-0 items-center gap-2 text-sm">
+                        <span className="truncate">{bank.name}</span>
+                        <MasterDataInUseBadge item={bank} />
                     </div>
                     <div className="col-span-2 font-mono text-sm text-muted-foreground">
                         {bank.uae_routing_code_agent_id ?? '—'}
@@ -277,15 +281,11 @@ export default function Banks({
                                 Edit
                             </Button>
                         ) : null}
-                        {can.delete ? (
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => requestDelete(bank)}
-                            >
-                                Delete
-                            </Button>
-                        ) : null}
+                        <MasterDataDeleteButton
+                            item={bank}
+                            hasDeletePermission={can.delete}
+                            onDelete={() => requestDelete(bank)}
+                        />
                     </div>
                 </div>
             ))}

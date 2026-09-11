@@ -9,6 +9,7 @@ use App\Http\Requests\Settings\MasterData\ImportProjectsRequest;
 use App\Http\Requests\Settings\MasterData\StoreProjectRequest;
 use App\Http\Requests\Settings\MasterData\UpdateProjectRequest;
 use App\Models\Project;
+use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
@@ -21,12 +22,15 @@ class ProjectController extends Controller
 
     public function index()
     {
-        $page = $this->paginateMasterDataIndex(
-            request(),
-            Project::query()
-                ->orderBy('title')
-                ->select(['id', 'title', 'is_active']),
-            ['title'],
+        $page = $this->withMasterDataUsage(
+            $this->paginateMasterDataIndex(
+                request(),
+                Project::query()
+                    ->orderBy('title')
+                    ->select(['id', 'title', 'is_active']),
+                ['title'],
+            ),
+            'settings.master-data.projects.delete',
         );
 
         return Inertia::render('settings/master-data/projects', [
@@ -59,6 +63,10 @@ class ProjectController extends Controller
 
     public function destroy(Project $project)
     {
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($project, 'settings.master-data.projects.index')) {
+            return $blocked;
+        }
+
         $project->delete();
 
         return redirect()->route('settings.master-data.projects.index');
