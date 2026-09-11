@@ -32,7 +32,7 @@ import type { PaginationMeta } from '@/types/pagination';
 
 type AuditLog = {
     id: number;
-    event: 'created' | 'updated' | 'deleted' | string;
+    event: 'created' | 'updated' | 'deleted' | string | null;
     subject_type: string | null;
     subject_name: string;
     subject_id: number | null;
@@ -69,12 +69,16 @@ function pickChangedKeys(
         .sort((a, b) => a.localeCompare(b));
 }
 
-function eventStyle(event: string): {
+function normalizeEvent(event: string | null | undefined): string {
+    return (event ?? '').trim().toLowerCase();
+}
+
+function eventStyle(event: string | null | undefined): {
     badge: string;
     dot: string;
     label: string;
 } {
-    switch (event) {
+    switch (normalizeEvent(event)) {
         case 'created':
             return {
                 badge: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400',
@@ -501,7 +505,9 @@ export default function ActivityLogs({
                                                                     style.badge,
                                                                 )}
                                                             >
-                                                                {log.event}
+                                                                {normalizeEvent(
+                                                                    log.event,
+                                                                ) || 'updated'}
                                                             </Badge>
                                                             <div className="min-w-0 truncate">
                                                                 <span className="block truncate text-sm font-bold text-foreground/90 md:inline">
@@ -687,9 +693,9 @@ export default function ActivityLogs({
                                                             log.description
                                                                 .trim()
                                                                 .toLowerCase() !==
-                                                                log.event
-                                                                    .trim()
-                                                                    .toLowerCase() ? (
+                                                                normalizeEvent(
+                                                                    log.event,
+                                                                ) ? (
                                                                 <span className="text-[10px] text-muted-foreground/40">
                                                                     {
                                                                         log.description

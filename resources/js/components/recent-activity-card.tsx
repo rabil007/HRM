@@ -108,7 +108,9 @@ export function RecentActivityCard({
                                 expandedActivity[item.id] ?? false;
                             const shown = isExpanded ? keys : keys.slice(0, 4);
                             const showDescription =
-                                item.description.trim().toLowerCase() !==
+                                (item.description ?? '')
+                                    .trim()
+                                    .toLowerCase() !==
                                 (item.event ?? '').trim().toLowerCase();
 
                             return (
