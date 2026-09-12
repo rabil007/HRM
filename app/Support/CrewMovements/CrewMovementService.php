@@ -794,8 +794,21 @@ final class CrewMovementService
             }
         }
 
-        if ($destinationVesselId) {
-            $this->assertCompanyOwnedMaster($assignment->company_id, Vessel::class, $destinationVesselId, 'vessel');
+        $isDraftStart = $startingPhase === CrewPhaseCode::PreMobilisation;
+        $isDirectOnVessel = $startingPhase === CrewPhaseCode::OnVessel;
+
+        $resolvedVesselId = $isDraftStart
+            ? $destinationVesselId
+            : ($destinationVesselId ?? ($assignment->vessel_id !== null ? (int) $assignment->vessel_id : null));
+
+        // The NEW assignment may inherit the source Vessel when destination vessel_id is omitted.
+        if ($resolvedVesselId !== null) {
+            $this->assertCompanyOwnedMaster(
+                (int) $assignment->company_id,
+                Vessel::class,
+                $resolvedVesselId,
+                'vessel',
+            );
         }
 
         if ($destinationRankId) {
@@ -810,13 +823,6 @@ final class CrewMovementService
                 'visa type',
             );
         }
-
-        $isDraftStart = $startingPhase === CrewPhaseCode::PreMobilisation;
-        $isDirectOnVessel = $startingPhase === CrewPhaseCode::OnVessel;
-
-        $resolvedVesselId = $isDraftStart
-            ? $destinationVesselId
-            : ($destinationVesselId ?? ($assignment->vessel_id !== null ? (int) $assignment->vessel_id : null));
 
         $destinationClientId = $isDraftStart
             ? $submittedClientId

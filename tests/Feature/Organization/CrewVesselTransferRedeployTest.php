@@ -394,6 +394,94 @@ test('cross-company destination vessel references are rejected on redeploy', fun
         ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe($beforeCount);
 });
 
+test('redeploy to p1 inherits the active source vessel when destination vessel is omitted', function () {
+    [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
+    ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
+    $service = transferRedeployService();
+
+    $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2026-07-12 08:00:00',
+        'next_phase' => 'p5',
+    ], $user->id);
+
+    $destination = $service->perform($company->id, $source->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-07-15 09:00:00',
+        'starting_phase' => 'p1',
+        'rank_id' => $rank->id,
+    ], $user->id);
+
+    expect($source->fresh()->status)->toBe(CrewAssignmentStatus::Completed)
+        ->and($destination->previous_assignment_id)->toBe($source->id)
+        ->and($destination->source)->toBe('redeployment')
+        ->and($destination->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($destination->vessel_id)->toBe($sourceVessel->id)
+        ->and($destination->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn);
+});
+
+test('redeploy to p1 rejects an inherited inactive source vessel without mutating the source', function () {
+    [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
+    ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
+    $service = transferRedeployService();
+
+    $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2026-07-12 08:00:00',
+        'next_phase' => 'p5',
+    ], $user->id);
+
+    $source->refresh()->load('currentPhase');
+    $sourceVessel->update(['is_active' => false]);
+
+    $beforeCount = CrewAssignment::query()->where('company_id', $company->id)->count();
+    $beforePhaseId = $source->current_phase_id;
+    $beforePhaseEnd = $source->currentPhase?->actual_end_at?->toDateTimeString();
+    $beforeClosedAt = $source->closed_at;
+    $beforeSeaServiceCount = EmployeeSeaService::query()
+        ->where('company_id', $company->id)
+        ->where('employee_id', $source->employee_id)
+        ->count();
+    $beforeRedeployLogs = Activity::query()
+        ->where('company_id', $company->id)
+        ->where('properties->event', 'crew_redeployed')
+        ->count();
+    $beforePlanningCount = CrewPlanningAssignment::query()
+        ->where('crew_assignment_id', $source->id)
+        ->count();
+
+    expect(fn () => $service->perform(
+        $company->id,
+        $source->id,
+        CrewMovementAction::Redeploy,
+        [
+            'occurred_at' => '2026-07-15 09:00:00',
+            'starting_phase' => 'p1',
+            'rank_id' => $rank->id,
+        ],
+        $user->id,
+    ))->toThrow(CrewMovementException::class, 'The selected vessel is inactive.');
+
+    $source->refresh()->load('currentPhase');
+
+    expect($source->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($source->current_phase_id)->toBe($beforePhaseId)
+        ->and($source->currentPhase?->phase_code)->toBe(CrewPhaseCode::DemobStandby)
+        ->and($source->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
+        ->and($source->currentPhase?->actual_end_at?->toDateTimeString())->toBe($beforePhaseEnd)
+        ->and($source->closed_at)->toBe($beforeClosedAt)
+        ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe($beforeCount)
+        ->and(CrewAssignment::query()->where('previous_assignment_id', $source->id)->count())->toBe(0)
+        ->and(EmployeeSeaService::query()
+            ->where('company_id', $company->id)
+            ->where('employee_id', $source->employee_id)
+            ->count())->toBe($beforeSeaServiceCount)
+        ->and(Activity::query()
+            ->where('company_id', $company->id)
+            ->where('properties->event', 'crew_redeployed')
+            ->count())->toBe($beforeRedeployLogs)
+        ->and(CrewPlanningAssignment::query()
+            ->where('crew_assignment_id', $source->id)
+            ->count())->toBe($beforePlanningCount);
+});
+
 test('redeploy to p0 clears planned sign-off and does not require destination vessel', function () {
     [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
     ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
