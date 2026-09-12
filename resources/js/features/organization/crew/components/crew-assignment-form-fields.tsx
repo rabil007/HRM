@@ -100,10 +100,14 @@ export function CrewAssignmentFormFields({
         const selectedVessel = formOptions.vessels.find(
             (vessel) => vessel.id === form.data.vessel_id,
         );
+        // Never preserve an inactive/legacy vessel after a Client change —
+        // only an active vessel whose current Client matches may stay.
         const vesselMatches =
-            selectedVessel == null ||
-            (nextClientId !== null &&
-                selectedVessel.client_id === nextClientId);
+            selectedVessel != null &&
+            selectedVessel.is_active !== false &&
+            selectedVessel.client_id != null &&
+            nextClientId !== null &&
+            selectedVessel.client_id === nextClientId;
 
         form.setData({
             ...form.data,

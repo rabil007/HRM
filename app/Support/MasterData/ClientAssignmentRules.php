@@ -15,6 +15,8 @@ final class ClientAssignmentRules
 {
     public const VESSEL_MISSING_CLIENT_MESSAGE = 'This vessel has no assigned client. Assign a client to the vessel before using it for crew operations.';
 
+    public const VESSEL_INACTIVE_CLIENT_MESSAGE = 'The selected vessel\'s client is inactive. Activate or reassign the vessel\'s client before using it for crew operations.';
+
     /**
      * Active, non-deleted Client for new business assignments.
      *
@@ -199,6 +201,19 @@ final class ClientAssignmentRules
                 $validator->errors()->add(
                     $vesselAttribute,
                     self::VESSEL_MISSING_CLIENT_MESSAGE,
+                );
+            }
+
+            return;
+        }
+
+        $client = Client::query()->find((int) $vessel->client_id);
+
+        if ($client === null || ! $client->is_active) {
+            if ($requireAssignedClient) {
+                $validator->errors()->add(
+                    $vesselAttribute,
+                    self::VESSEL_INACTIVE_CLIENT_MESSAGE,
                 );
             }
 

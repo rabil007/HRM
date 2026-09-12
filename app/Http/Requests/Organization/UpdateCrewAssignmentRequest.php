@@ -41,10 +41,21 @@ class UpdateCrewAssignmentRequest extends FormRequest
     {
         $companyId = (int) $this->attributes->get('current_company_id');
         $existingVesselId = $this->existingAssignment()?->vessel_id;
+        $existingClientId = $this->existingAssignment()?->client_id;
 
         return [
             'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)],
-            'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)],
+            'client_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('clients', 'id')->where(function ($query) use ($existingClientId): void {
+                    $query->where('is_active', true);
+
+                    if ($existingClientId !== null) {
+                        $query->orWhere('id', (int) $existingClientId);
+                    }
+                }),
+            ],
             'vessel_id' => [
                 'nullable',
                 'integer',
@@ -82,10 +93,31 @@ class UpdateCrewAssignmentRequest extends FormRequest
             $existingClientId = $assignment?->client_id !== null ? (int) $assignment->client_id : null;
             $existingVesselId = $assignment?->vessel_id !== null ? (int) $assignment->vessel_id : null;
 
-            // Preserve an unchanged legacy Vessel/Client pair on editable records.
-            // New operational Vessel/Client selections remain strictly validated.
+            // Preserve an unchanged legacy/inactive Vessel/Client pair on editable records.
+            // Changing either field applies today's strict operational rules.
             if ($clientId === $existingClientId && $vesselId === $existingVesselId) {
                 return;
+            }
+
+            if ($vesselId !== null) {
+                $vessel = ClientAssignmentRules::findCompanyVessel($companyId, $vesselId);
+
+                if ($vessel === null) {
+                    $validator->errors()->add('vessel_id', 'The selected vessel is invalid.');
+
+                    return;
+                }
+
+                // Existing inactive Vessel IDs may pass Rule::exists for continuity,
+                // but must not participate in a new Client/Vessel relationship.
+                if (! $vessel->is_active) {
+                    $validator->errors()->add(
+                        'vessel_id',
+                        'The selected vessel is inactive. Activate or choose another vessel before changing Client or Vessel.',
+                    );
+
+                    return;
+                }
             }
 
             ClientAssignmentRules::vesselBelongsToClient(

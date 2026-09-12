@@ -280,7 +280,7 @@ class CrewAssignmentController extends Controller
                 ->all(),
             'ranks' => $this->activeRanks(),
             'vessels' => $this->vesselOptionsForAssignment($companyId, $assignment),
-            'clients' => $this->activeClients(),
+            'clients' => $this->clientOptionsForAssignment($assignment),
             'visa_types' => $this->activeVisaTypes(),
             'courses' => $this->activeCourses(),
         ];
@@ -370,18 +370,21 @@ class CrewAssignmentController extends Controller
     }
 
     /**
-     * @return list<array{id: int, name: string, client_id: int|null}>
+     * @return list<array{id: int, name: string, client_id: int|null, is_active: bool}>
      */
     private function activeVessels(int $companyId): array
     {
-        return ResolvesCompanyVessels::activeOptions($companyId, requireAssignedClient: true);
+        return array_map(
+            static fn (array $option): array => [...$option, 'is_active' => true],
+            ResolvesCompanyVessels::activeOptions($companyId, requireAssignedClient: true),
+        );
     }
 
     /**
      * Operational vessel options plus the assignment's existing Vessel when it is
      * missing from the selectable list (legacy unassigned / inactive continuity).
      *
-     * @return list<array{id: int, name: string, client_id: int|null}>
+     * @return list<array{id: int, name: string, client_id: int|null, is_active: bool}>
      */
     private function vesselOptionsForAssignment(int $companyId, CrewAssignment $assignment): array
     {
@@ -407,10 +410,11 @@ class CrewAssignmentController extends Controller
         }
 
         $label = (string) $existing->name;
+        $isActive = (bool) $existing->is_active;
 
         if ($existing->client_id === null) {
             $label .= ' — Legacy / Client not assigned';
-        } elseif (! (bool) $existing->is_active) {
+        } elseif (! $isActive) {
             $label .= ' — Inactive';
         }
 
@@ -418,6 +422,7 @@ class CrewAssignmentController extends Controller
             'id' => (int) $existing->id,
             'name' => $label,
             'client_id' => $existing->client_id !== null ? (int) $existing->client_id : null,
+            'is_active' => $isActive,
         ];
 
         return $options;
@@ -435,6 +440,47 @@ class CrewAssignmentController extends Controller
             ->map(fn (Client $client) => ['id' => $client->id, 'name' => $client->name])
             ->values()
             ->all();
+    }
+
+    /**
+     * Active Client options plus the assignment's existing Client when inactive
+     * (historical snapshot continuity for unrelated edits).
+     *
+     * @return list<array{id: int, name: string}>
+     */
+    private function clientOptionsForAssignment(CrewAssignment $assignment): array
+    {
+        $options = $this->activeClients();
+        $existingClientId = $assignment->client_id !== null ? (int) $assignment->client_id : null;
+
+        if ($existingClientId === null) {
+            return $options;
+        }
+
+        foreach ($options as $option) {
+            if ((int) $option['id'] === $existingClientId) {
+                return $options;
+            }
+        }
+
+        $existing = Client::query()->find($existingClientId, ['id', 'name', 'is_active']);
+
+        if ($existing === null) {
+            return $options;
+        }
+
+        $label = (string) $existing->name;
+
+        if (! (bool) $existing->is_active) {
+            $label .= ' — Inactive';
+        }
+
+        $options[] = [
+            'id' => (int) $existing->id,
+            'name' => $label,
+        ];
+
+        return $options;
     }
 
     /**

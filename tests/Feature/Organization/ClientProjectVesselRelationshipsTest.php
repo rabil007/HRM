@@ -13,6 +13,7 @@ use App\Models\Project;
 use App\Support\CrewMovements\CrewMovementService;
 use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
+use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -813,4 +814,299 @@ test('legacy assignment update still rejects cross-company vessel', function () 
     ])->assertSessionHasErrors('vessel_id');
 
     expect((int) $assignment->fresh()->vessel_id)->toBe((int) $legacyVessel->id);
+});
+
+test('createDraft rejects active vessel whose client is inactive', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    $client = Client::query()->create(['name' => 'Later Inactive Client', 'is_active' => true]);
+    $vessel = makeCrewMovementVessel('Active Vessel Inactive Client', $company, $client);
+    $client->update(['is_active' => false]);
+
+    expect(fn () => app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+    ], $user->id))->toThrow(CrewMovementException::class);
+
+    expect(CrewAssignment::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
+test('crew planning create rejects active vessel whose client is inactive', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.create',
+        'crew_operations.planning.view',
+    ]);
+
+    $client = Client::query()->create(['name' => 'Planning Inactive Client', 'is_active' => true]);
+    $vessel = makeCrewMovementVessel('Planning Vessel Inactive Client', $company, $client);
+    $client->update(['is_active' => false]);
+
+    $this->post('/organization/crew-planning/assignments', [
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-03-01',
+        'planned_leave_date' => '2026-04-01',
+    ])->assertSessionHasErrors('vessel_id');
+});
+
+test('planning conversion fails when vessel client becomes inactive after planning', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    $client = Client::query()->create(['name' => 'Convert Later Inactive', 'is_active' => true]);
+    $vessel = makeCrewMovementVessel('Convert Later Inactive Vessel', $company, $client);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-03-01',
+        'planned_leave_date' => '2026-04-01',
+    ]);
+
+    $client->update(['is_active' => false]);
+
+    expect(fn () => app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $user->id))
+        ->toThrow(CrewMovementException::class);
+
+    expect($planning->fresh()->crew_assignment_id)->toBeNull()
+        ->and(CrewAssignment::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
+test('join and transfer reject active vessel whose current client is inactive', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $service = app(CrewMovementService::class);
+
+    $client = Client::query()->create(['name' => 'Join Later Inactive', 'is_active' => true]);
+    $mapped = makeCrewMovementVessel('Mapped Join Later Inactive', $company, $client);
+    $destination = makeCrewMovementVessel('Destination Later Inactive', $company, $client);
+
+    $draft = $service->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'client_id' => $client->id,
+    ], $user->id);
+
+    $client->update(['is_active' => false]);
+
+    expect(fn () => $service->perform($company->id, $draft->id, CrewMovementAction::JoinVessel, [
+        'occurred_at' => '2026-02-01 08:00:00',
+        'vessel_id' => $mapped->id,
+        'rank_id' => $rank->id,
+        'client_id' => $client->id,
+    ], $user->id))->toThrow(CrewMovementException::class);
+
+    $client->update(['is_active' => true]);
+    $transferEmployee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+    $onVessel = makeActiveOnVesselAssignment($company, $transferEmployee, $rank, $mapped, [
+        'client_id' => $client->id,
+    ]);
+    $client->update(['is_active' => false]);
+
+    expect(fn () => $service->perform($company->id, $onVessel->id, CrewMovementAction::TransferVessel, [
+        'occurred_at' => '2026-02-02 08:00:00',
+        'vessel_id' => $destination->id,
+        'rank_id' => $rank->id,
+        'client_id' => $client->id,
+    ], $user->id))->toThrow(CrewMovementException::class);
+});
+
+test('inactive existing vessel with unchanged client allows remarks edit', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.update',
+    ]);
+
+    $client = Client::query()->create(['name' => 'Inactive Vessel Continuity Client', 'is_active' => true]);
+    $vessel = makeCrewMovementVessel('Inactive Continuity Vessel', $company, $client);
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'client_id' => $client->id,
+        'remarks' => 'Before',
+    ], $user->id);
+
+    $vessel->update(['is_active' => false]);
+
+    $this->put(route('organization.crew-assignments.update', $assignment), [
+        'rank_id' => $rank->id,
+        'client_id' => $client->id,
+        'vessel_id' => $vessel->id,
+        'remarks' => 'After remarks',
+    ])->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    $fresh = $assignment->fresh();
+
+    expect($fresh->remarks)->toBe('After remarks')
+        ->and((int) $fresh->vessel_id)->toBe((int) $vessel->id)
+        ->and((int) $fresh->client_id)->toBe((int) $client->id);
+});
+
+test('inactive existing vessel rejects client-only change', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.update',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Client A Continuity', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Client B Continuity', 'is_active' => true]);
+    $vessel = makeCrewMovementVessel('Inactive Client Change Vessel', $company, $clientA);
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'client_id' => $clientA->id,
+    ], $user->id);
+
+    $vessel->update([
+        'is_active' => false,
+        'client_id' => $clientB->id,
+    ]);
+
+    $this->put(route('organization.crew-assignments.update', $assignment), [
+        'rank_id' => $rank->id,
+        'client_id' => $clientB->id,
+        'vessel_id' => $vessel->id,
+        'remarks' => 'Client-only change on inactive vessel',
+    ])->assertSessionHasErrors('vessel_id');
+
+    expect((int) $assignment->fresh()->client_id)->toBe((int) $clientA->id)
+        ->and((int) $assignment->fresh()->vessel_id)->toBe((int) $vessel->id);
+});
+
+test('existing inactive client snapshot survives remarks and planned date edits', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.update',
+    ]);
+
+    $client = Client::query()->create(['name' => 'Snapshot Inactive Client', 'is_active' => true]);
+    $vessel = makeCrewMovementVessel('Snapshot Inactive Client Vessel', $company, $client);
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'client_id' => $client->id,
+        'planned_join_at' => '2026-08-01',
+        'remarks' => 'Original',
+    ], $user->id);
+
+    $client->update(['is_active' => false]);
+
+    $this->put(route('organization.crew-assignments.update', $assignment), [
+        'rank_id' => $rank->id,
+        'client_id' => $client->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-08-01',
+        'remarks' => 'Remarks only',
+    ])->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    $this->put(route('organization.crew-assignments.update', $assignment), [
+        'rank_id' => $rank->id,
+        'client_id' => $client->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-08-20',
+        'remarks' => 'Remarks only',
+    ])->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    $fresh = $assignment->fresh();
+
+    expect((int) $fresh->client_id)->toBe((int) $client->id)
+        ->and($fresh->remarks)->toBe('Remarks only')
+        ->and($fresh->planned_join_at->toDateString())->toBe('2026-08-20');
+});
+
+test('cannot change crew assignment client to another inactive client', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.update',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Active Snapshot Client', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Other Inactive Client', 'is_active' => false]);
+    $vesselA = makeCrewMovementVessel('Active Snapshot Vessel', $company, $clientA);
+    $vesselB = makeCrewMovementVessel('Other Inactive Client Vessel', $company);
+    $vesselB->update(['client_id' => $clientB->id, 'is_active' => true]);
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vesselA->id,
+        'client_id' => $clientA->id,
+    ], $user->id);
+
+    $this->put(route('organization.crew-assignments.update', $assignment), [
+        'rank_id' => $rank->id,
+        'client_id' => $clientB->id,
+        'vessel_id' => $vesselB->id,
+        'remarks' => 'Switch to inactive client',
+    ])->assertSessionHasErrors('client_id');
+
+    expect((int) $assignment->fresh()->client_id)->toBe((int) $clientA->id);
+});
+
+test('inactive existing vessel cannot become a new selection on another assignment', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.update',
+    ]);
+
+    $client = Client::query()->create(['name' => 'New Selection Client', 'is_active' => true]);
+    $inactiveVessel = makeCrewMovementVessel('New Selection Inactive Vessel', $company, $client);
+    $inactiveVessel->update(['is_active' => false]);
+
+    $otherEmployee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $this->post('/organization/crew', [
+        'employee_id' => $otherEmployee->id,
+        'rank_id' => $rank->id,
+        'client_id' => $client->id,
+        'vessel_id' => $inactiveVessel->id,
+    ])->assertSessionHasErrors('vessel_id');
+
+    expect(CrewAssignment::query()->where('employee_id', $otherEmployee->id)->count())->toBe(0);
+});
+
+test('active options requiring assigned client exclude vessels with inactive clients', function () {
+    ['company' => $company] = makeCrewAssignmentFixtures();
+
+    $activeClient = Client::query()->create(['name' => 'Options Active Client', 'is_active' => true]);
+    $inactiveClient = Client::query()->create(['name' => 'Options Inactive Client', 'is_active' => true]);
+    $good = makeCrewMovementVessel('Options Good Vessel', $company, $activeClient);
+    $bad = makeCrewMovementVessel('Options Bad Vessel', $company, $inactiveClient);
+    $inactiveClient->update(['is_active' => false]);
+
+    $options = ResolvesCompanyVessels::activeOptions(
+        (int) $company->id,
+        requireAssignedClient: true,
+    );
+
+    expect(collect($options)->pluck('id')->all())
+        ->toContain($good->id)
+        ->not->toContain($bad->id);
 });

@@ -17,7 +17,8 @@ final class ResolvesCompanyVessels
             ->orderBy('name');
 
         if ($requireAssignedClient) {
-            $query->whereNotNull('client_id');
+            $query->whereNotNull('client_id')
+                ->whereHas('client', fn (Builder $clientQuery) => $clientQuery->where('is_active', true));
         }
 
         return $query

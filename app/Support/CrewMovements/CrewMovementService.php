@@ -1493,6 +1493,14 @@ final class CrewMovementService
             }
 
             $vesselClientId = (int) $vessel->client_id;
+            $vesselClient = Client::query()->find($vesselClientId);
+
+            if ($vesselClient === null || ! $vesselClient->is_active) {
+                throw CrewMovementException::make(
+                    ClientAssignmentRules::VESSEL_INACTIVE_CLIENT_MESSAGE,
+                    'vessel_client_inactive',
+                );
+            }
         }
 
         if ($submittedClientId !== null && $submittedClientId > 0) {
