@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\CrewProjectedManningStatus;
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\CrewAssignment;
@@ -61,11 +62,16 @@ function makeCrewPlanningFixtures(): array
     ]);
 
     $vesselType = VesselType::query()->create(['name' => 'AHTS-CPL', 'is_active' => true]);
+    $client = Client::query()->create([
+        'name' => 'Planning Client '.uniqid(),
+        'is_active' => true,
+    ]);
 
     $vessel = Vessel::query()->create([
         'company_id' => $company->id,
         'name' => 'Planning Vessel Alpha',
         'vessel_type_id' => $vesselType->id,
+        'client_id' => $client->id,
         'is_active' => true,
     ]);
 
@@ -441,6 +447,7 @@ test('vessel filter narrows rows, bars, and tree', function () {
         'company_id' => $company->id,
         'name' => 'Other Vessel',
         'vessel_type_id' => $vesselType->id,
+        'client_id' => $vessel->client_id,
         'is_active' => true,
     ]);
 
@@ -686,6 +693,7 @@ test('projection vessel and rank filters apply on planning index', function () {
         'company_id' => $company->id,
         'name' => 'Projection Filter Vessel',
         'vessel_type_id' => $vessel->vessel_type_id,
+        'client_id' => $vessel->client_id,
         'is_active' => true,
     ]);
 

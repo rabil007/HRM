@@ -72,13 +72,15 @@ export function CrewAssignmentFormFields({
     };
 
     const vesselsForClient = formOptions.vessels.filter((vessel) => {
+        if (vessel.client_id == null) {
+            return false;
+        }
+
         if (form.data.client_id === null) {
             return true;
         }
 
-        return (
-            vessel.client_id == null || vessel.client_id === form.data.client_id
-        );
+        return vessel.client_id === form.data.client_id;
     });
 
     const setClientId = (value: string): void => {
@@ -88,9 +90,8 @@ export function CrewAssignmentFormFields({
         );
         const vesselMatches =
             selectedVessel == null ||
-            selectedVessel.client_id == null ||
-            nextClientId === null ||
-            selectedVessel.client_id === nextClientId;
+            (nextClientId !== null &&
+                selectedVessel.client_id === nextClientId);
 
         form.setData({
             ...form.data,
@@ -296,6 +297,12 @@ export function CrewAssignmentFormFields({
                                 </AppSelectItem>
                             ))}
                         </AppSelect>
+                        {form.data.client_id !== null &&
+                        vesselsForClient.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">
+                                No vessels are assigned to this client.
+                            </p>
+                        ) : null}
                         <InputError message={form.errors.vessel_id} />
                     </div>
 

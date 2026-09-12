@@ -16,6 +16,7 @@ use App\Models\Rank;
 use App\Models\Religion;
 use App\Models\VisaType;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\MasterData\ClientAssignmentRules;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -434,7 +435,11 @@ class EmployeesImport
                 }
             }
 
-            $unresolved = $this->resolveLookups($shaped);
+            $existing = ($action === 'update' && is_string($no) && $no !== '')
+                ? ($existingEmployees[strtolower($no)] ?? null)
+                : null;
+
+            $unresolved = $this->resolveLookups($shaped, $existing);
 
             foreach ($unresolved as $field => $message) {
                 $errors[] = [
@@ -531,6 +536,16 @@ class EmployeesImport
 
                     try {
                         $payload = $this->buildPartialUpdatePayload($row);
+                        $consistencyError = $this->clientProjectConsistencyError($row, $employee);
+
+                        if ($consistencyError !== null) {
+                            $failed[] = [
+                                'row' => $rowNumber,
+                                'message' => $consistencyError,
+                            ];
+
+                            continue;
+                        }
 
                         if ($payload !== []) {
                             $employee->update($payload);
@@ -549,6 +564,16 @@ class EmployeesImport
 
                 try {
                     $resolved = $this->resolveIdsForInsert($row);
+                    $consistencyError = $this->clientProjectConsistencyError($row);
+
+                    if ($consistencyError !== null) {
+                        $failed[] = [
+                            'row' => $rowNumber,
+                            'message' => $consistencyError,
+                        ];
+
+                        continue;
+                    }
 
                     Employee::create([
                         'company_id' => $this->companyId,
@@ -813,7 +838,7 @@ class EmployeesImport
      * @param  array<string, mixed>  $row
      * @return array<string, string> unresolved-field => message
      */
-    private function resolveLookups(array $row): array
+    private function resolveLookups(array $row, ?Employee $existing = null): array
     {
         $unresolved = [];
 
@@ -838,7 +863,46 @@ class EmployeesImport
             }
         }
 
+        $consistencyError = $this->clientProjectConsistencyError($row, $existing);
+
+        if ($consistencyError !== null && ! isset($unresolved['project']) && ! isset($unresolved['client'])) {
+            $unresolved['project'] = $consistencyError;
+        }
+
         return $unresolved;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function clientProjectConsistencyError(array $row, ?Employee $existing = null): ?string
+    {
+        $hasClient = $this->fieldHasValue($row, 'client');
+        $hasProject = $this->fieldHasValue($row, 'project');
+
+        if (! $hasClient && ! $hasProject) {
+            return null;
+        }
+
+        $resolved = $this->resolveIdsForInsert($row);
+
+        if ($hasClient && ($resolved['client_id'] ?? null) === null) {
+            return null;
+        }
+
+        if ($hasProject && ($resolved['project_id'] ?? null) === null) {
+            return null;
+        }
+
+        $clientId = $hasClient
+            ? ($resolved['client_id'] !== null ? (int) $resolved['client_id'] : null)
+            : ($existing?->client_id !== null ? (int) $existing->client_id : null);
+
+        $projectId = $hasProject
+            ? ($resolved['project_id'] !== null ? (int) $resolved['project_id'] : null)
+            : ($existing?->project_id !== null ? (int) $existing->project_id : null);
+
+        return ClientAssignmentRules::projectClientInconsistencyMessage($clientId, $projectId);
     }
 
     /**

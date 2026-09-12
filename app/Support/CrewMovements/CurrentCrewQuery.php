@@ -12,7 +12,6 @@ use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
-use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -231,7 +230,7 @@ class CurrentCrewQuery
     public static function filterOptions(int $companyId): array
     {
         return [
-            'vessels' => ResolvesCompanyVessels::activeOptions($companyId),
+            'vessels' => CrewAssignmentSnapshotFilterOptions::vessels($companyId),
             'ranks' => Rank::query()
                 ->where('is_active', true)
                 ->orderBy('name')

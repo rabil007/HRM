@@ -27,13 +27,15 @@ export function JoinVesselForm({
     );
 
     const vesselsForClient = (formOptions?.vessels ?? []).filter((vessel) => {
+        if (vessel.client_id == null) {
+            return false;
+        }
+
         if (form.data.client_id === null) {
             return true;
         }
 
-        return (
-            vessel.client_id == null || vessel.client_id === form.data.client_id
-        );
+        return vessel.client_id === form.data.client_id;
     });
 
     const setClientId = (value: string): void => {
@@ -43,9 +45,8 @@ export function JoinVesselForm({
         );
         const vesselMatches =
             selectedVessel == null ||
-            selectedVessel.client_id == null ||
-            nextClientId === null ||
-            selectedVessel.client_id === nextClientId;
+            (nextClientId !== null &&
+                selectedVessel.client_id === nextClientId);
 
         form.setData({
             ...form.data,
@@ -176,8 +177,10 @@ export function JoinVesselForm({
                                 </SelectContent>
                             </Select>
                             <p className="text-xs text-muted-foreground">
-                                The vessel on which the employee physically
-                                joins.
+                                {form.data.client_id !== null &&
+                                vesselsForClient.length === 0
+                                    ? 'No vessels are assigned to this client.'
+                                    : 'The vessel on which the employee physically joins.'}
                             </p>
                             <InputError message={form.errors.vessel_id} />
                         </div>

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\CrewPlanningAssignment;
@@ -54,10 +55,15 @@ function makeAssignmentFixtures(): array
     ]);
 
     $vesselType = VesselType::query()->create(['name' => 'AHTS-CPA', 'is_active' => true]);
+    $client = Client::query()->create([
+        'name' => 'Assign Client '.uniqid(),
+        'is_active' => true,
+    ]);
     $vessel = Vessel::query()->create([
         'company_id' => $company->id,
         'name' => 'Assign Vessel Beta',
         'vessel_type_id' => $vesselType->id,
+        'client_id' => $client->id,
         'is_active' => true,
     ]);
     $rank = Rank::query()->create(['name' => 'Engineer CPA', 'is_active' => true]);
@@ -478,6 +484,7 @@ test('store rejects relief linked to an assignment on another vessel', function 
         'company_id' => $company->id,
         'name' => 'Other Relief Vessel',
         'vessel_type_id' => $vessel->vessel_type_id,
+        'client_id' => $vessel->client_id,
         'is_active' => true,
     ]);
 

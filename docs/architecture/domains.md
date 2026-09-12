@@ -615,7 +615,10 @@ VesselType (global) → Vessel (company + optional client_id) → VesselManning 
 - New Projects and Vessels require an assigned Client.
 - Already-mapped records cannot return to `Unassigned` (`client_id = null`) through normal Master Data editing.
 - Legacy-null records may remain null while other fields are edited, or be assigned a Client for the first time.
-- Project Client reassignment (A → B) is blocked when Employees already reference the Project with a conflicting non-null Client. First-time assignment (`null` → Client) is allowed. Import uses the same guard.
+- Project Client reassignment (including first-time `null` → Client) is blocked when Employees already reference the Project with a conflicting non-null Client. Employees with `project_id` set and `client_id` null do not block mapping. Import uses the same guard.
+- New operational Crew activity (assignments, Join/Transfer/Redeploy, Planning) cannot use legacy-unassigned Vessels (`vessel.client_id = null`). When a draft/assignment includes a Vessel, `CrewAssignment.client_id` is snapshotted from that Vessel’s current Client.
+- Employee create/update and Employee CSV import enforce Client ↔ Project consistency using the same shared rules.
+- Current Crew / Relief Desk Client→Vessel filter options prefer historical assignment pairs (`crew_assignments.client_id` + `vessel_id`), not today’s `Vessel.client_id`.
 - `Vessel.client_id` is the **current/default operational Client**. Changing it does **not** rewrite historical `CrewAssignment.client_id` or `EmployeeSeaService.client_id` snapshots.
 
 ### Main models

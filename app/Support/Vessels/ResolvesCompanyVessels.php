@@ -10,11 +10,17 @@ final class ResolvesCompanyVessels
     /**
      * @return list<array{id: int, name: string, client_id: int|null}>
      */
-    public static function activeOptions(int $companyId): array
+    public static function activeOptions(int $companyId, bool $requireAssignedClient = false): array
     {
-        return self::queryForCompany($companyId)
+        $query = self::queryForCompany($companyId)
             ->where('is_active', true)
-            ->orderBy('name')
+            ->orderBy('name');
+
+        if ($requireAssignedClient) {
+            $query->whereNotNull('client_id');
+        }
+
+        return $query
             ->get(['id', 'name', 'client_id'])
             ->map(fn (Vessel $vessel) => [
                 'id' => (int) $vessel->id,

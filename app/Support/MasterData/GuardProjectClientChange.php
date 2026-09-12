@@ -15,7 +15,8 @@ final class GuardProjectClientChange
      * Whether changing the Project's Client would leave Employees inconsistent.
      *
      * Employees with a non-null client_id that differs from the destination Client
-     * (while still referencing this Project) block the change.
+     * (while still referencing this Project) block the change — including first-time
+     * mapping of a legacy-null Project onto a Client that conflicts with those Employees.
      *
      * Employees with project_id set and client_id null are legacy rows and do not
      * block re-parenting — they remain historically unscoped until edited.
@@ -34,12 +35,7 @@ final class GuardProjectClientChange
             return true;
         }
 
-        // First-time assignment (null → Client) never conflicts with a stored Client A.
-        if ($currentClientId === null) {
-            return false;
-        }
-
-        // Destination Client is set and differs from current.
+        // Destination Client is set and differs from current (including null → Client).
         return Employee::query()
             ->where('project_id', $project->id)
             ->whereNotNull('client_id')

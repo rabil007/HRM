@@ -417,6 +417,7 @@ test('16. clearing optional fields persists null in database', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
     $vessel = makeCrewMovementVessel('Clear Fields Vessel');
     $client = Client::query()->create(['name' => 'Clear Client '.Str::uuid(), 'is_active' => true]);
+    $vessel->update(['client_id' => $client->id]);
     $visa = CompanyVisaType::query()->create(['name' => 'Clear Visa '.Str::uuid(), 'is_active' => true]);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
@@ -469,6 +470,7 @@ test('17. partial update preserves omitted fields without nulling them', functio
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
     $vessel = makeCrewMovementVessel('Omitted Field Vessel');
     $client = Client::query()->create(['name' => 'Omitted Client '.Str::uuid(), 'is_active' => true]);
+    $vessel->update(['client_id' => $client->id]);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
         'rank_id' => $rank->id,

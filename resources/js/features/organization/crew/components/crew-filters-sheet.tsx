@@ -33,6 +33,42 @@ export function CrewFiltersSheet({
     onChange: (next: CrewAssignmentFilters) => void;
     onReset: () => void;
 }) {
+    const selectedClientId =
+        value.client_id !== '' ? Number(value.client_id) : null;
+
+    const vesselsForClient = filterOptions.vessels.filter((vessel) => {
+        if (selectedClientId === null) {
+            return true;
+        }
+
+        if (Array.isArray(vessel.client_ids) && vessel.client_ids.length > 0) {
+            return vessel.client_ids.includes(selectedClientId);
+        }
+
+        return vessel.client_id === selectedClientId;
+    });
+
+    const setClientId = (clientId: string): void => {
+        const nextClientId = clientId !== '' ? Number(clientId) : null;
+        const selectedVesselId =
+            value.vessel_id !== '' ? Number(value.vessel_id) : null;
+        const selectedVessel = filterOptions.vessels.find(
+            (vessel) => vessel.id === selectedVesselId,
+        );
+        const vesselMatches =
+            selectedVessel == null ||
+            nextClientId === null ||
+            (Array.isArray(selectedVessel.client_ids) &&
+                selectedVessel.client_ids.includes(nextClientId)) ||
+            selectedVessel.client_id === nextClientId;
+
+        onChange({
+            ...value,
+            client_id: clientId,
+            vessel_id: vesselMatches ? value.vessel_id : '',
+        });
+    };
+
     return (
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
             <div className="space-y-2">
@@ -142,6 +178,29 @@ export function CrewFiltersSheet({
 
             <div className="space-y-2">
                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                    Client
+                </Label>
+                <AppSelect
+                    value={value.client_id}
+                    onValueChange={setClientId}
+                    variant="dark"
+                    placeholder="All clients"
+                    searchPlaceholder="Search client..."
+                >
+                    <AppSelectItem value="">All clients</AppSelectItem>
+                    {filterOptions.clients.map((client) => (
+                        <AppSelectItem
+                            key={client.id}
+                            value={String(client.id)}
+                        >
+                            {client.name}
+                        </AppSelectItem>
+                    ))}
+                </AppSelect>
+            </div>
+
+            <div className="space-y-2">
+                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                     Vessel
                 </Label>
                 <AppSelect
@@ -154,7 +213,7 @@ export function CrewFiltersSheet({
                     searchPlaceholder="Search vessel..."
                 >
                     <AppSelectItem value="">All vessels</AppSelectItem>
-                    {filterOptions.vessels.map((vessel) => (
+                    {vesselsForClient.map((vessel) => (
                         <AppSelectItem
                             key={vessel.id}
                             value={String(vessel.id)}
@@ -182,31 +241,6 @@ export function CrewFiltersSheet({
                     {filterOptions.ranks.map((rank) => (
                         <AppSelectItem key={rank.id} value={String(rank.id)}>
                             {rank.name}
-                        </AppSelectItem>
-                    ))}
-                </AppSelect>
-            </div>
-
-            <div className="space-y-2">
-                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                    Client
-                </Label>
-                <AppSelect
-                    value={value.client_id}
-                    onValueChange={(clientId) =>
-                        onChange({ ...value, client_id: clientId })
-                    }
-                    variant="dark"
-                    placeholder="All clients"
-                    searchPlaceholder="Search client..."
-                >
-                    <AppSelectItem value="">All clients</AppSelectItem>
-                    {filterOptions.clients.map((client) => (
-                        <AppSelectItem
-                            key={client.id}
-                            value={String(client.id)}
-                        >
-                            {client.name}
                         </AppSelectItem>
                     ))}
                 </AppSelect>

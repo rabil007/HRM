@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\User;
+use App\Support\CrewMovements\CrewAssignmentSnapshotFilterOptions;
 use App\Support\CrewMovements\CrewMobilisationReadinessResolver;
 use App\Support\CrewMovements\CrewMobilisationReadinessResult;
 use App\Support\CrewMovements\CrewReliefPlanningLoader;
@@ -94,18 +95,19 @@ final class CrewReliefDeskQuery
             'pagination' => $paginator,
             'summary' => $summary,
             'filters' => CrewReliefDeskFilters::inertiaFilters($filters),
-            'filter_options' => $this->filterOptions(),
+            'filter_options' => $this->filterOptions($companyId),
         ];
     }
 
     /**
      * @return array{
      *     clients: list<array{id: int, name: string}>,
+     *     vessels: list<array{id: int, name: string, client_id: int|null, client_ids: list<int>}>,
      *     relief_statuses: list<array{value: string, label: string}>,
      *     relief_risks: list<array{value: string, label: string}>
      * }
      */
-    public function filterOptions(): array
+    public function filterOptions(int $companyId): array
     {
         return [
             'clients' => Client::query()
@@ -118,6 +120,7 @@ final class CrewReliefDeskQuery
                 ])
                 ->values()
                 ->all(),
+            'vessels' => CrewAssignmentSnapshotFilterOptions::vessels($companyId),
             'relief_statuses' => collect(CrewReliefStatus::filterable())
                 ->map(fn (CrewReliefStatus $status): array => [
                     'value' => $status->value,

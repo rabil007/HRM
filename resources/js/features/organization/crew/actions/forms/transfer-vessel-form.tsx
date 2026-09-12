@@ -51,13 +51,15 @@ export function TransferVesselForm({
             return false;
         }
 
+        if (vessel.client_id == null) {
+            return false;
+        }
+
         if (form.data.client_id === null) {
             return true;
         }
 
-        return (
-            vessel.client_id == null || vessel.client_id === form.data.client_id
-        );
+        return vessel.client_id === form.data.client_id;
     });
 
     const setDestinationClient = (value: string): void => {
@@ -67,9 +69,8 @@ export function TransferVesselForm({
         );
         const vesselMatches =
             selectedVessel == null ||
-            selectedVessel.client_id == null ||
-            nextClientId === null ||
-            selectedVessel.client_id === nextClientId;
+            (nextClientId !== null &&
+                selectedVessel.client_id === nextClientId);
 
         form.setData({
             ...form.data,

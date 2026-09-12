@@ -271,7 +271,12 @@ export function EmployeeSeaServiceTab({
     const { canCreate: canCreateVessel, createConfig: vesselCreateConfig } =
         useCreatableMasterData('vessel', {
             vesselTypeId: employeeForm.data.vessel_type_id || null,
+            clientId: employeeForm.data.client_id || null,
         });
+    const canCreateVesselWithClient =
+        canCreateVessel &&
+        Boolean(employeeForm.data.client_id) &&
+        Boolean(employeeForm.data.vessel_type_id);
     const { canCreate: canCreateRank, createConfig: rankCreateConfig } =
         useCreatableMasterData('rank');
     const { canCreate: canCreateClient, createConfig: clientCreateConfig } =
@@ -843,7 +848,9 @@ export function EmployeeSeaServiceTab({
                                                     }
                                                 }}
                                                 creatable
-                                                canCreate={canCreateVessel}
+                                                canCreate={
+                                                    canCreateVesselWithClient
+                                                }
                                                 createConfig={
                                                     vesselCreateConfig
                                                 }
@@ -857,12 +864,19 @@ export function EmployeeSeaServiceTab({
                                                 </p>
                                             ) : (
                                                 <p className="text-[11px] text-muted-foreground">
-                                                    Vessel from master data
-                                                    {isFieldRequired(
-                                                        'vessel_id',
-                                                    )
-                                                        ? ''
-                                                        : ' (optional)'}
+                                                    {canCreateVessel &&
+                                                    (!employeeForm.data
+                                                        .client_id ||
+                                                        !employeeForm.data
+                                                            .vessel_type_id)
+                                                        ? 'Select Client and Vessel type before creating a new vessel. Client becomes the vessel’s current operational client.'
+                                                        : `Vessel from master data${
+                                                              isFieldRequired(
+                                                                  'vessel_id',
+                                                              )
+                                                                  ? ''
+                                                                  : ' (optional)'
+                                                          }`}
                                                 </p>
                                             )}
                                         </RecordFormField>

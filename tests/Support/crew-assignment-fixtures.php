@@ -3,6 +3,7 @@
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\CrewAssignment;
@@ -72,13 +73,18 @@ function makeCrewAssignmentFixtures(): array
     return compact('user', 'company', 'employee', 'rank');
 }
 
-function makeCrewMovementVessel(string $name, ?Company $company = null): Vessel
+function makeCrewMovementVessel(string $name, ?Company $company = null, ?Client $client = null): Vessel
 {
     $companyId = $company?->id ?? Company::query()->value('id');
 
     if ($companyId === null) {
         throw new RuntimeException('makeCrewMovementVessel requires an existing company.');
     }
+
+    $clientId = $client?->id ?? Client::query()->create([
+        'name' => 'CM Client '.Str::uuid()->toString(),
+        'is_active' => true,
+    ])->id;
 
     return Vessel::query()->create([
         'company_id' => $companyId,
@@ -87,6 +93,7 @@ function makeCrewMovementVessel(string $name, ?Company $company = null): Vessel
             'name' => 'CM VT '.Str::uuid()->toString(),
             'is_active' => true,
         ])->id,
+        'client_id' => $clientId,
         'is_active' => true,
     ]);
 }

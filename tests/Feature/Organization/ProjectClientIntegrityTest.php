@@ -236,3 +236,94 @@ test('employee update can assign legacy null project without client', function (
     expect((int) $employee->fresh()->project_id)->toBe((int) $project->id)
         ->and($employee->fresh()->client_id)->toBeNull();
 });
+
+test('legacy null project mapping succeeds when employee already has destination client', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.update',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Align Client A', 'is_active' => true]);
+    $project = Project::query()->create([
+        'title' => 'Align Project '.uniqid(),
+        'client_id' => null,
+        'is_active' => true,
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'client_id' => $clientA->id,
+        'project_id' => $project->id,
+        'status' => 'active',
+    ]);
+
+    $this->put("/settings/master-data/projects/{$project->id}", [
+        'title' => $project->title,
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ])->assertRedirect(route('settings.master-data.projects.index'));
+
+    expect((int) $project->fresh()->client_id)->toBe((int) $clientA->id);
+});
+
+test('legacy null project mapping rejects when employee has conflicting client', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.update',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Conflict Client A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Conflict Client B', 'is_active' => true]);
+    $project = Project::query()->create([
+        'title' => 'Conflict Project '.uniqid(),
+        'client_id' => null,
+        'is_active' => true,
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'client_id' => $clientB->id,
+        'project_id' => $project->id,
+        'status' => 'active',
+    ]);
+
+    $this->put("/settings/master-data/projects/{$project->id}", [
+        'title' => $project->title,
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ])->assertSessionHasErrors('client_id');
+
+    expect($project->fresh()->client_id)->toBeNull();
+});
+
+test('legacy null project with only null-client employees can map to a client', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.update',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Null Emp Client', 'is_active' => true]);
+    $project = Project::query()->create([
+        'title' => 'Null Emp Project '.uniqid(),
+        'client_id' => null,
+        'is_active' => true,
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'client_id' => null,
+        'project_id' => $project->id,
+        'status' => 'active',
+    ]);
+
+    $this->put("/settings/master-data/projects/{$project->id}", [
+        'title' => $project->title,
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ])->assertRedirect(route('settings.master-data.projects.index'));
+
+    expect((int) $project->fresh()->client_id)->toBe((int) $clientA->id);
+});

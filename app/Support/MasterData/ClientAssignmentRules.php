@@ -9,10 +9,12 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Validator;
 
 /**
- * Shared Client assignment and Client↔Vessel consistency rules.
+ * Shared Client assignment and Client↔Vessel / Client↔Project consistency rules.
  */
 final class ClientAssignmentRules
 {
+    public const VESSEL_MISSING_CLIENT_MESSAGE = 'This vessel has no assigned client. Assign a client to the vessel before using it for crew operations.';
+
     /**
      * Active, non-deleted Client for new business assignments.
      *
@@ -112,40 +114,63 @@ final class ClientAssignmentRules
         ];
     }
 
-    public static function projectBelongsToClient(Validator $validator, ?int $clientId, ?int $projectId): void
+    /**
+     * Message when Project/Client pair is inconsistent, or null when valid.
+     */
+    public static function projectClientInconsistencyMessage(?int $clientId, ?int $projectId): ?string
     {
         if ($projectId === null || $projectId === 0) {
-            return;
+            return null;
         }
 
         $project = Project::query()->find($projectId);
 
         if ($project === null) {
-            $validator->errors()->add('project_id', 'The selected project is invalid.');
-
-            return;
+            return 'The selected project is invalid.';
         }
 
         // Legacy unassigned projects remain assignable until mapped.
         if ($project->client_id === null) {
-            return;
+            return null;
         }
 
         if ($clientId === null || $clientId === 0) {
-            $validator->errors()->add(
-                'project_id',
-                'Select a client before assigning a project.',
-            );
-
-            return;
+            return 'Select a client before assigning a project.';
         }
 
         if ((int) $project->client_id !== (int) $clientId) {
-            $validator->errors()->add(
-                'project_id',
-                'The selected project does not belong to the selected client.',
-            );
+            return 'The selected project does not belong to the selected client.';
         }
+
+        return null;
+    }
+
+    public static function projectBelongsToClient(Validator $validator, ?int $clientId, ?int $projectId): void
+    {
+        $message = self::projectClientInconsistencyMessage($clientId, $projectId);
+
+        if ($message !== null) {
+            $validator->errors()->add('project_id', $message);
+        }
+    }
+
+    /**
+     * Load a company-scoped Vessel for operational use, or null when missing.
+     */
+    public static function findCompanyVessel(int $companyId, int $vesselId): ?Vessel
+    {
+        return Vessel::query()
+            ->where('company_id', $companyId)
+            ->whereKey($vesselId)
+            ->first();
+    }
+
+    /**
+     * Whether a Vessel may be used for new operational Crew activity.
+     */
+    public static function vesselHasAssignableClient(?Vessel $vessel): bool
+    {
+        return $vessel !== null && $vessel->client_id !== null;
     }
 
     public static function vesselBelongsToClient(
@@ -155,15 +180,13 @@ final class ClientAssignmentRules
         ?int $vesselId,
         string $clientAttribute = 'client_id',
         string $vesselAttribute = 'vessel_id',
+        bool $requireAssignedClient = true,
     ): void {
         if ($vesselId === null || $vesselId === 0) {
             return;
         }
 
-        $vessel = Vessel::query()
-            ->where('company_id', $companyId)
-            ->whereKey($vesselId)
-            ->first();
+        $vessel = self::findCompanyVessel($companyId, $vesselId);
 
         if ($vessel === null) {
             $validator->errors()->add($vesselAttribute, 'The selected vessel is invalid.');
@@ -172,8 +195,13 @@ final class ClientAssignmentRules
         }
 
         if ($vessel->client_id === null) {
-            // Legacy unassigned vessel: allow pairing with any Client,
-            // but prefer requiring explicit Client when submitted.
+            if ($requireAssignedClient) {
+                $validator->errors()->add(
+                    $vesselAttribute,
+                    self::VESSEL_MISSING_CLIENT_MESSAGE,
+                );
+            }
+
             return;
         }
 
@@ -194,10 +222,7 @@ final class ClientAssignmentRules
      */
     public static function resolveClientIdFromVessel(int $companyId, int $vesselId): ?int
     {
-        $vessel = Vessel::query()
-            ->where('company_id', $companyId)
-            ->whereKey($vesselId)
-            ->first();
+        $vessel = self::findCompanyVessel($companyId, $vesselId);
 
         if ($vessel === null || $vessel->client_id === null) {
             return null;

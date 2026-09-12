@@ -341,7 +341,12 @@ export type CrewFilterOption = {
 };
 
 export interface CrewAssignmentFilterOptions {
-    vessels: Array<{ id: number; name: string; client_id?: number | null }>;
+    vessels: Array<{
+        id: number;
+        name: string;
+        client_id?: number | null;
+        client_ids?: number[];
+    }>;
     ranks: Array<{ id: number; name: string }>;
     clients: Array<{ id: number; name: string }>;
     employees: Array<{

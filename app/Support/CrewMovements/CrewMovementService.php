@@ -78,6 +78,18 @@ final class CrewMovementService
 
             $this->assertNoActiveAssignment($companyId, $employeeId);
 
+            $vesselId = isset($attributes['vessel_id']) && $attributes['vessel_id'] !== null && (int) $attributes['vessel_id'] > 0
+                ? (int) $attributes['vessel_id']
+                : null;
+            $submittedClientId = isset($attributes['client_id']) && $attributes['client_id'] !== null && (int) $attributes['client_id'] > 0
+                ? (int) $attributes['client_id']
+                : null;
+
+            // New drafts with a Vessel must snapshot that Vessel's current Client.
+            $clientId = $vesselId !== null
+                ? $this->resolveOperationalClientId($companyId, $vesselId, $submittedClientId)
+                : $submittedClientId;
+
             $assignmentNo = $this->numbers->next($companyId);
 
             $assignment = CrewAssignment::query()->create([
@@ -85,8 +97,8 @@ final class CrewMovementService
                 'assignment_no' => $assignmentNo,
                 'employee_id' => $employeeId,
                 'rank_id' => $attributes['rank_id'] ?? $employee->rank_id,
-                'client_id' => $attributes['client_id'] ?? null,
-                'vessel_id' => $attributes['vessel_id'] ?? null,
+                'client_id' => $clientId,
+                'vessel_id' => $vesselId,
                 'company_visa_type_id' => $attributes['company_visa_type_id'] ?? null,
                 'status' => CrewAssignmentStatus::Draft,
                 'planned_join_at' => $attributes['planned_join_at'] ?? null,
@@ -1458,7 +1470,23 @@ final class CrewMovementService
         $vesselClientId = null;
 
         if ($vesselId !== null && $vesselId > 0) {
-            $vesselClientId = ClientAssignmentRules::resolveClientIdFromVessel($companyId, $vesselId);
+            $vessel = ClientAssignmentRules::findCompanyVessel($companyId, $vesselId);
+
+            if ($vessel === null) {
+                throw CrewMovementException::make(
+                    'The selected vessel is invalid.',
+                    'vessel_not_found',
+                );
+            }
+
+            if ($vessel->client_id === null) {
+                throw CrewMovementException::make(
+                    ClientAssignmentRules::VESSEL_MISSING_CLIENT_MESSAGE,
+                    'vessel_missing_client',
+                );
+            }
+
+            $vesselClientId = (int) $vessel->client_id;
         }
 
         if ($submittedClientId !== null && $submittedClientId > 0) {

@@ -197,6 +197,12 @@ export type ReliefDeskRow = {
 
 export type ReliefDeskFilterOptions = {
     clients: PlanningOption[];
+    vessels?: Array<{
+        id: number;
+        name: string;
+        client_id?: number | null;
+        client_ids?: number[];
+    }>;
     relief_statuses: Array<{ value: string; label: string }>;
     relief_risks: Array<{ value: string; label: string }>;
 };

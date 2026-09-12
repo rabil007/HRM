@@ -374,7 +374,7 @@ class CrewAssignmentController extends Controller
      */
     private function activeVessels(int $companyId): array
     {
-        return ResolvesCompanyVessels::activeOptions($companyId);
+        return ResolvesCompanyVessels::activeOptions($companyId, requireAssignedClient: true);
     }
 
     /**

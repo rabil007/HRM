@@ -369,9 +369,13 @@ CrewAssignment.client_id      = Client during that mobilisation cycle (snapshot)
 EmployeeSeaService.client_id  = Client during that service period (from assignment snapshot)
 ```
 
-`projects.client_id` / `vessels.client_id` stay nullable only for legacy unassigned rows. Mapped records cannot clear Client back to null in normal editing. Project Client changes that would leave Employees with a mismatched Client are rejected.
+`projects.client_id` / `vessels.client_id` stay nullable only for legacy unassigned rows. Mapped records cannot clear Client back to null in normal editing. Project Client changes (including first-time `null` → Client) that would leave Employees with a mismatched Client are rejected.
 
-`SeaServiceSyncService` copies `CrewAssignment.client_id` into `EmployeeSeaService.client_id`. Changing `Vessel.client_id` later must **never** rewrite historical assignments, phases, timesheets, payroll, or sea service.
+New operational Crew activity cannot use a legacy-unassigned Vessel. When `CrewMovementService::createDraft()` receives a `vessel_id`, it snapshots that Vessel’s current Client (and rejects null-client / mismatched Client). Crew Planning → Assignment conversion relies on the same draft invariant.
+
+Current Crew and Relief Desk Client/Vessel filter options that cascade by Client are derived from stored `crew_assignments` Client↔Vessel pairs, not from today’s `Vessel.client_id`. Historical Movement History filters continue to query assignment snapshot columns independently.
+
+`SeaServiceSyncService` copies `CrewAssignment.client_id` into `EmployeeSeaService.client_id`. Changing `Vessel.client_id` later must **never** rewrite historical assignments, phases, timesheets, payroll, or sea service. Sea Service create/edit must not force historical rows to match the Vessel’s current Client; inline Vessel creation from Sea Service requires an explicit current Client (and Vessel Type) for the new master record.
 
 ## P2B Training → Employee Training synchronization
 

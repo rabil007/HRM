@@ -76,7 +76,8 @@ test('handle blocks when employee has active assignment', function () {
 test('handle is scoped to company', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     ['company' => $otherCompany, 'employee' => $otherEmployee] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Multi Company Vessel');
+    $vessel = makeCrewMovementVessel('Multi Company Vessel', $company);
+    $otherVessel = makeCrewMovementVessel('Other Multi Company Vessel', $otherCompany);
 
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
@@ -89,7 +90,7 @@ test('handle is scoped to company', function () {
 
     $otherPlanning = CrewPlanningAssignment::query()->create([
         'company_id' => $otherCompany->id,
-        'vessel_id' => $vessel->id,
+        'vessel_id' => $otherVessel->id,
         'rank_id' => $rank->id,
         'employee_id' => $otherEmployee->id,
         'planned_join_date' => '2027-10-01',

@@ -206,6 +206,7 @@ class CrewPlanningController extends Controller
             'filters' => CrewReliefDeskFilters::inertiaFilters(CrewReliefDeskFilters::defaults()),
             'filter_options' => [
                 'clients' => [],
+                'vessels' => [],
                 'relief_statuses' => [],
                 'relief_risks' => [],
             ],
@@ -338,7 +339,7 @@ class CrewPlanningController extends Controller
      */
     private function activeVessels(int $companyId): array
     {
-        return ResolvesCompanyVessels::activeOptions($companyId);
+        return ResolvesCompanyVessels::activeOptions($companyId, requireAssignedClient: true);
     }
 
     /**

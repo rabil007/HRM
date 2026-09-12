@@ -36,6 +36,21 @@ export function ReliefDeskFiltersBar({
     const [draft, setDraft] = useState(filters);
     const applyDraftOnClose = useRef(true);
 
+    const snapshotVessels = filterOptions.vessels ?? [];
+    const vesselsForClient = (
+        snapshotVessels.length > 0 ? snapshotVessels : vessels
+    ).filter((vessel) => {
+        if (filters.client_id == null) {
+            return true;
+        }
+
+        if ('client_ids' in vessel && Array.isArray(vessel.client_ids)) {
+            return vessel.client_ids.includes(filters.client_id);
+        }
+
+        return true;
+    });
+
     return (
         <>
             <SearchBar
@@ -62,7 +77,7 @@ export function ReliefDeskFiltersBar({
                             className="w-[160px]"
                         >
                             <AppSelectItem value="">All vessels</AppSelectItem>
-                            {vessels.map((vessel) => (
+                            {vesselsForClient.map((vessel) => (
                                 <AppSelectItem
                                     key={vessel.id}
                                     value={String(vessel.id)}
@@ -144,6 +159,34 @@ export function ReliefDeskFiltersBar({
                             setDraft({
                                 ...draft,
                                 client_id: value === '' ? null : Number(value),
+                                vessel_id:
+                                    value === ''
+                                        ? draft.vessel_id
+                                        : (() => {
+                                              const nextClientId =
+                                                  Number(value);
+                                              const selected = (
+                                                  filterOptions.vessels ?? []
+                                              ).find(
+                                                  (vessel) =>
+                                                      vessel.id ===
+                                                      draft.vessel_id,
+                                              );
+
+                                              if (
+                                                  selected == null ||
+                                                  !Array.isArray(
+                                                      selected.client_ids,
+                                                  ) ||
+                                                  selected.client_ids.includes(
+                                                      nextClientId,
+                                                  )
+                                              ) {
+                                                  return draft.vessel_id;
+                                              }
+
+                                              return null;
+                                          })(),
                             })
                         }
                         variant="dark"

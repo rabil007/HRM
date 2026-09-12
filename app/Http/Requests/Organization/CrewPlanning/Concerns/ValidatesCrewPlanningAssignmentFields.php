@@ -5,6 +5,7 @@ namespace App\Http\Requests\Organization\CrewPlanning\Concerns;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Support\CrewPlanning\ValidatesCrewPlanningReliefLink;
+use App\Support\MasterData\ClientAssignmentRules;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -75,15 +76,27 @@ trait ValidatesCrewPlanningAssignmentFields
                 }
             }
 
+            $vesselId = $this->has('vessel_id')
+                ? $this->input('vessel_id')
+                : $existing?->vessel_id;
+
+            if ($vesselId !== null && $vesselId !== '' && ! $validator->errors()->has('vessel_id')) {
+                ClientAssignmentRules::vesselBelongsToClient(
+                    $validator,
+                    $companyId,
+                    null,
+                    (int) $vesselId,
+                    requireAssignedClient: true,
+                );
+            }
+
             // Relief link rules always apply when present — including vacant slots.
             ValidatesCrewPlanningReliefLink::validate($validator, [
                 'company_id' => $companyId,
                 'relieves_crew_assignment_id' => $this->has('relieves_crew_assignment_id')
                     ? $this->input('relieves_crew_assignment_id')
                     : $existing?->relieves_crew_assignment_id,
-                'vessel_id' => $this->has('vessel_id')
-                    ? $this->input('vessel_id')
-                    : $existing?->vessel_id,
+                'vessel_id' => $vesselId,
                 'rank_id' => $assignmentRankId,
                 'employee_id' => $rawEmployeeId,
             ], $existing);
