@@ -85,6 +85,12 @@ final class CrewMovementService
                 ? (int) $attributes['client_id']
                 : null;
 
+            // New drafts with a Vessel require company-owned, active master data
+            // before Client snapshot derivation.
+            if ($vesselId !== null) {
+                $this->assertCompanyOwnedMaster($companyId, Vessel::class, $vesselId, 'vessel');
+            }
+
             // New drafts with a Vessel must snapshot that Vessel's current Client.
             $clientId = $vesselId !== null
                 ? $this->resolveOperationalClientId($companyId, $vesselId, $submittedClientId)

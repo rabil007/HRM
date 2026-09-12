@@ -23,7 +23,13 @@ class UpdateCrewPlanningAssignmentRequest extends FormRequest
         $companyId = (int) $this->attributes->get('current_company_id');
 
         return [
-            'vessel_id' => ['sometimes', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)],
+            'vessel_id' => [
+                'sometimes',
+                'integer',
+                Rule::exists('vessels', 'id')
+                    ->where('company_id', $companyId)
+                    ->where('is_active', true),
+            ],
             'rank_id' => ['sometimes', 'integer', Rule::exists('ranks', 'id')],
             'employee_id' => $this->crewPlanningEmployeeIdRule(),
             'planned_join_date' => ['sometimes', 'date'],

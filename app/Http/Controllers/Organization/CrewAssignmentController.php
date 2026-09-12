@@ -279,7 +279,7 @@ class CrewAssignmentController extends Controller
                 ->values()
                 ->all(),
             'ranks' => $this->activeRanks(),
-            'vessels' => $this->activeVessels($companyId),
+            'vessels' => $this->vesselOptionsForAssignment($companyId, $assignment),
             'clients' => $this->activeClients(),
             'visa_types' => $this->activeVisaTypes(),
             'courses' => $this->activeCourses(),
@@ -370,11 +370,57 @@ class CrewAssignmentController extends Controller
     }
 
     /**
-     * @return list<array{id: int, name: string}>
+     * @return list<array{id: int, name: string, client_id: int|null}>
      */
     private function activeVessels(int $companyId): array
     {
         return ResolvesCompanyVessels::activeOptions($companyId, requireAssignedClient: true);
+    }
+
+    /**
+     * Operational vessel options plus the assignment's existing Vessel when it is
+     * missing from the selectable list (legacy unassigned / inactive continuity).
+     *
+     * @return list<array{id: int, name: string, client_id: int|null}>
+     */
+    private function vesselOptionsForAssignment(int $companyId, CrewAssignment $assignment): array
+    {
+        $options = $this->activeVessels($companyId);
+        $existingVesselId = $assignment->vessel_id !== null ? (int) $assignment->vessel_id : null;
+
+        if ($existingVesselId === null) {
+            return $options;
+        }
+
+        foreach ($options as $option) {
+            if ((int) $option['id'] === $existingVesselId) {
+                return $options;
+            }
+        }
+
+        $existing = ResolvesCompanyVessels::queryForCompany($companyId)
+            ->whereKey($existingVesselId)
+            ->first(['id', 'name', 'client_id', 'is_active']);
+
+        if ($existing === null) {
+            return $options;
+        }
+
+        $label = (string) $existing->name;
+
+        if ($existing->client_id === null) {
+            $label .= ' — Legacy / Client not assigned';
+        } elseif (! (bool) $existing->is_active) {
+            $label .= ' — Inactive';
+        }
+
+        $options[] = [
+            'id' => (int) $existing->id,
+            'name' => $label,
+            'client_id' => $existing->client_id !== null ? (int) $existing->client_id : null,
+        ];
+
+        return $options;
     }
 
     /**

@@ -371,7 +371,9 @@ EmployeeSeaService.client_id  = Client during that service period (from assignme
 
 `projects.client_id` / `vessels.client_id` stay nullable only for legacy unassigned rows. Mapped records cannot clear Client back to null in normal editing. Project Client changes (including first-time `null` → Client) that would leave Employees with a mismatched Client are rejected.
 
-New operational Crew activity cannot use a legacy-unassigned Vessel. When `CrewMovementService::createDraft()` receives a `vessel_id`, it snapshots that Vessel’s current Client (and rejects null-client / mismatched Client). Crew Planning → Assignment conversion relies on the same draft invariant.
+New operational Crew activity cannot use a legacy-unassigned Vessel, and cannot use an inactive Vessel. When `CrewMovementService::createDraft()` receives a `vessel_id`, it asserts the Vessel is company-owned and active, then snapshots that Vessel’s current Client (and rejects null-client / mismatched Client). Crew Planning create/update requires an active company Vessel; Planning → Assignment conversion relies on the same draft invariant.
+
+Editable pre-P4 Crew Assignments may retain an unchanged legacy Vessel (including historically unmapped `client_id = null`) during unrelated field edits. Changing Vessel or Client on that record applies today’s strict operational rules.
 
 Current Crew and Relief Desk Client/Vessel filter options that cascade by Client are derived from stored `crew_assignments` Client↔Vessel pairs, not from today’s `Vessel.client_id`. Historical Movement History filters continue to query assignment snapshot columns independently.
 

@@ -72,6 +72,11 @@ export function CrewAssignmentFormFields({
     };
 
     const vesselsForClient = formOptions.vessels.filter((vessel) => {
+        // Keep the currently selected vessel visible for legacy continuity.
+        if (form.data.vessel_id !== null && vessel.id === form.data.vessel_id) {
+            return true;
+        }
+
         if (vessel.client_id == null) {
             return false;
         }
@@ -82,6 +87,13 @@ export function CrewAssignmentFormFields({
 
         return vessel.client_id === form.data.client_id;
     });
+
+    const selectedVesselIsLegacyUnassigned =
+        form.data.vessel_id !== null &&
+        formOptions.vessels.some(
+            (vessel) =>
+                vessel.id === form.data.vessel_id && vessel.client_id == null,
+        );
 
     const setClientId = (value: string): void => {
         const nextClientId = value ? Number(value) : null;
@@ -301,6 +313,13 @@ export function CrewAssignmentFormFields({
                         vesselsForClient.length === 0 ? (
                             <p className="text-xs text-muted-foreground">
                                 No vessels are assigned to this client.
+                            </p>
+                        ) : null}
+                        {selectedVesselIsLegacyUnassigned ? (
+                            <p className="text-xs text-muted-foreground">
+                                This vessel has no current client assignment.
+                                Map the vessel before changing the
+                                assignment&apos;s Client or Vessel.
                             </p>
                         ) : null}
                         <InputError message={form.errors.vessel_id} />
