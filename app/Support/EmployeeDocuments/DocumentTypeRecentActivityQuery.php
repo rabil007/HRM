@@ -40,8 +40,6 @@ final class DocumentTypeRecentActivityQuery
 
         $logs = Activity::query()
             ->where('company_id', $companyId)
-            ->where('causer_type', User::class)
-            ->whereNotNull('causer_id')
             ->where(function ($query) use ($documentType, $requirementIds): void {
                 $query->where(function ($inner) use ($documentType): void {
                     $inner->where('subject_type', DocumentType::class)
