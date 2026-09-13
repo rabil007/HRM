@@ -29,6 +29,8 @@ final class CrewOperationsRecentActivityQuery
 
         $logs = Activity::query()
             ->where('company_id', $companyId)
+            ->where('causer_type', User::class)
+            ->whereNotNull('causer_id')
             ->whereIn('subject_type', [
                 CrewAssignment::class,
                 CrewPlanningAssignment::class,
