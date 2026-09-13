@@ -49,7 +49,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 | Global Search | [global-search.md](./global-search.md) |
 | Navigation favorites | [navigation-favorites.md](./navigation-favorites.md) |
 | Recently viewed records | [recent-items.md](./recent-items.md) |
-| Saved list filters | [saved-views.md](./saved-views.md) |
+| Saved views | [saved-views.md](./saved-views.md) |
 | Privileged 2FA | [privileged-2fa.md](./privileged-2fa.md) and `.cursor/rules/permissions.mdc` |
 | Job history retention / activity-log cleanup | [permissions.md](./permissions.md#job-history-and-activity-log-retention) |
 | AI providers / Smart Employee Search | [ai-settings.md](./ai-settings.md) |
@@ -104,7 +104,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 
 ## Implemented module coverage
 
-The application currently includes core organization and employee management, employee profile templates, documents and e-signing, attendance and leave, payroll, training, **Crew Operations** (Crew Assignments, P0–P6 movements, planning/Gantt, vessel manning, sea-service synchronization, movement history/corrections), users and roles, user-attributed activity logging, bulk documents, and SMTP/WhatsApp/Hikvision integrations. Automatic model changes without an authenticated OMS user are not added to the tenant user activity trail; explicit workflow/compliance evidence may still be retained by its domain and is excluded from the Organization Activity Logs user view. Documentation depth varies by module; source code, routes, and tests remain authoritative where a dedicated guide is not yet available.
+The application currently includes core organization and employee management, employee profile templates, documents and e-signing, attendance and leave, payroll, training, **Crew Operations** (Crew Assignments, P0–P6 movements, planning/Gantt, vessel manning, sea-service synchronization, movement history/corrections), users and roles, activity logging, bulk documents, and SMTP/WhatsApp/Hikvision integrations. The Organization Activity Logs page is user-attributed: rows without an `App\Models\User` causer are excluded from that page and its filter options. Explicit workflow and compliance evidence remains stored by its domain and is not deleted by this view-level rule. Documentation depth varies by module; source code, routes, and tests remain authoritative where a dedicated guide is not yet available.
 
 ## Related project files
 
