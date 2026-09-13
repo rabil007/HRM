@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Support\Activity\ActivityChangePresenter;
 use App\Support\Pagination\ResolvesPerPage;
 use Carbon\CarbonImmutable;
@@ -37,6 +38,8 @@ class ActivityLogController extends Controller
 
         $paginator = Activity::query()
             ->where('company_id', $companyId)
+            ->where('causer_type', User::class)
+            ->whereNotNull('causer_id')
             ->whereDate('created_at', '>=', $dateFrom)
             ->whereDate('created_at', '<=', $dateTo)
             ->when($filters['event'], fn ($query, $event) => $query->where('event', $event))
@@ -86,6 +89,8 @@ class ActivityLogController extends Controller
 
         $subjectTypes = Activity::query()
             ->where('company_id', $companyId)
+            ->where('causer_type', User::class)
+            ->whereNotNull('causer_id')
             ->whereNotNull('subject_type')
             ->where('subject_type', '!=', '')
             ->select('subject_type')
