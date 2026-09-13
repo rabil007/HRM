@@ -31,8 +31,6 @@ final class RecentActivityQuery
 
         $logs = Activity::query()
             ->where('company_id', $companyId)
-            ->where('causer_type', User::class)
-            ->whereNotNull('causer_id')
             ->where('subject_type', $subjectType)
             ->where('subject_id', $subjectId)
             ->with(['causer:id,name,email'])
