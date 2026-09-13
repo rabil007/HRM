@@ -3,13 +3,26 @@
 namespace App\Models\Concerns;
 
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 
 trait LogsActivityWithCompany
 {
-    use LogsActivity;
+    use LogsActivity {
+        shouldLogEvent as protected shouldLogActivityEvent;
+    }
+
+    protected function shouldLogEvent(string $eventName): bool
+    {
+        if (! Auth::user() instanceof User) {
+            return false;
+        }
+
+        return $this->shouldLogActivityEvent($eventName);
+    }
 
     public function beforeActivityLogged(Activity $activity, string $eventName): void
     {
