@@ -42,6 +42,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 | Crew Movement History report | [reports/crew-movement-history.md](./reports/crew-movement-history.md) |
 | Crew payroll / timeline preparation | [payroll.md](./payroll.md) and [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md) |
 | Tenant access or permissions | [permissions.md](./permissions.md) and `.cursor/rules/permissions.mdc` |
+| Activity logs / audit trail | [permissions.md](./permissions.md#audit) and `.cursor/rules/permissions.mdc` |
 | User account status / login eligibility | [permissions.md](./permissions.md#global-user-account-status) |
 | User email identity / duplicate login emails | [permissions.md](./permissions.md#global-user-email-identity) |
 | Documents, sharing, or search | The matching document guide below; [global-search.md](./global-search.md) for Cmd/Ctrl+K |
@@ -79,7 +80,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 | [CI quality gates](./ci.md) | Developers | Change classifier, parallel Pint / frontend static / Vite build, sharded Pest, `Quality gates` aggregator |
 | [Mobile operational lists](./mobile-operational-lists.md) | Developers | Compact phone cards for selected operational indexes; desktop tables stay standard |
 | [Document sharing](./document-sharing.md) | HR, developers | Share links, WhatsApp, bulk actions |
-| [Permissions](./permissions.md) | Admins, developers | Spatie permissions, documents, imports, global user account status, global user email identity |
+| [Permissions](./permissions.md) | Admins, developers | Spatie permissions, activity audit, documents, imports, global user account status, global user email identity |
 | [Email configuration](./email-configuration.md) | Admins, developers | SMTP settings, test email |
 | [AI settings](./ai-settings.md) | Admins, developers | Platform OpenAI/OpenRouter credentials, Smart Employee Search toggle, Employee Directory Beta UI |
 | [WhatsApp integration](./whatsapp-integration.md) | Admins, developers | Meta Cloud API settings, webhook verification, signed status callbacks |
@@ -103,7 +104,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 
 ## Implemented module coverage
 
-The application currently includes core organization and employee management, employee profile templates, documents and e-signing, attendance and leave, payroll, training, **Crew Operations** (Crew Assignments, P0–P6 movements, planning/Gantt, vessel manning, sea-service synchronization, movement history/corrections), users and roles, activity logging, bulk documents, and SMTP/WhatsApp/Hikvision integrations. Documentation depth varies by module; source code, routes, and tests remain authoritative where a dedicated guide is not yet available.
+The application currently includes core organization and employee management, employee profile templates, documents and e-signing, attendance and leave, payroll, training, **Crew Operations** (Crew Assignments, P0–P6 movements, planning/Gantt, vessel manning, sea-service synchronization, movement history/corrections), users and roles, user-attributed activity logging, bulk documents, and SMTP/WhatsApp/Hikvision integrations. Automatic model changes without an authenticated OMS user are not added to the tenant user activity trail; explicit workflow/compliance evidence may still be retained by its domain and is excluded from the Organization Activity Logs user view. Documentation depth varies by module; source code, routes, and tests remain authoritative where a dedicated guide is not yet available.
 
 ## Related project files
 
@@ -121,4 +122,4 @@ The application currently includes core organization and employee management, em
 
 ## Last reviewed
 
-Entry points reviewed on **2026-09-08**. Guides were reconciled with CrewAssignment + P0–P6 (EmployeeDeployment removed), current authorization/policy usage, Golden Files, Cursor rules, and CI change classification. Topic guides still vary in depth; implementation remains authoritative.
+Entry points reviewed on **2026-09-08**. Activity-log routing and user-attribution behavior were additionally checked against the current implementation on **2026-09-13**. Topic guides still vary in depth; implementation remains authoritative.
