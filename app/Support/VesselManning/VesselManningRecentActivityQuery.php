@@ -42,8 +42,6 @@ final class VesselManningRecentActivityQuery
 
         $logs = Activity::query()
             ->where('company_id', $companyId)
-            ->where('causer_type', User::class)
-            ->whereNotNull('causer_id')
             ->where('subject_type', VesselManning::class)
             ->whereIn('subject_id', $manningIds)
             ->with(['causer:id,name,email'])
