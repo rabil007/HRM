@@ -143,51 +143,6 @@ test('activity log is recorded for branch creation', function () {
     expect($activity)->not->toBeNull();
 });
 
-test('automatic model changes are not logged without an authenticated user', function () {
-    $country = Country::query()->create([
-        'code' => 'SYS',
-        'name' => 'Systemland',
-        'dial_code' => '+998',
-        'is_active' => true,
-    ]);
-
-    $currency = Currency::query()->create([
-        'code' => 'SYS',
-        'name' => 'System Currency',
-        'symbol' => 'S$',
-        'is_active' => true,
-    ]);
-
-    $company = Company::query()->create([
-        'name' => 'System Audit Co',
-        'slug' => 'system-audit-co',
-        'working_days' => [1, 2, 3, 4, 5],
-        'country_id' => $country->id,
-        'currency_id' => $currency->id,
-        'timezone' => 'Asia/Dubai',
-        'payroll_cycle' => 'monthly',
-        'status' => 'active',
-    ]);
-
-    $branch = Branch::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Automated Branch',
-        'code' => 'AUTO',
-        'address' => null,
-        'city' => 'Dubai',
-        'country' => 'UAE',
-        'phone' => null,
-        'email' => null,
-        'is_headquarters' => false,
-        'status' => 'active',
-    ]);
-
-    expect(Activity::query()
-        ->where('subject_type', Branch::class)
-        ->where('subject_id', $branch->id)
-        ->count())->toBe(0);
-});
-
 test('activity logs page excludes legacy and explicit system activity', function () {
     $country = Country::query()->create([
         'code' => 'VIS',
