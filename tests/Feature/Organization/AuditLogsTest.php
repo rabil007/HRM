@@ -5,6 +5,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Activitylog\Models\Activity;
 
 test('guests cannot access activity logs page', function () {
@@ -134,8 +135,130 @@ test('activity log is recorded for branch creation', function () {
         'event' => 'created',
         'subject_type' => Branch::class,
         'subject_id' => $branch->id,
+        'causer_type' => User::class,
+        'causer_id' => $user->id,
     ]);
 
     $activity = Activity::query()->where('subject_type', Branch::class)->where('subject_id', $branch->id)->latest('id')->first();
     expect($activity)->not->toBeNull();
+});
+
+test('automatic model changes are not logged without an authenticated user', function () {
+    $country = Country::query()->create([
+        'code' => 'SYS',
+        'name' => 'Systemland',
+        'dial_code' => '+998',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'SYS',
+        'name' => 'System Currency',
+        'symbol' => 'S$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'System Audit Co',
+        'slug' => 'system-audit-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $branch = Branch::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Automated Branch',
+        'code' => 'AUTO',
+        'address' => null,
+        'city' => 'Dubai',
+        'country' => 'UAE',
+        'phone' => null,
+        'email' => null,
+        'is_headquarters' => false,
+        'status' => 'active',
+    ]);
+
+    expect(Activity::query()
+        ->where('subject_type', Branch::class)
+        ->where('subject_id', $branch->id)
+        ->count())->toBe(0);
+});
+
+test('activity logs page excludes legacy and explicit system activity', function () {
+    $country = Country::query()->create([
+        'code' => 'VIS',
+        'name' => 'Visibility Land',
+        'dial_code' => '+997',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'VIS',
+        'name' => 'Visibility Currency',
+        'symbol' => 'V$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Visibility Co',
+        'slug' => 'visibility-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $user = User::factory()->create();
+    grantCompanyPermissions($user, $company, ['audit.view']);
+    $this->actingAs($user);
+
+    $branch = Branch::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Human Branch',
+        'code' => 'HUM',
+        'address' => null,
+        'city' => 'Dubai',
+        'country' => 'UAE',
+        'phone' => null,
+        'email' => null,
+        'is_headquarters' => false,
+        'status' => 'active',
+    ]);
+
+    $this->app['auth']->logout();
+
+    activity()
+        ->performedOn($branch)
+        ->event('synced')
+        ->tap(function (Activity $activity) use ($company): void {
+            $activity->company_id = $company->id;
+        })
+        ->log('Automated system sync');
+
+    $this->actingAs($user);
+
+    $this->get(route('organization.activity-logs', [
+        'date_from' => now()->toDateString(),
+        'date_to' => now()->toDateString(),
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/activity-logs')
+            ->has('logs', 1)
+            ->where('logs.0.causer.id', $user->id)
+            ->where('logs.0.subject_id', $branch->id)
+            ->where('pagination.total', 1),
+        );
+
+    expect(Activity::query()
+        ->where('company_id', $company->id)
+        ->whereNull('causer_id')
+        ->where('description', 'Automated system sync')
+        ->exists())->toBeTrue();
 });
