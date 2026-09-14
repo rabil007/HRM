@@ -13,9 +13,12 @@ import {
     importPreview,
     importTemplate,
 } from '@/actions/App/Http/Controllers/Organization/TrainingsImportController';
+import {
+    ImportPreviewFilterBadges,
+    ImportPreviewFilterStatus,
+} from '@/components/import-preview-filter-badges';
 import { SearchBar } from '@/components/search-bar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -33,6 +36,12 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    importPreviewEmptyRowsMessage,
+    importablePreviewBadges,
+    rowMatchesImportPreviewFilter,
+} from '@/lib/import-preview-row-filter';
+import type { ImportPreviewRowFilter } from '@/lib/import-preview-row-filter';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -100,6 +109,7 @@ export function TrainingsImportDialog({
     const [dragActive, setDragActive] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [rowFilter, setRowFilter] = useState<ImportPreviewRowFilter>('all');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const filteredRows = useMemo(() => {
@@ -109,11 +119,15 @@ export function TrainingsImportDialog({
 
         const query = searchQuery.trim().toLowerCase();
 
-        if (query === '') {
-            return preview.rows;
-        }
-
         return preview.rows.filter((row) => {
+            if (!rowMatchesImportPreviewFilter(row, rowFilter)) {
+                return false;
+            }
+
+            if (query === '') {
+                return true;
+            }
+
             const searchable = [
                 String(row.row),
                 row.employee_no,
@@ -130,13 +144,14 @@ export function TrainingsImportDialog({
 
             return searchable.includes(query);
         });
-    }, [preview, searchQuery]);
+    }, [preview, rowFilter, searchQuery]);
 
     const resetState = () => {
         setFile(null);
         setPreview(null);
         setMessage(null);
         setSearchQuery('');
+        setRowFilter('all');
         setDragActive(false);
 
         if (fileInputRef.current) {
@@ -257,8 +272,8 @@ export function TrainingsImportDialog({
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-4xl">
-                <DialogHeader>
+            <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-4xl">
+                <DialogHeader className="shrink-0">
                     <DialogTitle>Import training</DialogTitle>
                     <DialogDescription>
                         Download the template with your active employees
@@ -268,7 +283,7 @@ export function TrainingsImportDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4 overflow-y-auto pr-1">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
                     <div className="flex flex-wrap items-center gap-3">
                         <Button asChild variant="outline" size="sm">
                             <a href={importTemplate.url()}>
@@ -280,7 +295,8 @@ export function TrainingsImportDialog({
 
                     <div
                         className={cn(
-                            'flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition-colors',
+                            'flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed text-center transition-colors',
+                            file ? 'min-h-16 p-3' : 'min-h-32 p-6',
                             dragActive
                                 ? 'border-primary bg-primary/5'
                                 : 'border-border/70 bg-muted/20',
@@ -326,24 +342,13 @@ export function TrainingsImportDialog({
 
                     {preview ? (
                         <div className="space-y-3">
-                            <div className="flex flex-wrap gap-2">
-                                <Badge variant="secondary">
-                                    {preview.summary.total} rows
-                                </Badge>
-                                <Badge variant="default">
-                                    {preview.summary.importable} importable
-                                </Badge>
-                                {preview.summary.skipped > 0 ? (
-                                    <Badge variant="outline">
-                                        {preview.summary.skipped} skipped
-                                    </Badge>
-                                ) : null}
-                                {preview.summary.invalid > 0 ? (
-                                    <Badge variant="destructive">
-                                        {preview.summary.invalid} invalid
-                                    </Badge>
-                                ) : null}
-                            </div>
+                            <ImportPreviewFilterBadges
+                                value={rowFilter}
+                                onChange={setRowFilter}
+                                badges={importablePreviewBadges(
+                                    preview.summary,
+                                )}
+                            />
 
                             <SearchBar
                                 value={searchQuery}
@@ -351,6 +356,13 @@ export function TrainingsImportDialog({
                                 placeholder="Search by employee no., course, or institute…"
                                 className="mb-0"
                                 inputClassName="py-2 text-sm"
+                            />
+
+                            <ImportPreviewFilterStatus
+                                visibleCount={filteredRows.length}
+                                totalCount={preview.rows.length}
+                                filter={rowFilter}
+                                searchQuery={searchQuery}
                             />
 
                             <div className="max-h-72 overflow-auto rounded-lg border">
@@ -373,7 +385,10 @@ export function TrainingsImportDialog({
                                                     colSpan={7}
                                                     className="py-8 text-center text-sm text-muted-foreground"
                                                 >
-                                                    No rows match your search.
+                                                    {importPreviewEmptyRowsMessage(
+                                                        rowFilter,
+                                                        searchQuery,
+                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
@@ -425,7 +440,7 @@ export function TrainingsImportDialog({
                     ) : null}
                 </div>
 
-                <DialogFooter>
+                <DialogFooter className="relative z-10 shrink-0 bg-card">
                     <Button
                         variant="outline"
                         onClick={() => handleOpenChange(false)}

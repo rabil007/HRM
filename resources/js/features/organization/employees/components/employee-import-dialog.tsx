@@ -9,6 +9,10 @@ import {
     Upload,
 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+    ImportPreviewFilterBadges,
+    ImportPreviewFilterStatus,
+} from '@/components/import-preview-filter-badges';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,6 +31,12 @@ import {
 } from '@/components/ui/tooltip';
 import { firstValidationError } from '@/lib/first-validation-error';
 import { formatDisplayDate } from '@/lib/format-date';
+import {
+    importPreviewEmptyRowsMessage,
+    rowMatchesImportPreviewFilter,
+    validInvalidPreviewBadges,
+} from '@/lib/import-preview-row-filter';
+import type { ImportPreviewRowFilter } from '@/lib/import-preview-row-filter';
 import { toast } from '@/lib/toast';
 
 type Mapping = Record<string, string | null>;
@@ -250,8 +260,8 @@ export function EmployeeImportDialog({
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
-            <DialogContent className="max-h-[90vh] w-full overflow-hidden glass-card p-0 sm:max-w-3xl">
-                <DialogHeader className="border-b border-border/40 px-6 py-4">
+            <DialogContent className="flex max-h-[90vh] w-full flex-col overflow-hidden glass-card p-0 sm:max-w-3xl">
+                <DialogHeader className="shrink-0 border-b border-border/40 px-6 py-4">
                     <DialogTitle className="text-lg font-semibold">
                         Import employees
                     </DialogTitle>
@@ -261,11 +271,11 @@ export function EmployeeImportDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="px-6 py-4">
+                <div className="shrink-0 px-6 py-4">
                     <Stepper step={step} />
                 </div>
 
-                <ScrollArea className="max-h-[60vh] px-6">
+                <ScrollArea className="min-h-0 flex-1 px-6">
                     {step === 'upload' ? (
                         <UploadStep
                             file={file}
@@ -294,7 +304,7 @@ export function EmployeeImportDialog({
                     ) : null}
                 </ScrollArea>
 
-                <DialogFooter className="mt-2 flex flex-row items-center justify-between gap-2 border-t border-border/40 px-6 py-4 sm:flex-row sm:justify-between">
+                <DialogFooter className="mt-2 flex shrink-0 flex-row items-center justify-between gap-2 border-t border-border/40 px-6 py-4 sm:flex-row sm:justify-between">
                     <a
                         href={TEMPLATE_URL}
                         className="inline-flex items-center gap-2 text-sm text-muted-foreground/80 hover:text-foreground"
@@ -488,37 +498,45 @@ function PreviewStep({
     file: File | null;
     onReUpload: () => void;
 }) {
+    const [rowFilter, setRowFilter] = useState<ImportPreviewRowFilter>('all');
     const requiredFields = ['employee_no', 'name'];
     const unmappedRequired = requiredFields.filter(
         (field) => !preview.mapping[field],
     );
 
+    const rowsWithMeta = useMemo(
+        () =>
+            preview.rows.map((row, index) => {
+                const rowNumber = index + 2;
+
+                return {
+                    row,
+                    rowNumber,
+                    errors: errorsByRow.get(rowNumber) ?? [],
+                };
+            }),
+        [errorsByRow, preview.rows],
+    );
+
+    const filteredRows = useMemo(
+        () =>
+            rowsWithMeta.filter((item) =>
+                rowMatchesImportPreviewFilter(
+                    { errors: item.errors },
+                    rowFilter,
+                ),
+            ),
+        [rowFilter, rowsWithMeta],
+    );
+
     return (
         <div className="space-y-5 py-2">
             <div className="flex flex-wrap items-center gap-3 text-sm">
-                <Badge
-                    variant="outline"
-                    className="border-primary/30 bg-primary/10 text-primary"
-                >
-                    {preview.summary.total} row
-                    {preview.summary.total === 1 ? '' : 's'}
-                </Badge>
-                <Badge
-                    variant="outline"
-                    className="border-emerald-500/30 bg-emerald-500/10 text-emerald-500 dark:text-emerald-300"
-                >
-                    <CheckCircle2 className="mr-1 h-3 w-3" />{' '}
-                    {preview.summary.valid} valid
-                </Badge>
-                {preview.summary.invalid > 0 ? (
-                    <Badge
-                        variant="outline"
-                        className="border-destructive/30 bg-destructive/10 text-destructive"
-                    >
-                        <AlertCircle className="mr-1 h-3 w-3" />{' '}
-                        {preview.summary.invalid} invalid
-                    </Badge>
-                ) : null}
+                <ImportPreviewFilterBadges
+                    value={rowFilter}
+                    onChange={setRowFilter}
+                    badges={validInvalidPreviewBadges(preview.summary)}
+                />
                 {file ? (
                     <span className="ml-auto text-xs text-muted-foreground/70">
                         {file.name} ·{' '}
@@ -625,6 +643,12 @@ function PreviewStep({
                 <header className="mb-2 text-sm font-semibold text-foreground">
                     Rows
                 </header>
+                <ImportPreviewFilterStatus
+                    visibleCount={filteredRows.length}
+                    totalCount={rowsWithMeta.length}
+                    filter={rowFilter}
+                    searchQuery=""
+                />
                 <div className="max-h-[min(50vh,24rem)] overflow-auto rounded-xl border border-border/60">
                     <table className="min-w-full text-left text-xs">
                         <thead className="sticky top-0 z-10 bg-background/95 text-muted-foreground/80 backdrop-blur-sm">
@@ -643,104 +667,116 @@ function PreviewStep({
                             </tr>
                         </thead>
                         <tbody>
-                            {preview.rows.length === 0 ? (
+                            {filteredRows.length === 0 ? (
                                 <tr>
                                     <td
                                         colSpan={5}
                                         className="px-3 py-6 text-center text-muted-foreground/70"
                                     >
-                                        No rows found in the file.
+                                        {importPreviewEmptyRowsMessage(
+                                            rowFilter,
+                                            '',
+                                        )}
                                     </td>
                                 </tr>
                             ) : (
-                                preview.rows.map((row, index) => {
-                                    const rowNumber = index + 2;
-                                    const rowErrors =
-                                        errorsByRow.get(rowNumber);
+                                filteredRows.map(
+                                    ({ row, rowNumber, errors }) => {
+                                        const rowErrors =
+                                            errors.length > 0
+                                                ? errors
+                                                : undefined;
 
-                                    return (
-                                        <tr
-                                            key={rowNumber}
-                                            className={`border-t border-border/40 ${
-                                                rowErrors
-                                                    ? 'bg-destructive/5'
-                                                    : ''
-                                            }`}
-                                        >
-                                            <td className="px-3 py-2 text-muted-foreground/70">
-                                                {rowNumber}
-                                            </td>
-                                            <td className="px-3 py-2 font-medium">
-                                                {stringy(row.employee_no)}
-                                            </td>
-                                            <td className="px-3 py-2">
-                                                {stringy(row.name) || '—'}
-                                            </td>
-                                            <td className="px-3 py-2 text-muted-foreground/80">
-                                                {formatDisplayDate(
-                                                    stringy(row.hire_date) ||
-                                                        null,
-                                                )}
-                                            </td>
-                                            <td className="px-3 py-2">
-                                                {rowErrors ? (
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <span className="inline-flex cursor-help">
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className="border-destructive/30 bg-destructive/10 text-destructive"
-                                                                >
-                                                                    {
-                                                                        rowErrors.length
-                                                                    }{' '}
-                                                                    error
-                                                                    {rowErrors.length ===
-                                                                    1
-                                                                        ? ''
-                                                                        : 's'}
-                                                                </Badge>
-                                                            </span>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent
-                                                            side="left"
-                                                            align="start"
-                                                            className="max-w-sm text-left font-normal"
-                                                        >
-                                                            <ul className="list-inside list-disc space-y-1">
-                                                                {rowErrors.map(
-                                                                    (e, i) => (
-                                                                        <li
-                                                                            key={`${e.field}-${i}`}
-                                                                        >
-                                                                            <span className="font-medium">
+                                        return (
+                                            <tr
+                                                key={rowNumber}
+                                                className={`border-t border-border/40 ${
+                                                    rowErrors
+                                                        ? 'bg-destructive/5'
+                                                        : ''
+                                                }`}
+                                            >
+                                                <td className="px-3 py-2 text-muted-foreground/70">
+                                                    {rowNumber}
+                                                </td>
+                                                <td className="px-3 py-2 font-medium">
+                                                    {stringy(row.employee_no)}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    {stringy(row.name) || '—'}
+                                                </td>
+                                                <td className="px-3 py-2 text-muted-foreground/80">
+                                                    {formatDisplayDate(
+                                                        stringy(
+                                                            row.hire_date,
+                                                        ) || null,
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    {rowErrors ? (
+                                                        <Tooltip>
+                                                            <TooltipTrigger
+                                                                asChild
+                                                            >
+                                                                <span className="inline-flex cursor-help">
+                                                                    <Badge
+                                                                        variant="outline"
+                                                                        className="border-destructive/30 bg-destructive/10 text-destructive"
+                                                                    >
+                                                                        {
+                                                                            rowErrors.length
+                                                                        }{' '}
+                                                                        error
+                                                                        {rowErrors.length ===
+                                                                        1
+                                                                            ? ''
+                                                                            : 's'}
+                                                                    </Badge>
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent
+                                                                side="left"
+                                                                align="start"
+                                                                className="max-w-sm text-left font-normal"
+                                                            >
+                                                                <ul className="list-inside list-disc space-y-1">
+                                                                    {rowErrors.map(
+                                                                        (
+                                                                            e,
+                                                                            i,
+                                                                        ) => (
+                                                                            <li
+                                                                                key={`${e.field}-${i}`}
+                                                                            >
+                                                                                <span className="font-medium">
+                                                                                    {
+                                                                                        e.field
+                                                                                    }
+
+                                                                                    :
+                                                                                </span>{' '}
                                                                                 {
-                                                                                    e.field
+                                                                                    e.message
                                                                                 }
-
-                                                                                :
-                                                                            </span>{' '}
-                                                                            {
-                                                                                e.message
-                                                                            }
-                                                                        </li>
-                                                                    ),
-                                                                )}
-                                                            </ul>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                ) : (
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="border-emerald-500/30 bg-emerald-500/10 text-emerald-500 dark:text-emerald-300"
-                                                    >
-                                                        Ready
-                                                    </Badge>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })
+                                                                            </li>
+                                                                        ),
+                                                                    )}
+                                                                </ul>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    ) : (
+                                                        <Badge
+                                                            variant="outline"
+                                                            className="border-emerald-500/30 bg-emerald-500/10 text-emerald-500 dark:text-emerald-300"
+                                                        >
+                                                            Ready
+                                                        </Badge>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    },
+                                )
                             )}
                         </tbody>
                     </table>

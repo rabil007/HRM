@@ -14,9 +14,12 @@ import {
     importPreview,
     importTemplate,
 } from '@/actions/App/Http/Controllers/Organization/VesselController';
+import {
+    ImportPreviewFilterBadges,
+    ImportPreviewFilterStatus,
+} from '@/components/import-preview-filter-badges';
 import { SearchBar } from '@/components/search-bar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -34,6 +37,11 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    importPreviewEmptyRowsMessage,
+    rowMatchesImportPreviewFilter,
+} from '@/lib/import-preview-row-filter';
+import type { ImportPreviewRowFilter } from '@/lib/import-preview-row-filter';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -107,6 +115,7 @@ export function VesselsImportDialog({
     const [dragActive, setDragActive] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [rowFilter, setRowFilter] = useState<ImportPreviewRowFilter>('all');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const filteredRows = useMemo(() => {
@@ -116,11 +125,15 @@ export function VesselsImportDialog({
 
         const query = searchQuery.trim().toLowerCase();
 
-        if (query === '') {
-            return preview.rows;
-        }
-
         return preview.rows.filter((row) => {
+            if (!rowMatchesImportPreviewFilter(row, rowFilter)) {
+                return false;
+            }
+
+            if (query === '') {
+                return true;
+            }
+
             const searchable = [
                 String(row.row),
                 row.vessel_id !== null ? String(row.vessel_id) : '',
@@ -136,13 +149,14 @@ export function VesselsImportDialog({
 
             return searchable.includes(query);
         });
-    }, [preview, searchQuery]);
+    }, [preview, rowFilter, searchQuery]);
 
     const resetState = () => {
         setFile(null);
         setPreview(null);
         setMessage(null);
         setSearchQuery('');
+        setRowFilter('all');
         setDragActive(false);
 
         if (fileInputRef.current) {
@@ -263,8 +277,8 @@ export function VesselsImportDialog({
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-4xl">
-                <DialogHeader>
+            <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-4xl">
+                <DialogHeader className="shrink-0">
                     <DialogTitle>Import vessels</DialogTitle>
                     <DialogDescription>
                         Download your current vessel list, edit it in Excel,
@@ -276,66 +290,69 @@ export function VesselsImportDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4 overflow-y-auto pr-1">
-                    <Alert className="border-border/80 bg-muted/40">
-                        <Info className="text-primary" aria-hidden />
-                        <AlertDescription>
-                            <ul className="list-inside list-disc space-y-1 text-muted-foreground">
-                                <li>
-                                    <span className="font-medium text-foreground">
-                                        vessel_id
-                                    </span>{' '}
-                                    — existing vessel ID; keep when editing an
-                                    exported row; leave blank only to create
-                                </li>
-                                <li>
-                                    <span className="font-medium text-foreground">
-                                        client
-                                    </span>{' '}
-                                    — active client name (required for new
-                                    vessels)
-                                </li>
-                                <li>
-                                    <span className="font-medium text-foreground">
-                                        name
-                                    </span>{' '}
-                                    — required
-                                </li>
-                                <li>
-                                    <span className="font-medium text-foreground">
-                                        vessel_type
-                                    </span>{' '}
-                                    — existing vessel type name; required
-                                </li>
-                                <li>
-                                    <span className="font-medium text-foreground">
-                                        imo_no
-                                    </span>
-                                    ,{' '}
-                                    <span className="font-medium text-foreground">
-                                        official_no
-                                    </span>
-                                    ,{' '}
-                                    <span className="font-medium text-foreground">
-                                        call_sign
-                                    </span>
-                                    ,{' '}
-                                    <span className="font-medium text-foreground">
-                                        grt
-                                    </span>
-                                    ,{' '}
-                                    <span className="font-medium text-foreground">
-                                        bhp
-                                    </span>
-                                    ,{' '}
-                                    <span className="font-medium text-foreground">
-                                        is_active
-                                    </span>{' '}
-                                    — optional (yes/no)
-                                </li>
-                            </ul>
-                        </AlertDescription>
-                    </Alert>
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+                    {preview ? null : (
+                        <Alert className="border-border/80 bg-muted/40">
+                            <Info className="text-primary" aria-hidden />
+                            <AlertDescription>
+                                <ul className="list-inside list-disc space-y-1 text-muted-foreground">
+                                    <li>
+                                        <span className="font-medium text-foreground">
+                                            vessel_id
+                                        </span>{' '}
+                                        — existing vessel ID; keep when editing
+                                        an exported row; leave blank only to
+                                        create
+                                    </li>
+                                    <li>
+                                        <span className="font-medium text-foreground">
+                                            client
+                                        </span>{' '}
+                                        — active client name (required for new
+                                        vessels)
+                                    </li>
+                                    <li>
+                                        <span className="font-medium text-foreground">
+                                            name
+                                        </span>{' '}
+                                        — required
+                                    </li>
+                                    <li>
+                                        <span className="font-medium text-foreground">
+                                            vessel_type
+                                        </span>{' '}
+                                        — existing vessel type name; required
+                                    </li>
+                                    <li>
+                                        <span className="font-medium text-foreground">
+                                            imo_no
+                                        </span>
+                                        ,{' '}
+                                        <span className="font-medium text-foreground">
+                                            official_no
+                                        </span>
+                                        ,{' '}
+                                        <span className="font-medium text-foreground">
+                                            call_sign
+                                        </span>
+                                        ,{' '}
+                                        <span className="font-medium text-foreground">
+                                            grt
+                                        </span>
+                                        ,{' '}
+                                        <span className="font-medium text-foreground">
+                                            bhp
+                                        </span>
+                                        ,{' '}
+                                        <span className="font-medium text-foreground">
+                                            is_active
+                                        </span>{' '}
+                                        — optional (yes/no)
+                                    </li>
+                                </ul>
+                            </AlertDescription>
+                        </Alert>
+                    )}
 
                     <div className="flex flex-wrap items-center gap-3">
                         <Button asChild variant="outline" size="sm">
@@ -348,7 +365,8 @@ export function VesselsImportDialog({
 
                     <div
                         className={cn(
-                            'flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition-colors',
+                            'flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed text-center transition-colors',
+                            file ? 'min-h-16 p-3' : 'min-h-32 p-6',
                             dragActive
                                 ? 'border-primary bg-primary/5'
                                 : 'border-border/70 bg-muted/20',
@@ -394,25 +412,43 @@ export function VesselsImportDialog({
 
                     {preview ? (
                         <div className="space-y-3">
-                            <div className="flex flex-wrap gap-2">
-                                <Badge variant="secondary">
-                                    {preview.summary.total} rows
-                                </Badge>
-                                <Badge variant="default">
-                                    {preview.summary.updates} updates
-                                </Badge>
-                                <Badge variant="outline">
-                                    {preview.summary.creates} creates
-                                </Badge>
-                                {preview.summary.errors > 0 ? (
-                                    <Badge variant="destructive">
-                                        {preview.summary.errors} errors
-                                    </Badge>
-                                ) : null}
-                                <Badge variant="secondary">
-                                    {preview.summary.deletes} deletes
-                                </Badge>
-                            </div>
+                            <ImportPreviewFilterBadges
+                                value={rowFilter}
+                                onChange={setRowFilter}
+                                badges={[
+                                    {
+                                        key: 'all',
+                                        count: preview.summary.total,
+                                        label: 'rows',
+                                        variant: 'secondary',
+                                    },
+                                    {
+                                        key: 'updates',
+                                        count: preview.summary.updates,
+                                        label: 'updates',
+                                        variant: 'default',
+                                    },
+                                    {
+                                        key: 'creates',
+                                        count: preview.summary.creates,
+                                        label: 'creates',
+                                        variant: 'outline',
+                                    },
+                                    {
+                                        key: 'errors',
+                                        count: preview.summary.errors,
+                                        label: 'errors',
+                                        variant: 'destructive',
+                                        hideWhenZero: true,
+                                    },
+                                    {
+                                        key: 'deletes',
+                                        count: preview.summary.deletes,
+                                        label: 'deletes',
+                                        variant: 'secondary',
+                                    },
+                                ]}
+                            />
 
                             <p className="text-xs text-muted-foreground">
                                 No vessels will be deleted by this import.
@@ -424,6 +460,13 @@ export function VesselsImportDialog({
                                 placeholder="Search by row, vessel ID, name, client, or error…"
                                 className="mb-0"
                                 inputClassName="py-2 text-sm"
+                            />
+
+                            <ImportPreviewFilterStatus
+                                visibleCount={filteredRows.length}
+                                totalCount={preview.rows.length}
+                                filter={rowFilter}
+                                searchQuery={searchQuery}
                             />
 
                             <div className="max-h-72 overflow-auto rounded-lg border">
@@ -446,7 +489,10 @@ export function VesselsImportDialog({
                                                     colSpan={7}
                                                     className="py-8 text-center text-sm text-muted-foreground"
                                                 >
-                                                    No rows match your search.
+                                                    {importPreviewEmptyRowsMessage(
+                                                        rowFilter,
+                                                        searchQuery,
+                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
@@ -498,7 +544,7 @@ export function VesselsImportDialog({
                     ) : null}
                 </div>
 
-                <DialogFooter>
+                <DialogFooter className="relative z-10 shrink-0 bg-card">
                     <Button
                         variant="outline"
                         onClick={() => handleOpenChange(false)}
