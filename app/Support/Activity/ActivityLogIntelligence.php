@@ -234,7 +234,7 @@ final class ActivityLogIntelligence
 
     private static function shortType(?string $subjectType): string
     {
-        if (! is_string($subjectType) || $subjectType === '') {
+        if (is_string($subjectType) === false || $subjectType === '') {
             return 'Activity';
         }
 
@@ -281,7 +281,7 @@ final class ActivityLogIntelligence
      */
     private static function changedKeys(mixed $oldValues, mixed $newValues): array
     {
-        if (! is_array($oldValues) && ! is_array($newValues)) {
+        if (is_array($oldValues) === false && is_array($newValues) === false) {
             return [];
         }
 
@@ -289,7 +289,7 @@ final class ActivityLogIntelligence
             array_keys(is_array($oldValues) ? $oldValues : []),
             array_keys(is_array($newValues) ? $newValues : []),
         )))
-            ->filter(fn (mixed $key): bool => is_string($key) && ! in_array($key, self::HIDDEN_CHANGE_KEYS, true))
+            ->filter(fn (mixed $key): bool => is_string($key) && in_array($key, self::HIDDEN_CHANGE_KEYS, true) === false)
             ->sort()
             ->values()
             ->all();
@@ -360,7 +360,7 @@ final class ActivityLogIntelligence
 
     private static function recordUrl(?Model $subject, ?User $viewer, int $companyId): ?string
     {
-        if (! $subject || ! $viewer) {
+        if ($subject === null || $viewer === null) {
             return null;
         }
 
