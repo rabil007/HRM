@@ -8,6 +8,7 @@ use App\Models\LeaveRequest;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 final class TodayAttendanceTimeline
@@ -67,10 +68,8 @@ final class TodayAttendanceTimeline
         $rangeStart = $day->copy()->startOfDay();
         $rangeEnd = $day->copy()->endOfDay();
 
-        $companyPeople = EmployeeHikvisionAccessEventMatcher::companyPeople($companyId);
-
-        /** @var Collection<int, HikvisionAccessEvent> $companyEvents */
-        $companyEvents = HikvisionAccessEvent::query()
+        /** @var Collection<int, HikvisionAccessEvent> $events */
+        $events = HikvisionAccessEvent::query()
             ->accessRecords()
             ->forCompany($companyId)
             ->whereBetween('occurrence_time', [$rangeStart, $rangeEnd])
@@ -78,21 +77,9 @@ final class TodayAttendanceTimeline
                 HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
                 HikvisionAccessEvent::ATTENDANCE_CHECK_OUT,
             ])
+            ->tap(fn (Builder $query) => EmployeeHikvisionAccessEventMatcher::scopeForEmployee($query, $employee))
             ->orderBy('occurrence_time')
-            ->get(['id', 'occurrence_time', 'attendance_status', 'device_name', 'transaction_source', 'person_name', 'person_hikvision_id', 'raw_payload']);
-
-        $eventsByPersonId = $companyEvents->groupBy(
-            fn (HikvisionAccessEvent $event): string => (string) ($event->person_hikvision_id ?? ''),
-        );
-
-        $events = EmployeeHikvisionAccessEventMatcher::resolveFromLoadedEvents(
-            $employee,
-            $eventsByPersonId,
-            EmployeeHikvisionAccessEventMatcher::indexUnlinkedEventsByResolvedPersonId(
-                $companyEvents,
-                $companyPeople,
-            ),
-        );
+            ->get(['id', 'occurrence_time', 'attendance_status', 'device_name', 'transaction_source']);
 
         $serializedEvents = $events
             ->map(fn (HikvisionAccessEvent $event): array => [

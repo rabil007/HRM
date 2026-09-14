@@ -10,6 +10,7 @@ use App\Models\HikvisionPerson;
 use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
+use App\Support\Attendance\TodayAttendanceTimeline;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -834,4 +835,123 @@ test('today_timeline unique unlinked alias is not poisoned by another company', 
         ->and($otherRecord)->not->toBeNull()
         ->and($otherRecord->clock_in?->format('H:i'))->toBe('09:03')
         ->and($otherRecord->source)->toBe(AttendanceRecord::SOURCE_BIOMETRIC);
+});
+
+test('today_timeline hydrates only the selected employee punches including unique unlinked fallbacks', function () {
+    Carbon::setTestNow(Carbon::parse('2026-09-14 10:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
+    grantCalendarAccess($user, $company);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil T',
+        'employee_no' => '1034',
+        'user_id' => $user->id,
+    ]);
+    $unrelatedEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Unrelated Colleague',
+    ]);
+
+    $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'hv-rabil-scoped',
+        'full_name' => 'Mohammed Rabil T',
+    ]);
+    $employee->update(['hikvision_person_id' => $person->id]);
+    linkHikvisionPersonToUserCompany($unrelatedEmployee, 'hv-unrelated-colleague', [
+        'full_name' => 'Unrelated Colleague',
+    ]);
+
+    $matched = HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
+        'system_id' => 'acs:rabil-scoped:09:03',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-09-14 09:03:00',
+        'person_name' => 'Mohammed Rabil',
+        'person_hikvision_id' => null,
+        'hikvision_person_id' => null,
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+    $unrelatedLinked = HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
+        'system_id' => 'acs:unrelated-linked:08:00',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-09-14 08:00:00',
+        'person_name' => 'Unrelated Colleague',
+        'person_hikvision_id' => 'hv-unrelated-colleague',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+    $unrelatedUnlinked = HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
+        'system_id' => 'acs:unrelated-unlinked:08:15',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-09-14 08:15:00',
+        'person_name' => 'Unrelated Colleague',
+        'person_hikvision_id' => null,
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_OUT,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    $otherCompany = additionalHikvisionTestCompany($company, 'timeline-scope-'.fake()->unique()->numerify('####'));
+    $crossCompany = HikvisionAccessEvent::query()->create([
+        'company_id' => $otherCompany->id,
+        'system_id' => 'acs:cross-company-scoped-rabil',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-09-14 09:03:00',
+        'person_name' => 'Mohammed Rabil',
+        'person_hikvision_id' => null,
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    $hydratedIds = [];
+    HikvisionAccessEvent::retrieved(function (HikvisionAccessEvent $event) use (&$hydratedIds): void {
+        $hydratedIds[] = (int) $event->id;
+    });
+
+    try {
+        $timeline = app(TodayAttendanceTimeline::class)->forEmployee($company->id, $employee->id);
+    } finally {
+        HikvisionAccessEvent::getEventDispatcher()->forget(
+            'eloquent.retrieved: '.HikvisionAccessEvent::class,
+        );
+    }
+
+    expect($timeline)->not->toBeNull()
+        ->and($timeline['date'])->toBe('2026-09-14')
+        ->and($timeline['timezone'])->toBe('Asia/Dubai')
+        ->and($timeline['events'])->toHaveCount(1)
+        ->and($timeline['events'][0]['time'])->toBe('09:03')
+        ->and($timeline['events'][0]['status'])->toBe('checkIn')
+        ->and($timeline['summary']['clock_in'])->toBe('09:03')
+        ->and($timeline['summary']['status'])->toBe('checked_in')
+        ->and($hydratedIds)->toBe([(int) $matched->id])
+        ->and($hydratedIds)->not->toContain((int) $unrelatedLinked->id)
+        ->and($hydratedIds)->not->toContain((int) $unrelatedUnlinked->id)
+        ->and($hydratedIds)->not->toContain((int) $crossCompany->id);
+
+    $this->actingAs($user)
+        ->get(route('attendance.calendar.index', ['employee_id' => $employee->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('today_timeline.events', 1)
+            ->where('today_timeline.events.0.time', '09:03')
+            ->where('today_timeline.summary.clock_in', '09:03')
+            ->where('today_timeline.summary.status', 'checked_in'));
 });
