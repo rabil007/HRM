@@ -237,7 +237,7 @@ final class EnsureCompanyDocumentExpiryNotificationRecipientsTable
 
     private static function canAlterForeignKeysInPlace(): bool
     {
-        return DB::getDriverName() !== 'sqlite';
+        return DB::connection()->getDriverName() !== 'sqlite';
     }
 
     private static function hasForeignKeyOnColumn(string $column): bool
