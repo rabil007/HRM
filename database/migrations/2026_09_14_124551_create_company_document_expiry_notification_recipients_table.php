@@ -8,6 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Recover from a prior partial MySQL DDL run where the table was created
+        // but foreign keys/indexes failed (identifier too long). The table may
+        // exist without constraints while this migration remains unrecorded.
+        Schema::dropIfExists('company_document_expiry_notification_recipients');
+
         Schema::create('company_document_expiry_notification_recipients', function (Blueprint $table) {
             $table->id();
             $table->foreignId('setting_id')
