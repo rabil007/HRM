@@ -54,6 +54,7 @@ use App\Http\Controllers\Organization\BulkDocuments\RedirectLegacyBulkDocumentsC
 use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\CompanyDocumentBulkStoreController;
 use App\Http\Controllers\Organization\CompanyDocumentController;
+use App\Http\Controllers\Organization\CompanyDocumentExpiryNotificationSettingController;
 use App\Http\Controllers\Organization\CompanyDocumentFileController;
 use App\Http\Controllers\Organization\CompanyDocumentReplacementController;
 use App\Http\Controllers\Organization\CompanyDocumentSettingController;
@@ -360,6 +361,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/companies/{company}/documents', [CompanyDocumentController::class, 'index'])->name('organization.companies.documents.index');
     Route::post('organization/companies/{company}/documents', [CompanyDocumentController::class, 'store'])->name('organization.companies.documents.store');
     Route::post('organization/companies/{company}/documents/bulk', CompanyDocumentBulkStoreController::class)->name('organization.companies.documents.bulk-store');
+    // Literal sub-resource routes must be registered before {companyDocument} wildcard routes.
+    Route::put('organization/companies/{company}/documents/expiry-notification-settings', [CompanyDocumentExpiryNotificationSettingController::class, 'update'])->name('organization.companies.documents.expiry-notification-settings.update');
     Route::put('organization/companies/{company}/documents/{companyDocument}', [CompanyDocumentController::class, 'update'])->name('organization.companies.documents.update');
     Route::delete('organization/companies/{company}/documents/{companyDocument}', [CompanyDocumentController::class, 'destroy'])->name('organization.companies.documents.destroy');
     Route::post('organization/companies/{company}/documents/{companyDocument}/replace', CompanyDocumentReplacementController::class)->name('organization.companies.documents.replace');

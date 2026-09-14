@@ -245,6 +245,7 @@ class PermissionsSeeder extends Seeder
             'company_documents.update',
             'company_documents.download',
             'company_documents.delete',
+            'company_documents.manage_notifications',
             'contracts.view',
             'contracts.create',
             'contracts.update',

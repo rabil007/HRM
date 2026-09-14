@@ -15,6 +15,7 @@ class CompanyDocumentAccess
         'update' => 'company_documents.update',
         'download' => 'company_documents.download',
         'delete' => 'company_documents.delete',
+        'manage_notifications' => 'company_documents.manage_notifications',
     ];
 
     public function __construct(private PermissionRegistrar $permissionRegistrar) {}
@@ -34,7 +35,7 @@ class CompanyDocumentAccess
         return $this->withinCompany($user, $company, fn () => $user->can($ability));
     }
 
-    /** @return array{view: bool, upload: bool, update: bool, download: bool, delete: bool} */
+    /** @return array{view: bool, upload: bool, update: bool, download: bool, delete: bool, manage_notifications: bool} */
     public function permissions(?User $user, Company $company): array
     {
         if (! $user instanceof User || ! $this->isActiveMember($user, $company)) {

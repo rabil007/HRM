@@ -161,7 +161,7 @@ Tenant-specific configurations are scoped to `current_company_id` and use Spatie
 
 - **Company Identity & Regional Defaults** (`/organization/companies/{company}`): Company name, logo, address, legal documents, timezone, currency, and working days (`companies.view`, `companies.update`).
 - **Company Document Signing Assets**: Salary certificate signature, company stamp, and authorized signatory (`companies.view`, `companies.update`).
-- **Company Document Library**: Membership-based document storage (`company_documents.*`).
+- **Company Document Library**: Membership-based document storage (`company_documents.*`). Includes `company_documents.manage_notifications` for configuring per-company expiry alert recipients.
 - **Hikvision Access Control Integration** (`/settings/integrations/hikvision`): Per-company device endpoints, OpenAPI credentials, and sync settings (`settings.integrations.hikvision.view|update`, `hikvision.webhook.manage`, `hikvision.devices.sync`).
 - **Security & Appearance**: Tenant security settings (`settings.security.view|update`) and visual theme overrides (`settings.appearance.view|update`).
 - **Master Data**: Tenant-managed dictionaries (`settings.master-data.{resource}.view|create|update|delete`). Document Types use these same permissions but are managed at **Documents → Configuration → Document Types**; `/settings/master-data/document-types` redirects there. Records referenced by live data expose `is_in_use` / `can_delete` and cannot be deleted (UI disabled + backend `MasterDataUsage` guard). See [domains.md](architecture/domains.md#usage-protection-in-use).
@@ -175,6 +175,7 @@ Tenant-specific configurations are scoped to `current_company_id` and use Spatie
 | WhatsApp & Email template libraries                                                                                                        | Global `whatsapp_templates`, `email_templates` | `platform:view` / `platform:manage`                    |
 | Company name, logo, address, phone, email, website, currency, timezone, payroll cycle, working days, WPS                                   | `companies` row                                | `companies.view\|update`                               |
 | Salary certificate signature/stamp/signatory                                                                                               | `company_document_settings`                    | `companies.view\|update`                               |
+| Company Document expiry notification recipients (per company)                                                                              | `company_document_expiry_notification_settings` | `company_documents.manage_notifications`              |
 | Hikvision access control device integration                                                                                                | Company-scoped `hikvision_settings`            | `settings.integrations.hikvision.*`                    |
 
 Credential permissions and platform access never imply that decrypted secrets may be sent to the browser. Settings responses expose masked placeholders and `has_*` flags, and empty secret submissions preserve the stored value.

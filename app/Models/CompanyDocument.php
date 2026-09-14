@@ -104,6 +104,19 @@ class CompanyDocument extends Model
         return $query->where('company_id', $companyId);
     }
 
+    public function scopeWhereExpiringWithin(Builder $query, int $days): Builder
+    {
+        return $query
+            ->whereNotNull('expiry_date')
+            ->whereDate('expiry_date', '>=', now()->toDateString())
+            ->whereDate('expiry_date', '<=', now()->addDays($days)->toDateString());
+    }
+
+    public function expiryAlerts(): HasMany
+    {
+        return $this->hasMany(CompanyDocumentExpiryAlert::class);
+    }
+
     public function getExpiryStatusAttribute(): string
     {
         return DocumentExpiry::persistedStatus($this->expiry_date);

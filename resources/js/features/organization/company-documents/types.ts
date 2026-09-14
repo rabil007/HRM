@@ -37,6 +37,19 @@ export type CompanyDocumentPermissions = {
     update: boolean;
     download: boolean;
     delete: boolean;
+    manage_notifications: boolean;
+};
+
+export type CompanyUser = {
+    id: number;
+    name: string;
+    email: string;
+};
+
+export type CompanyDocumentExpiryNotificationSetting = {
+    enabled: boolean;
+    to_recipients: CompanyUser[];
+    cc_recipients: CompanyUser[];
 };
 
 export type CompanyDocumentsPageProps = {
@@ -56,4 +69,6 @@ export type CompanyDocumentsPageProps = {
     };
     document_types: CompanyDocumentType[];
     can: CompanyDocumentPermissions;
+    notification_setting: CompanyDocumentExpiryNotificationSetting | null;
+    company_users: CompanyUser[];
 };

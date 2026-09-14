@@ -29,6 +29,7 @@ require __DIR__.'/Support/leave-approval-fixtures.php';
 require __DIR__.'/Support/active-employee-fixtures.php';
 require __DIR__.'/Support/user-email-identity.php';
 require __DIR__.'/Support/announcement-whatsapp-templates.php';
+require __DIR__.'/Support/document-expiry-alert-fixtures.php';
 
 /*
 |--------------------------------------------------------------------------

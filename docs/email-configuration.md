@@ -67,3 +67,63 @@ No PDF is attached — the email contains a secure action link only. Delivery ev
 | Lifecycle reconciliation | `documents:reconcile-recipient-requests` (every five minutes) |
 
 Both scheduled commands must run in production (Herd scheduler / cron `schedule:run`). Reminder failures never change request or signing-flow state. See `docs/document-management.md` Phase 7B.
+
+## Employee Document expiry alerts
+
+Daily alerts for expiring employee documents. Recipients come from the **global email template**, not from any company-level setting.
+
+| Item | Value |
+|------|--------|
+| Template slug | `document_expiry_alert` |
+| Category | Document |
+| Job | `SendDocumentExpiryAlertJob` |
+| Service | `DocumentExpiryAlertService` |
+| Scheduler | `documents:dispatch-expiry-alerts` (daily, via `DocumentExpiryAlertSchedule`) |
+| Deduplication | `employee_document_expiry_alerts` ledger (`employee_document_id` + `expiry_date_at_alert_time`) |
+
+Recipients are configured under **Settings → Email Templates → Document expiry alert → TO / CC**.
+
+> **Important:** Employee Document expiry recipients are completely separate from Company Document expiry recipients. Configuring one has no effect on the other.
+
+## Company Document expiry alerts
+
+Daily alerts for expiring company-level documents (Trade License, Establishment Card, etc.). Each company has its own independent recipient configuration — there are no global recipients for company document alerts.
+
+| Item | Value |
+|------|--------|
+| Template slug | `company_document_expiry_alert` |
+| Category | Document |
+| Job | `SendCompanyDocumentExpiryAlertJob` |
+| Service | `CompanyDocumentExpiryAlertService` |
+| Scheduler | Same `documents:dispatch-expiry-alerts` command (dispatches both employee and company alert jobs) |
+| Deduplication | `company_document_expiry_alerts` ledger (`company_document_id` + `expiry_date_at_alert_time`) |
+
+### Recipient configuration
+
+Recipients are configured per company at **Organization → Companies → {Company} → Documents → Expiry Notification Settings** (requires `company_documents.manage_notifications` permission). Each company stores:
+
+- **Enabled / disabled** toggle
+- **TO recipients** — OMS-HRM users with active membership in the company
+- **CC recipients** — OMS-HRM users with active membership in the company
+
+The same configuration applies to all Company Documents for that company that have an expiry date. There are no per-document recipient overrides.
+
+### Scope
+
+Only Company Documents that satisfy all of the following are eligible:
+
+1. Belong to the active company
+2. Have an expiry date
+3. Fall within the configured expiry window
+4. Company Document expiry notifications are enabled for the company
+5. At least one valid TO recipient is configured
+
+Soft-deleted documents are excluded. Documents without an expiry date are excluded.
+
+### Deduplication
+
+A `company_document_expiry_alerts` row keyed on `(company_document_id, expiry_date_at_alert_time)` prevents the same expiry event from triggering more than one alert. If the document is renewed (expiry date changes), the new expiry date becomes eligible for a fresh alert when it enters the notification window.
+
+### Separation from Employee Document alerts
+
+> **Critical:** Company Document expiry recipients are configured per company and are entirely independent of Employee Document expiry recipients. Configuring Employee Document expiry recipients (via Settings → Email Templates) has no effect on Company Document alerts, and vice versa.

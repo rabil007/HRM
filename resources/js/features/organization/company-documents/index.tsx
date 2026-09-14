@@ -1,5 +1,6 @@
 import { Link, router } from '@inertiajs/react';
 import {
+    Bell,
     Download,
     Eye,
     FileCheck2,
@@ -56,6 +57,7 @@ import {
     CompanyDocumentReplaceDialog,
     CompanyDocumentVersionsDialog,
 } from './company-document-dialogs';
+import { CompanyDocumentExpiryNotificationSheet } from './company-document-expiry-notification-sheet';
 import type { CompanyDocument, CompanyDocumentsPageProps } from './types';
 
 function fileSize(bytes: number): string {
@@ -162,6 +164,8 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
         summary,
         document_types,
         can,
+        notification_setting,
+        company_users,
     } = props;
     const [view, setView] = useViewPreference('company-documents:view', 'grid');
     const [formOpen, setFormOpen] = useState(false);
@@ -169,6 +173,7 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
     const [replaceOpen, setReplaceOpen] = useState(false);
     const [versionsOpen, setVersionsOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
+    const [notificationOpen, setNotificationOpen] = useState(false);
     const [selected, setSelected] = useState<CompanyDocument | null>(null);
     const [preview, setPreview] = useState<CompanyDocument | null>(null);
     const pageUrl = companyDocumentsIndex.url(company.id);
@@ -239,6 +244,16 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
                                 Company details
                             </Link>
                         </Button>
+                        {can.manage_notifications ? (
+                            <Button
+                                variant="outline"
+                                className="h-11 rounded-xl"
+                                onClick={() => setNotificationOpen(true)}
+                            >
+                                <Bell className="mr-2 h-4 w-4" />
+                                Expiry notifications
+                            </Button>
+                        ) : null}
                         {can.upload ? (
                             <>
                                 <Button
@@ -637,6 +652,16 @@ export function CompanyDocumentsContent(props: CompanyDocumentsPageProps) {
                     });
                 }}
             />
+
+            {can.manage_notifications ? (
+                <CompanyDocumentExpiryNotificationSheet
+                    company={company}
+                    setting={notification_setting}
+                    companyUsers={company_users}
+                    open={notificationOpen}
+                    onOpenChange={setNotificationOpen}
+                />
+            ) : null}
         </Main>
     );
 }
