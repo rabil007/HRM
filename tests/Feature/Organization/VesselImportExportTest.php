@@ -179,6 +179,222 @@ test('vessel export includes stable vessel_id and user friendly master data name
         ->and($row[9])->toBe('yes');
 });
 
+test('vessel import template contains existing current-company vessels with stable ids', function () {
+    ['user' => $user, 'company' => $company, 'otherCompany' => $otherCompany, 'vesselType' => $vesselType, 'tugType' => $tugType] = makeVesselImportExportFixtures();
+
+    $seaEagle = Vessel::query()->create([
+        'company_id' => $company->id,
+        'client_id' => null,
+        'name' => 'Sea Eagle',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    $seaFalcon = Vessel::query()->create([
+        'company_id' => $company->id,
+        'client_id' => null,
+        'name' => 'Sea Falcon',
+        'vessel_type_id' => $tugType->id,
+        'is_active' => true,
+    ]);
+
+    Vessel::query()->create([
+        'company_id' => $otherCompany->id,
+        'name' => 'Foreign Vessel',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.vessels.import.template', [
+            'company_id' => $otherCompany->id,
+        ]));
+
+    $response->assertOk();
+    $content = $response->streamedContent();
+    $lines = array_values(array_filter(explode("\n", trim($content))));
+    $header = str_getcsv($lines[0]);
+    $rows = array_map(str_getcsv(...), array_slice($lines, 1));
+    $ids = array_column($rows, 0);
+    $names = array_column($rows, 2);
+
+    expect($header)->toBe(VesselsImport::templateHeaders())
+        ->and($header)->not->toContain('company_id')
+        ->and($names)->toContain('Sea Eagle')
+        ->and($names)->toContain('Sea Falcon')
+        ->and($names)->not->toContain('Foreign Vessel')
+        ->and($ids)->toContain((string) $seaEagle->id)
+        ->and($ids)->toContain((string) $seaFalcon->id)
+        ->and($content)->not->toContain('Foreign Vessel');
+});
+
+test('vessel import template exports unassigned client as blank and assigned client by name', function () {
+    ['user' => $user, 'company' => $company, 'vesselType' => $vesselType, 'client' => $client] = makeVesselImportExportFixtures();
+
+    $unassigned = Vessel::query()->create([
+        'company_id' => $company->id,
+        'client_id' => null,
+        'name' => 'Sea Eagle',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    $assigned = Vessel::query()->create([
+        'company_id' => $company->id,
+        'client_id' => $client->id,
+        'name' => 'Ocean Pearl',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.vessels.import.template'));
+
+    $response->assertOk();
+    $lines = array_values(array_filter(explode("\n", trim($response->streamedContent()))));
+    $rowsByName = collect(array_slice($lines, 1))
+        ->map(fn (string $line): array => str_getcsv($line))
+        ->keyBy(fn (array $row): string => $row[2]);
+
+    expect($rowsByName['Sea Eagle'][0])->toBe((string) $unassigned->id)
+        ->and($rowsByName['Sea Eagle'][1])->toBe('')
+        ->and($rowsByName['Ocean Pearl'][0])->toBe((string) $assigned->id)
+        ->and($rowsByName['Ocean Pearl'][1])->toBe('ADNOC');
+});
+
+test('vessel import template for an empty company is header-only', function () {
+    ['user' => $user, 'company' => $company] = makeVesselImportExportFixtures();
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.vessels.import.template'));
+
+    $response->assertOk();
+    $content = $response->streamedContent();
+    $lines = array_values(array_filter(explode("\n", trim($content))));
+
+    expect($lines)->toHaveCount(1)
+        ->and(str_getcsv($lines[0]))->toBe(VesselsImport::templateHeaders())
+        ->and($content)->not->toContain('Sea Eagle')
+        ->and($content)->not->toContain('ADNOC');
+});
+
+test('vessel import template round-trip preserves existing records without duplicates or deletes', function () {
+    ['user' => $user, 'company' => $company, 'vesselType' => $vesselType, 'client' => $client] = makeVesselImportExportFixtures();
+
+    $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
+        'client_id' => $client->id,
+        'name' => 'Sea Eagle',
+        'vessel_type_id' => $vesselType->id,
+        'imo_no' => '9559133',
+        'official_no' => 'SLR11116',
+        'call_sign' => '9LS2029',
+        'grt' => 4500,
+        'bhp' => 12000,
+        'is_active' => true,
+    ]);
+
+    $untouched = Vessel::query()->create([
+        'company_id' => $company->id,
+        'client_id' => $client->id,
+        'name' => 'Sea Falcon',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    $vesselId = $vessel->id;
+    $untouchedId = $untouched->id;
+
+    $csv = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.vessels.import.template'))
+        ->streamedContent();
+
+    $file = UploadedFile::fake()->createWithContent('vessels.csv', $csv);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.vessels.import'), ['file' => $file])
+        ->assertRedirect(route('organization.vessels.index'))
+        ->assertSessionHas('success');
+
+    $vessel->refresh();
+    $untouched->refresh();
+
+    expect(Vessel::query()->where('company_id', $company->id)->count())->toBe(2)
+        ->and($vessel->id)->toBe($vesselId)
+        ->and($vessel->name)->toBe('Sea Eagle')
+        ->and((int) $vessel->client_id)->toBe((int) $client->id)
+        ->and($vessel->imo_no)->toBe('9559133')
+        ->and($vessel->official_no)->toBe('SLR11116')
+        ->and($vessel->call_sign)->toBe('9LS2029')
+        ->and($vessel->grt)->toBe('4500.00')
+        ->and((int) $vessel->bhp)->toBe(12000)
+        ->and($vessel->is_active)->toBeTrue()
+        ->and(Vessel::query()->find($untouchedId))->not->toBeNull()
+        ->and($untouched->id)->toBe($untouchedId)
+        ->and($untouched->name)->toBe('Sea Falcon');
+});
+
+test('vessel import template client backfill updates only the client on the same vessel', function () {
+    ['user' => $user, 'company' => $company, 'vesselType' => $vesselType, 'client' => $client] = makeVesselImportExportFixtures();
+
+    $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
+        'client_id' => null,
+        'name' => 'Sea Eagle',
+        'vessel_type_id' => $vesselType->id,
+        'imo_no' => '9559133',
+        'official_no' => 'SLR11116',
+        'call_sign' => '9LS2029',
+        'grt' => 4500,
+        'bhp' => 12000,
+        'is_active' => true,
+    ]);
+
+    $vesselId = $vessel->id;
+
+    $csv = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.vessels.import.template'))
+        ->streamedContent();
+
+    $lines = array_values(array_filter(explode("\n", trim($csv))));
+    $header = str_getcsv($lines[0]);
+    $row = str_getcsv($lines[1]);
+    $row[1] = 'ADNOC';
+
+    $handle = fopen('php://temp', 'r+');
+    fputcsv($handle, $header);
+    fputcsv($handle, $row);
+    rewind($handle);
+    $updatedCsv = stream_get_contents($handle);
+    fclose($handle);
+
+    $file = UploadedFile::fake()->createWithContent('vessels.csv', $updatedCsv);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.vessels.import'), ['file' => $file])
+        ->assertRedirect(route('organization.vessels.index'));
+
+    $vessel->refresh();
+
+    expect(Vessel::query()->where('company_id', $company->id)->count())->toBe(1)
+        ->and($vessel->id)->toBe($vesselId)
+        ->and((int) $vessel->client_id)->toBe((int) $client->id)
+        ->and($vessel->name)->toBe('Sea Eagle')
+        ->and($vessel->imo_no)->toBe('9559133')
+        ->and($vessel->official_no)->toBe('SLR11116')
+        ->and($vessel->call_sign)->toBe('9LS2029')
+        ->and($vessel->grt)->toBe('4500.00')
+        ->and((int) $vessel->bhp)->toBe(12000)
+        ->and($vessel->is_active)->toBeTrue();
+});
+
 test('vessel import updates existing row by vessel_id without creating duplicate on rename', function () {
     ['user' => $user, 'company' => $company, 'vesselType' => $vesselType, 'client' => $client, 'otherClient' => $otherClient] = makeVesselImportExportFixtures();
 

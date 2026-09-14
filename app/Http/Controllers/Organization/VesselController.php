@@ -35,7 +35,6 @@ use App\Support\Vessels\VesselPagePermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
@@ -315,9 +314,11 @@ class VesselController extends Controller
         return $exporter->download($companyId);
     }
 
-    public function importTemplate(VesselCsvExporter $exporter): Response
+    public function importTemplate(Request $request, VesselCsvExporter $exporter): StreamedResponse
     {
-        return $exporter->template();
+        $companyId = (int) $request->attributes->get('current_company_id');
+
+        return $exporter->template($companyId);
     }
 
     public function importPreview(

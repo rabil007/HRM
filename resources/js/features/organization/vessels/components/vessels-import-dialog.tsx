@@ -267,10 +267,12 @@ export function VesselsImportDialog({
                 <DialogHeader>
                     <DialogTitle>Import vessels</DialogTitle>
                     <DialogDescription>
-                        Export the current fleet, edit the CSV, then upload it
-                        here. Rows with vessel_id update existing vessels. Rows
-                        without vessel_id create new vessels. Vessels not
-                        included in the file are not changed or deleted.
+                        Download your current vessel list, edit it in Excel,
+                        then upload the same file. Keep vessel_id unchanged for
+                        existing vessels. Leave vessel_id blank only for new
+                        vessels. Rows with vessel_id update existing vessels.
+                        Rows without vessel_id create new vessels. Vessels not
+                        included are not changed or deleted.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -339,7 +341,7 @@ export function VesselsImportDialog({
                         <Button asChild variant="outline" size="sm">
                             <a href={importTemplate.url()}>
                                 <Download className="mr-2 h-4 w-4" />
-                                Download CSV template
+                                Download vessel data
                             </a>
                         </Button>
                     </div>
