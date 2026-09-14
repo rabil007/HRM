@@ -245,7 +245,18 @@ This appears when:
 - creating a draft assignment and the selected employee is currently On Vessel, with a destination vessel that differs from the current vessel
 - recording Join Vessel on another assignment for a different destination vessel
 
-**Use Transfer Vessel** opens the existing Transfer Vessel action on the current On Vessel assignment and prefills destination vessel, rank, client, visa type, and movement time when those values were already entered. Query parameters are convenience only. The recorder must still review and submit the movement. The mutation still goes through `transfer_vessel` and backend company ownership checks. The system does not create the linked assignment in the browser and does not rewrite history.
+**Use Transfer Vessel** opens the existing Transfer Vessel action on the current On Vessel assignment and prefills destination vessel, rank, client, and movement time when those values were already entered (Visa Type is not stored on Crew Assignments). Query parameters are convenience only. The recorder must still review and submit the movement. The mutation still goes through `transfer_vessel` and backend company ownership checks. The system does not create the linked assignment in the browser and does not rewrite history.
+
+#### Employee operational status on assignment creation
+
+On the New Crew Assignment create form (`/organization/crew/create`), selecting an employee immediately displays their tenant-scoped operational status directly within the Employee selection panel (via `CrewAssignmentStatusResolver::forEmployeeIds()`).
+
+Operations immediately sees:
+- **On Vessel (P4)**: High-attention amber warning showing current vessel, assignment number, start time, and days onboard, with transfer recommendation when another vessel is selected.
+- **Join Standby (P2A)**: Informational badge showing assignment number, start time, and days in standby.
+- **Demob Standby (P5)**: Distinct P5 demobilisation standby badge with assignment number and duration.
+- **Available / In Home**: Calm status indicating the employee is ready without operational conflict.
+- **Other active phases (P0, P1, P2B, P3, P6)**: Accurate current phase status and duration.
 
 Same vessel does not recommend a transfer. A planned future assignment, a completed or cancelled tour, or another company's assignment is not treated as a current vessel transfer. The current assignment is excluded from its own recommendation.
 
@@ -373,7 +384,7 @@ EmployeeSeaService.client_id  = Client during that service period (from assignme
 
 New operational Crew activity cannot use a legacy-unassigned Vessel, an inactive Vessel, or an active Vessel whose assigned Client is inactive. When `CrewMovementService::createDraft()` receives a `vessel_id`, it asserts the Vessel is company-owned and active, then snapshots that Vessel’s current **active** Client (and rejects null-client / inactive-client / mismatched Client). Crew Planning create/update vessel options and validation require an active company Vessel with an assigned active Client; Planning → Assignment conversion relies on the same draft invariant.
 
-Editable pre-P4 Crew Assignments may retain an unchanged legacy or inactive Vessel/Client snapshot during unrelated field edits (remarks, planned dates, rank, visa). Changing Vessel or Client on that record applies today’s strict operational rules — an inactive existing Vessel cannot participate in a Client-only change.
+Editable pre-P4 Crew Assignments may retain an unchanged legacy or inactive Vessel/Client snapshot during unrelated field edits (remarks, planned dates, rank). Changing Vessel or Client on that record applies today’s strict operational rules — an inactive existing Vessel cannot participate in a Client-only change.
 
 Current Crew and Relief Desk Client/Vessel filter options that cascade by Client are derived from stored `crew_assignments` Client↔Vessel pairs, not from today’s `Vessel.client_id`. Historical Movement History filters continue to query assignment snapshot columns independently.
 

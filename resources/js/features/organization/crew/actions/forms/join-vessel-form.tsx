@@ -186,74 +186,38 @@ export function JoinVesselForm({
                         </div>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="movement-rank">
-                                Rank <span className="text-destructive">*</span>
-                            </Label>
-                            <Select
-                                value={form.data.rank_id?.toString() ?? ''}
-                                onValueChange={(value) =>
-                                    form.setData(
-                                        'rank_id',
-                                        value ? Number(value) : null,
-                                    )
-                                }
-                            >
-                                <SelectTrigger id="movement-rank">
-                                    <SelectValue placeholder="Select rank..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {formOptions.ranks.map((rank) => (
-                                        <SelectItem
-                                            key={rank.id}
-                                            value={rank.id.toString()}
-                                        >
-                                            {rank.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <p className="text-xs text-muted-foreground">
-                                The rank served onboard. This is used for
-                                Planning and Sea Service.
-                            </p>
-                            <InputError message={form.errors.rank_id} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="movement-visa">
-                                Visa type (optional)
-                            </Label>
-                            <Select
-                                value={
-                                    form.data.company_visa_type_id?.toString() ??
-                                    ''
-                                }
-                                onValueChange={(value) =>
-                                    form.setData(
-                                        'company_visa_type_id',
-                                        value ? Number(value) : null,
-                                    )
-                                }
-                            >
-                                <SelectTrigger id="movement-visa">
-                                    <SelectValue placeholder="Select visa type..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {formOptions.visa_types.map((visaType) => (
-                                        <SelectItem
-                                            key={visaType.id}
-                                            value={visaType.id.toString()}
-                                        >
-                                            {visaType.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <InputError
-                                message={form.errors.company_visa_type_id}
-                            />
-                        </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="movement-rank">
+                            Rank <span className="text-destructive">*</span>
+                        </Label>
+                        <Select
+                            value={form.data.rank_id?.toString() ?? ''}
+                            onValueChange={(value) =>
+                                form.setData(
+                                    'rank_id',
+                                    value ? Number(value) : null,
+                                )
+                            }
+                        >
+                            <SelectTrigger id="movement-rank">
+                                <SelectValue placeholder="Select rank..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {formOptions.ranks.map((rank) => (
+                                    <SelectItem
+                                        key={rank.id}
+                                        value={rank.id.toString()}
+                                    >
+                                        {rank.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            The rank served onboard. This is used for Planning
+                            and Sea Service.
+                        </p>
+                        <InputError message={form.errors.rank_id} />
                     </div>
                 </>
             ) : null}

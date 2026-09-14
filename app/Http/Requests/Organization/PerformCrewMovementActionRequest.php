@@ -49,7 +49,7 @@ class PerformCrewMovementActionRequest extends FormRequest
         $startingPhase = (string) $this->input('starting_phase');
         $nullable = [];
 
-        foreach (['vessel_id', 'rank_id', 'client_id', 'company_visa_type_id', 'planned_signoff_at', 'remarks'] as $field) {
+        foreach (['vessel_id', 'rank_id', 'client_id', 'planned_signoff_at', 'remarks'] as $field) {
             if ($this->input($field) === '') {
                 $nullable[$field] = null;
             }
@@ -60,7 +60,6 @@ class PerformCrewMovementActionRequest extends FormRequest
             $nullable['vessel_id'] = null;
             $nullable['rank_id'] = null;
             $nullable['client_id'] = null;
-            $nullable['company_visa_type_id'] = null;
         }
 
         if ($nullable !== []) {
@@ -126,7 +125,6 @@ class PerformCrewMovementActionRequest extends FormRequest
             $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)];
             $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
-            $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)];
             $baseRules['planned_signoff_choice'] = [
                 'nullable',
                 'string',
@@ -148,7 +146,6 @@ class PerformCrewMovementActionRequest extends FormRequest
             $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)];
             $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
-            $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)];
             $baseRules['planned_signoff_choice'] = [
                 'nullable',
                 'string',
@@ -191,7 +188,6 @@ class PerformCrewMovementActionRequest extends FormRequest
                 Rule::exists('ranks', 'id')->where('is_active', true),
             ];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
-            $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)];
             $baseRules['planned_signoff_choice'] = [
                 Rule::excludeIf(fn () => $this->input('starting_phase') !== CrewPhaseCode::OnVessel->value),
                 'nullable',

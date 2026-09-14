@@ -32,7 +32,6 @@ export default function CrewAssignmentEdit({
         rank_id: assignment.rank?.id ?? null,
         client_id: assignment.client?.id ?? null,
         vessel_id: assignment.vessel?.id ?? null,
-        company_visa_type_id: assignment.company_visa_type?.id ?? null,
         planned_join_at: assignment.planned_join_at ?? '',
         planned_signoff_at: assignment.planned_signoff_at ?? '',
         planned_travel_at: assignment.planned_travel_at ?? '',

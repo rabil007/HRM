@@ -8,7 +8,6 @@ export const CORRECTION_SELECT_OPTIONS: Record<
     vessel_id: 'vessels',
     rank_id: 'ranks',
     client_id: 'clients',
-    company_visa_type_id: 'visa_types',
     'details.course_id': 'courses',
 };
 

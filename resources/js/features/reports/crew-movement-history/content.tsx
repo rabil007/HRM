@@ -40,7 +40,6 @@ const FILTER_LABELS: Partial<Record<keyof CrewMovementHistoryFilters, string>> =
         vessel_id: 'Vessel',
         rank_id: 'Rank',
         client_id: 'Client',
-        visa_type_id: 'Sponsor / visa',
         source: 'Source',
         needs_attention: 'Needs attention',
         planned_join_from: 'Planned join from',
@@ -97,13 +96,6 @@ function chipValueLabel(
 
         if (key === 'client_id') {
             return options.clients.map((option) => ({
-                value: String(option.id),
-                label: option.name,
-            }));
-        }
-
-        if (key === 'visa_type_id') {
-            return options.visa_types.map((option) => ({
                 value: String(option.id),
                 label: option.name,
             }));

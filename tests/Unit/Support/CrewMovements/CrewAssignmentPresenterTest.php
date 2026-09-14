@@ -38,7 +38,7 @@ test('presenter separates planned and actual dates', function () {
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel, [
         'planned_join_at' => '2026-01-01',
         'planned_signoff_at' => '2026-06-01',
-    ])->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'phases', 'company', 'planningAssignment', 'companyVisaType']);
+    ])->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'phases', 'company', 'planningAssignment']);
 
     $detail = CrewAssignmentPresenter::detail($assignment);
     $onVessel = collect($detail['phase_timeline'])->firstWhere('phase_code', CrewPhaseCode::OnVessel->value);
@@ -93,7 +93,7 @@ test('presenter includes employee image in list and detail payloads', function (
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
         'rank_id' => $rank->id,
-    ], $user->id)->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'company', 'phases', 'planningAssignment', 'companyVisaType']);
+    ], $user->id)->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'company', 'phases', 'planningAssignment']);
 
     $listItem = CrewAssignmentPresenter::listItem($assignment);
     expect($listItem['employee'])->toBeArray()
@@ -108,7 +108,7 @@ test('presenter includes employee training id when relation is eager loaded', fu
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Presenter Training Vessel');
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel)
-        ->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'phases.employeeTraining', 'company', 'planningAssignment', 'companyVisaType']);
+        ->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'phases.employeeTraining', 'company', 'planningAssignment']);
 
     $phase = $assignment->phases->first();
     $training = EmployeeTraining::factory()

@@ -53,10 +53,6 @@ class CrewAssignmentPresenter
                 'id' => $assignment->client->id,
                 'name' => $assignment->client->name,
             ] : null,
-            'company_visa_type' => $assignment->companyVisaType ? [
-                'id' => $assignment->companyVisaType->id,
-                'name' => $assignment->companyVisaType->name,
-            ] : null,
             'current_phase' => $current ? [
                 'id' => $current->id,
                 'code' => $current->phase_code->value,
@@ -174,10 +170,6 @@ class CrewAssignmentPresenter
             'client' => $assignment->client ? [
                 'id' => $assignment->client->id,
                 'name' => $assignment->client->name,
-            ] : null,
-            'company_visa_type' => $assignment->companyVisaType ? [
-                'id' => $assignment->companyVisaType->id,
-                'name' => $assignment->companyVisaType->name,
             ] : null,
             'current_phase' => $current ? [
                 'id' => $current->id,
@@ -298,8 +290,6 @@ class CrewAssignmentPresenter
             'rank_name' => $assignment->rank?->name,
             'client_id' => $assignment->client_id,
             'client_name' => $assignment->client?->name,
-            'visa_type_id' => $assignment->company_visa_type_id,
-            'visa_type_name' => $assignment->companyVisaType?->name,
             'planned_join_at' => $assignment->planned_join_at?->toDateString(),
             'planned_signoff_at' => $assignment->planned_signoff_at?->toDateString(),
             'planned_travel_at' => $assignment->planned_travel_at?->toDateString(),

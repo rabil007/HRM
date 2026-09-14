@@ -31,7 +31,7 @@ it('presenter includes relief readiness fields for on-vessel assignments', funct
     );
 
     $payload = CrewAssignmentPresenter::listItem($assignment->fresh([
-        'employee', 'rank', 'vessel', 'client', 'companyVisaType', 'currentPhase', 'company',
+        'employee', 'rank', 'vessel', 'client', 'currentPhase', 'company',
     ]));
 
     expect($payload['relief_status'])->toBe(CrewReliefStatus::NoRelief->value)
@@ -55,7 +55,7 @@ it('presenter includes relief readiness fields for on-vessel assignments', funct
     ]);
 
     $withPlan = CrewAssignmentPresenter::listItem($assignment->fresh([
-        'employee', 'rank', 'vessel', 'client', 'companyVisaType', 'currentPhase', 'company',
+        'employee', 'rank', 'vessel', 'client', 'currentPhase', 'company',
     ]));
 
     expect($withPlan['relief_status'])->toBe(CrewReliefStatus::ReliefPlanned->value)

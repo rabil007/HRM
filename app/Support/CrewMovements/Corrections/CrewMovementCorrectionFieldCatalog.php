@@ -41,7 +41,6 @@ final class CrewMovementCorrectionFieldCatalog
             'vessel_id',
             'rank_id',
             'client_id',
-            'company_visa_type_id',
         ];
     }
 
@@ -62,7 +61,6 @@ final class CrewMovementCorrectionFieldCatalog
             'vessel_id',
             'rank_id',
             'client_id',
-            'company_visa_type_id',
         ], true);
     }
 

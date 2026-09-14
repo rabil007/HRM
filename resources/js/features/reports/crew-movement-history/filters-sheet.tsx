@@ -165,12 +165,6 @@ export function CrewMovementHistoryFiltersSheet({
                 onChange={(value) => set('client_id', value)}
             />
             <SelectFilter
-                label="Visa type / sponsor"
-                value={draft.visa_type_id}
-                options={options.visa_types}
-                onChange={(value) => set('visa_type_id', value)}
-            />
-            <SelectFilter
                 label="Source"
                 value={draft.source}
                 options={options.sources}

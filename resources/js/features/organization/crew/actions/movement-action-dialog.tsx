@@ -98,8 +98,6 @@ function applyTransferPrefill(
         vessel_id: prefill.vessel_id ?? data.vessel_id,
         rank_id: prefill.rank_id ?? data.rank_id,
         client_id: prefill.client_id ?? data.client_id,
-        company_visa_type_id:
-            prefill.company_visa_type_id ?? data.company_visa_type_id,
         occurred_at: prefill.occurred_at || data.occurred_at,
     };
 }
@@ -143,7 +141,6 @@ function buildInitialForm(
         vessel_id: action === 'transfer_vessel' ? null : context.vessel_id,
         rank_id: context.rank_id,
         client_id: context.client_id,
-        company_visa_type_id: context.visa_type_id,
         planned_signoff_at:
             action === 'redeploy' || action === 'transfer_vessel'
                 ? ''
@@ -418,7 +415,6 @@ export function MovementActionDialog({
                     vessel_id: form.data.vessel_id,
                     rank_id: form.data.rank_id,
                     client_id: form.data.client_id,
-                    company_visa_type_id: form.data.company_visa_type_id,
                     occurred_at: form.data.occurred_at,
                 }}
             />

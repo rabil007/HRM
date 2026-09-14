@@ -52,7 +52,6 @@ export type CrewMovementHistoryRow = {
     rank: ReportOption | null;
     vessel: ReportOption | null;
     client: ReportOption | null;
-    visa_type: ReportOption | null;
     status: string;
     status_label: string;
     current_phase: {
@@ -113,7 +112,6 @@ export type CrewMovementHistoryFilters = {
     vessel_id: string;
     rank_id: string;
     client_id: string;
-    visa_type_id: string;
     source: string;
     needs_attention: string;
     planned_join_from: string;
@@ -151,7 +149,6 @@ export type CrewMovementHistoryProps = {
         vessels: ReportOption[];
         ranks: ReportOption[];
         clients: ReportOption[];
-        visa_types: ReportOption[];
         sources: SelectOption[];
     };
     can: {

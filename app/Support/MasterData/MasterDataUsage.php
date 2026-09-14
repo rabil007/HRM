@@ -261,7 +261,6 @@ final class MasterDataUsage
             CompanyVisaType::class => [
                 MasterDataUsageSource::model('employees', Employee::class, 'company_visa_type_id', 'company_id'),
                 MasterDataUsageSource::model('contracts', EmployeeContract::class, 'company_visa_type_id', 'company_id', includeSoftDeletedReferences: true),
-                MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'company_visa_type_id', 'company_id', includeSoftDeletedReferences: true),
             ],
             ApprovalLocation::class => [
                 MasterDataUsageSource::pivot(

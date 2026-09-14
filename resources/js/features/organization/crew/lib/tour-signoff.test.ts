@@ -45,7 +45,6 @@ function baseForm(
         vessel_id: 2,
         rank_id: 1,
         client_id: null,
-        company_visa_type_id: null,
         planned_signoff_at: '2026-10-01',
         planned_travel_at: '',
         reason: '',

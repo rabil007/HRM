@@ -16,7 +16,6 @@ export type VesselTransferPrefill = {
     vessel_id?: number | null;
     rank_id?: number | null;
     client_id?: number | null;
-    company_visa_type_id?: number | null;
     occurred_at?: string | null;
 };
 
@@ -38,10 +37,6 @@ export function openTransferVessel(
 
     if (prefill.client_id) {
         query.client_id = String(prefill.client_id);
-    }
-
-    if (prefill.company_visa_type_id) {
-        query.company_visa_type_id = String(prefill.company_visa_type_id);
     }
 
     if (prefill.occurred_at) {

@@ -49,8 +49,6 @@ export type CrewMovementContext = {
     rank_name: string | null;
     client_id: number | null;
     client_name: string | null;
-    visa_type_id: number | null;
-    visa_type_name: string | null;
     planned_join_at: string | null;
     planned_signoff_at: string | null;
     planned_travel_at: string | null;
@@ -131,10 +129,6 @@ export interface CrewAssignmentListItem
         id: number;
         name: string;
     } | null;
-    company_visa_type: {
-        id: number;
-        name: string;
-    } | null;
     current_phase: {
         code: string;
         label: string;
@@ -178,10 +172,6 @@ export interface CrewAssignmentDetail
         name: string;
     } | null;
     client: {
-        id: number;
-        name: string;
-    } | null;
-    company_visa_type: {
         id: number;
         name: string;
     } | null;
@@ -299,7 +289,6 @@ export interface CrewAssignmentFormData {
     rank_id: number | null;
     client_id: number | null;
     vessel_id: number | null;
-    company_visa_type_id: number | null;
     planned_join_at: string;
     planned_signoff_at: string;
     planned_travel_at: string;
@@ -326,12 +315,27 @@ export interface CrewAssignmentFormOptions {
         is_active?: boolean;
     }>;
     clients: Array<{ id: number; name: string }>;
-    visa_types: Array<{ id: number; name: string }>;
     courses: Array<{ id: number; name: string }>;
+}
+
+export interface EmployeeOperationalStatus {
+    status: string;
+    label: string;
+    current_phase: string | null;
+    current_vessel: string | null;
+    assignment_id: number | null;
+    assignment_no: string | null;
+    since: string | null;
+    days_in_phase: number | null;
+    planned_next_date: string | null;
+    warning: string | null;
+    in_home_days: number | null;
+    vessel_name: string | null;
 }
 
 export interface CrewAssignmentCreateFormOptions extends CrewAssignmentFormOptions {
     active_on_vessel_by_employee?: Record<string, ActiveOnVesselAssignment>;
+    employee_status_by_employee?: Record<string, EmployeeOperationalStatus>;
 }
 
 export interface CrewAssignmentSummary {
@@ -499,7 +503,6 @@ export interface CrewMovementActionFormData {
     vessel_id: number | null;
     rank_id: number | null;
     client_id: number | null;
-    company_visa_type_id: number | null;
     planned_signoff_at: string;
     planned_travel_at: string;
     reason: string;

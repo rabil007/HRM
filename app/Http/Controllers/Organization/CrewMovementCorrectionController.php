@@ -65,7 +65,6 @@ class CrewMovementCorrectionController extends Controller
             'assignment.vessel:id,name',
             'assignment.rank:id,name',
             'assignment.client:id,name',
-            'assignment.companyVisaType:id,name',
             'phase',
             'requester:id,name',
             'decisionMaker:id,name',

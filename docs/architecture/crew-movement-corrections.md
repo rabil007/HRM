@@ -18,7 +18,7 @@ Request correction
 | Recorded phases (`active` / `completed` with `actual_start_at`) | `actual_start_at`, `remarks` |
 | Completed phases | also `actual_end_at` |
 | Training | also `details.provider`, `details.course`, `details.course_id` |
-| On Vessel (P4) | also assignment `vessel_id`, `rank_id`, `client_id`, `company_visa_type_id` |
+| On Vessel (P4) | also assignment `vessel_id`, `rank_id`, `client_id` |
 
 Derived updates on approve:
 

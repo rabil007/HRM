@@ -9,7 +9,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\StoreCrewAssignmentRequest;
 use App\Http\Requests\Organization\UpdateCrewAssignmentRequest;
 use App\Models\Client;
-use App\Models\CompanyVisaType;
 use App\Models\Course;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
@@ -21,6 +20,7 @@ use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewAssignmentEditability;
 use App\Support\CrewMovements\CrewAssignmentPagePermissions;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
+use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewMovementService;
 use App\Support\CrewMovements\CurrentCrewQuery;
@@ -95,7 +95,6 @@ class CrewAssignmentController extends Controller
                 'ranks' => $this->activeRanksWithTour($companyId),
                 'vessels' => $this->activeVessels($companyId),
                 'clients' => $this->activeClients(),
-                'visa_types' => $this->activeVisaTypes(),
                 'courses' => $this->activeCourses(),
             ],
             'can' => CrewAssignmentPagePermissions::for($request->user()),
@@ -116,12 +115,17 @@ class CrewAssignmentController extends Controller
             ])
             ->all();
 
+        $employeeModels = Employee::query()
+            ->where('company_id', $companyId)
+            ->active()
+            ->orderBy('name')
+            ->get(['id', 'name', 'employee_no', 'rank_id']);
+
+        $employeeIds = $employeeModels->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $employeeStatusByEmployee = app(CrewAssignmentStatusResolver::class)->forEmployeeIds($companyId, $employeeIds);
+
         $formOptions = [
-            'employees' => Employee::query()
-                ->where('company_id', $companyId)
-                ->active()
-                ->orderBy('name')
-                ->get(['id', 'name', 'employee_no', 'rank_id'])
+            'employees' => $employeeModels
                 ->map(fn (Employee $e) => [
                     'id' => $e->id,
                     'name' => $e->name,
@@ -131,15 +135,16 @@ class CrewAssignmentController extends Controller
                 ->values()
                 ->all(),
             'active_on_vessel_by_employee' => $activeOnVessel,
+            'employee_status_by_employee' => $employeeStatusByEmployee,
             'ranks' => $this->activeRanks(),
             'vessels' => $this->activeVessels($companyId),
             'clients' => $this->activeClients(),
-            'visa_types' => $this->activeVisaTypes(),
             'courses' => $this->activeCourses(),
         ];
 
         return Inertia::render('organization/crew/create', [
             'form_options' => $formOptions,
+            'employee_status_by_employee' => $employeeStatusByEmployee,
             'can' => CrewAssignmentPagePermissions::for($request->user()),
         ]);
     }
@@ -160,7 +165,6 @@ class CrewAssignmentController extends Controller
                         'rank_id' => $validated['rank_id'] ?? null,
                         'client_id' => $validated['client_id'] ?? null,
                         'vessel_id' => $validated['vessel_id'] ?? null,
-                        'company_visa_type_id' => $validated['company_visa_type_id'] ?? null,
                         'planned_join_at' => $validated['planned_join_at'] ?? null,
                         'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
                         'planned_travel_at' => $validated['planned_travel_at'] ?? null,
@@ -200,7 +204,6 @@ class CrewAssignmentController extends Controller
             'rank',
             'client',
             'vessel',
-            'companyVisaType',
             'currentPhase',
             'phases.pendingCorrections',
             'phases.corrections' => fn ($query) => $query->where('status', 'approved')->latest('decided_at'),
@@ -234,7 +237,6 @@ class CrewAssignmentController extends Controller
                 'ranks' => $this->activeRanksWithTour($companyId),
                 'vessels' => $this->activeVessels($companyId),
                 'clients' => $this->activeClients(),
-                'visa_types' => $this->activeVisaTypes(),
                 'courses' => $this->activeCourses(),
             ],
             'can' => CrewAssignmentPagePermissions::for($request->user()),
@@ -259,7 +261,6 @@ class CrewAssignmentController extends Controller
             'rank',
             'client',
             'vessel',
-            'companyVisaType',
             'currentPhase',
             'phases.employeeTraining:id,source_crew_assignment_phase_id',
         ]);
@@ -281,7 +282,6 @@ class CrewAssignmentController extends Controller
             'ranks' => $this->activeRanks(),
             'vessels' => $this->vesselOptionsForAssignment($companyId, $assignment),
             'clients' => $this->clientOptionsForAssignment($assignment),
-            'visa_types' => $this->activeVisaTypes(),
             'courses' => $this->activeCourses(),
         ];
 
@@ -311,7 +311,6 @@ class CrewAssignmentController extends Controller
             'rank_id',
             'client_id',
             'vessel_id',
-            'company_visa_type_id',
             'planned_join_at',
             'planned_signoff_at',
             'planned_travel_at',
@@ -481,20 +480,6 @@ class CrewAssignmentController extends Controller
         ];
 
         return $options;
-    }
-
-    /**
-     * @return list<array{id: int, name: string}>
-     */
-    private function activeVisaTypes(): array
-    {
-        return CompanyVisaType::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (CompanyVisaType $visaType) => ['id' => $visaType->id, 'name' => $visaType->name])
-            ->values()
-            ->all();
     }
 
     /**

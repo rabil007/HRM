@@ -186,70 +186,32 @@ export function TransferVesselForm({
                         </div>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="transfer-rank">
-                                Destination rank{' '}
-                                <span className="text-destructive">*</span>
-                            </Label>
-                            <Select
-                                value={form.data.rank_id?.toString() ?? ''}
-                                onValueChange={(value) =>
-                                    setDestinationRank(
-                                        value ? Number(value) : null,
-                                    )
-                                }
-                            >
-                                <SelectTrigger id="transfer-rank">
-                                    <SelectValue placeholder="Select rank..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {formOptions.ranks.map((rank) => (
-                                        <SelectItem
-                                            key={rank.id}
-                                            value={rank.id.toString()}
-                                        >
-                                            {rank.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <InputError message={form.errors.rank_id} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="transfer-visa">
-                                Visa type (optional)
-                            </Label>
-                            <Select
-                                value={
-                                    form.data.company_visa_type_id?.toString() ??
-                                    ''
-                                }
-                                onValueChange={(value) =>
-                                    form.setData(
-                                        'company_visa_type_id',
-                                        value ? Number(value) : null,
-                                    )
-                                }
-                            >
-                                <SelectTrigger id="transfer-visa">
-                                    <SelectValue placeholder="Select visa type..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {formOptions.visa_types.map((visaType) => (
-                                        <SelectItem
-                                            key={visaType.id}
-                                            value={visaType.id.toString()}
-                                        >
-                                            {visaType.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <InputError
-                                message={form.errors.company_visa_type_id}
-                            />
-                        </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="transfer-rank">
+                            Destination rank{' '}
+                            <span className="text-destructive">*</span>
+                        </Label>
+                        <Select
+                            value={form.data.rank_id?.toString() ?? ''}
+                            onValueChange={(value) =>
+                                setDestinationRank(value ? Number(value) : null)
+                            }
+                        >
+                            <SelectTrigger id="transfer-rank">
+                                <SelectValue placeholder="Select rank..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {formOptions.ranks.map((rank) => (
+                                    <SelectItem
+                                        key={rank.id}
+                                        value={rank.id.toString()}
+                                    >
+                                        {rank.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={form.errors.rank_id} />
                     </div>
                 </>
             ) : null}

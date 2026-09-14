@@ -10,7 +10,6 @@ use App\Enums\CrewPlannedSignoffSource;
 use App\Exceptions\CrewMovementException;
 use App\Models\Client;
 use App\Models\Company;
-use App\Models\CompanyVisaType;
 use App\Models\Course;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
@@ -105,7 +104,6 @@ final class CrewMovementService
                 'rank_id' => $attributes['rank_id'] ?? $employee->rank_id,
                 'client_id' => $clientId,
                 'vessel_id' => $vesselId,
-                'company_visa_type_id' => $attributes['company_visa_type_id'] ?? null,
                 'status' => CrewAssignmentStatus::Draft,
                 'planned_join_at' => $attributes['planned_join_at'] ?? null,
                 'planned_signoff_at' => $attributes['planned_signoff_at'] ?? null,
@@ -447,17 +445,12 @@ final class CrewMovementService
         $this->assertCompanyOwnedMaster($assignment->company_id, Rank::class, $rankId, 'rank');
 
         $submittedClientId = isset($payload['client_id']) ? (int) $payload['client_id'] : null;
-        $visaTypeId = isset($payload['company_visa_type_id']) ? (int) $payload['company_visa_type_id'] : null;
         $clientId = $this->resolveOperationalClientId(
             companyId: (int) $assignment->company_id,
             vesselId: $vesselId,
             submittedClientId: $submittedClientId,
             fallbackClientId: $assignment->client_id !== null ? (int) $assignment->client_id : null,
         );
-
-        if ($visaTypeId) {
-            $this->assertCompanyOwnedMaster($assignment->company_id, CompanyVisaType::class, $visaTypeId, 'visa type');
-        }
 
         $signoff = $this->resolveOnVesselTourSignoff(
             companyId: (int) $assignment->company_id,
@@ -486,7 +479,6 @@ final class CrewMovementService
             'vessel_id' => $vesselId,
             'rank_id' => $rankId,
             'client_id' => $clientId,
-            'company_visa_type_id' => $visaTypeId ?? $assignment->company_visa_type_id,
             'planned_signoff_at' => $signoff['planned_signoff_at'],
             'tour_of_duty_days' => $signoff['tour_of_duty_days'],
             'planned_signoff_source' => $signoff['planned_signoff_source'],
@@ -630,9 +622,6 @@ final class CrewMovementService
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
         $destinationVesselId = (int) ($payload['vessel_id'] ?? 0);
         $destinationRankId = (int) ($payload['rank_id'] ?? 0);
-        $destinationVisaTypeId = isset($payload['company_visa_type_id'])
-            ? (int) $payload['company_visa_type_id']
-            : null;
 
         if ($destinationVesselId <= 0 || $destinationRankId <= 0) {
             throw CrewMovementException::make(
@@ -659,15 +648,6 @@ final class CrewMovementService
             fallbackClientId: $assignment->client_id !== null ? (int) $assignment->client_id : null,
             preferVesselOverFallback: true,
         );
-
-        if ($destinationVisaTypeId) {
-            $this->assertCompanyOwnedMaster(
-                $assignment->company_id,
-                CompanyVisaType::class,
-                $destinationVisaTypeId,
-                'visa type',
-            );
-        }
 
         $sourceVesselId = $assignment->vessel_id;
         $sourceRankId = $assignment->rank_id;
@@ -709,7 +689,6 @@ final class CrewMovementService
             vesselId: $destinationVesselId,
             rankId: $destinationRankId,
             clientId: $destinationClientId,
-            companyVisaTypeId: $destinationVisaTypeId ?? $assignment->company_visa_type_id,
             plannedSignoffAt: $signoff['planned_signoff_at'],
             remarks: isset($payload['remarks']) ? (string) $payload['remarks'] : null,
             actorId: $actorId,
@@ -780,9 +759,6 @@ final class CrewMovementService
         $destinationVesselId = isset($payload['vessel_id']) ? (int) $payload['vessel_id'] : null;
         $destinationRankId = isset($payload['rank_id']) ? (int) $payload['rank_id'] : null;
         $submittedClientId = isset($payload['client_id']) ? (int) $payload['client_id'] : null;
-        $destinationVisaTypeId = isset($payload['company_visa_type_id'])
-            ? (int) $payload['company_visa_type_id']
-            : null;
 
         if ($startingPhase === CrewPhaseCode::OnVessel) {
             if ($destinationVesselId === null || $destinationVesselId <= 0
@@ -813,15 +789,6 @@ final class CrewMovementService
 
         if ($destinationRankId) {
             $this->assertCompanyOwnedMaster($assignment->company_id, Rank::class, $destinationRankId, 'rank');
-        }
-
-        if ($destinationVisaTypeId) {
-            $this->assertCompanyOwnedMaster(
-                $assignment->company_id,
-                CompanyVisaType::class,
-                $destinationVisaTypeId,
-                'visa type',
-            );
         }
 
         $destinationClientId = $isDraftStart
@@ -874,9 +841,6 @@ final class CrewMovementService
                 ? $destinationRankId
                 : ($destinationRankId ?? $assignment->rank_id),
             clientId: $destinationClientId,
-            companyVisaTypeId: $isDraftStart
-                ? $destinationVisaTypeId
-                : ($destinationVisaTypeId ?? $assignment->company_visa_type_id),
             plannedSignoffAt: $isDraftStart
                 ? null
                 : ($signoff !== null
@@ -1068,7 +1032,6 @@ final class CrewMovementService
         ?int $vesselId,
         ?int $rankId,
         ?int $clientId,
-        ?int $companyVisaTypeId,
         ?CarbonInterface $plannedSignoffAt,
         ?string $remarks,
         ?int $actorId,
@@ -1085,7 +1048,6 @@ final class CrewMovementService
             'rank_id' => $rankId,
             'client_id' => $clientId,
             'vessel_id' => $vesselId,
-            'company_visa_type_id' => $companyVisaTypeId,
             'status' => $status,
             'planned_join_at' => $plannedJoinAt,
             'planned_signoff_at' => $plannedSignoffAt,

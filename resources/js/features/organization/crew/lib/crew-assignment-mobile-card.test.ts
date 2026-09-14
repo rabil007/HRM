@@ -20,7 +20,6 @@ function assignment(
         rank: { id: 1, name: 'Engineer' },
         vessel: { id: 8, name: 'Horizon' },
         client: null,
-        company_visa_type: null,
         current_phase: {
             code: 'p4',
             label: 'Onboard',
@@ -51,8 +50,6 @@ function assignment(
             rank_name: 'Engineer',
             client_id: null,
             client_name: null,
-            visa_type_id: null,
-            visa_type_name: null,
             planned_join_at: '2026-08-01',
             planned_signoff_at: '2026-08-28',
             planned_travel_at: null,

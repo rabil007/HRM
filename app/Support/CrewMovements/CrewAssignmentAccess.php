@@ -16,7 +16,6 @@ class CrewAssignmentAccess
                 'rank',
                 'client',
                 'vessel',
-                'companyVisaType',
                 'currentPhase',
                 'phases',
                 'planningAssignment',

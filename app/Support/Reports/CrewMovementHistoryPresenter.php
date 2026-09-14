@@ -79,7 +79,6 @@ final class CrewMovementHistoryPresenter
             'rank' => self::option($assignment->rank),
             'vessel' => self::option($assignment->vessel),
             'client' => self::option($assignment->client),
-            'visa_type' => self::option($assignment->companyVisaType),
             'status' => $assignment->status->value,
             'status_label' => $assignment->status->label(),
             'current_phase' => $assignment->currentPhase ? [

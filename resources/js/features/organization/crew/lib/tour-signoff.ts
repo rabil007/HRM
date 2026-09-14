@@ -109,7 +109,6 @@ export function normalizeTourSignoffPayload(
             payload.vessel_id = null;
             payload.rank_id = null;
             payload.client_id = null;
-            payload.company_visa_type_id = null;
         }
 
         return payload;

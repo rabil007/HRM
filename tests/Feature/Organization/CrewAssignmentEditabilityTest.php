@@ -5,7 +5,6 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\Client;
 use App\Models\Company;
-use App\Models\CompanyVisaType;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
@@ -418,13 +417,11 @@ test('16. clearing optional fields persists null in database', function () {
     $vessel = makeCrewMovementVessel('Clear Fields Vessel');
     $client = Client::query()->create(['name' => 'Clear Client '.Str::uuid(), 'is_active' => true]);
     $vessel->update(['client_id' => $client->id]);
-    $visa = CompanyVisaType::query()->create(['name' => 'Clear Visa '.Str::uuid(), 'is_active' => true]);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
         'rank_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'client_id' => $client->id,
-        'company_visa_type_id' => $visa->id,
         'planned_join_at' => '2026-08-01',
         'planned_signoff_at' => '2026-11-01',
         'planned_travel_at' => '2026-11-05',
@@ -434,7 +431,6 @@ test('16. clearing optional fields persists null in database', function () {
     expect($assignment->vessel_id)->toBe($vessel->id)
         ->and($assignment->rank_id)->toBe($rank->id)
         ->and($assignment->client_id)->toBe($client->id)
-        ->and($assignment->company_visa_type_id)->toBe($visa->id)
         ->and($assignment->planned_join_at->toDateString())->toBe('2026-08-01')
         ->and($assignment->planned_signoff_at->toDateString())->toBe('2026-11-01')
         ->and($assignment->planned_travel_at->toDateString())->toBe('2026-11-05')
@@ -445,7 +441,6 @@ test('16. clearing optional fields persists null in database', function () {
             'vessel_id' => null,
             'rank_id' => null,
             'client_id' => null,
-            'company_visa_type_id' => null,
             'planned_join_at' => null,
             'planned_signoff_at' => null,
             'planned_travel_at' => null,
@@ -458,7 +453,6 @@ test('16. clearing optional fields persists null in database', function () {
     expect($fresh->vessel_id)->toBeNull()
         ->and($fresh->rank_id)->toBeNull()
         ->and($fresh->client_id)->toBeNull()
-        ->and($fresh->company_visa_type_id)->toBeNull()
         ->and($fresh->planned_join_at)->toBeNull()
         ->and($fresh->planned_signoff_at)->toBeNull()
         ->and($fresh->planned_travel_at)->toBeNull()

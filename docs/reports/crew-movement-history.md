@@ -44,7 +44,7 @@ The start day is day zero. A phase started today displays `Started today`; the f
 
 ## Filters and summary
 
-The report supports identity, assignment status, current phase, vessel, rank, client, visa type, source, attention, planned/actual date filters, and correction filters (`has_approved_corrections`, `has_pending_corrections`). Pagination and exports preserve all filters. Summary counts use the active company and the active filter set.
+The report supports identity, assignment status, current phase, vessel, rank, client, source, attention, planned/actual date filters, and correction filters (`has_approved_corrections`, `has_pending_corrections`). Pagination and exports preserve all filters. Summary counts use the active company and the active filter set.
 
 Approved corrections add report metadata only (`has_corrections`, `correction_count`, `last_corrected_at`). Pending proposals never change official dates in the report.
 

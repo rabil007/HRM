@@ -440,10 +440,6 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                         value={row.client?.name ?? '—'}
                     />
                     <DetailField
-                        label="Sponsor / visa type"
-                        value={row.visa_type?.name ?? '—'}
-                    />
-                    <DetailField
                         label="Status"
                         value={
                             <Badge variant={statusVariant(row.status)}>

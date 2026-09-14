@@ -34,7 +34,6 @@ class CrewAssignment extends Model
         'rank_id',
         'client_id',
         'vessel_id',
-        'company_visa_type_id',
         'status',
         'current_phase_id',
         'planned_join_at',
@@ -63,7 +62,6 @@ class CrewAssignment extends Model
                 'rank_id',
                 'client_id',
                 'vessel_id',
-                'company_visa_type_id',
                 'status',
                 'current_phase_id',
                 'planned_join_at',
@@ -95,7 +93,6 @@ class CrewAssignment extends Model
             'rank_id' => 'integer',
             'client_id' => 'integer',
             'vessel_id' => 'integer',
-            'company_visa_type_id' => 'integer',
             'current_phase_id' => 'integer',
             'previous_assignment_id' => 'integer',
             'created_by' => 'integer',
@@ -136,11 +133,6 @@ class CrewAssignment extends Model
     public function vessel(): BelongsTo
     {
         return $this->belongsTo(Vessel::class);
-    }
-
-    public function companyVisaType(): BelongsTo
-    {
-        return $this->belongsTo(CompanyVisaType::class);
     }
 
     /**

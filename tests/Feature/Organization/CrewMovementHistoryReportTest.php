@@ -109,7 +109,6 @@ test('report exposes repeated phases and authoritative p4 dates in one row', fun
                     'rank',
                     'vessel',
                     'client',
-                    'visa_type',
                     'status',
                     'status_label',
                     'current_phase.code',
@@ -223,7 +222,6 @@ test('report paginates one thousand assignments without per row queries', functi
             'rank_id' => $rank->id,
             'client_id' => null,
             'vessel_id' => null,
-            'company_visa_type_id' => null,
         ]);
 
     DB::flushQueryLog();

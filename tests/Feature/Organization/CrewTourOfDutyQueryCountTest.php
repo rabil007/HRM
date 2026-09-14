@@ -39,7 +39,7 @@ it('keeps presenter query counts bounded for multiple assignments', function () 
             ],
         );
 
-        return $assignment->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'phases', 'company', 'companyVisaType']);
+        return $assignment->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'phases', 'company']);
     });
 
     DB::flushQueryLog();

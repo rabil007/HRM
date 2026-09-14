@@ -166,7 +166,6 @@ export function RedeployForm({
                             next.vessel_id = null;
                             next.rank_id = null;
                             next.client_id = null;
-                            next.company_visa_type_id = null;
                             next.planned_signoff_at = '';
                             Object.assign(next, clearedDirectP4TourFields());
                         } else if (value === 'p4') {
@@ -178,8 +177,6 @@ export function RedeployForm({
                                 next.vessel_id = context.vessel_id;
                                 next.rank_id = context.rank_id;
                                 next.client_id = context.client_id;
-                                next.company_visa_type_id =
-                                    context.visa_type_id;
                             }
 
                             const rankId =
@@ -204,8 +201,6 @@ export function RedeployForm({
                                 next.vessel_id = context.vessel_id;
                                 next.rank_id = context.rank_id;
                                 next.client_id = context.client_id;
-                                next.company_visa_type_id =
-                                    context.visa_type_id;
                             }
 
                             Object.assign(next, clearedDirectP4TourFields());
@@ -298,74 +293,36 @@ export function RedeployForm({
                         </div>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="redeploy-rank">
-                                Destination rank
-                                {requiresVessel ? (
-                                    <span className="text-destructive"> *</span>
-                                ) : (
-                                    ' (optional)'
-                                )}
-                            </Label>
-                            <Select
-                                value={form.data.rank_id?.toString() ?? ''}
-                                onValueChange={(value) =>
-                                    setDestinationRank(
-                                        value ? Number(value) : null,
-                                    )
-                                }
-                            >
-                                <SelectTrigger id="redeploy-rank">
-                                    <SelectValue placeholder="Select rank..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {formOptions.ranks.map((rank) => (
-                                        <SelectItem
-                                            key={rank.id}
-                                            value={rank.id.toString()}
-                                        >
-                                            {rank.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <InputError message={form.errors.rank_id} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="redeploy-visa">
-                                Visa type (optional)
-                            </Label>
-                            <Select
-                                value={
-                                    form.data.company_visa_type_id?.toString() ??
-                                    ''
-                                }
-                                onValueChange={(value) =>
-                                    form.setData(
-                                        'company_visa_type_id',
-                                        value ? Number(value) : null,
-                                    )
-                                }
-                            >
-                                <SelectTrigger id="redeploy-visa">
-                                    <SelectValue placeholder="Select visa type..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {formOptions.visa_types.map((visaType) => (
-                                        <SelectItem
-                                            key={visaType.id}
-                                            value={visaType.id.toString()}
-                                        >
-                                            {visaType.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <InputError
-                                message={form.errors.company_visa_type_id}
-                            />
-                        </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="redeploy-rank">
+                            Destination rank
+                            {requiresVessel ? (
+                                <span className="text-destructive"> *</span>
+                            ) : (
+                                ' (optional)'
+                            )}
+                        </Label>
+                        <Select
+                            value={form.data.rank_id?.toString() ?? ''}
+                            onValueChange={(value) =>
+                                setDestinationRank(value ? Number(value) : null)
+                            }
+                        >
+                            <SelectTrigger id="redeploy-rank">
+                                <SelectValue placeholder="Select rank..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {formOptions.ranks.map((rank) => (
+                                    <SelectItem
+                                        key={rank.id}
+                                        value={rank.id.toString()}
+                                    >
+                                        {rank.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={form.errors.rank_id} />
                     </div>
                 </>
             ) : null}

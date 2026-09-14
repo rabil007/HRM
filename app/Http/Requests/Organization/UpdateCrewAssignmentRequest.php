@@ -70,7 +70,6 @@ class UpdateCrewAssignmentRequest extends FormRequest
                         });
                 }),
             ],
-            'company_visa_type_id' => ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)],
             'planned_join_at' => ['nullable', 'date'],
             'planned_signoff_at' => ['nullable', 'date', 'after_or_equal:planned_join_at'],
             'planned_travel_at' => ['nullable', 'date'],

@@ -31,7 +31,6 @@ export default function CrewAssignmentCreate({
         rank_id: null,
         client_id: null,
         vessel_id: null,
-        company_visa_type_id: null,
         planned_join_at: '',
         planned_signoff_at: '',
         planned_travel_at: '',
@@ -75,81 +74,61 @@ export default function CrewAssignmentCreate({
                     backLabel="Back to Crew Assignments"
                 />
 
-                <div className="mb-6 rounded-xl border border-sky-500/35 bg-sky-500/10 p-4">
-                    <div className="flex gap-3">
-                        <Info
-                            className="mt-0.5 size-4 shrink-0 text-sky-700 dark:text-sky-300"
-                            aria-hidden
-                        />
-                        <div className="space-y-1 text-sm text-sky-900 dark:text-sky-100">
-                            <p>
-                                This creates a P0 Pre-Mobilisation draft. It
-                                does not start travel or mark the employee
-                                onboard.
-                            </p>
-                            <p>
-                                Use Approve Mobilisation when the mobilisation
-                                actually begins.
-                            </p>
+                <div className="mx-auto max-w-4xl space-y-6">
+                    <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 p-4">
+                        <div className="flex gap-3">
+                            <Info
+                                className="mt-0.5 size-4 shrink-0 text-sky-700 dark:text-sky-300"
+                                aria-hidden
+                            />
+                            <div className="space-y-0.5 text-sm text-sky-900 dark:text-sky-100">
+                                <p className="font-medium">
+                                    Creates a P0 Pre-Mobilisation draft.
+                                </p>
+                                <p className="text-xs text-sky-900/80 dark:text-sky-200/80">
+                                    Travel, training, and joining are recorded
+                                    later using operational Movement Actions.
+                                </p>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <Card className="border-border/80 dark:border-white/10">
-                    <CardContent className="p-6 md:p-8">
-                        <form onSubmit={handleSubmit} className="space-y-8">
-                            <CrewAssignmentFormFields
-                                form={form}
-                                formOptions={form_options}
-                            />
+                    <Card className="border-border/80 dark:border-white/10">
+                        <CardContent className="p-6 md:p-8">
+                            <form onSubmit={handleSubmit} className="space-y-8">
+                                <CrewAssignmentFormFields
+                                    form={form}
+                                    formOptions={form_options}
+                                />
 
-                            {currentOnVessel ? (
-                                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-950 dark:text-amber-100">
-                                    <p>
-                                        {currentOnVessel.employee_name} is
-                                        already On Vessel on{' '}
-                                        {currentOnVessel.vessel_name ??
-                                            'another vessel'}{' '}
-                                        ({currentOnVessel.assignment_no}
-                                        {currentOnVessel.actual_start_display
-                                            ? `, P4 started ${currentOnVessel.actual_start_display}`
-                                            : ''}
-                                        ).
-                                    </p>
-                                    <p className="mt-1">
-                                        Creating another assignment may produce
-                                        conflicting operational history. If this
-                                        is a move to a different vessel, use
-                                        Transfer Vessel instead.
-                                    </p>
+                                <div className="flex flex-wrap gap-3 border-t border-border/60 pt-6">
+                                    <Button
+                                        type="submit"
+                                        disabled={form.processing}
+                                        className="h-11 rounded-xl px-6"
+                                    >
+                                        {form.processing ? (
+                                            <Spinner className="mr-2" />
+                                        ) : null}
+                                        Create Draft Assignment
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="h-11 rounded-xl px-6"
+                                        onClick={() =>
+                                            router.visit(
+                                                crewAssignmentsIndex.url(),
+                                            )
+                                        }
+                                    >
+                                        Cancel
+                                    </Button>
                                 </div>
-                            ) : null}
-
-                            <div className="flex flex-wrap gap-3 border-t border-border/60 pt-6">
-                                <Button
-                                    type="submit"
-                                    disabled={form.processing}
-                                    className="h-11 rounded-xl px-6"
-                                >
-                                    {form.processing ? (
-                                        <Spinner className="mr-2" />
-                                    ) : null}
-                                    Create Draft Assignment
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="h-11 rounded-xl px-6"
-                                    onClick={() =>
-                                        router.visit(crewAssignmentsIndex.url())
-                                    }
-                                >
-                                    Cancel
-                                </Button>
-                            </div>
-                        </form>
-                    </CardContent>
-                </Card>
+                            </form>
+                        </CardContent>
+                    </Card>
+                </div>
 
                 <VesselTransferRecommendationDialog
                     open={transferPromptOpen}
@@ -160,7 +139,6 @@ export default function CrewAssignmentCreate({
                         vessel_id: form.data.vessel_id,
                         rank_id: form.data.rank_id,
                         client_id: form.data.client_id,
-                        company_visa_type_id: form.data.company_visa_type_id,
                     }}
                 />
             </Main>

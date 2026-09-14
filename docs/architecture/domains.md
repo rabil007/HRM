@@ -520,7 +520,7 @@ Detailed lifecycle, Tour of Duty, planning sync, transfer/redeploy, alerts, and 
 - `CrewPlanningAssignment` — Gantt/planning row; may create/sync a CrewAssignment
 - `EmployeeSeaService` — historical sea time linked by `crew_assignment_phase_id`
 - `CrewMovementCorrection` — in-place field corrections (separate approval workflow)
-- Master data: `Vessel`, `VesselType`, `Client`, `Rank`, `CompanyVisaType`
+- Master data: `Vessel`, `VesselType`, `Client`, `Rank`
 
 ### Relationships
 
@@ -531,7 +531,6 @@ flowchart LR
     CrewAssignment --> Vessel
     CrewAssignment --> Client
     CrewAssignment --> Rank
-    CrewAssignment --> CompanyVisaType
     CrewAssignment --> CrewAssignmentPhase
     CrewAssignmentPhase -->|completed P4| EmployeeSeaService
     EmployeeSeaService --> Employee

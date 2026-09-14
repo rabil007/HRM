@@ -97,7 +97,6 @@ final class CrewMovementHistoryQuery
                 'rank:id,name',
                 'vessel:id,name',
                 'client:id,name',
-                'companyVisaType:id,name',
                 'currentPhase:id,crew_assignment_id,phase_code,status,actual_start_at,actual_end_at',
                 'phases:id,company_id,crew_assignment_id,phase_code,sequence,status,planned_start_at,planned_end_at,actual_start_at,actual_end_at,details,remarks',
                 'corrections' => fn ($query) => $query
@@ -138,7 +137,6 @@ final class CrewMovementHistoryQuery
             ->when($this->filters->vesselId !== '', fn (Builder $inner) => $inner->where('crew_assignments.vessel_id', $this->filters->vesselId))
             ->when($this->filters->rankId !== '', fn (Builder $inner) => $inner->where('crew_assignments.rank_id', $this->filters->rankId))
             ->when($this->filters->clientId !== '', fn (Builder $inner) => $inner->where('crew_assignments.client_id', $this->filters->clientId))
-            ->when($this->filters->visaTypeId !== '', fn (Builder $inner) => $inner->where('crew_assignments.company_visa_type_id', $this->filters->visaTypeId))
             ->when($this->filters->source !== '', fn (Builder $inner) => $inner->where('crew_assignments.source', $this->filters->source))
             ->when($this->filters->plannedJoinFrom !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.planned_join_at', '>=', $this->filters->plannedJoinFrom))
             ->when($this->filters->plannedJoinTo !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.planned_join_at', '<=', $this->filters->plannedJoinTo))

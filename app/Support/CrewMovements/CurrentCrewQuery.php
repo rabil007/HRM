@@ -178,7 +178,6 @@ class CurrentCrewQuery
             'client',
             'currentPhase',
             'phases',
-            'companyVisaType',
             'planningAssignment.relievedAssignment.employee',
             'planningAssignment.relievedAssignment.vessel',
             'planningAssignment.relievedAssignment.rank',

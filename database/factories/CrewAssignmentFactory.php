@@ -5,7 +5,6 @@ namespace Database\Factories;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Models\Client;
-use App\Models\CompanyVisaType;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
@@ -55,12 +54,6 @@ class CrewAssignmentFactory extends Factory
                         'name' => 'VT '.Str::uuid()->toString(),
                         'is_active' => true,
                     ])->id,
-                    'is_active' => true,
-                ])->id;
-            },
-            'company_visa_type_id' => static function (): int {
-                return CompanyVisaType::query()->create([
-                    'name' => 'CVT '.Str::uuid()->toString(),
                     'is_active' => true,
                 ])->id;
             },

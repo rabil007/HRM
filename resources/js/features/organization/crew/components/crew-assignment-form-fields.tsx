@@ -5,10 +5,18 @@ import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    CrewEmployeeOperationalStatus,
+    getEmployeeStatusContainerClass,
+} from '@/features/organization/crew/components/crew-employee-operational-status';
 import type {
+    ActiveOnVesselAssignment,
+    CrewAssignmentCreateFormOptions,
     CrewAssignmentFormData,
     CrewAssignmentFormOptions,
+    EmployeeOperationalStatus,
 } from '@/features/organization/crew/types';
+import { cn } from '@/lib/utils';
 
 type CrewFormBag = {
     data: CrewAssignmentFormData;
@@ -27,14 +35,48 @@ export function CrewAssignmentFormFields({
     formOptions,
     lockEmployee = false,
     employeeLabel,
+    employeeStatus,
+    activeOnVessel,
 }: {
     form: CrewFormBag;
-    formOptions: CrewAssignmentFormOptions;
+    formOptions: CrewAssignmentFormOptions | CrewAssignmentCreateFormOptions;
     lockEmployee?: boolean;
     employeeLabel?: string | null;
+    employeeStatus?: EmployeeOperationalStatus | null;
+    activeOnVessel?: ActiveOnVesselAssignment | null;
 }): ReactElement {
     const [rankDefaultedFromProfile, setRankDefaultedFromProfile] =
         useState(false);
+
+    const resolvedEmployeeStatus =
+        employeeStatus ??
+        ('employee_status_by_employee' in formOptions &&
+        form.data.employee_id != null
+            ? (formOptions.employee_status_by_employee?.[
+                  String(form.data.employee_id)
+              ] ??
+              formOptions.employee_status_by_employee?.[
+                  form.data.employee_id
+              ] ??
+              null)
+            : null);
+
+    const resolvedActiveOnVessel =
+        activeOnVessel ??
+        ('active_on_vessel_by_employee' in formOptions &&
+        form.data.employee_id != null
+            ? (formOptions.active_on_vessel_by_employee?.[
+                  String(form.data.employee_id)
+              ] ??
+              formOptions.active_on_vessel_by_employee?.[
+                  form.data.employee_id
+              ] ??
+              null)
+            : null);
+
+    const employeeContainerClass = resolvedEmployeeStatus
+        ? getEmployeeStatusContainerClass(resolvedEmployeeStatus.status)
+        : 'border-border/60 bg-muted/10';
 
     const selectedEmployee = formOptions.employees.find(
         (employee) => employee.id === form.data.employee_id,
@@ -60,12 +102,7 @@ export function CrewAssignmentFormFields({
         !signOffBeforeJoin;
 
     const setOptionalId = (
-        key:
-            | 'employee_id'
-            | 'rank_id'
-            | 'vessel_id'
-            | 'client_id'
-            | 'company_visa_type_id',
+        key: 'employee_id' | 'rank_id' | 'vessel_id' | 'client_id',
         value: string,
     ): void => {
         form.setData(key, value ? Number(value) : null);
@@ -154,63 +191,82 @@ export function CrewAssignmentFormFields({
                         </p>
                     </div>
                 ) : (
-                    <div className="space-y-2">
-                        <Label htmlFor="crew-employee">Employee *</Label>
-                        <AppSelect
-                            value={form.data.employee_id?.toString() ?? ''}
-                            onValueChange={(value) => {
-                                const employeeId = value ? Number(value) : null;
-                                const selected = formOptions.employees.find(
-                                    (employee) => employee.id === employeeId,
-                                );
-                                const defaultRankId = selected?.rank_id ?? null;
+                    <div
+                        className={cn(
+                            'space-y-4 rounded-xl border p-4 transition-colors',
+                            employeeContainerClass,
+                        )}
+                    >
+                        <div className="space-y-2">
+                            <Label htmlFor="crew-employee">Employee *</Label>
+                            <AppSelect
+                                value={form.data.employee_id?.toString() ?? ''}
+                                onValueChange={(value) => {
+                                    const employeeId = value
+                                        ? Number(value)
+                                        : null;
+                                    const selected = formOptions.employees.find(
+                                        (employee) =>
+                                            employee.id === employeeId,
+                                    );
+                                    const defaultRankId =
+                                        selected?.rank_id ?? null;
 
-                                form.setData({
-                                    ...form.data,
-                                    employee_id: employeeId,
-                                    rank_id: defaultRankId ?? form.data.rank_id,
-                                });
-                                setRankDefaultedFromProfile(
-                                    defaultRankId !== null,
-                                );
-                            }}
-                            variant="dark"
-                            placeholder="Select employee..."
-                            searchPlaceholder="Search employee..."
-                        >
-                            {formOptions.employees.map((employee) => (
-                                <AppSelectItem
-                                    key={employee.id}
-                                    value={String(employee.id)}
-                                >
-                                    {employee.name}
-                                    {employee.employee_no
-                                        ? ` (${employee.employee_no})`
-                                        : ''}
-                                </AppSelectItem>
-                            ))}
-                        </AppSelect>
-                        {selectedEmployee ? (
-                            <div className="space-y-1 text-xs text-muted-foreground">
-                                {selectedEmployee.employee_no ? (
-                                    <p>
-                                        Employee number:{' '}
-                                        <span className="font-medium text-foreground">
-                                            {selectedEmployee.employee_no}
-                                        </span>
-                                    </p>
-                                ) : null}
-                                {profileRankName ? (
-                                    <p>
-                                        Default rank:{' '}
-                                        <span className="font-medium text-foreground">
-                                            {profileRankName}
-                                        </span>
-                                    </p>
-                                ) : null}
-                            </div>
+                                    form.setData({
+                                        ...form.data,
+                                        employee_id: employeeId,
+                                        rank_id:
+                                            defaultRankId ?? form.data.rank_id,
+                                    });
+                                    setRankDefaultedFromProfile(
+                                        defaultRankId !== null,
+                                    );
+                                }}
+                                variant="dark"
+                                placeholder="Select employee..."
+                                searchPlaceholder="Search employee..."
+                            >
+                                {formOptions.employees.map((employee) => (
+                                    <AppSelectItem
+                                        key={employee.id}
+                                        value={String(employee.id)}
+                                    >
+                                        {employee.name}
+                                        {employee.employee_no
+                                            ? ` (${employee.employee_no})`
+                                            : ''}
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+                            {selectedEmployee ? (
+                                <div className="space-y-1 text-xs text-muted-foreground">
+                                    {selectedEmployee.employee_no ? (
+                                        <p>
+                                            Employee number:{' '}
+                                            <span className="font-medium text-foreground">
+                                                {selectedEmployee.employee_no}
+                                            </span>
+                                        </p>
+                                    ) : null}
+                                    {profileRankName ? (
+                                        <p>
+                                            Default rank:{' '}
+                                            <span className="font-medium text-foreground">
+                                                {profileRankName}
+                                            </span>
+                                        </p>
+                                    ) : null}
+                                </div>
+                            ) : null}
+                            <InputError message={form.errors.employee_id} />
+                        </div>
+
+                        {resolvedEmployeeStatus ? (
+                            <CrewEmployeeOperationalStatus
+                                status={resolvedEmployeeStatus}
+                                activeOnVessel={resolvedActiveOnVessel}
+                            />
                         ) : null}
-                        <InputError message={form.errors.employee_id} />
                     </div>
                 )}
             </section>
@@ -221,12 +277,11 @@ export function CrewAssignmentFormFields({
                         Assignment details
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                        Vessel, client, rank, and visa can be refined before
-                        join.
+                        Vessel, client, and rank can be refined before join.
                     </p>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2">
                         <Label htmlFor="crew-rank">
                             Rank{' '}
@@ -289,7 +344,7 @@ export function CrewAssignmentFormFields({
                         <InputError message={form.errors.client_id} />
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 sm:col-span-2 lg:col-span-1">
                         <Label htmlFor="crew-vessel">
                             Vessel{' '}
                             <span className="font-normal text-muted-foreground">
@@ -328,39 +383,6 @@ export function CrewAssignmentFormFields({
                         ) : null}
                         <InputError message={form.errors.vessel_id} />
                     </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="crew-visa">
-                            Visa type{' '}
-                            <span className="font-normal text-muted-foreground">
-                                (optional)
-                            </span>
-                        </Label>
-                        <AppSelect
-                            value={
-                                form.data.company_visa_type_id?.toString() ?? ''
-                            }
-                            onValueChange={(value) =>
-                                setOptionalId('company_visa_type_id', value)
-                            }
-                            variant="dark"
-                            placeholder="Select visa type..."
-                            searchPlaceholder="Search visa type..."
-                        >
-                            <AppSelectItem value="">No visa type</AppSelectItem>
-                            {formOptions.visa_types.map((visaType) => (
-                                <AppSelectItem
-                                    key={visaType.id}
-                                    value={String(visaType.id)}
-                                >
-                                    {visaType.name}
-                                </AppSelectItem>
-                            ))}
-                        </AppSelect>
-                        <InputError
-                            message={form.errors.company_visa_type_id}
-                        />
-                    </div>
                 </div>
             </section>
 
@@ -373,8 +395,8 @@ export function CrewAssignmentFormFields({
                         </span>
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                        Planned Sign-Off is a plan only — it does not disembark
-                        the crew member.
+                        Planned Sign-Off is a forecast only. Actual leaving is
+                        recorded through Confirm Disembarkation.
                     </p>
                 </div>
 
@@ -486,9 +508,9 @@ export function CrewAssignmentFormFields({
                     onChange={(event) =>
                         form.setData('remarks', event.target.value)
                     }
-                    rows={4}
+                    rows={3}
                     placeholder="Optional operational notes..."
-                    className="min-h-24"
+                    className="max-h-36 min-h-20"
                 />
                 <InputError message={form.errors.remarks} />
             </section>

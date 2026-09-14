@@ -8,7 +8,6 @@ use App\Exports\CrewMovementHistoryExport;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Company;
-use App\Models\CompanyVisaType;
 use App\Models\CrewAssignment;
 use App\Models\Rank;
 use App\Support\Pagination\ResolvesPerPage;
@@ -50,7 +49,6 @@ class CrewMovementHistoryController extends Controller
                 'vessels' => ResolvesCompanyVessels::activeOptions($companyId),
                 'ranks' => $this->activeOptions(Rank::query()),
                 'clients' => $this->activeOptions(Client::query()),
-                'visa_types' => $this->activeOptions(CompanyVisaType::query()),
                 'sources' => CrewAssignment::query()
                     ->where('company_id', $companyId)
                     ->whereNotNull('source')

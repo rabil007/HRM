@@ -8,7 +8,6 @@ use App\Enums\CrewPhaseStatus;
 use App\Exceptions\CrewMovementException;
 use App\Models\Client;
 use App\Models\Company;
-use App\Models\CompanyVisaType;
 use App\Models\Course;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
@@ -274,7 +273,6 @@ final class ValidateCrewMovementCorrection
             'vessel_id' => [Vessel::class, 'vessel'],
             'rank_id' => [Rank::class, 'rank'],
             'client_id' => [Client::class, 'client'],
-            'company_visa_type_id' => [CompanyVisaType::class, 'company visa type'],
         ];
 
         [$modelClass, $label] = $map[$field];

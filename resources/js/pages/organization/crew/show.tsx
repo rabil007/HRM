@@ -78,7 +78,6 @@ function requestedTransferPrefill(
         vessel_id: numberOrNull(params.get('vessel_id')),
         rank_id: numberOrNull(params.get('rank_id')),
         client_id: numberOrNull(params.get('client_id')),
-        company_visa_type_id: numberOrNull(params.get('company_visa_type_id')),
         occurred_at: params.get('occurred_at'),
     };
 }
@@ -696,13 +695,6 @@ export default function CrewAssignmentShow({
                                 <CrewMetadataField
                                     label="Client"
                                     value={assignment.client?.name ?? '—'}
-                                />
-                                <CrewMetadataField
-                                    label="Visa Type"
-                                    value={
-                                        assignment.company_visa_type?.name ??
-                                        '—'
-                                    }
                                 />
                                 <CrewMetadataField
                                     label="Source"

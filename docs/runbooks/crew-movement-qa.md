@@ -13,7 +13,7 @@ Operational checklist after deploying Crew Movement changes.
 ## 2. Create draft
 
 - [ ] Open Crew Assignments → New Assignment
-- [ ] Create form loads employees, ranks, vessels, clients, visa types
+- [ ] Create form loads employees, ranks, vessels, clients
 - [ ] Create draft for an active company employee
 - [ ] Assignment number format `CA-{YEAR}-{######}`
 - [ ] Current phase is P0 Pre-Mobilisation
