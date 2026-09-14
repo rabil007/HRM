@@ -30,11 +30,12 @@ final class CrewAssignmentStatusResolver
      *     warning: string|null,
      *     in_home_days: int|null,
      *     vessel_name: string|null,
+     *     has_active_assignment: bool,
      * }
      */
-    public function forEmployee(Employee $employee, ?CarbonImmutable $today = null): array
+    public function forEmployee(Employee $employee, ?CarbonImmutable $today = null, bool $includeRestrictedFields = true): array
     {
-        return $this->forEmployees([$employee], (int) $employee->company_id, $today)[(int) $employee->id]
+        return $this->forEmployees([$employee], (int) $employee->company_id, $today, $includeRestrictedFields)[(int) $employee->id]
             ?? $this->available();
     }
 
@@ -42,7 +43,7 @@ final class CrewAssignmentStatusResolver
      * @param  iterable<Employee>  $employees
      * @return array<int, array<string, mixed>>
      */
-    public function forEmployees(iterable $employees, int $companyId, ?CarbonImmutable $today = null): array
+    public function forEmployees(iterable $employees, int $companyId, ?CarbonImmutable $today = null, bool $includeRestrictedFields = true): array
     {
         $employees = Collection::make($employees)
             ->filter(fn (Employee $employee): bool => (int) $employee->company_id === $companyId)
@@ -56,6 +57,7 @@ final class CrewAssignmentStatusResolver
             $companyId,
             $employees->map(fn (Employee $employee): int => (int) $employee->id)->all(),
             $today,
+            $includeRestrictedFields,
         );
     }
 
@@ -63,7 +65,7 @@ final class CrewAssignmentStatusResolver
      * @param  list<int>  $employeeIds
      * @return array<int, array<string, mixed>>
      */
-    public function forEmployeeIds(int $companyId, array $employeeIds, ?CarbonImmutable $today = null): array
+    public function forEmployeeIds(int $companyId, array $employeeIds, ?CarbonImmutable $today = null, bool $includeRestrictedFields = true): array
     {
         $employeeIds = array_values(array_unique(array_map('intval', $employeeIds)));
 
@@ -84,7 +86,7 @@ final class CrewAssignmentStatusResolver
             $open = $openByEmployee->get($employeeId);
 
             if ($open instanceof CrewAssignment) {
-                $map[$employeeId] = $this->fromOpenAssignment($open, $today);
+                $map[$employeeId] = $this->fromOpenAssignment($open, $today, $includeRestrictedFields);
 
                 continue;
             }
@@ -92,7 +94,7 @@ final class CrewAssignmentStatusResolver
             $completed = $completedByEmployee->get($employeeId);
 
             if ($completed instanceof CrewAssignment) {
-                $map[$employeeId] = $this->fromCompletedAssignment($completed, $today);
+                $map[$employeeId] = $this->fromCompletedAssignment($completed, $today, $includeRestrictedFields);
 
                 continue;
             }
@@ -150,7 +152,7 @@ final class CrewAssignmentStatusResolver
     /**
      * @return array<string, mixed>
      */
-    private function fromOpenAssignment(CrewAssignment $assignment, CarbonImmutable $today): array
+    private function fromOpenAssignment(CrewAssignment $assignment, CarbonImmutable $today, bool $includeRestrictedFields = true): array
     {
         $phase = $assignment->currentPhase;
         $vesselName = $assignment->vessel?->name;
@@ -162,6 +164,7 @@ final class CrewAssignmentStatusResolver
                 $phase,
                 $vesselName,
                 $today,
+                $includeRestrictedFields,
             );
         }
 
@@ -177,24 +180,31 @@ final class CrewAssignmentStatusResolver
                 plannedNext: $assignment->planned_join_at?->toDateString(),
                 warning: 'Active assignment has no current phase.',
                 inHomeDays: null,
+                hasActiveAssignment: true,
+                includeRestrictedFields: $includeRestrictedFields,
             );
         }
 
-        return $this->fromPhase($assignment, $phase->phase_code, $phase, $vesselName, $today);
+        return $this->fromPhase($assignment, $phase->phase_code, $phase, $vesselName, $today, $includeRestrictedFields);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function fromCompletedAssignment(CrewAssignment $completed, CarbonImmutable $today): array
+    private function fromCompletedAssignment(CrewAssignment $completed, CarbonImmutable $today, bool $includeRestrictedFields = true): array
     {
         $inHomeDays = $completed->closed_at !== null
             ? $completed->closed_at->startOfDay()->diffInDays($today)
             : null;
 
+        $label = 'In home';
+        if ($includeRestrictedFields && $inHomeDays !== null) {
+            $label = "In home · {$inHomeDays}d";
+        }
+
         return $this->payload(
             status: 'in_home',
-            label: $inHomeDays !== null ? "In home · {$inHomeDays}d" : 'In home',
+            label: $label,
             assignment: $completed,
             currentPhase: null,
             currentVessel: null,
@@ -203,6 +213,8 @@ final class CrewAssignmentStatusResolver
             plannedNext: null,
             warning: null,
             inHomeDays: $inHomeDays,
+            hasActiveAssignment: false,
+            includeRestrictedFields: $includeRestrictedFields,
         );
     }
 
@@ -212,6 +224,7 @@ final class CrewAssignmentStatusResolver
         ?CrewAssignmentPhase $phase,
         ?string $vesselName,
         CarbonImmutable $today,
+        bool $includeRestrictedFields = true,
     ): array {
         [$status, $label] = match ($code) {
             CrewPhaseCode::PreMobilisation => ['pre_mobilisation', 'Pre-mobilisation'],
@@ -243,6 +256,11 @@ final class CrewAssignmentStatusResolver
             $label = 'Needs update';
         }
 
+        // Draft (P0 Pre-Mobilisation) is not counted as an active-assignment conflict
+        // because the backend currently allows multiple drafts. Only truly Active
+        // assignments should prevent accidental duplicate creation in the UI.
+        $hasActiveAssignment = $assignment->status === CrewAssignmentStatus::Active;
+
         return $this->payload(
             status: $status,
             label: $label,
@@ -254,6 +272,8 @@ final class CrewAssignmentStatusResolver
             plannedNext: $plannedNext,
             warning: $warning,
             inHomeDays: null,
+            hasActiveAssignment: $hasActiveAssignment,
+            includeRestrictedFields: $includeRestrictedFields,
         );
     }
 
@@ -277,6 +297,7 @@ final class CrewAssignmentStatusResolver
             'warning' => null,
             'in_home_days' => null,
             'vessel_name' => null,
+            'has_active_assignment' => false,
         ];
     }
 
@@ -294,22 +315,25 @@ final class CrewAssignmentStatusResolver
         ?string $plannedNext,
         ?string $warning,
         ?int $inHomeDays,
+        bool $hasActiveAssignment,
+        bool $includeRestrictedFields = true,
     ): array {
         return [
             'status' => $status,
             'label' => $label,
-            'current_phase' => $currentPhase,
-            'current_vessel' => $currentVessel,
-            'assignment_id' => $assignment->id,
-            'assignment_no' => $assignment->assignment_no,
+            'current_phase' => $includeRestrictedFields ? $currentPhase : null,
+            'current_vessel' => $includeRestrictedFields ? $currentVessel : null,
+            'assignment_id' => $includeRestrictedFields ? $assignment->id : null,
+            'assignment_no' => $includeRestrictedFields ? $assignment->assignment_no : null,
             'deployment_id' => null,
             'hint' => null,
-            'since' => $since,
-            'days_in_phase' => $daysInPhase,
-            'planned_next_date' => $plannedNext,
-            'warning' => $warning,
-            'in_home_days' => $inHomeDays,
-            'vessel_name' => $assignment->vessel?->name,
+            'since' => $includeRestrictedFields ? $since : null,
+            'days_in_phase' => $includeRestrictedFields ? $daysInPhase : null,
+            'planned_next_date' => $includeRestrictedFields ? $plannedNext : null,
+            'warning' => $includeRestrictedFields ? $warning : null,
+            'in_home_days' => $includeRestrictedFields ? $inHomeDays : null,
+            'vessel_name' => $includeRestrictedFields ? $assignment->vessel?->name : null,
+            'has_active_assignment' => $hasActiveAssignment,
         ];
     }
 }

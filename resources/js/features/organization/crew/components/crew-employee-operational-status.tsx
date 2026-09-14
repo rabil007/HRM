@@ -2,6 +2,7 @@ import {
     AlertCircle,
     AlertTriangle,
     Anchor,
+    ArrowRight,
     CheckCircle2,
     Clock,
     Compass,
@@ -12,16 +13,19 @@ import {
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import type {
     ActiveOnVesselAssignment,
     EmployeeOperationalStatus,
 } from '@/features/organization/crew/types';
-import { formatDisplayDate, formatDisplayDateTime } from '@/lib/format-date';
+import { formatDisplayDate, formatDisplayDateTimeInTimezone } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import { show as showAssignment } from '@/routes/organization/crew-assignments';
 
 export interface CrewEmployeeOperationalStatusProps {
     status: EmployeeOperationalStatus | null | undefined;
     activeOnVessel?: ActiveOnVesselAssignment | null;
+    companyTimezone?: string;
     className?: string;
 }
 
@@ -50,9 +54,57 @@ export function getEmployeeStatusContainerClass(
     }
 }
 
+/**
+ * Renders an active-assignment conflict block with an optional "Continue" action.
+ * Shown for all phases where has_active_assignment is true and the employee is NOT in_home.
+ */
+function ActiveAssignmentConflict({
+    assignmentId,
+    assignmentNo,
+    colorClass,
+}: {
+    assignmentId: number | null;
+    assignmentNo: string | null;
+    colorClass: string;
+}): ReactElement {
+    return (
+        <div
+            className={cn(
+                'rounded-lg border p-2.5 text-xs',
+                colorClass,
+            )}
+        >
+            <p className="font-medium">
+                This employee already has an active Crew Assignment.
+            </p>
+            {assignmentNo && assignmentId ? (
+                <div className="mt-1.5">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 rounded-lg px-2.5 text-xs"
+                        onClick={() =>
+                            window.open(
+                                showAssignment.url(assignmentId as number),
+                                '_blank',
+                                'noopener',
+                            )
+                        }
+                    >
+                        <ArrowRight className="size-3" aria-hidden />
+                        Continue {assignmentNo}
+                    </Button>
+                </div>
+            ) : null}
+        </div>
+    );
+}
+
 export function CrewEmployeeOperationalStatus({
     status,
     activeOnVessel,
+    companyTimezone = 'UTC',
     className,
 }: CrewEmployeeOperationalStatusProps): ReactElement | null {
     if (!status) {
@@ -65,13 +117,17 @@ export function CrewEmployeeOperationalStatus({
         status.current_vessel ??
         activeOnVessel?.vessel_name ??
         null;
-    const assignmentNo = status.assignment_no ?? activeOnVessel?.assignment_no;
+    const assignmentNo = status.assignment_no ?? activeOnVessel?.assignment_no ?? null;
+    const assignmentId = status.assignment_id ?? activeOnVessel?.assignment_id ?? null;
     const daysInPhase = status.days_in_phase;
-    const sinceText = activeOnVessel?.actual_start_display
-        ? activeOnVessel.actual_start_display
-        : status.since
-          ? formatDisplayDateTime(status.since)
-          : null;
+
+    // Prefer raw ISO timestamp + company timezone for consistency across all phases.
+    // Fall back to activeOnVessel.actual_start_display only if no raw ISO is available.
+    const sinceRaw =
+        activeOnVessel?.actual_start_at ?? status.since;
+    const sinceText = sinceRaw
+        ? formatDisplayDateTimeInTimezone(sinceRaw, companyTimezone)
+        : (activeOnVessel?.actual_start_display ?? null);
 
     if (statusCode === 'on_vessel') {
         return (
@@ -96,7 +152,7 @@ export function CrewEmployeeOperationalStatus({
                                 className="border-amber-500/60 bg-amber-500/20 font-semibold tracking-wider text-amber-950 uppercase dark:text-amber-100"
                             >
                                 <Ship className="mr-1 size-3" aria-hidden />
-                                On Vessel
+                                On Vessel · P4
                             </Badge>
                             {assignmentNo ? (
                                 <span className="text-xs font-medium text-amber-900/80 dark:text-amber-200/80">
@@ -118,16 +174,11 @@ export function CrewEmployeeOperationalStatus({
                             </p>
                         </div>
 
-                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/20 p-2.5 text-xs text-amber-950 dark:text-amber-100">
-                            <p className="font-medium">
-                                Already has an active vessel assignment.
-                            </p>
-                            <p className="mt-0.5 text-amber-900/90 dark:text-amber-200/90">
-                                Creating another assignment may produce
-                                conflicting operational history. Use Transfer
-                                Vessel if this is a vessel change.
-                            </p>
-                        </div>
+                        <ActiveAssignmentConflict
+                            assignmentId={assignmentId}
+                            assignmentNo={assignmentNo}
+                            colorClass="border-amber-500/30 bg-amber-500/20 text-amber-950 dark:text-amber-100"
+                        />
                     </div>
                 </div>
             </div>
@@ -184,6 +235,14 @@ export function CrewEmployeeOperationalStatus({
                                 </span>
                             ) : null}
                         </div>
+
+                        {status.has_active_assignment ? (
+                            <ActiveAssignmentConflict
+                                assignmentId={assignmentId}
+                                assignmentNo={assignmentNo}
+                                colorClass="border-sky-500/30 bg-sky-500/15 text-sky-950 dark:text-sky-100"
+                            />
+                        ) : null}
                     </div>
                 </div>
             </div>
@@ -240,6 +299,14 @@ export function CrewEmployeeOperationalStatus({
                                 </span>
                             ) : null}
                         </div>
+
+                        {status.has_active_assignment ? (
+                            <ActiveAssignmentConflict
+                                assignmentId={assignmentId}
+                                assignmentNo={assignmentNo}
+                                colorClass="border-indigo-500/30 bg-indigo-500/15 text-indigo-950 dark:text-indigo-100"
+                            />
+                        ) : null}
                     </div>
                 </div>
             </div>
@@ -350,6 +417,14 @@ export function CrewEmployeeOperationalStatus({
                         <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
                             {status.warning}
                         </p>
+                    ) : null}
+
+                    {status.has_active_assignment ? (
+                        <ActiveAssignmentConflict
+                            assignmentId={assignmentId}
+                            assignmentNo={assignmentNo}
+                            colorClass="border-sky-500/30 bg-sky-500/15 text-sky-950 dark:text-sky-100"
+                        />
                     ) : null}
                 </div>
             </div>

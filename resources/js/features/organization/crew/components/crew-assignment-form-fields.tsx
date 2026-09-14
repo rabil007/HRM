@@ -78,6 +78,11 @@ export function CrewAssignmentFormFields({
         ? getEmployeeStatusContainerClass(resolvedEmployeeStatus.status)
         : 'border-border/60 bg-muted/10';
 
+    const companyTimezone =
+        'company_timezone' in formOptions && typeof formOptions.company_timezone === 'string'
+            ? formOptions.company_timezone
+            : 'UTC';
+
     const selectedEmployee = formOptions.employees.find(
         (employee) => employee.id === form.data.employee_id,
     );
@@ -265,6 +270,7 @@ export function CrewAssignmentFormFields({
                             <CrewEmployeeOperationalStatus
                                 status={resolvedEmployeeStatus}
                                 activeOnVessel={resolvedActiveOnVessel}
+                                companyTimezone={companyTimezone}
                             />
                         ) : null}
                     </div>

@@ -331,11 +331,15 @@ export interface EmployeeOperationalStatus {
     warning: string | null;
     in_home_days: number | null;
     vessel_name: string | null;
+    /** Always present. True when the employee has a truly Active (P1-P6) assignment. False for Draft (P0), completed, or no assignment. */
+    has_active_assignment: boolean;
 }
 
 export interface CrewAssignmentCreateFormOptions extends CrewAssignmentFormOptions {
     active_on_vessel_by_employee?: Record<string, ActiveOnVesselAssignment>;
     employee_status_by_employee?: Record<string, EmployeeOperationalStatus>;
+    /** Company IANA timezone string (e.g. 'Asia/Dubai'). Used to render all operational phase timestamps consistently. */
+    company_timezone?: string;
 }
 
 export interface CrewAssignmentSummary {

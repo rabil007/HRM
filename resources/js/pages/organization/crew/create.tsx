@@ -2,6 +2,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { Info } from 'lucide-react';
 import { useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
+import InputError from '@/components/input-error';
 import { Main } from '@/components/layout/main';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,7 +27,7 @@ export default function CrewAssignmentCreate({
     can: CrewAssignmentPagePermissions;
 }) {
     const [transferPromptOpen, setTransferPromptOpen] = useState(false);
-    const form = useForm<CrewAssignmentFormData>({
+    const form = useForm<CrewAssignmentFormData & { error?: never }>({
         employee_id: null,
         rank_id: null,
         client_id: null,
@@ -42,20 +43,50 @@ export default function CrewAssignmentCreate({
               String(form.data.employee_id)
           ] ?? null)
         : null;
+
+    const currentEmployeeStatus = form.data.employee_id
+        ? (form_options.employee_status_by_employee?.[
+              String(form.data.employee_id)
+          ] ?? null)
+        : null;
+
     const destinationVessel = form_options.vessels.find(
         (vessel) => vessel.id === form.data.vessel_id,
     );
+
     const recommendsTransfer = recommendsVesselTransfer(
         currentOnVessel,
         form.data.vessel_id,
     );
 
+    /**
+     * True when the selected employee has an active Crew Assignment AND we are not in the
+     * Transfer Vessel intercept path. Used to disable the Create Draft button and surface
+     * a clear conflict message so the user is guided before submitting.
+     *
+     * - P0 Draft is excluded (backend allows multiple drafts).
+     * - P4 On Vessel to a DIFFERENT vessel is handled by the Transfer Vessel dialog, so
+     *   it should not additionally block the submit button — the dialog IS the guided action.
+     * - P4 On Vessel to the SAME vessel or no destination = active conflict (block submit).
+     * - All other active phases (P1–P6) = active conflict (block submit).
+     */
+    const hasActiveAssignmentConflict =
+        (currentEmployeeStatus?.has_active_assignment ?? false) &&
+        !recommendsTransfer;
+
     const handleSubmit = (event: React.FormEvent): void => {
         event.preventDefault();
 
+        // Transfer Vessel intercept takes priority for P4 + different-vessel destination.
         if (recommendsTransfer) {
             setTransferPromptOpen(true);
 
+            return;
+        }
+
+        // Active assignment conflict: the backend will reject this too, but we prevent
+        // the useless submission here and surface the reason instead.
+        if (hasActiveAssignmentConflict) {
             return;
         }
 
@@ -101,10 +132,18 @@ export default function CrewAssignmentCreate({
                                     formOptions={form_options}
                                 />
 
-                                <div className="flex flex-wrap gap-3 border-t border-border/60 pt-6">
+                                <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-6">
                                     <Button
                                         type="submit"
-                                        disabled={form.processing}
+                                        disabled={
+                                            form.processing ||
+                                            hasActiveAssignmentConflict
+                                        }
+                                        title={
+                                            hasActiveAssignmentConflict
+                                                ? 'This employee already has an active Crew Assignment. Resolve the conflict above before creating a new one.'
+                                                : undefined
+                                        }
                                         className="h-11 rounded-xl px-6"
                                     >
                                         {form.processing ? (
@@ -124,6 +163,22 @@ export default function CrewAssignmentCreate({
                                     >
                                         Cancel
                                     </Button>
+
+                                    {hasActiveAssignmentConflict &&
+                                    !form.errors.error ? (
+                                        <p className="w-full text-xs font-medium text-destructive">
+                                            This employee already has an active
+                                            Crew Assignment. Resolve the
+                                            conflict above before creating a new
+                                            one.
+                                        </p>
+                                    ) : null}
+
+                                    {/* Generic backend error (e.g. CrewMovementException converted to validation error). */}
+                                    <InputError
+                                        message={form.errors.error}
+                                        className="w-full"
+                                    />
                                 </div>
                             </form>
                         </CardContent>

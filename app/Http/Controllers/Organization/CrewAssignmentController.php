@@ -31,6 +31,7 @@ use App\Support\Pagination\ResolvesPerPage;
 use App\Support\RecentItems\RecordRecentItem;
 use App\Support\SavedViews\ApplyDefaultSavedView;
 use App\Support\SavedViews\SavedViewsForPage;
+use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -107,6 +108,7 @@ class CrewAssignmentController extends Controller
         Gate::authorize('create', CrewAssignment::class);
 
         $companyId = (int) $request->attributes->get('current_company_id');
+        $canView = Gate::allows('viewAny', CrewAssignment::class);
         $canTransfer = CrewAssignmentPagePermissions::canTransfer($request->user());
         $activeOnVessel = collect(app(ActiveOnVesselAssignmentFinder::class)->forCompany($companyId))
             ->map(fn (array $current): array => [
@@ -122,7 +124,8 @@ class CrewAssignmentController extends Controller
             ->get(['id', 'name', 'employee_no', 'rank_id']);
 
         $employeeIds = $employeeModels->pluck('id')->map(fn ($id) => (int) $id)->all();
-        $employeeStatusByEmployee = app(CrewAssignmentStatusResolver::class)->forEmployeeIds($companyId, $employeeIds);
+        $employeeStatusByEmployee = app(CrewAssignmentStatusResolver::class)
+            ->forEmployeeIds($companyId, $employeeIds, includeRestrictedFields: $canView, today: null);
 
         $formOptions = [
             'employees' => $employeeModels
@@ -140,11 +143,11 @@ class CrewAssignmentController extends Controller
             'vessels' => $this->activeVessels($companyId),
             'clients' => $this->activeClients(),
             'courses' => $this->activeCourses(),
+            'company_timezone' => CompanyTimezone::forCompanyId($companyId),
         ];
 
         return Inertia::render('organization/crew/create', [
             'form_options' => $formOptions,
-            'employee_status_by_employee' => $employeeStatusByEmployee,
             'can' => CrewAssignmentPagePermissions::for($request->user()),
         ]);
     }

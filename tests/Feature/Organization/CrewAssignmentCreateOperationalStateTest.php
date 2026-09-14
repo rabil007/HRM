@@ -7,11 +7,19 @@ use App\Enums\CrewPhaseStatus;
 use App\Models\CompanyVisaType;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\CrewMovementCorrection;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
+use App\Support\CrewMovements\Corrections\CrewMovementCorrectionFieldCatalog;
+use App\Support\CrewMovements\Corrections\CrewMovementCorrectionPresenter;
 use App\Support\CrewMovements\CrewMovementService;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
+
+// ============================================================
+// 1. Access control
+// ============================================================
 
 test('1. crew assignment create page requires create permission', function () {
     ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
@@ -34,7 +42,251 @@ test('1. crew assignment create page requires create permission', function () {
         ->assertOk();
 });
 
-test('2. create props contain selectable employees and no visa types', function () {
+// ============================================================
+// 2. Create + View → full metadata is present
+// ============================================================
+
+test('2. user with create and view gets full operational metadata', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+    $vessel = makeCrewMovementVessel('Full Meta Vessel', $company);
+    $assign = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/create')
+            ->has("form_options.employee_status_by_employee.{$employee->id}", fn (Assert $item) => $item
+                ->where('assignment_id', $assign->id)
+                ->where('assignment_no', $assign->assignment_no)
+                ->where('has_active_assignment', true)
+                ->etc()
+            )
+        );
+});
+
+// ============================================================
+// 3. Create only (no view) → sensitive metadata stripped; has_active_assignment still present
+// ============================================================
+
+test('3. user with create but without view does not receive sensitive assignment metadata', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create',
+        // Intentionally NO view permission.
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+    $vessel = makeCrewMovementVessel('Restricted Vessel', $company);
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/create')
+            // has_active_assignment MUST still be present (minimum intelligence for UI blocking)
+            ->where("form_options.employee_status_by_employee.{$employee->id}.has_active_assignment", true)
+            // Sensitive fields MUST be null
+            ->where("form_options.employee_status_by_employee.{$employee->id}.assignment_id", null)
+            ->where("form_options.employee_status_by_employee.{$employee->id}.assignment_no", null)
+            ->where("form_options.employee_status_by_employee.{$employee->id}.vessel_name", null)
+            ->where("form_options.employee_status_by_employee.{$employee->id}.current_vessel", null)
+        );
+});
+
+// ============================================================
+// 4. Cross-company isolation
+// ============================================================
+
+test('4. cross-company assignment information never appears in operational status or transfer map', function () {
+    ['user' => $userA, 'company' => $companyA] = makeCrewAssignmentFixtures();
+    ['company' => $companyB, 'employee' => $employeeB, 'rank' => $rankB] = makeCrewAssignmentFixtures();
+    $vesselB = makeCrewMovementVessel('Company B Vessel', $companyB);
+    makeActiveOnVesselAssignment($companyB, $employeeB, $rankB, $vesselB);
+
+    grantCompanyPermissions($userA, $companyA, ['crew_operations.assignments.create']);
+    $userA->update(['current_company_id' => $companyA->id]);
+
+    $this->actingAs($userA)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->missing("form_options.employee_status_by_employee.{$employeeB->id}")
+            ->missing("form_options.active_on_vessel_by_employee.{$employeeB->id}")
+        );
+});
+
+// ============================================================
+// 5. P2A (Join Standby) → has_active_assignment = true
+// ============================================================
+
+test('5. active P2A join standby employee is recognised as having an active assignment', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+    $vessel = makeCrewMovementVessel('P2A Vessel', $company);
+    $emp = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    makeCurrentCrewPhaseAssignment($company, $emp, $rank, $vessel, CrewPhaseCode::JoinStandby);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where("form_options.employee_status_by_employee.{$emp->id}.status", 'join_standby')
+            ->where("form_options.employee_status_by_employee.{$emp->id}.has_active_assignment", true)
+        );
+});
+
+// ============================================================
+// 6. P5 (Demob Standby) → has_active_assignment = true
+// ============================================================
+
+test('6. active P5 demob standby employee is recognised as having an active assignment', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+    $vessel = makeCrewMovementVessel('P5 Vessel', $company);
+    $emp = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    makeCurrentCrewPhaseAssignment($company, $emp, $rank, $vessel, CrewPhaseCode::DemobStandby);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where("form_options.employee_status_by_employee.{$emp->id}.status", 'demob_standby')
+            ->where("form_options.employee_status_by_employee.{$emp->id}.has_active_assignment", true)
+        );
+});
+
+// ============================================================
+// 7. P4 On Vessel → Transfer Vessel recommendation data preserved
+// ============================================================
+
+test('7. active P4 on vessel employee keeps transfer vessel recommendation data', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+        'crew_operations.movements.perform',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+    $vessel = makeCrewMovementVessel('Transfer Rec Vessel', $company);
+    $assign = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has("form_options.active_on_vessel_by_employee.{$employee->id}", fn (Assert $item) => $item
+                ->where('assignment_id', $assign->id)
+                ->where('assignment_no', $assign->assignment_no)
+                ->where('vessel_id', $vessel->id)
+                ->where('vessel_name', $vessel->name)
+                ->where('can_transfer', true)
+                ->etc()
+            )
+            ->where("form_options.employee_status_by_employee.{$employee->id}.has_active_assignment", true)
+        );
+});
+
+// ============================================================
+// 8. Completed assignment → employee is available (has_active_assignment = false)
+// ============================================================
+
+test('8. completed assignment employee is available for new cycle', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+    $vessel = makeCrewMovementVessel('Completed Vessel', $company);
+    $emp = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+
+    CrewAssignment::query()->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-COMP-'.uniqid(),
+        'employee_id' => $emp->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Completed,
+        'started_at' => CarbonImmutable::parse('2026-01-01'),
+        'closed_at' => CarbonImmutable::parse('2026-06-01'),
+        'source' => 'manual',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where("form_options.employee_status_by_employee.{$emp->id}.status", 'in_home')
+            ->where("form_options.employee_status_by_employee.{$emp->id}.has_active_assignment", false)
+        );
+});
+
+// ============================================================
+// 9. Generic error validation path (CrewMovementException → form.errors.error)
+// ============================================================
+
+test('9. generic error validation path is supported when backend rejects duplicate active assignment', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+    $vessel = makeCrewMovementVessel('Backend Reject Vessel', $company);
+
+    // Create an active assignment so the backend will reject the second.
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    // Attempt to POST a new draft assignment for the same employee.
+    $response = $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-09-01',
+        ]);
+
+    // The backend converts CrewMovementException to a ValidationException with the 'error' key.
+    $response->assertSessionHasErrors(['error']);
+});
+
+// ============================================================
+// 10. Top-level duplicate prop is removed
+// ============================================================
+
+test('10. top-level employee_status_by_employee prop is absent from create page', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, ['crew_operations.assignments.create']);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/create')
+            ->missing('employee_status_by_employee')
+        );
+});
+
+// ============================================================
+// 11. form_options.employee_status_by_employee remains present
+// ============================================================
+
+test('11. form_options.employee_status_by_employee remains present on create page', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     grantCompanyPermissions($user, $company, ['crew_operations.assignments.create']);
     $user->update(['current_company_id' => $company->id]);
@@ -44,19 +296,132 @@ test('2. create props contain selectable employees and no visa types', function 
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/crew/create')
-            ->has('form_options.employees', 1)
-            ->where('form_options.employees.0.id', $employee->id)
-            ->where('form_options.employees.0.name', $employee->name)
-            ->where('form_options.employees.0.employee_no', $employee->employee_no)
-            ->where('form_options.employees.0.rank_id', $rank->id)
-            ->missing('form_options.visa_types')
-            ->has('employee_status_by_employee')
-            ->has('form_options.employee_status_by_employee'));
+            ->has('form_options.employee_status_by_employee')
+            ->where("form_options.employee_status_by_employee.{$employee->id}.status", 'in_home')
+        );
 });
 
-test('3. employee operational status resolves on_vessel, join_standby, demob_standby, and available properly', function () {
+// ============================================================
+// 12. Employee visa type functionality remains unaffected
+// ============================================================
+
+test('12. employee company_visa_type_id column and relation remain unaffected', function () {
+    ['company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $visaType = CompanyVisaType::query()->create([
+        'name' => 'Employee Visa '.uniqid(),
+        'is_active' => true,
+    ]);
+
+    expect(Schema::hasTable('company_visa_types'))->toBeTrue()
+        ->and(Schema::hasColumn('employees', 'company_visa_type_id'))->toBeTrue();
+
+    $employee->update(['company_visa_type_id' => $visaType->id]);
+    expect($employee->fresh()->company_visa_type_id)->toBe($visaType->id);
+});
+
+// ============================================================
+// 13. Employee contract visa type functionality remains unaffected
+// ============================================================
+
+test('13. employee_contracts company_visa_type_id column and relation remain unaffected', function () {
+    ['company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $visaType = CompanyVisaType::query()->create([
+        'name' => 'Contract Visa '.uniqid(),
+        'is_active' => true,
+    ]);
+
+    expect(Schema::hasColumn('employee_contracts', 'company_visa_type_id'))->toBeTrue();
+
+    $contract = EmployeeContract::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'company_visa_type_id' => $visaType->id,
+    ]);
+
+    expect($contract->fresh()->company_visa_type_id)->toBe($visaType->id)
+        ->and($contract->fresh()->companyVisaType->name)->toBe($visaType->name);
+});
+
+// ============================================================
+// 14. Legacy corrections containing company_visa_type_id do not crash the presenter
+// ============================================================
+
+test('14. historical correction with company_visa_type_id in JSON does not crash the correction presenter', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Legacy Corr Vessel', $company);
+    $assign = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+    $phase = $assign->currentPhase;
+
+    // Simulate a historical correction that was saved with the now-removed company_visa_type_id field.
+    $correction = CrewMovementCorrection::factory()
+        ->forAssignment($assign, $phase)
+        ->approved()
+        ->create([
+            'original_values' => [
+                'company_visa_type_id' => ['value' => 999, 'display' => 'Legacy Visa'],
+                'actual_start_at' => ['value' => now()->subDays(10)->toIso8601String(), 'display' => '2026-01-01 08:00'],
+            ],
+            'proposed_values' => [
+                'company_visa_type_id' => ['value' => 888, 'display' => 'Another Legacy Visa'],
+                'actual_start_at' => ['value' => now()->subDays(9)->toIso8601String(), 'display' => '2026-01-02 08:00'],
+            ],
+        ]);
+
+    // Load the relationships the presenter expects
+    $assign->load([
+        'employee',
+        'vessel',
+        'company:id,timezone',
+        'phases.pendingCorrections',
+        'corrections.requester:id,name',
+        'corrections.decisionMaker:id,name',
+        'corrections.phase',
+        'corrections.company:id,timezone',
+    ]);
+
+    // Should NOT throw; the presenter just returns raw JSON as-is for historical values.
+    $presenter = app(CrewMovementCorrectionPresenter::class);
+    $result = $presenter->assignmentSummary($assign);
+
+    expect($result)->toBeArray()
+        ->and($result['history'])->not->toBeEmpty();
+
+    // The legacy field should still be in the returned data without crashing.
+    $historyItem = collect($result['history'])->first(fn ($item) => $item['id'] === $correction->id);
+    expect($historyItem)->not->toBeNull();
+});
+
+// ============================================================
+// 15. New corrections cannot request company_visa_type_id
+// ============================================================
+
+test('15. CrewMovementCorrectionFieldCatalog does not include company_visa_type_id in allowed fields', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Catalog Test Vessel', $company);
+    $assign = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+    $phase = $assign->currentPhase;
+
+    $catalog = new CrewMovementCorrectionFieldCatalog;
+    $allowed = $catalog->allowedFields($phase);
+
+    expect($allowed)->not->toContain('company_visa_type_id');
+
+    // Also verify the catalog will not accept it as an assignment field.
+    expect($catalog->isAssignmentField('company_visa_type_id'))->toBeFalse();
+});
+
+// ============================================================
+// Regression: operational status resolves correctly for multiple phases
+// ============================================================
+
+test('employee operational status resolves on_vessel, join_standby, demob_standby, and available properly', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    grantCompanyPermissions($user, $company, ['crew_operations.assignments.create']);
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+    ]);
     $user->update(['current_company_id' => $company->id]);
 
     $vessel = makeCrewMovementVessel('Status Test Vessel', $company);
@@ -76,48 +441,38 @@ test('3. employee operational status resolves on_vessel, join_standby, demob_sta
     // Employee 4: Available (no active assignment)
     $empAvailable = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
 
-    $response = $this->actingAs($user)
-        ->get(route('organization.crew-assignments.create'))
-        ->assertOk();
-
-    $response->assertInertia(function (Assert $page) use ($empOnVessel, $assignOnVessel, $vessel, $empJoinStandby, $assignJoinStandby, $empDemobStandby, $assignDemobStandby, $empAvailable) {
-        $page->component('organization/crew/create')
-            // Employee 1: On Vessel
-            ->where("employee_status_by_employee.{$empOnVessel->id}.status", 'on_vessel')
-            ->where("employee_status_by_employee.{$empOnVessel->id}.assignment_id", $assignOnVessel->id)
-            ->where("employee_status_by_employee.{$empOnVessel->id}.assignment_no", $assignOnVessel->assignment_no)
-            ->where("employee_status_by_employee.{$empOnVessel->id}.current_vessel", $vessel->name)
-            // Employee 2: Join Standby
-            ->where("employee_status_by_employee.{$empJoinStandby->id}.status", 'join_standby')
-            ->where("employee_status_by_employee.{$empJoinStandby->id}.assignment_id", $assignJoinStandby->id)
-            ->where("employee_status_by_employee.{$empJoinStandby->id}.assignment_no", $assignJoinStandby->assignment_no)
-            // Employee 3: Demob Standby
-            ->where("employee_status_by_employee.{$empDemobStandby->id}.status", 'demob_standby')
-            ->where("employee_status_by_employee.{$empDemobStandby->id}.assignment_id", $assignDemobStandby->id)
-            ->where("employee_status_by_employee.{$empDemobStandby->id}.assignment_no", $assignDemobStandby->assignment_no)
-            // Employee 4: Available / In Home
-            ->where("employee_status_by_employee.{$empAvailable->id}.status", 'in_home');
-    });
-});
-
-test('4. cross-company assignment information never appears in operational status or transfer map', function () {
-    ['user' => $userA, 'company' => $companyA, 'rank' => $rankA] = makeCrewAssignmentFixtures();
-    ['company' => $companyB, 'employee' => $employeeB, 'rank' => $rankB] = makeCrewAssignmentFixtures();
-    $vesselB = makeCrewMovementVessel('Company B Vessel', $companyB);
-    $assignB = makeActiveOnVesselAssignment($companyB, $employeeB, $rankB, $vesselB);
-
-    grantCompanyPermissions($userA, $companyA, ['crew_operations.assignments.create']);
-    $userA->update(['current_company_id' => $companyA->id]);
-
-    $this->actingAs($userA)
+    $this->actingAs($user)
         ->get(route('organization.crew-assignments.create'))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->missing("employee_status_by_employee.{$employeeB->id}")
-            ->missing("form_options.active_on_vessel_by_employee.{$employeeB->id}"));
+        ->assertInertia(function (Assert $page) use ($empOnVessel, $assignOnVessel, $vessel, $empJoinStandby, $assignJoinStandby, $empDemobStandby, $assignDemobStandby, $empAvailable) {
+            $page->component('organization/crew/create')
+                // Employee 1: On Vessel
+                ->where("form_options.employee_status_by_employee.{$empOnVessel->id}.status", 'on_vessel')
+                ->where("form_options.employee_status_by_employee.{$empOnVessel->id}.has_active_assignment", true)
+                ->where("form_options.employee_status_by_employee.{$empOnVessel->id}.assignment_id", $assignOnVessel->id)
+                ->where("form_options.employee_status_by_employee.{$empOnVessel->id}.assignment_no", $assignOnVessel->assignment_no)
+                ->where("form_options.employee_status_by_employee.{$empOnVessel->id}.current_vessel", $vessel->name)
+                // Employee 2: Join Standby
+                ->where("form_options.employee_status_by_employee.{$empJoinStandby->id}.status", 'join_standby')
+                ->where("form_options.employee_status_by_employee.{$empJoinStandby->id}.has_active_assignment", true)
+                ->where("form_options.employee_status_by_employee.{$empJoinStandby->id}.assignment_id", $assignJoinStandby->id)
+                ->where("form_options.employee_status_by_employee.{$empJoinStandby->id}.assignment_no", $assignJoinStandby->assignment_no)
+                // Employee 3: Demob Standby
+                ->where("form_options.employee_status_by_employee.{$empDemobStandby->id}.status", 'demob_standby')
+                ->where("form_options.employee_status_by_employee.{$empDemobStandby->id}.has_active_assignment", true)
+                ->where("form_options.employee_status_by_employee.{$empDemobStandby->id}.assignment_id", $assignDemobStandby->id)
+                ->where("form_options.employee_status_by_employee.{$empDemobStandby->id}.assignment_no", $assignDemobStandby->assignment_no)
+                // Employee 4: Available
+                ->where("form_options.employee_status_by_employee.{$empAvailable->id}.status", 'in_home')
+                ->where("form_options.employee_status_by_employee.{$empAvailable->id}.has_active_assignment", false);
+        });
 });
 
-test('5. crew create/store no longer accepts or persists company_visa_type_id', function () {
+// ============================================================
+// Regression: crew create/store no longer accepts or persists company_visa_type_id
+// ============================================================
+
+test('crew create/store no longer accepts or persists company_visa_type_id', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create',
@@ -145,32 +500,11 @@ test('5. crew create/store no longer accepts or persists company_visa_type_id', 
         ->and(method_exists($assignment, 'companyVisaType'))->toBeFalse();
 });
 
-test('6. existing active-on-vessel to transfer vessel recommendation data is preserved', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.create',
-        'crew_operations.assignments.view',
-        'crew_operations.movements.perform',
-    ]);
-    $user->update(['current_company_id' => $company->id]);
-    $vessel = makeCrewMovementVessel('Transfer Rec Vessel', $company);
-    $assign = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+// ============================================================
+// Regression: vessel transfer and redeployment movements work cleanly
+// ============================================================
 
-    $this->actingAs($user)
-        ->get(route('organization.crew-assignments.create'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->has("form_options.active_on_vessel_by_employee.{$employee->id}", fn (Assert $item) => $item
-                ->where('assignment_id', $assign->id)
-                ->where('assignment_no', $assign->assignment_no)
-                ->where('vessel_id', $vessel->id)
-                ->where('vessel_name', $vessel->name)
-                ->where('can_transfer', true)
-                ->etc()
-            ));
-});
-
-test('7. vessel transfer and redeployment movements work cleanly without visa type', function () {
+test('vessel transfer and redeployment movements work cleanly without visa type', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makeCrewAssignmentFixtures();
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create',
@@ -239,27 +573,51 @@ test('7. vessel transfer and redeployment movements work cleanly without visa ty
         ->and($redeployAssignment->status)->toBe(CrewAssignmentStatus::Draft);
 });
 
-test('8. employee and contract company visa type functionality remains unaffected', function () {
-    ['company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
+// ============================================================
+// Regression: company_timezone is exposed in form_options
+// ============================================================
 
-    $visaType = CompanyVisaType::query()->create([
-        'name' => 'Freezone Visa '.uniqid(),
-        'is_active' => true,
+test('company_timezone is included in form_options on create page', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, ['crew_operations.assignments.create']);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/create')
+            ->where('form_options.company_timezone', 'Asia/Dubai')
+        );
+});
+
+// ============================================================
+// Regression: P0 draft does NOT block create (has_active_assignment = false for draft)
+// ============================================================
+
+test('P0 draft assignment does not set has_active_assignment to true', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
     ]);
+    $user->update(['current_company_id' => $company->id]);
 
-    expect(Schema::hasTable('company_visa_types'))->toBeTrue()
-        ->and(Schema::hasColumn('employees', 'company_visa_type_id'))->toBeTrue()
-        ->and(Schema::hasColumn('employee_contracts', 'company_visa_type_id'))->toBeTrue();
-
-    $employee->update(['company_visa_type_id' => $visaType->id]);
-    expect($employee->fresh()->company_visa_type_id)->toBe($visaType->id);
-
-    $contract = EmployeeContract::factory()->create([
+    // Create a Draft (P0) assignment directly
+    CrewAssignment::query()->create([
         'company_id' => $company->id,
+        'assignment_no' => 'CA-DRAFT-'.uniqid(),
         'employee_id' => $employee->id,
-        'company_visa_type_id' => $visaType->id,
+        'rank_id' => $rank->id,
+        'status' => CrewAssignmentStatus::Draft,
+        'source' => 'manual',
     ]);
 
-    expect($contract->fresh()->company_visa_type_id)->toBe($visaType->id)
-        ->and($contract->fresh()->companyVisaType->name)->toBe($visaType->name);
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where("form_options.employee_status_by_employee.{$employee->id}.status", 'pre_mobilisation')
+            ->where("form_options.employee_status_by_employee.{$employee->id}.has_active_assignment", false)
+        );
 });
