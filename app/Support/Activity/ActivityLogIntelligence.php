@@ -277,8 +277,6 @@ final class ActivityLogIntelligence
     }
 
     /**
-     * @param  mixed  $oldValues
-     * @param  mixed  $newValues
      * @return list<string>
      */
     private static function changedKeys(mixed $oldValues, mixed $newValues): array
