@@ -1,22 +1,16 @@
 import { router, useForm } from '@inertiajs/react';
 import {
-    AlertCircle,
     CheckCircle2,
     Download,
-    FileSpreadsheet,
     Filter,
-    Info,
-    Loader2,
     Ship,
     Upload,
     Users,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
-import type { DragEvent, KeyboardEvent } from 'react';
+import { useMemo, useState } from 'react';
 import {
     destroy as destroyVessel,
-    importMethod as importVessels,
-    importTemplate as importVesselTemplate,
+    exportMethod as exportVessels,
     index as vesselsIndex,
     show as vesselShow,
     store as storeVessel,
@@ -40,18 +34,9 @@ import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import {
     TableBody,
     TableCell,
@@ -59,10 +44,6 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import {
-    firstValidationError,
-    hasFlashSuccess,
-} from '@/lib/first-validation-error';
 import {
     MASTER_DATA_DELETE_BLOCKED_MESSAGE,
     masterDataCanDelete,
@@ -76,6 +57,7 @@ import type { PaginationMeta } from '@/types/pagination';
 import { VesselDeleteDialog } from './components/vessel-delete-dialog';
 import { VesselFormSheet } from './components/vessel-form-sheet';
 import { VesselMobileCard } from './components/vessel-mobile-card';
+import { VesselsImportDialog } from './components/vessels-import-dialog';
 import {
     vesselManningHealthBadgeClass,
     vesselManningHealthDot,
@@ -300,11 +282,6 @@ export function VesselsContent({
         null,
     );
     const [importOpen, setImportOpen] = useState(false);
-    const [importFile, setImportFile] = useState<File | null>(null);
-    const [importMessage, setImportMessage] = useState<string | null>(null);
-    const [importProcessing, setImportProcessing] = useState(false);
-    const [importDragActive, setImportDragActive] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const openCreate = (): void => {
         setEditingVessel(null);
@@ -365,106 +342,6 @@ export function VesselsContent({
         });
     };
 
-    const isCsvLike = (file: File): boolean =>
-        file.type === 'text/csv' ||
-        file.type === 'application/vnd.ms-excel' ||
-        file.type === 'text/plain' ||
-        file.name.toLowerCase().endsWith('.csv');
-
-    const pickImportFile = (file: File | undefined | null): void => {
-        if (!file) {
-            return;
-        }
-
-        if (!isCsvLike(file)) {
-            setImportMessage('Please choose a .csv file.');
-
-            return;
-        }
-
-        setImportFile(file);
-        setImportMessage(null);
-    };
-
-    const clearImportFile = (): void => {
-        setImportFile(null);
-        setImportMessage(null);
-
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
-    };
-
-    const onImportDrag = (event: DragEvent): void => {
-        event.preventDefault();
-        event.stopPropagation();
-    };
-
-    const onImportDrop = (event: DragEvent): void => {
-        event.preventDefault();
-        event.stopPropagation();
-        setImportDragActive(false);
-        pickImportFile(event.dataTransfer.files?.[0] ?? null);
-    };
-
-    const onImportDragLeave = (event: DragEvent<HTMLDivElement>): void => {
-        event.preventDefault();
-        event.stopPropagation();
-        const next = event.relatedTarget as Node | null;
-
-        if (!event.currentTarget.contains(next)) {
-            setImportDragActive(false);
-        }
-    };
-
-    const openImport = (): void => {
-        setImportFile(null);
-        setImportMessage(null);
-        setImportDragActive(false);
-        setImportOpen(true);
-
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
-    };
-
-    const runImport = (): void => {
-        if (!importFile) {
-            return;
-        }
-
-        setImportMessage(null);
-        setImportProcessing(true);
-        router.post(
-            importVessels.url(),
-            { file: importFile },
-            {
-                preserveScroll: true,
-                forceFormData: true,
-                onFinish: () => setImportProcessing(false),
-                onSuccess: (page) => {
-                    if (hasFlashSuccess(page)) {
-                        setImportOpen(false);
-                        setImportFile(null);
-                        setImportMessage(null);
-
-                        if (fileInputRef.current) {
-                            fileInputRef.current.value = '';
-                        }
-                    }
-                },
-                onError: (errs) =>
-                    setImportMessage(
-                        firstValidationError(
-                            errs as Record<string, string | string[]>,
-                            'file',
-                            'Import failed.',
-                        ),
-                    ),
-            },
-        );
-    };
-
     const hasClientFilter = Boolean(initialFilters.client_id);
     const hasVesselTypeFilter = Boolean(initialFilters.vessel_type_id);
     const hasActiveFilters =
@@ -480,17 +357,29 @@ export function VesselsContent({
                 title="Vessels"
                 description="Manage company vessels, identification details, and manning requirements."
                 right={
-                    can.create ? (
+                    can.export || can.import || can.create ? (
                         <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                type="button"
-                                onClick={openImport}
-                            >
-                                <Upload className="mr-2 h-4 w-4" />
-                                Import CSV
-                            </Button>
-                            <Button onClick={openCreate}>Add vessel</Button>
+                            {can.export ? (
+                                <Button variant="outline" type="button" asChild>
+                                    <a href={exportVessels.url()}>
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Export CSV
+                                    </a>
+                                </Button>
+                            ) : null}
+                            {can.import ? (
+                                <Button
+                                    variant="outline"
+                                    type="button"
+                                    onClick={() => setImportOpen(true)}
+                                >
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Import CSV
+                                </Button>
+                            ) : null}
+                            {can.create ? (
+                                <Button onClick={openCreate}>Add vessel</Button>
+                            ) : null}
                         </div>
                     ) : null
                 }
@@ -995,194 +884,10 @@ export function VesselsContent({
                 onConfirm={confirmDelete}
             />
 
-            <Dialog
+            <VesselsImportDialog
                 open={importOpen}
-                onOpenChange={(open) => {
-                    setImportOpen(open);
-
-                    if (!open) {
-                        setImportFile(null);
-                        setImportMessage(null);
-                        setImportDragActive(false);
-
-                        if (fileInputRef.current) {
-                            fileInputRef.current.value = '';
-                        }
-                    }
-                }}
-            >
-                <DialogContent className="gap-0 overflow-hidden border-border p-0 sm:max-w-lg">
-                    <DialogHeader className="space-y-0 border-b border-border px-6 py-5 text-left sm:text-left">
-                        <div className="flex gap-4">
-                            <div
-                                className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-inner ring-1 ring-primary/15"
-                                aria-hidden
-                            >
-                                <Upload className="size-5" />
-                            </div>
-                            <div className="min-w-0 space-y-1.5 pt-0.5">
-                                <DialogTitle className="text-xl leading-tight">
-                                    Import vessels
-                                </DialogTitle>
-                                <DialogDescription>
-                                    Add or update vessels in bulk. Existing
-                                    names are updated.
-                                </DialogDescription>
-                            </div>
-                        </div>
-                    </DialogHeader>
-
-                    <div className="space-y-5 px-6 py-5">
-                        <Alert className="border-border/80 bg-muted/40">
-                            <Info className="text-primary" aria-hidden />
-                            <AlertDescription>
-                                <ul className="list-inside list-disc space-y-1 text-muted-foreground">
-                                    <li>
-                                        <span className="font-medium text-foreground">
-                                            client
-                                        </span>{' '}
-                                        — required (must match an existing
-                                        client)
-                                    </li>
-                                    <li>
-                                        <span className="font-medium text-foreground">
-                                            name
-                                        </span>{' '}
-                                        — required
-                                    </li>
-                                    <li>
-                                        <span className="font-medium text-foreground">
-                                            vessel_type
-                                        </span>{' '}
-                                        — required (must match an existing type)
-                                    </li>
-                                    <li>
-                                        <span className="font-medium text-foreground">
-                                            grt
-                                        </span>
-                                        ,{' '}
-                                        <span className="font-medium text-foreground">
-                                            bhp
-                                        </span>{' '}
-                                        — optional
-                                    </li>
-                                </ul>
-                            </AlertDescription>
-                        </Alert>
-
-                        <Button
-                            variant="secondary"
-                            type="button"
-                            className="w-full sm:w-auto"
-                            asChild
-                        >
-                            <a href={importVesselTemplate.url()}>
-                                <Download className="mr-2 size-4" />
-                                Download CSV template
-                            </a>
-                        </Button>
-
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".csv,text/csv,text/plain,application/vnd.ms-excel"
-                            className="sr-only"
-                            id="vessels-import-file"
-                            onChange={(event) =>
-                                pickImportFile(event.target.files?.[0])
-                            }
-                        />
-                        <div
-                            role="button"
-                            tabIndex={0}
-                            className={cn(
-                                'rounded-xl border-2 border-dashed border-border bg-background/80 p-6 text-center',
-                                importDragActive &&
-                                    'border-primary bg-primary/6',
-                                importFile &&
-                                    'border-solid border-emerald-500/40 bg-emerald-500/7',
-                            )}
-                            onClick={() => fileInputRef.current?.click()}
-                            onKeyDown={(
-                                event: KeyboardEvent<HTMLDivElement>,
-                            ) => {
-                                if (
-                                    event.key === 'Enter' ||
-                                    event.key === ' '
-                                ) {
-                                    event.preventDefault();
-                                    fileInputRef.current?.click();
-                                }
-                            }}
-                            onDragEnter={(event: DragEvent) => {
-                                onImportDrag(event);
-                                setImportDragActive(true);
-                            }}
-                            onDragOver={onImportDrag}
-                            onDragLeave={onImportDragLeave}
-                            onDrop={onImportDrop}
-                        >
-                            {importFile ? (
-                                <div className="flex items-center justify-center gap-3">
-                                    <FileSpreadsheet className="size-5 text-emerald-600" />
-                                    <span className="text-sm font-medium">
-                                        {importFile.name}
-                                    </span>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            clearImportFile();
-                                        }}
-                                    >
-                                        Remove
-                                    </Button>
-                                </div>
-                            ) : (
-                                <p className="text-sm text-muted-foreground">
-                                    Drop your CSV here or click to browse
-                                </p>
-                            )}
-                        </div>
-
-                        {importMessage ? (
-                            <Alert variant="destructive">
-                                <AlertCircle aria-hidden />
-                                <AlertDescription>
-                                    {importMessage}
-                                </AlertDescription>
-                            </Alert>
-                        ) : null}
-                    </div>
-
-                    <DialogFooter className="gap-2 border-t border-border bg-muted/30 px-6 py-4">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={importProcessing}
-                            onClick={() => setImportOpen(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            disabled={!importFile || importProcessing}
-                            onClick={runImport}
-                        >
-                            {importProcessing ? (
-                                <>
-                                    <Loader2 className="mr-2 size-4 animate-spin" />
-                                    Importing…
-                                </>
-                            ) : (
-                                'Import'
-                            )}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                onOpenChange={setImportOpen}
+            />
         </Main>
     );
 }

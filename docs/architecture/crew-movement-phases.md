@@ -618,7 +618,7 @@ Uses Phase 2A Planning relief links. Late relief → gap between source leave an
 
 There is **no standalone Projected Manning page**. Projected manning is an internal calculation engine (`CrewProjectedManningQuery`) that drives operational insights across Crew Operations:
 
-- **Vessels** (`/organization/vessels`) configure company-owned vessels and required vessel/rank headcount (manning) on the vessel show page.
+- **Vessels** (`/organization/vessels`) configure company-owned vessels and required vessel/rank headcount (manning) on the vessel show page. Bulk maintenance uses **Export CSV → edit → Import CSV**: rows with `vessel_id` update that company-owned vessel; blank `vessel_id` creates a new vessel; vessels omitted from the file are unchanged; CSV import never deletes. `Vessel.client_id` is the vessel’s current/default operational Client; historical `CrewAssignment.client_id` and `EmployeeSeaService.client_id` snapshots are not rewritten by vessel import.
 - **Projected Manning Engine** (`CrewProjectedManningQuery`) calculates required vs actual/projected crew, gaps, and overlaps.
 - **Crew Planning** (`/organization/crew-planning`) visually displays projected gap and overlap overlays on the Gantt timeline.
 - **Crew Operations Overview** (`/organization/crew-operations`) surfaces projected risk analytics and action items, linking directly into Crew Planning.

@@ -56,6 +56,8 @@ export type VesselPageCan = {
     create: boolean;
     update: boolean;
     delete: boolean;
+    export: boolean;
+    import: boolean;
     view_manning: boolean;
     view_assignments: boolean;
     view_planning: boolean;

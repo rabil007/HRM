@@ -263,7 +263,8 @@ test('authorized users can download template and import vessels scoped to compan
         ->post(route('organization.vessels.import'), [
             'file' => $file,
         ])
-        ->assertRedirect(route('organization.vessels.index'));
+        ->assertRedirect(route('organization.vessels.index'))
+        ->assertSessionHas('success');
 
     $this->assertDatabaseHas('vessels', [
         'company_id' => $company->id,

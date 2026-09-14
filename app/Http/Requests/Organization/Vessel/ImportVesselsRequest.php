@@ -9,7 +9,14 @@ class ImportVesselsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user()?->can('crew_operations.vessels.create');
+        $user = $this->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        return $user->can('crew_operations.vessels.create')
+            || $user->can('crew_operations.vessels.update');
     }
 
     /**

@@ -28,14 +28,18 @@ use App\Support\VesselManning\VesselManningHealthQuery;
 use App\Support\VesselManning\VesselManningIndexQuery;
 use App\Support\VesselManning\VesselManningPagePermissions;
 use App\Support\Vessels\StoresVesselCertificate;
+use App\Support\Vessels\VesselCsvExporter;
+use App\Support\Vessels\VesselImportOrchestrator;
 use App\Support\Vessels\VesselIndexQuery;
 use App\Support\Vessels\VesselPagePermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class VesselController extends Controller
 {
@@ -304,187 +308,64 @@ class VesselController extends Controller
             ->with('success', 'Vessel manning updated.');
     }
 
-    public function importTemplate(): Response
-    {
-        $csv = "client,name,vessel_type,grt,bhp,is_active\nADNOC,ADNOC 951,H/LIFT,4500,12000,yes\n";
-
-        return response($csv, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="vessels-import-template.csv"',
-        ]);
-    }
-
-    public function import(ImportVesselsRequest $request): RedirectResponse
+    public function export(Request $request, VesselCsvExporter $exporter): StreamedResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $uploaded = $request->file('file');
-        $path = $uploaded->getRealPath() ?: $uploaded->path();
-        $handle = fopen((string) $path, 'r');
 
-        if ($handle === false) {
-            return redirect()
-                ->route('organization.vessels.index')
-                ->withErrors(['file' => 'Could not read the uploaded file.']);
-        }
+        return $exporter->download($companyId);
+    }
 
-        $header = fgetcsv($handle);
-        if (! is_array($header) || count($header) === 0) {
-            fclose($handle);
+    public function importTemplate(VesselCsvExporter $exporter): Response
+    {
+        return $exporter->template();
+    }
 
-            return redirect()
-                ->route('organization.vessels.index')
-                ->withErrors(['file' => 'The CSV file is empty.']);
-        }
+    public function importPreview(
+        ImportVesselsRequest $request,
+        VesselImportOrchestrator $orchestrator,
+    ): JsonResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
 
-        $map = [];
-        foreach ($header as $index => $cell) {
-            $key = mb_strtolower(trim((string) $cell));
-            if (in_array($key, ['name', 'vessel', 'vessel name', 'vessel_name'], true)) {
-                $map['name'] = (int) $index;
-            }
-            if (in_array($key, ['client', 'client_name'], true)) {
-                $map['client'] = (int) $index;
-            }
-            if (in_array($key, ['vessel_type', 'vessel type', 'type'], true)) {
-                $map['vessel_type'] = (int) $index;
-            }
-            if (in_array($key, ['grt', 'gross tonnage', 'gross_tonnage'], true)) {
-                $map['grt'] = (int) $index;
-            }
-            if (in_array($key, ['bhp', 'brake horsepower', 'horsepower'], true)) {
-                $map['bhp'] = (int) $index;
-            }
-            if (in_array($key, ['active', 'is_active', 'status', 'enabled'], true)) {
-                $map['active'] = (int) $index;
-            }
-        }
-
-        if (! isset($map['name'], $map['vessel_type'], $map['client'])) {
-            fclose($handle);
-
-            return redirect()
-                ->route('organization.vessels.index')
-                ->withErrors(['file' => 'The CSV must include client, name, and vessel_type columns.']);
-        }
-
-        $vesselTypes = VesselType::query()->get(['id', 'name']);
-        $clientsByName = Client::query()
-            ->where('is_active', true)
-            ->get(['id', 'name'])
-            ->keyBy(fn (Client $client): string => mb_strtolower(trim($client->name)));
-
-        $imported = 0;
-        $emptyNames = 0;
-        $unknownTypes = 0;
-        $unknownClients = 0;
-        $unknownClientNames = [];
-
-        while (($row = fgetcsv($handle)) !== false) {
-            if (! is_array($row)) {
-                continue;
-            }
-
-            $name = trim((string) ($row[$map['name']] ?? ''));
-            if ($name === '') {
-                $emptyNames++;
-
-                continue;
-            }
-
-            $clientName = trim((string) ($row[$map['client']] ?? ''));
-            if ($clientName === '') {
-                $unknownClients++;
-
-                continue;
-            }
-
-            $client = $clientsByName->get(mb_strtolower($clientName));
-            if ($client === null) {
-                $unknownClients++;
-                $unknownClientNames[$clientName] = true;
-
-                continue;
-            }
-
-            $typeName = trim((string) ($row[$map['vessel_type']] ?? ''));
-            $vesselType = $vesselTypes->first(fn (VesselType $type) => mb_strtolower($type->name) === mb_strtolower($typeName));
-
-            if ($vesselType === null) {
-                $unknownTypes++;
-
-                continue;
-            }
-
-            $grt = null;
-            if (isset($map['grt'])) {
-                $grtRaw = trim((string) ($row[$map['grt']] ?? ''));
-                if ($grtRaw !== '' && is_numeric($grtRaw)) {
-                    $grt = (float) $grtRaw;
-                }
-            }
-
-            $bhp = null;
-            if (isset($map['bhp'])) {
-                $bhpRaw = trim((string) ($row[$map['bhp']] ?? ''));
-                if ($bhpRaw !== '' && is_numeric($bhpRaw)) {
-                    $bhp = (int) $bhpRaw;
-                }
-            }
-
-            $active = true;
-            if (isset($map['active'])) {
-                $v = mb_strtolower(trim((string) ($row[$map['active']] ?? '')));
-                $active = $v === '' || in_array($v, ['1', 'yes', 'true', 'y', 'active'], true);
-            }
-
-            Vessel::query()->updateOrCreate(
-                [
-                    'company_id' => $companyId,
-                    'name' => $name,
-                ],
-                [
-                    'client_id' => $client->id,
-                    'vessel_type_id' => $vesselType->id,
-                    'grt' => $grt,
-                    'bhp' => $bhp,
-                    'is_active' => $active,
-                ],
+        try {
+            $result = $orchestrator->preview(
+                $companyId,
+                $request->file('file'),
+                $request->user(),
             );
-            $imported++;
-
-            if ($imported > 2000) {
-                break;
-            }
+        } catch (\InvalidArgumentException $exception) {
+            throw ValidationException::withMessages([
+                'file' => $exception->getMessage(),
+            ]);
         }
 
-        fclose($handle);
+        return response()->json($result);
+    }
 
-        if ($imported === 0) {
-            $unknownList = implode(', ', array_keys($unknownClientNames));
+    public function import(
+        ImportVesselsRequest $request,
+        VesselImportOrchestrator $orchestrator,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
 
-            return redirect()
-                ->route('organization.vessels.index')
-                ->withErrors([
-                    'file' => match (true) {
-                        $unknownClients > 0 && $unknownList !== '' => "No rows were imported. Unknown or inactive client(s): {$unknownList}.",
-                        $unknownClients > 0 => 'No rows were imported. One or more rows had a missing or unknown client.',
-                        $emptyNames > 0 => "No rows were imported. {$emptyNames} row(s) had an empty name.",
-                        $unknownTypes > 0 => "No rows were imported. {$unknownTypes} row(s) had an unknown vessel type.",
-                        default => 'No rows were imported. Ensure each row has a client, name, and vessel type.',
-                    },
-                ]);
+        try {
+            $result = $orchestrator->execute(
+                $companyId,
+                $request->file('file'),
+                $request->user(),
+            );
+        } catch (\InvalidArgumentException $exception) {
+            throw ValidationException::withMessages([
+                'file' => $exception->getMessage(),
+            ]);
         }
 
-        $message = "Imported {$imported} vessel row(s).";
-        if ($unknownClients > 0) {
-            $unknownList = implode(', ', array_keys($unknownClientNames));
-            $message .= $unknownList !== ''
-                ? " Skipped {$unknownClients} row(s) with unknown/inactive client(s): {$unknownList}."
-                : " Skipped {$unknownClients} row(s) with missing or unknown clients.";
+        $message = "Imported {$result['created']} new vessel(s) and updated {$result['updated']} existing vessel(s).";
+
+        if ($result['skipped'] > 0) {
+            $message .= " Skipped {$result['skipped']} row(s).";
         }
-        if ($unknownTypes > 0) {
-            $message .= " Skipped {$unknownTypes} row(s) with unknown vessel types.";
-        }
+
+        $message .= ' No vessels were deleted.';
 
         return redirect()
             ->route('organization.vessels.index')

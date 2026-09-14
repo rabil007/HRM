@@ -499,11 +499,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:reports.crew_movement_history.export')
         ->name('organization.reports.crew-movement-history.export');
 
+    Route::get('organization/vessels/export', [VesselController::class, 'export'])
+        ->middleware('can:crew_operations.vessels.view')
+        ->name('organization.vessels.export');
     Route::get('organization/vessels/import/template', [VesselController::class, 'importTemplate'])
         ->middleware('can:crew_operations.vessels.view')
         ->name('organization.vessels.import.template');
+    Route::post('organization/vessels/import/preview', [VesselController::class, 'importPreview'])
+        ->name('organization.vessels.import.preview');
     Route::post('organization/vessels/import', [VesselController::class, 'import'])
-        ->middleware('can:crew_operations.vessels.create')
         ->name('organization.vessels.import');
     Route::get('organization/vessels', [VesselController::class, 'index'])
         ->middleware('can:crew_operations.vessels.view')
