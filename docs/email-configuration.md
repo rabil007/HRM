@@ -63,7 +63,7 @@ Known previous stock defaults (for example the original Document share “Overse
 
 ### System-managed expiry layouts
 
-`document_expiry_alert` and `company_document_expiry_alert` are HTML summary emails. Subject, table body, and branding come from the Mailables and Blade views, not from the EmailTemplate subject/body fields. Preview uses the production summary layout with **fake sample rows**, never production employee data.
+`document_expiry_alert` and `company_document_expiry_alert` are HTML summary emails. Subject, table body, and branding come from the Mailables and Blade views, not from the EmailTemplate subject/body fields. Preview uses the production summary layout with **fake sample rows**, never production employee data. Expiry previews use the same count-based subject wording as production and sample documents are kept inside the configured 30-day window so the preview matches real eligibility rules.
 
 | Template | Runtime-consumed EmailTemplate fields | Recipients | Enable/disable |
 |----------|----------------------------------------|------------|----------------|
@@ -72,11 +72,13 @@ Known previous stock defaults (for example the original Document share “Overse
 
 The Email Templates UI hides unused controls for these slugs. The unused `email_templates.enabled` field on `company_document_expiry_alert` is not shown as a Disabled badge.
 
+The Email Templates dashboard shows **Daily Compliance Schedule** as the shared scheduler time for both Employee and Company Document expiry checks. It is not an enabled/disabled indicator for either domain. Employee Document delivery still depends on the `document_expiry_alert.enabled` setting, while Company Document delivery depends on each company's own notification setting.
+
 Shared `mail.layout` supplies logo, company name, footer, and contact information. Template bodies should not duplicate that footer.
 
 ### Recipients table migration
 
-`company_document_expiry_notification_recipients` is created or repaired in place. Existing recipient rows are never dropped. A later additive migration (`ensure_company_document_expiry_notification_recipients_schema`) is a no-op when the table is already correct.
+`company_document_expiry_notification_recipients` is created or repaired in place. Existing valid recipient rows are not dropped. The repair adds missing timestamp columns, normalizes duplicate `(setting_id, user_id, type)` rows before restoring the unique index, and restores required indexes/foreign keys. Orphaned references or other integrity problems fail the migration visibly instead of allowing an incomplete production schema to pass silently. A later additive migration (`ensure_company_document_expiry_notification_recipients_schema`) is a no-op when the table is already correct.
 
 ## Document recipient action requests (Phase 7A)
 
