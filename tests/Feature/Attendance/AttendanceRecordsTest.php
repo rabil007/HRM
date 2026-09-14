@@ -466,6 +466,131 @@ test('hikvision sync matches events when access event name omits trailing initia
         ->and($record->source)->toBe(AttendanceRecord::SOURCE_BIOMETRIC);
 });
 
+test('hikvision sync does not guess an ambiguous unlinked Mohammed Rabil alias', function () {
+    ['company' => $company] = makeAttendanceRecordsFixtures();
+
+    $personA = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'hv-sync-rabil-t',
+        'full_name' => 'Mohammed Rabil T',
+    ]);
+    $personB = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'hv-sync-rabil-k',
+        'full_name' => 'Mohammed Rabil K',
+    ]);
+
+    $employeeA = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil T',
+        'hikvision_person_id' => $personA->id,
+    ]);
+    $employeeB = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil K',
+        'hikvision_person_id' => $personB->id,
+    ]);
+
+    $event = HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
+        'system_id' => 'sync:ambiguous-rabil',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-06-12 09:03:00',
+        'person_name' => 'Mohammed Rabil',
+        'person_hikvision_id' => null,
+        'hikvision_person_id' => null,
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        $company->id,
+        Carbon::parse('2026-06-12 00:00:00'),
+        Carbon::parse('2026-06-12 23:59:59'),
+    );
+
+    $recordA = AttendanceRecord::query()
+        ->where('employee_id', $employeeA->id)
+        ->whereDate('date', '2026-06-12')
+        ->first();
+    $recordB = AttendanceRecord::query()
+        ->where('employee_id', $employeeB->id)
+        ->whereDate('date', '2026-06-12')
+        ->first();
+
+    expect($recordA?->clock_in)->toBeNull()
+        ->and($recordA?->source)->not->toBe(AttendanceRecord::SOURCE_BIOMETRIC)
+        ->and($recordB?->clock_in)->toBeNull()
+        ->and($recordB?->source)->not->toBe(AttendanceRecord::SOURCE_BIOMETRIC)
+        ->and($event->fresh()->person_hikvision_id)->toBeNull()
+        ->and($event->fresh()->hikvision_person_id)->toBeNull();
+});
+
+test('hikvision sync linked person id remains authoritative when another employee has a similar name', function () {
+    ['company' => $company] = makeAttendanceRecordsFixtures();
+
+    $personA = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'hv-sync-linked-t',
+        'full_name' => 'Mohammed Rabil T',
+    ]);
+    $personB = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'hv-sync-linked-k',
+        'full_name' => 'Mohammed Rabil K',
+    ]);
+
+    $employeeA = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil T',
+        'hikvision_person_id' => $personA->id,
+    ]);
+    $employeeB = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil K',
+        'hikvision_person_id' => $personB->id,
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
+        'system_id' => 'sync:linked-authoritative',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-06-12 09:03:00',
+        'person_name' => 'Mohammed Rabil',
+        'person_hikvision_id' => 'hv-sync-linked-t',
+        'hikvision_person_id' => $personA->id,
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        $company->id,
+        Carbon::parse('2026-06-12 00:00:00'),
+        Carbon::parse('2026-06-12 23:59:59'),
+    );
+
+    $recordA = AttendanceRecord::query()
+        ->where('employee_id', $employeeA->id)
+        ->whereDate('date', '2026-06-12')
+        ->first();
+    $recordB = AttendanceRecord::query()
+        ->where('employee_id', $employeeB->id)
+        ->whereDate('date', '2026-06-12')
+        ->first();
+
+    expect($recordA)->not->toBeNull()
+        ->and($recordA->clock_in?->format('H:i'))->toBe('09:03')
+        ->and($recordA->source)->toBe(AttendanceRecord::SOURCE_BIOMETRIC)
+        ->and($recordB?->clock_in)->toBeNull()
+        ->and($recordB?->source)->not->toBe(AttendanceRecord::SOURCE_BIOMETRIC);
+});
+
 test('hikvision sync creates mobile attendance records from mobile app access events', function () {
     ['company' => $company] = makeAttendanceRecordsFixtures();
 

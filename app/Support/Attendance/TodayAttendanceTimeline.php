@@ -67,18 +67,32 @@ final class TodayAttendanceTimeline
         $rangeStart = $day->copy()->startOfDay();
         $rangeEnd = $day->copy()->endOfDay();
 
-        /** @var Collection<int, HikvisionAccessEvent> $events */
-        $events = HikvisionAccessEvent::query()
+        $companyPeople = EmployeeHikvisionAccessEventMatcher::companyPeople($companyId);
+
+        /** @var Collection<int, HikvisionAccessEvent> $companyEvents */
+        $companyEvents = HikvisionAccessEvent::query()
             ->accessRecords()
             ->forCompany($companyId)
             ->whereBetween('occurrence_time', [$rangeStart, $rangeEnd])
-            ->tap(fn ($query) => EmployeeHikvisionAccessEventMatcher::scopeForEmployee($query, $employee))
             ->whereIn('attendance_status', [
                 HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
                 HikvisionAccessEvent::ATTENDANCE_CHECK_OUT,
             ])
             ->orderBy('occurrence_time')
             ->get(['id', 'occurrence_time', 'attendance_status', 'device_name', 'transaction_source', 'person_name', 'person_hikvision_id', 'raw_payload']);
+
+        $eventsByPersonId = $companyEvents->groupBy(
+            fn (HikvisionAccessEvent $event): string => (string) ($event->person_hikvision_id ?? ''),
+        );
+
+        $events = EmployeeHikvisionAccessEventMatcher::resolveFromLoadedEvents(
+            $employee,
+            $eventsByPersonId,
+            EmployeeHikvisionAccessEventMatcher::indexUnlinkedEventsByResolvedPersonId(
+                $companyEvents,
+                $companyPeople,
+            ),
+        );
 
         $serializedEvents = $events
             ->map(fn (HikvisionAccessEvent $event): array => [

@@ -512,6 +512,166 @@ test('today_timeline still matches when person_hikvision_id is already populated
             ->where('today_timeline.summary.clock_in', '09:03'));
 });
 
+test('today_timeline does not guess an ambiguous unlinked Mohammed Rabil alias', function () {
+    Carbon::setTestNow(Carbon::parse('2026-09-14 10:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
+    grantCalendarAccess($user, $company);
+
+    $employeeA = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil T',
+    ]);
+    $employeeB = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil K',
+    ]);
+
+    $personA = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'hv-rabil-t',
+        'full_name' => 'Mohammed Rabil T',
+    ]);
+    $personB = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'hv-rabil-k',
+        'full_name' => 'Mohammed Rabil K',
+    ]);
+    $employeeA->update(['hikvision_person_id' => $personA->id]);
+    $employeeB->update(['hikvision_person_id' => $personB->id]);
+
+    $event = HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
+        'system_id' => 'acs:rabil-ambiguous:09:03',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-09-14 09:03:00',
+        'person_name' => 'Mohammed Rabil',
+        'person_hikvision_id' => null,
+        'hikvision_person_id' => null,
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('attendance.calendar.index', ['employee_id' => $employeeA->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('today_timeline.events', [])
+            ->where('today_timeline.summary.status', 'no_activity'));
+
+    $this->actingAs($user)
+        ->get(route('attendance.calendar.index', ['employee_id' => $employeeB->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('today_timeline.events', [])
+            ->where('today_timeline.summary.status', 'no_activity'));
+
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        $company->id,
+        Carbon::parse('2026-09-14 00:00:00', 'Asia/Dubai'),
+        Carbon::parse('2026-09-14 23:59:59', 'Asia/Dubai'),
+    );
+
+    $recordA = AttendanceRecord::query()
+        ->where('employee_id', $employeeA->id)
+        ->whereDate('date', '2026-09-14')
+        ->first();
+    $recordB = AttendanceRecord::query()
+        ->where('employee_id', $employeeB->id)
+        ->whereDate('date', '2026-09-14')
+        ->first();
+
+    expect($recordA?->clock_in)->toBeNull()
+        ->and($recordA?->source)->not->toBe(AttendanceRecord::SOURCE_BIOMETRIC)
+        ->and($recordB?->clock_in)->toBeNull()
+        ->and($recordB?->source)->not->toBe(AttendanceRecord::SOURCE_BIOMETRIC)
+        ->and($event->fresh()->person_hikvision_id)->toBeNull()
+        ->and($event->fresh()->hikvision_person_id)->toBeNull();
+});
+
+test('today_timeline linked person id remains authoritative when another employee has a similar name', function () {
+    Carbon::setTestNow(Carbon::parse('2026-09-14 10:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
+    grantCalendarAccess($user, $company);
+
+    $employeeA = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil T',
+    ]);
+    $employeeB = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil K',
+    ]);
+
+    $personA = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'hv-rabil-linked-t',
+        'full_name' => 'Mohammed Rabil T',
+    ]);
+    $personB = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'hv-rabil-linked-k',
+        'full_name' => 'Mohammed Rabil K',
+    ]);
+    $employeeA->update(['hikvision_person_id' => $personA->id]);
+    $employeeB->update(['hikvision_person_id' => $personB->id]);
+
+    HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
+        'system_id' => 'acs:rabil-linked-authoritative:09:03',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-09-14 09:03:00',
+        'person_name' => 'Mohammed Rabil',
+        'person_hikvision_id' => 'hv-rabil-linked-t',
+        'hikvision_person_id' => $personA->id,
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('attendance.calendar.index', ['employee_id' => $employeeA->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('today_timeline.events', 1)
+            ->where('today_timeline.events.0.time', '09:03')
+            ->where('today_timeline.summary.clock_in', '09:03'));
+
+    $this->actingAs($user)
+        ->get(route('attendance.calendar.index', ['employee_id' => $employeeB->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('today_timeline.events', [])
+            ->where('today_timeline.summary.status', 'no_activity'));
+
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        $company->id,
+        Carbon::parse('2026-09-14 00:00:00', 'Asia/Dubai'),
+        Carbon::parse('2026-09-14 23:59:59', 'Asia/Dubai'),
+    );
+
+    $recordA = AttendanceRecord::query()
+        ->where('employee_id', $employeeA->id)
+        ->whereDate('date', '2026-09-14')
+        ->first();
+    $recordB = AttendanceRecord::query()
+        ->where('employee_id', $employeeB->id)
+        ->whereDate('date', '2026-09-14')
+        ->first();
+
+    expect($recordA)->not->toBeNull()
+        ->and($recordA->clock_in?->format('H:i'))->toBe('09:03')
+        ->and($recordA->source)->toBe(AttendanceRecord::SOURCE_BIOMETRIC)
+        ->and($recordB?->clock_in)->toBeNull()
+        ->and($recordB?->source)->not->toBe(AttendanceRecord::SOURCE_BIOMETRIC);
+});
+
 test('today_timeline never includes cross-company unlinked name matches', function () {
     Carbon::setTestNow(Carbon::parse('2026-09-14 10:00:00', 'Asia/Dubai'));
 
@@ -552,4 +712,126 @@ test('today_timeline never includes cross-company unlinked name matches', functi
         ->assertInertia(fn (Assert $page) => $page
             ->where('today_timeline.events', [])
             ->where('today_timeline.summary.status', 'no_activity'));
+
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        $company->id,
+        Carbon::parse('2026-09-14 00:00:00', 'Asia/Dubai'),
+        Carbon::parse('2026-09-14 23:59:59', 'Asia/Dubai'),
+    );
+
+    $record = AttendanceRecord::query()
+        ->where('employee_id', $employee->id)
+        ->whereDate('date', '2026-09-14')
+        ->first();
+
+    expect($record?->clock_in)->toBeNull()
+        ->and($record?->source)->not->toBe(AttendanceRecord::SOURCE_BIOMETRIC);
+});
+
+test('today_timeline unique unlinked alias is not poisoned by another company', function () {
+    Carbon::setTestNow(Carbon::parse('2026-09-14 10:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
+    grantCalendarAccess($user, $company);
+
+    $employeeT = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil T',
+    ]);
+    $employeeK = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil K',
+    ]);
+
+    $personT = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'hv-rabil-ambiguous-t',
+        'full_name' => 'Mohammed Rabil T',
+    ]);
+    $personK = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'hv-rabil-ambiguous-k',
+        'full_name' => 'Mohammed Rabil K',
+    ]);
+    $employeeT->update(['hikvision_person_id' => $personT->id]);
+    $employeeK->update(['hikvision_person_id' => $personK->id]);
+
+    $otherCompany = additionalHikvisionTestCompany($company, 'timeline-unique-'.fake()->unique()->numerify('####'));
+    $otherUser = User::factory()->create();
+    DB::table('company_user')->insert([
+        'company_id' => $otherCompany->id,
+        'user_id' => $otherUser->id,
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    grantCalendarAccess($otherUser, $otherCompany);
+
+    $otherEmployee = Employee::factory()->forCompany($otherCompany)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil T',
+    ]);
+    $otherPerson = HikvisionPerson::query()->create([
+        'company_id' => $otherCompany->id,
+        'person_id' => 'hv-rabil-other-unique',
+        'full_name' => 'Mohammed Rabil T',
+    ]);
+    $otherEmployee->update(['hikvision_person_id' => $otherPerson->id]);
+
+    HikvisionAccessEvent::query()->create([
+        'company_id' => $otherCompany->id,
+        'system_id' => 'acs:other-company-unique-rabil',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-09-14 09:03:00',
+        'person_name' => 'Mohammed Rabil',
+        'person_hikvision_id' => null,
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('attendance.calendar.index', ['employee_id' => $employeeT->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('today_timeline.events', [])
+            ->where('today_timeline.summary.status', 'no_activity'));
+
+    $this->actingAs($otherUser)
+        ->withSession(['current_company_id' => $otherCompany->id])
+        ->get(route('attendance.calendar.index', ['employee_id' => $otherEmployee->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('today_timeline.events', 1)
+            ->where('today_timeline.events.0.time', '09:03')
+            ->where('today_timeline.summary.clock_in', '09:03'));
+
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        $company->id,
+        Carbon::parse('2026-09-14 00:00:00', 'Asia/Dubai'),
+        Carbon::parse('2026-09-14 23:59:59', 'Asia/Dubai'),
+    );
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        $otherCompany->id,
+        Carbon::parse('2026-09-14 00:00:00', 'Asia/Dubai'),
+        Carbon::parse('2026-09-14 23:59:59', 'Asia/Dubai'),
+    );
+
+    $localRecord = AttendanceRecord::query()
+        ->where('employee_id', $employeeT->id)
+        ->whereDate('date', '2026-09-14')
+        ->first();
+    $otherRecord = AttendanceRecord::query()
+        ->where('employee_id', $otherEmployee->id)
+        ->whereDate('date', '2026-09-14')
+        ->first();
+
+    expect($localRecord?->clock_in)->toBeNull()
+        ->and($localRecord?->source)->not->toBe(AttendanceRecord::SOURCE_BIOMETRIC)
+        ->and($otherRecord)->not->toBeNull()
+        ->and($otherRecord->clock_in?->format('H:i'))->toBe('09:03')
+        ->and($otherRecord->source)->toBe(AttendanceRecord::SOURCE_BIOMETRIC);
 });

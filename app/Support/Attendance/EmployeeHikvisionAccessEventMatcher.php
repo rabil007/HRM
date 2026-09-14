@@ -4,7 +4,9 @@ namespace App\Support\Attendance;
 
 use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
+use App\Models\HikvisionPerson;
 use App\Support\Hikvision\HikvisionPersonNameAliases;
+use App\Support\Hikvision\ResolveHikvisionPersonFromAcsEvent;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -12,7 +14,8 @@ use Illuminate\Support\Collection;
  * Company-scoped matching of trusted Hikvision access events to a linked employee.
  *
  * Prefer person_hikvision_id. Fallback matching for legacy unlinked ACS/mobile rows uses the
- * same safe rules as attendance sync (exact name aliases + mobile personCode).
+ * same unique identity rules as ACS import (unique person_code, then unique exact/safe name alias).
+ * Ambiguous unlinked identities stay unresolved and are never guessed.
  */
 final class EmployeeHikvisionAccessEventMatcher
 {
@@ -23,12 +26,8 @@ final class EmployeeHikvisionAccessEventMatcher
     public static function scopeForEmployee(Builder $query, Employee $employee): Builder
     {
         $personId = trim((string) ($employee->hikvisionPerson?->person_id ?? ''));
-        $aliases = array_map(
-            mb_strtolower(...),
-            HikvisionPersonNameAliases::forEmployee($employee),
-        );
-        $personCode = trim((string) ($employee->hikvisionPerson?->person_code ?? ''));
-        $personCodes = $personCode !== '' ? [$personCode] : [];
+        $companyPeople = self::companyPeople((int) $employee->company_id);
+        [$aliases, $personCodes] = self::uniqueUnlinkedIdentityKeys($employee, $companyPeople);
 
         return $query->where(function (Builder $match) use ($personId, $aliases, $personCodes): void {
             $hasConstraint = false;
@@ -68,53 +67,117 @@ final class EmployeeHikvisionAccessEventMatcher
 
     /**
      * @param  Collection<string, Collection<int, HikvisionAccessEvent>>  $eventsByPersonId
-     * @param  Collection<int, HikvisionAccessEvent>  $companyEvents
+     * @param  Collection<int, Collection<int, HikvisionAccessEvent>>  $unlinkedEventsByResolvedPersonId
      * @return Collection<int, HikvisionAccessEvent>
      */
     public static function resolveFromLoadedEvents(
         Employee $employee,
         Collection $eventsByPersonId,
-        Collection $companyEvents,
+        Collection $unlinkedEventsByResolvedPersonId,
     ): Collection {
         $personId = (string) ($employee->hikvisionPerson?->person_id ?? '');
         $events = $personId !== ''
             ? $eventsByPersonId->get($personId, collect())
             : collect();
 
-        $aliases = array_map(
-            mb_strtolower(...),
-            HikvisionPersonNameAliases::forEmployee($employee),
-        );
-        $personCode = trim((string) ($employee->hikvisionPerson?->person_code ?? ''));
-
-        if ($aliases === [] && $personCode === '') {
-            return $events->values();
-        }
-
-        $unlinkedMatches = $companyEvents->filter(function (HikvisionAccessEvent $event) use ($aliases, $personCode): bool {
-            if (filled($event->person_hikvision_id)) {
-                return false;
-            }
-
-            $personName = mb_strtolower(trim((string) $event->person_name));
-
-            if ($personName !== '' && in_array($personName, $aliases, true)) {
-                return true;
-            }
-
-            if ($personCode === '' || $event->transaction_source !== HikvisionAccessEvent::TRANSACTION_MOBILE_APP) {
-                return false;
-            }
-
-            $payload = is_array($event->raw_payload) ? $event->raw_payload : [];
-
-            return trim((string) ($payload['personCode'] ?? '')) === $personCode;
-        });
+        $resolvedPersonKey = (int) ($employee->hikvision_person_id ?? 0);
+        $unlinkedMatches = $resolvedPersonKey > 0
+            ? $unlinkedEventsByResolvedPersonId->get($resolvedPersonKey, collect())
+            : collect();
 
         return $events
             ->merge($unlinkedMatches)
             ->unique('id')
             ->values();
+    }
+
+    /**
+     * Resolve each unlinked event at most once against company-scoped Hikvision people.
+     *
+     * @param  Collection<int, HikvisionAccessEvent>  $companyEvents
+     * @param  Collection<int, HikvisionPerson>  $companyPeople
+     * @return Collection<int, Collection<int, HikvisionAccessEvent>>
+     */
+    public static function indexUnlinkedEventsByResolvedPersonId(
+        Collection $companyEvents,
+        Collection $companyPeople,
+    ): Collection {
+        /** @var array<int, list<HikvisionAccessEvent>> $grouped */
+        $grouped = [];
+
+        foreach ($companyEvents as $event) {
+            if (filled($event->person_hikvision_id)) {
+                continue;
+            }
+
+            $resolved = ResolveHikvisionPersonFromAcsEvent::uniquePersonFromUnlinkedIdentity(
+                $companyPeople,
+                trim((string) $event->person_name),
+                self::unlinkedPersonCode($event),
+            );
+
+            if ($resolved === null) {
+                continue;
+            }
+
+            $grouped[(int) $resolved->id][] = $event;
+        }
+
+        return collect($grouped)->map(
+            fn (array $events): Collection => collect($events),
+        );
+    }
+
+    /**
+     * @return Collection<int, HikvisionPerson>
+     */
+    public static function companyPeople(int $companyId): Collection
+    {
+        if ($companyId <= 0) {
+            return collect();
+        }
+
+        return HikvisionPerson::query()
+            ->forCompany($companyId)
+            ->get(['id', 'person_id', 'full_name', 'person_code']);
+    }
+
+    /**
+     * Unique unlinked fallback keys for one linked employee, using company-wide uniqueness.
+     *
+     * @param  Collection<int, HikvisionPerson>  $companyPeople
+     * @return array{0: list<string>, 1: list<string>} Lowercased name aliases, person codes
+     */
+    public static function uniqueUnlinkedIdentityKeys(Employee $employee, Collection $companyPeople): array
+    {
+        $person = $employee->hikvisionPerson;
+
+        if ($person === null) {
+            return [[], []];
+        }
+
+        $aliases = [];
+
+        foreach (HikvisionPersonNameAliases::forEmployee($employee) as $alias) {
+            $match = ResolveHikvisionPersonFromAcsEvent::uniquePersonFromNameAmong($companyPeople, $alias);
+
+            if ($match !== null && (int) $match->id === (int) $person->id) {
+                $aliases[] = mb_strtolower($alias);
+            }
+        }
+
+        $personCode = trim((string) ($person->person_code ?? ''));
+        $personCodes = [];
+
+        if ($personCode !== '') {
+            $match = ResolveHikvisionPersonFromAcsEvent::uniquePersonFromCodeAmong($companyPeople, $personCode);
+
+            if ($match !== null && (int) $match->id === (int) $person->id) {
+                $personCodes[] = $personCode;
+            }
+        }
+
+        return [array_values(array_unique($aliases)), $personCodes];
     }
 
     /**
@@ -182,5 +245,16 @@ final class EmployeeHikvisionAccessEventMatcher
         if (! $hasConstraint) {
             $query->whereRaw('1 = 0');
         }
+    }
+
+    private static function unlinkedPersonCode(HikvisionAccessEvent $event): string
+    {
+        if ($event->transaction_source !== HikvisionAccessEvent::TRANSACTION_MOBILE_APP) {
+            return '';
+        }
+
+        $payload = is_array($event->raw_payload) ? $event->raw_payload : [];
+
+        return trim((string) ($payload['personCode'] ?? ''));
     }
 }

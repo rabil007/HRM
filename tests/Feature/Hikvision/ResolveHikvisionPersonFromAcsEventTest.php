@@ -102,13 +102,13 @@ test('acs event does not link when person_code matches multiple people in the co
         ->and($resolved['hikvision_person_id'])->toBeNull();
 });
 
-test('acs event resolves unique name alias omitting trailing initial', function () {
+test('acs event resolves unique name alias omitting trailing initial', function (string $fullName) {
     ['company' => $company] = makeAcsPersonResolutionCompanies();
 
     $person = HikvisionPerson::query()->create([
         'company_id' => $company->id,
         'person_id' => 'hv-person-alias-1',
-        'full_name' => 'Mohammed Rabil T',
+        'full_name' => $fullName,
     ]);
 
     $resolved = ResolveHikvisionPersonFromAcsEvent::resolve($company->id, [
@@ -118,7 +118,32 @@ test('acs event resolves unique name alias omitting trailing initial', function 
 
     expect($resolved['person_hikvision_id'])->toBe('hv-person-alias-1')
         ->and($resolved['hikvision_person_id'])->toBe($person->id);
-});
+})->with([
+    'Mohammed Rabil T',
+    'Mohammed Rabil T.',
+]);
+
+test('acs event does not treat a surname as a trailing initial alias', function (string $fullName) {
+    ['company' => $company] = makeAcsPersonResolutionCompanies();
+
+    HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'hv-person-surname-1',
+        'full_name' => $fullName,
+    ]);
+
+    $resolved = ResolveHikvisionPersonFromAcsEvent::resolve($company->id, [
+        'name' => explode(' ', $fullName)[0],
+    ]);
+
+    expect($resolved['person_hikvision_id'])->toBe('')
+        ->and($resolved['hikvision_person_id'])->toBeNull();
+})->with([
+    'Ahmed Ali',
+    'John Doe',
+    'Sam Lee',
+    'Kim Tan',
+]);
 
 test('acs event does not silently attach an ambiguous name match', function () {
     ['company' => $company] = makeAcsPersonResolutionCompanies();

@@ -14,7 +14,7 @@ final class ResolveHikvisionPersonFromAcsEvent
      * 1. Explicit Hikvision personId from the ACS payload (when present)
      * 2. Unique company-scoped person_code match via employeeNoString / employeeNo
      * 3. Unique exact full_name match (case-insensitive)
-     * 4. Unique safe short trailing-initial alias (e.g. "Mohammed Rabil" ↔ "Mohammed Rabil T")
+     * 4. Unique safe trailing-initial alias (e.g. "Mohammed Rabil" ↔ "Mohammed Rabil T" / "T.")
      *
      * Ambiguous matches never attach a person. Lookups never cross companies.
      *
@@ -92,6 +92,92 @@ final class ResolveHikvisionPersonFromAcsEvent
     }
 
     /**
+     * Resolve a legacy unlinked event identity against already-loaded company people.
+     *
+     * Priority matches ACS import fallback (no payload personId): unique person_code, then unique
+     * exact full_name, then unique safe trailing-initial alias. Ambiguous matches return null.
+     * $people must already be scoped to the active company.
+     *
+     * @param  Collection<int, HikvisionPerson>  $people
+     */
+    public static function uniquePersonFromUnlinkedIdentity(
+        Collection $people,
+        string $personName,
+        string $personCode = '',
+    ): ?HikvisionPerson {
+        $byCode = self::uniquePersonFromCodeAmong($people, $personCode);
+
+        if ($byCode !== null) {
+            return $byCode;
+        }
+
+        return self::uniquePersonFromNameAmong($people, $personName);
+    }
+
+    /**
+     * @param  Collection<int, HikvisionPerson>  $people
+     */
+    public static function uniquePersonFromCodeAmong(Collection $people, string $personCode): ?HikvisionPerson
+    {
+        $personCode = trim($personCode);
+
+        if ($personCode === '') {
+            return null;
+        }
+
+        $matches = $people
+            ->filter(fn (HikvisionPerson $person): bool => trim((string) ($person->person_code ?? '')) === $personCode)
+            ->values();
+
+        if ($matches->count() !== 1) {
+            return null;
+        }
+
+        return $matches->first();
+    }
+
+    /**
+     * @param  Collection<int, HikvisionPerson>  $people
+     */
+    public static function uniquePersonFromNameAmong(Collection $people, string $personName): ?HikvisionPerson
+    {
+        $normalized = mb_strtolower(trim($personName));
+
+        if ($normalized === '') {
+            return null;
+        }
+
+        $exact = $people
+            ->filter(fn (HikvisionPerson $person): bool => mb_strtolower(trim((string) ($person->full_name ?? ''))) === $normalized)
+            ->values();
+
+        if ($exact->count() === 1) {
+            return $exact->first();
+        }
+
+        if ($exact->count() > 1) {
+            return null;
+        }
+
+        $aliased = $people
+            ->filter(function (HikvisionPerson $person) use ($normalized): bool {
+                $aliases = array_map(
+                    mb_strtolower(...),
+                    HikvisionPersonNameAliases::forPerson($person),
+                );
+
+                return in_array($normalized, $aliases, true);
+            })
+            ->values();
+
+        if ($aliased->count() !== 1) {
+            return null;
+        }
+
+        return $aliased->first();
+    }
+
+    /**
      * @param  array<string, mixed>  $acsEvent
      */
     private static function extractExplicitPersonId(array $acsEvent): string
@@ -155,21 +241,8 @@ final class ResolveHikvisionPersonFromAcsEvent
             ->whereNotNull('full_name')
             ->where('full_name', '!=', '')
             ->whereRaw('LOWER(full_name) LIKE ?', [$normalized.' %'])
-            ->get()
-            ->filter(function (HikvisionPerson $person) use ($normalized): bool {
-                $aliases = array_map(
-                    mb_strtolower(...),
-                    HikvisionPersonNameAliases::forPerson($person),
-                );
+            ->get();
 
-                return in_array($normalized, $aliases, true);
-            })
-            ->values();
-
-        if ($candidates->count() !== 1) {
-            return null;
-        }
-
-        return $candidates->first();
+        return self::uniquePersonFromNameAmong($candidates, $personName);
     }
 }

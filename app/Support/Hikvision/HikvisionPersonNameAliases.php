@@ -10,8 +10,9 @@ final class HikvisionPersonNameAliases
     /**
      * Safe exact-name aliases for matching unlinked access events to a linked employee.
      *
-     * Includes the employee HR name, Hikvision full name, and a deterministic short trailing
-     * initial strip (e.g. "Mohammed Rabil T" → "Mohammed Rabil"). Never uses partial/fuzzy matches.
+     * Includes the employee HR name, Hikvision full name, and a conservative trailing-initial
+     * strip (e.g. "Mohammed Rabil T" / "Mohammed Rabil T." → "Mohammed Rabil"). Surnames are
+     * never stripped. Never uses partial/fuzzy matches.
      *
      * @return list<string>
      */
@@ -61,13 +62,21 @@ final class HikvisionPersonNameAliases
 
         $last = (string) end($parts);
 
-        if (mb_strlen($last) > 3) {
+        if (! self::isTrailingInitial($last)) {
             return [];
         }
 
         $withoutTrailing = trim(implode(' ', array_slice($parts, 0, -1)));
 
         return $withoutTrailing !== '' ? [$withoutTrailing] : [];
+    }
+
+    /**
+     * A genuine trailing initial is a single alphabetic character, optionally followed by a period.
+     */
+    private static function isTrailingInitial(string $token): bool
+    {
+        return (bool) preg_match('/^\p{L}\.?$/u', $token);
     }
 
     /**

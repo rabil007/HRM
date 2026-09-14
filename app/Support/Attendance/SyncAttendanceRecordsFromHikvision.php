@@ -6,8 +6,8 @@ use App\Models\AttendanceRecord;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
+use App\Models\HikvisionPerson;
 use App\Models\LeaveRequest;
-use App\Support\Hikvision\HikvisionPersonNameAliases;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -49,11 +49,17 @@ final class SyncAttendanceRecordsFromHikvision
             ->orderBy('id')
             ->get();
 
-        $companyEvents = $this->loadCompanyEventsForWindow($companyId, $employees, $rangeStart, $rangeEnd);
+        $companyPeople = EmployeeHikvisionAccessEventMatcher::companyPeople($companyId);
+        $companyEvents = $this->loadCompanyEventsForWindow($companyId, $employees, $companyPeople, $rangeStart, $rangeEnd);
 
         /** @var Collection<string, Collection<int, HikvisionAccessEvent>> $eventsByPersonId */
         $eventsByPersonId = $companyEvents->groupBy(
             fn (HikvisionAccessEvent $event): string => (string) ($event->person_hikvision_id ?? ''),
+        );
+
+        $unlinkedEventsByResolvedPersonId = EmployeeHikvisionAccessEventMatcher::indexUnlinkedEventsByResolvedPersonId(
+            $companyEvents,
+            $companyPeople,
         );
 
         $employeeIds = $employees->pluck('id');
@@ -86,7 +92,11 @@ final class SyncAttendanceRecordsFromHikvision
                 );
 
         foreach ($employees as $employee) {
-            $employeeEvents = $this->resolveEmployeeEvents($employee, $eventsByPersonId, $companyEvents);
+            $employeeEvents = $this->resolveEmployeeEvents(
+                $employee,
+                $eventsByPersonId,
+                $unlinkedEventsByResolvedPersonId,
+            );
 
             $synced += $this->syncEmployee(
                 $employee,
@@ -121,11 +131,13 @@ final class SyncAttendanceRecordsFromHikvision
 
     /**
      * @param  Collection<int, Employee>  $employees
+     * @param  Collection<int, HikvisionPerson>  $companyPeople
      * @return Collection<int, HikvisionAccessEvent>
      */
     private function loadCompanyEventsForWindow(
         int $companyId,
         Collection $employees,
+        Collection $companyPeople,
         CarbonInterface $rangeStart,
         CarbonInterface $rangeEnd,
     ): Collection {
@@ -135,15 +147,17 @@ final class SyncAttendanceRecordsFromHikvision
             ->unique()
             ->values();
 
-        $personCodes = $employees
-            ->map(fn (Employee $employee): string => trim((string) ($employee->hikvisionPerson?->person_code ?? '')))
-            ->filter(fn (string $personCode): bool => $personCode !== '')
+        $unlinkedKeys = $employees->map(
+            fn (Employee $employee): array => EmployeeHikvisionAccessEventMatcher::uniqueUnlinkedIdentityKeys($employee, $companyPeople),
+        );
+
+        $nameAliases = $unlinkedKeys
+            ->flatMap(fn (array $keys): array => $keys[0])
             ->unique()
             ->values();
 
-        $nameAliases = $employees
-            ->flatMap(fn (Employee $employee): array => HikvisionPersonNameAliases::forEmployee($employee))
-            ->map(fn (string $alias): string => mb_strtolower($alias))
+        $personCodes = $unlinkedKeys
+            ->flatMap(fn (array $keys): array => $keys[1])
             ->unique()
             ->values();
 
@@ -188,18 +202,18 @@ final class SyncAttendanceRecordsFromHikvision
 
     /**
      * @param  Collection<string, Collection<int, HikvisionAccessEvent>>  $eventsByPersonId
-     * @param  Collection<int, HikvisionAccessEvent>  $companyEvents
+     * @param  Collection<int, Collection<int, HikvisionAccessEvent>>  $unlinkedEventsByResolvedPersonId
      * @return Collection<int, HikvisionAccessEvent>
      */
     private function resolveEmployeeEvents(
         Employee $employee,
         Collection $eventsByPersonId,
-        Collection $companyEvents,
+        Collection $unlinkedEventsByResolvedPersonId,
     ): Collection {
         return EmployeeHikvisionAccessEventMatcher::resolveFromLoadedEvents(
             $employee,
             $eventsByPersonId,
-            $companyEvents,
+            $unlinkedEventsByResolvedPersonId,
         );
     }
 
