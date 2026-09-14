@@ -11,14 +11,14 @@ return new class extends Migration
         Schema::create('company_document_expiry_notification_recipients', function (Blueprint $table) {
             $table->id();
             $table->foreignId('setting_id')
-                ->constrained('company_document_expiry_notification_settings')
+                ->constrained('company_document_expiry_notification_settings', 'id', 'cdnr_setting_id_foreign')
                 ->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('type')->default('to'); // 'to' or 'cc'
             $table->timestamps();
 
-            $table->unique(['setting_id', 'user_id', 'type']);
-            $table->index(['setting_id', 'type']);
+            $table->unique(['setting_id', 'user_id', 'type'], 'cdnr_setting_user_type_unique');
+            $table->index(['setting_id', 'type'], 'cdnr_setting_type_index');
         });
     }
 
