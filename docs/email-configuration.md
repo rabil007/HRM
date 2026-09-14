@@ -44,6 +44,40 @@ Check `routes/settings.php` middleware for the exact `settings.*` permission on 
 
 Document bulk email from employee browse uses `DocumentBulkEmailController` and company mail configuration.
 
+## Built-in email templates
+
+Canonical definitions live in `App\Support\Email\BuiltInEmailTemplates` and are applied by `php artisan db:seed --class=EmailTemplatesSeeder`. Fresh installs and explicit seeding ship production-ready subject/body copy. Administrators should not need to rewrite every template before go-live.
+
+### Seeder safety
+
+Running `EmailTemplatesSeeder` does **not** overwrite administrator customizations.
+
+| Existing row | Seeder behavior |
+|--------------|-----------------|
+| Missing | Create with the current production default |
+| Soft-deleted required built-in | Restore without changing subject, body, TO/CC, enabled, footer, or dispatch settings |
+| Present with customized content | Leave subject, body, TO/CC, enabled, footer, dispatch, and default flags untouched |
+| Present and still an exact known stock default | Upgrade subject/body (and stock labels) to the current production default |
+
+Known previous stock defaults (for example the original Document share “Overseas Marine Services” copy, or “Automated expiry summary email.”) are listed in the catalog. If subject **and** body both still match a listed stock default, they are upgraded. Any other content is treated as an administrator customization.
+
+### System-managed expiry layouts
+
+`document_expiry_alert` and `company_document_expiry_alert` are HTML summary emails. Subject, table body, and branding come from the Mailables and Blade views, not from the EmailTemplate subject/body fields. Preview uses the production summary layout with **fake sample rows**, never production employee data.
+
+| Template | Runtime-consumed EmailTemplate fields | Recipients | Enable/disable |
+|----------|----------------------------------------|------------|----------------|
+| `document_expiry_alert` | TO/CC presets, `dispatch_at`, `include_company_footer`, `enabled` | Settings → Email Templates | Template `enabled` |
+| `company_document_expiry_alert` | `include_company_footer` only | Company Documents → Expiry Notification Settings | Per-company `enabled` |
+
+The Email Templates UI hides unused controls for these slugs. The unused `email_templates.enabled` field on `company_document_expiry_alert` is not shown as a Disabled badge.
+
+Shared `mail.layout` supplies logo, company name, footer, and contact information. Template bodies should not duplicate that footer.
+
+### Recipients table migration
+
+`company_document_expiry_notification_recipients` is created or repaired in place. Existing recipient rows are never dropped. A later additive migration (`ensure_company_document_expiry_notification_recipients_schema`) is a no-op when the table is already correct.
+
 ## Document recipient action requests (Phase 7A)
 
 Recipient signing/acknowledgement requests use the same application SMTP (`MailSettingsService`), the queue worker, and Email Templates.
@@ -75,7 +109,7 @@ Daily alerts for expiring employee documents. Recipients come from the **global 
 | Item | Value |
 |------|--------|
 | Template slug | `document_expiry_alert` |
-| Category | Document |
+| Category | Notification |
 | Job | `SendDocumentExpiryAlertJob` |
 | Service | `DocumentExpiryAlertService` |
 | Scheduler | `documents:dispatch-expiry-alerts` (daily, via `DocumentExpiryAlertSchedule`) |

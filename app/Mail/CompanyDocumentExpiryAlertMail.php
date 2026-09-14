@@ -20,12 +20,15 @@ class CompanyDocumentExpiryAlertMail extends Mailable
         public array $rows,
         public int $alertWindowDays,
         public bool $includeCompanyFooter = true,
+        public ?string $complianceUrl = null,
     ) {}
 
     public function envelope(): Envelope
     {
+        $count = count($this->rows);
+
         return new Envelope(
-            subject: "Company Document Expiry Alert - Next {$this->alertWindowDays} Days",
+            subject: "Company Document Expiry Alert — {$count} document(s) require attention",
         );
     }
 

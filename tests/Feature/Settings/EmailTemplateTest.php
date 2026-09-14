@@ -281,3 +281,89 @@ test('users without platform manage access cannot delete email templates', funct
         ->delete(route('application.email-templates.destroy', $template))
         ->assertForbidden();
 });
+
+test('company document expiry template exposes footer-only controls', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
+
+    $this->actingAs($user)
+        ->get(route('application.email-templates.index'))
+        ->assertOk();
+
+    $template = EmailTemplate::query()->where('slug', 'company_document_expiry_alert')->firstOrFail();
+
+    expect($template->toBrowseArray()['controls'])->toMatchArray([
+        'enabled' => false,
+        'to_preset' => false,
+        'cc_preset' => false,
+        'dispatch_at' => false,
+        'subject' => false,
+        'body' => false,
+        'is_default' => false,
+        'include_company_footer' => true,
+        'system_layout' => true,
+    ]);
+});
+
+test('updating company document expiry template ignores unused enabled and recipient fields', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'manage');
+
+    $template = EmailTemplate::query()->where('slug', 'company_document_expiry_alert')->firstOrFail();
+    $originalSubject = $template->subject;
+    $originalBody = $template->body_html;
+
+    $this->actingAs($user)
+        ->put(route('application.email-templates.update', $template), [
+            'slug' => 'company_document_expiry_alert',
+            'label' => $template->label,
+            'category' => $template->category->value,
+            'to_preset' => 'ignored@example.com',
+            'cc_preset' => 'also-ignored@example.com',
+            'subject' => 'Should not persist',
+            'body_html' => 'Should not persist either.',
+            'include_company_footer' => false,
+            'is_default' => true,
+            'enabled' => false,
+            'sort_order' => $template->sort_order,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $template->refresh();
+
+    expect($template->include_company_footer)->toBeFalse()
+        ->and($template->enabled)->toBeTrue()
+        ->and($template->to_preset)->toBeNull()
+        ->and($template->cc_preset)->toBeNull()
+        ->and($template->subject)->toBe($originalSubject)
+        ->and($template->body_html)->toBe($originalBody);
+});
+
+test('employee document expiry preview still renders the summary table', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
+
+    $template = EmailTemplate::query()->where('slug', 'document_expiry_alert')->firstOrFail();
+
+    $this->actingAs($user)
+        ->get(route('application.email-templates.preview', $template))
+        ->assertOk()
+        ->assertSee('Employee Document Expiry Alert', false)
+        ->assertSee('John Doe', false)
+        ->assertSee('Passport', false);
+});
+
+test('company document expiry preview renders the summary table', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
+
+    $template = EmailTemplate::query()->where('slug', 'company_document_expiry_alert')->firstOrFail();
+
+    $this->actingAs($user)
+        ->get(route('application.email-templates.preview', $template))
+        ->assertOk()
+        ->assertSee('Company Document Expiry Alert', false)
+        ->assertSee('Trade License', false)
+        ->assertSee('TL-2026-001', false);
+});

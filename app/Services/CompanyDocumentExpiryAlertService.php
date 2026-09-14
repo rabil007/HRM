@@ -161,6 +161,7 @@ class CompanyDocumentExpiryAlertService
             rows: $rows,
             alertWindowDays: $alertWindowDays,
             includeCompanyFooter: $this->includeCompanyFooter(),
+            complianceUrl: route('organization.companies.documents.index', $company),
         ));
     }
 

@@ -66,6 +66,7 @@ final class EmailTemplatePreview
                 includeCompanyFooter: $includeCompanyFooter,
             ),
             'document_expiry_alert' => $this->renderDocumentExpiryAlert($organizationName, $includeCompanyFooter),
+            'company_document_expiry_alert' => $this->renderCompanyDocumentExpiryAlert($organizationName, $includeCompanyFooter),
             'document_share' => $this->renderDocumentShare($organizationName, $renderedSubject, $renderedBody, $includeCompanyFooter),
             'crew_operational_alert_digest' => $this->renderCrewOperationalAlertDigest(
                 subject: $renderedSubject,
@@ -162,22 +163,49 @@ final class EmailTemplatePreview
             'organizationName' => $organizationName,
             'includeCompanyFooter' => $includeCompanyFooter,
             'alertWindowDays' => 30,
+            'complianceUrl' => url('/organization/documents'),
             'rows' => [
                 [
-                    'employee_name' => 'Jane Smith',
-                    'employee_id' => 'EMP-1042',
+                    'employee_name' => 'John Doe',
+                    'employee_id' => '1042',
                     'document_name' => 'Passport',
-                    'expiry_date' => now()->addDays(12)->format('d M Y'),
-                    'days_remaining' => 12,
+                    'expiry_date' => '20 Oct 2026',
+                    'days_remaining' => 36,
                     'folder_url' => url('/organization/documents/employees/1'),
                 ],
                 [
-                    'employee_name' => 'Ahmed Khan',
-                    'employee_id' => 'EMP-0871',
-                    'document_name' => 'Seaman Book',
-                    'expiry_date' => now()->addDays(24)->format('d M Y'),
-                    'days_remaining' => 24,
+                    'employee_name' => 'Jane Doe',
+                    'employee_id' => '1077',
+                    'document_name' => 'Visa',
+                    'expiry_date' => '28 Sep 2026',
+                    'days_remaining' => 14,
                     'folder_url' => url('/organization/documents/employees/2'),
+                ],
+            ],
+        ])->render();
+    }
+
+    private function renderCompanyDocumentExpiryAlert(string $organizationName, bool $includeCompanyFooter): string
+    {
+        return View::make('mail.company-document-expiry-alert', [
+            'organizationName' => $organizationName,
+            'includeCompanyFooter' => $includeCompanyFooter,
+            'alertWindowDays' => 30,
+            'complianceUrl' => url('/organization/companies/1/documents'),
+            'rows' => [
+                [
+                    'document_name' => 'Trade License',
+                    'document_number' => 'TL-2026-001',
+                    'expiry_date' => '15 Oct 2026',
+                    'days_remaining' => 31,
+                    'view_url' => url('/organization/companies/1/documents'),
+                ],
+                [
+                    'document_name' => 'Establishment Card',
+                    'document_number' => 'EC-5582',
+                    'expiry_date' => '25 Sep 2026',
+                    'days_remaining' => 11,
+                    'view_url' => url('/organization/companies/1/documents'),
                 ],
             ],
         ])->render();
@@ -249,6 +277,10 @@ final class EmailTemplatePreview
             '{{action_url}}' => url('/document-action/preview-token'),
             '{{step_label}}' => 'Subject employee',
             '{{days_remaining}}' => '3',
+            '{{user_name}}' => 'Jane Smith',
+            '{{reset_url}}' => url('/reset-password/preview-token'),
+            '{{expire_minutes}}' => '60',
+            '{{signature_url}}' => url('/signatures/preview-token'),
         ];
     }
 

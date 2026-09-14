@@ -218,6 +218,7 @@ class DocumentExpiryAlertService
             rows: $rows,
             alertWindowDays: $this->alertWindowDays(),
             includeCompanyFooter: (bool) ($this->resolveAlertTemplate()?->include_company_footer ?? true),
+            complianceUrl: route('organization.documents'),
         ));
     }
 

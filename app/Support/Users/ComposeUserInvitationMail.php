@@ -74,9 +74,9 @@ final class ComposeUserInvitationMail
     public static function defaultBodyHtml(): string
     {
         return <<<'HTML'
-<p style="margin:0 0 16px;">Hello {{invitee_name}},</p>
-<p style="margin:0 0 16px;">{{inviter_name}} has invited you to join <strong>{{company_name}}</strong> on {{brand_name}}.</p>
-<p style="margin:0 0 16px;">Use the button below to accept this invitation:</p>
+<p style="margin:0 0 16px;">Dear {{invitee_name}},</p>
+<p style="margin:0 0 16px;">You have been invited to join <strong>{{company_name}}</strong> on {{brand_name}}.</p>
+<p style="margin:0 0 16px;">{{inviter_name}} sent this invitation. Use the secure button below to activate your account and set up your access.</p>
 <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto 24px;">
     <tr>
         <td class="email-btn-cell" align="center" style="border-radius:12px;background-color:#2563eb;">
@@ -86,9 +86,8 @@ final class ComposeUserInvitationMail
         </td>
     </tr>
 </table>
-<p style="margin:0 0 16px;">If you already have an account, sign in with your existing credentials after clicking the button. If you are new, you will be guided through account setup and password creation.</p>
-<p style="margin:0 0 16px;">This invitation link will expire on {{expires_at}}.</p>
-<p style="margin:0;">Thank you,<br>{{company_name}}</p>
+<p style="margin:0 0 16px;">This invitation is intended only for the recipient and expires on {{expires_at}}.</p>
+<p style="margin:0;">If you were not expecting this invitation, please contact your administrator.</p>
 HTML;
     }
 }

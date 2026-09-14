@@ -1,34 +1,26 @@
 <?php
 
+use App\Support\Migrations\EnsureCompanyDocumentExpiryNotificationRecipientsTable;
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Create or repair the recipients table without dropping rows.
+     *
+     * Fresh databases create the table. If a previous MySQL DDL attempt left a
+     * partial table, missing indexes/foreign keys are added in place. The table
+     * is dropped and recreated only when it exists, is empty, and is missing
+     * required columns. Existing recipient rows are never discarded.
+     */
     public function up(): void
     {
-        // Recover from a prior partial MySQL DDL run where the table was created
-        // but foreign keys/indexes failed (identifier too long). The table may
-        // exist without constraints while this migration remains unrecorded.
-        Schema::dropIfExists('company_document_expiry_notification_recipients');
-
-        Schema::create('company_document_expiry_notification_recipients', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('setting_id')
-                ->constrained('company_document_expiry_notification_settings', 'id', 'cdnr_setting_id_foreign')
-                ->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('type')->default('to'); // 'to' or 'cc'
-            $table->timestamps();
-
-            $table->unique(['setting_id', 'user_id', 'type'], 'cdnr_setting_user_type_unique');
-            $table->index(['setting_id', 'type'], 'cdnr_setting_type_index');
-        });
+        EnsureCompanyDocumentExpiryNotificationRecipientsTable::up();
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('company_document_expiry_notification_recipients');
+        Schema::dropIfExists(EnsureCompanyDocumentExpiryNotificationRecipientsTable::TABLE);
     }
 };

@@ -43,6 +43,18 @@ import { EmailTemplatePreviewDialog } from '@/features/settings/email-template-p
 import type { EmailTemplatePreviewTarget } from '@/features/settings/email-template-preview-dialog';
 import { toast } from '@/lib/toast';
 
+export type EmailTemplateControls = {
+    to_preset: boolean;
+    cc_preset: boolean;
+    dispatch_at: boolean;
+    subject: boolean;
+    body: boolean;
+    enabled: boolean;
+    is_default: boolean;
+    include_company_footer: boolean;
+    system_layout: boolean;
+};
+
 export type EmailTemplateItem = {
     id: number;
     slug: string;
@@ -58,7 +70,30 @@ export type EmailTemplateItem = {
     is_default: boolean;
     enabled: boolean;
     sort_order: number;
+    controls?: EmailTemplateControls;
 };
+
+const defaultTemplateControls = (): EmailTemplateControls => ({
+    to_preset: true,
+    cc_preset: true,
+    dispatch_at: false,
+    subject: true,
+    body: true,
+    enabled: true,
+    is_default: true,
+    include_company_footer: true,
+    system_layout: false,
+});
+
+function templateControls(
+    template?: EmailTemplateItem | null,
+): EmailTemplateControls {
+    return template?.controls ?? defaultTemplateControls();
+}
+
+function showsEnabledBadge(template: EmailTemplateItem): boolean {
+    return templateControls(template).enabled && !template.enabled;
+}
 
 type Option = { value: string; label: string };
 
@@ -130,6 +165,7 @@ export default function EmailTemplatesSettings({
         useState<EmailTemplatePreviewTarget | null>(null);
 
     const form = useForm<FormState>(emptyForm());
+    const sheetControls = templateControls(editing);
 
     const expiryAlertTemplate = useMemo(() => {
         return templates.find((t) => t.slug === expiry_alert_template_slug);
@@ -324,17 +360,19 @@ export default function EmailTemplatesSettings({
                                 <div className="mt-0.5 flex items-baseline gap-2">
                                     <p className="text-2xl font-bold tracking-tight">
                                         {
-                                            templates.filter((t) => t.enabled)
-                                                .length
+                                            templates.filter(
+                                                (t) => !showsEnabledBadge(t),
+                                            ).length
                                         }
                                     </p>
-                                    {templates.filter((t) => !t.enabled)
-                                        .length > 0 && (
+                                    {templates.filter((t) =>
+                                        showsEnabledBadge(t),
+                                    ).length > 0 && (
                                         <span className="text-[10px] text-muted-foreground">
                                             (
                                             {
-                                                templates.filter(
-                                                    (t) => !t.enabled,
+                                                templates.filter((t) =>
+                                                    showsEnabledBadge(t),
                                                 ).length
                                             }{' '}
                                             disabled)
@@ -434,15 +472,21 @@ export default function EmailTemplatesSettings({
                                                             {template.label}
                                                         </h3>
                                                         <div className="flex flex-wrap gap-1.5">
-                                                            {template.is_default && (
-                                                                <Badge
-                                                                    variant="secondary"
-                                                                    className="rounded-md border-transparent bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
-                                                                >
-                                                                    Default
-                                                                </Badge>
-                                                            )}
-                                                            {!template.enabled && (
+                                                            {template.is_default &&
+                                                                templateControls(
+                                                                    template,
+                                                                )
+                                                                    .is_default && (
+                                                                    <Badge
+                                                                        variant="secondary"
+                                                                        className="rounded-md border-transparent bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
+                                                                    >
+                                                                        Default
+                                                                    </Badge>
+                                                                )}
+                                                            {showsEnabledBadge(
+                                                                template,
+                                                            ) && (
                                                                 <Badge
                                                                     variant="outline"
                                                                     className="rounded-md border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground/80"
@@ -471,21 +515,25 @@ export default function EmailTemplatesSettings({
                                                             documents.
                                                             Recipients are the
                                                             TO / CC presets on
-                                                            this template.
+                                                            this template. The
+                                                            email layout and
+                                                            content are
+                                                            system-managed.
                                                         </p>
                                                     ) : template.slug ===
                                                       company_expiry_alert_template_slug ? (
                                                         <p className="text-xs leading-relaxed text-muted-foreground">
                                                             Company Document
-                                                            expiry emails use
-                                                            this template only
-                                                            for the company
-                                                            footer. Recipients
-                                                            and the enabled
-                                                            switch live on each
-                                                            company&apos;s
-                                                            Company Documents
-                                                            page.
+                                                            expiry recipients
+                                                            and delivery status
+                                                            are configured per
+                                                            company under
+                                                            Company Documents →
+                                                            Expiry Notification
+                                                            Settings. The expiry
+                                                            email layout and
+                                                            content are
+                                                            system-managed.
                                                         </p>
                                                     ) : (
                                                         <p className="w-fit truncate rounded border border-border/20 bg-muted/40 px-2 py-1 font-mono text-xs text-muted-foreground dark:bg-black/20">
@@ -523,59 +571,63 @@ export default function EmailTemplatesSettings({
                                                         </div>
                                                     )}
 
-                                                {template.to_preset && (
-                                                    <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                                                        <span className="mt-0.5 min-w-[24px] font-semibold text-foreground dark:text-zinc-300">
-                                                            To:
-                                                        </span>
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {template.to_preset
-                                                                .split(',')
-                                                                .map(
-                                                                    (
-                                                                        email,
-                                                                        idx,
-                                                                    ) => (
-                                                                        <span
-                                                                            key={
-                                                                                idx
-                                                                            }
-                                                                            className="inline-flex items-center rounded-md border border-primary/10 bg-primary/5 px-2 py-0.5 font-mono text-[10px] text-primary"
-                                                                        >
-                                                                            {email.trim()}
-                                                                        </span>
-                                                                    ),
-                                                                )}
+                                                {templateControls(template)
+                                                    .to_preset &&
+                                                    template.to_preset && (
+                                                        <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                                                            <span className="mt-0.5 min-w-[24px] font-semibold text-foreground dark:text-zinc-300">
+                                                                To:
+                                                            </span>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {template.to_preset
+                                                                    .split(',')
+                                                                    .map(
+                                                                        (
+                                                                            email,
+                                                                            idx,
+                                                                        ) => (
+                                                                            <span
+                                                                                key={
+                                                                                    idx
+                                                                                }
+                                                                                className="inline-flex items-center rounded-md border border-primary/10 bg-primary/5 px-2 py-0.5 font-mono text-[10px] text-primary"
+                                                                            >
+                                                                                {email.trim()}
+                                                                            </span>
+                                                                        ),
+                                                                    )}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )}
+                                                    )}
 
-                                                {template.cc_preset && (
-                                                    <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                                                        <span className="mt-0.5 min-w-[24px] font-semibold text-foreground dark:text-zinc-300">
-                                                            CC:
-                                                        </span>
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {template.cc_preset
-                                                                .split(',')
-                                                                .map(
-                                                                    (
-                                                                        email,
-                                                                        idx,
-                                                                    ) => (
-                                                                        <span
-                                                                            key={
-                                                                                idx
-                                                                            }
-                                                                            className="inline-flex items-center rounded-md border border-border/40 bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
-                                                                        >
-                                                                            {email.trim()}
-                                                                        </span>
-                                                                    ),
-                                                                )}
+                                                {templateControls(template)
+                                                    .cc_preset &&
+                                                    template.cc_preset && (
+                                                        <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                                                            <span className="mt-0.5 min-w-[24px] font-semibold text-foreground dark:text-zinc-300">
+                                                                CC:
+                                                            </span>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {template.cc_preset
+                                                                    .split(',')
+                                                                    .map(
+                                                                        (
+                                                                            email,
+                                                                            idx,
+                                                                        ) => (
+                                                                            <span
+                                                                                key={
+                                                                                    idx
+                                                                                }
+                                                                                className="inline-flex items-center rounded-md border border-border/40 bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
+                                                                            >
+                                                                                {email.trim()}
+                                                                            </span>
+                                                                        ),
+                                                                    )}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )}
+                                                    )}
                                             </div>
 
                                             {/* Body HTML Frame */}
@@ -770,71 +822,83 @@ export default function EmailTemplatesSettings({
                     </MasterDataField>
                 </div>
 
-                {form.data.slug === company_expiry_alert_template_slug ? (
+                {sheetControls.system_layout ? (
                     <div className="rounded-xl border border-border/60 bg-muted/30 p-4 text-xs leading-relaxed text-muted-foreground">
                         <p className="font-semibold text-foreground/80">
-                            Company Document expiry delivery
+                            {form.data.slug ===
+                            company_expiry_alert_template_slug
+                                ? 'Company Document expiry delivery'
+                                : 'Employee Document expiry delivery'}
                         </p>
                         <p className="mt-1">
-                            Recipients and the on/off switch are configured per
-                            company under Company Documents → Expiry
-                            Notification Settings. This template only controls
-                            whether the company footer is included. Disabling
-                            this row does not stop those emails. Subject, body,
-                            and schedule come from the Company Document mailable
-                            and the shared daily document expiry scheduler.
+                            {form.data.slug ===
+                            company_expiry_alert_template_slug
+                                ? 'Company Document expiry recipients and delivery status are configured per company under Company Documents → Expiry Notification Settings. The expiry email layout and content are system-managed.'
+                                : 'Employee Document expiry recipients and dispatch time are configured on this template. The expiry email layout and content are system-managed.'}
                         </p>
                     </div>
-                ) : (
+                ) : null}
+
+                {sheetControls.to_preset || sheetControls.cc_preset ? (
                     <>
-                        <MasterDataField
-                            id="to_preset"
-                            label="To preset (optional)"
-                            error={form.errors.to_preset}
-                        >
-                            <Input
+                        {sheetControls.to_preset ? (
+                            <MasterDataField
                                 id="to_preset"
-                                type="text"
-                                value={form.data.to_preset}
-                                onChange={(e) =>
-                                    form.setData('to_preset', e.target.value)
-                                }
-                                placeholder="recipient@example.com, backup@example.com"
-                                disabled={!canMutateForm}
-                                className={masterDataInputClass}
-                            />
-                            <p className="text-xs text-muted-foreground/80">
-                                Comma-separated addresses. The first fills To in
-                                the send modal; any extra addresses are added to
-                                CC.
-                            </p>
-                        </MasterDataField>
+                                label="To preset (optional)"
+                                error={form.errors.to_preset}
+                            >
+                                <Input
+                                    id="to_preset"
+                                    type="text"
+                                    value={form.data.to_preset}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'to_preset',
+                                            e.target.value,
+                                        )
+                                    }
+                                    placeholder="recipient@example.com, backup@example.com"
+                                    disabled={!canMutateForm}
+                                    className={masterDataInputClass}
+                                />
+                                <p className="text-xs text-muted-foreground/80">
+                                    Comma-separated addresses. The first fills
+                                    To in the send modal; any extra addresses
+                                    are added to CC.
+                                </p>
+                            </MasterDataField>
+                        ) : null}
 
-                        <MasterDataField
-                            id="cc_preset"
-                            label="CC preset (optional)"
-                            error={form.errors.cc_preset}
-                        >
-                            <Input
+                        {sheetControls.cc_preset ? (
+                            <MasterDataField
                                 id="cc_preset"
-                                type="text"
-                                value={form.data.cc_preset}
-                                onChange={(e) =>
-                                    form.setData('cc_preset', e.target.value)
-                                }
-                                placeholder="cc1@example.com, cc2@example.com"
-                                disabled={!canMutateForm}
-                                className={masterDataInputClass}
-                            />
-                            <p className="text-xs text-muted-foreground/80">
-                                Comma-separated CC addresses prefilled when this
-                                template is chosen.
-                            </p>
-                        </MasterDataField>
+                                label="CC preset (optional)"
+                                error={form.errors.cc_preset}
+                            >
+                                <Input
+                                    id="cc_preset"
+                                    type="text"
+                                    value={form.data.cc_preset}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'cc_preset',
+                                            e.target.value,
+                                        )
+                                    }
+                                    placeholder="cc1@example.com, cc2@example.com"
+                                    disabled={!canMutateForm}
+                                    className={masterDataInputClass}
+                                />
+                                <p className="text-xs text-muted-foreground/80">
+                                    Comma-separated CC addresses prefilled when
+                                    this template is chosen.
+                                </p>
+                            </MasterDataField>
+                        ) : null}
                     </>
-                )}
+                ) : null}
 
-                {form.data.slug === expiry_alert_template_slug ? (
+                {sheetControls.dispatch_at ? (
                     <MasterDataField
                         id="dispatch_at"
                         label="Daily dispatch time"
@@ -857,13 +921,13 @@ export default function EmailTemplatesSettings({
                             <span className="font-mono text-muted-foreground">
                                 schedule:run
                             </span>{' '}
-                            every minute.
+                            every minute. This time is shared with Company
+                            Document expiry emails.
                         </p>
                     </MasterDataField>
                 ) : null}
 
-                {form.data.slug !== expiry_alert_template_slug &&
-                form.data.slug !== company_expiry_alert_template_slug ? (
+                {sheetControls.subject && sheetControls.body ? (
                     <>
                         <MasterDataField
                             id="subject"
@@ -902,23 +966,18 @@ export default function EmailTemplatesSettings({
                             </p>
                         </MasterDataField>
                     </>
-                ) : (
-                    <p className="rounded-xl border border-border/80 bg-muted/20 px-4 py-3 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/5">
-                        The automated expiry email uses a fixed HTML table
-                        (employee, document, expiry date, days remaining, view
-                        folder). Configure recipients and daily dispatch time
-                        below.
-                    </p>
-                )}
+                ) : null}
 
-                <MasterDataActiveToggle
-                    checked={form.data.include_company_footer}
-                    onCheckedChange={(checked) =>
-                        form.setData('include_company_footer', checked)
-                    }
-                    title="Include company footer"
-                    description="Adds your company logo, contact details, and certification bar at the bottom of the email."
-                />
+                {sheetControls.include_company_footer ? (
+                    <MasterDataActiveToggle
+                        checked={form.data.include_company_footer}
+                        onCheckedChange={(checked) =>
+                            form.setData('include_company_footer', checked)
+                        }
+                        title="Include company footer"
+                        description="Adds your company logo, contact details, and certification bar at the bottom of the email."
+                    />
+                ) : null}
 
                 <MasterDataField
                     id="sort_order"
@@ -941,23 +1000,27 @@ export default function EmailTemplatesSettings({
                     />
                 </MasterDataField>
 
-                <MasterDataActiveToggle
-                    checked={form.data.is_default}
-                    onCheckedChange={(checked) =>
-                        form.setData('is_default', checked)
-                    }
-                    title="Default for category"
-                    description="Used when a feature does not specify a template."
-                />
+                {sheetControls.is_default ? (
+                    <MasterDataActiveToggle
+                        checked={form.data.is_default}
+                        onCheckedChange={(checked) =>
+                            form.setData('is_default', checked)
+                        }
+                        title="Default for category"
+                        description="Used when a feature does not specify a template."
+                    />
+                ) : null}
 
-                <MasterDataActiveToggle
-                    checked={form.data.enabled}
-                    onCheckedChange={(checked) =>
-                        form.setData('enabled', checked)
-                    }
-                    title="Enabled"
-                    description="Disabled templates cannot be selected for sending."
-                />
+                {sheetControls.enabled ? (
+                    <MasterDataActiveToggle
+                        checked={form.data.enabled}
+                        onCheckedChange={(checked) =>
+                            form.setData('enabled', checked)
+                        }
+                        title="Enabled"
+                        description="Disabled templates cannot be selected for sending."
+                    />
+                ) : null}
             </MasterDataFormSheet>
 
             <AlertDialog

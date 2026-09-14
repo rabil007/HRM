@@ -8,6 +8,7 @@ use App\Http\Requests\Settings\PreviewEmailTemplateRequest;
 use App\Http\Requests\Settings\StoreEmailTemplateRequest;
 use App\Http\Requests\Settings\UpdateEmailTemplateRequest;
 use App\Models\EmailTemplate;
+use App\Support\Email\BuiltInEmailTemplates;
 use App\Support\Email\EmailTemplatePreview;
 use App\Support\Platform\PlatformAuthorization;
 use App\Support\Settings\ApplicationTimezone;
@@ -69,16 +70,44 @@ class EmailTemplateController extends Controller
 
     public function update(UpdateEmailTemplateRequest $request, EmailTemplate $emailTemplate): RedirectResponse
     {
+        $validated = $this->payloadForRuntimeControls($emailTemplate, $request->validated());
+
         $emailTemplate->update([
-            ...$request->validated(),
-            'sort_order' => $request->integer('sort_order'),
+            ...$validated,
+            'sort_order' => (int) ($validated['sort_order'] ?? $emailTemplate->sort_order),
         ]);
 
-        if ($emailTemplate->is_default) {
+        if ($emailTemplate->is_default && BuiltInEmailTemplates::uiControls($emailTemplate->slug)['is_default']) {
             $emailTemplate->markAsDefaultForCategory();
         }
 
         return back()->with('success', 'Email template updated.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function payloadForRuntimeControls(EmailTemplate $emailTemplate, array $validated): array
+    {
+        $controls = BuiltInEmailTemplates::uiControls($emailTemplate->slug);
+        $preserved = [
+            'to_preset' => 'to_preset',
+            'cc_preset' => 'cc_preset',
+            'dispatch_at' => 'dispatch_at',
+            'subject' => 'subject',
+            'body' => 'body_html',
+            'enabled' => 'enabled',
+            'is_default' => 'is_default',
+        ];
+
+        foreach ($preserved as $control => $attribute) {
+            if (! ($controls[$control] ?? true)) {
+                $validated[$attribute] = $emailTemplate->{$attribute};
+            }
+        }
+
+        return $validated;
     }
 
     public function destroy(EmailTemplate $emailTemplate): RedirectResponse

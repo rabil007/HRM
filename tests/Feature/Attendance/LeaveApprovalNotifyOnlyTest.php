@@ -173,7 +173,7 @@ test('notify-only users receive FYI mail while future required approver does not
 
     Mail::assertQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail): bool {
         return $mail->hasTo('dept-manager@example.com')
-            && str_contains($mail->introMessage ?? '', 'pending your review');
+            && str_contains($mail->introMessage ?? '', 'requires your review');
     });
 
     Mail::assertQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail): bool {
@@ -285,7 +285,7 @@ test('duplicate required and notify-only person is treated as approver without d
         if ($mail->hasTo('dept-manager@example.com')) {
             $managerMails++;
 
-            return str_contains($mail->introMessage ?? '', 'pending your review');
+            return str_contains($mail->introMessage ?? '', 'requires your review');
         }
 
         return false;

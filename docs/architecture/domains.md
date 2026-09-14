@@ -784,7 +784,7 @@ Assigned approvers may view a request and act on their current pending step only
 
 Privileged administrators with `attendance.leave-requests.view` + `view_all` + `delete_any` may **void and remove** a request in any status via `AdministrativelyDeleteLeaveRequest`. That path soft-deletes the request, records the prior status and reason, reverses balance exactly once (pending release / approved used reversal / no mutation for rejected or cancelled), cancels only open approval steps, preserves completed approvals/comments/provenance and attachment files, and writes a company-scoped audit activity visible to `audit.view`.
 
-`SetCurrentCompany` only activates active companies with an active `company_user` membership (or the legacy home-company path when no pivot row exists). EmailTemplatesSeeder creates missing leave templates without overwriting administrator subject/body/enabled/preset customizations, including `leave_request_updated` and `leave_request_approver_action_required`. It also creates a missing `user_invitation` template without overwriting administrator customizations.
+`SetCurrentCompany` only activates active companies with an active `company_user` membership (or the legacy home-company path when no pivot row exists). `EmailTemplatesSeeder` creates missing built-in templates (including leave, invitation, payslip, bulk document, expiry summaries, and document-recipient mail) without overwriting administrator subject, body, TO/CC, enabled, footer, or dispatch customizations. Known previous stock defaults may be upgraded; customized content is left untouched.
 
 ### Production rollout (leave approvals)
 
@@ -805,7 +805,7 @@ Privileged administrators with `attendance.leave-requests.view` + `view_all` + `
 10. Verify leave balances after rollout.
 11. Perform a manager-only and multi-step approval smoke test.
 
-Also seed email templates when deploying notification changes: `php artisan db:seed --class=EmailTemplatesSeeder` (creates missing leave templates including `leave_request_updated` and `leave_request_approver_action_required` without overwriting admin customizations).
+Also seed email templates when deploying notification changes: `php artisan db:seed --class=EmailTemplatesSeeder` (creates missing built-in templates without overwriting administrator customizations).
 
 ### Main artifacts
 

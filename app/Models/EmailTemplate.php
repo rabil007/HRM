@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EmailTemplateCategory;
+use App\Support\Email\BuiltInEmailTemplates;
 use Database\Factories\EmailTemplateFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -131,6 +132,7 @@ class EmailTemplate extends Model
             'is_default' => $this->is_default,
             'enabled' => $this->enabled,
             'sort_order' => $this->sort_order,
+            'controls' => BuiltInEmailTemplates::uiControls($this->slug),
         ];
     }
 
