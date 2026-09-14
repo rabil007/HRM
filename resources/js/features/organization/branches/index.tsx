@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { FolderOpen, Plus } from 'lucide-react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -317,17 +317,36 @@ export function BranchesContent({
                                 <TableCell
                                     className={dataTableActionsCellClass()}
                                 >
-                                    <ListTableCrudActions
-                                        viewHref={`/organization/branches/${branch.id}`}
-                                        onEdit={(e) => {
-                                            e.stopPropagation();
-                                            handleEdit(branch);
-                                        }}
-                                        onDelete={(e) => {
-                                            e.stopPropagation();
-                                            crud.openDelete(branch);
-                                        }}
-                                    />
+                                    <div className="flex items-center justify-end gap-1">
+                                        {branch.can_view_documents ? (
+                                            <Button
+                                                asChild
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Branch documents"
+                                            >
+                                                <a
+                                                    href={`/organization/branches/${branch.id}/documents`}
+                                                    onClick={(e) =>
+                                                        e.stopPropagation()
+                                                    }
+                                                >
+                                                    <FolderOpen className="h-4 w-4" />
+                                                </a>
+                                            </Button>
+                                        ) : null}
+                                        <ListTableCrudActions
+                                            viewHref={`/organization/branches/${branch.id}`}
+                                            onEdit={(e) => {
+                                                e.stopPropagation();
+                                                handleEdit(branch);
+                                            }}
+                                            onDelete={(e) => {
+                                                e.stopPropagation();
+                                                crud.openDelete(branch);
+                                            }}
+                                        />
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ))}

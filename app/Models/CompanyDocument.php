@@ -23,6 +23,7 @@ class CompanyDocument extends Model
 
     protected $fillable = [
         'company_id',
+        'branch_id',
         'document_type_id',
         'title',
         'document_number',
@@ -45,6 +46,7 @@ class CompanyDocument extends Model
         return LogOptions::defaults()
             ->logOnly([
                 'company_id',
+                'branch_id',
                 'document_type_id',
                 'title',
                 'document_number',
@@ -79,6 +81,11 @@ class CompanyDocument extends Model
         return $this->belongsTo(Company::class);
     }
 
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     public function documentType(): BelongsTo
     {
         return $this->belongsTo(DocumentType::class);
@@ -102,6 +109,16 @@ class CompanyDocument extends Model
     public function scopeForCompany(Builder $query, int $companyId): Builder
     {
         return $query->where('company_id', $companyId);
+    }
+
+    public function scopeForCompanyOnly(Builder $query, int $companyId): Builder
+    {
+        return $query->where('company_id', $companyId)->whereNull('branch_id');
+    }
+
+    public function scopeForBranch(Builder $query, int $companyId, int $branchId): Builder
+    {
+        return $query->where('company_id', $companyId)->where('branch_id', $branchId);
     }
 
     public function scopeWhereExpiringWithin(Builder $query, int $days): Builder

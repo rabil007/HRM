@@ -2,15 +2,16 @@
 
 namespace App\Http\Requests\Organization\CompanyDocument;
 
+use App\Http\Requests\Organization\CompanyDocument\Concerns\HasCompanyDocumentRules;
 use App\Models\Company;
-use App\Rules\CompanyDocumentFile;
 use App\Support\CompanyDocuments\CompanyDocumentAccess;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rules\File;
 
 class ReplaceCompanyDocumentRequest extends FormRequest
 {
+    use HasCompanyDocumentRules;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -39,7 +40,7 @@ class ReplaceCompanyDocumentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => ['required', File::types(['pdf', 'jpg', 'jpeg', 'png'])->max('20mb'), 'extensions:pdf,jpg,jpeg,png', new CompanyDocumentFile],
+            'file' => $this->singleFileRules(),
         ];
     }
 }

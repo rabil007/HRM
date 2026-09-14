@@ -6,6 +6,7 @@ use App\Models\Concerns\LogsActivityWithCompany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -40,5 +41,10 @@ class Branch extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(CompanyDocument::class);
     }
 }

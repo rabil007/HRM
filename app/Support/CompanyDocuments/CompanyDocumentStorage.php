@@ -15,13 +15,14 @@ use Throwable;
 class CompanyDocumentStorage
 {
     /** @param array<string, mixed> $data */
-    public function create(Company $company, DocumentType $documentType, UploadedFile $file, array $data, ?int $userId): CompanyDocument
+    public function create(Company $company, DocumentType $documentType, UploadedFile $file, array $data, ?int $userId, ?int $branchId = null): CompanyDocument
     {
-        $path = $this->store($file, $company);
+        $path = $this->store($file, $company, $branchId);
 
         try {
             return CompanyDocument::query()->create([
                 'company_id' => $company->id,
+                'branch_id' => $branchId,
                 'document_type_id' => $documentType->id,
                 'title' => filled($data['title'] ?? null) ? $data['title'] : $documentType->title,
                 'document_number' => $data['document_number'] ?? null,
@@ -43,12 +44,12 @@ class CompanyDocumentStorage
      * @param  list<array{document_type: DocumentType, file: UploadedFile, data: array<string, mixed>}>  $documents
      * @return list<CompanyDocument>
      */
-    public function createMany(Company $company, array $documents, ?int $userId): array
+    public function createMany(Company $company, array $documents, ?int $userId, ?int $branchId = null): array
     {
         $storedPaths = [];
 
         try {
-            return DB::transaction(function () use ($company, $documents, $userId, &$storedPaths): array {
+            return DB::transaction(function () use ($company, $documents, $userId, $branchId, &$storedPaths): array {
                 $created = [];
 
                 foreach ($documents as $document) {
@@ -58,6 +59,7 @@ class CompanyDocumentStorage
                         $document['file'],
                         $document['data'],
                         $userId,
+                        $branchId,
                     );
                     $storedPaths[] = $createdDocument->file_path;
                     $created[] = $createdDocument;
@@ -74,7 +76,7 @@ class CompanyDocumentStorage
 
     public function replace(CompanyDocument $document, UploadedFile $file, ?int $userId): CompanyDocument
     {
-        $path = $this->store($file, $document->company);
+        $path = $this->store($file, $document->company, $document->branch_id);
 
         try {
             return DB::transaction(function () use ($document, $file, $path, $userId): CompanyDocument {
@@ -117,14 +119,27 @@ class CompanyDocumentStorage
         Storage::disk('local')->delete($paths);
     }
 
-    private function store(UploadedFile $file, Company $company): string
+    private function store(UploadedFile $file, Company $company, ?int $branchId = null): string
     {
+        $folder = $branchId
+            ? "company-documents/{$company->id}/branches/{$branchId}"
+            : "company-documents/{$company->id}";
+
+        $logContext = [
+            'company_id' => $company->id,
+            'feature' => 'company_documents',
+        ];
+
+        if ($branchId !== null) {
+            $logContext['branch_id'] = $branchId;
+        }
+
         return UploadedFileStorage::store(
             $file,
-            "company-documents/{$company->id}",
+            $folder,
             [
                 'disk' => 'local',
-                'log_context' => ['company_id' => $company->id, 'feature' => 'company_documents'],
+                'log_context' => $logContext,
             ],
         );
     }

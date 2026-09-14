@@ -21,6 +21,7 @@ export type Branch = {
     email: string | null;
     is_headquarters: boolean;
     status: 'active' | 'inactive';
+    can_view_documents?: boolean;
 };
 
 export type BranchFormData = {

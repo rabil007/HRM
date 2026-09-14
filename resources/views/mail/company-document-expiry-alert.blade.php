@@ -26,6 +26,7 @@
                 <thead>
                     <tr style="background-color:#f4f4f5;">
                         <th align="left" style="padding:12px 16px;font-size:12px;font-weight:600;color:#18181b;border-bottom:1px solid #e4e4e7;">Document</th>
+                        <th align="left" style="padding:12px 16px;font-size:12px;font-weight:600;color:#18181b;border-bottom:1px solid #e4e4e7;">Scope</th>
                         <th align="left" style="padding:12px 16px;font-size:12px;font-weight:600;color:#18181b;border-bottom:1px solid #e4e4e7;">Number</th>
                         <th align="left" style="padding:12px 16px;font-size:12px;font-weight:600;color:#18181b;border-bottom:1px solid #e4e4e7;">Expiry Date</th>
                         <th align="left" style="padding:12px 16px;font-size:12px;font-weight:600;color:#18181b;border-bottom:1px solid #e4e4e7;">Days Remaining</th>
@@ -36,6 +37,7 @@
                     @foreach ($rows as $row)
                         <tr>
                             <td style="padding:12px 16px;font-size:14px;color:#3f3f46;border-bottom:1px solid #f4f4f5;">{{ $row['document_name'] }}</td>
+                            <td style="padding:12px 16px;font-size:14px;color:#3f3f46;border-bottom:1px solid #f4f4f5;">{{ $row['scope'] ?? 'Company' }}</td>
                             <td style="padding:12px 16px;font-size:14px;color:#3f3f46;border-bottom:1px solid #f4f4f5;">{{ $row['document_number'] ?? '—' }}</td>
                             <td style="padding:12px 16px;font-size:14px;color:#3f3f46;border-bottom:1px solid #f4f4f5;">{{ $row['expiry_date'] }}</td>
                             <td style="padding:12px 16px;font-size:14px;color:#3f3f46;border-bottom:1px solid #f4f4f5;">{{ $row['days_remaining'] }}</td>

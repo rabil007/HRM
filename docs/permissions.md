@@ -161,22 +161,22 @@ Tenant-specific configurations are scoped to `current_company_id` and use Spatie
 
 - **Company Identity & Regional Defaults** (`/organization/companies/{company}`): Company name, logo, address, legal documents, timezone, currency, and working days (`companies.view`, `companies.update`).
 - **Company Document Signing Assets**: Salary certificate signature, company stamp, and authorized signatory (`companies.view`, `companies.update`).
-- **Company Document Library**: Membership-based document storage (`company_documents.*`). Includes `company_documents.manage_notifications` for configuring per-company Company Document expiry alert recipients (TO/CC). Employee Document expiry recipients remain on the global `document_expiry_alert` EmailTemplate and are a separate list.
+- **Company & Branch Document Library**: Membership-based document storage (`company_documents.*`). Reused for both Company Documents and Branch Documents (combined with `branches.view` for branch access). Includes `company_documents.manage_notifications` for configuring per-company Document expiry alert recipients (TO/CC). Employee Document expiry recipients remain on the global `document_expiry_alert` EmailTemplate and are a separate list.
 - **Hikvision Access Control Integration** (`/settings/integrations/hikvision`): Per-company device endpoints, OpenAPI credentials, and sync settings (`settings.integrations.hikvision.view|update`, `hikvision.webhook.manage`, `hikvision.devices.sync`).
 - **Security & Appearance**: Tenant security settings (`settings.security.view|update`) and visual theme overrides (`settings.appearance.view|update`).
 - **Master Data**: Tenant-managed dictionaries (`settings.master-data.{resource}.view|create|update|delete`). Document Types use these same permissions but are managed at **Documents → Configuration → Document Types**; `/settings/master-data/document-types` redirects there. Records referenced by live data expose `is_in_use` / `can_delete` and cannot be deleted (UI disabled + backend `MasterDataUsage` guard). See [domains.md](architecture/domains.md#usage-protection-in-use).
 
 ### Ownership Matrix
 
-| Concern                                                                                                                                    | Source                                         | Authority                                              |
-| ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- | ------------------------------------------------------ |
-| Platform name, support email/phone, fallback timezone, date format, branding, SMTP, AI providers / Smart Employee Search, e-sign placement | Global `app_settings`                          | `platform:view` / `platform:manage`                    |
-| WhatsApp Meta Cloud API singleton integration                                                                                              | Global `whatsapp_settings`                     | `platform:view` / `platform:manage` + `privileged.2fa` |
-| WhatsApp & Email template libraries                                                                                                        | Global `whatsapp_templates`, `email_templates` | `platform:view` / `platform:manage`                    |
-| Company name, logo, address, phone, email, website, currency, timezone, payroll cycle, working days, WPS                                   | `companies` row                                | `companies.view\|update`                               |
-| Salary certificate signature/stamp/signatory                                                                                               | `company_document_settings`                    | `companies.view\|update`                               |
-| Company Document expiry notification recipients (per company)                                                                              | `company_document_expiry_notification_settings` + recipient rows | `company_documents.manage_notifications`              |
-| Hikvision access control device integration                                                                                                | Company-scoped `hikvision_settings`            | `settings.integrations.hikvision.*`                    |
+| Concern                                                                                                                                    | Source                                                           | Authority                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- | ------------------------------------------------------ |
+| Platform name, support email/phone, fallback timezone, date format, branding, SMTP, AI providers / Smart Employee Search, e-sign placement | Global `app_settings`                                            | `platform:view` / `platform:manage`                    |
+| WhatsApp Meta Cloud API singleton integration                                                                                              | Global `whatsapp_settings`                                       | `platform:view` / `platform:manage` + `privileged.2fa` |
+| WhatsApp & Email template libraries                                                                                                        | Global `whatsapp_templates`, `email_templates`                   | `platform:view` / `platform:manage`                    |
+| Company name, logo, address, phone, email, website, currency, timezone, payroll cycle, working days, WPS                                   | `companies` row                                                  | `companies.view\|update`                               |
+| Salary certificate signature/stamp/signatory                                                                                               | `company_document_settings`                                      | `companies.view\|update`                               |
+| Company & Branch Document expiry notification recipients (per company)                                                                     | `company_document_expiry_notification_settings` + recipient rows | `company_documents.manage_notifications`               |
+| Hikvision access control device integration                                                                                                | Company-scoped `hikvision_settings`                              | `settings.integrations.hikvision.*`                    |
 
 Credential permissions and platform access never imply that decrypted secrets may be sent to the browser. Settings responses expose masked placeholders and `has_*` flags, and empty secret submissions preserve the stored value.
 
@@ -383,9 +383,9 @@ Installation-wide configuration and tooling require platform authority:
 - High-trust mutations (SMTP credentials, WhatsApp credentials, and e-sign placement updates) additionally enforce `privileged.2fa` when enabled.
 - Legacy `settings.application.*`, `settings.integrations.whatsapp.*`, and template Spatie permissions are retained for compatibility but do **not** authorize mutations to platform-global settings.
 
-| Capability | Who                                  | Surfaces                                                                                                                                                                                           |
-| ---------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| View       | `platform_access = view` or `manage` | Application logs (`/log`, export). Queue/job history (`/jobs` GET). Database table browse/export (`/mysql`) only when the database viewer is enabled. Platform settings (`/settings/application`). |
+| Capability | Who                                  | Surfaces                                                                                                                                                                                                       |
+| ---------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| View       | `platform_access = view` or `manage` | Application logs (`/log`, export). Queue/job history (`/jobs` GET). Database table browse/export (`/mysql`) only when the database viewer is enabled. Platform settings (`/settings/application`).             |
 | Manage     | `platform_access = manage`           | Everything in View, plus clear logs, retry/delete failed jobs, delete history, clear pending jobs, and modify installation-wide application settings, branding, SMTP, job-run retention, and e-sign placement. |
 
 Arbitrary SQL execution (`/mysql/query`) has been **removed**. Table browsing still exposes tenant data, so it remains platform-only. Credential/session/cache/queue-payload tables are hidden; secret-like columns (passwords, tokens, `app_settings.value`, payloads) are redacted even for platform users.
@@ -421,12 +421,12 @@ Meaningful platform actions write Spatie activity rows with log name `platform` 
 
 Retention is a **platform-wide** setting, not a company setting. Platform administrators with `platform_access = manage` change it on **Settings → Application → Retention** (`System & Data Retention`). Values are stored in `app_settings` and take effect on the next prune without a queue restart, `config:clear`, or server restart. `JOB_RUN_*` environment variables are not used.
 
-| Category | Default | Setting key |
-| --- | --- | --- |
-| Completed | 30 days | `job_run_completed_retention_days` |
-| Failed | 90 days | `job_run_failed_retention_days` |
-| Running / stuck | 90 days | `job_run_running_retention_days` |
-| Soft-deleted | 30 days | `job_run_deleted_retention_days` |
+| Category        | Default | Setting key                        |
+| --------------- | ------- | ---------------------------------- |
+| Completed       | 30 days | `job_run_completed_retention_days` |
+| Failed          | 90 days | `job_run_failed_retention_days`    |
+| Running / stuck | 90 days | `job_run_running_retention_days`   |
+| Soft-deleted    | 30 days | `job_run_deleted_retention_days`   |
 
 The form accepts 1–3650 days. If a stored value is missing or outside that range, pruning clamps it to the same bounds and falls back to the defaults above when `app_settings` is unavailable. Completed and failed rows use `finished_at`, falling back to `created_at` when `finished_at` is null. Running rows use `created_at`. Soft-deleted completed rows can be permanently removed after the deleted retention. Soft-deleted failed or running rows still wait for the longer failed/running retention, so a shorter deleted window cannot erase recent failure history.
 

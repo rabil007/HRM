@@ -6,27 +6,27 @@ Employee documents are stored per company and linked to employees. HR can browse
 
 Documents is one sidebar group with these destinations. Pages do not repeat that list as an in-page tab strip.
 
-| Path | Section | Reuses | Permission |
-|------|---------|--------|------------|
-| `/organization/documents` | Overview | Operational attention dashboard | `documents.view` |
-| `/organization/documents/library` | Library | Canonical browse / search / compliance workspace | `documents.view` |
-| `/organization/documents/generate` | Generate & Track | Company operational document workspace and progress tracker | `bulk_documents.view` |
-| `/organization/documents/requests` | My Tasks | Personal actionable inbox: reviews, approvals, signatures | `documents.requests.view` **or** `documents.recipient-requests.view` **or** `documents.recipient-requests.respond` |
-| `/organization/documents/templates` | Templates | Company custom and system generation templates | Any of `documents.templates.view`, `bulk_documents.view`, or `settings.master-data.document-types.view` |
-| `/organization/documents/configuration` | Configuration | Document Types and employee requirement policy | `settings.master-data.document-types.view` |
-| `/organization/documents/activity` | Activity | Current bulk generation history | `bulk_documents.view` |
+| Path                                    | Section          | Reuses                                                      | Permission                                                                                                         |
+| --------------------------------------- | ---------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `/organization/documents`               | Overview         | Operational attention dashboard                             | `documents.view`                                                                                                   |
+| `/organization/documents/library`       | Library          | Canonical browse / search / compliance workspace            | `documents.view`                                                                                                   |
+| `/organization/documents/generate`      | Generate & Track | Company operational document workspace and progress tracker | `bulk_documents.view`                                                                                              |
+| `/organization/documents/requests`      | My Tasks         | Personal actionable inbox: reviews, approvals, signatures   | `documents.requests.view` **or** `documents.recipient-requests.view` **or** `documents.recipient-requests.respond` |
+| `/organization/documents/templates`     | Templates        | Company custom and system generation templates              | Any of `documents.templates.view`, `bulk_documents.view`, or `settings.master-data.document-types.view`            |
+| `/organization/documents/configuration` | Configuration    | Document Types and employee requirement policy              | `settings.master-data.document-types.view`                                                                         |
+| `/organization/documents/activity`      | Activity         | Current bulk generation history                             | `bulk_documents.view`                                                                                              |
 
 **Overview** is an operational dashboard. It answers what needs attention, who is affected, and the next action. It does not render the document table, folder grid, search, or Saved Views. Zero-value warning cards are omitted; a healthy company sees **No urgent document issues** plus compact secondary totals.
 
 Needs Attention items appear only when the count is greater than zero:
 
-| Item | Source | Drill-down |
-|------|--------|------------|
-| Missing Required | Existing requirement/compliance engine | Library `requirement_status=missing` |
-| Expiring Soon | Browse expiry summary, 7-day window only | Library `expiry=expiring_7` |
-| Expired | Browse expiry summary | Library `expiry=expired` |
-| Awaiting Your Action | Pending workflow tasks assigned to the current user | My Tasks `tab=review&status=pending&assigned_to_me=1` |
-| Awaiting Signature | Company `DocumentRecipientRequest` rows awaiting action | My Tasks `tab=recipient&status=awaiting_action` |
+| Item                 | Source                                                  | Drill-down                                            |
+| -------------------- | ------------------------------------------------------- | ----------------------------------------------------- |
+| Missing Required     | Existing requirement/compliance engine                  | Library `requirement_status=missing`                  |
+| Expiring Soon        | Browse expiry summary, 7-day window only                | Library `expiry=expiring_7`                           |
+| Expired              | Browse expiry summary                                   | Library `expiry=expired`                              |
+| Awaiting Your Action | Pending workflow tasks assigned to the current user     | My Tasks `tab=review&status=pending&assigned_to_me=1` |
+| Awaiting Signature   | Company `DocumentRecipientRequest` rows awaiting action | My Tasks `tab=recipient&status=awaiting_action`       |
 
 Request and signature cards are omitted unless the user has the matching Requests permission. `documents.view` alone never grants request metrics or Configure actions.
 
@@ -67,11 +67,11 @@ Selecting **View** on any row opens the **Document Journey** sheet (`/organizati
 
 These remain valid GET bookmarks. They redirect; they do not render the retired bulk signature roster.
 
-| Legacy URL | Redirects to |
-|------------|----------------|
-| `/organization/documents/bulk` | Generate & Track |
+| Legacy URL                                     | Redirects to                                                                              |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `/organization/documents/bulk`                 | Generate & Track                                                                          |
 | `/organization/documents/bulk?view=signatures` | My Tasks `tab=recipient` when authorized for current Requests; otherwise Generate & Track |
-| `/organization/documents/bulk?view=history` | Activity |
+| `/organization/documents/bulk?view=history`    | Activity                                                                                  |
 
 POST/PUT/DELETE bulk generate/email/delete routes for **current** types (Salary Certificate, Company Templates) are unchanged. Salary Declaration generate/email remains rejected.
 
@@ -85,11 +85,11 @@ Legacy Salary Declaration BulkDocumentSignatureRequest rows and files are retain
 
 Legacy rows stay exactly as stored. The command is a report/export only.
 
-| Status | Meaning |
-|--------|---------|
-| `awaiting_signature` | Historical only. Do not treat as current work. Export these employees, then generate a Company Template for them. |
-| `submitted` | Historical. Do not auto-approve/reject/cancel on deploy. Finish any remaining production review **before** deploying this cleanup, or explicitly accept leaving the row frozen. |
-| `approved` / `rejected` / `expired` / `cancelled` | Historical only. Untouched. |
+| Status                                            | Meaning                                                                                                                                                                         |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `awaiting_signature`                              | Historical only. Do not treat as current work. Export these employees, then generate a Company Template for them.                                                               |
+| `submitted`                                       | Historical. Do not auto-approve/reject/cancel on deploy. Finish any remaining production review **before** deploying this cleanup, or explicitly accept leaving the row frozen. |
+| `approved` / `rejected` / `expired` / `cancelled` | Historical only. Untouched.                                                                                                                                                     |
 
 The command never deletes `EmployeeDocument` rows, generated PDFs, signed PDFs, request rows, review fields, tokens, or audit history. Generating a Company Template for the same employee creates a **new** document alongside the old one.
 
@@ -151,159 +151,159 @@ Do not delete historical tables or files. The read-only `documents:legacy-signat
 
 ### Documents → Activity UX
 
-Activity answers: *What document operation happened, who started it, and how did it finish?*
+Activity answers: _What document operation happened, who started it, and how did it finish?_
 
 Activity represents operational history (generation and email batch runs), separated from the employee roster and signature request workflows.
 
 - **Workspace Header**:
-  - Title: **Activity**
-  - Description: *"Review document generation and email history."*
-  - Document context switcher: Displays *"Generation and email history for {selectedTypeLabel}."* alongside a clean document selector scoped to the active document type.
+    - Title: **Activity**
+    - Description: _"Review document generation and email history."_
+    - Document context switcher: Displays _"Generation and email history for {selectedTypeLabel}."_ alongside a clean document selector scoped to the active document type.
 - **Suppressed Roster Controls**:
-  - Employee search, department tree picker, sponsor/visa type filter, email-status filter, generation summary cards, and employee row check-boxes are hidden in the Activity view.
+    - Employee search, department tree picker, sponsor/visa type filter, email-status filter, generation summary cards, and employee row check-boxes are hidden in the Activity view.
 - **Desktop Table Columns**:
-  - **Operation**: Clear operation title (e.g. `Generated {Document}` or `Sent {Document}`) with category badge (`Generation` or `Email Delivery`). On email delivery rows, an interactive drill-down indicator (`ArrowUpRight`) opens the recipient delivery sheet.
-  - **Result**: Compact, plain-English summary answering "What happened?" (e.g. `38 created · 2 replaced · 1 skipped` or `34 sent · 2 no email · 1 failed · Template: {Template Name}`).
-  - **Triggered By**: Name of the user who initiated the run, falling back to `System`.
-  - **Date**: 12-hour formatted timestamp (`formatDisplayDateTime12h`).
-  - **Status**: Human status badges:
-    - **Completed** (emerald): All targeted documents were processed without error or skip.
-    - **Completed with issues** (amber): Completed with skipped records or failures.
-    - **Running** / **Queued** (amber / secondary): In-progress asynchronous jobs.
-    - **Failed** (destructive): Job or delivery failure.
+    - **Operation**: Clear operation title (e.g. `Generated {Document}` or `Sent {Document}`) with category badge (`Generation` or `Email Delivery`). On email delivery rows, an interactive drill-down indicator (`ArrowUpRight`) opens the recipient delivery sheet.
+    - **Result**: Compact, plain-English summary answering "What happened?" (e.g. `38 created · 2 replaced · 1 skipped` or `34 sent · 2 no email · 1 failed · Template: {Template Name}`).
+    - **Triggered By**: Name of the user who initiated the run, falling back to `System`.
+    - **Date**: 12-hour formatted timestamp (`formatDisplayDateTime12h`).
+    - **Status**: Human status badges:
+        - **Completed** (emerald): All targeted documents were processed without error or skip.
+        - **Completed with issues** (amber): Completed with skipped records or failures.
+        - **Running** / **Queued** (amber / secondary): In-progress asynchronous jobs.
+        - **Failed** (destructive): Job or delivery failure.
 - **Mobile Card View**:
-  - Automatically renders via `MobileRecordList` and `MobileRecordCard` on mobile viewports (`< md`), hiding the desktop table.
-  - Displays operation title, timestamp subtitle, result metrics, triggered-by actor, status badge, and a direct "View details" action button for email batch rows.
+    - Automatically renders via `MobileRecordList` and `MobileRecordCard` on mobile viewports (`< md`), hiding the desktop table.
+    - Displays operation title, timestamp subtitle, result metrics, triggered-by actor, status badge, and a direct "View details" action button for email batch rows.
 - **Email Batch Drill-Down**:
-  - Clicking any email delivery row or card opens `BulkEmailBatchSendsSheet` displaying recipient-level dispatch logs, delivery status, and error details.
+    - Clicking any email delivery row or card opens `BulkEmailBatchSendsSheet` displaying recipient-level dispatch logs, delivery status, and error details.
 
 ### Document Templates
 
 Documents → Templates serves as the centralized company custom document template management area while preserving protected system generation templates:
 
 1. **Company Templates** (`document_generation_templates`):
-   - Scoped to the active company.
-   - User-facing terminology: "Company Templates", "PDF Template".
-   - **Company Templates are PDF-upload templates only in the user-facing product.**
-   - **Flow**: `Templates → Upload PDF → Design → Workflow → Readiness → Save Draft → Publish`.
-     - Templates list **Upload PDF** opens `/organization/documents/templates/create/pdf`.
-     - PDF upload stores the template and creates Draft v1, then redirects directly to `/{template}/design` (Design Template).
-     - `/organization/documents/templates/create` redirects to `/create/pdf`.
-     - List **Design Template** / **Open Template** deep-links to the unified visual designer, which is the place to configure design, review, signing, readiness, and publishing for that version.
-     - Secondary actions on the list: Replace PDF, Activate/Deactivate, Duplicate, Delete. Publish and After generation are not list actions; publish stays on the Designer. The Unified PDF Designer is the sole current template editing surface. Legacy content-template and standalone placement/automation mutation endpoints have been removed. Historical template data remains preserved.
-     - Dedicated company **workflow preset** and **signing preset** management pages remain for reusable administration. The Designer selects (and, with existing preset-create permission, can create) those presets for the current template version.
-     - Legacy `content` template records and underlying domain rendering support remain preserved in the database for historical compatibility, but are hidden from company template management and blocked from new creation or editing (`/{template}/edit` redirects to Templates).
-     - **Opening the designer is side-effect free.** It does not create a draft. It displays the most relevant version (draft if present, otherwise published, otherwise latest archived). A 404 is returned if no versions exist.
-   - **Formats**:
-     - `pdf_overlay`: Branded uploaded PDF with visual merge field placement, static text boxes, and signature slots. (Legacy `content` templates remain in schema for backward compatibility).
-   - **Template Identity & Immutability**:
-     - The parent model `DocumentGenerationTemplate` manages company-level identity, metadata (`name`, `description`, `document_type_id`, `template_format`), lifecycle status (`draft`, `active`, `inactive`), and pointer to `published_version_id`.
-     - Authoritative renderable data resides in `DocumentGenerationTemplateVersion` (`version`, `status`, `content`, `source_pdf_path`, `placement_config`, `signature_placement_config`, `document_workflow_mode`, `document_workflow_preset_id`, `document_signing_mode`, `document_signing_preset_id`, `published_at`).
-     - **Workflow is version-owned.** Review and signing require explicit decisions on each draft:
-       - `null` mode = not explicitly configured (blocks publish).
-       - `none` = intentionally disabled for that stage (`preset_id` must be null).
-       - `preset` = configured using a company workflow or signing preset.
-       - Legacy rows with a preset id and null mode **read** as `preset`. Null id + null mode stays unconfigured. Historical published/archived versions are never rewritten. New Draft v1 starts unconfigured. Branching a draft from a legacy configured version normalizes **only the new draft** to `preset`.
-     - **Strict Immutability**: Published and archived versions cannot be altered. Editing an active template branches a new single `draft` version (`version = max + 1`), preserving historical published versions and source files indefinitely.
-     - Concurrency-safe draft branching (`BranchDocumentGenerationTemplateDraft`) guarantees at most one draft per template.
-   - **Unified PDF Designer** (`/{template}/design`):
-     - Single visual workspace combining merge field placements, static text boxes, and signature slot placements on one Fabric.js canvas.
-     - **`placement_config`** and **`signature_placement_config`** remain separate persisted domain structures with independent validation and audit trails.
-     - `isEditable = (version.status === 'draft')` gates all add/delete/drag controls, Workflow edits, Save Draft, and Publish. Historical versions remain selectable and fully read-only, including the Workflow tab (it shows the stored configuration for that version).
-     - Right panel tabs: **Properties** (selected-element controls) and **Workflow** (review/approval, signing, execution-order summary, placement status). Workflow stays visible with no Fabric selection.
-     - Workflow decisions use explicit selected/unselected radio cards (`none` vs `preset`). Approval and signing preset steps render in execution order. Signing steps show whether the matching PDF signature slot is placed (`Placement configured` or `Signature placement missing`). A configured signer locates and selects its canvas placement; a missing signer on a Draft uses the existing click-to-place signature mechanism (`Place on PDF`). Canvas signature selection can highlight the matching Workflow step. Left **Signatures** still manage physical slots; Workflow describes who signs and whether those slots exist.
-     - **Template readiness** is evaluated server-side (`DocumentGenerationTemplateReadiness`). The Designer shows a readiness indicator that opens issue details. Fix actions use stable issue codes (not English message text) to jump to the relevant Workflow control, arm Place on PDF, or Save Draft. Local radio/preset/placement edits update the visible status immediately; the server remains authoritative after Save Draft and before Publish. Publish is disabled for unsaved or blocking issues. Backend publish still calls the evaluator — a disabled button is not enforcement.
-     - **PDF Overlay layout preflight**: Designer HTTP requests never launch Chromium. `POST .../validate-design` creates or reuses a `DocumentTemplateLayoutValidationRun` and dispatches `ValidateDocumentTemplateLayoutJob` (202 while queued). The Laravel queue worker / CLI runs the same `PdfOverlayLayoutPreflight` engine used at generation time. Designer polls `GET .../validation-runs/{run}` until `valid`, `invalid`, `unavailable`, or `stale`. Only an **authoritative saved-draft sample** run (server fingerprint of persisted `placement_config` + source PDF **content** SHA-256 + sample values + `DocumentTemplateLayoutValidationFingerprint::ENGINE_VERSION`) can authorize Publish. Unsaved canvas validation and employee preview are never authoritative. Publish HTTP does **not** run Chromium; it recomputes the server fingerprint and looks up the matching run (`TEMPLATE_LAYOUT_INVALID`, `TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE`, `TEMPLATE_LAYOUT_VALIDATION_PENDING`, or `TEMPLATE_LAYOUT_VALIDATION_REQUIRED`). Real overflow (`LAYOUT_OVERFLOW`) still highlights the physical placement. Engine failure is `unavailable` with a `LAY-…` reference. Runtime generation still calls `PdfOverlayLayoutPreflight` before storing PDFs. Historical published and archived versions are not rewritten. Production deploy does not start `queue:work` and does not call `queue:restart`; Hostinger validation depends on the existing database queue worker / cron (`queue:work --stop-when-empty` or equivalent). Terminal validation runs older than 30 days are pruned, keeping the newest row per fingerprint.
-     - Switching versions reloads that version's placements, signature slots, workflow/signing modes and presets, and readiness. Unsaved-change confirmation covers Workflow edits as well as canvas edits. Layout validation state is cleared when the version changes.
-     - Normalized coordinates `[0.0, 1.0]` ensure resolution-independent placement across any viewer or print scale.
-     - **Schema versioning**: `schema_version: 1` remains readable for compatibility (missing `type` continues to mean `field`; never auto-migrated on read). `schema_version: 2` requires an explicit placement `type` of `field` or `text`; missing, empty, or unknown types are rejected at save and at render-time validation. All saves write v2. Published and archived versions remain immutable.
-     - **Static text boxes**: `type: 'text'` placements with `text_content` (1–500 chars). No `field` key stored. The designer uses the same default box (160×26 CSS px) and the same edit/preview chrome as merge fields.
-     - **Text wrapping**: Merge fields and static text both wrap inside the drawn box (`white-space: pre-wrap`, `overflow-wrap: break-word`, `line-height: 1.2`, full-width inner span so left/center/right `text-align` still applies). Keep the box width inside its column and increase **height** for extra lines. Browsershot DOM measurement (`scrollWidth > clientWidth + 1` or `scrollHeight > clientHeight + 1`) is used for font-size preflight.
-     - **Explicit draft creation**: Users with update permission see a "Create Draft" button when no draft exists. Clicking it branches a draft from the current published version using `BranchDocumentGenerationTemplateDraft` (at-most-one-draft invariant preserved). Opening the designer never creates a draft automatically.
-     - **Version switcher**: Toolbar dropdown lists all versions newest → oldest. Switching from an unsaved draft prompts "Stay on Draft / Discard changes and switch". Historical versions show a Version Info panel (PDF metadata, placement counts, change summary from `VersionChangeSummary`). Summaries compare against the immediately previous version. The design page provides `initial_change_summary` for the initially selected version so v2+ shows that diff on first render without an extra request.
-     - **Save Draft**: Single atomic endpoint (`PUT .../versions/{version}/design`). Persists `placement_config`, `signature_placement_config`, `document_workflow_mode`, `document_workflow_preset_id`, `document_signing_mode`, and `document_signing_preset_id` in one DB transaction. If any validation fails, nothing is persisted. Preset ids are resolved against `current_company_id`. After commit, Save Draft queues an authoritative sample layout validation run and returns it for Designer polling (`Draft saved · Validating layout…`). Invalid layout does not roll back the save.
-     - **Publish**: Server-gated by readiness plus a matching authoritative saved-sample validation run (server fingerprint), plus existing lifecycle/signature validation. Unsaved Designer changes must be saved first; Save Draft and Publish stay explicit. A browser `layout_valid` flag has no effect. Save Draft is allowed when layout is invalid or unavailable. Publish is blocked for overflow, engine unavailability, in-flight validation, or a missing/stale fingerprint (`TEMPLATE_LAYOUT_INVALID`, `TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE`, `TEMPLATE_LAYOUT_VALIDATION_PENDING`, `TEMPLATE_LAYOUT_VALIDATION_REQUIRED`).
-     - **Historical immutability**: Published and archived versions cannot be edited. Fetching a historical version via `showVersion` performs no DB writes, creates no activity log entries, and never migrates schema v1 configs. Version summaries compare against the immediately previous version and never rewrite stored configs.
-     - **Click-to-place**: Adding a merge field, static text box, or signature slot arms a placement. The next click on empty canvas hangs a new field/text box so its **baseline** sits on the click (the printed underline). Signature slots still center on the click. Esc or a second click on the same add control cancels.
-     - **Vertical alignment**: Each field/text placement stores `vertical_align` (`top` / `middle` / `baseline`). New boxes default to `baseline`. Existing placements without the key keep the previous look (`middle` for merge fields, `top` for static text). The designer paints merge text on the same box edges as generation (`align-items: flex-start|center|flex-end`). Baseline is the **bottom of the box**, not the surrounding PDF line. Click-to-place hangs the box above the click so that floor sits on the printed underline. Switching Top/Middle → Baseline on an existing box moves the value to the floor without moving the box.
-     - **Font size**: Properties has a preset selector (8–48pt) plus − / + buttons that change size by 1pt. Save still rejects sizes outside 8–48.
-     - **Overflow warning**: The drawn box is the max size. Generation may shrink the font (down to 8pt) to stay inside it. Authoritative Designer validation uses merge-field **sample values** (for example Emirates ID `784-2000-1234567-1`), not canvas labels, via the same Chromium fit engine as generation. Validate is explicit (not on every drag). After a layout-relevant edit, the last result is stale until the design is validated again.
-     - **Nudge / undo**: Arrow keys move the selected box 1 CSS px (Shift = 10). ⌘/Ctrl+Z undoes; ⌘/Ctrl+Shift+Z or Ctrl+Y redoes. History covers add, delete, duplicate, drag, resize, font, and nudge.
-     - **Alignment guides**: Dragging a field, text, or signature box shows a magenta **horizontal** snap line (Y axis: top / middle / baseline) against other boxes on the page and the page vertical center. Left/right is not snapped. Hold Alt/Option to move freely. Arrow-key nudge does not snap.
-     - **Print preview**: The in-canvas Preview toggle hides placement chrome (boxes, signature slot labels) and shows overlay text in the saved color. Sample Jane Smith values are the default. Designers who also have `employees.view` can search active company employees and overlay allowlisted merge values (`GET .../design-employees`, `GET .../design-employees/{employee}`). Search returns `id`, `name`, and `employee_no` only; values are restricted to `DocumentTemplateMergeFields::allowedKeys()`.
-     - Opening Preview cancels an armed placement. Preview does not persist and does not write placements.
-   - **Employee Signature Placement**:
-     - Managed in the unified designer's Signatures section (left panel) and right properties panel.
-     - Stored as version-owned `signature_placement_config` (separate from `placement_config`). Independent validation and audit trail.
-     - Subject slot cannot be deleted; manager and company signatory slots can be added (up to 7 each) and removed with automatic renumbering.
-     - Drag/resize persists the geometric box (`left`/`top`/`width`/`height` with scale baked in), not Fabric `getBoundingRect()`, so the outline stroke does not shift saved coordinates. Field, text, and signature boxes all use that geometric rect.
-     - Published/Archived versions remain immutable; viewing them in the designer is read-only.
-     - Required for Phase 6A **Request Signature** eligibility on generated custom PDF Overlay documents.
-   - **PDF Storage & Compensation**:
-     - Stored on the `local` private disk under `document-generation-templates/{companyId}/{uuid}.pdf`.
-     - Duplication physically copies the source PDF to a new private UUID path so mutable paths are never shared.
-     - Replacement clears placements for that draft and removes the old file. Database rollback compensation cleans up orphaned files on failure.
-   - **Explicit Lifecycle**:
-     - `Publish`: Promotes draft version to published (`published_at = now()`), archives prior published versions, and sets parent template to `active`.
-     - `Deactivate`: Changes parent template to `inactive` without modifying version history.
-     - `Activate`: Re-enables an inactive template that has a published version.
-   - **Allowed Merge Fields**: Strict allowlist catalog (`App\Support\Documents\DocumentTemplateMergeFields`) covering:
-     - *Employee*: `{{employee_name}}`, `{{employee_no}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{phone}}`, `{{gender}}`, `{{joining_date}}`, `{{nationality}}`, `{{emirates_id}}`, `{{position_name}}`, `{{rank_name}}`
-     - *Manager*: `{{manager_name}}` (employee's department effective manager)
-     - *Organization*: `{{company_name}}`, `{{department_name}}`, `{{branch_name}}`
-     - *System*: `{{today}}`, `{{current_year}}`
-     - Sensitive and restricted fields are not unrestricted merge fields. This includes passport number, salary, bank/IBAN, credentials, and similar identifiers. Content or placements that use unsupported placeholders such as `{{passport_number}}` are rejected at validation.
+    - Scoped to the active company.
+    - User-facing terminology: "Company Templates", "PDF Template".
+    - **Company Templates are PDF-upload templates only in the user-facing product.**
+    - **Flow**: `Templates → Upload PDF → Design → Workflow → Readiness → Save Draft → Publish`.
+        - Templates list **Upload PDF** opens `/organization/documents/templates/create/pdf`.
+        - PDF upload stores the template and creates Draft v1, then redirects directly to `/{template}/design` (Design Template).
+        - `/organization/documents/templates/create` redirects to `/create/pdf`.
+        - List **Design Template** / **Open Template** deep-links to the unified visual designer, which is the place to configure design, review, signing, readiness, and publishing for that version.
+        - Secondary actions on the list: Replace PDF, Activate/Deactivate, Duplicate, Delete. Publish and After generation are not list actions; publish stays on the Designer. The Unified PDF Designer is the sole current template editing surface. Legacy content-template and standalone placement/automation mutation endpoints have been removed. Historical template data remains preserved.
+        - Dedicated company **workflow preset** and **signing preset** management pages remain for reusable administration. The Designer selects (and, with existing preset-create permission, can create) those presets for the current template version.
+        - Legacy `content` template records and underlying domain rendering support remain preserved in the database for historical compatibility, but are hidden from company template management and blocked from new creation or editing (`/{template}/edit` redirects to Templates).
+        - **Opening the designer is side-effect free.** It does not create a draft. It displays the most relevant version (draft if present, otherwise published, otherwise latest archived). A 404 is returned if no versions exist.
+    - **Formats**:
+        - `pdf_overlay`: Branded uploaded PDF with visual merge field placement, static text boxes, and signature slots. (Legacy `content` templates remain in schema for backward compatibility).
+    - **Template Identity & Immutability**:
+        - The parent model `DocumentGenerationTemplate` manages company-level identity, metadata (`name`, `description`, `document_type_id`, `template_format`), lifecycle status (`draft`, `active`, `inactive`), and pointer to `published_version_id`.
+        - Authoritative renderable data resides in `DocumentGenerationTemplateVersion` (`version`, `status`, `content`, `source_pdf_path`, `placement_config`, `signature_placement_config`, `document_workflow_mode`, `document_workflow_preset_id`, `document_signing_mode`, `document_signing_preset_id`, `published_at`).
+        - **Workflow is version-owned.** Review and signing require explicit decisions on each draft:
+            - `null` mode = not explicitly configured (blocks publish).
+            - `none` = intentionally disabled for that stage (`preset_id` must be null).
+            - `preset` = configured using a company workflow or signing preset.
+            - Legacy rows with a preset id and null mode **read** as `preset`. Null id + null mode stays unconfigured. Historical published/archived versions are never rewritten. New Draft v1 starts unconfigured. Branching a draft from a legacy configured version normalizes **only the new draft** to `preset`.
+        - **Strict Immutability**: Published and archived versions cannot be altered. Editing an active template branches a new single `draft` version (`version = max + 1`), preserving historical published versions and source files indefinitely.
+        - Concurrency-safe draft branching (`BranchDocumentGenerationTemplateDraft`) guarantees at most one draft per template.
+    - **Unified PDF Designer** (`/{template}/design`):
+        - Single visual workspace combining merge field placements, static text boxes, and signature slot placements on one Fabric.js canvas.
+        - **`placement_config`** and **`signature_placement_config`** remain separate persisted domain structures with independent validation and audit trails.
+        - `isEditable = (version.status === 'draft')` gates all add/delete/drag controls, Workflow edits, Save Draft, and Publish. Historical versions remain selectable and fully read-only, including the Workflow tab (it shows the stored configuration for that version).
+        - Right panel tabs: **Properties** (selected-element controls) and **Workflow** (review/approval, signing, execution-order summary, placement status). Workflow stays visible with no Fabric selection.
+        - Workflow decisions use explicit selected/unselected radio cards (`none` vs `preset`). Approval and signing preset steps render in execution order. Signing steps show whether the matching PDF signature slot is placed (`Placement configured` or `Signature placement missing`). A configured signer locates and selects its canvas placement; a missing signer on a Draft uses the existing click-to-place signature mechanism (`Place on PDF`). Canvas signature selection can highlight the matching Workflow step. Left **Signatures** still manage physical slots; Workflow describes who signs and whether those slots exist.
+        - **Template readiness** is evaluated server-side (`DocumentGenerationTemplateReadiness`). The Designer shows a readiness indicator that opens issue details. Fix actions use stable issue codes (not English message text) to jump to the relevant Workflow control, arm Place on PDF, or Save Draft. Local radio/preset/placement edits update the visible status immediately; the server remains authoritative after Save Draft and before Publish. Publish is disabled for unsaved or blocking issues. Backend publish still calls the evaluator — a disabled button is not enforcement.
+        - **PDF Overlay layout preflight**: Designer HTTP requests never launch Chromium. `POST .../validate-design` creates or reuses a `DocumentTemplateLayoutValidationRun` and dispatches `ValidateDocumentTemplateLayoutJob` (202 while queued). The Laravel queue worker / CLI runs the same `PdfOverlayLayoutPreflight` engine used at generation time. Designer polls `GET .../validation-runs/{run}` until `valid`, `invalid`, `unavailable`, or `stale`. Only an **authoritative saved-draft sample** run (server fingerprint of persisted `placement_config` + source PDF **content** SHA-256 + sample values + `DocumentTemplateLayoutValidationFingerprint::ENGINE_VERSION`) can authorize Publish. Unsaved canvas validation and employee preview are never authoritative. Publish HTTP does **not** run Chromium; it recomputes the server fingerprint and looks up the matching run (`TEMPLATE_LAYOUT_INVALID`, `TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE`, `TEMPLATE_LAYOUT_VALIDATION_PENDING`, or `TEMPLATE_LAYOUT_VALIDATION_REQUIRED`). Real overflow (`LAYOUT_OVERFLOW`) still highlights the physical placement. Engine failure is `unavailable` with a `LAY-…` reference. Runtime generation still calls `PdfOverlayLayoutPreflight` before storing PDFs. Historical published and archived versions are not rewritten. Production deploy does not start `queue:work` and does not call `queue:restart`; Hostinger validation depends on the existing database queue worker / cron (`queue:work --stop-when-empty` or equivalent). Terminal validation runs older than 30 days are pruned, keeping the newest row per fingerprint.
+        - Switching versions reloads that version's placements, signature slots, workflow/signing modes and presets, and readiness. Unsaved-change confirmation covers Workflow edits as well as canvas edits. Layout validation state is cleared when the version changes.
+        - Normalized coordinates `[0.0, 1.0]` ensure resolution-independent placement across any viewer or print scale.
+        - **Schema versioning**: `schema_version: 1` remains readable for compatibility (missing `type` continues to mean `field`; never auto-migrated on read). `schema_version: 2` requires an explicit placement `type` of `field` or `text`; missing, empty, or unknown types are rejected at save and at render-time validation. All saves write v2. Published and archived versions remain immutable.
+        - **Static text boxes**: `type: 'text'` placements with `text_content` (1–500 chars). No `field` key stored. The designer uses the same default box (160×26 CSS px) and the same edit/preview chrome as merge fields.
+        - **Text wrapping**: Merge fields and static text both wrap inside the drawn box (`white-space: pre-wrap`, `overflow-wrap: break-word`, `line-height: 1.2`, full-width inner span so left/center/right `text-align` still applies). Keep the box width inside its column and increase **height** for extra lines. Browsershot DOM measurement (`scrollWidth > clientWidth + 1` or `scrollHeight > clientHeight + 1`) is used for font-size preflight.
+        - **Explicit draft creation**: Users with update permission see a "Create Draft" button when no draft exists. Clicking it branches a draft from the current published version using `BranchDocumentGenerationTemplateDraft` (at-most-one-draft invariant preserved). Opening the designer never creates a draft automatically.
+        - **Version switcher**: Toolbar dropdown lists all versions newest → oldest. Switching from an unsaved draft prompts "Stay on Draft / Discard changes and switch". Historical versions show a Version Info panel (PDF metadata, placement counts, change summary from `VersionChangeSummary`). Summaries compare against the immediately previous version. The design page provides `initial_change_summary` for the initially selected version so v2+ shows that diff on first render without an extra request.
+        - **Save Draft**: Single atomic endpoint (`PUT .../versions/{version}/design`). Persists `placement_config`, `signature_placement_config`, `document_workflow_mode`, `document_workflow_preset_id`, `document_signing_mode`, and `document_signing_preset_id` in one DB transaction. If any validation fails, nothing is persisted. Preset ids are resolved against `current_company_id`. After commit, Save Draft queues an authoritative sample layout validation run and returns it for Designer polling (`Draft saved · Validating layout…`). Invalid layout does not roll back the save.
+        - **Publish**: Server-gated by readiness plus a matching authoritative saved-sample validation run (server fingerprint), plus existing lifecycle/signature validation. Unsaved Designer changes must be saved first; Save Draft and Publish stay explicit. A browser `layout_valid` flag has no effect. Save Draft is allowed when layout is invalid or unavailable. Publish is blocked for overflow, engine unavailability, in-flight validation, or a missing/stale fingerprint (`TEMPLATE_LAYOUT_INVALID`, `TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE`, `TEMPLATE_LAYOUT_VALIDATION_PENDING`, `TEMPLATE_LAYOUT_VALIDATION_REQUIRED`).
+        - **Historical immutability**: Published and archived versions cannot be edited. Fetching a historical version via `showVersion` performs no DB writes, creates no activity log entries, and never migrates schema v1 configs. Version summaries compare against the immediately previous version and never rewrite stored configs.
+        - **Click-to-place**: Adding a merge field, static text box, or signature slot arms a placement. The next click on empty canvas hangs a new field/text box so its **baseline** sits on the click (the printed underline). Signature slots still center on the click. Esc or a second click on the same add control cancels.
+        - **Vertical alignment**: Each field/text placement stores `vertical_align` (`top` / `middle` / `baseline`). New boxes default to `baseline`. Existing placements without the key keep the previous look (`middle` for merge fields, `top` for static text). The designer paints merge text on the same box edges as generation (`align-items: flex-start|center|flex-end`). Baseline is the **bottom of the box**, not the surrounding PDF line. Click-to-place hangs the box above the click so that floor sits on the printed underline. Switching Top/Middle → Baseline on an existing box moves the value to the floor without moving the box.
+        - **Font size**: Properties has a preset selector (8–48pt) plus − / + buttons that change size by 1pt. Save still rejects sizes outside 8–48.
+        - **Overflow warning**: The drawn box is the max size. Generation may shrink the font (down to 8pt) to stay inside it. Authoritative Designer validation uses merge-field **sample values** (for example Emirates ID `784-2000-1234567-1`), not canvas labels, via the same Chromium fit engine as generation. Validate is explicit (not on every drag). After a layout-relevant edit, the last result is stale until the design is validated again.
+        - **Nudge / undo**: Arrow keys move the selected box 1 CSS px (Shift = 10). ⌘/Ctrl+Z undoes; ⌘/Ctrl+Shift+Z or Ctrl+Y redoes. History covers add, delete, duplicate, drag, resize, font, and nudge.
+        - **Alignment guides**: Dragging a field, text, or signature box shows a magenta **horizontal** snap line (Y axis: top / middle / baseline) against other boxes on the page and the page vertical center. Left/right is not snapped. Hold Alt/Option to move freely. Arrow-key nudge does not snap.
+        - **Print preview**: The in-canvas Preview toggle hides placement chrome (boxes, signature slot labels) and shows overlay text in the saved color. Sample Jane Smith values are the default. Designers who also have `employees.view` can search active company employees and overlay allowlisted merge values (`GET .../design-employees`, `GET .../design-employees/{employee}`). Search returns `id`, `name`, and `employee_no` only; values are restricted to `DocumentTemplateMergeFields::allowedKeys()`.
+        - Opening Preview cancels an armed placement. Preview does not persist and does not write placements.
+    - **Employee Signature Placement**:
+        - Managed in the unified designer's Signatures section (left panel) and right properties panel.
+        - Stored as version-owned `signature_placement_config` (separate from `placement_config`). Independent validation and audit trail.
+        - Subject slot cannot be deleted; manager and company signatory slots can be added (up to 7 each) and removed with automatic renumbering.
+        - Drag/resize persists the geometric box (`left`/`top`/`width`/`height` with scale baked in), not Fabric `getBoundingRect()`, so the outline stroke does not shift saved coordinates. Field, text, and signature boxes all use that geometric rect.
+        - Published/Archived versions remain immutable; viewing them in the designer is read-only.
+        - Required for Phase 6A **Request Signature** eligibility on generated custom PDF Overlay documents.
+    - **PDF Storage & Compensation**:
+        - Stored on the `local` private disk under `document-generation-templates/{companyId}/{uuid}.pdf`.
+        - Duplication physically copies the source PDF to a new private UUID path so mutable paths are never shared.
+        - Replacement clears placements for that draft and removes the old file. Database rollback compensation cleans up orphaned files on failure.
+    - **Explicit Lifecycle**:
+        - `Publish`: Promotes draft version to published (`published_at = now()`), archives prior published versions, and sets parent template to `active`.
+        - `Deactivate`: Changes parent template to `inactive` without modifying version history.
+        - `Activate`: Re-enables an inactive template that has a published version.
+    - **Allowed Merge Fields**: Strict allowlist catalog (`App\Support\Documents\DocumentTemplateMergeFields`) covering:
+        - _Employee_: `{{employee_name}}`, `{{employee_no}}`, `{{first_name}}`, `{{last_name}}`, `{{email}}`, `{{phone}}`, `{{gender}}`, `{{joining_date}}`, `{{nationality}}`, `{{emirates_id}}`, `{{position_name}}`, `{{rank_name}}`
+        - _Manager_: `{{manager_name}}` (employee's department effective manager)
+        - _Organization_: `{{company_name}}`, `{{department_name}}`, `{{branch_name}}`
+        - _System_: `{{today}}`, `{{current_year}}`
+        - Sensitive and restricted fields are not unrestricted merge fields. This includes passport number, salary, bank/IBAN, credentials, and similar identifiers. Content or placements that use unsupported placeholders such as `{{passport_number}}` are rejected at validation.
 
 2. **Built-in Templates** from `BulkDocumentTypeRegistry` (Salary Certificate is the current built-in; Salary Declaration is not offered for new generation):
-   - User-facing terminology: "Built-in Templates".
-   - Protected application renderers used by Generate & Send.
-   - Layout is code-owned and not editable from this UI.
+    - User-facing terminology: "Built-in Templates".
+    - Protected application renderers used by Generate & Send.
+    - Layout is code-owned and not editable from this UI.
 
 3. **Configuration shortcuts**:
-   - Link to **Documents → Configuration → Document Types** when user has `settings.master-data.document-types.view`.
+    - Link to **Documents → Configuration → Document Types** when user has `settings.master-data.document-types.view`.
 
 ## Routes
 
-| Path | Purpose | Permission |
-|------|---------|------------|
-| `/organization/documents` | Documents Overview (summary dashboard) | `documents.view` |
-| `/organization/documents/library` | Documents Library (browse / search / compliance) | `documents.view` |
-| `/organization/documents/generate` | Generate & Send (bulk roster) | `bulk_documents.view` |
-| `/organization/documents/requests` | Unified Review & Approval + Signature Requests workspace | `documents.requests.view` \| `documents.recipient-requests.view` \| `documents.recipient-requests.respond` |
-| `/organization/documents/requests/{workflowRequest}` | Internal review/approval request detail | `documents.requests.view` |
-| `/organization/documents/requests/{workflowRequest}/version-preview` | Stream bound canonical `DocumentInstanceVersion` PDF inline | `documents.requests.view` |
-| `/organization/documents/configuration` | Documents Configuration (Document Types) | `settings.master-data.document-types.view` |
-| `/organization/documents/templates` | Custom and System Document Templates | `documents.templates.view` \| `bulk_documents.view` \| `settings.master-data.document-types.view` |
-| `/organization/documents/templates/create` | Redirects to PDF upload page (`/create/pdf`) | `documents.templates.create` |
-| `/organization/documents/templates/create/pdf` | PDF upload create page | `documents.templates.create` |
-| `/organization/documents/templates/{template}/edit` | Redirects to Templates list | `documents.templates.update` |
-| `/organization/documents/templates/{template}/design` | Unified visual designer — side-effect free; shows draft > published > latest | `documents.templates.update` |
-| `/organization/documents/templates/{template}/design-employees` | JSON search of active company employees for canvas preview | `documents.templates.update` + `employees.view` |
-| `/organization/documents/templates/{template}/design-employees/{employee}` | Allowlisted merge-field values for one company employee | `documents.templates.update` + `employees.view` |
-| `/organization/documents/templates` (POST) | Store custom PDF document template → redirects to design page | `documents.templates.create` |
-| `/organization/documents/templates/{template}/preview` (GET) | Render preview for a stored template, including historical content templates | `documents.templates.view` |
-| `/organization/documents/templates/{template}` (PUT) | Update custom document template | `documents.templates.update` |
-| `/organization/documents/templates/{template}/duplicate` (POST) | Duplicate custom template in company | `documents.templates.update` |
-| `/organization/documents/templates/{template}` (DELETE) | Delete custom template | `documents.templates.delete` |
-| `/organization/documents/templates/{template}/draft` (POST) | Get or branch editable draft version | `documents.templates.update` |
-| `/organization/documents/templates/{template}/versions/{version}/source-pdf` (GET) | Stream private source PDF | `documents.templates.view` |
-| `/organization/documents/templates/{template}/versions/{version}/design` (PUT) | Atomic Save Draft — `placement_config`, `signature_placement_config`, and workflow/signing automation in one transaction | `documents.templates.update` |
-| `/organization/documents/templates/{template}/versions/{version}/validate-design` (POST) | Queue a layout validation run for the current canvas or persisted draft (sample or one employee). Does not launch Chromium in PHP-FPM. | `documents.templates.update` (employee mode also needs `employees.view`) |
-| `/organization/documents/templates/{template}/versions/{version}/validation-runs/{run}` (GET) | Poll a company-scoped validation run | `documents.templates.update` (employee runs also need `employees.view`) |
-| `/organization/documents/templates/{template}/versions/{version}` (GET) | Side-effect-free version detail + `change_summary` for version switcher | `documents.templates.view` |
-| `/organization/documents/templates/{template}/versions/{version}/replace-pdf` (POST) | Replace PDF on draft version | `documents.templates.update` |
-| `/organization/documents/templates/{template}/versions/{version}/publish` (POST) | Publish draft version | `documents.templates.update` |
-| `/organization/documents/templates/{template}/activate` (POST) | Activate template | `documents.templates.update` |
-| `/organization/documents/templates/{template}/deactivate` (POST) | Deactivate template | `documents.templates.update` |
-| `/organization/documents/activity` | Bulk generation history | `bulk_documents.view` |
-| `/organization/documents/bulk` | Legacy Bulk Documents index | `bulk_documents.view` |
-| `/organization/documents/employees/{employee}` | Employee document browse | `documents.view` |
-| `/organization/documents/employees/{employee}/files/{document}/manager-countersign-requests` (POST) | Create department-manager countersign request (manager resolved server-side) | `documents.recipient-requests.create` |
-| `/organization/documents/employees/{employee}/files/{document}/signing-flows` (POST) | Start signing flow from an active signing preset | `documents.recipient-requests.create` |
-| `/organization/documents/signing-flows/{signingFlow}/retry` (POST) | Retry blocked signing flow advancement | `documents.recipient-requests.create` |
-| `/organization/documents/signing-flows/{signingFlow}/cancel` (POST) | Cancel active/blocked signing flow | `documents.recipient-requests.cancel` |
-| `/organization/documents/signing-presets` | Signing presets CRUD index | `documents.signing-presets.view` |
-| `/organization/employees/{employee}` (Documents tab) | Upload, edit, versions on profile | `documents.view` / `documents.upload` / `documents.delete` |
+| Path                                                                                                | Purpose                                                                                                                                | Permission                                                                                                 |
+| --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `/organization/documents`                                                                           | Documents Overview (summary dashboard)                                                                                                 | `documents.view`                                                                                           |
+| `/organization/documents/library`                                                                   | Documents Library (browse / search / compliance)                                                                                       | `documents.view`                                                                                           |
+| `/organization/documents/generate`                                                                  | Generate & Send (bulk roster)                                                                                                          | `bulk_documents.view`                                                                                      |
+| `/organization/documents/requests`                                                                  | Unified Review & Approval + Signature Requests workspace                                                                               | `documents.requests.view` \| `documents.recipient-requests.view` \| `documents.recipient-requests.respond` |
+| `/organization/documents/requests/{workflowRequest}`                                                | Internal review/approval request detail                                                                                                | `documents.requests.view`                                                                                  |
+| `/organization/documents/requests/{workflowRequest}/version-preview`                                | Stream bound canonical `DocumentInstanceVersion` PDF inline                                                                            | `documents.requests.view`                                                                                  |
+| `/organization/documents/configuration`                                                             | Documents Configuration (Document Types)                                                                                               | `settings.master-data.document-types.view`                                                                 |
+| `/organization/documents/templates`                                                                 | Custom and System Document Templates                                                                                                   | `documents.templates.view` \| `bulk_documents.view` \| `settings.master-data.document-types.view`          |
+| `/organization/documents/templates/create`                                                          | Redirects to PDF upload page (`/create/pdf`)                                                                                           | `documents.templates.create`                                                                               |
+| `/organization/documents/templates/create/pdf`                                                      | PDF upload create page                                                                                                                 | `documents.templates.create`                                                                               |
+| `/organization/documents/templates/{template}/edit`                                                 | Redirects to Templates list                                                                                                            | `documents.templates.update`                                                                               |
+| `/organization/documents/templates/{template}/design`                                               | Unified visual designer — side-effect free; shows draft > published > latest                                                           | `documents.templates.update`                                                                               |
+| `/organization/documents/templates/{template}/design-employees`                                     | JSON search of active company employees for canvas preview                                                                             | `documents.templates.update` + `employees.view`                                                            |
+| `/organization/documents/templates/{template}/design-employees/{employee}`                          | Allowlisted merge-field values for one company employee                                                                                | `documents.templates.update` + `employees.view`                                                            |
+| `/organization/documents/templates` (POST)                                                          | Store custom PDF document template → redirects to design page                                                                          | `documents.templates.create`                                                                               |
+| `/organization/documents/templates/{template}/preview` (GET)                                        | Render preview for a stored template, including historical content templates                                                           | `documents.templates.view`                                                                                 |
+| `/organization/documents/templates/{template}` (PUT)                                                | Update custom document template                                                                                                        | `documents.templates.update`                                                                               |
+| `/organization/documents/templates/{template}/duplicate` (POST)                                     | Duplicate custom template in company                                                                                                   | `documents.templates.update`                                                                               |
+| `/organization/documents/templates/{template}` (DELETE)                                             | Delete custom template                                                                                                                 | `documents.templates.delete`                                                                               |
+| `/organization/documents/templates/{template}/draft` (POST)                                         | Get or branch editable draft version                                                                                                   | `documents.templates.update`                                                                               |
+| `/organization/documents/templates/{template}/versions/{version}/source-pdf` (GET)                  | Stream private source PDF                                                                                                              | `documents.templates.view`                                                                                 |
+| `/organization/documents/templates/{template}/versions/{version}/design` (PUT)                      | Atomic Save Draft — `placement_config`, `signature_placement_config`, and workflow/signing automation in one transaction               | `documents.templates.update`                                                                               |
+| `/organization/documents/templates/{template}/versions/{version}/validate-design` (POST)            | Queue a layout validation run for the current canvas or persisted draft (sample or one employee). Does not launch Chromium in PHP-FPM. | `documents.templates.update` (employee mode also needs `employees.view`)                                   |
+| `/organization/documents/templates/{template}/versions/{version}/validation-runs/{run}` (GET)       | Poll a company-scoped validation run                                                                                                   | `documents.templates.update` (employee runs also need `employees.view`)                                    |
+| `/organization/documents/templates/{template}/versions/{version}` (GET)                             | Side-effect-free version detail + `change_summary` for version switcher                                                                | `documents.templates.view`                                                                                 |
+| `/organization/documents/templates/{template}/versions/{version}/replace-pdf` (POST)                | Replace PDF on draft version                                                                                                           | `documents.templates.update`                                                                               |
+| `/organization/documents/templates/{template}/versions/{version}/publish` (POST)                    | Publish draft version                                                                                                                  | `documents.templates.update`                                                                               |
+| `/organization/documents/templates/{template}/activate` (POST)                                      | Activate template                                                                                                                      | `documents.templates.update`                                                                               |
+| `/organization/documents/templates/{template}/deactivate` (POST)                                    | Deactivate template                                                                                                                    | `documents.templates.update`                                                                               |
+| `/organization/documents/activity`                                                                  | Bulk generation history                                                                                                                | `bulk_documents.view`                                                                                      |
+| `/organization/documents/bulk`                                                                      | Legacy Bulk Documents index                                                                                                            | `bulk_documents.view`                                                                                      |
+| `/organization/documents/employees/{employee}`                                                      | Employee document browse                                                                                                               | `documents.view`                                                                                           |
+| `/organization/documents/employees/{employee}/files/{document}/manager-countersign-requests` (POST) | Create department-manager countersign request (manager resolved server-side)                                                           | `documents.recipient-requests.create`                                                                      |
+| `/organization/documents/employees/{employee}/files/{document}/signing-flows` (POST)                | Start signing flow from an active signing preset                                                                                       | `documents.recipient-requests.create`                                                                      |
+| `/organization/documents/signing-flows/{signingFlow}/retry` (POST)                                  | Retry blocked signing flow advancement                                                                                                 | `documents.recipient-requests.create`                                                                      |
+| `/organization/documents/signing-flows/{signingFlow}/cancel` (POST)                                 | Cancel active/blocked signing flow                                                                                                     | `documents.recipient-requests.cancel`                                                                      |
+| `/organization/documents/signing-presets`                                                           | Signing presets CRUD index                                                                                                             | `documents.signing-presets.view`                                                                           |
+| `/organization/employees/{employee}` (Documents tab)                                                | Upload, edit, versions on profile                                                                                                      | `documents.view` / `documents.upload` / `documents.delete`                                                 |
 
 Upload and CRUD on the profile use `organization.employees.documents.*` routes.
 
@@ -401,24 +401,24 @@ HR configures document types and requirement rules under **Documents → Configu
 
 ### Document Types list and UX
 
-The page answers one core question: *What kind of employee document is this, and who is required to have it?*
+The page answers one core question: _What kind of employee document is this, and who is required to have it?_
 
-- **Purpose & description:** *"Define document categories, requirements, and who needs each document."*
+- **Purpose & description:** _"Define document categories, requirements, and who needs each document."_
 - **Detail page:** Opening a Document Type name or row navigates to `/organization/documents/configuration/{documentType}` (**Documents → Document Types → {name}**). The detail page answers: what the type is, whether it is required, who it applies to, which details are tracked, and recent changes. **Edit** reuses the existing create/edit Sheet and stays on the detail page after a successful update (`redirect_to=show`). **Delete** is available under overflow actions when permitted and returns to the Document Types list. **Recent activity** renders only with `audit.view` and includes Document Type field changes plus company-scoped requirement policy phrases. When the type is required and the user has `documents.view`, compliance shortcuts open Library filtered by that type (`View missing employees`, `View documents`).
 - **Table columns:**
-  - **Document Type:** Name of the document type (e.g. Passport Copy, Sea Service Book). Clicking the name or row opens the detail page.
-  - **Requirement:** Clear status badge indicating **Required** or **Optional**.
-  - **Applies To:** Who must hold it when required (**All employees**, specific group summary like `Crew · Captain`, or `—` when optional).
-  - **Expiry:** Shows **Tracked** when expiry tracking is active, or `—`.
-  - **Status:** **Active** / **Inactive** badge with inline status switch for fast updates.
-  - **Actions:** View, Edit, and Delete actions (permission-governed).
+    - **Document Type:** Name of the document type (e.g. Passport Copy, Sea Service Book). Clicking the name or row opens the detail page.
+    - **Requirement:** Clear status badge indicating **Required** or **Optional**.
+    - **Applies To:** Who must hold it when required (**All employees**, specific group summary like `Crew · Captain`, or `—` when optional).
+    - **Expiry:** Shows **Tracked** when expiry tracking is active, or `—`.
+    - **Status:** **Active** / **Inactive** badge with inline status switch for fast updates.
+    - **Actions:** View, Edit, and Delete actions (permission-governed).
 - **Responsive card view:** On mobile screens (`< md`), records render as streamlined cards showing title, requirement status, applies-to scope, expiry tracking, active badge, View primary action, and inline edit/delete overflow actions.
 - **Empty state:** Clean empty state with direct **Add document type** action when the user has create permissions.
 - **Create / Edit Sheet structure:**
-  1. **Basics:** Document Type Name (`title`) and Active status switch (`is_active`).
-  2. **Requirement:** *"Is this document required for employees?"* with **Optional** vs **Required document** radio options.
-  3. **Who needs this document?** (visible when Required): Choice between **All employees** and **Selected groups**. When *Selected groups* is chosen, an explicit rule explanation clarifies: *"Employees must match every selected category (AND). Within a category, matching any selected value is enough (OR). Unselected categories impose no restriction."* Multi-selectors for Departments, Positions, Ranks, and Projects include compact badge summaries so selected items are immediately visible and dismissible.
-  4. **Tracked document details:** Clarifies which details are relevant for the document type (Issue date, Expiry date, Document number) and honestly explains: *"These settings identify the details normally tracked for this document type. They do not currently make those fields mandatory during upload."* For Expiry date, the UI notes: *"Indicates that expiry date is a relevant detail for this document type."*
+    1. **Basics:** Document Type Name (`title`) and Active status switch (`is_active`).
+    2. **Requirement:** _"Is this document required for employees?"_ with **Optional** vs **Required document** radio options.
+    3. **Who needs this document?** (visible when Required): Choice between **All employees** and **Selected groups**. When _Selected groups_ is chosen, an explicit rule explanation clarifies: _"Employees must match every selected category (AND). Within a category, matching any selected value is enough (OR). Unselected categories impose no restriction."_ Multi-selectors for Departments, Positions, Ranks, and Projects include compact badge summaries so selected items are immediately visible and dismissible.
+    4. **Tracked document details:** Clarifies which details are relevant for the document type (Issue date, Expiry date, Document number) and honestly explains: _"These settings identify the details normally tracked for this document type. They do not currently make those fields mandatory during upload."_ For Expiry date, the UI notes: _"Indicates that expiry date is a relevant detail for this document type."_
 
 The previous Settings location remains a compatibility bookmark: `/settings/master-data/document-types` redirects to `/organization/documents/configuration` and preserves supported query keys such as `search`, `page`, and `edit`. Create, update, delete, and CSV import still use the existing Settings mutation routes and `settings.master-data.document-types.*` permissions.
 
@@ -495,12 +495,12 @@ Meaningful policy changes are activity-logged with a single company-aware phrase
 
 For each required document type and employee, exactly one status is calculated:
 
-| Status | Meaning |
-|--------|---------|
-| `missing` | No current `EmployeeDocument` exists for that `document_type_id` |
-| `expired` | Latest upload exists and `DocumentExpiry` resolves to expired |
-| `expiring` | Latest upload exists and is in the existing 30 / 15 / 7-day window |
-| `valid` | Latest upload exists and is neither expired nor currently expiring (including no expiry date) |
+| Status     | Meaning                                                                                       |
+| ---------- | --------------------------------------------------------------------------------------------- |
+| `missing`  | No current `EmployeeDocument` exists for that `document_type_id`                              |
+| `expired`  | Latest upload exists and `DocumentExpiry` resolves to expired                                 |
+| `expiring` | Latest upload exists and is in the existing 30 / 15 / 7-day window                            |
+| `valid`    | Latest upload exists and is neither expired nor currently expiring (including no expiry date) |
 
 The canonical latest upload is **`created_at DESC`, then `id DESC`** (the same rule as `EmployeeDocument::latestUpload()`). Documents index bulk compliance and the employee profile Required Documents block both use `LatestEmployeeDocumentQuery` so they cannot disagree when IDs and timestamps are out of order (imports, restores, backfills). Equal `created_at` values are broken by the highest `id`. An older superseded file does not satisfy the requirement.
 
@@ -539,12 +539,12 @@ Rules:
 
 ## Template fields vs document compliance
 
-| | Employee profile template | Document requirement policy |
-|--|---------------------------|-----------------------------|
-| Purpose | Which fields appear / are required on employee forms and the Documents tab uploader | Which document types an employee must currently hold |
-| Scope | Template configuration | Active company + department / position / rank / project |
-| Blocks employee create? | Template required fields on the create form | No |
-| Missing file | N/A (form field) | Compliance status `missing` |
+|                         | Employee profile template                                                           | Document requirement policy                             |
+| ----------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Purpose                 | Which fields appear / are required on employee forms and the Documents tab uploader | Which document types an employee must currently hold    |
+| Scope                   | Template configuration                                                              | Active company + department / position / rank / project |
+| Blocks employee create? | Template required fields on the create form                                         | No                                                      |
+| Missing file            | N/A (form field)                                                                    | Compliance status `missing`                             |
 
 Do not merge the two. If both mention issue date / expiry / document number, the **template** still drives the upload form in V1. Requirement metadata is stored for policy and future enforcement.
 
@@ -554,19 +554,19 @@ Not implemented: a separate requirements page, individual exceptions/waivers, ap
 
 ## Backend services
 
-| Class | Role |
-|-------|------|
-| `DocumentsOverviewQuery` | Overview attention items, request/signature counts, and Document Compliance-by-type from existing browse/compliance/request queries |
-| `DocumentsLibraryQueryState` | Sanitize supported Library query keys for redirects, back-navigation, and Library |
-| `DocumentBrowseQuery` | Folders, expiry compliance list, search results, summaries |
-| `DocumentRequirementResolver` | Which active company policies apply to an employee (AND between selected categories; OR within a category) |
-| `DocumentComplianceQuery` | Required / valid / expiring / expired / missing pairs without N+1 |
-| `LatestEmployeeDocumentQuery` | Canonical latest upload per employee + type (`created_at DESC`, `id DESC`) |
-| `UnmappedEmployeeDocumentTypeMatcher` | Deterministic audit/backfill of NULL `document_type_id` rows |
-| `SyncDocumentRequirement` | Transactional company policy create/update + one human-readable audit event |
-| `StoresEmployeeDocument` | Create/replace on the private disk |
-| `EmployeePrivateFile` | Private-disk store/resolve with public fallback |
-| `DocumentPagePermissions` | Maps `documents.*` to Inertia `can` props |
+| Class                                 | Role                                                                                                                                |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `DocumentsOverviewQuery`              | Overview attention items, request/signature counts, and Document Compliance-by-type from existing browse/compliance/request queries |
+| `DocumentsLibraryQueryState`          | Sanitize supported Library query keys for redirects, back-navigation, and Library                                                   |
+| `DocumentBrowseQuery`                 | Folders, expiry compliance list, search results, summaries                                                                          |
+| `DocumentRequirementResolver`         | Which active company policies apply to an employee (AND between selected categories; OR within a category)                          |
+| `DocumentComplianceQuery`             | Required / valid / expiring / expired / missing pairs without N+1                                                                   |
+| `LatestEmployeeDocumentQuery`         | Canonical latest upload per employee + type (`created_at DESC`, `id DESC`)                                                          |
+| `UnmappedEmployeeDocumentTypeMatcher` | Deterministic audit/backfill of NULL `document_type_id` rows                                                                        |
+| `SyncDocumentRequirement`             | Transactional company policy create/update + one human-readable audit event                                                         |
+| `StoresEmployeeDocument`              | Create/replace on the private disk                                                                                                  |
+| `EmployeePrivateFile`                 | Private-disk store/resolve with public fallback                                                                                     |
+| `DocumentPagePermissions`             | Maps `documents.*` to Inertia `can` props                                                                                           |
 
 ## Tests
 
@@ -591,6 +591,7 @@ See [Document search](./document-search.md) and [Document sharing](./document-sh
 ## Phase 3B: Custom Document Generation Templates & PDF Placement
 
 Custom document templates allow companies to author custom HR documents in two formats:
+
 1. **Content templates** (`template_format = 'content'`) with controlled merge fields.
 2. **PDF Overlay templates** (`template_format = 'pdf_overlay'`) with private source PDF storage and visual drag-and-drop merge field placement via Fabric.js.
 
@@ -602,17 +603,17 @@ Custom document templates allow companies to author custom HR documents in two f
 ### Lifecycle Semantics
 
 - **Version Lifecycle**: `Draft` -> `Published` -> `Archived`.
-  - Versions start as `Draft`. Once published, they are frozen and immutable (`content`, `placement_config`, and PDF attachments cannot be modified).
-  - Publishing a new version automatically moves the previously published version to `Archived`.
+    - Versions start as `Draft`. Once published, they are frozen and immutable (`content`, `placement_config`, and PDF attachments cannot be modified).
+    - Publishing a new version automatically moves the previously published version to `Archived`.
 - **Publish vs Activate**:
-  - **Publish** (`versions/{version}/publish`): Transitions a Draft version to `Published`, archives the previous version, points `published_version_id` to the published version, and sets parent template status to `Active`.
-  - **Activate / Deactivate** (`templates/{template}/activate`, `templates/{template}/deactivate`): Controls company availability. Activation strictly requires a valid `published_version_id` belonging to the active company and template with status `Published`.
-  - Normal create/update form submissions do **not** accept `status`. Templates always begin in `Draft` and can only be published through the explicit publish action.
+    - **Publish** (`versions/{version}/publish`): Transitions a Draft version to `Published`, archives the previous version, points `published_version_id` to the published version, and sets parent template status to `Active`.
+    - **Activate / Deactivate** (`templates/{template}/activate`, `templates/{template}/deactivate`): Controls company availability. Activation strictly requires a valid `published_version_id` belonging to the active company and template with status `Published`.
+    - Normal create/update form submissions do **not** accept `status`. Templates always begin in `Draft` and can only be published through the explicit publish action.
 - **Parent Content Semantics**:
-  - `parent.content` continues representing the **current published content** for backwards compatibility with legacy callers.
-  - When editing a new draft version, `parent.content` is not overwritten until that draft is explicitly published.
-  - For templates that have never been published, `parent.content` syncs with draft edits.
-  - The editor always resolves content in order: `draft_version.content ?? published_version.content ?? parent.content`.
+    - `parent.content` continues representing the **current published content** for backwards compatibility with legacy callers.
+    - When editing a new draft version, `parent.content` is not overwritten until that draft is explicitly published.
+    - For templates that have never been published, `parent.content` syncs with draft edits.
+    - The editor always resolves content in order: `draft_version.content ?? published_version.content ?? parent.content`.
 
 ### PDF Storage & Security Boundary
 
@@ -652,43 +653,43 @@ EmployeeDocument (Documents Library representation)
 ### Key Architectural Invariants
 
 1. **Canonical Artifact vs. Library Separation**:
-   - Canonical artifacts are stored in `storage/app/private/document-instances/{companyId}/{uuid}.pdf`.
-   - Library copies are created in `storage/app/private/employee-documents/{companyId}/{employeeId}/...`.
-   - **Library Deletion Safety**: Deleting an `EmployeeDocument` via `DocumentDeletionService` purges the Library file copy, but leaves the canonical artifact in `document-instances/` untouched. The `document_instances.employee_document_id` pointer is set to `null`. Historical provenance is never destroyed. Generate & Send **Generated / Missing** counts follow the live Library PDF: an unlinked instance is **Missing**, and **Generate missing** may create a new instance for that published version.
+    - Canonical artifacts are stored in `storage/app/private/document-instances/{companyId}/{uuid}.pdf`.
+    - Library copies are created in `storage/app/private/employee-documents/{companyId}/{employeeId}/...`.
+    - **Library Deletion Safety**: Deleting an `EmployeeDocument` via `DocumentDeletionService` purges the Library file copy, but leaves the canonical artifact in `document-instances/` untouched. The `document_instances.employee_document_id` pointer is set to `null`. Historical provenance is never destroyed. Generate & Send **Generated / Missing** counts follow the live Library PDF: an unlinked instance is **Missing**, and **Generate missing** may create a new instance for that published version.
 2. **Template & Version Provenance Protection**:
-   - Once any `DocumentInstance` or `DocumentGenerationRun` exists for a `DocumentGenerationTemplate`, deleting that template or its versions is strictly blocked with a user-friendly `ValidationException`, directing the user to deactivate the template instead.
-   - Deletion is blocked even if a run failed or completed with zero instances, preventing database-level foreign key constraint violations.
-   - Backed at the database level by foreign key `ON DELETE RESTRICT` constraints on `document_generation_template_id` and `document_generation_template_version_id` from both `document_instances` and `document_generation_runs`.
-   - **Instance Version Deletion RESTRICT**: Foreign key from `DocumentInstanceVersion` to `DocumentInstance` is configured as `ON DELETE RESTRICT`, blocking direct database deletion of instances that possess versions.
+    - Once any `DocumentInstance` or `DocumentGenerationRun` exists for a `DocumentGenerationTemplate`, deleting that template or its versions is strictly blocked with a user-friendly `ValidationException`, directing the user to deactivate the template instead.
+    - Deletion is blocked even if a run failed or completed with zero instances, preventing database-level foreign key constraint violations.
+    - Backed at the database level by foreign key `ON DELETE RESTRICT` constraints on `document_generation_template_id` and `document_generation_template_version_id` from both `document_instances` and `document_generation_runs`.
+    - **Instance Version Deletion RESTRICT**: Foreign key from `DocumentInstanceVersion` to `DocumentInstance` is configured as `ON DELETE RESTRICT`, blocking direct database deletion of instances that possess versions.
 3. **DocumentInstance & Version Identity Immutability**:
-   - `DocumentInstance` immutable attributes (`company_id`, `employee_id`, `employee_name_snapshot`, `employee_no_snapshot`, `document_generation_template_id`, `document_generation_template_version_id`, `document_type_id`, `document_generation_run_id`, `template_name_snapshot`, `template_version_number`, `title_snapshot`, `generated_by`, `generated_at`) cannot be modified after creation.
-   - `DocumentInstanceVersion` attributes (`file_path`, `checksum`, `size_bytes`, `version`, `stage`, `company_id`, `document_instance_id`, `original_filename`, `mime_type`, `created_by`) are strictly immutable.
-   - Only lifecycle pointers (`status`, `current_version_id`, `employee_document_id`) on `DocumentInstance` may be updated.
-   - Calling `$instance->delete()` or `$version->delete()` throws a `DomainException` to guarantee official document records cannot be deleted via Eloquent.
+    - `DocumentInstance` immutable attributes (`company_id`, `employee_id`, `employee_name_snapshot`, `employee_no_snapshot`, `document_generation_template_id`, `document_generation_template_version_id`, `document_type_id`, `document_generation_run_id`, `template_name_snapshot`, `template_version_number`, `title_snapshot`, `generated_by`, `generated_at`) cannot be modified after creation.
+    - `DocumentInstanceVersion` attributes (`file_path`, `checksum`, `size_bytes`, `version`, `stage`, `company_id`, `document_instance_id`, `original_filename`, `mime_type`, `created_by`) are strictly immutable.
+    - Only lifecycle pointers (`status`, `current_version_id`, `employee_document_id`) on `DocumentInstance` may be updated.
+    - Calling `$instance->delete()` or `$version->delete()` throws a `DomainException` to guarantee official document records cannot be deleted via Eloquent.
 4. **Version Snapshotting & Archived Version Generation**:
-   - Generation runs are permanently bound to the template version snapshotted at Run creation.
-   - If a new version (v2) is published while a queued Run for v1 is in progress, v1 transitions to `Archived`. The queued worker executes successfully because `Archived` versions represent immutable historical snapshots safe to reproduce. Draft versions are never accepted by the worker.
+    - Generation runs are permanently bound to the template version snapshotted at Run creation.
+    - If a new version (v2) is published while a queued Run for v1 is in progress, v1 transitions to `Archived`. The queued worker executes successfully because `Archived` versions represent immutable historical snapshots safe to reproduce. Draft versions are never accepted by the worker.
 5. **Atomic Generation Unit & Full File/DB Compensation**:
-   - Storage of canonical and library PDF files occurs prior to database persistence, with paths recorded in memory.
-   - Creation of `EmployeeDocument`, `DocumentInstance`, `DocumentInstanceVersion`, `RunItem` completion, and activity audit execute in a single database transaction.
-   - If any database step fails, the transaction rolls back completely and both the canonical and library files are purged from storage, leaving no orphaned files, no partial database rows, and no false audit logs.
+    - Storage of canonical and library PDF files occurs prior to database persistence, with paths recorded in memory.
+    - Creation of `EmployeeDocument`, `DocumentInstance`, `DocumentInstanceVersion`, `RunItem` completion, and activity audit execute in a single database transaction.
+    - If any database step fails, the transaction rolls back completely and both the canonical and library files are purged from storage, leaving no orphaned files, no partial database rows, and no false audit logs.
 6. **Tenant-Scoped Explicit Employee Validation**:
-   - Explicit `employee_ids` submitted to `GenerateCustomDocumentsRequest` are validated against `current_company_id` using `Rule::exists('employees', 'id')->where('company_id', $companyId)`. Cross-company employee submissions are rejected with validation errors before any Run or queue dispatch occurs.
-   - Filter-based bulk generation relies strictly on server-side `current_company_id`.
+    - Explicit `employee_ids` submitted to `GenerateCustomDocumentsRequest` are validated against `current_company_id` using `Rule::exists('employees', 'id')->where('company_id', $companyId)`. Cross-company employee submissions are rejected with validation errors before any Run or queue dispatch occurs.
+    - Filter-based bulk generation relies strictly on server-side `current_company_id`.
 7. **Repeat Generation & Cross-Run Deduplication**:
-   - Non-repeat generation (`allowRepeatGeneration = false`) is strictly deduplicated across concurrent runs. Workers lock the targeted Employee row `FOR UPDATE` inside the final database transaction and perform an authoritative existence re-check against the exact template version **with a live Library `EmployeeDocument`**. If that library PDF still exists, the run item is marked `skipped` and any newly rendered canonical or library PDF files are immediately purged. An instance whose library pointer was cleared by delete is not treated as current.
-   - Explicit employee selection (`allowRepeatGeneration = true`) bypasses this deduplication, intentionally generating a new `DocumentInstance` (force new copy) while preserving all prior historical instances.
+    - Non-repeat generation (`allowRepeatGeneration = false`) is strictly deduplicated across concurrent runs. Workers lock the targeted Employee row `FOR UPDATE` inside the final database transaction and perform an authoritative existence re-check against the exact template version **with a live Library `EmployeeDocument`**. If that library PDF still exists, the run item is marked `skipped` and any newly rendered canonical or library PDF files are immediately purged. An instance whose library pointer was cleared by delete is not treated as current.
+    - Explicit employee selection (`allowRepeatGeneration = true`) bypasses this deduplication, intentionally generating a new `DocumentInstance` (force new copy) while preserving all prior historical instances.
 8. **Content Template Rendering & Multilingual Bidi Safety**:
-   - Server-side trusted merge fields are resolved via `DocumentTemplateMergeFields::valuesForEmployee()`.
-   - HTML characters are safely escaped (`e()`).
-   - Container has `dir="auto"` and `unicode-bidi: plaintext` with embedded DejaVu fonts (`BrowsershotEmbeddedFonts::dejaVuStyles()`), ensuring correct RTL alignment for Arabic paragraphs (`محمد رابيل`), LTR for English, clean inline mixed text, and multi-page flow.
+    - Server-side trusted merge fields are resolved via `DocumentTemplateMergeFields::valuesForEmployee()`.
+    - HTML characters are safely escaped (`e()`).
+    - Container has `dir="auto"` and `unicode-bidi: plaintext` with embedded DejaVu fonts (`BrowsershotEmbeddedFonts::dejaVuStyles()`), ensuring correct RTL alignment for Arabic paragraphs (`محمد رابيل`), LTR for English, clean inline mixed text, and multi-page flow.
 9. **Idempotent Queue Ledger**:
-   - Runs are recorded in `document_generation_runs` and individual employee tasks in `document_generation_run_items` (unique on `[document_generation_run_id, employee_id]`).
-   - Workers claim **pending** items atomically (`pending` -> `processing`). Overlay jobs process 4 employees per 120s attempt because each overlay employee can require FPDI parse, Chromium measurement, overlay render, composition, private storage, and a DB transaction. Content templates keep a chunk of 10. Continuation jobs run while pending items remain.
-   - `DocumentGenerationRun` / `DocumentGenerationRunItem` is the authoritative business result. A Laravel queue JobRun can complete successfully even when some run items failed and were handled inside the job.
-   - Per-employee failures (layout overflow, missing source PDF, invalid PDF bytes) mark the item `failed` with a business-safe `error_code` and do not throw out of the queue job.
-   - If the worker dies after claiming an item, `GenerateCustomDocumentsJob::failed()` marks remaining `processing` items `JOB_FAILED` ("Document generation was interrupted before completion."), does not rewrite `completed` / `skipped` / already-`failed` items, then either continues remaining **pending** items or terminalizes the run and sends the existing completion push once.
-   - Run totals (`generated_count`, `skipped_count`, `failed_count`) are derived directly from database aggregate counts on `DocumentGenerationRunItem`.
+    - Runs are recorded in `document_generation_runs` and individual employee tasks in `document_generation_run_items` (unique on `[document_generation_run_id, employee_id]`).
+    - Workers claim **pending** items atomically (`pending` -> `processing`). Overlay jobs process 4 employees per 120s attempt because each overlay employee can require FPDI parse, Chromium measurement, overlay render, composition, private storage, and a DB transaction. Content templates keep a chunk of 10. Continuation jobs run while pending items remain.
+    - `DocumentGenerationRun` / `DocumentGenerationRunItem` is the authoritative business result. A Laravel queue JobRun can complete successfully even when some run items failed and were handled inside the job.
+    - Per-employee failures (layout overflow, missing source PDF, invalid PDF bytes) mark the item `failed` with a business-safe `error_code` and do not throw out of the queue job.
+    - If the worker dies after claiming an item, `GenerateCustomDocumentsJob::failed()` marks remaining `processing` items `JOB_FAILED` ("Document generation was interrupted before completion."), does not rewrite `completed` / `skipped` / already-`failed` items, then either continues remaining **pending** items or terminalizes the run and sends the existing completion push once.
+    - Run totals (`generated_count`, `skipped_count`, `failed_count`) are derived directly from database aggregate counts on `DocumentGenerationRunItem`.
 10. **Wayfinder-Driven Generate & Send UI**:
     - Frontend dispatches generation via Wayfinder route action `GenerateCustomDocumentsController.url()`.
     - Document Show page renders a "Document Provenance" card displaying template name, version, generation timestamp, and generator.
@@ -773,17 +774,17 @@ PDF Overlay output uses the same `DocumentInstance` / `DocumentInstanceVersion` 
 
 ### Error codes
 
-| Code | Meaning |
-|------|---------|
-| `LAYOUT_OVERFLOW` | A Designer/preflight placement does not fit sample or preview data even at 8pt. |
-| `TEMPLATE_LAYOUT_OVERFLOW` | A merge value does not fit the configured placement even at 8pt during generation. |
-| `TEMPLATE_LAYOUT_INVALID` | Publish rejected because preflight found one or more real template layout problems. |
-| `TEMPLATE_LAYOUT_CONFIGURATION_INVALID` | `placement_config` failed server validation. This is a template problem, not a Chromium failure. |
+| Code                                     | Meaning                                                                                                           |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `LAYOUT_OVERFLOW`                        | A Designer/preflight placement does not fit sample or preview data even at 8pt.                                   |
+| `TEMPLATE_LAYOUT_OVERFLOW`               | A merge value does not fit the configured placement even at 8pt during generation.                                |
+| `TEMPLATE_LAYOUT_INVALID`                | Publish rejected because preflight found one or more real template layout problems.                               |
+| `TEMPLATE_LAYOUT_CONFIGURATION_INVALID`  | `placement_config` failed server validation. This is a template problem, not a Chromium failure.                  |
 | `TEMPLATE_LAYOUT_VALIDATION_UNAVAILABLE` | The Chromium measurement engine could not complete the check. Publish is blocked until Retry validation succeeds. |
-| `TEMPLATE_SOURCE_UNAVAILABLE` | Source PDF missing, unreadable, page-count mismatch, or outside the company boundary. |
-| `GENERATION_FAILED` | Any other renderer or storage failure, including invalid (non-`%PDF`) renderer bytes. |
-| `EMPLOYEE_NOT_FOUND` | The run item’s employee no longer exists in the company. |
-| `JOB_FAILED` | The queue worker died after claiming the item; the item is terminalized so it cannot stay `processing`. |
+| `TEMPLATE_SOURCE_UNAVAILABLE`            | Source PDF missing, unreadable, page-count mismatch, or outside the company boundary.                             |
+| `GENERATION_FAILED`                      | Any other renderer or storage failure, including invalid (non-`%PDF`) renderer bytes.                             |
+| `EMPLOYEE_NOT_FOUND`                     | The run item’s employee no longer exists in the company.                                                          |
+| `JOB_FAILED`                             | The queue worker died after claiming the item; the item is terminalized so it cannot stay `processing`.           |
 
 File compensation from Phase 4A is unchanged. Custom overlay templates remain generation-only in Phase 4B. Phase 5A adds internal review/approval workflows for generated documents; Phase 5B adds reusable workflow presets with server-side dynamic routing. Signing, email delivery, and automatic template preset assignment remain later phases.
 
@@ -823,22 +824,22 @@ If `DocumentInstance.current_version_id` later changes, existing workflow histor
 
 ### Completion rules
 
-| Rule | Behavior |
-|------|----------|
-| **ALL** | Every task in the stage must complete positively. Any rejection rejects the stage and the request. |
+| Rule    | Behavior                                                                                                                                                                                                        |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ALL** | Every task in the stage must complete positively. Any rejection rejects the stage and the request.                                                                                                              |
 | **ANY** | First positive completion completes the stage and skips remaining pending tasks. One rejection does not reject the stage while other pending tasks remain; if every task rejects, the stage and request reject. |
 
 When the final approval stage completes, the request becomes **approved**. No PDF mutation occurs in Phase 5A.
 
 ### Permissions
 
-| Permission | Capability |
-|------------|------------|
-| `documents.requests.view` | List and open review/approval requests |
-| `documents.requests.create` | Request approval from a generated document show page |
-| `documents.requests.review` | Complete/reject **review** tasks assigned to the actor |
+| Permission                   | Capability                                              |
+| ---------------------------- | ------------------------------------------------------- |
+| `documents.requests.view`    | List and open review/approval requests                  |
+| `documents.requests.create`  | Request approval from a generated document show page    |
+| `documents.requests.review`  | Complete/reject **review** tasks assigned to the actor  |
 | `documents.requests.approve` | Approve/reject **approval** tasks assigned to the actor |
-| `documents.requests.cancel` | Cancel pending workflows |
+| `documents.requests.cancel`  | Cancel pending workflows                                |
 
 Review permission does not grant approval actions. Task assignment is enforced in addition to capability checks.
 
@@ -858,6 +859,7 @@ There is no Legacy Signature Requests tab. Historical `BulkDocumentSignatureRequ
 **Waiting For**: Each row displays who needs to act next (assignee names for workflow, recipient name + role for signing).
 
 **Settings** live in the Requests page header for the active tab (not in the filter row):
+
 - Approvals tab: **Approval Flows** (backend: Workflow Presets)
 - Signing tab: **Signing Flows** (backend: Signing Presets) and **Reminder Settings**
 - Status and stage filters use an explicit “all” value so the dropdown always shows a label.
@@ -885,22 +887,22 @@ Phase 5B adds reusable company workflow presets that resolve to concrete Phase 5
 
 ### Preset model
 
-| Table | Purpose |
-|-------|---------|
-| `document_workflow_presets` | Company-owned preset name, description, active/inactive status |
-| `document_workflow_preset_stages` | Ordered stages with review/approve action and ALL/ANY completion rule |
-| `document_workflow_preset_targets` | Routing targets per stage |
+| Table                              | Purpose                                                               |
+| ---------------------------------- | --------------------------------------------------------------------- |
+| `document_workflow_presets`        | Company-owned preset name, description, active/inactive status        |
+| `document_workflow_preset_stages`  | Ordered stages with review/approve action and ALL/ANY completion rule |
+| `document_workflow_preset_targets` | Routing targets per stage                                             |
 
 `DocumentWorkflowRequest` also stores optional provenance: `document_workflow_preset_id`, `preset_name_snapshot`, and `routing_definition_snapshot` JSON. Resolved assignees remain authoritative in `DocumentWorkflowTask` rows.
 
 ### Supported target types
 
-| Target | Resolution |
-|--------|------------|
-| `specific_user` | Fixed company user validated for stage permissions |
+| Target               | Resolution                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------ |
+| `specific_user`      | Fixed company user validated for stage permissions                                                     |
 | `department_manager` | First actionable manager from `ResolveDepartmentManagementChain` for the **document subject employee** |
-| `parent_manager` | Next distinct actionable manager in the department hierarchy |
-| `company_role` | Active company members assigned the selected Spatie role in the current company team |
+| `parent_manager`     | Next distinct actionable manager in the department hierarchy                                           |
+| `company_role`       | Active company members assigned the selected Spatie role in the current company team                   |
 
 `Employee.manager_id` is **not** used. Department hierarchy via `Department.manager_id` remains authoritative.
 
@@ -924,13 +926,13 @@ Preset edits, deactivation, department manager changes, and role membership chan
 
 ### Permissions
 
-| Permission | Purpose |
-|------------|---------|
-| `documents.workflow-presets.view` | List presets |
-| `documents.workflow-presets.create` | Create presets |
-| `documents.workflow-presets.update` | Edit / activate / deactivate presets |
-| `documents.workflow-presets.delete` | Delete unused presets |
-| `documents.requests.create` | Select an active preset while requesting approval |
+| Permission                          | Purpose                                           |
+| ----------------------------------- | ------------------------------------------------- |
+| `documents.workflow-presets.view`   | List presets                                      |
+| `documents.workflow-presets.create` | Create presets                                    |
+| `documents.workflow-presets.update` | Edit / activate / deactivate presets              |
+| `documents.workflow-presets.delete` | Delete unused presets                             |
+| `documents.requests.create`         | Select an active preset while requesting approval |
 
 Preset management permissions are not required merely to use an active preset.
 
@@ -953,10 +955,10 @@ Phase 6A adds a new unified recipient-request path for generated documents. Lega
 
 ### Recipient requests
 
-| Table | Purpose |
-|-------|---------|
-| `document_recipient_requests` | Subject-employee sign/acknowledge requests bound to an exact `DocumentInstanceVersion` |
-| `document_recipient_request_events` | Domain evidence timeline (viewed, submitted, superseded, etc.) |
+| Table                               | Purpose                                                                                |
+| ----------------------------------- | -------------------------------------------------------------------------------------- |
+| `document_recipient_requests`       | Subject-employee sign/acknowledge requests bound to an exact `DocumentInstanceVersion` |
+| `document_recipient_request_events` | Domain evidence timeline (viewed, submitted, superseded, etc.)                         |
 
 Supported in Phase 6A:
 
@@ -965,10 +967,10 @@ Supported in Phase 6A:
 
 ### Sign vs acknowledge
 
-| Action | PDF mutation | New `DocumentInstanceVersion` |
-|--------|--------------|-------------------------------|
-| **Sign** | Exact-byte FPDI overlay on canonical source | Yes — immutable signed version becomes `current_version_id` |
-| **Acknowledge** | None | No — evidence stored on request + events |
+| Action          | PDF mutation                                | New `DocumentInstanceVersion`                               |
+| --------------- | ------------------------------------------- | ----------------------------------------------------------- |
+| **Sign**        | Exact-byte FPDI overlay on canonical source | Yes — immutable signed version becomes `current_version_id` |
+| **Acknowledge** | None                                        | No — evidence stored on request + events                    |
 
 Acknowledgement stores `acknowledgement_text_snapshot`, consent timestamp, IP, and user agent. It does not display as “Signed”.
 
@@ -1016,11 +1018,11 @@ Phase 5 workflow stages are not extended with sign/acknowledge actions in Phase 
 
 ### Permissions
 
-| Permission | Capability |
-|------------|------------|
-| `documents.recipient-requests.view` | List/open recipient requests |
+| Permission                            | Capability                           |
+| ------------------------------------- | ------------------------------------ |
+| `documents.recipient-requests.view`   | List/open recipient requests         |
 | `documents.recipient-requests.create` | Create requests and regenerate links |
-| `documents.recipient-requests.cancel` | Cancel awaiting requests |
+| `documents.recipient-requests.cancel` | Cancel awaiting requests             |
 
 ### Explicitly not in Phase 6A
 
@@ -1040,13 +1042,13 @@ Earlier versions remain immutable. The Library representation syncs to the lates
 
 ### Recipient model
 
-| Field | Meaning |
-|-------|---------|
-| `employee_id` | Always the **subject employee** who owns the document |
-| `recipient_user_id` | Internal company user assigned to countersign |
-| `recipient_type` | `company_user` for countersign requests |
-| `recipient_role` | `company_signatory` (existing subject requests use `subject`) |
-| `recipient_name_snapshot` | Signatory display name at request creation |
+| Field                     | Meaning                                                       |
+| ------------------------- | ------------------------------------------------------------- |
+| `employee_id`             | Always the **subject employee** who owns the document         |
+| `recipient_user_id`       | Internal company user assigned to countersign                 |
+| `recipient_type`          | `company_user` for countersign requests                       |
+| `recipient_role`          | `company_signatory` (existing subject requests use `subject`) |
+| `recipient_name_snapshot` | Signatory display name at request creation                    |
 
 Phase 6A subject-employee rows remain `recipient_type = subject_employee`, `recipient_role = subject`.
 
@@ -1119,12 +1121,12 @@ Manager recipients are resolved **server-side** via `ResolveDepartmentManagement
 
 ### Recipient model
 
-| Field | Meaning |
-|-------|---------|
-| `employee_id` | Always the **subject employee** who owns the document |
+| Field               | Meaning                                               |
+| ------------------- | ----------------------------------------------------- |
+| `employee_id`       | Always the **subject employee** who owns the document |
 | `recipient_user_id` | Resolved manager user (or selected company signatory) |
-| `recipient_type` | `company_user` for manager and company signatory |
-| `recipient_role` | `manager` or `company_signatory` |
+| `recipient_type`    | `company_user` for manager and company signatory      |
+| `recipient_role`    | `manager` or `company_signatory`                      |
 
 ### Signature placement
 
@@ -1253,10 +1255,10 @@ Phase 7A delivers recipient requests by **email** without changing the signing/a
 
 ### Concepts
 
-| Record | Role |
-|--------|------|
-| `DocumentRecipientRequest` | Authoritative requested action |
-| `DocumentSigningFlow` | Orchestration |
+| Record                             | Role                                       |
+| ---------------------------------- | ------------------------------------------ |
+| `DocumentRecipientRequest`         | Authoritative requested action             |
+| `DocumentSigningFlow`              | Orchestration                              |
 | `DocumentRecipientRequestDelivery` | Delivery evidence / channel attempt ledger |
 
 Email failure never rolls back request creation or flow advancement. Awaiting requests remain actionable from the Requests workspace even when SMTP fails.
@@ -1339,10 +1341,10 @@ At create time, when reminders are **enabled**, every recipient-request path sto
 
 When reminders are **disabled**, `reminder_policy_snapshot` is `NULL`.
 
-| Field | Role |
-|-------|------|
-| `reminder_policy_snapshot` | Immutable policy evidence for that request |
-| `next_reminder_at` | Mutable operational scheduling cursor (next due reminder, or `NULL`) |
+| Field                      | Role                                                                 |
+| -------------------------- | -------------------------------------------------------------------- |
+| `reminder_policy_snapshot` | Immutable policy evidence for that request                           |
+| `next_reminder_at`         | Mutable operational scheduling cursor (next due reminder, or `NULL`) |
 
 Pre-7B / disabled rows keep `NULL` snapshot and `NULL` next_reminder_at → automatic expiry still runs; automatic reminders do not. Changing company settings later never rewrites existing snapshots.
 
@@ -1393,12 +1395,12 @@ Phase 7C binds optional workflow and signing presets onto generation template ve
 
 Table: `document_lifecycle_automations` (unique `document_instance_id`).
 
-| Field | Role |
-|-------|------|
-| `policy_snapshot` | Immutable workflow/signing preset ids + names at generation |
-| `status` | `pending` → `active` → `completed` / `stopped` / `blocked` |
-| `stage` | `review`, `signing`, or `done` |
-| Linked request/flow ids | Provenance for the automated children |
+| Field                   | Role                                                        |
+| ----------------------- | ----------------------------------------------------------- |
+| `policy_snapshot`       | Immutable workflow/signing preset ids + names at generation |
+| `status`                | `pending` → `active` → `completed` / `stopped` / `blocked`  |
+| `stage`                 | `review`, `signing`, or `done`                              |
+| Linked request/flow ids | Provenance for the automated children                       |
 
 **Atomic registration:** when a template version has lifecycle automation configured, `GenerateCustomDocumentsJob` creates the Pending `DocumentLifecycleAutomation` row **inside the same DB transaction** that creates `EmployeeDocument`, `DocumentInstance`, and version 1. A generated instance is never committed without its lifecycle registration. Registration write failure rolls back generation (existing file compensation still deletes canonical/library PDFs).
 
@@ -1450,15 +1452,15 @@ Safe repairs stream across **every** repairable issue during the chunked scan (n
 
 The auditor (`App\Support\Documents\Integrity\DocumentIntegrityAudit`) inspects company-owned records in bounded chunks (100 rows). Aggregate severity / repairable / total counts stay exact. Only a bounded sample of issues is retained for CLI diagnostics (`RETAINED_ISSUE_LIMIT = 100`, table display `TABLE_LIMIT = 50`). Issue payloads never include tokens, signature images, private paths, merge values, PDF content, or email bodies.
 
-| Area | Examples |
-|------|----------|
-| Document instance | Missing current version (High); current version on another instance or company (Critical); EmployeeDocument company/employee mismatch; generation template-version company mismatch |
-| Version history | Company/instance mismatch, non-positive or duplicate version numbers. History is never rewritten. With `--verify-files`, every immutable canonical version is checked. |
-| Workflow | Company/instance/version/preset tenancy; stage/task ownership; **actionable** Pending/Active/Pending tasks with a missing or inaccessible assignee (`workflow_task_assignee_unavailable`, High). Historical completed/rejected/skipped/cancelled task snapshots are not invalidated by a null assignee id or later membership loss. |
-| Lifecycle | Source version / template / linked workflow or signing-flow tenancy; stale child state (Warning, repairable via existing reconciliation) |
-| Signing flow | Starting version tenancy; preset provenance; invalid current step; duplicate active recipient requests on the current step |
+| Area               | Examples                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Document instance  | Missing current version (High); current version on another instance or company (Critical); EmployeeDocument company/employee mismatch; generation template-version company mismatch                                                                                                                                                                                                                                                |
+| Version history    | Company/instance mismatch, non-positive or duplicate version numbers. History is never rewritten. With `--verify-files`, every immutable canonical version is checked.                                                                                                                                                                                                                                                             |
+| Workflow           | Company/instance/version/preset tenancy; stage/task ownership; **actionable** Pending/Active/Pending tasks with a missing or inaccessible assignee (`workflow_task_assignee_unavailable`, High). Historical completed/rejected/skipped/cancelled task snapshots are not invalidated by a null assignee id or later membership loss.                                                                                                |
+| Lifecycle          | Source version / template / linked workflow or signing-flow tenancy; stale child state (Warning, repairable via existing reconciliation)                                                                                                                                                                                                                                                                                           |
+| Signing flow       | Starting version tenancy; preset provenance; invalid current step; duplicate active recipient requests on the current step                                                                                                                                                                                                                                                                                                         |
 | Recipient requests | SIGN completed without a later same-instance result version (High); ACK completed with a result version (High); subject employee binding mismatch (High); terminal reminder pointer (Warning, repairable); awaiting request missing expiry; **AwaitingAction** CompanyUser without current access (`recipient_internal_assignee_unavailable`, High). Terminal internal-signer provenance is not flagged for later membership loss. |
-| Delivery ledger | Delivery/request company mismatch; queued reminder still attached to a terminal request (Warning; delivery repair stays with the existing dispatcher/reconciler) |
+| Delivery ledger    | Delivery/request company mismatch; queued reminder still attached to a terminal request (Warning; delivery repair stays with the existing dispatcher/reconciler)                                                                                                                                                                                                                                                                   |
 
 **Critical** = cross-company ownership or a current/result version that belongs to another instance/tenant. **High** = missing canonical evidence / actionable assignee unavailability / structural version gaps. **Warning** = recoverable operational drift or optional missing projection files.
 
@@ -1481,3 +1483,68 @@ There is no HR browser repair console. Integrity audit is CLI/backend operationa
 ### Explicitly not in Phase 8A
 
 WhatsApp/SMS/Web Push recipient delivery, parallel/quorum signing, expiry extension, automatic expired-step reissue, Recruitment/Payroll/Crew/Attendance/Leave changes, and new REST APIs. Full removal of `/esign/*` and unused legacy bulk-signing runtime waits until active submitted legacy review is zero (historical rows/files stay).
+
+## Organizational Documents: Company and Branch Documents
+
+In addition to employee documents and document generation workflows, OMS-HRM provides dedicated operational and compliance document management for companies and branches.
+
+### Ownership Model and `branch_id` Semantics
+
+Operational documents are stored in the `company_documents` table and versioned in `company_document_versions`. Ownership is governed by the nullable `branch_id` column:
+
+- `branch_id IS NULL`: **Company-level document**. Represents organization-wide legal, operational, and compliance records (e.g. Trade License, Establishment Card, VAT Certificate).
+- `branch_id = {branch_id}`: **Branch-level document**. Represents branch-specific operational records (e.g. Office Lease, Civil Defence Certificate, Local Municipality Permits).
+
+Both company-level and branch-level documents always retain `company_id`. The active company is the strict tenant security boundary:
+
+```text
+company_document.company_id === branch.company_id === current_company_id
+```
+
+Client-submitted `company_id` and `branch_id` are never trusted. All branch document actions bind `branch_id` strictly from the verified route model binding.
+
+### Query Isolation
+
+The query layer strictly isolates company documents and branch documents:
+
+- **Company Documents workspace** (`/organization/companies/{company}/documents`): Scoped with `whereNull('branch_id')`. Branch documents never appear on the company document page, summary cards, or recent documents list.
+- **Branch Documents workspace** (`/organization/branches/{branch}/documents`): Scoped with `where('branch_id', $branch->id)`. Company-level documents and documents from other branches never appear in a branch workspace.
+- **Cross-branch protection**: Accessing a document belonging to Branch B via Branch A returns `404 Not Found` (tenant and resource concealment). Cross-tenant access also returns `404`.
+
+### Permissions and Authorization
+
+Branch documents reuse existing Company Document permissions combined with Branch visibility:
+
+- `branches.view`: Required to access the branch and view its documents workspace.
+- `company_documents.view`: View document metadata, summaries, and history.
+- `company_documents.upload`: Upload single or multi-file documents.
+- `company_documents.update`: Edit metadata and replace document files (creates new historical versions).
+- `company_documents.download`: Preview and download current and historical document files.
+- `company_documents.delete`: Delete documents (soft delete with physical file removal).
+- `company_documents.manage_notifications`: Manage company-level expiry alert recipients.
+
+No duplicate `branch_documents.*` permissions are created. Backend authorization is authoritative; frontend flags (`can_view_documents`, etc.) control UI visibility only.
+
+### Storage and Versioning
+
+Branch documents reuse `CompanyDocumentStorage` on the private `local` disk:
+
+- Branch files are organized under: `company-documents/{company_id}/branches/{branch_id}/{uuid}.{ext}`.
+- Replacing a file archives the current file into `CompanyDocumentVersion` and promotes the new file to the current `CompanyDocument` record.
+- Historical versions can be previewed or downloaded only by users with `company_documents.download` after verifying tenant and branch ownership.
+
+### Expiry Notifications and Scope Aggregation
+
+- **Recipient Settings**: Maintained at the company level (`CompanyDocumentExpiryNotificationSetting`). There are no separate branch-level recipient tables.
+- **Alert Aggregation**: `CompanyDocumentExpiryAlertService` discovers expiring documents across the entire company (both company-level `branch_id IS NULL` and branch-level `branch_id IS NOT NULL`).
+- **Scope Presentation**: Alert emails clearly display document scope in a dedicated **Scope** column (`Company` or `{Branch Name}`).
+- **Deduplication Ledger**: `company_document_expiry_alerts` records `(company_document_id, expiry_date_at_alert_time)` to prevent duplicate alerts regardless of whether the document is company-owned or branch-owned.
+
+### Reusable Frontend Workspace
+
+The frontend uses a shared, decoupled workspace component (`DocumentWorkspace` in `resources/js/features/organization/entity-documents/`) used by both:
+
+- `CompanyDocumentsContent` (`resources/js/features/organization/company-documents/`)
+- `BranchDocumentsPage` (`resources/js/pages/organization/branch-documents.tsx`)
+
+This workspace handles summary metrics, search, filtering by document type and expiry status, table and grid layout modes, upload, bulk upload, metadata editing, version history, replacement, and deletion dialogs without code duplication.

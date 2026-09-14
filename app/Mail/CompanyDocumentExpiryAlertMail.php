@@ -13,7 +13,7 @@ class CompanyDocumentExpiryAlertMail extends Mailable
     use Queueable, SerializesModels;
 
     /**
-     * @param  list<array{document_name: string, document_number: string|null, expiry_date: string, days_remaining: int, view_url: string}>  $rows
+     * @param  list<array{document_name: string, document_number: string|null, scope: string, expiry_date: string, days_remaining: int, view_url: string}>  $rows
      */
     public function __construct(
         public string $organizationName,

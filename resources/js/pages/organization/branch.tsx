@@ -1,5 +1,14 @@
-import { Head, useForm } from '@inertiajs/react';
-import { Activity, Building2, Mail, MapPin, Phone, Store } from 'lucide-react';
+import { Head, Link, useForm } from '@inertiajs/react';
+import {
+    Activity,
+    Building2,
+    FileText,
+    FolderOpen,
+    Mail,
+    MapPin,
+    Phone,
+    Store,
+} from 'lucide-react';
 import { useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
@@ -100,6 +109,8 @@ export default function BranchDetails({
     recent_activity,
     companies_count,
     can_view_audit,
+    can_view_documents,
+    documents_summary,
 }: {
     branch: Branch;
     companies: Company[];
@@ -107,6 +118,13 @@ export default function BranchDetails({
     recent_activity: ActivityItem[];
     companies_count: number;
     can_view_audit: boolean;
+    can_view_documents?: boolean;
+    documents_summary?: {
+        total: number;
+        valid: number;
+        expiring_soon: number;
+        expired: number;
+    } | null;
 }) {
     const location =
         [branch.city, branch.country].filter(Boolean).join(', ') || '—';
@@ -169,6 +187,20 @@ export default function BranchDetails({
                             >
                                 Edit
                             </Button>
+                            {can_view_documents ? (
+                                <Button
+                                    variant="outline"
+                                    className="h-12 rounded-xl border-input bg-background/50 px-6 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
+                                    asChild
+                                >
+                                    <Link
+                                        href={`/organization/branches/${branch.id}/documents`}
+                                    >
+                                        <FolderOpen className="mr-2 h-4 w-4" />
+                                        Documents
+                                    </Link>
+                                </Button>
+                            ) : null}
                             {branch.company.id ? (
                                 <Button
                                     className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
@@ -261,35 +293,96 @@ export default function BranchDetails({
                         </CardContent>
                     </Card>
 
-                    <Card className="glass-card dark:border-white/5 dark:bg-white/5">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-lg font-bold tracking-tight">
-                                Quick actions
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div className="flex items-center gap-3 rounded-xl border border-border/80 bg-muted/30 p-4 dark:border-white/5 dark:bg-white/5">
-                                <Building2 className="h-5 w-5 text-primary" />
-                                <div className="min-w-0">
-                                    <div className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                        Companies
+                    <div className="space-y-6">
+                        {can_view_documents && documents_summary ? (
+                            <Card className="glass-card dark:border-white/5 dark:bg-white/5">
+                                <CardHeader className="flex flex-row items-center justify-between pb-3">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                                            <FileText className="h-4 w-4" />
+                                        </div>
+                                        <CardTitle className="text-base font-bold tracking-tight">
+                                            Documents
+                                        </CardTitle>
                                     </div>
-                                    <div className="truncate text-sm font-semibold">
-                                        {companies_count}
+                                    <Badge className="border-border bg-muted/50 font-mono text-xs text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                                        {documents_summary.total}
+                                    </Badge>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <div className="grid grid-cols-3 gap-2 text-center">
+                                        <div className="rounded-xl border border-border/70 bg-muted/20 p-2.5 dark:border-white/5 dark:bg-white/5">
+                                            <p className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                                                Total
+                                            </p>
+                                            <p className="mt-1 text-lg font-bold">
+                                                {documents_summary.total}
+                                            </p>
+                                        </div>
+                                        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2.5 dark:border-amber-500/20">
+                                            <p className="text-[10px] font-bold tracking-wider text-amber-600 uppercase dark:text-amber-400">
+                                                Expiring
+                                            </p>
+                                            <p className="mt-1 text-lg font-bold text-amber-600 dark:text-amber-400">
+                                                {
+                                                    documents_summary.expiring_soon
+                                                }
+                                            </p>
+                                        </div>
+                                        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-2.5 dark:border-rose-500/20">
+                                            <p className="text-[10px] font-bold tracking-wider text-rose-600 uppercase dark:text-rose-400">
+                                                Expired
+                                            </p>
+                                            <p className="mt-1 text-lg font-bold text-rose-600 dark:text-rose-400">
+                                                {documents_summary.expired}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        className="h-11 w-full rounded-xl border-input bg-background/50 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
+                                        asChild
+                                    >
+                                        <Link
+                                            href={`/organization/branches/${branch.id}/documents`}
+                                        >
+                                            Manage documents →
+                                        </Link>
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ) : null}
+
+                        <Card className="glass-card dark:border-white/5 dark:bg-white/5">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-lg font-bold tracking-tight">
+                                    Quick actions
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <div className="flex items-center gap-3 rounded-xl border border-border/80 bg-muted/30 p-4 dark:border-white/5 dark:bg-white/5">
+                                    <Building2 className="h-5 w-5 text-primary" />
+                                    <div className="min-w-0">
+                                        <div className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                            Companies
+                                        </div>
+                                        <div className="truncate text-sm font-semibold">
+                                            {companies_count}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <Button
-                                variant="outline"
-                                className="h-12 w-full rounded-xl border-input bg-background/50 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
-                                asChild
-                            >
-                                <a href={`/organization/branches`}>
-                                    Edit from list
-                                </a>
-                            </Button>
-                        </CardContent>
-                    </Card>
+                                <Button
+                                    variant="outline"
+                                    className="h-12 w-full rounded-xl border-input bg-background/50 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
+                                    asChild
+                                >
+                                    <a href={`/organization/branches`}>
+                                        Edit from list
+                                    </a>
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
 
                 {can_view_audit ? (

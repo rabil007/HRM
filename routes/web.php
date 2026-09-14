@@ -41,6 +41,11 @@ use App\Http\Controllers\Organization\BankAccountsImportController;
 use App\Http\Controllers\Organization\BankAccountsIndexController;
 use App\Http\Controllers\Organization\BankAccountsNoAccountController;
 use App\Http\Controllers\Organization\BranchController;
+use App\Http\Controllers\Organization\BranchDocumentBulkStoreController;
+use App\Http\Controllers\Organization\BranchDocumentController;
+use App\Http\Controllers\Organization\BranchDocumentFileController;
+use App\Http\Controllers\Organization\BranchDocumentReplacementController;
+use App\Http\Controllers\Organization\BranchDocumentVersionController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentEmailBatchSendsController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentEmployeeSearchController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentsController;
@@ -391,6 +396,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/branches/{branch}', [BranchController::class, 'update'])->middleware('can:branches.update')->name('organization.branches.update');
     Route::put('organization/branches/{branch}/status', [BranchController::class, 'updateStatus'])->middleware('can:branches.update')->name('organization.branches.status');
     Route::delete('organization/branches/{branch}', [BranchController::class, 'destroy'])->middleware('can:branches.delete')->name('organization.branches.destroy');
+
+    Route::get('organization/branches/{branch}/documents', [BranchDocumentController::class, 'index'])->name('organization.branches.documents.index');
+    Route::post('organization/branches/{branch}/documents', [BranchDocumentController::class, 'store'])->name('organization.branches.documents.store');
+    Route::post('organization/branches/{branch}/documents/bulk', BranchDocumentBulkStoreController::class)->name('organization.branches.documents.bulk-store');
+    Route::put('organization/branches/{branch}/documents/{companyDocument}', [BranchDocumentController::class, 'update'])->name('organization.branches.documents.update');
+    Route::delete('organization/branches/{branch}/documents/{companyDocument}', [BranchDocumentController::class, 'destroy'])->name('organization.branches.documents.destroy');
+    Route::post('organization/branches/{branch}/documents/{companyDocument}/replace', BranchDocumentReplacementController::class)->name('organization.branches.documents.replace');
+    Route::get('organization/branches/{branch}/documents/{companyDocument}/preview', [BranchDocumentFileController::class, 'preview'])->name('organization.branches.documents.preview');
+    Route::get('organization/branches/{branch}/documents/{companyDocument}/download', [BranchDocumentFileController::class, 'download'])->name('organization.branches.documents.download');
+    Route::get('organization/branches/{branch}/documents/{companyDocument}/versions', [BranchDocumentVersionController::class, 'index'])->name('organization.branches.documents.versions.index');
+    Route::get('organization/branches/{branch}/documents/{companyDocument}/versions/{companyDocumentVersion}/download', [BranchDocumentVersionController::class, 'download'])->name('organization.branches.documents.versions.download');
 
     Route::get('organization/announcements', [AnnouncementController::class, 'index'])
         ->middleware('can:announcements.view')

@@ -2,7 +2,9 @@
 
 namespace App\Support\CompanyDocuments;
 
+use App\Models\Branch;
 use App\Models\Company;
+use App\Models\CompanyDocument;
 use App\Models\User;
 use Closure;
 use Spatie\Permission\PermissionRegistrar;
@@ -26,6 +28,25 @@ class CompanyDocumentAccess
         abort_unless($this->withinCompany($user, $company, fn () => $user->can($ability)), 403);
     }
 
+    public function authorizeBranch(?User $user, Company $company, Branch $branch, string $ability): void
+    {
+        abort_unless($user instanceof User && $this->isActiveMember($user, $company), 404);
+        abort_unless((int) $branch->company_id === (int) $company->id, 404);
+        abort_unless($this->withinCompany($user, $company, fn () => $user->can('branches.view')), 403);
+        abort_unless($this->withinCompany($user, $company, fn () => $user->can($ability)), 403);
+    }
+
+    public function authorizeBranchDocument(?User $user, Company $company, Branch $branch, CompanyDocument $document, string $ability): void
+    {
+        abort_unless($user instanceof User && $this->isActiveMember($user, $company), 404);
+        abort_unless((int) $branch->company_id === (int) $company->id, 404);
+        abort_unless((int) $document->company_id === (int) $company->id, 404);
+        abort_unless((int) $document->branch_id === (int) $branch->id, 404);
+
+        abort_unless($this->withinCompany($user, $company, fn () => $user->can('branches.view')), 403);
+        abort_unless($this->withinCompany($user, $company, fn () => $user->can($ability)), 403);
+    }
+
     public function allows(?User $user, Company $company, string $ability): bool
     {
         if (! $user instanceof User || ! $this->isActiveMember($user, $company)) {
@@ -33,6 +54,19 @@ class CompanyDocumentAccess
         }
 
         return $this->withinCompany($user, $company, fn () => $user->can($ability));
+    }
+
+    public function allowsBranch(?User $user, Company $company, ?Branch $branch, string $ability): bool
+    {
+        if (! $user instanceof User || ! $this->isActiveMember($user, $company)) {
+            return false;
+        }
+
+        if ($branch instanceof Branch && (int) $branch->company_id !== (int) $company->id) {
+            return false;
+        }
+
+        return $this->withinCompany($user, $company, fn () => $user->can('branches.view') && $user->can($ability));
     }
 
     /** @return array{view: bool, upload: bool, update: bool, download: bool, delete: bool, manage_notifications: bool} */
@@ -43,6 +77,24 @@ class CompanyDocumentAccess
         }
 
         return $this->withinCompany($user, $company, function () use ($user): array {
+            return collect(self::Abilities)
+                ->mapWithKeys(fn (string $ability, string $key) => [$key => $user->can($ability)])
+                ->all();
+        });
+    }
+
+    /** @return array{view: bool, upload: bool, update: bool, download: bool, delete: bool, manage_notifications: bool} */
+    public function permissionsForBranch(?User $user, Company $company, Branch $branch): array
+    {
+        if (! $user instanceof User || ! $this->isActiveMember($user, $company) || (int) $branch->company_id !== (int) $company->id) {
+            return array_fill_keys(array_keys(self::Abilities), false);
+        }
+
+        return $this->withinCompany($user, $company, function () use ($user): array {
+            if (! $user->can('branches.view')) {
+                return array_fill_keys(array_keys(self::Abilities), false);
+            }
+
             return collect(self::Abilities)
                 ->mapWithKeys(fn (string $ability, string $key) => [$key => $user->can($ability)])
                 ->all();

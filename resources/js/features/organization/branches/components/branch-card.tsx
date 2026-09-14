@@ -2,6 +2,7 @@ import {
     Clipboard,
     Edit2,
     Eye,
+    FolderOpen,
     IdCard,
     Mail,
     MapPin,
@@ -192,6 +193,23 @@ export function BranchCard({
                     </div>
 
                     <div className="flex items-center justify-end gap-1">
+                        {branch.can_view_documents ? (
+                            <Button
+                                asChild
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
+                                title="Branch documents"
+                            >
+                                <a
+                                    href={`/organization/branches/${branch.id}/documents`}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <FolderOpen className="h-4 w-4" />
+                                </a>
+                            </Button>
+                        ) : null}
                         <Button
                             asChild
                             type="button"

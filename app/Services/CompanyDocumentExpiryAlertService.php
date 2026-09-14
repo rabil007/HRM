@@ -118,6 +118,8 @@ class CompanyDocumentExpiryAlertService
     }
 
     /**
+     * Pending documents query includes both company-level and branch-level documents for the tenant.
+     *
      * @return Builder<CompanyDocument>
      */
     private function pendingDocumentsQuery(int $companyId): Builder
@@ -133,7 +135,7 @@ class CompanyDocumentExpiryAlertService
                     'company_documents.expiry_date',
                 );
             })
-            ->with(['documentType:id,title']);
+            ->with(['documentType:id,title', 'branch:id,name']);
     }
 
     /**
@@ -167,7 +169,7 @@ class CompanyDocumentExpiryAlertService
 
     /**
      * @param  Collection<int, CompanyDocument>  $documents
-     * @return list<array{document_name: string, document_number: string|null, expiry_date: string, days_remaining: int, view_url: string}>
+     * @return list<array{document_name: string, document_number: string|null, scope: string, expiry_date: string, days_remaining: int, view_url: string}>
      */
     private function buildRows(Company $company, Collection $documents): array
     {
@@ -176,15 +178,20 @@ class CompanyDocumentExpiryAlertService
             ->values()
             ->map(function (CompanyDocument $document) use ($company): array {
                 $expiryDate = $document->expiry_date?->toDateString() ?? '';
+                $scope = $document->branch ? $document->branch->name : 'Company';
+                $viewUrl = $document->branch
+                    ? route('organization.branches.documents.index', $document->branch)
+                    : route('organization.companies.documents.index', $company);
 
                 return [
                     'document_name' => $document->title
                         ?? $document->documentType?->title
                         ?? $document->original_filename,
                     'document_number' => $document->document_number,
+                    'scope' => $scope,
                     'expiry_date' => $expiryDate,
                     'days_remaining' => DocumentExpiry::remainingDays($document->expiry_date) ?? 0,
-                    'view_url' => route('organization.companies.documents.index', $company),
+                    'view_url' => $viewUrl,
                 ];
             })
             ->all();
