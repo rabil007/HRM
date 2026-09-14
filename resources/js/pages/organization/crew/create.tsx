@@ -15,6 +15,7 @@ import type {
     CrewAssignmentFormData,
     CrewAssignmentPagePermissions,
 } from '@/features/organization/crew/types';
+import { dashboard } from '@/routes';
 import {
     index as crewAssignmentsIndex,
     store as storeAssignment,
@@ -22,6 +23,7 @@ import {
 
 export default function CrewAssignmentCreate({
     form_options,
+    can,
 }: {
     form_options: CrewAssignmentCreateFormOptions;
     can: CrewAssignmentPagePermissions;
@@ -58,34 +60,27 @@ export default function CrewAssignmentCreate({
         currentOnVessel,
         form.data.vessel_id,
     );
-
-    /**
-     * True when the selected employee has an active Crew Assignment AND we are not in the
-     * Transfer Vessel intercept path. Used to disable the Create Draft button and surface
-     * a clear conflict message so the user is guided before submitting.
-     *
-     * - P0 Draft is excluded (backend allows multiple drafts).
-     * - P4 On Vessel to a DIFFERENT vessel is handled by the Transfer Vessel dialog, so
-     *   it should not additionally block the submit button — the dialog IS the guided action.
-     * - P4 On Vessel to the SAME vessel or no destination = active conflict (block submit).
-     * - All other active phases (P1–P6) = active conflict (block submit).
-     */
+    const canUseRecommendedTransfer =
+        recommendsTransfer && currentOnVessel?.can_transfer === true;
+    const transferRequiredButUnauthorized =
+        recommendsTransfer && currentOnVessel?.can_transfer === false;
     const hasActiveAssignmentConflict =
         (currentEmployeeStatus?.has_active_assignment ?? false) &&
-        !recommendsTransfer;
+        !canUseRecommendedTransfer;
+    const backHref = can.view ? crewAssignmentsIndex.url() : dashboard.url();
+    const backLabel = can.view
+        ? 'Back to Crew Assignments'
+        : 'Back to Dashboard';
 
     const handleSubmit = (event: React.FormEvent): void => {
         event.preventDefault();
 
-        // Transfer Vessel intercept takes priority for P4 + different-vessel destination.
-        if (recommendsTransfer) {
+        if (canUseRecommendedTransfer) {
             setTransferPromptOpen(true);
 
             return;
         }
 
-        // Active assignment conflict: the backend will reject this too, but we prevent
-        // the useless submission here and surface the reason instead.
         if (hasActiveAssignmentConflict) {
             return;
         }
@@ -101,8 +96,8 @@ export default function CrewAssignmentCreate({
                     kicker="Crew Assignments"
                     title="New Assignment"
                     description="Create a draft mobilisation cycle. Movement actions advance the phase later."
-                    backHref={crewAssignmentsIndex.url()}
-                    backLabel="Back to Crew Assignments"
+                    backHref={backHref}
+                    backLabel={backLabel}
                 />
 
                 <div className="mx-auto max-w-4xl space-y-6">
@@ -140,9 +135,11 @@ export default function CrewAssignmentCreate({
                                             hasActiveAssignmentConflict
                                         }
                                         title={
-                                            hasActiveAssignmentConflict
-                                                ? 'This employee already has an active Crew Assignment. Resolve the conflict above before creating a new one.'
-                                                : undefined
+                                            transferRequiredButUnauthorized
+                                                ? 'Vessel Transfer is required for this move, but you do not have permission to perform it.'
+                                                : hasActiveAssignmentConflict
+                                                  ? 'This employee already has an active Crew Assignment. Resolve the conflict above before creating a new one.'
+                                                  : undefined
                                         }
                                         className="h-11 rounded-xl px-6"
                                     >
@@ -155,17 +152,20 @@ export default function CrewAssignmentCreate({
                                         type="button"
                                         variant="outline"
                                         className="h-11 rounded-xl px-6"
-                                        onClick={() =>
-                                            router.visit(
-                                                crewAssignmentsIndex.url(),
-                                            )
-                                        }
+                                        onClick={() => router.visit(backHref)}
                                     >
                                         Cancel
                                     </Button>
 
-                                    {hasActiveAssignmentConflict &&
-                                    !form.errors.error ? (
+                                    {transferRequiredButUnauthorized ? (
+                                        <p className="w-full text-xs font-medium text-amber-700 dark:text-amber-300">
+                                            Vessel Transfer is required for this
+                                            move. You do not have permission to
+                                            perform it; ask an authorized
+                                            Operations user to continue.
+                                        </p>
+                                    ) : hasActiveAssignmentConflict &&
+                                      !form.errors.error ? (
                                         <p className="w-full text-xs font-medium text-destructive">
                                             This employee already has an active
                                             Crew Assignment. Resolve the
@@ -174,7 +174,6 @@ export default function CrewAssignmentCreate({
                                         </p>
                                     ) : null}
 
-                                    {/* Generic backend error (e.g. CrewMovementException converted to validation error). */}
                                     <InputError
                                         message={form.errors.error}
                                         className="w-full"

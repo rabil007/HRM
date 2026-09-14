@@ -110,12 +110,6 @@ class CrewAssignmentController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $canView = Gate::allows('viewAny', CrewAssignment::class);
         $canTransfer = CrewAssignmentPagePermissions::canTransfer($request->user());
-        $activeOnVessel = collect(app(ActiveOnVesselAssignmentFinder::class)->forCompany($companyId))
-            ->map(fn (array $current): array => [
-                ...$current,
-                'can_transfer' => $canTransfer,
-            ])
-            ->all();
 
         $employeeModels = Employee::query()
             ->where('company_id', $companyId)
@@ -124,6 +118,14 @@ class CrewAssignmentController extends Controller
             ->get(['id', 'name', 'employee_no', 'rank_id']);
 
         $employeeIds = $employeeModels->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $activeOnVessel = $canView
+            ? collect(app(ActiveOnVesselAssignmentFinder::class)->forCompany($companyId, $employeeIds))
+                ->map(fn (array $current): array => [
+                    ...$current,
+                    'can_transfer' => $canTransfer,
+                ])
+                ->all()
+            : [];
         $employeeStatusByEmployee = app(CrewAssignmentStatusResolver::class)
             ->forEmployeeIds($companyId, $employeeIds, includeRestrictedFields: $canView, today: null);
 
@@ -181,8 +183,14 @@ class CrewAssignmentController extends Controller
                 return $assignment->fresh() ?? $assignment;
             });
 
+            if (Gate::allows('view', $assignment)) {
+                return redirect()
+                    ->route('organization.crew-assignments.show', $assignment)
+                    ->with('success', 'Crew assignment created successfully.');
+            }
+
             return redirect()
-                ->route('organization.crew-assignments.show', $assignment)
+                ->route('dashboard')
                 ->with('success', 'Crew assignment created successfully.');
         } catch (CrewMovementException $e) {
             throw ValidationException::withMessages(['error' => $e->getMessage()]);

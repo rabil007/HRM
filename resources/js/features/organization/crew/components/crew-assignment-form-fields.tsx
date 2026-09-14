@@ -115,7 +115,6 @@ export function CrewAssignmentFormFields({
     };
 
     const vesselsForClient = formOptions.vessels.filter((vessel) => {
-        // Keep the currently selected vessel visible for legacy continuity.
         if (form.data.vessel_id !== null && vessel.id === form.data.vessel_id) {
             return true;
         }
@@ -143,8 +142,6 @@ export function CrewAssignmentFormFields({
         const selectedVessel = formOptions.vessels.find(
             (vessel) => vessel.id === form.data.vessel_id,
         );
-        // Never preserve an inactive/legacy vessel after a Client change —
-        // only an active vessel whose current Client matches may stay.
         const vesselMatches =
             selectedVessel != null &&
             selectedVessel.is_active !== false &&
@@ -217,15 +214,23 @@ export function CrewAssignmentFormFields({
                                     );
                                     const defaultRankId =
                                         selected?.rank_id ?? null;
+                                    const shouldUseProfileRank =
+                                        defaultRankId !== null &&
+                                        (rankDefaultedFromProfile ||
+                                            form.data.rank_id === null);
+                                    const nextRankId = shouldUseProfileRank
+                                        ? defaultRankId
+                                        : rankDefaultedFromProfile
+                                          ? null
+                                          : form.data.rank_id;
 
                                     form.setData({
                                         ...form.data,
                                         employee_id: employeeId,
-                                        rank_id:
-                                            defaultRankId ?? form.data.rank_id,
+                                        rank_id: nextRankId,
                                     });
                                     setRankDefaultedFromProfile(
-                                        defaultRankId !== null,
+                                        shouldUseProfileRank,
                                     );
                                 }}
                                 variant="dark"

@@ -61,10 +61,15 @@ final class ActiveOnVesselAssignmentFinder
             return null;
         }
 
-        return $this->present($assignment, $companyId);
+        return $this->present(
+            $assignment,
+            $companyId,
+            CompanyTimezone::forCompanyId($companyId),
+        );
     }
 
     /**
+     * @param  list<int>|null  $employeeIds
      * @return array<int, array{
      *     assignment_id: int,
      *     assignment_no: string,
@@ -78,16 +83,34 @@ final class ActiveOnVesselAssignmentFinder
      *     status: string
      * }>
      */
-    public function forCompany(int $companyId): array
+    public function forCompany(int $companyId, ?array $employeeIds = null): array
     {
         if ($companyId < 1) {
             return [];
         }
 
+        if ($employeeIds !== null) {
+            $employeeIds = array_values(array_unique(array_filter(
+                array_map('intval', $employeeIds),
+                static fn (int $employeeId): bool => $employeeId > 0,
+            )));
+
+            if ($employeeIds === []) {
+                return [];
+            }
+        }
+
+        $query = $this->query($companyId);
+
+        if ($employeeIds !== null) {
+            $query->whereIn('employee_id', $employeeIds);
+        }
+
+        $timezone = CompanyTimezone::forCompanyId($companyId);
         $indexed = [];
 
-        foreach ($this->query($companyId)->get() as $assignment) {
-            $presented = $this->present($assignment, $companyId);
+        foreach ($query->get() as $assignment) {
+            $presented = $this->present($assignment, $companyId, $timezone);
             $indexed[$presented['employee_id']] = $presented;
         }
 
@@ -138,10 +161,9 @@ final class ActiveOnVesselAssignmentFinder
      *     status: string
      * }
      */
-    private function present(CrewAssignment $assignment, int $companyId): array
+    private function present(CrewAssignment $assignment, int $companyId, string $timezone): array
     {
         $phase = $assignment->currentPhase;
-        $timezone = CompanyTimezone::forCompanyId($companyId);
         $start = $phase?->actual_start_at;
         $employee = $assignment->employee;
         $vessel = $assignment->vessel;
