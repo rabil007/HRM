@@ -18,6 +18,7 @@ test('platform user can view email template library page', function () {
             ->where('can.update', false)
             ->where('can.delete', false)
             ->where('expiry_alert_template_slug', 'document_expiry_alert')
+            ->where('company_expiry_alert_template_slug', 'company_document_expiry_alert')
             ->has('scheduler_timezone'),
         );
 });

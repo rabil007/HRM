@@ -48,6 +48,7 @@ class EmailTemplateController extends Controller
                 'delete' => PlatformAuthorization::canManage($user),
             ],
             'expiry_alert_template_slug' => config('documents.expiry_alert_template_slug'),
+            'company_expiry_alert_template_slug' => config('documents.company_expiry_alert_template_slug'),
             'scheduler_timezone' => ApplicationTimezone::identifier(),
         ]);
     }

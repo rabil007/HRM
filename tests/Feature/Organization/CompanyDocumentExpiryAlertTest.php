@@ -7,10 +7,12 @@ use App\Models\CompanyDocument;
 use App\Models\CompanyDocumentExpiryAlert;
 use App\Models\CompanyDocumentExpiryNotificationRecipient;
 use App\Models\CompanyDocumentExpiryNotificationSetting;
+use App\Models\EmailTemplate;
 use App\Models\User;
 use App\Services\CompanyDocumentExpiryAlertService;
 use App\Services\DocumentExpiryAlertService;
 use Carbon\Carbon;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
@@ -33,7 +35,6 @@ function companyDocNotificationSetting(
         'enabled' => $enabled,
     ]);
 
-    $now = now();
     foreach ($toUserIds as $userId) {
         CompanyDocumentExpiryNotificationRecipient::query()->create([
             'setting_id' => $setting->id,
@@ -51,6 +52,14 @@ function companyDocNotificationSetting(
     }
 
     return $setting->fresh(['toRecipients', 'ccRecipients']);
+}
+
+function attachActiveCompanyMembership(int $companyId, User $user): void
+{
+    DB::table('company_user')->updateOrInsert(
+        ['company_id' => $companyId, 'user_id' => $user->id],
+        ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
+    );
 }
 
 /** Create a CompanyDocument with an expiry date. */
@@ -91,12 +100,12 @@ beforeEach(function () {
 
 test('hasPendingDocuments returns false when notifications are disabled', function () {
     Carbon::setTestNow('2026-09-01');
-    ['company' => $company, 'user' => $user] = ['company' => null, 'user' => null];
     $fixtures = makeDocumentFixtures();
     $company = $fixtures['company'];
     $uploader = User::factory()->create(['company_id' => $company->id]);
+    attachActiveCompanyMembership($company->id, $uploader);
 
-    $setting = companyDocNotificationSetting(
+    companyDocNotificationSetting(
         companyId: $company->id,
         enabled: false,
         toUserIds: [$uploader->id],
@@ -128,6 +137,7 @@ test('hasPendingDocuments returns true when expiring documents and valid recipie
     Carbon::setTestNow('2026-09-01');
     $fixtures = makeDocumentFixtures();
     $uploader = User::factory()->create(['company_id' => $fixtures['company']->id]);
+    attachActiveCompanyMembership($fixtures['company']->id, $uploader);
 
     companyDocNotificationSetting(
         companyId: $fixtures['company']->id,
@@ -144,6 +154,7 @@ test('documents outside the alert window do not trigger hasPendingDocuments', fu
     Carbon::setTestNow('2026-09-01');
     $fixtures = makeDocumentFixtures();
     $uploader = User::factory()->create(['company_id' => $fixtures['company']->id]);
+    attachActiveCompanyMembership($fixtures['company']->id, $uploader);
 
     companyDocNotificationSetting(
         companyId: $fixtures['company']->id,
@@ -161,6 +172,7 @@ test('documents without expiry dates are excluded', function () {
     Carbon::setTestNow('2026-09-01');
     $fixtures = makeDocumentFixtures();
     $uploader = User::factory()->create(['company_id' => $fixtures['company']->id]);
+    attachActiveCompanyMembership($fixtures['company']->id, $uploader);
 
     companyDocNotificationSetting(
         companyId: $fixtures['company']->id,
@@ -563,4 +575,258 @@ test('existing employee document expiry alerts still use email template TO/CC pr
 
     // Must NOT send CompanyDocumentExpiryAlertMail.
     Mail::assertNotSent(CompanyDocumentExpiryAlertMail::class);
+});
+
+test('inactive membership after configuration does not receive the email', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-09-01');
+    $fixtures = makeDocumentFixtures();
+    $toUser = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'pro@example.com']);
+    attachActiveCompanyMembership($fixtures['company']->id, $toUser);
+
+    companyDocNotificationSetting(
+        companyId: $fixtures['company']->id,
+        enabled: true,
+        toUserIds: [$toUser->id],
+    );
+
+    expiringCompanyDocument($fixtures['company']->id, $fixtures['passportType']->id, $toUser->id, '2026-09-20');
+
+    DB::table('company_user')
+        ->where('company_id', $fixtures['company']->id)
+        ->where('user_id', $toUser->id)
+        ->update(['status' => 'inactive']);
+
+    app(CompanyDocumentExpiryAlertService::class)->sendForCompany($fixtures['company']->id);
+
+    Mail::assertNothingSent();
+});
+
+test('removed membership after configuration does not receive the email', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-09-01');
+    $fixtures = makeDocumentFixtures();
+    $toUser = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'pro@example.com']);
+    attachActiveCompanyMembership($fixtures['company']->id, $toUser);
+
+    companyDocNotificationSetting(
+        companyId: $fixtures['company']->id,
+        enabled: true,
+        toUserIds: [$toUser->id],
+    );
+
+    expiringCompanyDocument($fixtures['company']->id, $fixtures['passportType']->id, $toUser->id, '2026-09-20');
+
+    DB::table('company_user')
+        ->where('company_id', $fixtures['company']->id)
+        ->where('user_id', $toUser->id)
+        ->delete();
+
+    app(CompanyDocumentExpiryAlertService::class)->sendForCompany($fixtures['company']->id);
+
+    Mail::assertNothingSent();
+});
+
+test('no valid TO recipients means nothing is sent even when CC remains eligible', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-09-01');
+    $fixtures = makeDocumentFixtures();
+    $toUser = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'pro@example.com']);
+    $ccUser = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'finance@example.com']);
+    attachActiveCompanyMembership($fixtures['company']->id, $toUser);
+    attachActiveCompanyMembership($fixtures['company']->id, $ccUser);
+
+    companyDocNotificationSetting(
+        companyId: $fixtures['company']->id,
+        enabled: true,
+        toUserIds: [$toUser->id],
+        ccUserIds: [$ccUser->id],
+    );
+
+    expiringCompanyDocument($fixtures['company']->id, $fixtures['passportType']->id, $toUser->id, '2026-09-20');
+
+    DB::table('company_user')
+        ->where('company_id', $fixtures['company']->id)
+        ->where('user_id', $toUser->id)
+        ->update(['status' => 'inactive']);
+
+    app(CompanyDocumentExpiryAlertService::class)->sendForCompany($fixtures['company']->id);
+
+    Mail::assertNothingSent();
+});
+
+test('multiple TO recipients remain TO and CC recipients remain CC', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-09-01');
+    $fixtures = makeDocumentFixtures();
+    $pro = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'pro@example.com']);
+    $gm = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'gm@example.com']);
+    $ops = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'ops@example.com']);
+    $finance = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'finance@example.com']);
+
+    foreach ([$pro, $gm, $ops, $finance] as $member) {
+        attachActiveCompanyMembership($fixtures['company']->id, $member);
+    }
+
+    companyDocNotificationSetting(
+        companyId: $fixtures['company']->id,
+        enabled: true,
+        toUserIds: [$pro->id, $gm->id, $ops->id],
+        ccUserIds: [$finance->id],
+    );
+
+    expiringCompanyDocument($fixtures['company']->id, $fixtures['passportType']->id, $pro->id, '2026-09-20');
+
+    app(CompanyDocumentExpiryAlertService::class)->sendForCompany($fixtures['company']->id);
+
+    Mail::assertSent(CompanyDocumentExpiryAlertMail::class, function (CompanyDocumentExpiryAlertMail $mail) use ($pro, $gm, $ops, $finance) {
+        return $mail->hasTo($pro->email)
+            && $mail->hasTo($gm->email)
+            && $mail->hasTo($ops->email)
+            && $mail->hasCc($finance->email)
+            && ! $mail->hasCc($pro->email)
+            && ! $mail->hasCc($gm->email)
+            && ! $mail->hasCc($ops->email)
+            && ! $mail->hasTo($finance->email);
+    });
+});
+
+test('duplicate email between TO and CC is kept only as TO', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-09-01');
+    $fixtures = makeDocumentFixtures();
+    $toUser = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'shared@example.com']);
+    attachActiveCompanyMembership($fixtures['company']->id, $toUser);
+
+    companyDocNotificationSetting(
+        companyId: $fixtures['company']->id,
+        enabled: true,
+        toUserIds: [$toUser->id],
+        ccUserIds: [$toUser->id],
+    );
+
+    expiringCompanyDocument($fixtures['company']->id, $fixtures['passportType']->id, $toUser->id, '2026-09-20');
+
+    app(CompanyDocumentExpiryAlertService::class)->sendForCompany($fixtures['company']->id);
+
+    Mail::assertSent(CompanyDocumentExpiryAlertMail::class, function (CompanyDocumentExpiryAlertMail $mail) use ($toUser) {
+        return $mail->hasTo($toUser->email)
+            && ! $mail->hasCc($toUser->email);
+    });
+});
+
+test('inactive TO is skipped while remaining TO and CC still receive the correct roles', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-09-01');
+    $fixtures = makeDocumentFixtures();
+    $pro = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'pro@example.com']);
+    $gm = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'gm@example.com']);
+    $ops = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'ops@example.com']);
+    $finance = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'finance@example.com']);
+
+    foreach ([$pro, $gm, $ops, $finance] as $member) {
+        attachActiveCompanyMembership($fixtures['company']->id, $member);
+    }
+
+    companyDocNotificationSetting(
+        companyId: $fixtures['company']->id,
+        enabled: true,
+        toUserIds: [$pro->id, $gm->id, $ops->id],
+        ccUserIds: [$finance->id],
+    );
+
+    expiringCompanyDocument($fixtures['company']->id, $fixtures['passportType']->id, $pro->id, '2026-09-20');
+
+    DB::table('company_user')
+        ->where('company_id', $fixtures['company']->id)
+        ->where('user_id', $ops->id)
+        ->update(['status' => 'inactive']);
+
+    app(CompanyDocumentExpiryAlertService::class)->sendForCompany($fixtures['company']->id);
+
+    Mail::assertSent(CompanyDocumentExpiryAlertMail::class, function (CompanyDocumentExpiryAlertMail $mail) use ($pro, $gm, $ops, $finance) {
+        return $mail->hasTo($pro->email)
+            && $mail->hasTo($gm->email)
+            && ! $mail->hasTo($ops->email)
+            && ! $mail->hasCc($ops->email)
+            && $mail->hasCc($finance->email);
+    });
+});
+
+test('disabled company document email template does not stop delivery', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-09-01');
+    $fixtures = makeDocumentFixtures();
+    $toUser = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'pro@example.com']);
+    attachActiveCompanyMembership($fixtures['company']->id, $toUser);
+
+    EmailTemplate::query()->updateOrCreate(
+        ['slug' => 'company_document_expiry_alert'],
+        [
+            'label' => 'Company document expiry alert',
+            'category' => 'notification',
+            'subject' => 'Unused subject',
+            'body_html' => 'Unused body',
+            'enabled' => false,
+            'include_company_footer' => true,
+        ],
+    );
+
+    companyDocNotificationSetting(
+        companyId: $fixtures['company']->id,
+        enabled: true,
+        toUserIds: [$toUser->id],
+    );
+
+    expiringCompanyDocument($fixtures['company']->id, $fixtures['passportType']->id, $toUser->id, '2026-09-20');
+
+    app(CompanyDocumentExpiryAlertService::class)->sendForCompany($fixtures['company']->id);
+
+    Mail::assertSent(CompanyDocumentExpiryAlertMail::class, fn ($mail) => $mail->hasTo($toUser->email));
+});
+
+test('company document configuration does not change employee document expiry recipients', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+    $fixtures = makeDocumentFixtures();
+    $companyUser = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'pro@example.com']);
+    attachActiveCompanyMembership($fixtures['company']->id, $companyUser);
+
+    companyDocNotificationSetting(
+        companyId: $fixtures['company']->id,
+        enabled: true,
+        toUserIds: [$companyUser->id],
+    );
+
+    $doc = createEmployeePdfDocument(
+        $fixtures['company']->id,
+        $fixtures['employee']->id,
+        $fixtures['passportType']->id,
+        "employee-documents/{$fixtures['company']->id}/{$fixtures['employee']->id}/passport/b.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($fixtures['company']->id);
+
+    Mail::assertSent(DocumentExpiryAlertMail::class, fn ($mail) => $mail->hasTo('hr@example.com') && ! $mail->hasTo($companyUser->email));
+    Mail::assertNotSent(CompanyDocumentExpiryAlertMail::class);
+});
+
+test('company document expiry job is unique per company', function () {
+    Queue::fake();
+    $fixtures = makeDocumentFixtures();
+    $other = makeDocumentFixtures();
+
+    expect(new SendCompanyDocumentExpiryAlertJob($fixtures['company']->id))->toBeInstanceOf(ShouldBeUnique::class)
+        ->and((new SendCompanyDocumentExpiryAlertJob($fixtures['company']->id))->uniqueId())
+        ->toBe('company-document-expiry-alert-'.$fixtures['company']->id);
+
+    SendCompanyDocumentExpiryAlertJob::dispatch($fixtures['company']->id);
+    SendCompanyDocumentExpiryAlertJob::dispatch($fixtures['company']->id);
+    SendCompanyDocumentExpiryAlertJob::dispatch($other['company']->id);
+
+    Queue::assertPushed(SendCompanyDocumentExpiryAlertJob::class, 2);
+    Queue::assertPushed(SendCompanyDocumentExpiryAlertJob::class, fn ($job) => $job->companyId === $fixtures['company']->id);
+    Queue::assertPushed(SendCompanyDocumentExpiryAlertJob::class, fn ($job) => $job->companyId === $other['company']->id);
 });

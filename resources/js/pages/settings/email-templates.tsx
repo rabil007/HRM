@@ -67,6 +67,7 @@ type Props = {
     categories: Option[];
     can: { create: boolean; update: boolean; delete: boolean };
     expiry_alert_template_slug: string;
+    company_expiry_alert_template_slug: string;
     scheduler_timezone: string;
 };
 
@@ -106,6 +107,7 @@ export default function EmailTemplatesSettings({
     categories,
     can,
     expiry_alert_template_slug,
+    company_expiry_alert_template_slug,
     scheduler_timezone,
 }: Props) {
     const grouped = useMemo(() => {
@@ -229,6 +231,7 @@ export default function EmailTemplatesSettings({
 
     const canPreviewDraft =
         form.data.slug !== expiry_alert_template_slug &&
+        form.data.slug !== company_expiry_alert_template_slug &&
         form.data.subject.trim() !== '' &&
         form.data.body_html.trim() !== '';
 
@@ -464,7 +467,25 @@ export default function EmailTemplatesSettings({
                                                             Automated daily
                                                             summary email with
                                                             an HTML table of
-                                                            expiring documents.
+                                                            expiring employee
+                                                            documents.
+                                                            Recipients are the
+                                                            TO / CC presets on
+                                                            this template.
+                                                        </p>
+                                                    ) : template.slug ===
+                                                      company_expiry_alert_template_slug ? (
+                                                        <p className="text-xs leading-relaxed text-muted-foreground">
+                                                            Company Document
+                                                            expiry emails use
+                                                            this template only
+                                                            for the company
+                                                            footer. Recipients
+                                                            and the enabled
+                                                            switch live on each
+                                                            company&apos;s
+                                                            Company Documents
+                                                            page.
                                                         </p>
                                                     ) : (
                                                         <p className="w-fit truncate rounded border border-border/20 bg-muted/40 px-2 py-1 font-mono text-xs text-muted-foreground dark:bg-black/20">
@@ -559,21 +580,23 @@ export default function EmailTemplatesSettings({
 
                                             {/* Body HTML Frame */}
                                             {template.slug !==
-                                                expiry_alert_template_slug && (
-                                                <div className="relative rounded-xl border border-border/40 bg-muted/20 p-4 dark:bg-black/20">
-                                                    <div className="absolute top-2.5 right-3 flex items-center gap-1">
-                                                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
-                                                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
-                                                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
+                                                expiry_alert_template_slug &&
+                                                template.slug !==
+                                                    company_expiry_alert_template_slug && (
+                                                    <div className="relative rounded-xl border border-border/40 bg-muted/20 p-4 dark:bg-black/20">
+                                                        <div className="absolute top-2.5 right-3 flex items-center gap-1">
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
+                                                        </div>
+                                                        <div className="mb-2.5 border-b border-border/20 pb-1.5 text-[9px] font-bold tracking-widest text-muted-foreground/50 uppercase">
+                                                            Template Body
+                                                        </div>
+                                                        <p className="line-clamp-4 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                                                            {template.body_html}
+                                                        </p>
                                                     </div>
-                                                    <div className="mb-2.5 border-b border-border/20 pb-1.5 text-[9px] font-bold tracking-widest text-muted-foreground/50 uppercase">
-                                                        Template Body
-                                                    </div>
-                                                    <p className="line-clamp-4 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                                                        {template.body_html}
-                                                    </p>
-                                                </div>
-                                            )}
+                                                )}
 
                                             {/* Bottom row */}
                                             <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-4">
@@ -613,7 +636,9 @@ export default function EmailTemplatesSettings({
                                                     )}
                                                     {can.delete &&
                                                         template.slug !==
-                                                            expiry_alert_template_slug && (
+                                                            expiry_alert_template_slug &&
+                                                        template.slug !==
+                                                            company_expiry_alert_template_slug && (
                                                             <Button
                                                                 type="button"
                                                                 variant="ghost"
@@ -745,49 +770,69 @@ export default function EmailTemplatesSettings({
                     </MasterDataField>
                 </div>
 
-                <MasterDataField
-                    id="to_preset"
-                    label="To preset (optional)"
-                    error={form.errors.to_preset}
-                >
-                    <Input
-                        id="to_preset"
-                        type="text"
-                        value={form.data.to_preset}
-                        onChange={(e) =>
-                            form.setData('to_preset', e.target.value)
-                        }
-                        placeholder="recipient@example.com, backup@example.com"
-                        disabled={!canMutateForm}
-                        className={masterDataInputClass}
-                    />
-                    <p className="text-xs text-muted-foreground/80">
-                        Comma-separated addresses. The first fills To in the
-                        send modal; any extra addresses are added to CC.
-                    </p>
-                </MasterDataField>
+                {form.data.slug === company_expiry_alert_template_slug ? (
+                    <div className="rounded-xl border border-border/60 bg-muted/30 p-4 text-xs leading-relaxed text-muted-foreground">
+                        <p className="font-semibold text-foreground/80">
+                            Company Document expiry delivery
+                        </p>
+                        <p className="mt-1">
+                            Recipients and the on/off switch are configured per
+                            company under Company Documents → Expiry
+                            Notification Settings. This template only controls
+                            whether the company footer is included. Disabling
+                            this row does not stop those emails. Subject, body,
+                            and schedule come from the Company Document mailable
+                            and the shared daily document expiry scheduler.
+                        </p>
+                    </div>
+                ) : (
+                    <>
+                        <MasterDataField
+                            id="to_preset"
+                            label="To preset (optional)"
+                            error={form.errors.to_preset}
+                        >
+                            <Input
+                                id="to_preset"
+                                type="text"
+                                value={form.data.to_preset}
+                                onChange={(e) =>
+                                    form.setData('to_preset', e.target.value)
+                                }
+                                placeholder="recipient@example.com, backup@example.com"
+                                disabled={!canMutateForm}
+                                className={masterDataInputClass}
+                            />
+                            <p className="text-xs text-muted-foreground/80">
+                                Comma-separated addresses. The first fills To in
+                                the send modal; any extra addresses are added to
+                                CC.
+                            </p>
+                        </MasterDataField>
 
-                <MasterDataField
-                    id="cc_preset"
-                    label="CC preset (optional)"
-                    error={form.errors.cc_preset}
-                >
-                    <Input
-                        id="cc_preset"
-                        type="text"
-                        value={form.data.cc_preset}
-                        onChange={(e) =>
-                            form.setData('cc_preset', e.target.value)
-                        }
-                        placeholder="cc1@example.com, cc2@example.com"
-                        disabled={!canMutateForm}
-                        className={masterDataInputClass}
-                    />
-                    <p className="text-xs text-muted-foreground/80">
-                        Comma-separated CC addresses prefilled when this
-                        template is chosen.
-                    </p>
-                </MasterDataField>
+                        <MasterDataField
+                            id="cc_preset"
+                            label="CC preset (optional)"
+                            error={form.errors.cc_preset}
+                        >
+                            <Input
+                                id="cc_preset"
+                                type="text"
+                                value={form.data.cc_preset}
+                                onChange={(e) =>
+                                    form.setData('cc_preset', e.target.value)
+                                }
+                                placeholder="cc1@example.com, cc2@example.com"
+                                disabled={!canMutateForm}
+                                className={masterDataInputClass}
+                            />
+                            <p className="text-xs text-muted-foreground/80">
+                                Comma-separated CC addresses prefilled when this
+                                template is chosen.
+                            </p>
+                        </MasterDataField>
+                    </>
+                )}
 
                 {form.data.slug === expiry_alert_template_slug ? (
                     <MasterDataField
@@ -817,7 +862,8 @@ export default function EmailTemplatesSettings({
                     </MasterDataField>
                 ) : null}
 
-                {form.data.slug !== expiry_alert_template_slug ? (
+                {form.data.slug !== expiry_alert_template_slug &&
+                form.data.slug !== company_expiry_alert_template_slug ? (
                     <>
                         <MasterDataField
                             id="subject"

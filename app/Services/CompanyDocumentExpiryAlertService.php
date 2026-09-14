@@ -8,6 +8,7 @@ use App\Models\CompanyDocument;
 use App\Models\CompanyDocumentExpiryAlert;
 use App\Models\CompanyDocumentExpiryNotificationSetting;
 use App\Models\EmailTemplate;
+use App\Support\CompanyDocuments\ResolveCompanyDocumentExpiryRecipients;
 use App\Support\EmployeeDocuments\DocumentExpiry;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -18,6 +19,10 @@ use Throwable;
 
 class CompanyDocumentExpiryAlertService
 {
+    public function __construct(
+        private readonly ResolveCompanyDocumentExpiryRecipients $resolveRecipients,
+    ) {}
+
     public function hasPendingDocuments(int $companyId): bool
     {
         $setting = $this->resolveNotificationSetting($companyId);
@@ -26,7 +31,9 @@ class CompanyDocumentExpiryAlertService
             return false;
         }
 
-        if ($setting->toRecipients()->doesntExist()) {
+        $resolved = $this->resolveRecipients->handle($setting, $companyId);
+
+        if ($resolved['to_addresses'] === []) {
             return false;
         }
 
@@ -47,21 +54,11 @@ class CompanyDocumentExpiryAlertService
             return;
         }
 
-        $toRecipients = $setting->toRecipients()
-            ->with('user:id,name,email')
-            ->get()
-            ->filter(fn ($r) => $r->user !== null && filled($r->user->email))
-            ->values();
+        $resolved = $this->resolveRecipients->handle($setting, $companyId);
 
-        if ($toRecipients->isEmpty()) {
+        if ($resolved['to_addresses'] === []) {
             return;
         }
-
-        $ccRecipients = $setting->ccRecipients()
-            ->with('user:id,name,email')
-            ->get()
-            ->filter(fn ($r) => $r->user !== null && filled($r->user->email))
-            ->values();
 
         $documents = $this->pendingDocumentsQuery($companyId)->get();
 
@@ -70,9 +67,19 @@ class CompanyDocumentExpiryAlertService
         }
 
         try {
-            $this->sendEmailSummary($company, $toRecipients, $ccRecipients, $documents);
+            $this->sendEmailSummary(
+                $company,
+                $resolved['to_addresses'],
+                $resolved['cc_addresses'],
+                $documents,
+            );
             $this->recordAlerts($documents, $companyId);
-            $this->logSuccess($company, $toRecipients, $ccRecipients, $documents);
+            $this->logSuccess(
+                $company,
+                $resolved['to_addresses'],
+                $resolved['cc_addresses'],
+                $documents,
+            );
         } catch (Throwable $exception) {
             $this->logFailure($company, $exception);
             throw $exception;
@@ -106,6 +113,7 @@ class CompanyDocumentExpiryAlertService
     {
         return CompanyDocumentExpiryNotificationSetting::query()
             ->where('company_id', $companyId)
+            ->with(['toRecipients', 'ccRecipients'])
             ->first();
     }
 
@@ -129,35 +137,20 @@ class CompanyDocumentExpiryAlertService
     }
 
     /**
-     * @param  Collection<int, mixed>  $toRecipients
-     * @param  Collection<int, mixed>  $ccRecipients
+     * @param  list<string>  $toAddresses
+     * @param  list<string>  $ccAddresses
      * @param  Collection<int, CompanyDocument>  $documents
      */
     private function sendEmailSummary(
         Company $company,
-        Collection $toRecipients,
-        Collection $ccRecipients,
+        array $toAddresses,
+        array $ccAddresses,
         Collection $documents,
     ): void {
         $rows = $this->buildRows($company, $documents);
         $alertWindowDays = $this->alertWindowDays();
-        $template = $this->resolveAlertTemplate();
-        $includeCompanyFooter = (bool) ($template?->include_company_footer ?? true);
 
-        $toAddresses = $toRecipients->map(fn ($r) => $r->user->email)->unique(fn ($e) => strtolower($e))->values()->all();
-        $ccAddresses = $ccRecipients
-            ->map(fn ($r) => $r->user->email)
-            ->reject(fn ($email) => in_array(strtolower($email), array_map('strtolower', $toAddresses), true))
-            ->unique(fn ($e) => strtolower($e))
-            ->values()
-            ->all();
-
-        $mailer = Mail::to($toAddresses[0]);
-
-        $remainingTo = array_slice($toAddresses, 1);
-        if ($remainingTo !== []) {
-            $mailer->cc($remainingTo);
-        }
+        $mailer = Mail::to($toAddresses);
 
         if ($ccAddresses !== []) {
             $mailer->cc($ccAddresses);
@@ -167,7 +160,7 @@ class CompanyDocumentExpiryAlertService
             organizationName: (string) $company->name,
             rows: $rows,
             alertWindowDays: $alertWindowDays,
-            includeCompanyFooter: $includeCompanyFooter,
+            includeCompanyFooter: $this->includeCompanyFooter(),
         ));
     }
 
@@ -226,14 +219,14 @@ class CompanyDocumentExpiryAlertService
     }
 
     /**
-     * @param  Collection<int, mixed>  $toRecipients
-     * @param  Collection<int, mixed>  $ccRecipients
+     * @param  list<string>  $toAddresses
+     * @param  list<string>  $ccAddresses
      * @param  Collection<int, CompanyDocument>  $documents
      */
     private function logSuccess(
         Company $company,
-        Collection $toRecipients,
-        Collection $ccRecipients,
+        array $toAddresses,
+        array $ccAddresses,
         Collection $documents,
     ): void {
         activity()
@@ -241,8 +234,8 @@ class CompanyDocumentExpiryAlertService
             ->event('company_document_expiry_alert_sent')
             ->performedOn($company)
             ->withProperties([
-                'to_recipients' => $toRecipients->map(fn ($r) => $r->user->email)->values()->all(),
-                'cc_recipients' => $ccRecipients->map(fn ($r) => $r->user->email)->values()->all(),
+                'to_recipients' => $toAddresses,
+                'cc_recipients' => $ccAddresses,
                 'document_count' => $documents->count(),
                 'company_id' => $company->id,
                 'document_ids' => $documents->pluck('id')->values()->all(),
@@ -253,13 +246,14 @@ class CompanyDocumentExpiryAlertService
             ->log('Company document expiry alert email sent');
     }
 
-    private function resolveAlertTemplate(): ?EmailTemplate
+    private function includeCompanyFooter(): bool
     {
         $slug = (string) config('documents.company_expiry_alert_template_slug', 'company_document_expiry_alert');
 
-        return EmailTemplate::query()
+        $template = EmailTemplate::query()
             ->where('slug', $slug)
-            ->where('enabled', true)
             ->first();
+
+        return (bool) ($template?->include_company_footer ?? true);
     }
 }

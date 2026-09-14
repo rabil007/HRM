@@ -23,8 +23,14 @@ return [
     | Company document expiry email alerts
     |--------------------------------------------------------------------------
     |
-    | Recipients come from company-level notification settings, not this template.
-    | The template controls dispatch_at timing, subject, and company footer.
+    | Recipients and the enabled switch come from company-level notification
+    | settings (Company Documents → Expiry Notification Settings), not this
+    | template. Subject and body are owned by CompanyDocumentExpiryAlertMail
+    | and its Blade view. Dispatch time is the shared documents:dispatch-expiry-alerts
+    | scheduler (configured on the employee document_expiry_alert template).
+    |
+    | The company_document_expiry_alert EmailTemplate is retained only for
+    | include_company_footer. Its enabled flag does not stop delivery.
     |
     */
 

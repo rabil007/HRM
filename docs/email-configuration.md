@@ -87,24 +87,36 @@ Recipients are configured under **Settings → Email Templates → Document expi
 
 ## Company Document expiry alerts
 
-Daily alerts for expiring company-level documents (Trade License, Establishment Card, etc.). Each company has its own independent recipient configuration — there are no global recipients for company document alerts.
+Daily alerts for expiring company-level documents (Trade License, Establishment Card, etc.). Each company has one notification configuration that applies to every Company Document with an expiry date. There are no per-document recipient overrides and no global recipients.
 
 | Item | Value |
 |------|--------|
-| Template slug | `company_document_expiry_alert` |
-| Category | Document |
-| Job | `SendCompanyDocumentExpiryAlertJob` |
-| Service | `CompanyDocumentExpiryAlertService` |
+| Recipients and enabled switch | **Company Documents → Expiry Notification Settings** (`company_document_expiry_notification_settings.enabled` plus TO/CC user lists) |
+| Subject and body | `CompanyDocumentExpiryAlertMail` and `mail/company-document-expiry-alert` Blade view |
 | Scheduler | Same `documents:dispatch-expiry-alerts` command (dispatches both employee and company alert jobs) |
+| Dispatch time | Shared with Employee Document alerts (`DocumentExpiryAlertSchedule` / `document_expiry_alert.dispatch_at`) |
+| Job | `SendCompanyDocumentExpiryAlertJob` (unique per company while pending or processing) |
+| Service | `CompanyDocumentExpiryAlertService` |
+| EmailTemplate slug | `company_document_expiry_alert` — **footer only** (`include_company_footer`) |
 | Deduplication | `company_document_expiry_alerts` ledger (`company_document_id` + `expiry_date_at_alert_time`) |
+
+### What the EmailTemplate does not control
+
+The `company_document_expiry_alert` template does **not** control TO/CC recipients, subject, body, dispatch time, or whether emails are sent. Disabling that template does not stop Company Document expiry delivery. The authoritative enable/disable switch is the per-company **Enabled** setting.
 
 ### Recipient configuration
 
-Recipients are configured per company at **Organization → Companies → {Company} → Documents → Expiry Notification Settings** (requires `company_documents.manage_notifications` permission). Each company stores:
+Recipients are configured per company at **Organization → Companies → {Company} → Documents → Expiry Notification Settings** (requires `company_documents.manage_notifications`). Each company stores:
 
-- **Enabled / disabled** toggle
+- **Enabled / disabled** toggle — source of truth for delivery
 - **TO recipients** — OMS-HRM users with active membership in the company
 - **CC recipients** — OMS-HRM users with active membership in the company
+
+Selected IDs are validated at save time. Cross-company, inactive, or nonexistent user IDs are rejected with a validation error; they are not silently dropped. Recipient changes write a single company-scoped activity event (`company_document_expiry_notification_recipients_updated`) with before/after TO and CC snapshots. Enabled-state changes are logged on the setting model. Activity is visible only with `audit.view`.
+
+At send time, stored recipients are re-checked: the user must still exist, have a usable email, and still have **active** membership in the same company. Inactive or removed members are skipped. If no valid TO recipient remains, nothing is sent (CC-only is not delivered). Duplicate addresses are compared case-insensitively; TO wins over CC.
+
+The picker lists only active members with usable email addresses. Stored recipients who later become ineligible are omitted from the settings UI and are not emailed.
 
 The same configuration applies to all Company Documents for that company that have an expiry date. There are no per-document recipient overrides.
 
@@ -116,13 +128,15 @@ Only Company Documents that satisfy all of the following are eligible:
 2. Have an expiry date
 3. Fall within the configured expiry window
 4. Company Document expiry notifications are enabled for the company
-5. At least one valid TO recipient is configured
+5. At least one currently eligible TO recipient remains at send time
 
 Soft-deleted documents are excluded. Documents without an expiry date are excluded.
 
 ### Deduplication
 
-A `company_document_expiry_alerts` row keyed on `(company_document_id, expiry_date_at_alert_time)` prevents the same expiry event from triggering more than one alert. If the document is renewed (expiry date changes), the new expiry date becomes eligible for a fresh alert when it enters the notification window.
+A `company_document_expiry_alerts` row keyed on `(company_document_id, expiry_date_at_alert_time)` prevents the same expiry event from triggering more than one alert. Historical ledger rows are not deleted. If the document is renewed (expiry date changes), the new expiry date becomes eligible for a fresh alert when it enters the notification window.
+
+Concurrent overlapping jobs for the same company are limited with `ShouldBeUnique` (company ID, 3600s). The unique ledger constraint remains the database backstop.
 
 ### Separation from Employee Document alerts
 

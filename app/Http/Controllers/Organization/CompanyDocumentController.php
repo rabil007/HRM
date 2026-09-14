@@ -7,10 +7,9 @@ use App\Http\Requests\Organization\CompanyDocument\StoreCompanyDocumentRequest;
 use App\Http\Requests\Organization\CompanyDocument\UpdateCompanyDocumentRequest;
 use App\Models\Company;
 use App\Models\CompanyDocument;
-use App\Models\CompanyDocumentExpiryNotificationSetting;
 use App\Models\DocumentType;
-use App\Models\User;
 use App\Support\CompanyDocuments\CompanyDocumentAccess;
+use App\Support\CompanyDocuments\CompanyDocumentExpiryNotificationPresenter;
 use App\Support\CompanyDocuments\CompanyDocumentQuery;
 use App\Support\CompanyDocuments\CompanyDocumentStorage;
 use App\Support\Pagination\ResolvesPerPage;
@@ -28,7 +27,7 @@ class CompanyDocumentController extends Controller
         Company $company,
         CompanyDocumentAccess $access,
         CompanyDocumentQuery $documents,
-        CompanyDocumentExpiryNotificationSettingController $notificationSettingController,
+        CompanyDocumentExpiryNotificationPresenter $notificationPresenter,
     ): Response {
         $access->authorize($request->user(), $company, CompanyDocumentAccess::Abilities['view']);
 
@@ -49,32 +48,11 @@ class CompanyDocumentController extends Controller
         $canManageNotifications = $access->allows($request->user(), $company, CompanyDocumentAccess::Abilities['manage_notifications']);
 
         $notificationSetting = null;
-        if ($canManageNotifications) {
-            $setting = CompanyDocumentExpiryNotificationSetting::query()
-                ->where('company_id', $company->id)
-                ->with([
-                    'toRecipients.user:id,name,email',
-                    'ccRecipients.user:id,name,email',
-                ])
-                ->first();
-
-            $notificationSetting = $notificationSettingController->presentSetting($setting);
-        }
-
-        // Load active company members for recipient selection (only when user can manage notifications).
         $companyUsers = [];
         if ($canManageNotifications) {
-            $companyUsers = User::query()
-                ->whereHas('companies', fn ($q) => $q->where('companies.id', $company->id)->wherePivot('status', 'active'))
-                ->orderBy('name')
-                ->get(['id', 'name', 'email'])
-                ->map(fn (User $user) => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                ])
-                ->values()
-                ->all();
+            $notificationPage = $notificationPresenter->presentIndex($company->id);
+            $notificationSetting = $notificationPage['notification_setting'];
+            $companyUsers = $notificationPage['company_users'];
         }
 
         $can = $access->permissions($request->user(), $company);
