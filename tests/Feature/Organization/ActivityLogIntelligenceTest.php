@@ -9,17 +9,19 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 function createActivityIntelligenceCompany(string $suffix): Company
 {
+    $codeSuffix = strtoupper(substr($suffix, 0, 2));
+
     $country = Country::query()->create([
-        'code' => 'AI'.strtoupper($suffix),
+        'code' => 'A'.$codeSuffix,
         'name' => 'Activity Intelligence '.$suffix,
-        'dial_code' => '+99'.$suffix,
+        'dial_code' => '+9'.strlen($suffix).strlen($codeSuffix),
         'is_active' => true,
     ]);
 
     $currency = Currency::query()->create([
-        'code' => 'A'.strtoupper($suffix).'D',
+        'code' => 'C'.$codeSuffix,
         'name' => 'Activity Currency '.$suffix,
-        'symbol' => 'A'.$suffix,
+        'symbol' => 'A'.$codeSuffix,
         'is_active' => true,
     ]);
 
