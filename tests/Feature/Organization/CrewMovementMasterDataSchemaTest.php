@@ -51,7 +51,7 @@ test('create assignment page loads without querying nonexistent master company_i
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('organization/crew/create')
-            ->has('employee_status_by_employee')
+            ->has('form_options.employee_status_by_employee')
             ->has('form_options.clients')
             ->has('form_options.ranks')
             ->has('form_options.vessels')

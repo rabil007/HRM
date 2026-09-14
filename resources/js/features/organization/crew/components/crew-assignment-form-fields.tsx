@@ -79,7 +79,8 @@ export function CrewAssignmentFormFields({
         : 'border-border/60 bg-muted/10';
 
     const companyTimezone =
-        'company_timezone' in formOptions && typeof formOptions.company_timezone === 'string'
+        'company_timezone' in formOptions &&
+        typeof formOptions.company_timezone === 'string'
             ? formOptions.company_timezone
             : 'UTC';
 

@@ -18,7 +18,10 @@ import type {
     ActiveOnVesselAssignment,
     EmployeeOperationalStatus,
 } from '@/features/organization/crew/types';
-import { formatDisplayDate, formatDisplayDateTimeInTimezone } from '@/lib/format-date';
+import {
+    formatDisplayDate,
+    formatDisplayDateTimeInTimezone,
+} from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
 
@@ -68,12 +71,7 @@ function ActiveAssignmentConflict({
     colorClass: string;
 }): ReactElement {
     return (
-        <div
-            className={cn(
-                'rounded-lg border p-2.5 text-xs',
-                colorClass,
-            )}
-        >
+        <div className={cn('rounded-lg border p-2.5 text-xs', colorClass)}>
             <p className="font-medium">
                 This employee already has an active Crew Assignment.
             </p>
@@ -117,14 +115,15 @@ export function CrewEmployeeOperationalStatus({
         status.current_vessel ??
         activeOnVessel?.vessel_name ??
         null;
-    const assignmentNo = status.assignment_no ?? activeOnVessel?.assignment_no ?? null;
-    const assignmentId = status.assignment_id ?? activeOnVessel?.assignment_id ?? null;
+    const assignmentNo =
+        status.assignment_no ?? activeOnVessel?.assignment_no ?? null;
+    const assignmentId =
+        status.assignment_id ?? activeOnVessel?.assignment_id ?? null;
     const daysInPhase = status.days_in_phase;
 
     // Prefer raw ISO timestamp + company timezone for consistency across all phases.
     // Fall back to activeOnVessel.actual_start_display only if no raw ISO is available.
-    const sinceRaw =
-        activeOnVessel?.actual_start_at ?? status.since;
+    const sinceRaw = activeOnVessel?.actual_start_at ?? status.since;
     const sinceText = sinceRaw
         ? formatDisplayDateTimeInTimezone(sinceRaw, companyTimezone)
         : (activeOnVessel?.actual_start_display ?? null);

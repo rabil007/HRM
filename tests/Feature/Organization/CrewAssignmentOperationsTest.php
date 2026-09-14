@@ -95,7 +95,7 @@ test('authorized users can open create with global master data options', functio
             ->has('form_options.vessels')
             ->has('form_options.clients')
             ->has('form_options.courses')
-            ->has('employee_status_by_employee'));
+            ->has('form_options.employee_status_by_employee'));
 });
 
 test('authorized users can create a draft assignment', function () {
