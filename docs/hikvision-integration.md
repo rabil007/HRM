@@ -33,6 +33,17 @@ Each settings row has a non-sequential `public_id`. The callback URL is:
 
 Webhook POST bodies are **not** cryptographically bound to the vendor `timestamp.batchId` HMAC and are never upserted into attendance-eligible `hikvision_access_events` or used to sync attendance directly. A successful webhook runs the same fetch lifecycle as manual/scheduled dispatchers (`resolveStaleEventsFetch` → skip if already queued/running → `beginEventsFetch` → `FetchHikvisionAccessEventsJob` with origin `webhook_trigger`). After a successful webhook-triggered fetch, attendance is synchronized for **that company date only** — the coordinator’s “today also rebuilds yesterday” backfill is not used, so historical webhook-only punches cannot be recalculated to absent.
 
+**Identity resolution for attendance**
+
+```text
+Webhook notification
+→ authoritative Hikvision API fetch
+→ ACS / mobile / certificate event identity resolution
+→ attendance records / calendar
+```
+
+Authoritative ACS/ISAPI door events resolve the company-scoped Hikvision person during import (prefer payload `personId`, then unique `employeeNoString` → `person_code`, then unique exact/safe name alias). Both `person_hikvision_id` (external Hikvision id) and `hikvision_person_id` (local FK) are stored. Re-fetch may repair missing identity on existing serial-matched ACS rows without creating duplicates. Ambiguous matches stay unresolved. Attendance sync and the attendance calendar share the same company-scoped matching rules for linked ids plus safe legacy unlinked fallbacks. Webhook bodies are not attendance-authoritative and must never mutate trusted ACS identity.
+
 Webhook bursts are coalesced with a settings+date cache key (~60s TTL). Coalesced notifications set a pending flag and schedule one delayed trailing fetch after the debounce window so the last punch in a burst still causes an authoritative API pull. This debounce/trailing path is webhook-specific and does **not** affect manual/scheduled/catch-up fetches. Historical `event_source = webhook` rows are retained but excluded from attendance (`accessRecords`).
 
 Processing resolves only integrations that are webhook-enabled, company-owned, and API-configured (`isConfigured()`). Signature failures, disabled integrations, unconfigured credentials, and orphan (`company_id` null) rows all return a generic 404. Payload `company_id` values are ignored. The GET verification handshake and existing HMAC format are unchanged.

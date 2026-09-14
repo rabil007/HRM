@@ -45,7 +45,7 @@ final class TodayAttendanceTimeline
         $employee = Employee::query()
             ->where('company_id', $companyId)
             ->whereKey($employeeId)
-            ->with('hikvisionPerson:id,person_id')
+            ->with('hikvisionPerson:id,person_id,full_name,person_code')
             ->first();
 
         if ($employee === null || $employee->hikvisionPerson === null) {
@@ -72,13 +72,13 @@ final class TodayAttendanceTimeline
             ->accessRecords()
             ->forCompany($companyId)
             ->whereBetween('occurrence_time', [$rangeStart, $rangeEnd])
-            ->where('person_hikvision_id', $personHikvisionId)
+            ->tap(fn ($query) => EmployeeHikvisionAccessEventMatcher::scopeForEmployee($query, $employee))
             ->whereIn('attendance_status', [
                 HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
                 HikvisionAccessEvent::ATTENDANCE_CHECK_OUT,
             ])
             ->orderBy('occurrence_time')
-            ->get(['id', 'occurrence_time', 'attendance_status', 'device_name', 'transaction_source']);
+            ->get(['id', 'occurrence_time', 'attendance_status', 'device_name', 'transaction_source', 'person_name', 'person_hikvision_id', 'raw_payload']);
 
         $serializedEvents = $events
             ->map(fn (HikvisionAccessEvent $event): array => [

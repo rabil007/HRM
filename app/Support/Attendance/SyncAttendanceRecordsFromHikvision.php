@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
 use App\Models\LeaveRequest;
+use App\Support\Hikvision\HikvisionPersonNameAliases;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -141,7 +142,7 @@ final class SyncAttendanceRecordsFromHikvision
             ->values();
 
         $nameAliases = $employees
-            ->flatMap(fn (Employee $employee): array => $this->employeeNameAliases($employee))
+            ->flatMap(fn (Employee $employee): array => HikvisionPersonNameAliases::forEmployee($employee))
             ->map(fn (string $alias): string => mb_strtolower($alias))
             ->unique()
             ->values();
@@ -174,7 +175,7 @@ final class SyncAttendanceRecordsFromHikvision
                     ->orWhere('person_hikvision_id', '');
             })
             ->where(function (Builder $query) use ($nameAliases, $personCodes): void {
-                $this->applyUnlinkedEventScope($query, $nameAliases, $personCodes);
+                EmployeeHikvisionAccessEventMatcher::applyUnlinkedEventScope($query, $nameAliases, $personCodes);
             })
             ->orderBy('occurrence_time')
             ->get([...$columns, 'raw_payload']);
@@ -195,45 +196,11 @@ final class SyncAttendanceRecordsFromHikvision
         Collection $eventsByPersonId,
         Collection $companyEvents,
     ): Collection {
-        $personId = (string) ($employee->hikvisionPerson?->person_id ?? '');
-        $events = $personId !== ''
-            ? $eventsByPersonId->get($personId, collect())
-            : collect();
-
-        $aliases = array_map(
-            mb_strtolower(...),
-            $this->employeeNameAliases($employee),
+        return EmployeeHikvisionAccessEventMatcher::resolveFromLoadedEvents(
+            $employee,
+            $eventsByPersonId,
+            $companyEvents,
         );
-        $personCode = trim((string) ($employee->hikvisionPerson?->person_code ?? ''));
-
-        if ($aliases === [] && $personCode === '') {
-            return $events->values();
-        }
-
-        $unlinkedMatches = $companyEvents->filter(function (HikvisionAccessEvent $event) use ($aliases, $personCode): bool {
-            if (filled($event->person_hikvision_id)) {
-                return false;
-            }
-
-            $personName = mb_strtolower(trim((string) $event->person_name));
-
-            if ($personName !== '' && in_array($personName, $aliases, true)) {
-                return true;
-            }
-
-            if ($personCode === '' || $event->transaction_source !== HikvisionAccessEvent::TRANSACTION_MOBILE_APP) {
-                return false;
-            }
-
-            $payload = is_array($event->raw_payload) ? $event->raw_payload : [];
-
-            return trim((string) ($payload['personCode'] ?? '')) === $personCode;
-        });
-
-        return $events
-            ->merge($unlinkedMatches)
-            ->unique('id')
-            ->values();
     }
 
     /**
@@ -344,74 +311,6 @@ final class SyncAttendanceRecordsFromHikvision
         }
 
         return AttendanceRecord::STATUS_ABSENT;
-    }
-
-    /**
-     * @param  Builder<HikvisionAccessEvent>  $query
-     * @param  Collection<int, string>  $nameAliases
-     * @param  Collection<int, string>  $personCodes
-     */
-    private function applyUnlinkedEventScope(Builder $query, Collection $nameAliases, Collection $personCodes): void
-    {
-        $hasConstraint = false;
-
-        foreach ($nameAliases as $alias) {
-            if ($hasConstraint) {
-                $query->orWhereRaw('LOWER(person_name) = ?', [$alias]);
-            } else {
-                $query->whereRaw('LOWER(person_name) = ?', [$alias]);
-                $hasConstraint = true;
-            }
-        }
-
-        foreach ($personCodes as $personCode) {
-            $personCodeConstraint = function (Builder $mobileQuery) use ($personCode): void {
-                $mobileQuery
-                    ->where('transaction_source', HikvisionAccessEvent::TRANSACTION_MOBILE_APP)
-                    ->where('raw_payload->personCode', $personCode);
-            };
-
-            if ($hasConstraint) {
-                $query->orWhere($personCodeConstraint);
-            } else {
-                $query->where($personCodeConstraint);
-                $hasConstraint = true;
-            }
-        }
-
-        if (! $hasConstraint) {
-            $query->whereRaw('1 = 0');
-        }
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function employeeNameAliases(Employee $employee): array
-    {
-        $aliases = [
-            trim((string) $employee->name),
-            trim((string) ($employee->hikvisionPerson?->full_name ?? '')),
-        ];
-
-        $fullName = trim((string) ($employee->hikvisionPerson?->full_name ?? ''));
-
-        if ($fullName !== '') {
-            $parts = preg_split('/\s+/u', $fullName) ?: [];
-
-            if (count($parts) > 1) {
-                $last = (string) end($parts);
-
-                if (mb_strlen($last) <= 3) {
-                    $aliases[] = trim(implode(' ', array_slice($parts, 0, -1)));
-                }
-            }
-        }
-
-        return array_values(array_unique(array_filter(
-            $aliases,
-            fn (string $value): bool => $value !== '',
-        )));
     }
 
     /**
