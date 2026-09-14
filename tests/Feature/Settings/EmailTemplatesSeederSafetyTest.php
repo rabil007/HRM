@@ -139,28 +139,36 @@ test('preview renders every built-in template without unresolved placeholders', 
     }
 });
 
-test('employee and company document expiry previews render the summary layouts with sample rows', function () {
+test('employee and company document expiry previews mirror production subjects and stay within the alert window', function () {
     (new EmailTemplatesSeeder)->run();
     $preview = app(EmailTemplatePreview::class);
 
     $employee = EmailTemplate::query()->where('slug', 'document_expiry_alert')->firstOrFail();
     $company = EmailTemplate::query()->where('slug', 'company_document_expiry_alert')->firstOrFail();
 
-    $employeeHtml = $preview->render($employee)['html'];
-    $companyHtml = $preview->render($company)['html'];
+    $employeePreview = $preview->render($employee);
+    $companyPreview = $preview->render($company);
 
-    expect($employeeHtml)
+    expect($employeePreview['subject'])
+        ->toBe('Employee Document Expiry Alert — 2 document(s) require attention')
+        ->and($employeePreview['html'])
         ->toContain('Employee Document Expiry Alert')
         ->toContain('John Doe')
         ->toContain('1042')
         ->toContain('Passport')
+        ->toContain('24')
         ->toContain('Jane Doe')
+        ->toContain('7')
         ->toContain('View Document Compliance')
-        ->and($companyHtml)
+        ->and($companyPreview['subject'])
+        ->toBe('Company Document Expiry Alert — 2 document(s) require attention')
+        ->and($companyPreview['html'])
         ->toContain('Company Document Expiry Alert')
         ->toContain('Trade License')
         ->toContain('TL-2026-001')
+        ->toContain('20')
         ->toContain('Establishment Card')
         ->toContain('EC-5582')
+        ->toContain('5')
         ->toContain('View Company Documents');
 });
