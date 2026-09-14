@@ -104,7 +104,7 @@ Inspect the current implementation **before** relying on documentation. Broaden 
 
 ## Implemented module coverage
 
-The application currently includes core organization and employee management, employee profile templates, documents and e-signing, attendance and leave, payroll, training, **Crew Operations** (Crew Assignments, P0–P6 movements, planning/Gantt, vessel manning, sea-service synchronization, movement history/corrections), users and roles, activity logging, bulk documents, and SMTP/WhatsApp/Hikvision integrations. The Organization Activity Logs page is user-attributed: rows without an `App\Models\User` causer are excluded from that page and its filter options. Explicit workflow and compliance evidence remains stored by its domain and is not deleted by this view-level rule. Documentation depth varies by module; source code, routes, and tests remain authoritative where a dedicated guide is not yet available.
+The application currently includes core organization and employee management, employee profile templates, documents and e-signing, attendance and leave, payroll, training, **Crew Operations** (Crew Assignments, P0–P6 movements, planning/Gantt, vessel manning, sea-service synchronization, movement history/corrections), users and roles, activity logging, bulk documents, and SMTP/WhatsApp/Hikvision integrations. The Organization Activity Logs page is user-attributed: rows without an `App\Models\User` causer are excluded from that page and its filter options. It presents human-readable activity headlines, module/user/importance filters, date shortcuts, range summary counts, searchable changed values, field-level diffs, and permission-aware links back to supported affected records. `audit.view` does not bypass the normal view permission for those destination records. Explicit workflow and compliance evidence remains stored by its domain and is not deleted by this view-level rule. Documentation depth varies by module; source code, routes, and tests remain authoritative where a dedicated guide is not yet available.
 
 ## Related project files
 
@@ -122,4 +122,4 @@ The application currently includes core organization and employee management, em
 
 ## Last reviewed
 
-Entry points reviewed on **2026-09-08**. Activity-log routing and user-attribution behavior were additionally checked against the current implementation on **2026-09-13**. Topic guides still vary in depth; implementation remains authoritative.
+Entry points reviewed on **2026-09-08**. Activity-log routing, user attribution, intelligence filters, and permission-aware record linking were additionally checked against the current implementation on **2026-09-14**. Topic guides still vary in depth; implementation remains authoritative.

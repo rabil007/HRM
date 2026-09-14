@@ -145,12 +145,17 @@ test('activity logs page omits null subject types from the model filter', functi
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('organization/activity-logs')
-            ->where('subject_types', fn ($types) => collect($types)->every(
-                fn ($type): bool => is_string($type) && $type !== '',
+            ->where('modules', fn ($modules) => collect($modules)->every(
+                fn ($module): bool => is_array($module)
+                    && is_string($module['key'] ?? null)
+                    && $module['key'] !== ''
+                    && is_string($module['label'] ?? null)
+                    && $module['label'] !== '',
             ))
             ->has('logs', fn ($logs) => $logs
                 ->where('0.subject_type', null)
-                ->where('0.subject_name', 'System')
+                ->where('0.subject_name', 'Activity')
+                ->where('0.module_key', 'other')
                 ->etc()
             )
         );
