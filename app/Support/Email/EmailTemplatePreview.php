@@ -36,7 +36,11 @@ final class EmailTemplatePreview
     ): array {
         $organizationName = $this->resolveOrganizationName($companyId);
         $placeholders = $this->samplePlaceholders($organizationName);
-        $renderedSubject = $this->applyPlaceholders($subject, $placeholders);
+        $renderedSubject = match ($slug) {
+            'document_expiry_alert' => 'Employee Document Expiry Alert — 2 document(s) require attention',
+            'company_document_expiry_alert' => 'Company Document Expiry Alert — 2 document(s) require attention',
+            default => $this->applyPlaceholders($subject, $placeholders),
+        };
         $renderedBody = $this->applyPlaceholders($bodyHtml, $placeholders);
 
         $html = match ($slug) {
@@ -169,16 +173,16 @@ final class EmailTemplatePreview
                     'employee_name' => 'John Doe',
                     'employee_id' => '1042',
                     'document_name' => 'Passport',
-                    'expiry_date' => '20 Oct 2026',
-                    'days_remaining' => 36,
+                    'expiry_date' => now()->addDays(24)->format('d M Y'),
+                    'days_remaining' => 24,
                     'folder_url' => url('/organization/documents/employees/1'),
                 ],
                 [
                     'employee_name' => 'Jane Doe',
                     'employee_id' => '1077',
                     'document_name' => 'Visa',
-                    'expiry_date' => '28 Sep 2026',
-                    'days_remaining' => 14,
+                    'expiry_date' => now()->addDays(7)->format('d M Y'),
+                    'days_remaining' => 7,
                     'folder_url' => url('/organization/documents/employees/2'),
                 ],
             ],
@@ -196,15 +200,15 @@ final class EmailTemplatePreview
                 [
                     'document_name' => 'Trade License',
                     'document_number' => 'TL-2026-001',
-                    'expiry_date' => '15 Oct 2026',
-                    'days_remaining' => 31,
+                    'expiry_date' => now()->addDays(20)->format('d M Y'),
+                    'days_remaining' => 20,
                     'view_url' => url('/organization/companies/1/documents'),
                 ],
                 [
                     'document_name' => 'Establishment Card',
                     'document_number' => 'EC-5582',
-                    'expiry_date' => '25 Sep 2026',
-                    'days_remaining' => 11,
+                    'expiry_date' => now()->addDays(5)->format('d M Y'),
+                    'days_remaining' => 5,
                     'view_url' => url('/organization/companies/1/documents'),
                 ],
             ],
