@@ -1,7 +1,9 @@
 import { useForm } from '@inertiajs/react';
-import { Download, Trash2, Upload } from 'lucide-react';
+import { Download, Trash2, Upload, UploadCloud } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { index as versionsIndex } from '@/actions/App/Http/Controllers/Organization/CompanyDocumentVersionController';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
+import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -14,7 +16,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { DocumentFileIcon } from '@/features/organization/documents/shared/document-file-icon';
+import { actions } from '@/lib/design-system';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 import {
     bulkStore,
     replace,
@@ -38,6 +43,14 @@ type Metadata = {
 
 type UploadData = Metadata & { file: File | null };
 
+const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';
+
+const fieldLabelClass =
+    'text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase';
+
+const fieldControlClass =
+    'h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40';
+
 const emptyMetadata = (): Metadata => ({
     document_type_id: '',
     title: '',
@@ -47,10 +60,10 @@ const emptyMetadata = (): Metadata => ({
     notes: '',
 });
 
-function FieldError({ message }: { message?: string }) {
-    return message ? (
-        <p className="text-xs text-destructive">{message}</p>
-    ) : null;
+function formatFileSize(bytes: number): string {
+    return bytes >= 1024 * 1024
+        ? `${(bytes / 1024 / 1024).toFixed(2)} MB`
+        : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
 function TypeSelect({
@@ -63,21 +76,124 @@ function TypeSelect({
     documentTypes: CompanyDocumentType[];
 }) {
     return (
-        <select
-            value={value}
-            onChange={(event) =>
-                onChange(event.target.value ? Number(event.target.value) : '')
-            }
-            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
-            required
+        <AppSelect
+            value={value === '' ? '' : String(value)}
+            onValueChange={(next) => onChange(next ? Number(next) : '')}
+            variant="card"
+            placeholder="Select document type"
+            searchPlaceholder="Search document types..."
         >
-            <option value="">Select document type</option>
             {documentTypes.map((type) => (
-                <option key={type.id} value={type.id}>
+                <AppSelectItem key={type.id} value={String(type.id)}>
                     {type.title}
-                </option>
+                </AppSelectItem>
             ))}
-        </select>
+        </AppSelect>
+    );
+}
+
+function FileDropField({
+    file,
+    error,
+    inputId,
+    onChange,
+}: {
+    file: File | null;
+    error?: string;
+    inputId: string;
+    onChange: (file: File | null) => void;
+}) {
+    const [isDragging, setIsDragging] = useState(false);
+
+    return (
+        <div className="space-y-2">
+            <Label htmlFor={inputId} className={fieldLabelClass}>
+                File
+                <span className="ml-1 text-destructive">*</span>
+            </Label>
+            {file ? (
+                <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-3 py-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted">
+                        <DocumentFileIcon
+                            mimeType={file.type}
+                            fileName={file.name}
+                        />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">
+                            {file.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                            {formatFileSize(file.size)}
+                        </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                        <label
+                            htmlFor={inputId}
+                            className="inline-flex h-8 cursor-pointer items-center rounded-lg border border-input bg-background px-3 text-xs font-medium transition-colors hover:bg-accent"
+                        >
+                            Change
+                        </label>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => onChange(null)}
+                            aria-label="Remove file"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            ) : (
+                <label
+                    htmlFor={inputId}
+                    onDragOver={(event) => {
+                        event.preventDefault();
+                        setIsDragging(true);
+                    }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={(event) => {
+                        event.preventDefault();
+                        setIsDragging(false);
+                        onChange(event.dataTransfer.files?.[0] ?? null);
+                    }}
+                    className={cn(
+                        'flex cursor-pointer flex-col items-center gap-2.5 rounded-2xl border border-dashed px-4 py-6 text-center transition-colors',
+                        isDragging
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border bg-muted/20 hover:bg-muted/30',
+                    )}
+                >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <UploadCloud className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-semibold">
+                            Drop a file here or browse
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            PDF, JPG, JPEG, or PNG. Maximum 20 MB.
+                        </p>
+                    </div>
+                    <span className="inline-flex items-center rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">
+                        Choose file
+                    </span>
+                </label>
+            )}
+            <input
+                id={inputId}
+                type="file"
+                accept={FILE_ACCEPT}
+                className="sr-only"
+                onChange={(event) => {
+                    onChange(event.target.files?.[0] ?? null);
+                    event.currentTarget.value = '';
+                }}
+            />
+            <InputError message={error} />
+        </div>
     );
 }
 
@@ -138,137 +254,182 @@ export function CompanyDocumentFormDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-                <DialogHeader>
+            <DialogContent className="!flex max-h-[90vh] flex-col gap-0 overflow-y-auto p-0 sm:max-w-xl">
+                <DialogHeader className="sticky top-0 z-10 border-b border-border/60 bg-card/95 px-6 py-5 backdrop-blur-xl">
                     <DialogTitle>
                         {document
                             ? 'Edit document metadata'
                             : 'Upload document'}
                     </DialogTitle>
                     <DialogDescription>
-                        PDF, JPG, JPEG, or PNG. Maximum file size is 20 MB.
+                        {document
+                            ? 'Update the document type, title, dates, and notes. Replace the file from the document actions if needed.'
+                            : 'Add a company file, then choose its type and details.'}
                     </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-5 px-6 py-5">
                     {!document ? (
-                        <div className="space-y-2 sm:col-span-2">
-                            <Label htmlFor="company-document-file">File</Label>
-                            <Input
-                                id="company-document-file"
-                                type="file"
-                                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                                onChange={(event) =>
-                                    form.setData(
-                                        'file',
-                                        event.target.files?.[0] ?? null,
-                                    )
+                        <FileDropField
+                            file={form.data.file}
+                            error={form.errors.file}
+                            inputId="company-document-file"
+                            onChange={(file) => form.setData('file', file)}
+                        />
+                    ) : null}
+
+                    <div className="space-y-4">
+                        <p className={actions.formSectionLabel}>
+                            Document details
+                        </p>
+                        <div className="space-y-2">
+                            <Label className={fieldLabelClass}>
+                                Document type
+                                <span className="ml-1 text-destructive">*</span>
+                            </Label>
+                            <TypeSelect
+                                value={form.data.document_type_id}
+                                onChange={(value) =>
+                                    form.setData('document_type_id', value)
                                 }
-                                required
+                                documentTypes={documentTypes}
                             />
-                            <FieldError message={form.errors.file} />
+                            <InputError
+                                message={form.errors.document_type_id}
+                            />
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="company-document-title"
+                                    className={fieldLabelClass}
+                                >
+                                    Title
+                                </Label>
+                                <Input
+                                    id="company-document-title"
+                                    className={fieldControlClass}
+                                    value={form.data.title}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'title',
+                                            event.target.value,
+                                        )
+                                    }
+                                    placeholder="Defaults to document type"
+                                />
+                                <InputError message={form.errors.title} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="company-document-number"
+                                    className={fieldLabelClass}
+                                >
+                                    Document number
+                                </Label>
+                                <Input
+                                    id="company-document-number"
+                                    className={fieldControlClass}
+                                    value={form.data.document_number}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'document_number',
+                                            event.target.value,
+                                        )
+                                    }
+                                    placeholder="Optional"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="company-document-issue-date"
+                                    className={fieldLabelClass}
+                                >
+                                    Issue date
+                                </Label>
+                                <Input
+                                    id="company-document-issue-date"
+                                    type="date"
+                                    className={fieldControlClass}
+                                    value={form.data.issue_date}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'issue_date',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="company-document-expiry-date"
+                                    className={fieldLabelClass}
+                                >
+                                    Expiry date
+                                </Label>
+                                <Input
+                                    id="company-document-expiry-date"
+                                    type="date"
+                                    className={fieldControlClass}
+                                    value={form.data.expiry_date}
+                                    min={form.data.issue_date || undefined}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'expiry_date',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                                <InputError message={form.errors.expiry_date} />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label
+                                htmlFor="company-document-notes"
+                                className={fieldLabelClass}
+                            >
+                                Notes
+                            </Label>
+                            <Textarea
+                                id="company-document-notes"
+                                className="min-h-20 rounded-xl border-border bg-card"
+                                value={form.data.notes}
+                                onChange={(event) =>
+                                    form.setData('notes', event.target.value)
+                                }
+                                rows={2}
+                                placeholder="Optional notes or renewal reminders"
+                            />
+                        </div>
+                    </div>
+                    {form.progress ? (
+                        <div className="space-y-1">
+                            <div className="h-2 overflow-hidden rounded-full bg-muted">
+                                <div
+                                    className="h-full bg-primary transition-all"
+                                    style={{
+                                        width: `${form.progress.percentage ?? 0}%`,
+                                    }}
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Uploading {form.progress.percentage ?? 0}%
+                            </p>
                         </div>
                     ) : null}
-                    <div className="space-y-2">
-                        <Label>Document type</Label>
-                        <TypeSelect
-                            value={form.data.document_type_id}
-                            onChange={(value) =>
-                                form.setData('document_type_id', value)
-                            }
-                            documentTypes={documentTypes}
-                        />
-                        <FieldError message={form.errors.document_type_id} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="company-document-title">Title</Label>
-                        <Input
-                            id="company-document-title"
-                            value={form.data.title}
-                            onChange={(event) =>
-                                form.setData('title', event.target.value)
-                            }
-                            placeholder="Defaults to document type"
-                        />
-                        <FieldError message={form.errors.title} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="company-document-number">
-                            Document number
-                        </Label>
-                        <Input
-                            id="company-document-number"
-                            value={form.data.document_number}
-                            onChange={(event) =>
-                                form.setData(
-                                    'document_number',
-                                    event.target.value,
-                                )
-                            }
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="company-document-issue-date">
-                            Issue date
-                        </Label>
-                        <Input
-                            id="company-document-issue-date"
-                            type="date"
-                            value={form.data.issue_date}
-                            onChange={(event) =>
-                                form.setData('issue_date', event.target.value)
-                            }
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="company-document-expiry-date">
-                            Expiry date
-                        </Label>
-                        <Input
-                            id="company-document-expiry-date"
-                            type="date"
-                            value={form.data.expiry_date}
-                            min={form.data.issue_date || undefined}
-                            onChange={(event) =>
-                                form.setData('expiry_date', event.target.value)
-                            }
-                        />
-                        <FieldError message={form.errors.expiry_date} />
-                    </div>
-                    <div className="space-y-2 sm:col-span-2">
-                        <Label htmlFor="company-document-notes">Notes</Label>
-                        <Textarea
-                            id="company-document-notes"
-                            value={form.data.notes}
-                            onChange={(event) =>
-                                form.setData('notes', event.target.value)
-                            }
-                            rows={3}
-                        />
-                    </div>
                 </div>
-                {form.progress ? (
-                    <div className="space-y-1">
-                        <div className="h-2 overflow-hidden rounded-full bg-muted">
-                            <div
-                                className="h-full bg-primary transition-all"
-                                style={{
-                                    width: `${form.progress.percentage ?? 0}%`,
-                                }}
-                            />
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Uploading {form.progress.percentage ?? 0}%
-                        </p>
-                    </div>
-                ) : null}
-                <DialogFooter>
+                <DialogFooter className="sticky bottom-0 z-10 border-t border-border/60 bg-card/95 px-6 py-4 backdrop-blur-xl">
                     <Button
                         variant="outline"
+                        className={actions.dialogSecondary}
                         onClick={() => onOpenChange(false)}
                     >
                         Cancel
                     </Button>
-                    <Button onClick={submit} disabled={form.processing}>
+                    <Button
+                        className={actions.dialogPrimary}
+                        onClick={submit}
+                        disabled={form.processing}
+                    >
                         {document ? 'Save changes' : 'Upload document'}
                     </Button>
                 </DialogFooter>
@@ -549,7 +710,7 @@ export function CompanyDocumentReplaceDialog({
                         form.setData('file', event.target.files?.[0] ?? null)
                     }
                 />
-                <FieldError message={form.errors.file} />
+                <InputError message={form.errors.file} />
                 <DialogFooter>
                     <Button
                         variant="outline"
