@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Hikvision\HikvisionWebhookEventFields;
+use App\Support\Hikvision\ResolveHikvisionPersonFromAcsEvent;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -467,6 +468,20 @@ class HikvisionAccessEvent extends Model
         $verifyMode = (string) ($acsEvent['currentVerifyMode'] ?? $acsEvent['verifyMode'] ?? '');
         $attendanceStatus = (string) ($acsEvent['attendanceStatus'] ?? '');
         $serialNo = isset($acsEvent['serialNo']) ? (string) $acsEvent['serialNo'] : '';
+        $resolvedPerson = ResolveHikvisionPersonFromAcsEvent::resolve($companyId, $acsEvent);
+        $personHikvisionId = $resolvedPerson['person_hikvision_id'];
+        $relatedIds = self::relatedModelIds(
+            $companyId,
+            $personHikvisionId !== '' ? $personHikvisionId : null,
+            $deviceId,
+            null,
+        );
+        $identityAttributes = $personHikvisionId !== ''
+            ? [
+                'person_hikvision_id' => $personHikvisionId,
+                'hikvision_person_id' => $relatedIds['hikvision_person_id'],
+            ]
+            : [];
 
         if ($serialNo !== '') {
             $existing = self::findByDeviceAndSerialNo($companyId, $deviceId, $serialNo);
@@ -484,6 +499,8 @@ class HikvisionAccessEvent extends Model
                     'transaction_source' => self::TRANSACTION_DEVICE,
                     'raw_payload' => $acsEvent,
                     'fetched_at' => now(),
+                    'hikvision_device_id' => $relatedIds['hikvision_device_id'] ?? $existing->hikvision_device_id,
+                    ...$identityAttributes,
                 ]);
 
                 return $existing->refresh();
@@ -505,7 +522,8 @@ class HikvisionAccessEvent extends Model
                 'system_id' => $systemId,
             ],
             [
-                ...self::relatedModelIds($companyId, null, $deviceId, null),
+                'hikvision_device_id' => $relatedIds['hikvision_device_id'],
+                ...$identityAttributes,
                 'occurrence_time' => $occurrenceTime,
                 'msg_type' => "acs/{$major}/{$minor}",
                 'device_id' => $deviceId,

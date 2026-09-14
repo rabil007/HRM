@@ -1,12 +1,15 @@
 <?php
 
+use App\Models\AttendanceRecord;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
+use App\Models\HikvisionPerson;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -405,4 +408,148 @@ test('today_timeline clamps future timeline_date to today', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->where('today_timeline.date', '2026-07-16')
             ->where('today_timeline.is_today', true));
+});
+
+test('today_timeline shows production-style unlinked acs check-in for Mohammed Rabil T', function () {
+    Carbon::setTestNow(Carbon::parse('2026-09-14 10:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil T',
+        'employee_no' => '1034',
+        'user_id' => $user->id,
+    ]);
+    grantCalendarAccess($user, $company);
+
+    $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'hv-rabil-production',
+        'full_name' => 'Mohammed Rabil T',
+    ]);
+    $employee->update(['hikvision_person_id' => $person->id]);
+
+    HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
+        'system_id' => 'acs:rabil:2026-09-14:09:03',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-09-14 09:03:00',
+        'person_name' => 'Mohammed Rabil',
+        'person_hikvision_id' => null,
+        'hikvision_person_id' => null,
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('attendance.calendar.index', ['employee_id' => $employee->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('today_timeline.events', 1)
+            ->where('today_timeline.events.0.time', '09:03')
+            ->where('today_timeline.events.0.status', 'checkIn')
+            ->where('today_timeline.events.0.device_name', 'OMS-Door')
+            ->where('today_timeline.events.0.transaction_source', 'device')
+            ->where('today_timeline.summary.clock_in', '09:03')
+            ->where('today_timeline.summary.status', 'checked_in')
+            ->where('today_timeline.summary.event_count', 1));
+
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        $company->id,
+        Carbon::parse('2026-09-14 00:00:00', 'Asia/Dubai'),
+        Carbon::parse('2026-09-14 23:59:59', 'Asia/Dubai'),
+    );
+
+    $record = AttendanceRecord::query()
+        ->where('employee_id', $employee->id)
+        ->whereDate('date', '2026-09-14')
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->clock_in?->format('H:i'))->toBe('09:03')
+        ->and($record->source)->toBe(AttendanceRecord::SOURCE_BIOMETRIC)
+        ->and($record->status)->toBe(AttendanceRecord::STATUS_PRESENT);
+});
+
+test('today_timeline still matches when person_hikvision_id is already populated', function () {
+    Carbon::setTestNow(Carbon::parse('2026-09-14 10:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
+    $employee = makeTodayTimelineEmployee($company);
+    $employee->update([
+        'user_id' => $user->id,
+        'name' => 'Mohammed Rabil T',
+    ]);
+    grantCalendarAccess($user, $company);
+
+    linkHikvisionPersonToUserCompany($employee, 'hv-rabil-linked', [
+        'full_name' => 'Mohammed Rabil T',
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
+        'system_id' => 'acs:rabil-linked:09:03',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-09-14 09:03:00',
+        'person_name' => 'Mohammed Rabil',
+        'person_hikvision_id' => 'hv-rabil-linked',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('attendance.calendar.index', ['employee_id' => $employee->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('today_timeline.events', 1)
+            ->where('today_timeline.events.0.time', '09:03')
+            ->where('today_timeline.summary.clock_in', '09:03'));
+});
+
+test('today_timeline never includes cross-company unlinked name matches', function () {
+    Carbon::setTestNow(Carbon::parse('2026-09-14 10:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil T',
+        'user_id' => $user->id,
+    ]);
+    grantCalendarAccess($user, $company);
+
+    $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
+        'person_id' => 'hv-rabil-local',
+        'full_name' => 'Mohammed Rabil T',
+    ]);
+    $employee->update(['hikvision_person_id' => $person->id]);
+
+    $otherCompany = additionalHikvisionTestCompany($company, 'timeline-cross-'.fake()->unique()->numerify('####'));
+
+    HikvisionAccessEvent::query()->create([
+        'company_id' => $otherCompany->id,
+        'system_id' => 'acs:cross-company-rabil',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-09-14 09:03:00',
+        'person_name' => 'Mohammed Rabil',
+        'person_hikvision_id' => null,
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('attendance.calendar.index', ['employee_id' => $employee->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('today_timeline.events', [])
+            ->where('today_timeline.summary.status', 'no_activity'));
 });

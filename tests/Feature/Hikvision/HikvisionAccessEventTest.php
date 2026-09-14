@@ -735,12 +735,29 @@ test('background job stores acs access records from isapi proxypass', function (
     configuredHikvisionSettings();
     hikvisionSettings()->beginEventsFetch();
 
+    $dil = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
+        'person_id' => 'hv-dil-1',
+        'full_name' => 'Dil',
+    ]);
+    HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
+        'person_id' => 'hv-maysa-1',
+        'full_name' => 'maysa',
+    ]);
+
     runHikvisionAccessEventsFetchJob('2026-06-05');
 
+    $dilEvent = HikvisionAccessEvent::query()->where('person_name', 'Dil')->first();
+    $maysaEvent = HikvisionAccessEvent::query()->where('person_name', 'maysa')->first();
+
     expect(HikvisionAccessEvent::query()->where('event_source', 'acs_isapi')->count())->toBe(2)
-        ->and(HikvisionAccessEvent::query()->where('person_name', 'Dil')->value('attendance_status'))->toBe('checkIn')
-        ->and(HikvisionAccessEvent::query()->where('person_name', 'Dil')->value('transaction_source'))->toBe('device')
-        ->and(HikvisionAccessEvent::query()->where('person_name', 'maysa')->value('device_name'))->toBe('OMS-Door')
+        ->and($dilEvent?->attendance_status)->toBe('checkIn')
+        ->and($dilEvent?->transaction_source)->toBe('device')
+        ->and($dilEvent?->person_hikvision_id)->toBe('hv-dil-1')
+        ->and($dilEvent?->hikvision_person_id)->toBe($dil->id)
+        ->and($maysaEvent?->device_name)->toBe('OMS-Door')
+        ->and($maysaEvent?->person_hikvision_id)->toBe('hv-maysa-1')
         ->and(hikvisionSettings()->events_last_fetched_at)->not->toBeNull()
         ->and(hikvisionSettings()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_COMPLETED);
 
