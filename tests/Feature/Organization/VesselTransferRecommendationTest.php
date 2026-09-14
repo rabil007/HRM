@@ -483,6 +483,7 @@ test('user without movement permission still sees recommendation context but can
         $vessel,
     );
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
+        'crew_operations.assignments.view',
         'crew_operations.assignments.create',
     ]);
 
@@ -524,23 +525,27 @@ test('transfer recommendation action requires assignment view and movement permi
 
     expect(CrewAssignmentPagePermissions::canTransfer($fixtures['user']))->toBe($canTransfer);
 
-    $this->actingAs($fixtures['user'])
+    $response = $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
         ->get(route('organization.crew-assignments.create'))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where(
-                'form_options.active_on_vessel_by_employee.'.$fixtures['employee']->id.'.can_transfer',
-                $canTransfer,
-            )
-            ->where(
-                'form_options.active_on_vessel_by_employee.'.$fixtures['employee']->id.'.assignment_id',
-                $active->id,
-            ));
+        ->assertOk();
 
     if (! in_array('crew_operations.assignments.view', $permissions, true)) {
+        $response->assertInertia(fn ($page) => $page
+            ->where('form_options.active_on_vessel_by_employee', []));
+
         return;
     }
+
+    $response->assertInertia(fn ($page) => $page
+        ->where(
+            'form_options.active_on_vessel_by_employee.'.$fixtures['employee']->id.'.can_transfer',
+            $canTransfer,
+        )
+        ->where(
+            'form_options.active_on_vessel_by_employee.'.$fixtures['employee']->id.'.assignment_id',
+            $active->id,
+        ));
 
     $draft->load(['company', 'employee', 'rank', 'vessel', 'currentPhase', 'phases']);
 
