@@ -396,7 +396,8 @@ export default function EmailTemplatesSettings({
                                     {`${expiryAlertTemplate?.dispatch_at || '08:00'} (${scheduler_timezone})`}
                                 </p>
                                 <p className="mt-0.5 text-[10px] text-muted-foreground">
-                                    Shared by employee and company document expiry checks
+                                    Shared by employee and company document
+                                    expiry checks
                                 </p>
                             </div>
                         </CardContent>
