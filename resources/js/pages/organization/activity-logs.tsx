@@ -148,7 +148,9 @@ function formatDateInput(date: Date): string {
     return `${year}-${month}-${day}`;
 }
 
-function relativeDateRange(daysAgo: number): Pick<FilterState, 'date_from' | 'date_to'> {
+function relativeDateRange(
+    daysAgo: number,
+): Pick<FilterState, 'date_from' | 'date_to'> {
     const today = new Date();
     const from = new Date(today);
     from.setDate(today.getDate() - daysAgo);
@@ -170,7 +172,9 @@ function CauserAvatar({ name }: { name: string | null }) {
 
     return (
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10">
-            <span className="text-[10px] font-black text-primary">{initials}</span>
+            <span className="text-[10px] font-black text-primary">
+                {initials}
+            </span>
         </div>
     );
 }
@@ -292,7 +296,8 @@ export default function ActivityLogs({
                             Activity intelligence
                         </h1>
                         <p className="mt-1 text-sm font-medium text-muted-foreground/70">
-                            Understand who changed what, where it happened, and what needs attention.
+                            Understand who changed what, where it happened, and
+                            what needs attention.
                         </p>
                     </div>
                 </div>
@@ -302,7 +307,10 @@ export default function ActivityLogs({
                         const Icon = card.icon;
 
                         return (
-                            <Card key={card.label} className="border-border bg-card dark:border-white/5 dark:bg-white/[0.03]">
+                            <Card
+                                key={card.label}
+                                className="border-border bg-card dark:border-white/5 dark:bg-white/[0.03]"
+                            >
                                 <CardContent className="flex items-center justify-between p-4">
                                     <div>
                                         <p className="text-[10px] font-bold tracking-widest text-muted-foreground/50 uppercase">
@@ -351,7 +359,9 @@ export default function ActivityLogs({
                                 <Input
                                     id="q"
                                     value={form.data.q}
-                                    onChange={(event) => form.setData('q', event.target.value)}
+                                    onChange={(event) =>
+                                        form.setData('q', event.target.value)
+                                    }
                                     onKeyDown={(event) => {
                                         if (event.key === 'Enter') {
                                             event.preventDefault();
@@ -366,14 +376,21 @@ export default function ActivityLogs({
                             <div className="xl:col-span-2">
                                 <AppSelect
                                     value={form.data.module}
-                                    onValueChange={(value) => submit({ module: value })}
+                                    onValueChange={(value) =>
+                                        submit({ module: value })
+                                    }
                                     variant="dark"
                                     placeholder="All modules"
                                     className="h-10"
                                 >
-                                    <AppSelectItem value="">All modules</AppSelectItem>
+                                    <AppSelectItem value="">
+                                        All modules
+                                    </AppSelectItem>
                                     {modules.map((module) => (
-                                        <AppSelectItem key={module.key} value={module.key}>
+                                        <AppSelectItem
+                                            key={module.key}
+                                            value={module.key}
+                                        >
                                             {module.label}
                                         </AppSelectItem>
                                     ))}
@@ -383,14 +400,21 @@ export default function ActivityLogs({
                             <div className="xl:col-span-2">
                                 <AppSelect
                                     value={form.data.user_id}
-                                    onValueChange={(value) => submit({ user_id: value })}
+                                    onValueChange={(value) =>
+                                        submit({ user_id: value })
+                                    }
                                     variant="dark"
                                     placeholder="All users"
                                     className="h-10"
                                 >
-                                    <AppSelectItem value="">All users</AppSelectItem>
+                                    <AppSelectItem value="">
+                                        All users
+                                    </AppSelectItem>
                                     {users.map((user) => (
-                                        <AppSelectItem key={user.id} value={String(user.id)}>
+                                        <AppSelectItem
+                                            key={user.id}
+                                            value={String(user.id)}
+                                        >
                                             {user.name}
                                         </AppSelectItem>
                                     ))}
@@ -400,15 +424,25 @@ export default function ActivityLogs({
                             <div className="xl:col-span-2">
                                 <AppSelect
                                     value={form.data.importance}
-                                    onValueChange={(value) => submit({ importance: value })}
+                                    onValueChange={(value) =>
+                                        submit({ importance: value })
+                                    }
                                     variant="dark"
                                     placeholder="All importance"
                                     className="h-10"
                                 >
-                                    <AppSelectItem value="">All importance</AppSelectItem>
+                                    <AppSelectItem value="">
+                                        All importance
+                                    </AppSelectItem>
                                     {IMPORTANCE_OPTIONS.map((importance) => (
-                                        <AppSelectItem key={importance} value={importance}>
-                                            {importance.charAt(0).toUpperCase() + importance.slice(1)}
+                                        <AppSelectItem
+                                            key={importance}
+                                            value={importance}
+                                        >
+                                            {importance
+                                                .charAt(0)
+                                                .toUpperCase() +
+                                                importance.slice(1)}
                                         </AppSelectItem>
                                     ))}
                                 </AppSelect>
@@ -429,13 +463,21 @@ export default function ActivityLogs({
                                     Event
                                 </span>
                                 {(['all', ...EVENTS] as const).map((event) => {
-                                    const active = (form.data.event || 'all') === event;
+                                    const active =
+                                        (form.data.event || 'all') === event;
 
                                     return (
                                         <button
                                             key={event}
                                             type="button"
-                                            onClick={() => submit({ event: event === 'all' ? '' : event })}
+                                            onClick={() =>
+                                                submit({
+                                                    event:
+                                                        event === 'all'
+                                                            ? ''
+                                                            : event,
+                                                })
+                                            }
                                             className={cn(
                                                 'h-7 rounded-full border px-3 text-[11px] font-bold tracking-wider uppercase transition-all',
                                                 active
@@ -453,16 +495,36 @@ export default function ActivityLogs({
                                 <span className="text-[10px] font-bold tracking-widest text-muted-foreground/40 uppercase">
                                     Date
                                 </span>
-                                <Button type="button" variant="outline" className="h-8 rounded-lg px-3 text-xs" onClick={() => applyDatePreset(0)}>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="h-8 rounded-lg px-3 text-xs"
+                                    onClick={() => applyDatePreset(0)}
+                                >
                                     Today
                                 </Button>
-                                <Button type="button" variant="outline" className="h-8 rounded-lg px-3 text-xs" onClick={() => applyDatePreset(1)}>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="h-8 rounded-lg px-3 text-xs"
+                                    onClick={() => applyDatePreset(1)}
+                                >
                                     Yesterday + today
                                 </Button>
-                                <Button type="button" variant="outline" className="h-8 rounded-lg px-3 text-xs" onClick={() => applyDatePreset(6)}>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="h-8 rounded-lg px-3 text-xs"
+                                    onClick={() => applyDatePreset(6)}
+                                >
                                     7 days
                                 </Button>
-                                <Button type="button" variant="outline" className="h-8 rounded-lg px-3 text-xs" onClick={() => applyDatePreset(29)}>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="h-8 rounded-lg px-3 text-xs"
+                                    onClick={() => applyDatePreset(29)}
+                                >
                                     30 days
                                 </Button>
                                 <div className="relative">
@@ -470,15 +532,23 @@ export default function ActivityLogs({
                                     <Input
                                         type="date"
                                         value={form.data.date_from}
-                                        onChange={(event) => submit({ date_from: event.target.value })}
+                                        onChange={(event) =>
+                                            submit({
+                                                date_from: event.target.value,
+                                            })
+                                        }
                                         className="h-8 w-36 rounded-lg pl-8 text-xs"
                                     />
                                 </div>
-                                <span className="text-xs text-muted-foreground/40">to</span>
+                                <span className="text-xs text-muted-foreground/40">
+                                    to
+                                </span>
                                 <Input
                                     type="date"
                                     value={form.data.date_to}
-                                    onChange={(event) => submit({ date_to: event.target.value })}
+                                    onChange={(event) =>
+                                        submit({ date_to: event.target.value })
+                                    }
                                     className="h-8 w-36 rounded-lg text-xs"
                                 />
                             </div>
@@ -489,9 +559,12 @@ export default function ActivityLogs({
                 <Card className="overflow-hidden border-border bg-card dark:border-white/5 dark:bg-white/[0.03]">
                     <div className="flex items-center justify-between border-b border-border bg-muted/20 px-6 py-4 dark:border-white/5 dark:bg-white/[0.02]">
                         <div>
-                            <h2 className="text-sm font-bold text-foreground/80">Organization activity</h2>
+                            <h2 className="text-sm font-bold text-foreground/80">
+                                Organization activity
+                            </h2>
                             <p className="mt-0.5 text-[11px] text-muted-foreground/50">
-                                Human actions only. Expand an item to inspect the exact changes.
+                                Human actions only. Expand an item to inspect
+                                the exact changes.
                             </p>
                         </div>
                         <span className="font-mono text-[11px] text-muted-foreground/50">
@@ -505,13 +578,20 @@ export default function ActivityLogs({
                                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30 dark:border-white/10 dark:bg-white/[0.03]">
                                     <Activity className="h-6 w-6 text-muted-foreground/20" />
                                 </div>
-                                <p className="text-sm font-medium text-foreground/50">No activity found</p>
-                                <p className="mt-1 text-xs text-muted-foreground/40">Try another date range or filter.</p>
+                                <p className="text-sm font-medium text-foreground/50">
+                                    No activity found
+                                </p>
+                                <p className="mt-1 text-xs text-muted-foreground/40">
+                                    Try another date range or filter.
+                                </p>
                             </div>
                         ) : (
                             <div className="divide-y divide-border dark:divide-white/5">
                                 {logs.map((log) => {
-                                    const changedKeys = pickChangedKeys(log.old_values, log.new_values);
+                                    const changedKeys = pickChangedKeys(
+                                        log.old_values,
+                                        log.new_values,
+                                    );
                                     const previewKeys = changedKeys.slice(0, 3);
                                     const isOpen = openId === log.id;
                                     const style = eventStyle(log.event);
@@ -520,7 +600,9 @@ export default function ActivityLogs({
                                         <Collapsible
                                             key={log.id}
                                             open={isOpen}
-                                            onOpenChange={(open) => setOpenId(open ? log.id : null)}
+                                            onOpenChange={(open) =>
+                                                setOpenId(open ? log.id : null)
+                                            }
                                         >
                                             <CollapsibleTrigger asChild>
                                                 <button
@@ -529,35 +611,73 @@ export default function ActivityLogs({
                                                 >
                                                     <div className="grid items-center gap-4 lg:grid-cols-12">
                                                         <div className="flex min-w-0 items-start gap-3 lg:col-span-6">
-                                                            <div className={cn('mt-2 h-2 w-2 shrink-0 rounded-full', style.dot)} />
+                                                            <div
+                                                                className={cn(
+                                                                    'mt-2 h-2 w-2 shrink-0 rounded-full',
+                                                                    style.dot,
+                                                                )}
+                                                            />
                                                             <div className="min-w-0">
                                                                 <div className="flex flex-wrap items-center gap-2">
-                                                                    <Badge className={cn('border px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase', style.badge)}>
-                                                                        {normalizeEvent(log.event) || 'activity'}
+                                                                    <Badge
+                                                                        className={cn(
+                                                                            'border px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase',
+                                                                            style.badge,
+                                                                        )}
+                                                                    >
+                                                                        {normalizeEvent(
+                                                                            log.event,
+                                                                        ) ||
+                                                                            'activity'}
                                                                     </Badge>
-                                                                    <Badge className={cn('border px-2 py-0.5 text-[9px] font-bold uppercase', importanceStyle(log.importance))}>
-                                                                        {log.importance}
+                                                                    <Badge
+                                                                        className={cn(
+                                                                            'border px-2 py-0.5 text-[9px] font-bold uppercase',
+                                                                            importanceStyle(
+                                                                                log.importance,
+                                                                            ),
+                                                                        )}
+                                                                    >
+                                                                        {
+                                                                            log.importance
+                                                                        }
                                                                     </Badge>
                                                                     <span className="text-[10px] font-semibold text-muted-foreground/50">
-                                                                        {log.module_label}
+                                                                        {
+                                                                            log.module_label
+                                                                        }
                                                                     </span>
                                                                 </div>
                                                                 <p className="mt-1.5 truncate text-sm font-bold text-foreground/90">
-                                                                    {log.headline}
+                                                                    {
+                                                                        log.headline
+                                                                    }
                                                                 </p>
-                                                                {previewKeys.length > 0 ? (
+                                                                {previewKeys.length >
+                                                                0 ? (
                                                                     <div className="mt-1.5 flex flex-wrap gap-1">
-                                                                        {previewKeys.map((key) => (
-                                                                            <span
-                                                                                key={key}
-                                                                                className="rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[9px] text-muted-foreground/55 dark:border-white/5"
-                                                                            >
-                                                                                {formatActivityFieldLabel(key)}
-                                                                            </span>
-                                                                        ))}
-                                                                        {changedKeys.length > previewKeys.length ? (
+                                                                        {previewKeys.map(
+                                                                            (
+                                                                                key,
+                                                                            ) => (
+                                                                                <span
+                                                                                    key={
+                                                                                        key
+                                                                                    }
+                                                                                    className="rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[9px] text-muted-foreground/55 dark:border-white/5"
+                                                                                >
+                                                                                    {formatActivityFieldLabel(
+                                                                                        key,
+                                                                                    )}
+                                                                                </span>
+                                                                            ),
+                                                                        )}
+                                                                        {changedKeys.length >
+                                                                        previewKeys.length ? (
                                                                             <span className="rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[9px] text-muted-foreground/40 dark:border-white/5">
-                                                                                +{changedKeys.length - previewKeys.length}
+                                                                                +
+                                                                                {changedKeys.length -
+                                                                                    previewKeys.length}
                                                                             </span>
                                                                         ) : null}
                                                                     </div>
@@ -567,29 +687,46 @@ export default function ActivityLogs({
 
                                                         <div className="min-w-0 lg:col-span-2">
                                                             <p className="truncate text-xs font-semibold text-foreground/70">
-                                                                {log.subject_label || log.subject_type_label}
+                                                                {log.subject_label ||
+                                                                    log.subject_type_label}
                                                             </p>
                                                             <p className="mt-0.5 truncate text-[10px] text-muted-foreground/40">
-                                                                {log.subject_type_label}
-                                                                {log.subject_id ? ` · #${log.subject_id}` : ''}
+                                                                {
+                                                                    log.subject_type_label
+                                                                }
+                                                                {log.subject_id
+                                                                    ? ` · #${log.subject_id}`
+                                                                    : ''}
                                                             </p>
                                                         </div>
 
                                                         <div className="flex min-w-0 items-center gap-2.5 lg:col-span-2 lg:justify-end">
                                                             <div className="hidden min-w-0 text-right sm:block">
                                                                 <p className="truncate text-xs font-semibold text-foreground/80">
-                                                                    {log.causer?.name ?? 'User'}
+                                                                    {log.causer
+                                                                        ?.name ??
+                                                                        'User'}
                                                                 </p>
                                                                 <p className="mt-1 truncate text-[9px] text-muted-foreground/40">
-                                                                    {log.causer?.email ?? ''}
+                                                                    {log.causer
+                                                                        ?.email ??
+                                                                        ''}
                                                                 </p>
                                                             </div>
-                                                            <CauserAvatar name={log.causer?.name ?? null} />
+                                                            <CauserAvatar
+                                                                name={
+                                                                    log.causer
+                                                                        ?.name ??
+                                                                    null
+                                                                }
+                                                            />
                                                         </div>
 
                                                         <div className="flex items-center justify-end gap-3 lg:col-span-2">
                                                             <span className="font-mono text-[10px] whitespace-nowrap text-muted-foreground/40">
-                                                                {formatDisplayDate(log.created_at)}
+                                                                {formatDisplayDate(
+                                                                    log.created_at,
+                                                                )}
                                                             </span>
                                                             {isOpen ? (
                                                                 <ChevronUp className="h-3.5 w-3.5 text-muted-foreground/40" />
@@ -609,48 +746,89 @@ export default function ActivityLogs({
                                                                 <table className="w-full border-collapse text-left text-xs">
                                                                     <thead>
                                                                         <tr className="border-b border-border bg-muted/20 text-[10px] font-bold tracking-wider text-muted-foreground/60 uppercase dark:border-white/5">
-                                                                            <th className="w-1/3 px-4 py-2.5">Field</th>
-                                                                            <th className="w-1/3 px-4 py-2.5">Old value</th>
-                                                                            <th className="w-1/3 px-4 py-2.5">New value</th>
+                                                                            <th className="w-1/3 px-4 py-2.5">
+                                                                                Field
+                                                                            </th>
+                                                                            <th className="w-1/3 px-4 py-2.5">
+                                                                                Old
+                                                                                value
+                                                                            </th>
+                                                                            <th className="w-1/3 px-4 py-2.5">
+                                                                                New
+                                                                                value
+                                                                            </th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody className="divide-y divide-border dark:divide-white/5">
-                                                                        {changedKeys.map((key) => (
-                                                                            <tr key={key}>
-                                                                                <td className="px-4 py-3 font-semibold text-muted-foreground/75">
-                                                                                    {formatActivityFieldLabel(key)}
-                                                                                </td>
-                                                                                <td className="px-4 py-3 font-mono text-[11px] break-all text-muted-foreground/50 line-through">
-                                                                                    {formatDisplayValue(log.old_values?.[key])}
-                                                                                </td>
-                                                                                <td className="px-4 py-3 font-mono text-[11px] font-semibold break-all text-foreground/80">
-                                                                                    {formatDisplayValue(log.new_values?.[key])}
-                                                                                </td>
-                                                                            </tr>
-                                                                        ))}
+                                                                        {changedKeys.map(
+                                                                            (
+                                                                                key,
+                                                                            ) => (
+                                                                                <tr
+                                                                                    key={
+                                                                                        key
+                                                                                    }
+                                                                                >
+                                                                                    <td className="px-4 py-3 font-semibold text-muted-foreground/75">
+                                                                                        {formatActivityFieldLabel(
+                                                                                            key,
+                                                                                        )}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-3 font-mono text-[11px] break-all text-muted-foreground/50 line-through">
+                                                                                        {formatDisplayValue(
+                                                                                            log
+                                                                                                .old_values?.[
+                                                                                                key
+                                                                                            ],
+                                                                                        )}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-3 font-mono text-[11px] font-semibold break-all text-foreground/80">
+                                                                                        {formatDisplayValue(
+                                                                                            log
+                                                                                                .new_values?.[
+                                                                                                key
+                                                                                            ],
+                                                                                        )}
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ),
+                                                                        )}
                                                                     </tbody>
                                                                 </table>
                                                             </div>
                                                         </div>
                                                     ) : (
                                                         <p className="mt-2 py-3 text-xs text-muted-foreground/40">
-                                                            No field-level diff is available for this action.
+                                                            No field-level diff
+                                                            is available for
+                                                            this action.
                                                         </p>
                                                     )}
 
                                                     <div className="mt-3 flex flex-wrap items-center justify-between gap-3 pl-4">
                                                         <div className="text-[10px] text-muted-foreground/45">
-                                                            {log.description && log.description.toLowerCase() !== normalizeEvent(log.event)
+                                                            {log.description &&
+                                                            log.description.toLowerCase() !==
+                                                                normalizeEvent(
+                                                                    log.event,
+                                                                )
                                                                 ? log.description
                                                                 : `${log.module_label} · ${log.subject_type_label}`}
                                                         </div>
                                                         {log.record_url ? (
                                                             <Link
-                                                                href={log.record_url}
+                                                                href={
+                                                                    log.record_url
+                                                                }
                                                                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
-                                                                onClick={(event) => event.stopPropagation()}
+                                                                onClick={(
+                                                                    event,
+                                                                ) =>
+                                                                    event.stopPropagation()
+                                                                }
                                                             >
-                                                                Open affected record
+                                                                Open affected
+                                                                record
                                                                 <ExternalLink className="h-3.5 w-3.5" />
                                                             </Link>
                                                         ) : null}
