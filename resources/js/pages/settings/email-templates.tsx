@@ -37,7 +37,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { EmailTemplatePreviewDialog } from '@/features/settings/email-template-preview-dialog';
 import type { EmailTemplatePreviewTarget } from '@/features/settings/email-template-preview-dialog';
@@ -390,13 +390,13 @@ export default function EmailTemplatesSettings({
                             </div>
                             <div>
                                 <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                                    Daily Expiry Alert
+                                    Daily Compliance Schedule
                                 </p>
                                 <p className="mt-1 truncate text-sm font-semibold">
-                                    {expiryAlertTemplate &&
-                                    expiryAlertTemplate.enabled
-                                        ? `${expiryAlertTemplate.dispatch_at || '08:00'} (${scheduler_timezone})`
-                                        : 'Disabled'}
+                                    {`${expiryAlertTemplate?.dispatch_at || '08:00'} (${scheduler_timezone})`}
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                                    Shared by employee and company document expiry checks
                                 </p>
                             </div>
                         </CardContent>
