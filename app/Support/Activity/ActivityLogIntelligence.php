@@ -13,7 +13,6 @@ use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Activity;
 
