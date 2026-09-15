@@ -286,6 +286,47 @@ test('direct p4 start from planning is rejected', function () {
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
+test('planning employee already p4 exposes active assignment conflict data without mutation', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $firstVessel = makeCrewMovementVessel('Vessel A');
+    $secondVessel = makeCrewMovementVessel('Vessel B');
+    grantCompanyPermissions($user, $company, planningStartPermissions());
+    $user->update(['current_company_id' => $company->id]);
+
+    $active = makeActiveOnVesselAssignment($company, $employee, $rank, $firstVessel);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $secondVessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-09-20',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create', ['planning_assignment_id' => $planning->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/create')
+            ->has('planning_context')
+            ->where('planning_context.vessel_name', $secondVessel->name)
+            ->has("form_options.active_on_vessel_by_employee.{$employee->id}", fn (Assert $item) => $item
+                ->where('assignment_id', $active->id)
+                ->where('assignment_no', $active->assignment_no)
+                ->where('vessel_id', $firstVessel->id)
+                ->where('vessel_name', $firstVessel->name)
+                ->etc()
+            )
+            ->where("form_options.employee_status_by_employee.{$employee->id}.has_active_assignment", true)
+            ->where("form_options.employee_status_by_employee.{$employee->id}.status", 'on_vessel')
+            ->where("form_options.employee_status_by_employee.{$employee->id}.current_phase", 'p4')
+        );
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(1)
+        ->and($planning->fresh()->crew_assignment_id)->toBeNull()
+        ->and(CrewPlanningAssignment::query()->where('company_id', $company->id)->count())->toBe(1);
+});
+
 test('existing active assignment blocks planning start', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $firstVessel = makeCrewMovementVessel('Active Vessel');
@@ -293,7 +334,7 @@ test('existing active assignment blocks planning start', function () {
     grantCompanyPermissions($user, $company, planningStartPermissions());
     $user->update(['current_company_id' => $company->id]);
 
-    makeActiveOnVesselAssignment($company, $employee, $rank, $firstVessel);
+    $active = makeActiveOnVesselAssignment($company, $employee, $rank, $firstVessel);
 
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
@@ -313,7 +354,11 @@ test('existing active assignment blocks planning start', function () {
         ])
         ->assertSessionHasErrors('error');
 
-    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(1);
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(1)
+        ->and($planning->fresh()->crew_assignment_id)->toBeNull()
+        ->and(CrewPlanningAssignment::query()->where('company_id', $company->id)->count())->toBe(1)
+        ->and($active->fresh()->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($active->fresh()->vessel_id)->toBe($firstVessel->id);
 });
 
 test('already linked active assignment does not create duplicate on start', function () {

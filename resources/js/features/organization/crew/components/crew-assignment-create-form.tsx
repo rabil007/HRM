@@ -12,6 +12,7 @@ import { VesselTransferRecommendationDialog } from '@/features/organization/crew
 import { CrewAssignmentCommonFields } from '@/features/organization/crew/components/crew-assignment-common-fields';
 import type { CrewMemberRowState } from '@/features/organization/crew/components/crew-members-section';
 import { CrewMembersSection } from '@/features/organization/crew/components/crew-members-section';
+import { PlanningStartActiveAssignmentConflict } from '@/features/organization/crew/components/planning-start-active-assignment-conflict';
 import { PlanningStartAuthoritativeFields } from '@/features/organization/crew/components/planning-start-authoritative-fields';
 import {
     bulkFieldError,
@@ -24,7 +25,10 @@ import {
     resolveCreateSubmitRoute,
     shouldShowSaveDraft,
 } from '@/features/organization/crew/lib/crew-assignment-create-mode';
-import { recommendsVesselTransfer } from '@/features/organization/crew/lib/vessel-transfer-recommendation';
+import {
+    canUseManualTransferRecommendation,
+    hasPlanningStartActiveAssignmentConflict,
+} from '@/features/organization/crew/lib/planning-start-conflict';
 import type {
     BulkAddCrewFormData,
     BulkAddCrewRow,
@@ -165,17 +169,29 @@ export function CrewAssignmentCreateForm({
     const destinationVessel = form_options.vessels.find(
         (vessel) => vessel.id === form.data.vessel_id,
     );
-    const recommendsTransfer =
-        !bulkMode &&
-        recommendsVesselTransfer(currentOnVessel, form.data.vessel_id);
-    const canUseRecommendedTransfer =
-        recommendsTransfer && currentOnVessel?.can_transfer === true;
+    const canUseRecommendedTransfer = canUseManualTransferRecommendation(
+        fromPlanning,
+        bulkMode,
+        currentOnVessel,
+        form.data.vessel_id,
+    );
     const transferRequiredButUnauthorized =
-        recommendsTransfer && currentOnVessel?.can_transfer === false;
-    const hasActiveAssignmentConflict =
+        !fromPlanning &&
         !bulkMode &&
-        (currentEmployeeStatus?.has_active_assignment ?? false) &&
-        !canUseRecommendedTransfer;
+        (currentEmployeeStatus?.status === 'on_vessel' ||
+            currentOnVessel !== null) &&
+        form.data.vessel_id !== null &&
+        currentOnVessel?.vessel_id !== form.data.vessel_id &&
+        currentOnVessel?.can_transfer === false;
+    const hasActiveAssignmentConflict =
+        hasPlanningStartActiveAssignmentConflict(
+            fromPlanning,
+            bulkMode,
+            currentEmployeeStatus,
+            canUseRecommendedTransfer,
+        );
+    const planningActiveAssignmentConflict =
+        fromPlanning && hasActiveAssignmentConflict && currentEmployeeStatus;
 
     const bulkSummary = summarizeBulkRows(form.data.crew, (employeeId) =>
         lookupStatus(form_options, employeeId),
@@ -354,9 +370,24 @@ export function CrewAssignmentCreateForm({
                     <CardContent className="p-6 md:p-8">
                         <form onSubmit={handleSubmit} className="space-y-10">
                             {fromPlanning && planning_context ? (
-                                <PlanningStartAuthoritativeFields
-                                    context={planning_context}
-                                />
+                                <>
+                                    <PlanningStartAuthoritativeFields
+                                        context={planning_context}
+                                    />
+                                    {planningActiveAssignmentConflict ? (
+                                        <PlanningStartActiveAssignmentConflict
+                                            planningContext={planning_context}
+                                            employeeStatus={
+                                                currentEmployeeStatus
+                                            }
+                                            activeOnVessel={currentOnVessel}
+                                            destinationVesselId={
+                                                form.data.vessel_id
+                                            }
+                                            canViewAssignment={can.view}
+                                        />
+                                    ) : null}
+                                </>
                             ) : (
                                 <CrewMembersSection
                                     rows={rows}
@@ -406,7 +437,10 @@ export function CrewAssignmentCreateForm({
                             <CrewAssignmentCommonFields
                                 form={form}
                                 formOptions={form_options}
-                                showStartFields={can.start}
+                                showStartFields={
+                                    can.start &&
+                                    !planningActiveAssignmentConflict
+                                }
                                 showMasterFields={!fromPlanning}
                                 stagePresentation={
                                     bulkMode ? 'cards' : 'select'
@@ -452,7 +486,8 @@ export function CrewAssignmentCreateForm({
                             ) : null}
 
                             <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-6">
-                                {can.start ? (
+                                {can.start &&
+                                !planningActiveAssignmentConflict ? (
                                     <Button
                                         type="submit"
                                         disabled={
@@ -565,6 +600,7 @@ export function CrewAssignmentCreateForm({
                                     </p>
                                 ) : !bulkMode &&
                                   hasActiveAssignmentConflict &&
+                                  !planningActiveAssignmentConflict &&
                                   !formErrors.error ? (
                                     <p className="w-full text-xs font-medium text-destructive">
                                         This employee already has an active Crew
@@ -586,7 +622,7 @@ export function CrewAssignmentCreateForm({
                 </Card>
             </div>
 
-            {!bulkMode ? (
+            {!bulkMode && !fromPlanning ? (
                 <VesselTransferRecommendationDialog
                     open={transferPromptOpen}
                     onOpenChange={setTransferPromptOpen}

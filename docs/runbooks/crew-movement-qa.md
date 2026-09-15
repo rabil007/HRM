@@ -91,6 +91,9 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Expected Join after Planned Sign-Off is rejected at Start
 - [ ] Relief planning preserves `relieves_crew_assignment_id` and rejects incompatible relief state
 - [ ] Linked Active assignment opens existing record without duplicate
+- [ ] Planning employee already Active P4 on another vessel opens Start form with conflict warning, no Start Assignment button, no Transfer Vessel dialog, and Open Current Assignment when view permission is granted
+- [ ] Crafted Planning Start POST for an employee with another Active assignment is rejected; planning `crew_assignment_id` stays null and no duplicate planning row is created
+- [ ] Relief planning Start still works when only the source crew member is Active P4
 - [ ] Linked Draft assignment remains backward compatible (redirect to existing draft workflow)
 - [ ] Repeat Start on linked Active is idempotent and keeps exactly one planning row
 - [ ] Manual Crew Assignments draft with vessel/rank/join/sign-off creates a planning bar
