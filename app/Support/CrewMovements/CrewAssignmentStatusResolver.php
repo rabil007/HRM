@@ -141,12 +141,21 @@ final class CrewAssignmentStatusResolver
             ->where('company_id', $companyId)
             ->whereIn('employee_id', $employeeIds)
             ->where('status', CrewAssignmentStatus::Completed)
+            ->whereRaw(
+                'crew_assignments.id = (
+                    SELECT latest_completed.id
+                    FROM crew_assignments AS latest_completed
+                    WHERE latest_completed.company_id = crew_assignments.company_id
+                      AND latest_completed.employee_id = crew_assignments.employee_id
+                      AND latest_completed.status = ?
+                    ORDER BY latest_completed.closed_at DESC, latest_completed.id DESC
+                    LIMIT 1
+                )',
+                [CrewAssignmentStatus::Completed->value],
+            )
             ->with('vessel:id,name')
-            ->orderByDesc('closed_at')
-            ->orderByDesc('id')
             ->get()
-            ->groupBy(fn (CrewAssignment $assignment): int => (int) $assignment->employee_id)
-            ->map(fn (Collection $group): CrewAssignment => $group->first());
+            ->keyBy(fn (CrewAssignment $assignment): int => (int) $assignment->employee_id);
     }
 
     /**
