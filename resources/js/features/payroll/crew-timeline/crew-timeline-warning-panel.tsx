@@ -106,10 +106,10 @@ export function CrewTimelineWarningPanel({
             {isStale ? (
                 <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Timeline changed</AlertTitle>
+                    <AlertTitle>Crew Operations data changed</AlertTitle>
                     <AlertDescription>
-                        The Crew Operations timeline changed after this
-                        preparation was created. Prepare a new version before
+                        The Crew Operations data changed after this Crew
+                        Timesheet was prepared. Prepare a new version before
                         continuing.
                     </AlertDescription>
                 </Alert>
@@ -125,8 +125,8 @@ export function CrewTimelineWarningPanel({
                     <AlertDescription>
                         Blocking warnings prevent submission and approval.
                         Correct Crew Operations data and prepare a new version,
-                        or skip the affected employee&apos;s timeline data if
-                        permitted.
+                        or skip the affected employee&apos;s Crew Timesheet data
+                        if permitted.
                         <WarningBreakdownList
                             items={blockingItems}
                             tone="blocking"
@@ -143,8 +143,8 @@ export function CrewTimelineWarningPanel({
                         {skippedCount === 1 ? '' : 's'} skipped
                     </AlertTitle>
                     <AlertDescription>
-                        Their Crew Operations timeline data will not be applied
-                        to timesheets. They may require Manual/Excel data or
+                        Their Crew Operations-derived timesheet values will not
+                        be applied. They may require Manual/Excel data or
                         payroll exclusion before generation.
                         {skippedBlockingItems.length > 0 ? (
                             <div className="mt-2 flex flex-wrap gap-1.5">

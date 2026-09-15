@@ -8,9 +8,9 @@ use Illuminate\Validation\ValidationException;
 
 final class CrewTimelineFreshnessChecker
 {
-    public const STALE_MESSAGE = 'The Crew Operations timeline changed after this preparation was created. Prepare a new version before continuing.';
+    public const STALE_MESSAGE = 'The Crew Operations data changed after this Crew Timesheet was prepared. Prepare a new version before continuing.';
 
-    public const APPLY_STALE_MESSAGE = 'The Crew Operations timeline changed after this preparation was approved. Prepare and approve a new version before applying it to payroll.';
+    public const APPLY_STALE_MESSAGE = 'The Crew Operations data changed after this Crew Timesheet was approved. Prepare and approve a new version before applying it to payroll.';
 
     public function __construct(
         private readonly CrewTimelinePhaseQuery $phaseQuery,

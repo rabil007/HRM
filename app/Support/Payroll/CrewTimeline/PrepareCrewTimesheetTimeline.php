@@ -37,19 +37,19 @@ final class PrepareCrewTimesheetTimeline
 
         if (! $period->isCrew()) {
             throw ValidationException::withMessages([
-                'payroll_period_id' => 'Timeline preparation is only available for crew pay periods.',
+                'payroll_period_id' => 'Crew Timesheet preparation is only available for crew pay periods.',
             ]);
         }
 
         if ($period->status !== PayrollPeriodStatus::Draft) {
             throw ValidationException::withMessages([
-                'payroll_period_id' => 'Timeline preparation is only available for draft pay periods.',
+                'payroll_period_id' => 'Crew Timesheet preparation is only available for draft pay periods.',
             ]);
         }
 
         if (! $period->usesCrewOperationsTimesheets()) {
             throw ValidationException::withMessages([
-                'payroll_period_id' => 'Crew Operations timeline preparation is not available for this pay period.',
+                'payroll_period_id' => 'Crew Timesheet preparation is not available for this pay period.',
             ]);
         }
 
@@ -86,7 +86,7 @@ final class PrepareCrewTimesheetTimeline
 
             if ($appliedExists) {
                 throw ValidationException::withMessages([
-                    'payroll_period_id' => 'An applied operational snapshot already exists for this pay period. New timeline versions cannot be prepared until a correction workflow replaces it.',
+                    'payroll_period_id' => 'An Applied Crew Timesheet already exists for this pay period. New versions cannot be prepared until a correction workflow replaces it.',
                 ]);
             }
 
@@ -210,7 +210,7 @@ final class PrepareCrewTimesheetTimeline
                         'crew_assignment_phase_id' => $sample['crew_assignment_phase_id'],
                         'phase_code' => $sample['phase_code'],
                         'warning_code' => CrewTimelineWarningCode::TimelineGap,
-                        'remarks' => "Timeline gap from {$gapFrom} to {$gapTo}.",
+                        'remarks' => "Crew Timesheet gap from {$gapFrom} to {$gapTo}.",
                         'from_date' => $gapFrom,
                         'to_date' => $gapTo,
                     ];

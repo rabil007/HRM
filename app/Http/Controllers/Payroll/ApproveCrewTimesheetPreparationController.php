@@ -29,6 +29,6 @@ class ApproveCrewTimesheetPreparationController extends Controller
 
         return redirect()
             ->route('payroll.crew-timeline.show', [$payrollPeriod, $preparation])
-            ->with('success', 'Crew timeline approved.');
+            ->with('success', 'Crew Timesheet approved.');
     }
 }

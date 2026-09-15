@@ -190,7 +190,7 @@ final class CrewTimelineIssueDetector
                     (int) $phase->id,
                     $phase->phase_code,
                     CrewTimelineWarningCode::MonthlyContractNotSupported,
-                    'Monthly crew contracts are not included in automatic timeline preparation.',
+                    'Monthly crew contracts are not included in automatic Crew Timesheet preparation.',
                     $periodStart,
                     $periodEnd,
                 );

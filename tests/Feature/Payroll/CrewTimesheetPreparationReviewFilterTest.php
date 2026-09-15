@@ -364,7 +364,7 @@ test('crew timeline review summary cards filter employees and keep preparation t
             'pay_category' => CrewTimesheetPayCategory::Excluded,
             'days' => 0,
             'warning_code' => CrewTimelineWarningCode::TimelineGap->value,
-            'remarks' => 'Timeline gap',
+            'remarks' => 'Crew Timesheet gap',
         ]);
 
     $show = fn (array $query = []) => $this->actingAs($fixtures['user'])

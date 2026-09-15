@@ -36,19 +36,19 @@ final class CrewTimesheetPreparationWorkflowGuard
     {
         if (! $period->isCrew()) {
             throw ValidationException::withMessages([
-                'payroll_period_id' => 'Crew timeline workflow is only available for crew pay periods.',
+                'payroll_period_id' => 'Crew Timesheet workflow is only available for crew pay periods.',
             ]);
         }
 
         if ($period->status !== PayrollPeriodStatus::Draft) {
             throw ValidationException::withMessages([
-                'payroll_period_id' => 'Crew timeline workflow is only available for draft pay periods.',
+                'payroll_period_id' => 'Crew Timesheet workflow is only available for draft pay periods.',
             ]);
         }
 
         if (! $period->usesCrewOperationsTimesheets()) {
             throw ValidationException::withMessages([
-                'payroll_period_id' => 'Crew Operations timeline workflow is not available for this pay period.',
+                'payroll_period_id' => 'Crew Timesheet workflow is not available for this pay period.',
             ]);
         }
     }
@@ -117,7 +117,7 @@ final class CrewTimesheetPreparationWorkflowGuard
 
         if ($query->exists()) {
             throw ValidationException::withMessages([
-                'preparation' => 'An applied operational snapshot already exists for this pay period. Replacement requires a payroll correction workflow.',
+                'preparation' => 'An Applied Crew Timesheet already exists for this pay period. Replacement requires a payroll correction workflow.',
             ]);
         }
     }

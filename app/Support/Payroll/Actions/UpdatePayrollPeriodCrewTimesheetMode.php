@@ -78,7 +78,7 @@ final class UpdatePayrollPeriodCrewTimesheetMode
             ->where('payroll_period_id', $period->id)
             ->exists()) {
             throw ValidationException::withMessages([
-                'crew_timesheet_mode' => 'Timesheet source cannot be changed after a Crew Operations timeline preparation exists.',
+                'crew_timesheet_mode' => 'Timesheet source cannot be changed after a Crew Timesheet preparation exists.',
             ]);
         }
     }

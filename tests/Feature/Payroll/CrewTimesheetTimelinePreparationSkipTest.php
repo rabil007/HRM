@@ -1516,7 +1516,7 @@ test('42. exclusive mode: skipped daily employee is not treated as covered by Cr
     $readiness = $guard->validateReadiness($fixtures['period']->fresh(), collect([$fixtures['employee']]), (int) $fixtures['company']->id);
 
     expect($readiness['ready'])->toBeFalse()
-        ->and($readiness['blocking_reason'])->toContain("Daily crew employee {$fixtures['employee']->name} timeline data was skipped and is not covered by Crew Operations.");
+        ->and($readiness['blocking_reason'])->toContain("Daily crew employee {$fixtures['employee']->name} Crew Timesheet data was skipped and is not covered by another timesheet source.");
 
     // And generation is blocked
     expect(fn () => $guard->assertReadyForGeneration($fixtures['period']->fresh(), collect([$fixtures['employee']]), (int) $fixtures['company']->id))

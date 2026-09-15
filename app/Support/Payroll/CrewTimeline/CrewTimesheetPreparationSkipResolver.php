@@ -174,7 +174,7 @@ final class CrewTimesheetPreparationSkipResolver
 
         if ($lines->isEmpty()) {
             throw ValidationException::withMessages([
-                'employee' => 'The employee does not have any timeline lines in this preparation.',
+                'employee' => 'The employee does not have any Crew Timesheet lines in this preparation.',
             ]);
         }
 
@@ -240,13 +240,13 @@ final class CrewTimesheetPreparationSkipResolver
     {
         if (! $period->isCrew()) {
             throw ValidationException::withMessages([
-                'payroll_period_id' => 'Crew timeline workflow is only available for crew pay periods.',
+                'payroll_period_id' => 'Crew Timesheet workflow is only available for crew pay periods.',
             ]);
         }
 
         if ($period->status !== PayrollPeriodStatus::Draft) {
             throw ValidationException::withMessages([
-                'payroll_period_id' => 'Crew timeline workflow is only available for draft pay periods.',
+                'payroll_period_id' => 'Crew Timesheet workflow is only available for draft pay periods.',
             ]);
         }
     }
@@ -255,7 +255,7 @@ final class CrewTimesheetPreparationSkipResolver
     {
         if ($preparation->status !== CrewTimesheetPreparationStatus::Draft) {
             throw ValidationException::withMessages([
-                'preparation' => 'Only draft preparations can have employee timeline data modified.',
+                'preparation' => 'Only draft preparations can have employee Crew Timesheet data modified.',
             ]);
         }
     }

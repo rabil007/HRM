@@ -98,7 +98,7 @@ final class RestoreCrewTimesheetPreparationEmployee
                     'warning_codes' => $warningCodes,
                     'timestamp' => now()->toIso8601String(),
                 ])
-                ->log("Restored timeline data for employee {$employee->name} in preparation v{$preparation->version}");
+                ->log("Restored Crew Timesheet data for employee {$employee->name} in preparation v{$preparation->version}");
 
             return $skip->fresh() ?? $skip;
         });

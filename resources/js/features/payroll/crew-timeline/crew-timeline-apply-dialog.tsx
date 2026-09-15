@@ -36,7 +36,7 @@ export function CrewTimelineApplyDialog({
             <AlertDialogContent className="glass-card">
                 <AlertDialogHeader>
                     <AlertDialogTitle>
-                        Apply Approved Timeline to Timesheets
+                        Apply Approved Crew Timesheet
                     </AlertDialogTitle>
                     <AlertDialogDescription className="space-y-2">
                         <span className="block">
@@ -48,9 +48,9 @@ export function CrewTimelineApplyDialog({
                             inputs will be preserved.
                         </span>
                         <span className="block">
-                            The timeline will become Applied and read-only.
-                            Replacing an applied snapshot requires a future
-                            correction workflow.
+                            The Crew Timesheet will become Applied and
+                            read-only. Replacing an applied snapshot requires a
+                            future correction workflow.
                         </span>
                     </AlertDialogDescription>
                 </AlertDialogHeader>

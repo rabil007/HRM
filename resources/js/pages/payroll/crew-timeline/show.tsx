@@ -6,7 +6,7 @@ export default function CrewTimelineShow(props: CrewTimelineShowProps) {
     return (
         <>
             <Head
-                title={`Crew Timeline v${props.preparation.version} · ${props.period.name}`}
+                title={`Crew Timesheet v${props.preparation.version} · ${props.period.name}`}
             />
             <CrewTimelineReviewContent {...props} />
         </>

@@ -103,7 +103,7 @@ final class SkipCrewTimesheetPreparationEmployee
                     'timestamp' => now()->toIso8601String(),
                     'warning_codes' => $warningCodes,
                 ])
-                ->log("Skipped timeline data for employee {$employee->name} in preparation v{$preparation->version}");
+                ->log("Skipped Crew Timesheet data for employee {$employee->name} in preparation v{$preparation->version}");
 
             return $skip->fresh() ?? $skip;
         });

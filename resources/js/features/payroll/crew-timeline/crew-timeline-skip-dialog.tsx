@@ -77,12 +77,12 @@ export function CrewTimelineSkipDialog({
             <AlertDialogContent className="max-w-lg glass-card">
                 <AlertDialogHeader>
                     <AlertDialogTitle>
-                        Skip Crew Operations timeline data?
+                        Skip Crew Timesheet data?
                     </AlertDialogTitle>
                     <AlertDialogDescription className="space-y-2 text-left">
                         <span>
-                            This employee&apos;s Crew Operations movement data
-                            will not be applied from this preparation.
+                            Crew Operations-derived timesheet values will not be
+                            applied for this employee.
                         </span>
                         <div className="space-y-1 rounded-md bg-muted/60 p-3 text-xs text-muted-foreground">
                             <p className="font-medium text-foreground">
@@ -109,7 +109,7 @@ export function CrewTimelineSkipDialog({
                     <Label htmlFor="skip-reason">Reason *</Label>
                     <Textarea
                         id="skip-reason"
-                        placeholder="Explain why this employee's timeline data is being skipped (e.g. movement correction pending next month)..."
+                        placeholder="Explain why this employee's Crew Timesheet data is being skipped (e.g. movement correction pending next month)..."
                         value={form.data.reason}
                         onChange={(event) =>
                             form.setData('reason', event.target.value)
@@ -131,7 +131,9 @@ export function CrewTimelineSkipDialog({
                         disabled={form.processing}
                         onClick={submit}
                     >
-                        {form.processing ? 'Skipping…' : 'Skip Timeline Data'}
+                        {form.processing
+                            ? 'Skipping…'
+                            : 'Skip Crew Timesheet Data'}
                     </Button>
                 </AlertDialogFooter>
             </AlertDialogContent>

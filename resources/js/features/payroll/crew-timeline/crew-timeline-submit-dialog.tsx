@@ -39,7 +39,7 @@ export function CrewTimelineSubmitDialog({
                         Submit for Crewing Approval
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                        Submit this timeline preparation for supervisor review.
+                        Submit this Crew Timesheet for supervisor review.
                         Generated lines cannot be edited after submission.
                     </AlertDialogDescription>
                 </AlertDialogHeader>

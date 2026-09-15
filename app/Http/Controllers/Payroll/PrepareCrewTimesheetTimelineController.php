@@ -34,7 +34,7 @@ class PrepareCrewTimesheetTimelineController extends Controller
             ->route('payroll.crew-timeline.show', [$payrollPeriod, $preparation])
             ->with(
                 'success',
-                "Crew Operations timeline prepared as draft version {$preparation->version}.",
+                "Crew Timesheet prepared as draft version {$preparation->version}.",
             );
     }
 }

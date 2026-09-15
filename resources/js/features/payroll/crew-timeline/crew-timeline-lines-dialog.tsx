@@ -444,7 +444,7 @@ export function CrewTimelineLinesDialog({
                     {employee.is_skipped ? (
                         <div className="mb-5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
                             <p className="text-xs font-semibold tracking-wide text-amber-900 uppercase dark:text-amber-200">
-                                Crew Operations timeline skipped
+                                Crew Timesheet data skipped
                             </p>
                             <dl className="mt-3 grid gap-3 sm:grid-cols-2">
                                 <div>

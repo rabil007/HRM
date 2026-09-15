@@ -55,7 +55,7 @@ export function CrewTimelineReturnDialog({
         <AlertDialog open={open} onOpenChange={handleOpenChange}>
             <AlertDialogContent className="glass-card">
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Return timeline</AlertDialogTitle>
+                    <AlertDialogTitle>Return Crew Timesheet</AlertDialogTitle>
                     <AlertDialogDescription>
                         Returning keeps this version as history. Correct Crew
                         Operations data and prepare a new version to continue.

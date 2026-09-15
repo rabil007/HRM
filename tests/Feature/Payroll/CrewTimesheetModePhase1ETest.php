@@ -113,7 +113,7 @@ test('prepare is blocked in manual timesheet mode with the expected message', fu
         ->withSession(['current_company_id' => $fixtures['company']->id])
         ->post(route('payroll.crew-timeline.prepare', $fixtures['period']))
         ->assertSessionHasErrors([
-            'payroll_period_id' => 'Crew Operations timeline preparation is not available for this pay period.',
+            'payroll_period_id' => 'Crew Timesheet preparation is not available for this pay period.',
         ]);
 });
 
@@ -260,7 +260,9 @@ test('payroll show exposes mode, generation readiness, and timeline props for cr
                 'period.generation_preview.blocking_reason',
                 CrewOperationsPayrollGenerationGuard::MISSING_APPLIED_MESSAGE,
             )
-            ->has('crew_timesheet_mode_options', 3));
+            ->has('crew_timesheet_mode_options', 3)
+            ->where('crew_timesheet_mode_options.1.value', CrewTimesheetMode::CrewOperations->value)
+            ->where('crew_timesheet_mode_options.1.label', 'Crew Timesheet'));
 });
 
 test('payroll show hides generation readiness blocking for manual crew periods', function () {

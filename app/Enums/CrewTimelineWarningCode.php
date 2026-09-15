@@ -39,7 +39,7 @@ enum CrewTimelineWarningCode: string
             self::MissingActualStart => 'Missing actual start',
             self::MissingActualEnd => 'Missing actual end',
             self::OverlappingPhases => 'Overlapping phases',
-            self::TimelineGap => 'Timeline gap',
+            self::TimelineGap => 'Crew Timesheet gap',
             self::PendingMovementCorrection => 'Pending movement correction',
             self::MonthlyContractNotSupported => 'Monthly contract not supported',
             self::NoActiveCrewContract => 'No active crew contract',

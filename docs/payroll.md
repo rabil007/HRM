@@ -149,7 +149,7 @@ Daily Crew payroll automatically pays unpaid work that falls **before** the paym
 - Original movement ranges are stored as `crew_timesheet_segments` (not physically split).
 - Payroll generation expands segments day-by-day into `payroll_work_allocations`.
 - Dates after the payroll period end remain rejected.
-- Crew Operations timeline apply still clips phases to the current period and does **not** invent arrears from earlier periods.
+- Crew Timesheet apply still clips Crew Operations phases to the current period and does **not** invent arrears from earlier periods.
 
 **Historical rate resolution**
 
@@ -192,7 +192,7 @@ Key implementation files:
 - `app/Support/Payroll/SplitCrewMovementRangeAcrossPeriod.php`
 - `app/Support/Payroll/Actions/PersistCrewTimesheetMovements.php`
 
-### Crew timeline preparation (Phase 1A–1D)
+### Crew Timesheet preparation (Phase 1A–1D)
 
 Phase 1A added versioned preparation tables and additive standby/source metadata on `crew_timesheets`.
 
@@ -224,9 +224,9 @@ Phase 1D applies an Approved preparation to `crew_timesheets`:
 
 Vessel transfer and redeployment create linked assignments so one employee can have multiple exact onsite periods in the same payroll month without inventing phases or duplicating final salary records.
 
-### Skip Timeline Data workflow
+### Skip Crew Timesheet Data workflow
 
-Crew operations timeline preparations can contain blocking warnings (e.g. `missing_actual_start`, `missing_actual_end`, `overlapping_phases`, `pending_movement_correction`, `no_active_crew_contract`, `invalid_phase_range`). To prevent an entire payroll run from becoming blocked because one employee has incomplete or bad Crew Operations movement data, authorized users with `payroll.crew_timesheets.skip_timeline` can explicitly skip the affected employee's Crew Operations timeline data for that draft preparation version.
+Crew Timesheet preparations can contain blocking warnings (e.g. `missing_actual_start`, `missing_actual_end`, `overlapping_phases`, `pending_movement_correction`, `no_active_crew_contract`, `invalid_phase_range`). To prevent an entire payroll run from becoming blocked because one employee has incomplete or bad Crew Operations movement data, authorized users with `payroll.crew_timesheets.skip_timeline` can explicitly skip the affected employee's Crew Timesheet data for that draft preparation version.
 
 Key characteristics:
 
@@ -239,10 +239,10 @@ Key characteristics:
 - **Warning breakdown consistency:** The headline blocker counter reflects `unresolved_blocking_warning_count` (which discounts actively skipped employees). The detailed warning breakdown exposes `total_count`, `unresolved_count`, and `skipped_count` per warning code, so historical blocker totals remain visible while actionable blockers clearly show unresolved counts.
 - **Exclusion from Apply:** When the approved preparation is applied (`ApplyCrewTimesheetPreparation`), payable preparation lines for actively skipped employees are completely excluded. No Crew Operations timesheet or segments are written for that employee.
 - **Preservation of Manual / Excel data:** If a skipped employee already has a Manual or Imported timesheet or segments, Apply leaves that employee's operational and financial data untouched.
-- **Separate from payroll exclusion:** Skipping an employee's Crew Operations timeline data is strictly a source-selection decision. It does **not** automatically add the employee to `payroll_periods.excluded_employee_ids`. In hybrid payroll, the employee may subsequently have hours/movements entered manually or imported via Excel, or be excluded during the final payroll generation step if no replacement timesheet is provided. If no replacement data is provided, generation preview marks the Daily crew employee as missing/unready and generation will not proceed for them.
+- **Separate from payroll exclusion:** Skipping an employee's Crew Timesheet data is strictly a source-selection decision. It does **not** automatically add the employee to `payroll_periods.excluded_employee_ids`. In hybrid payroll, the employee may subsequently have hours/movements entered manually or imported via Excel, or be excluded during the final payroll generation step if no replacement timesheet is provided. If no replacement data is provided, generation preview marks the Daily crew employee as missing/unready and generation will not proceed for them.
 - **Exclusive mode behavior:** In exclusive Crew Operations mode, all Daily crew employees must have valid Crew Operations coverage. Skipping an employee's timeline means they are not covered by Crew Operations and will block generation unless that employee is explicitly excluded from the pay run via `payroll_periods.excluded_employee_ids`.
 - **Freshness independent:** Skip decisions are payroll-review choices rather than changes to operational source data; therefore, `crew_timesheet_preparation_skips` is **not** included in the `source_hash`. Creating or restoring a skip does not make the preparation stale.
-- **Reversible via Restore:** While the preparation is in `Draft` status, an active skip may be reversed via **Restore Timeline Data** (`restored_by`, `restored_at`). Upon restoration, the employee's original warning and payable lines become active again; any unresolved blocking warnings will once again prevent submission.
+- **Reversible via Restore:** While the preparation is in `Draft` status, an active skip may be reversed via **Restore Crew Timesheet Data** (`restored_by`, `restored_at`). Upon restoration, the employee's original warning and payable lines become active again; any unresolved blocking warnings will once again prevent submission.
 - **Empty effective preparation supported:** If all employees in a preparation are skipped, the preparation can still be submitted, approved, and applied without generating dummy timesheets.
 
 ### Manual and Excel movement periods
@@ -278,7 +278,7 @@ Each crew pay period stores `crew_timesheet_mode`:
 | ------------------------ | ----------------- | ---------------------------------------------------------------------------------- |
 | Hybrid (default)         | `hybrid`          | One Crew period supports mixed employee-level sources. UI label: **Crew Payroll**. |
 | Manual / Excel Timesheet | `manual`          | Historical exclusive Manual/Import mode                                            |
-| Crew Operations Timeline | `crew_operations` | Historical exclusive timeline mode                                                 |
+| Crew Timesheet            | `crew_operations` | Historical exclusive timeline mode                                                 |
 
 Office periods keep `crew_timesheet_mode = null`.
 

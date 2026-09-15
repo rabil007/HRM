@@ -12,7 +12,7 @@ enum CrewTimesheetMode: string
     {
         return match ($this) {
             self::Manual => 'Manual / Excel Timesheet',
-            self::CrewOperations => 'Crew Operations Timeline',
+            self::CrewOperations => 'Crew Timesheet',
             self::Hybrid => 'Crew Payroll',
         };
     }

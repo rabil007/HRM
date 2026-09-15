@@ -682,7 +682,7 @@ describe('crew timeline line presentation', () => {
                             warnings: [
                                 {
                                     code: 'timeline_gap',
-                                    label: 'Timeline Gap',
+                                    label: 'Crew Timesheet gap',
                                     is_blocking: false,
                                     remarks:
                                         '2 days have no payable Crew Operations phase.',
@@ -709,7 +709,7 @@ describe('crew timeline line presentation', () => {
                                     pay_category: null,
                                     warning: {
                                         code: 'timeline_gap',
-                                        label: 'Timeline Gap',
+                                        label: 'Crew Timesheet gap',
                                         is_blocking: false,
                                     },
                                     remarks:
@@ -744,7 +744,7 @@ describe('crew timeline line presentation', () => {
             warnings.map((warning) => [warning.label, warning.isBlocking]),
             [
                 ['Overlapping Phases', true],
-                ['Timeline Gap', false],
+                ['Crew Timesheet gap', false],
             ],
         );
         assert.equal(

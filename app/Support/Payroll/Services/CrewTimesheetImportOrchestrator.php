@@ -387,7 +387,7 @@ final class CrewTimesheetImportOrchestrator
                 $rowErrors[] = [
                     'row' => $rowNumber,
                     'field' => 'sign_on_standby_from',
-                    'message' => 'Daily crew operational dates cannot be imported in Crew Operations Timeline mode.',
+                    'message' => 'Daily crew operational dates cannot be imported in Crew Timesheet mode.',
                 ];
             }
 
@@ -445,7 +445,7 @@ final class CrewTimesheetImportOrchestrator
                 $rowWarnings[] = [
                     'row' => $rowNumber,
                     'field' => 'source',
-                    'message' => 'Operational days are locked from the Applied Crew Operations timeline. Only financial fields will be updated.',
+                    'message' => 'Operational days are locked from the Applied Crew Timesheet. Only financial fields will be updated.',
                 ];
             }
 

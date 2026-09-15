@@ -21,6 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
+import { formatCrewTimelinePeriodLabel } from '@/features/payroll/lib/crew-timeline-lines';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { show as payrollShow } from '@/routes/payroll';
@@ -139,10 +140,10 @@ export function CrewTimelineReviewContent({
     return (
         <Main>
             <DetailsHeader
-                kicker="Crew Timeline"
+                kicker="Crew Timesheet"
                 title={
                     <span className="inline-flex flex-wrap items-center gap-3">
-                        {period.name}
+                        {formatCrewTimelinePeriodLabel(period)} - Crew Timesheet
                         <CrewTimelineStatusBadge
                             status={preparation.status}
                             label={preparation.status_label}
@@ -193,7 +194,7 @@ export function CrewTimelineReviewContent({
                         {canApply ? (
                             <Button onClick={() => setApplyOpen(true)}>
                                 <FileSpreadsheet className="mr-2 h-4 w-4" />
-                                Apply Approved Timeline to Timesheets
+                                Apply Approved Crew Timesheet
                             </Button>
                         ) : null}
                     </div>
@@ -217,7 +218,7 @@ export function CrewTimelineReviewContent({
                         <CheckCircle2 className="h-4 w-4" />
                         <AlertTitle>Approved</AlertTitle>
                         <AlertDescription>
-                            This timeline is approved. Apply it to write
+                            This Crew Timesheet is approved. Apply it to write
                             operational day totals into crew timesheets while
                             preserving overtime and other financial inputs.
                         </AlertDescription>
@@ -467,7 +468,7 @@ function MetaFreshness({ isFresh }: { isFresh: boolean }) {
                 ) : (
                     <RefreshCw className="size-3.5 shrink-0" />
                 )}
-                {isFresh ? 'Fresh' : 'Timeline changed'}
+                {isFresh ? 'Fresh' : 'Source changed'}
             </p>
         </div>
     );

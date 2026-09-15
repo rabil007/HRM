@@ -42,7 +42,7 @@ final class SubmitCrewTimesheetApproval
 
             if ($timesheet->source === CrewTimesheetSource::CrewOperations) {
                 throw ValidationException::withMessages([
-                    'timesheet' => 'Crew Operations timesheets are approved through the Applied timeline.',
+                    'timesheet' => 'Crew Operations timesheets are approved through the Applied Crew Timesheet.',
                 ]);
             }
 

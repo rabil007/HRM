@@ -388,7 +388,7 @@ final class CrewTimesheetTemplateExporter
         foreach ($dailyLockedRows as $row) {
             foreach (self::OPERATIONAL_DATE_COLUMNS as $column) {
                 $cell = "{$column}{$row}";
-                $sheet->setCellValueExplicit($cell, 'From timeline', DataType::TYPE_STRING);
+                $sheet->setCellValueExplicit($cell, 'From Crew Timesheet', DataType::TYPE_STRING);
                 $sheet->getStyle($cell)->getProtection()->setLocked(Protection::PROTECTION_PROTECTED);
                 $sheet->getStyle($cell)->applyFromArray([
                     'fill' => [
@@ -448,7 +448,7 @@ final class CrewTimesheetTemplateExporter
 
         if ($period->requiresExclusiveCrewOperationsTimesheets()) {
             $lines = array_merge($lines, [
-                ['3. This period uses exclusive Crew Operations Timeline mode. Leave the yellow Daily operational date columns blank — sign-on standby, onsite, and sign-off standby are filled from the Applied timeline.'],
+                ['3. This period uses exclusive Crew Timesheet mode. Leave the yellow Daily operational date columns blank — sign-on standby, onsite, and sign-off standby are filled from the Applied Crew Timesheet.'],
                 ['4. For Daily crew, enter only Overtime Hours, salary input columns, and optional Remarks.'],
                 ['5. Monthly crew employees may still use leave/standby and onsite columns in this template.'],
                 ['6. Fill the orange Overtime Hours column when the employee worked overtime. Leave blank when there is no OT.'],
