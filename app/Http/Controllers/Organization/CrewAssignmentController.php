@@ -12,6 +12,7 @@ use App\Http\Requests\Organization\UpdateCrewAssignmentRequest;
 use App\Models\Client;
 use App\Models\Course;
 use App\Models\CrewAssignment;
+use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\Rank;
 use App\Support\Activity\RecentActivityQuery;
@@ -26,6 +27,7 @@ use App\Support\CrewMovements\CrewMovementService;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
+use App\Support\CrewPlanning\ResolvePlanningStartHandoff;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\RecentItems\RecordRecentItem;
@@ -102,18 +104,70 @@ class CrewAssignmentController extends Controller
         ]);
     }
 
-    public function create(Request $request)
+    public function create(Request $request, ResolvePlanningStartHandoff $planningHandoff)
     {
         Gate::authorize('create', CrewAssignment::class);
 
         $companyId = (int) $request->attributes->get('current_company_id');
         $permissions = CrewAssignmentPagePermissions::for($request->user());
         $initialRowCount = $request->query('mode') === 'bulk' && $permissions['start'] ? 2 : 1;
+        $planningContext = null;
+        $planningBackQuery = [];
+
+        $planningAssignmentId = $request->query('planning_assignment_id');
+
+        if ($planningAssignmentId !== null && $planningAssignmentId !== '') {
+            if (! $permissions['start']) {
+                abort(403);
+            }
+
+            $planning = CrewPlanningAssignment::query()
+                ->where('company_id', $companyId)
+                ->whereKey((int) $planningAssignmentId)
+                ->firstOrFail();
+
+            $linked = $planningHandoff->linkedAssignment($planning);
+
+            if ($linked !== null) {
+                $message = $planningHandoff->redirectMessageForLinked($linked);
+
+                if (Gate::allows('view', $linked)) {
+                    return redirect()
+                        ->route('organization.crew-assignments.show', $linked)
+                        ->with('success', $message);
+                }
+
+                return redirect()
+                    ->route('organization.crew-planning.index')
+                    ->with('error', $message);
+            }
+
+            try {
+                $planningContext = $planningHandoff->prefill($planning);
+            } catch (CrewMovementException $exception) {
+                return redirect()
+                    ->route('organization.crew-planning.index')
+                    ->with('error', $exception->getMessage());
+            }
+
+            $planningBackQuery = array_filter([
+                'view' => $request->query('view'),
+                'vessel_id' => $request->query('vessel_id'),
+                'rank_id' => $request->query('rank_id'),
+                'from' => $request->query('from'),
+                'to' => $request->query('to'),
+                'search' => $request->query('search'),
+            ], fn ($value) => $value !== null && $value !== '');
+
+            $initialRowCount = 1;
+        }
 
         return Inertia::render('organization/crew/create', [
             'form_options' => CrewAssignmentCreateFormOptions::for($companyId, $request->user()),
             'can' => CrewAssignmentPagePermissions::for($request->user()),
             'initial_row_count' => $initialRowCount,
+            'planning_context' => $planningContext,
+            'planning_back_query' => $planningBackQuery !== [] ? $planningBackQuery : null,
         ]);
     }
 

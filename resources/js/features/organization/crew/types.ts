@@ -375,6 +375,22 @@ export interface CrewAssignmentCreateFormOptions extends CrewAssignmentFormOptio
     company_timezone?: string;
 }
 
+export type CrewPlanningStartContext = {
+    planning_assignment_id: number;
+    employee_id: number;
+    employee_name: string;
+    rank_id: number;
+    rank_name: string;
+    vessel_id: number;
+    vessel_name: string;
+    client_id: number | null;
+    planned_join_at: string;
+    remarks: string | null;
+    current_stage: CrewAssignmentStartStage;
+};
+
+export type CrewPlanningBackQuery = Record<string, string | number>;
+
 export interface CrewAssignmentSummary {
     total: number;
     needs_attention: number;

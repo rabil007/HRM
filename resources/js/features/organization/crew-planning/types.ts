@@ -111,6 +111,7 @@ export type PlanningPagePermissions = {
     delete: boolean;
     projection: boolean;
     create_assignment?: boolean;
+    start_assignment?: boolean;
     view_assignments?: boolean;
     view_vessels?: boolean;
     view_employees?: boolean;

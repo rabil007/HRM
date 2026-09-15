@@ -1,0 +1,456 @@
+<?php
+
+use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewPhaseCode;
+use App\Enums\CrewPhaseStatus;
+use App\Models\CrewAssignment;
+use App\Models\CrewPlanningAssignment;
+use App\Models\Employee;
+use App\Models\EmployeeSeaService;
+use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
+use App\Support\CrewPlanning\StartCrewAssignmentFromPlanning;
+use Carbon\Carbon;
+use Inertia\Testing\AssertableInertia as Assert;
+
+function planningStartPermissions(array $extra = []): array
+{
+    return array_values(array_unique(array_merge([
+        'crew_operations.planning.view',
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
+    ], $extra)));
+}
+
+test('planning start entry requires create and movement permissions', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Permission Vessel');
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create', ['planning_assignment_id' => $planning->id]))
+        ->assertForbidden();
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start', $planning), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2027-04-01',
+            'current_stage' => 'p1',
+        ])
+        ->assertForbidden();
+});
+
+test('cross company planning id is rejected for start handoff', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    ['company' => $otherCompany, 'employee' => $otherEmployee] = makeCrewAssignmentFixtures();
+    $otherVessel = makeCrewMovementVessel('Other Company Vessel', $otherCompany);
+
+    grantCompanyPermissions($user, $company, planningStartPermissions());
+    $user->update(['current_company_id' => $company->id]);
+
+    $otherPlanning = CrewPlanningAssignment::query()->create([
+        'company_id' => $otherCompany->id,
+        'vessel_id' => $otherVessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $otherEmployee->id,
+        'planned_join_date' => '2027-04-01',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create', ['planning_assignment_id' => $otherPlanning->id]))
+        ->assertNotFound();
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start', $otherPlanning), [
+            'employee_id' => $otherEmployee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $otherVessel->id,
+            'planned_join_at' => '2027-04-01',
+            'current_stage' => 'p1',
+        ])
+        ->assertNotFound();
+});
+
+test('opening start from planning does not create a crew assignment', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Preview Vessel');
+    grantCompanyPermissions($user, $company, planningStartPermissions());
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+        'planned_leave_date' => '2027-09-30',
+        'notes' => 'Planning notes',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create', ['planning_assignment_id' => $planning->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/create')
+            ->has('planning_context')
+            ->where('planning_context.planning_assignment_id', $planning->id)
+            ->where('planning_context.employee_id', $employee->id)
+            ->where('planning_context.rank_id', $rank->id)
+            ->where('planning_context.vessel_id', $vessel->id)
+            ->where('planning_context.planned_join_at', '2027-04-01')
+            ->where('planning_context.current_stage', 'p1')
+            ->where('planning_context.remarks', 'Planning notes')
+        );
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('p1 start from planning uses trusted server time not planned join date', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Trusted Time Vessel');
+    grantCompanyPermissions($user, $company, planningStartPermissions());
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-09-20',
+        'planned_leave_date' => '2027-12-31',
+    ]);
+
+    Carbon::setTestNow(Carbon::parse('2027-09-18 09:15:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start', $planning), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2027-09-20',
+            'current_stage' => 'p1',
+            'stage_started_at' => '2027-09-20T08:00',
+        ])
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->firstOrFail();
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->source)->toBe('crew_planning')
+        ->and($assignment->planned_join_at?->toDateString())->toBe('2027-09-20')
+        ->and($assignment->planned_signoff_at?->toDateString())->toBe('2027-12-31')
+        ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2027-09-18 09:15')
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn)
+        ->and($assignment->currentPhase?->actual_start_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2027-09-18 09:15')
+        ->and($planning->fresh()->crew_assignment_id)->toBe($assignment->id)
+        ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
+test('p0 start from planning creates only p0 phase', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('P0 Planning Vessel');
+    grantCompanyPermissions($user, $company, planningStartPermissions());
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+    ]);
+
+    Carbon::setTestNow(Carbon::parse('2027-04-01 08:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start', $planning), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2027-04-01',
+            'current_stage' => 'p0',
+        ])
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->firstOrFail();
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->phases)->toHaveCount(1)
+        ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active);
+});
+
+test('direct p4 start from planning is rejected', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Rejected Stage Vessel');
+    grantCompanyPermissions($user, $company, planningStartPermissions());
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start', $planning), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2027-04-01',
+            'current_stage' => 'p4',
+        ])
+        ->assertSessionHasErrors('current_stage');
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('existing active assignment blocks planning start', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $firstVessel = makeCrewMovementVessel('Active Vessel');
+    $secondVessel = makeCrewMovementVessel('Planned Vessel');
+    grantCompanyPermissions($user, $company, planningStartPermissions());
+    $user->update(['current_company_id' => $company->id]);
+
+    makeActiveOnVesselAssignment($company, $employee, $rank, $firstVessel);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $secondVessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start', $planning), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $secondVessel->id,
+            'planned_join_at' => '2027-04-01',
+            'current_stage' => 'p1',
+        ])
+        ->assertSessionHasErrors('error');
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(1);
+});
+
+test('already linked active assignment does not create duplicate on start', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Linked Active Vessel');
+    grantCompanyPermissions($user, $company, planningStartPermissions());
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+    ]);
+
+    $active = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+    $planning->update(['crew_assignment_id' => $active->id]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create', ['planning_assignment_id' => $planning->id]))
+        ->assertRedirect(route('organization.crew-assignments.show', $active));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start', $planning), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2027-04-01',
+            'current_stage' => 'p1',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $active));
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(1);
+});
+
+test('existing linked draft redirects to assignment show for backward compatibility', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Linked Draft Vessel');
+    grantCompanyPermissions($user, $company, planningStartPermissions());
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+    ]);
+
+    $draft = app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $user->id);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create', ['planning_assignment_id' => $planning->fresh()->id]))
+        ->assertRedirect(route('organization.crew-assignments.show', $draft));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start', $planning->fresh()), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2027-04-01',
+            'current_stage' => 'p1',
+        ])
+        ->assertSessionHasErrors('error');
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(1);
+});
+
+test('relieves crew assignment id remains preserved when starting from planning', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Relief Start Vessel');
+    grantCompanyPermissions($user, $company, planningStartPermissions());
+    $user->update(['current_company_id' => $company->id]);
+
+    $onboardEmployee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+    $onboardAssignment = makeActiveOnVesselAssignment($company, $onboardEmployee, $rank, $vessel);
+
+    $reliefEmployee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $reliefEmployee->id,
+        'planned_join_date' => '2027-05-01',
+        'relieves_crew_assignment_id' => $onboardAssignment->id,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start', $planning), [
+            'employee_id' => $reliefEmployee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2027-05-01',
+            'current_stage' => 'p1',
+        ])
+        ->assertRedirect();
+
+    expect($planning->fresh()->relieves_crew_assignment_id)->toBe($onboardAssignment->id);
+});
+
+test('legacy create crew assignment post redirects to unified start form', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Legacy Redirect Vessel');
+    grantCompanyPermissions($user, $company, planningStartPermissions());
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.create-crew-assignment', $planning))
+        ->assertRedirect(route('organization.crew-assignments.create', [
+            'planning_assignment_id' => $planning->id,
+        ]));
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('start service creates exactly one assignment and links planning row', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Service Start Vessel');
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+    ]);
+
+    $result = app(StartCrewAssignmentFromPlanning::class)->handle($planning, [
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2027-04-01',
+        'current_stage' => 'p1',
+    ]);
+
+    expect($result['created_new'])->toBeTrue()
+        ->and(CrewAssignment::query()->where('employee_id', $employee->id)->count())->toBe(1)
+        ->and($planning->fresh()->crew_assignment_id)->toBe($result['assignment']->id)
+        ->and(CrewPlanningAssignment::query()->where('company_id', $company->id)->count())->toBe(1);
+});

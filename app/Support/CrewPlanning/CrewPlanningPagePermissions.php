@@ -14,6 +14,7 @@ final class CrewPlanningPagePermissions
      *     delete: bool,
      *     projection: bool,
      *     create_assignment: bool,
+     *     start_assignment: bool,
      *     view_assignments: bool,
      *     view_vessels: bool,
      *     view_employees: bool
@@ -28,6 +29,8 @@ final class CrewPlanningPagePermissions
             'delete' => $user?->can('crew_operations.planning.delete') ?? false,
             'projection' => $user?->can('crew_operations.vessel_manning.view') ?? false,
             'create_assignment' => $user?->can('crew_operations.assignments.create') ?? false,
+            'start_assignment' => ($user?->can('crew_operations.assignments.create') ?? false)
+                && ($user?->can('crew_operations.movements.perform') ?? false),
             'view_assignments' => $user?->can('crew_operations.assignments.view') ?? false,
             'view_vessels' => $user?->can('crew_operations.vessels.view') ?? false,
             'view_employees' => $user?->can('employees.view') ?? false,

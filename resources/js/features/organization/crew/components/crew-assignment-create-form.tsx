@@ -30,6 +30,8 @@ import type {
     CrewAssignmentCreateFormData,
     CrewAssignmentCreateFormOptions,
     CrewAssignmentPagePermissions,
+    CrewPlanningBackQuery,
+    CrewPlanningStartContext,
 } from '@/features/organization/crew/types';
 import { CREW_DIRECT_START_STAGES } from '@/features/organization/crew/types';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -40,6 +42,7 @@ import {
     store as storeAssignment,
 } from '@/routes/organization/crew-assignments';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
+import { start as startFromPlanning } from '@/routes/organization/crew-planning/assignments';
 
 let nextRowKey = 1;
 
@@ -53,10 +56,26 @@ function newCrewRow(): CrewMemberRowState {
     };
 }
 
-function createInitialRows(initialRowCount: number): {
+function createInitialRows(
+    initialRowCount: number,
+    planningContext?: CrewPlanningStartContext | null,
+): {
     rows: CrewMemberRowState[];
     keys: string[];
 } {
+    if (planningContext) {
+        const row: CrewMemberRowState = {
+            key: 'crew-row-planning',
+            employee_id: planningContext.employee_id,
+            rank_id: planningContext.rank_id,
+        };
+
+        return {
+            rows: [row],
+            keys: [row.key],
+        };
+    }
+
     const count = Math.max(1, initialRowCount);
     const rows: CrewMemberRowState[] = [];
 
@@ -91,24 +110,29 @@ export function CrewAssignmentCreateForm({
     form_options,
     can,
     initial_row_count = 1,
+    planning_context = null,
+    planning_back_query = null,
 }: {
     form_options: CrewAssignmentCreateFormOptions;
     can: CrewAssignmentPagePermissions;
     initial_row_count?: number;
+    planning_context?: CrewPlanningStartContext | null;
+    planning_back_query?: CrewPlanningBackQuery | null;
 }): ReactElement {
+    const fromPlanning = planning_context !== null;
     const initialRows = useMemo(
-        () => createInitialRows(initial_row_count),
-        [initial_row_count],
+        () => createInitialRows(initial_row_count, planning_context),
+        [initial_row_count, planning_context],
     );
     const [rowKeys, setRowKeys] = useState<string[]>(initialRows.keys);
     const [transferPromptOpen, setTransferPromptOpen] = useState(false);
 
     const form = useForm<UnifiedCreateFormData>({
-        client_id: null,
-        vessel_id: null,
-        planned_join_at: '',
-        current_stage: 'p1',
-        remarks: '',
+        client_id: planning_context?.client_id ?? null,
+        vessel_id: planning_context?.vessel_id ?? null,
+        planned_join_at: planning_context?.planned_join_at ?? '',
+        current_stage: planning_context?.current_stage ?? 'p1',
+        remarks: planning_context?.remarks ?? '',
         crew: initialRows.rows.map(({ employee_id, rank_id }) => ({
             employee_id,
             rank_id,
@@ -121,7 +145,7 @@ export function CrewAssignmentCreateForm({
         key: rowKeys[index] ?? `crew-row-fallback-${index}`,
     }));
 
-    const bulkMode = isBulkCreateMode(rows.length);
+    const bulkMode = !fromPlanning && isBulkCreateMode(rows.length);
     const singleRow = rows[0] ?? null;
     const currentOnVessel =
         !bulkMode && singleRow?.employee_id
@@ -154,10 +178,18 @@ export function CrewAssignmentCreateForm({
     const { readyCount, blockedCount, incompleteCount } = bulkSummary;
     const bulkCanSubmit = canSubmitBulkBatch(bulkSummary);
     const formErrors = form.errors as Record<string, string | undefined>;
-    const backHref = can.view ? crewAssignmentsIndex.url() : dashboard.url();
-    const backLabel = can.view
-        ? 'Back to Crew Assignments'
-        : 'Back to Dashboard';
+    const backHref = fromPlanning
+        ? crewPlanningIndex.url({
+              query: planning_back_query ?? undefined,
+          })
+        : can.view
+          ? crewAssignmentsIndex.url()
+          : dashboard.url();
+    const backLabel = fromPlanning
+        ? 'Back to Crew Planning'
+        : can.view
+          ? 'Back to Crew Assignments'
+          : 'Back to Dashboard';
     const stageLabel =
         CREW_DIRECT_START_STAGES.find(
             (stage) => stage.value === form.data.current_stage,
@@ -183,6 +215,18 @@ export function CrewAssignmentCreateForm({
         form.setData('submission_intent', intent);
 
         form.transform(() => {
+            if (fromPlanning) {
+                return {
+                    employee_id: row?.employee_id ?? null,
+                    rank_id: row?.rank_id ?? null,
+                    client_id: form.data.client_id,
+                    vessel_id: form.data.vessel_id,
+                    planned_join_at: form.data.planned_join_at,
+                    remarks: form.data.remarks,
+                    current_stage: form.data.current_stage,
+                };
+            }
+
             const payload: Omit<
                 CrewAssignmentCreateFormData,
                 'current_stage'
@@ -206,7 +250,11 @@ export function CrewAssignmentCreateForm({
             return payload;
         });
 
-        form.post(storeAssignment.url(), {
+        const postUrl = fromPlanning
+            ? startFromPlanning.url(planning_context!.planning_assignment_id)
+            : storeAssignment.url();
+
+        form.post(postUrl, {
             onFinish: () => form.transform((data) => data),
         });
     };
@@ -242,7 +290,7 @@ export function CrewAssignmentCreateForm({
             return;
         }
 
-        submitSingle(can.start ? 'start' : 'draft');
+        submitSingle(fromPlanning || can.start ? 'start' : 'draft');
     };
 
     const saveDraft = (): void => {
@@ -252,9 +300,13 @@ export function CrewAssignmentCreateForm({
     return (
         <Main>
             <DetailsHeader
-                kicker="Crew Assignments"
+                kicker={fromPlanning ? 'Crew Planning' : 'Crew Assignments'}
                 title="Start Crew Assignment"
-                description="Record crew operational positions and start the mobilisation cycle."
+                description={
+                    fromPlanning
+                        ? 'Review planning details and start the operational mobilisation cycle.'
+                        : 'Record crew operational positions and start the mobilisation cycle.'
+                }
                 backHref={backHref}
                 backLabel={backLabel}
             />
@@ -267,16 +319,33 @@ export function CrewAssignmentCreateForm({
                             aria-hidden
                         />
                         <div className="space-y-0.5 text-sm text-sky-900 dark:text-sky-100">
-                            <p className="font-medium">
-                                Start one crew member, or add more to start
-                                several assignments with the same mobilisation
-                                details.
-                            </p>
-                            <p className="text-xs text-sky-900/80 dark:text-sky-200/80">
-                                Save as Draft remains available for a single
-                                crew member. Future mobilisation belongs in Crew
-                                Planning.
-                            </p>
+                            {fromPlanning ? (
+                                <>
+                                    <p className="font-medium">
+                                        Planning values are forecasts only.
+                                        Actual movement timestamps are recorded
+                                        when you confirm Start Assignment.
+                                    </p>
+                                    <p className="text-xs text-sky-900/80 dark:text-sky-200/80">
+                                        Expected Vessel Join stays a forecast.
+                                        The assignment start time uses the
+                                        trusted server submit time.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="font-medium">
+                                        Start one crew member, or add more to
+                                        start several assignments with the same
+                                        mobilisation details.
+                                    </p>
+                                    <p className="text-xs text-sky-900/80 dark:text-sky-200/80">
+                                        Save as Draft remains available for a
+                                        single crew member. Future mobilisation
+                                        belongs in Crew Planning.
+                                    </p>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -289,7 +358,7 @@ export function CrewAssignmentCreateForm({
                                 formOptions={form_options}
                                 errors={formErrors}
                                 compact={bulkMode}
-                                canAddRow={can.start}
+                                canAddRow={can.start && !fromPlanning}
                                 onAddRow={() => {
                                     const next = newCrewRow();
                                     setRowKeys((keys) => [...keys, next.key]);
@@ -406,7 +475,8 @@ export function CrewAssignmentCreateForm({
                                     </Button>
                                 ) : null}
 
-                                {shouldShowSaveDraft(rows.length) ? (
+                                {shouldShowSaveDraft(rows.length) &&
+                                !fromPlanning ? (
                                     <Button
                                         type="button"
                                         variant={

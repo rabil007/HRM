@@ -107,13 +107,38 @@ A Planning record is **not** required before starting an operational assignment.
 
 ```text
 Crew Planning (optional future intention)
-    ↓ convert when ready
+    ↓ Start Assignment (review + confirm)
+Unified Start Assignment form (/organization/crew/create?planning_assignment_id=…)
+    ↓ confirm P0/P1
+CrewMovementService::startAssignment()
+    ↓
 Crew Assignment (operational cycle)
-    ↓ Start Assignment (manual, no Planning required)
+    ↓ movement lifecycle
 Crew Assignment Phases
     ↓ completed P4
 Employee Sea Service
 ```
+
+Manual Start Assignment (without Planning) remains available at `/organization/crew/create`.
+
+### Planning → Operational Start handoff
+
+Crew Planning records **future intention only**. Planning dates are forecasts and never become actual movement timestamps automatically.
+
+| Step | Behaviour |
+|------|-----------|
+| Planning row **Start Assignment** | Opens the unified Create UI with trusted server-side prefill. **Does not** create a `CrewAssignment`. |
+| Operations review | Employee, Rank, Client/Vessel, Expected Vessel Join, Remarks, and initial stage (P1 default; P0 optional). |
+| Confirm **Start Assignment** | `POST organization/crew-planning/assignments/{planning}/start` → `StartCrewAssignmentFromPlanning` → `CrewMovementService::startAssignment()` inside one transaction. |
+| Linking | Original `CrewPlanningAssignment` is linked via `crew_assignment_id`. `relieves_crew_assignment_id` is preserved. `source = crew_planning`. |
+| Timestamps | `started_at` and first phase `actual_start_at` use company-local trusted server submit time (`now()`). Planned Join remains `planned_join_at` forecast only. |
+| Planned Sign-Off | When present on the Planning row, `planned_leave_date` maps server-side to `CrewAssignment.planned_signoff_at`. It is not editable in the Start handoff and is not an actual disembarkation or payroll date. |
+| Permissions | Same as manual Start: `crew_operations.assignments.create` **and** `crew_operations.movements.perform`. Backend authorization is mandatory. |
+| Linked Active assignment | Redirect to the existing assignment; never create a duplicate. |
+| Linked Draft assignment | Backward compatible with the legacy draft-conversion workflow: redirect to the linked draft assignment show page; continue mobilisation from Crew Assignments (Start Travel / draft edits). |
+| Active assignment conflict | Reuses `CrewMovementService` active-assignment guards. Transfer Vessel / Redeploy remain separate workflows. |
+
+The legacy `POST organization/crew-planning/assignments/{planning}/create-crew-assignment` route now redirects to the unified Start form for bookmarks. `CreateCrewAssignmentFromPlanning` remains for programmatic draft creation in tests and legacy linked-draft compatibility.
 
 This phase does **not** redesign Crew Planning or spreadsheet import.
 
