@@ -49,11 +49,11 @@ export function CrewTimelineApproveDialog({
         <AlertDialog open={open} onOpenChange={handleOpenChange}>
             <AlertDialogContent className="glass-card">
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Approve timeline</AlertDialogTitle>
+                    <AlertDialogTitle>Approve Crew Timesheet</AlertDialogTitle>
                     <AlertDialogDescription>
                         Approving locks this preparation as the active approved
-                        timeline. Application to crew timesheets is not yet
-                        available.
+                        Crew Timesheet. It can then be applied to the linked
+                        payroll timesheets for this period.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="space-y-2">
