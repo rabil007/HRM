@@ -21,7 +21,9 @@ System or user creates one normal Crew pay period for the month (hybrid)
 
 - `CrewAssignment` and `CrewAssignmentPhase` remain the operational source of truth for movements.
 - Planned dates must never become actual payroll dates.
-- Only `actual_start_at` and `actual_end_at` are used.
+- Only `CrewAssignmentPhase.actual_start_at` and `actual_end_at` are used as payable movement dates.
+- `CrewAssignment.started_at` and `closed_at` describe the assignment lifecycle. They are never Crew payroll inputs.
+- Expected Vessel Join, Planned Sign-Off, Planned Travel Home, and Crew Planning dates are never payable movement dates.
 - Payroll must not wait for an assignment to finish before monthly preparation can exist.
 - Automatic preparation currently supports **daily** crew only.
 - Monthly crew payroll uses the explicit `unpaid_leave_days` field for leave/unpaid days.

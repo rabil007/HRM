@@ -103,6 +103,8 @@ These sentences are UI copy only (`crew-phase-descriptions.ts`). They do not cha
 
 A Planning record is **not** required before starting an operational assignment. `/organization/crew/create` is the fast operational-entry surface. Crew Planning remains the place to record future joins that have not started yet.
 
+**Assignment lifecycle vs payroll:** `CrewAssignment.started_at` and `closed_at` describe the assignment record lifecycle (when the operational cycle was started or closed in OMS). They are **not** Crew payroll inputs. Crew payroll is derived only from eligible actual `CrewAssignmentPhase.actual_start_at` / `actual_end_at` dates. Expected Vessel Join, Planned Sign-Off, Planned Travel Home, and Crew Planning dates are never payable movement dates.
+
 ```text
 Crew Planning (optional future intention)
     ↓ convert when ready
@@ -137,9 +139,9 @@ Prior phases are **never invented**. A P1 start has only P1 in the timeline.
 
 The create form does **not** collect Assignment Start Date & Time. Start uses company-local submit time. If a caller still supplies `stage_started_at` (tests or later Bulk Add), it is parsed in the company timezone, date-only values are rejected, and future timestamps are rejected.
 
-Quick create does **not** accept Planned Sign-Off or Planned Travel Home. Those columns remain for edit/show, P4 Plan Sign-Off, and other legitimate flows.
+Quick create does **not** accept Planned Sign-Off or Planned Travel Home. Those columns remain on the assignment for P4 Plan Sign-Off, Confirm Disembarkation, Crew Planning, and Movement Correction. Normal Edit Assignment does not expose or mutate them.
 
-Start Assignment does **not** snapshot Tour of Duty, create Sea Service, mark the employee On Vessel, or create P4. Expected Vessel Join never becomes P4 `actual_start_at`.
+Start Assignment does **not** snapshot Tour of Duty, create Sea Service, mark the employee On Vessel, or create P4. Expected Vessel Join never becomes P4 `actual_start_at`. `CrewAssignment.started_at` is the assignment lifecycle timestamp and is not a payroll input; the first phase `actual_start_at` is recorded as the same company-local submit instant for operational history.
 
 `SyncPlanningAssignmentFromCrewAssignment` still runs. A manually started pre-P4 assignment is **not** forced to manufacture a new Planning row when Planned Sign-Off is absent. Existing linked Planning rows stay linked.
 
@@ -157,7 +159,7 @@ Existing Draft assignments remain operable.
 
 ### Edit Assignment
 
-The edit form updates assignment details and expected dates (`planned_join_at` as Expected Vessel Join, planned sign-off, planned travel, master data, remarks). Current Assignment Stage and Assignment Start Date & Time are read-only context. The update request does not accept `started_at`, `current_stage`, or phase `actual_start_at` / `actual_end_at`. Historical/actual movement corrections remain on Movement Actions and Request Correction.
+The edit form updates assignment master data and Expected Vessel Join (`planned_join_at`) plus remarks. Current Assignment Stage is read-only context. The form does **not** expose Assignment Start Date & Time, Planned Sign-Off, Planned Travel Home, or editable actual movement timestamps. Stored `planned_signoff_at` / `planned_travel_at` remain on the record and continue to be owned by P4 Plan Sign-Off, Confirm Disembarkation, Crew Planning, and Movement Correction. The update request accepts only `rank_id`, `client_id`, `vessel_id`, `planned_join_at`, and `remarks`. It does not accept `started_at`, `current_stage`, phase `actual_start_at` / `actual_end_at`, `planned_signoff_at`, or `planned_travel_at`. Omitting those fields preserves existing stored values. Historical/actual movement corrections remain on Movement Actions and Request Correction. Correcting P1 Travel In updates that phase `actual_start_at` and does **not** rewrite `CrewAssignment.started_at`.
 
 ### Start Travel (`approve_mobilisation`)
 

@@ -150,6 +150,28 @@ test('explicit pre-mobilisation start assignment creates active p0', function ()
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 12:00');
 });
 
+test('explicit travel in start without stage_started_at uses identical company-local timestamps', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    Carbon::setTestNow(Carbon::parse('2026-09-15 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'current_stage' => 'p1',
+        ])
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 12:00')
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn)
+        ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue();
+});
+
 test('save as draft does not require stage started at and stays planned p0', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
 

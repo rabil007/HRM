@@ -19,7 +19,6 @@ import type {
     EmployeeOperationalStatus,
 } from '@/features/organization/crew/types';
 import { CREW_DIRECT_START_STAGES } from '@/features/organization/crew/types';
-import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
 type CrewSharedFormFields = {
@@ -29,8 +28,6 @@ type CrewSharedFormFields = {
     vessel_id: number | null;
     planned_join_at: string;
     remarks: string;
-    planned_signoff_at?: string;
-    planned_travel_at?: string;
     current_stage?: CrewAssignmentStartStage;
 };
 
@@ -53,7 +50,6 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
     mode = 'edit',
     showStartFields = mode === 'create',
     currentPhase = null,
-    assignmentStartedAt = null,
 }: {
     form: CrewFormBag<T>;
     formOptions: CrewAssignmentFormOptions | CrewAssignmentCreateFormOptions;
@@ -69,7 +65,6 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
         status?: string;
         started_at?: string | null;
     } | null;
-    assignmentStartedAt?: string | null;
 }): ReactElement {
     const [rankDefaultedFromProfile, setRankDefaultedFromProfile] =
         useState(false);
@@ -120,24 +115,6 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
                   (rank) => rank.id === selectedEmployee.rank_id,
               )?.name ?? null)
             : null;
-
-    const plannedSignOff =
-        'planned_signoff_at' in form.data
-            ? (form.data.planned_signoff_at ?? '')
-            : '';
-    const signOffBeforeJoin =
-        mode === 'edit' &&
-        form.data.planned_join_at !== '' &&
-        plannedSignOff !== '' &&
-        plannedSignOff < form.data.planned_join_at;
-
-    const showPlanningSyncNotice =
-        mode === 'edit' &&
-        form.data.vessel_id !== null &&
-        form.data.rank_id !== null &&
-        form.data.planned_join_at !== '' &&
-        plannedSignOff !== '' &&
-        !signOffBeforeJoin;
 
     const setOptionalId = (
         key: 'employee_id' | 'rank_id' | 'vessel_id' | 'client_id',
@@ -522,54 +499,13 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
                             Assignment Details
                         </h3>
                         <p className="text-xs text-muted-foreground">
-                            Update assignment details and expected dates here.
-                            Actual movement dates and phase changes are managed
-                            through Movement Actions.
+                            Update assignment details and expected vessel join
+                            here. Actual movements are managed through Movement
+                            Actions.
                         </p>
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                            <Label>Current Assignment Stage</Label>
-                            {currentPhase ? (
-                                <div className="flex min-h-11 flex-col justify-center gap-1 rounded-md border border-border/70 bg-muted/20 px-3 py-2">
-                                    <CrewPhaseBadge
-                                        code={currentPhase.code}
-                                        label={currentPhase.label}
-                                        status={currentPhase.status}
-                                    />
-                                    {crewPhaseDescription(currentPhase.code) ? (
-                                        <p className="text-xs text-muted-foreground">
-                                            {crewPhaseDescription(
-                                                currentPhase.code,
-                                            )}
-                                        </p>
-                                    ) : null}
-                                </div>
-                            ) : (
-                                <p className="flex h-11 items-center rounded-md border border-border/70 bg-muted/20 px-3 text-sm text-muted-foreground">
-                                    Not recorded
-                                </p>
-                            )}
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Assignment Start Date & Time</Label>
-                            <p className="flex h-11 items-center rounded-md border border-border/70 bg-muted/20 px-3 text-sm">
-                                {currentPhase?.started_at || assignmentStartedAt
-                                    ? formatDisplayDateTime12h(
-                                          currentPhase?.started_at ??
-                                              assignmentStartedAt,
-                                      )
-                                    : 'Not started'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                Read-only. Change actual times through Movement
-                                Actions or Request Correction.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-3">
                         <div className="space-y-2">
                             <Label htmlFor="planned_join_at">
                                 Expected Vessel Join{' '}
@@ -598,90 +534,29 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
                             <InputError message={form.errors.planned_join_at} />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="planned_signoff_at">
-                                Planned Sign-Off{' '}
-                                <span className="font-normal text-muted-foreground">
-                                    (optional)
-                                </span>
-                            </Label>
-                            <Input
-                                id="planned_signoff_at"
-                                type="date"
-                                className="h-11"
-                                min={
-                                    form.data.planned_join_at !== ''
-                                        ? form.data.planned_join_at
-                                        : undefined
-                                }
-                                value={plannedSignOff}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'planned_signoff_at',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                Expected vessel leave date. Actual leaving is
-                                recorded using Confirm Disembarkation.
-                            </p>
-                            {signOffBeforeJoin ? (
-                                <p className="text-xs font-medium text-destructive">
-                                    Planned Sign-Off cannot be before Expected
-                                    Vessel Join.
+                            <Label>Current Assignment Stage</Label>
+                            {currentPhase ? (
+                                <div className="flex min-h-11 flex-col justify-center gap-1 rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                                    <CrewPhaseBadge
+                                        code={currentPhase.code}
+                                        label={currentPhase.label}
+                                        status={currentPhase.status}
+                                    />
+                                    {crewPhaseDescription(currentPhase.code) ? (
+                                        <p className="text-xs text-muted-foreground">
+                                            {crewPhaseDescription(
+                                                currentPhase.code,
+                                            )}
+                                        </p>
+                                    ) : null}
+                                </div>
+                            ) : (
+                                <p className="flex h-11 items-center rounded-md border border-border/70 bg-muted/20 px-3 text-sm text-muted-foreground">
+                                    Not recorded
                                 </p>
-                            ) : null}
-                            <InputError
-                                message={
-                                    'planned_signoff_at' in form.errors
-                                        ? form.errors.planned_signoff_at
-                                        : undefined
-                                }
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="planned_travel_at">
-                                Planned Travel Home{' '}
-                                <span className="font-normal text-muted-foreground">
-                                    (optional)
-                                </span>
-                            </Label>
-                            <Input
-                                id="planned_travel_at"
-                                type="date"
-                                className="h-11"
-                                value={
-                                    'planned_travel_at' in form.data
-                                        ? (form.data.planned_travel_at ?? '')
-                                        : ''
-                                }
-                                onChange={(event) =>
-                                    form.setData(
-                                        'planned_travel_at',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                Expected return-travel date after vessel
-                                service.
-                            </p>
-                            <InputError
-                                message={
-                                    'planned_travel_at' in form.errors
-                                        ? form.errors.planned_travel_at
-                                        : undefined
-                                }
-                            />
+                            )}
                         </div>
                     </div>
-
-                    {showPlanningSyncNotice ? (
-                        <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-3 text-sm text-sky-900 dark:text-sky-100">
-                            A linked Planning bar will be created or updated
-                            automatically.
-                        </div>
-                    ) : null}
                 </section>
             )}
             <section className="space-y-2">

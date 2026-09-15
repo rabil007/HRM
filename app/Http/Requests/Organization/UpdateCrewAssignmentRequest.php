@@ -71,8 +71,6 @@ class UpdateCrewAssignmentRequest extends FormRequest
                 }),
             ],
             'planned_join_at' => ['nullable', 'date'],
-            'planned_signoff_at' => ['nullable', 'date', 'after_or_equal:planned_join_at'],
-            'planned_travel_at' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ];
     }

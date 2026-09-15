@@ -290,8 +290,6 @@ export interface CrewAssignmentFormData {
     client_id: number | null;
     vessel_id: number | null;
     planned_join_at: string;
-    planned_signoff_at: string;
-    planned_travel_at: string;
     remarks: string;
 }
 

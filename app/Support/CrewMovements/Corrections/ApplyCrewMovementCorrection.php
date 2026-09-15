@@ -66,13 +66,6 @@ final class ApplyCrewMovementCorrection
         $phase->refresh();
         $assignment->refresh();
 
-        if ($phase->phase_code === CrewPhaseCode::TravelIn
-            && $phase->actual_start_at instanceof CarbonInterface) {
-            $assignment->forceFill([
-                'started_at' => $phase->actual_start_at,
-            ])->save();
-        }
-
         if ($phase->phase_code === CrewPhaseCode::HomeRedeploy
             && $phase->status === CrewPhaseStatus::Completed
             && $phase->actual_end_at instanceof CarbonInterface) {

@@ -119,6 +119,8 @@ Key implementation files:
 
 Crew periods use `CrewTimesheet` data and support daily and monthly contract salary structures.
 
+Crew payroll movement days are derived only from eligible `CrewAssignmentPhase.actual_start_at` / `actual_end_at`. `CrewAssignment.started_at` and `closed_at` describe the assignment lifecycle and are not Crew payroll inputs. Expected Vessel Join, Planned Sign-Off, Planned Travel Home, and Crew Planning dates are never payable movement dates.
+
 For a daily structure, the calculator uses the three explicit operational categories — Sign-On Standby, Onsite, and Sign-Off Standby — plus overtime hours and active daily contract rates. Each category's days and pay are recorded separately in the calculation breakdown, along with `total_standby_days` (= `sign_on_standby_days` + `sign_off_standby_days`) and `total_standby_pay`. Site allowance, supplementary allowance, overtime, additions, and deductions are recorded separately.
 
 #### Incomplete unused flat-field movement categories

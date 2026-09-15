@@ -21,7 +21,7 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Assignment number format `CA-{YEAR}-{######}`
 - [ ] Save as Draft still creates Draft + Planned P0
 - [ ] Expected Vessel Join stores in `planned_join_at`
-- [ ] Edit Assignment shows Current Assignment Stage and Assignment Start Date & Time as read-only; changing them requires Movement Actions or Request Correction
+- [ ] Edit Assignment matches Create: employee locked, rank/client/vessel, Expected Vessel Join, Current Assignment Stage read-only, remarks. Planned Sign-Off, Planned Travel Home, and Assignment Start Date & Time are not on this form; those values stay owned by movement/planning workflows.
 
 ## 3. Standard lifecycle
 

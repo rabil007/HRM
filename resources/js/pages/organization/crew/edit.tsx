@@ -32,8 +32,6 @@ export default function CrewAssignmentEdit({
         client_id: assignment.client?.id ?? null,
         vessel_id: assignment.vessel?.id ?? null,
         planned_join_at: assignment.planned_join_at ?? '',
-        planned_signoff_at: assignment.planned_signoff_at ?? '',
-        planned_travel_at: assignment.planned_travel_at ?? '',
         remarks: assignment.remarks ?? '',
     });
 
@@ -54,8 +52,7 @@ export default function CrewAssignmentEdit({
     const planningFieldsChanged =
         form.data.vessel_id !== (assignment.vessel?.id ?? null) ||
         form.data.rank_id !== (assignment.rank?.id ?? null) ||
-        form.data.planned_join_at !== (assignment.planned_join_at ?? '') ||
-        form.data.planned_signoff_at !== (assignment.planned_signoff_at ?? '');
+        form.data.planned_join_at !== (assignment.planned_join_at ?? '');
 
     const handleSubmit = (event: React.FormEvent): void => {
         event.preventDefault();
@@ -77,7 +74,7 @@ export default function CrewAssignmentEdit({
                 <DetailsHeader
                     kicker="Crew Assignments"
                     title={`Edit ${assignment.assignment_no}`}
-                    description="Update assignment details and expected dates here. Actual movement dates and phase changes are managed through Movement Actions."
+                    description="Update assignment details and expected vessel join here. Actual movements are managed through Movement Actions."
                     backHref={showAssignment.url(assignment.id)}
                     backLabel="Back to Assignment"
                 />
@@ -90,9 +87,9 @@ export default function CrewAssignmentEdit({
                         />
                         <div className="space-y-1 text-sm text-sky-900 dark:text-sky-100">
                             <p>
-                                Update assignment details and expected dates
-                                here. Actual movement dates and phase changes
-                                are managed through Movement Actions.
+                                Update assignment details and expected vessel
+                                join here. Actual movements are managed through
+                                Movement Actions.
                             </p>
                             <p>
                                 Eligible changes automatically update the linked
@@ -115,10 +112,10 @@ export default function CrewAssignmentEdit({
                                     Planning bar
                                 </p>
                                 <p className="text-amber-800/90 dark:text-amber-200/90">
-                                    Vessel, rank, Expected Vessel Join, or
-                                    planned sign-off differ from the saved
-                                    assignment. Saving will create or update the
-                                    linked Planning Gantt bar to match.
+                                    Vessel, rank, or Expected Vessel Join differ
+                                    from the saved assignment. Saving will
+                                    create or update the linked Planning Gantt
+                                    bar to match.
                                 </p>
                             </div>
                         </div>
@@ -134,7 +131,6 @@ export default function CrewAssignmentEdit({
                                 lockEmployee
                                 employeeLabel={employeeLabel}
                                 currentPhase={assignment.current_phase}
-                                assignmentStartedAt={assignment.started_at}
                             />
 
                             <div className="flex flex-wrap gap-3 border-t border-border/60 pt-6">

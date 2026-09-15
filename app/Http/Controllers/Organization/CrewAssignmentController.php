@@ -347,8 +347,6 @@ class CrewAssignmentController extends Controller
             'client_id',
             'vessel_id',
             'planned_join_at',
-            'planned_signoff_at',
-            'planned_travel_at',
             'remarks',
         ]);
         $updateData['updated_by'] = $request->user()?->id;

@@ -89,11 +89,24 @@ export default function CrewAssignmentCreate({
         }
 
         form.setData('submission_intent', intent);
-        form.transform((data) => ({
-            ...data,
-            submission_intent: intent,
-            current_stage: intent === 'start' ? data.current_stage : undefined,
-        }));
+        form.transform((data) => {
+            const payload: Omit<
+                CrewAssignmentCreateFormData,
+                'current_stage'
+            > & {
+                current_stage?: CrewAssignmentCreateFormData['current_stage'];
+                stage_started_at?: string;
+            } = {
+                ...data,
+                submission_intent: intent,
+                current_stage:
+                    intent === 'start' ? data.current_stage : undefined,
+            };
+
+            delete payload.stage_started_at;
+
+            return payload;
+        });
         form.post(storeAssignment.url(), {
             onFinish: () => form.transform((data) => data),
         });

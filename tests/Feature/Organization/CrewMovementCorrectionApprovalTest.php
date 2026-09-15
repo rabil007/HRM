@@ -11,6 +11,7 @@ use App\Models\CrewMovementCorrection;
 use App\Models\EmployeeSeaService;
 use App\Models\User;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
+use App\Support\CrewMovements\CrewMovementService;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -229,4 +230,66 @@ test('approved corrections cannot be cancelled', function () {
         ->assertSessionHasErrors('correction');
 
     expect($correction->fresh()->status)->toBe(CrewMovementCorrectionStatus::Approved);
+});
+
+test('approving a p1 start correction updates the phase but does not rewrite assignment started_at', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $requester = $fixtures['user'];
+    $requester->update(['current_company_id' => $fixtures['company']->id]);
+    grantCompanyPermissions($requester, $fixtures['company'], [
+        'crew_operations.corrections.view',
+        'crew_operations.corrections.request',
+    ]);
+
+    $approver = User::factory()->create();
+    DB::table('company_user')->insert([
+        'company_id' => $fixtures['company']->id,
+        'user_id' => $approver->id,
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $approver->update(['current_company_id' => $fixtures['company']->id]);
+    grantCompanyPermissions($approver, $fixtures['company'], [
+        'crew_operations.corrections.view',
+        'crew_operations.corrections.approve',
+    ]);
+
+    $assignment = app(CrewMovementService::class)->startAssignment(
+        $fixtures['company']->id,
+        $fixtures['employee']->id,
+        [
+            'rank_id' => $fixtures['rank']->id,
+            'current_stage' => 'p1',
+            'stage_started_at' => '2026-09-15 08:00:00',
+        ],
+        $requester->id,
+    );
+
+    $phase = $assignment->currentPhase;
+    $originalStartedAt = $assignment->started_at?->copy();
+
+    $correction = app(RequestCrewMovementCorrection::class)->handle(
+        $assignment,
+        $phase,
+        $requester,
+        ['actual_start_at' => '2026-09-14 08:00'],
+        'Travel started a day earlier',
+    );
+
+    $this->actingAs($approver)
+        ->post(route('organization.crew-movement-corrections.approve', $correction), [
+            'decision_notes' => 'Verified against travel itinerary',
+        ])
+        ->assertRedirect(route('organization.crew-movement-corrections.show', $correction));
+
+    $assignment->refresh();
+    $phase->refresh();
+    $correction->refresh();
+
+    expect($correction->status)->toBe(CrewMovementCorrectionStatus::Approved)
+        ->and($correction->applied_values)->not->toBeNull()
+        ->and($assignment->started_at?->equalTo($originalStartedAt))->toBeTrue()
+        ->and($assignment->started_at?->timezone($fixtures['company']->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 08:00')
+        ->and($phase->actual_start_at?->timezone($fixtures['company']->timezone)->format('Y-m-d H:i'))->toBe('2026-09-14 08:00');
 });

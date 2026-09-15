@@ -22,9 +22,10 @@ Request correction
 
 Derived updates on approve:
 
-- P1 start → assignment `started_at`
 - Completed P6 end → assignment `closed_at`
 - Completed Training provider / completion date / course_id → linked `EmployeeTraining` `institute_center`, `issue_date`, `course_id`
+
+Correcting P1 Travel In updates that phase `actual_start_at` only. It does **not** rewrite `CrewAssignment.started_at`. Assignment `started_at` / `closed_at` describe the assignment lifecycle and are not Crew payroll inputs.
 
 ## Hard rules
 

@@ -91,7 +91,8 @@ test('1. Draft assignment allows opening edit page and updating planning fields'
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/crew/edit')
             ->where('assignment.id', $assignment->id)
-            ->where('assignment.is_editable', true));
+            ->where('assignment.is_editable', true)
+            ->where('assignment.planned_join_at', '2026-09-01'));
 
     $newRank = Rank::query()->create(['name' => 'New Draft Rank '.Str::uuid(), 'is_active' => true]);
 
@@ -295,9 +296,47 @@ test('9. Crew index payload exposes is_editable true for pre-P4 and false for P4
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/crew/index')
             ->has('assignments', 2)
-            ->where('assignments.0.is_editable', fn (bool $val) => true) // assignments sorted desc by created_at/id
-            ->where('assignments.1.is_editable', fn (bool $val) => true));
+            ->where('assignments', function ($assignments) use ($preP4, $p4): bool {
+                $byId = collect($assignments)->keyBy('id');
+
+                expect($byId[$preP4->id]['is_editable'])->toBeTrue()
+                    ->and($byId[$p4->id]['is_editable'])->toBeFalse();
+
+                return true;
+            }));
 });
+
+test('generic editability follows draft and pre-p4 mobilisation only', function (
+    ?CrewPhaseCode $phaseCode,
+    CrewAssignmentStatus $status,
+    bool $expected,
+) {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
+    $vessel = makeCrewMovementVessel('Editability Matrix Vessel');
+
+    if ($status === CrewAssignmentStatus::Draft) {
+        $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+        ]);
+    } else {
+        $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, $phaseCode ?? CrewPhaseCode::TravelIn, $status);
+    }
+
+    expect(CrewAssignmentEditability::isEditable($assignment->fresh(['currentPhase'])))->toBe($expected);
+})->with([
+    'draft' => [null, CrewAssignmentStatus::Draft, true],
+    'p0' => [CrewPhaseCode::PreMobilisation, CrewAssignmentStatus::Active, true],
+    'p1' => [CrewPhaseCode::TravelIn, CrewAssignmentStatus::Active, true],
+    'p2a' => [CrewPhaseCode::JoinStandby, CrewAssignmentStatus::Active, true],
+    'p2b' => [CrewPhaseCode::Training, CrewAssignmentStatus::Active, true],
+    'p3' => [CrewPhaseCode::ReadyToJoin, CrewAssignmentStatus::Active, true],
+    'p4' => [CrewPhaseCode::OnVessel, CrewAssignmentStatus::Active, false],
+    'p5' => [CrewPhaseCode::DemobStandby, CrewAssignmentStatus::Active, false],
+    'p6' => [CrewPhaseCode::HomeRedeploy, CrewAssignmentStatus::Active, false],
+    'completed' => [CrewPhaseCode::OnVessel, CrewAssignmentStatus::Completed, false],
+    'cancelled' => [CrewPhaseCode::TravelIn, CrewAssignmentStatus::Cancelled, false],
+]);
 
 test('10. Assignment show payload exposes is_editable true for P3 and false for P4', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
@@ -412,7 +451,7 @@ test('15. P4 Request Correction still works', function () {
     expect($p4->corrections()->where('status', 'pending')->exists())->toBeTrue();
 });
 
-test('16. clearing optional fields persists null in database', function () {
+test('16. clearing optional edit fields persists null without wiping stored planned sign-off or travel', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
     $vessel = makeCrewMovementVessel('Clear Fields Vessel');
     $client = Client::query()->create(['name' => 'Clear Client '.Str::uuid(), 'is_active' => true]);
@@ -454,8 +493,8 @@ test('16. clearing optional fields persists null in database', function () {
         ->and($fresh->rank_id)->toBeNull()
         ->and($fresh->client_id)->toBeNull()
         ->and($fresh->planned_join_at)->toBeNull()
-        ->and($fresh->planned_signoff_at)->toBeNull()
-        ->and($fresh->planned_travel_at)->toBeNull()
+        ->and($fresh->planned_signoff_at?->toDateString())->toBe('2026-11-01')
+        ->and($fresh->planned_travel_at?->toDateString())->toBe('2026-11-05')
         ->and($fresh->remarks)->toBeNull()
         ->and($fresh->updated_by)->toBe($user->id);
 });
@@ -471,10 +510,11 @@ test('17. partial update preserves omitted fields without nulling them', functio
         'vessel_id' => $vessel->id,
         'client_id' => $client->id,
         'planned_join_at' => '2026-08-01',
+        'planned_signoff_at' => '2026-11-01',
+        'planned_travel_at' => '2026-11-05',
         'remarks' => 'Initial remarks',
     ], $user->id);
 
-    // Submit partial payload omitting vessel_id, rank_id, client_id, planned_join_at
     $this->actingAs($user)
         ->put(route('organization.crew-assignments.update', $assignment), [
             'remarks' => 'Updated remarks only',
@@ -487,7 +527,9 @@ test('17. partial update preserves omitted fields without nulling them', functio
         ->and($fresh->vessel_id)->toBe($vessel->id)
         ->and($fresh->rank_id)->toBe($rank->id)
         ->and($fresh->client_id)->toBe($client->id)
-        ->and($fresh->planned_join_at->toDateString())->toBe('2026-08-01');
+        ->and($fresh->planned_join_at->toDateString())->toBe('2026-08-01')
+        ->and($fresh->planned_signoff_at?->toDateString())->toBe('2026-11-01')
+        ->and($fresh->planned_travel_at?->toDateString())->toBe('2026-11-05');
 });
 
 test('18. edit assignment cannot mutate started_at phase or actual movement timestamps', function () {
@@ -520,4 +562,49 @@ test('18. edit assignment cannot mutate started_at phase or actual movement time
         ->and($fresh->currentPhase?->phase_code)->toBe($originalPhaseCode)
         ->and($fresh->currentPhase?->actual_start_at?->equalTo($originalPhaseStart))->toBeTrue()
         ->and($fresh->currentPhase?->actual_end_at)->toBeNull();
+});
+
+test('19. normal edit payload updates expected vessel join and ignores planned sign-off or travel mutations', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
+    $vessel = makeCrewMovementVessel('Edit Payload Vessel');
+    $client = Client::query()->create(['name' => 'Edit Payload Client '.Str::uuid(), 'is_active' => true]);
+    $vessel->update(['client_id' => $client->id]);
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'client_id' => $client->id,
+        'planned_join_at' => '2026-08-01',
+        'planned_signoff_at' => '2026-11-01',
+        'planned_travel_at' => '2026-11-05',
+        'remarks' => 'Original remarks',
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.edit', $assignment))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/edit')
+            ->where('assignment.planned_join_at', '2026-08-01')
+            ->where('assignment.planned_signoff_at', '2026-11-01')
+            ->where('assignment.planned_travel_at', '2026-11-05'));
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-assignments.update', $assignment), [
+            'rank_id' => $rank->id,
+            'client_id' => $client->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-09-20',
+            'planned_signoff_at' => '2026-12-15',
+            'planned_travel_at' => '2026-12-20',
+            'remarks' => 'Updated from simplified edit form',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    $fresh = $assignment->fresh();
+
+    expect($fresh->planned_join_at?->toDateString())->toBe('2026-09-20')
+        ->and($fresh->remarks)->toBe('Updated from simplified edit form')
+        ->and($fresh->planned_signoff_at?->toDateString())->toBe('2026-11-01')
+        ->and($fresh->planned_travel_at?->toDateString())->toBe('2026-11-05');
 });
