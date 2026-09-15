@@ -29,7 +29,11 @@ Operational checklist after deploying Crew Movement changes.
 
 - [ ] Current Crew shows only **Start Assignment** (no separate Bulk Add Crew header action)
 - [ ] Start Assignment opens `/organization/crew/create` with **one** crew row
+- [ ] **Add Another Crew Member** is visible only with Start capability (`can.start`); create-only users stay on one row with Save as Draft only
 - [ ] **Add Another Crew Member** adds a second row; Save as Draft disappears; Start becomes **Start N Assignments**
+- [ ] Create-only user opening `/organization/crew/create?mode=bulk` still receives one crew row
+- [ ] A visible bulk row without an employee is marked incomplete; Start stays disabled until the row is completed or removed
+- [ ] Incomplete bulk rows are submitted to the server (not silently filtered) and rejected by backend validation with zero assignments created
 - [ ] Removing rows back to one restores Single mode (Start Assignment + Save as Draft)
 - [ ] Legacy `/organization/crew/bulk-create` redirects to the unified Create page for bookmarks
 - [ ] One-row Start posts to the normal Store endpoint; one-row Draft posts to Store with `submission_intent=draft`

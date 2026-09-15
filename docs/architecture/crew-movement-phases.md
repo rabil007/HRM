@@ -147,7 +147,7 @@ Start Assignment does **not** snapshot Tour of Duty, create Sea Service, mark th
 
 ### Bulk Add Crew (unified Create UI)
 
-Single and bulk start share one Create UI at `/organization/crew/create`. Current Crew does not expose a separate Bulk Add Crew action. One crew row uses the normal Store path; **Add Another Crew Member** switches the same page into bulk mode (2+ rows) and posts to the existing atomic bulk Store endpoint. Save as Draft remains **single-row only**. The legacy `/organization/crew/bulk-create` URL redirects to the unified Create page for bookmarks.
+Single and bulk start share one Create UI at `/organization/crew/create`. Current Crew does not expose a separate Bulk Add Crew action. One crew row uses the normal Store path; **Add Another Crew Member** (Start capability only) switches the same page into bulk mode (2+ rows) and posts to the existing atomic bulk Store endpoint. Save as Draft remains **single-row only** for create-only users who lack `crew_operations.movements.perform`. The legacy `/organization/crew/bulk-create` URL redirects to the unified Create page for bookmarks; create-only users still receive one row even when `?mode=bulk` is present.
 
 Bulk mode does not introduce a bulk-specific lifecycle, batch table, or spreadsheet import.
 
@@ -164,12 +164,12 @@ Current Crew
 
 | Rule | Behaviour |
 |------|-----------|
-| Permissions | Same as Start Assignment: `crew_operations.assignments.create` **and** `crew_operations.movements.perform`. Frontend `can.start` is UX only. |
+| Permissions | Same as Start Assignment: `crew_operations.assignments.create` **and** `crew_operations.movements.perform`. Frontend `can.start` is UX only. Bulk mode and **Add Another Crew Member** require Start capability; create-only users stay in Single/Draft mode. |
 | Common fields | Client, Vessel, Expected Vessel Join (`planned_join_at`), initial stage, remarks. Client/Vessel auto-resolution reuses `ClientAssignmentRules`. |
 | Per-row fields | Employee and Rank only. Rank still defaults from the employee profile. |
 | Starting stages | P1 Travel In default; P0 Pre-Mobilisation optional. Direct P2A/P2B/P3/P4/P5/P6 starts are rejected. |
 | Timestamp | One company-local server timestamp for the whole successful batch. The HTTP request does not accept `stage_started_at`, `started_at`, or browser-supplied company IDs. Each assignment `started_at` equals its initial phase `actual_start_at`. |
-| Atomicity | All-or-nothing. If any row is invalid or the employee already has an Active assignment, **no** assignments from that batch are committed. Partial success / Skip Blocked Rows is not in this phase. |
+| Atomicity | All-or-nothing. Every visible bulk row must have a selected employee or be removed by the user; incomplete, blocked, or invalid rows prevent the entire batch. If any row is invalid or the employee already has an Active assignment, **no** assignments from that batch are committed. Partial success / Skip Blocked Rows is not in this phase. |
 | Active assignment | Reuses `startAssignment()` locking and `assertNoActiveAssignment()`. On Vessel and other Active phases block the row/batch; Transfer Vessel remains the existing movement, not an automatic bulk action. |
 | Payroll / sea service | Unchanged. P0/P1 stay payroll-excluded. Bulk P0/P1 does not create `EmployeeSeaService` or invent P2A/P3/P4. Planning sync still runs through `startAssignment()`. |
 

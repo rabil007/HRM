@@ -14,7 +14,8 @@ import type { CrewMemberRowState } from '@/features/organization/crew/components
 import { CrewMembersSection } from '@/features/organization/crew/components/crew-members-section';
 import {
     bulkFieldError,
-    bulkRowIsBlocked,
+    canSubmitBulkBatch,
+    summarizeBulkRows,
 } from '@/features/organization/crew/lib/bulk-row-status';
 import {
     bulkStartButtonLabel,
@@ -147,13 +148,11 @@ export function CrewAssignmentCreateForm({
         (currentEmployeeStatus?.has_active_assignment ?? false) &&
         !canUseRecommendedTransfer;
 
-    const selectedRows = form.data.crew.filter(
-        (row) => row.employee_id != null,
+    const bulkSummary = summarizeBulkRows(form.data.crew, (employeeId) =>
+        lookupStatus(form_options, employeeId),
     );
-    const blockedCount = selectedRows.filter((row) =>
-        bulkRowIsBlocked(lookupStatus(form_options, row.employee_id)),
-    ).length;
-    const readyCount = selectedRows.length - blockedCount;
+    const { readyCount, blockedCount, incompleteCount } = bulkSummary;
+    const bulkCanSubmit = canSubmitBulkBatch(bulkSummary);
     const formErrors = form.errors as Record<string, string | undefined>;
     const backHref = can.view ? crewAssignmentsIndex.url() : dashboard.url();
     const backLabel = can.view
@@ -213,7 +212,7 @@ export function CrewAssignmentCreateForm({
     };
 
     const submitBulk = (): void => {
-        if (!can.start || blockedCount > 0) {
+        if (!can.start || !bulkCanSubmit) {
             return;
         }
 
@@ -223,12 +222,10 @@ export function CrewAssignmentCreateForm({
             planned_join_at: data.planned_join_at,
             current_stage: data.current_stage,
             remarks: data.remarks,
-            crew: data.crew
-                .filter((row) => row.employee_id != null)
-                .map((row) => ({
-                    employee_id: row.employee_id,
-                    rank_id: row.rank_id,
-                })),
+            crew: data.crew.map((row) => ({
+                employee_id: row.employee_id,
+                rank_id: row.rank_id,
+            })),
         }));
 
         form.post(bulkStore.url(), {
@@ -292,6 +289,7 @@ export function CrewAssignmentCreateForm({
                                 formOptions={form_options}
                                 errors={formErrors}
                                 compact={bulkMode}
+                                canAddRow={can.start}
                                 onAddRow={() => {
                                     const next = newCrewRow();
                                     setRowKeys((keys) => [...keys, next.key]);
@@ -343,6 +341,13 @@ export function CrewAssignmentCreateForm({
                                             ? '1 crew member ready'
                                             : `${readyCount} crew members ready`}
                                     </p>
+                                    {incompleteCount > 0 ? (
+                                        <p className="mt-1 font-medium text-destructive">
+                                            {incompleteCount === 1
+                                                ? '1 incomplete'
+                                                : `${incompleteCount} incomplete`}
+                                        </p>
+                                    ) : null}
                                     {blockedCount > 0 ? (
                                         <p className="mt-1 font-medium text-destructive">
                                             {blockedCount === 1
@@ -374,15 +379,16 @@ export function CrewAssignmentCreateForm({
                                         disabled={
                                             form.processing ||
                                             (bulkMode
-                                                ? readyCount < 1 ||
-                                                  blockedCount > 0
+                                                ? !bulkCanSubmit
                                                 : hasActiveAssignmentConflict)
                                         }
                                         title={
                                             bulkMode
-                                                ? blockedCount > 0
-                                                    ? 'Resolve blocked crew members before starting.'
-                                                    : undefined
+                                                ? incompleteCount > 0
+                                                    ? 'Complete or remove every crew row before starting.'
+                                                    : blockedCount > 0
+                                                      ? 'Resolve blocked crew members before starting.'
+                                                      : undefined
                                                 : transferRequiredButUnauthorized
                                                   ? 'Vessel Transfer is required for this move, but you do not have permission to perform it.'
                                                   : hasActiveAssignmentConflict
@@ -450,6 +456,14 @@ export function CrewAssignmentCreateForm({
                                         >
                                             Plan Crew Instead →
                                         </Link>
+                                    </p>
+                                ) : null}
+
+                                {bulkMode && incompleteCount > 0 ? (
+                                    <p className="w-full text-sm font-medium text-destructive">
+                                        {incompleteCount === 1
+                                            ? '1 crew member incomplete. Select an employee or remove this row.'
+                                            : `${incompleteCount} crew members incomplete. Select an employee or remove each highlighted row.`}
                                     </p>
                                 ) : null}
 

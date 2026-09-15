@@ -5,6 +5,9 @@ import {
     bulkFieldError,
     bulkRowBlockReason,
     bulkRowIsBlocked,
+    bulkRowIsIncomplete,
+    canSubmitBulkBatch,
+    summarizeBulkRows,
 } from './bulk-row-status.ts';
 
 function status(
@@ -85,6 +88,71 @@ describe('bulkRowBlockReason', () => {
                 null,
             ),
             'Join Standby — this employee already has an active Crew Assignment.',
+        );
+    });
+});
+
+describe('bulkRowIsIncomplete', () => {
+    it('treats rows without an employee as incomplete', () => {
+        assert.equal(bulkRowIsIncomplete(null), true);
+        assert.equal(bulkRowIsIncomplete(12), false);
+    });
+});
+
+describe('summarizeBulkRows', () => {
+    it('counts ready, blocked, and incomplete visible rows separately', () => {
+        const summary = summarizeBulkRows(
+            [{ employee_id: 1 }, { employee_id: null }, { employee_id: 2 }],
+            (employeeId) => {
+                if (employeeId === 2) {
+                    return status({ has_active_assignment: true });
+                }
+
+                return status({ has_active_assignment: false });
+            },
+        );
+
+        assert.deepEqual(summary, {
+            readyCount: 1,
+            blockedCount: 1,
+            incompleteCount: 1,
+        });
+    });
+});
+
+describe('canSubmitBulkBatch', () => {
+    it('allows submission only when every visible row is ready', () => {
+        assert.equal(
+            canSubmitBulkBatch({
+                readyCount: 2,
+                blockedCount: 0,
+                incompleteCount: 0,
+            }),
+            true,
+        );
+        assert.equal(
+            canSubmitBulkBatch({
+                readyCount: 1,
+                blockedCount: 0,
+                incompleteCount: 1,
+            }),
+            false,
+        );
+        assert.equal(
+            canSubmitBulkBatch({
+                readyCount: 1,
+                blockedCount: 1,
+                incompleteCount: 0,
+            }),
+            false,
+        );
+        assert.equal(
+            canSubmitBulkBatch({
+                readyCount: 0,
+                blockedCount: 0,
+                incompleteCount: 0,
+            }),
+            false,
         );
     });
 });

@@ -9,6 +9,50 @@ export function bulkRowIsBlocked(
     return status?.has_active_assignment === true;
 }
 
+export function bulkRowIsIncomplete(employeeId: number | null): boolean {
+    return employeeId == null;
+}
+
+export type BulkRowSummary = {
+    readyCount: number;
+    blockedCount: number;
+    incompleteCount: number;
+};
+
+export function summarizeBulkRows(
+    rows: Array<{ employee_id: number | null }>,
+    lookupStatus: (
+        employeeId: number | null,
+    ) => EmployeeOperationalStatus | null | undefined,
+): BulkRowSummary {
+    let readyCount = 0;
+    let blockedCount = 0;
+    let incompleteCount = 0;
+
+    for (const row of rows) {
+        if (bulkRowIsIncomplete(row.employee_id)) {
+            incompleteCount += 1;
+            continue;
+        }
+
+        if (bulkRowIsBlocked(lookupStatus(row.employee_id))) {
+            blockedCount += 1;
+        } else {
+            readyCount += 1;
+        }
+    }
+
+    return { readyCount, blockedCount, incompleteCount };
+}
+
+export function canSubmitBulkBatch(summary: BulkRowSummary): boolean {
+    return (
+        summary.readyCount >= 1 &&
+        summary.blockedCount === 0 &&
+        summary.incompleteCount === 0
+    );
+}
+
 export function bulkRowBlockReason(
     status: EmployeeOperationalStatus | null | undefined,
     activeOnVessel: ActiveOnVesselAssignment | null | undefined,

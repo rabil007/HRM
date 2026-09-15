@@ -132,6 +132,7 @@ test('bulk mode create page is available with create permission but bulk store r
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/crew/create')
+            ->where('initial_row_count', 1)
             ->where('can.create', true)
             ->where('can.start', false));
 
@@ -140,6 +141,25 @@ test('bulk mode create page is available with create permission but bulk store r
             'crew' => [['employee_id' => 1, 'rank_id' => 1]],
         ]))
         ->assertForbidden();
+});
+
+test('bulk store rejects an incomplete row and creates zero assignments', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingBulkAddCrewUser();
+    $employeeB = extraCrewEmployee($company, $rank, 'Ahmed Ali');
+
+    $this->actingAs($user)
+        ->from(unifiedBulkCreateUrl())
+        ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
+            'crew' => [
+                ['employee_id' => $employee->id, 'rank_id' => $rank->id],
+                ['employee_id' => null, 'rank_id' => null],
+                ['employee_id' => $employeeB->id, 'rank_id' => $rank->id],
+            ],
+        ]))
+        ->assertRedirect(unifiedBulkCreateUrl())
+        ->assertSessionHasErrors('crew.1.employee_id');
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
 test('current crew can.start flag matches bulk add capability', function () {

@@ -22,6 +22,7 @@ import {
     bulkFieldError,
     bulkRowBlockReason,
     bulkRowIsBlocked,
+    bulkRowIsIncomplete,
 } from '@/features/organization/crew/lib/bulk-row-status';
 import type {
     ActiveOnVesselAssignment,
@@ -50,6 +51,7 @@ export function CrewMembersSection({
     formOptions,
     errors,
     compact,
+    canAddRow,
     onAddRow,
     onRemoveRow,
     onChangeRow,
@@ -58,6 +60,7 @@ export function CrewMembersSection({
     formOptions: CrewAssignmentCreateFormOptions;
     errors: Record<string, string | undefined>;
     compact: boolean;
+    canAddRow: boolean;
     onAddRow: () => void;
     onRemoveRow: (index: number) => void;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
@@ -151,15 +154,17 @@ export function CrewMembersSection({
                 </>
             )}
 
-            <Button
-                type="button"
-                variant="outline"
-                className="h-11 rounded-xl"
-                onClick={onAddRow}
-            >
-                <Plus className="h-4 w-4" />
-                Add Another Crew Member
-            </Button>
+            {canAddRow ? (
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 rounded-xl"
+                    onClick={onAddRow}
+                >
+                    <Plus className="h-4 w-4" />
+                    Add Another Crew Member
+                </Button>
+            ) : null}
         </section>
     );
 }
@@ -283,7 +288,6 @@ function SingleCrewMemberCard({
                         Defaulted from employee profile
                     </p>
                 ) : null}
-                <InputError message={rankError} />
             </div>
 
             {status ? (
@@ -324,6 +328,7 @@ function BulkDesktopRow({
         formOptions.active_on_vessel_by_employee,
         row.employee_id,
     );
+    const incomplete = bulkRowIsIncomplete(row.employee_id);
     const blocked = bulkRowIsBlocked(status);
     const blockReason = bulkRowBlockReason(status, activeOnVessel);
 
@@ -331,7 +336,8 @@ function BulkDesktopRow({
         <TableRow
             className={cn(
                 dataTableBodyRowClass(false),
-                blocked && 'bg-destructive/5 dark:bg-destructive/10',
+                (blocked || incomplete) &&
+                    'bg-destructive/5 dark:bg-destructive/10',
             )}
         >
             <td className={dataTableCellClass()}>
@@ -359,6 +365,7 @@ function BulkDesktopRow({
                     activeOnVessel={activeOnVessel}
                     companyTimezone={formOptions.company_timezone}
                     blockReason={blockReason}
+                    incomplete={incomplete}
                     compact
                 />
             </td>
@@ -398,6 +405,7 @@ function BulkMobileCard({
         formOptions.active_on_vessel_by_employee,
         row.employee_id,
     );
+    const incomplete = bulkRowIsIncomplete(row.employee_id);
     const blocked = bulkRowIsBlocked(status);
     const blockReason = bulkRowBlockReason(status, activeOnVessel);
 
@@ -405,7 +413,7 @@ function BulkMobileCard({
         <div
             className={cn(
                 'space-y-4 rounded-xl border p-4',
-                blocked
+                blocked || incomplete
                     ? 'border-destructive/40 bg-destructive/5'
                     : status
                       ? getEmployeeStatusContainerClass(status.status)
@@ -449,6 +457,7 @@ function BulkMobileCard({
                 activeOnVessel={activeOnVessel}
                 companyTimezone={formOptions.company_timezone}
                 blockReason={blockReason}
+                incomplete={incomplete}
             />
         </div>
     );
@@ -556,14 +565,27 @@ function OperationalStatusCell({
     activeOnVessel,
     companyTimezone,
     blockReason,
+    incomplete = false,
     compact = false,
 }: {
     status: EmployeeOperationalStatus | null;
     activeOnVessel: ActiveOnVesselAssignment | null;
     companyTimezone?: string;
     blockReason: string | null;
+    incomplete?: boolean;
     compact?: boolean;
 }): ReactElement {
+    if (incomplete) {
+        return (
+            <div className="space-y-1">
+                <p className="text-sm font-medium">Incomplete</p>
+                <p className="text-xs font-medium text-destructive">
+                    Select an employee or remove this row.
+                </p>
+            </div>
+        );
+    }
+
     if (!status) {
         return (
             <p className="text-xs text-muted-foreground">Select an employee</p>

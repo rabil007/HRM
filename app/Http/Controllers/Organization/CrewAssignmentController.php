@@ -107,7 +107,8 @@ class CrewAssignmentController extends Controller
         Gate::authorize('create', CrewAssignment::class);
 
         $companyId = (int) $request->attributes->get('current_company_id');
-        $initialRowCount = $request->query('mode') === 'bulk' ? 2 : 1;
+        $permissions = CrewAssignmentPagePermissions::for($request->user());
+        $initialRowCount = $request->query('mode') === 'bulk' && $permissions['start'] ? 2 : 1;
 
         return Inertia::render('organization/crew/create', [
             'form_options' => CrewAssignmentCreateFormOptions::for($companyId, $request->user()),
