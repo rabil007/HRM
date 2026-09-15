@@ -19,21 +19,21 @@ final class StartCrewAssignmentFromPlanning
     ) {}
 
     /**
-     * @param  array<string, mixed>  $attributes
+     * @param  array{current_stage?: string|null, remarks?: string|null}  $operatorChoices
      * @return array{assignment: CrewAssignment, created_new: bool}
      */
     public function handle(
         CrewPlanningAssignment $planning,
-        array $attributes,
+        array $operatorChoices,
         ?int $actorId = null,
     ): array {
-        return DB::transaction(function () use ($planning, $attributes, $actorId): array {
+        return DB::transaction(function () use ($planning, $operatorChoices, $actorId): array {
             $planning = CrewPlanningAssignment::query()
                 ->whereKey($planning->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $this->handoff->assertStartable($planning);
+            $companyId = (int) $planning->company_id;
 
             $linked = $this->handoff->linkedAssignment($planning);
 
@@ -44,20 +44,22 @@ final class StartCrewAssignmentFromPlanning
                 ];
             }
 
+            $masters = $this->handoff->authoritativeStartMasters($planning, $companyId);
+
             $plannedSignoffAt = $planning->planned_leave_date !== null
                 ? $planning->planned_leave_date->toDateString().' 00:00:00'
                 : null;
 
             $assignment = $this->movements->startAssignment(
-                (int) $planning->company_id,
-                (int) $attributes['employee_id'],
+                $companyId,
+                $masters['employee_id'],
                 [
-                    'rank_id' => $attributes['rank_id'] ?? null,
-                    'client_id' => $attributes['client_id'] ?? null,
-                    'vessel_id' => $attributes['vessel_id'] ?? null,
-                    'planned_join_at' => $attributes['planned_join_at'] ?? null,
-                    'current_stage' => $attributes['current_stage'] ?? CrewPhaseCode::TravelIn->value,
-                    'remarks' => $attributes['remarks'] ?? null,
+                    'rank_id' => $masters['rank_id'],
+                    'client_id' => $masters['client_id'],
+                    'vessel_id' => $masters['vessel_id'],
+                    'planned_join_at' => $masters['planned_join_at'],
+                    'current_stage' => $operatorChoices['current_stage'] ?? CrewPhaseCode::TravelIn->value,
+                    'remarks' => $operatorChoices['remarks'] ?? null,
                     'source' => 'crew_planning',
                 ],
                 $actorId,

@@ -7,6 +7,7 @@ import { useZoom } from '../lib/zoom-context';
 import type {
     GanttBar,
     GanttVesselGroup,
+    PlanningBackQuery,
     PlanningPagePermissions,
     PlanningProjection,
     PlanningProjectionPeriod,
@@ -22,6 +23,7 @@ type Props = {
     search: string;
     highlightedRowKey: string | null;
     can: PlanningPagePermissions;
+    planningBackQuery?: PlanningBackQuery | null;
     projection?: PlanningProjection | null;
     showCoverage?: boolean;
     onRowClick?: (
@@ -100,6 +102,7 @@ export function PlanningGantt({
     search,
     highlightedRowKey,
     can,
+    planningBackQuery = null,
     projection = null,
     showCoverage = false,
     onRowClick,
@@ -284,6 +287,7 @@ export function PlanningGantt({
                                     }
                                     timelineMinWidth={timelineMinWidth}
                                     can={can}
+                                    planningBackQuery={planningBackQuery}
                                     projection={
                                         projectionByRow.get(rank.row_key) ??
                                         null

@@ -133,7 +133,8 @@ Crew Planning records **future intention only**. Planning dates are forecasts an
 | Linking | Original `CrewPlanningAssignment` is linked via `crew_assignment_id`. `relieves_crew_assignment_id` is preserved. `source = crew_planning`. |
 | Timestamps | `started_at` and first phase `actual_start_at` use company-local trusted server submit time (`now()`). Planned Join remains `planned_join_at` forecast only. |
 | Planned Sign-Off | When present on the Planning row, `planned_leave_date` maps server-side to `CrewAssignment.planned_signoff_at`. It is not editable in the Start handoff and is not an actual disembarkation or payroll date. |
-| Permissions | Same as manual Start: `crew_operations.assignments.create` **and** `crew_operations.movements.perform`. Backend authorization is mandatory. |
+| Permissions | Planning handoff requires `crew_operations.planning.view` **and** `crew_operations.assignments.create` **and** `crew_operations.movements.perform`. Normal manual Start at `/organization/crew/create` (without `planning_assignment_id`) does **not** require Planning view. Backend authorization is mandatory. |
+| Master data | Employee, Rank, Client, Vessel, and Expected Vessel Join come from the locked Planning record at Start. The handoff form is read-only for those fields; crafted POST values cannot override them. Update Planning separately when master data is wrong. |
 | Linked Active assignment | Redirect to the existing assignment; never create a duplicate. |
 | Linked Draft assignment | Backward compatible with the legacy draft-conversion workflow: redirect to the linked draft assignment show page; continue mobilisation from Crew Assignments (Start Travel / draft edits). |
 | Active assignment conflict | Reuses `CrewMovementService` active-assignment guards. Transfer Vessel / Redeploy remain separate workflows. |

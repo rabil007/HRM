@@ -12,6 +12,7 @@ import { VesselTransferRecommendationDialog } from '@/features/organization/crew
 import { CrewAssignmentCommonFields } from '@/features/organization/crew/components/crew-assignment-common-fields';
 import type { CrewMemberRowState } from '@/features/organization/crew/components/crew-members-section';
 import { CrewMembersSection } from '@/features/organization/crew/components/crew-members-section';
+import { PlanningStartAuthoritativeFields } from '@/features/organization/crew/components/planning-start-authoritative-fields';
 import {
     bulkFieldError,
     canSubmitBulkBatch,
@@ -147,15 +148,19 @@ export function CrewAssignmentCreateForm({
 
     const bulkMode = !fromPlanning && isBulkCreateMode(rows.length);
     const singleRow = rows[0] ?? null;
+    const planningEmployeeId = planning_context?.employee_id ?? null;
+    const effectiveEmployeeId = fromPlanning
+        ? planningEmployeeId
+        : (singleRow?.employee_id ?? null);
     const currentOnVessel =
-        !bulkMode && singleRow?.employee_id
+        !bulkMode && effectiveEmployeeId
             ? (form_options.active_on_vessel_by_employee?.[
-                  String(singleRow.employee_id)
+                  String(effectiveEmployeeId)
               ] ?? null)
             : null;
     const currentEmployeeStatus =
-        !bulkMode && singleRow?.employee_id
-            ? lookupStatus(form_options, singleRow.employee_id)
+        !bulkMode && effectiveEmployeeId
+            ? lookupStatus(form_options, effectiveEmployeeId)
             : null;
     const destinationVessel = form_options.vessels.find(
         (vessel) => vessel.id === form.data.vessel_id,
@@ -217,11 +222,6 @@ export function CrewAssignmentCreateForm({
         form.transform(() => {
             if (fromPlanning) {
                 return {
-                    employee_id: row?.employee_id ?? null,
-                    rank_id: row?.rank_id ?? null,
-                    client_id: form.data.client_id,
-                    vessel_id: form.data.vessel_id,
-                    planned_join_at: form.data.planned_join_at,
                     remarks: form.data.remarks,
                     current_stage: form.data.current_stage,
                 };
@@ -353,51 +353,61 @@ export function CrewAssignmentCreateForm({
                 <Card className="border-border/80 dark:border-white/10">
                     <CardContent className="p-6 md:p-8">
                         <form onSubmit={handleSubmit} className="space-y-10">
-                            <CrewMembersSection
-                                rows={rows}
-                                formOptions={form_options}
-                                errors={formErrors}
-                                compact={bulkMode}
-                                canAddRow={can.start && !fromPlanning}
-                                onAddRow={() => {
-                                    const next = newCrewRow();
-                                    setRowKeys((keys) => [...keys, next.key]);
-                                    form.setData('crew', [
-                                        ...form.data.crew,
-                                        {
-                                            employee_id: next.employee_id,
-                                            rank_id: next.rank_id,
-                                        },
-                                    ]);
-                                }}
-                                onRemoveRow={(index) => {
-                                    setRowKeys((keys) =>
-                                        keys.filter((_, i) => i !== index),
-                                    );
-                                    form.setData(
-                                        'crew',
-                                        form.data.crew.filter(
-                                            (_, i) => i !== index,
-                                        ),
-                                    );
-                                }}
-                                onChangeRow={(
-                                    index: number,
-                                    row: BulkAddCrewRow,
-                                ) => {
-                                    form.setData(
-                                        'crew',
-                                        form.data.crew.map((item, i) =>
-                                            i === index ? row : item,
-                                        ),
-                                    );
-                                }}
-                            />
+                            {fromPlanning && planning_context ? (
+                                <PlanningStartAuthoritativeFields
+                                    context={planning_context}
+                                />
+                            ) : (
+                                <CrewMembersSection
+                                    rows={rows}
+                                    formOptions={form_options}
+                                    errors={formErrors}
+                                    compact={bulkMode}
+                                    canAddRow={can.start && !fromPlanning}
+                                    onAddRow={() => {
+                                        const next = newCrewRow();
+                                        setRowKeys((keys) => [
+                                            ...keys,
+                                            next.key,
+                                        ]);
+                                        form.setData('crew', [
+                                            ...form.data.crew,
+                                            {
+                                                employee_id: next.employee_id,
+                                                rank_id: next.rank_id,
+                                            },
+                                        ]);
+                                    }}
+                                    onRemoveRow={(index) => {
+                                        setRowKeys((keys) =>
+                                            keys.filter((_, i) => i !== index),
+                                        );
+                                        form.setData(
+                                            'crew',
+                                            form.data.crew.filter(
+                                                (_, i) => i !== index,
+                                            ),
+                                        );
+                                    }}
+                                    onChangeRow={(
+                                        index: number,
+                                        row: BulkAddCrewRow,
+                                    ) => {
+                                        form.setData(
+                                            'crew',
+                                            form.data.crew.map((item, i) =>
+                                                i === index ? row : item,
+                                            ),
+                                        );
+                                    }}
+                                />
+                            )}
 
                             <CrewAssignmentCommonFields
                                 form={form}
                                 formOptions={form_options}
                                 showStartFields={can.start}
+                                showMasterFields={!fromPlanning}
                                 stagePresentation={
                                     bulkMode ? 'cards' : 'select'
                                 }

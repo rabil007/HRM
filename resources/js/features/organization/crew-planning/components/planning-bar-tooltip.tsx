@@ -1,5 +1,9 @@
 import type { ReactElement } from 'react';
-import type { GanttBar, PlanningPagePermissions } from '../types';
+import type {
+    GanttBar,
+    PlanningBackQuery,
+    PlanningPagePermissions,
+} from '../types';
 import { DraggableAssignmentBar } from './draggable-assignment-bar';
 import { ReadOnlyAssignmentBar } from './read-only-assignment-bar';
 
@@ -8,6 +12,7 @@ type Props = {
     style: React.CSSProperties;
     highlighted: boolean;
     can: PlanningPagePermissions;
+    planningBackQuery?: PlanningBackQuery | null;
     rangeFrom: Date;
     rangeTo: Date;
     onEdit?: (bar: GanttBar) => void;
@@ -19,6 +24,7 @@ export function PlanningGanttBar({
     style,
     highlighted,
     can,
+    planningBackQuery = null,
     rangeFrom,
     rangeTo,
     onEdit,
@@ -31,6 +37,7 @@ export function PlanningGanttBar({
                 style={style}
                 highlighted={highlighted}
                 can={can}
+                planningBackQuery={planningBackQuery}
                 rangeFrom={rangeFrom}
                 rangeTo={rangeTo}
                 onEdit={onEdit}
@@ -45,6 +52,7 @@ export function PlanningGanttBar({
             style={style}
             highlighted={highlighted}
             can={can}
+            planningBackQuery={planningBackQuery}
             onEdit={onEdit}
             onDelete={onDelete}
         />

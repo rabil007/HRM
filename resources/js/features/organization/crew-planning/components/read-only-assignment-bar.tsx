@@ -6,7 +6,11 @@ import {
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { barSurfaceClass } from '../lib/assignment-bar-styles';
-import type { GanttBar, PlanningPagePermissions } from '../types';
+import type {
+    GanttBar,
+    PlanningBackQuery,
+    PlanningPagePermissions,
+} from '../types';
 import { AssignmentBarLabel } from './assignment-bar-label';
 import { AssignmentBarPopover } from './assignment-bar-popover';
 
@@ -15,6 +19,7 @@ type Props = {
     style: React.CSSProperties;
     highlighted: boolean;
     can: PlanningPagePermissions;
+    planningBackQuery?: PlanningBackQuery | null;
     onEdit?: (bar: GanttBar) => void;
     onDelete?: (bar: GanttBar) => void;
 };
@@ -24,6 +29,7 @@ export function ReadOnlyAssignmentBar({
     style,
     highlighted,
     can,
+    planningBackQuery = null,
     onEdit,
     onDelete,
 }: Props): ReactElement {
@@ -57,6 +63,7 @@ export function ReadOnlyAssignmentBar({
                 <AssignmentBarPopover
                     bar={bar}
                     can={can}
+                    planningBackQuery={planningBackQuery}
                     onEdit={onEdit}
                     onDelete={onDelete}
                 />

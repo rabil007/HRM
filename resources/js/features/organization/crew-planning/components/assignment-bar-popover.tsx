@@ -2,7 +2,11 @@ import type { ReactElement } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { barAvatarClass } from '../lib/assignment-bar-styles';
-import type { GanttBar, PlanningPagePermissions } from '../types';
+import type {
+    GanttBar,
+    PlanningBackQuery,
+    PlanningPagePermissions,
+} from '../types';
 import { AssignmentBarActions } from './assignment-bar-actions';
 
 function initials(name: string): string {
@@ -66,6 +70,7 @@ function InfoRow({
 type Props = {
     bar: GanttBar;
     can: PlanningPagePermissions;
+    planningBackQuery?: PlanningBackQuery | null;
     onEdit?: (bar: GanttBar) => void;
     onDelete?: (bar: GanttBar) => void;
 };
@@ -73,6 +78,7 @@ type Props = {
 function AssignmentBarPopoverContent({
     bar,
     can,
+    planningBackQuery = null,
     onEdit,
     onDelete,
 }: Props): ReactElement {
@@ -182,6 +188,7 @@ function AssignmentBarPopoverContent({
                     <AssignmentBarActions
                         bar={bar}
                         can={can}
+                        planningBackQuery={planningBackQuery}
                         onEdit={onEdit}
                         onDelete={onDelete}
                     />

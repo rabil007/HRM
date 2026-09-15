@@ -86,6 +86,8 @@ export type PlanningFilters = {
     search: string;
 };
 
+export type PlanningBackQuery = Record<string, string | number>;
+
 export type PlanningPoolEmployee = {
     id: number;
     name: string;

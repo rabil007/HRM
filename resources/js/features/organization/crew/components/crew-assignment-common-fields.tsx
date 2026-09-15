@@ -48,11 +48,13 @@ export function CrewAssignmentCommonFields({
     formOptions,
     showStartFields = true,
     stagePresentation = 'select',
+    showMasterFields = true,
 }: {
     form: CommonFieldsForm;
     formOptions: CrewAssignmentCreateFormOptions;
     showStartFields?: boolean;
     stagePresentation?: 'select' | 'cards';
+    showMasterFields?: boolean;
 }): ReactElement {
     const vesselsForClient = filterVesselsForClient(
         formOptions.vessels,
@@ -80,106 +82,130 @@ export function CrewAssignmentCommonFields({
 
     return (
         <section className="space-y-6">
-            <div>
-                <h2 className="text-sm font-semibold tracking-tight">
-                    Assignment Details
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                    Expected Vessel Join is a target only. Actual vessel joining
-                    is recorded later through Join Vessel.
-                </p>
-            </div>
+            {showMasterFields ? (
+                <div>
+                    <h2 className="text-sm font-semibold tracking-tight">
+                        Assignment Details
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                        Expected Vessel Join is a target only. Actual vessel
+                        joining is recorded later through Join Vessel.
+                    </p>
+                </div>
+            ) : (
+                <div>
+                    <h2 className="text-sm font-semibold tracking-tight">
+                        Operational Start
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                        Choose the initial movement stage and optional remarks
+                        for this mobilisation.
+                    </p>
+                </div>
+            )}
 
             <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                    <Label htmlFor="crew-client">
-                        Client{' '}
-                        <span className="font-normal text-muted-foreground">
-                            (optional)
-                        </span>
-                    </Label>
-                    <AppSelect
-                        value={form.data.client_id?.toString() ?? ''}
-                        onValueChange={setClientId}
-                        variant="dark"
-                        placeholder="Select client..."
-                        searchPlaceholder="Search client..."
-                    >
-                        <AppSelectItem value="">No client</AppSelectItem>
-                        {formOptions.clients.map((client) => (
-                            <AppSelectItem
-                                key={client.id}
-                                value={String(client.id)}
+                {showMasterFields ? (
+                    <>
+                        <div className="space-y-2">
+                            <Label htmlFor="crew-client">
+                                Client{' '}
+                                <span className="font-normal text-muted-foreground">
+                                    (optional)
+                                </span>
+                            </Label>
+                            <AppSelect
+                                value={form.data.client_id?.toString() ?? ''}
+                                onValueChange={setClientId}
+                                variant="dark"
+                                placeholder="Select client..."
+                                searchPlaceholder="Search client..."
                             >
-                                {client.name}
-                            </AppSelectItem>
-                        ))}
-                    </AppSelect>
-                    <InputError message={form.errors.client_id} />
-                </div>
+                                <AppSelectItem value="">
+                                    No client
+                                </AppSelectItem>
+                                {formOptions.clients.map((client) => (
+                                    <AppSelectItem
+                                        key={client.id}
+                                        value={String(client.id)}
+                                    >
+                                        {client.name}
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+                            <InputError message={form.errors.client_id} />
+                        </div>
 
-                <div className="space-y-2">
-                    <Label htmlFor="crew-vessel">
-                        Vessel{' '}
-                        <span className="font-normal text-muted-foreground">
-                            (optional until vessel joining)
-                        </span>
-                    </Label>
-                    <AppSelect
-                        value={form.data.vessel_id?.toString() ?? ''}
-                        onValueChange={setVesselId}
-                        variant="dark"
-                        placeholder="Select vessel..."
-                        searchPlaceholder="Search vessel..."
-                    >
-                        <AppSelectItem value="">No vessel</AppSelectItem>
-                        {vesselsForClient.map((vessel) => (
-                            <AppSelectItem
-                                key={vessel.id}
-                                value={String(vessel.id)}
+                        <div className="space-y-2">
+                            <Label htmlFor="crew-vessel">
+                                Vessel{' '}
+                                <span className="font-normal text-muted-foreground">
+                                    (optional until vessel joining)
+                                </span>
+                            </Label>
+                            <AppSelect
+                                value={form.data.vessel_id?.toString() ?? ''}
+                                onValueChange={setVesselId}
+                                variant="dark"
+                                placeholder="Select vessel..."
+                                searchPlaceholder="Search vessel..."
                             >
-                                {vessel.name}
-                            </AppSelectItem>
-                        ))}
-                    </AppSelect>
-                    {form.data.client_id !== null &&
-                    vesselsForClient.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">
-                            No vessels are assigned to this client.
-                        </p>
-                    ) : null}
-                    {legacyUnassigned ? (
-                        <p className="text-xs text-muted-foreground">
-                            This vessel has no current client assignment. Map
-                            the vessel before changing the assignment&apos;s
-                            Client or Vessel.
-                        </p>
-                    ) : null}
-                    <InputError message={form.errors.vessel_id} />
-                </div>
+                                <AppSelectItem value="">
+                                    No vessel
+                                </AppSelectItem>
+                                {vesselsForClient.map((vessel) => (
+                                    <AppSelectItem
+                                        key={vessel.id}
+                                        value={String(vessel.id)}
+                                    >
+                                        {vessel.name}
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+                            {form.data.client_id !== null &&
+                            vesselsForClient.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">
+                                    No vessels are assigned to this client.
+                                </p>
+                            ) : null}
+                            {legacyUnassigned ? (
+                                <p className="text-xs text-muted-foreground">
+                                    This vessel has no current client
+                                    assignment. Map the vessel before changing
+                                    the assignment&apos;s Client or Vessel.
+                                </p>
+                            ) : null}
+                            <InputError message={form.errors.vessel_id} />
+                        </div>
 
-                <div className="space-y-2">
-                    <Label htmlFor="planned_join_at">
-                        Expected Vessel Join{' '}
-                        <span className="font-normal text-muted-foreground">
-                            (optional)
-                        </span>
-                    </Label>
-                    <Input
-                        id="planned_join_at"
-                        type="date"
-                        className="h-11"
-                        value={form.data.planned_join_at}
-                        onChange={(event) =>
-                            form.setData('planned_join_at', event.target.value)
-                        }
-                    />
-                    <p className="text-xs text-muted-foreground">
-                        Expected date the crew member should join the vessel.
-                        Actual joining is recorded later through Join Vessel.
-                    </p>
-                    <InputError message={form.errors.planned_join_at} />
-                </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="planned_join_at">
+                                Expected Vessel Join{' '}
+                                <span className="font-normal text-muted-foreground">
+                                    (optional)
+                                </span>
+                            </Label>
+                            <Input
+                                id="planned_join_at"
+                                type="date"
+                                className="h-11"
+                                value={form.data.planned_join_at}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'planned_join_at',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Expected date the crew member should join the
+                                vessel. Actual joining is recorded later through
+                                Join Vessel.
+                            </p>
+                            <InputError message={form.errors.planned_join_at} />
+                        </div>
+                    </>
+                ) : null}
 
                 {showStartFields ? (
                     stagePresentation === 'cards' ? (

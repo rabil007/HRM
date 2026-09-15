@@ -114,6 +114,29 @@ test('user without movement permission receives 403 on legacy conversion redirec
         ->assertForbidden();
 });
 
+test('user without planning view permission receives 403 on legacy conversion redirect route', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('No Planning View Vessel');
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id, 'status' => 'active']);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.create-crew-assignment', $planning))
+        ->assertForbidden();
+});
+
 test('cross company planning row cannot open start handoff and returns 404', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
     ['company' => $otherCompany] = makeCrewAssignmentFixtures();

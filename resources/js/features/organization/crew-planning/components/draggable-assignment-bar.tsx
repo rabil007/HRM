@@ -18,7 +18,11 @@ import {
     pxToDays,
     shiftDateRange,
 } from '../lib/planning-gantt-math';
-import type { GanttBar, PlanningPagePermissions } from '../types';
+import type {
+    GanttBar,
+    PlanningBackQuery,
+    PlanningPagePermissions,
+} from '../types';
 import { AssignmentBarLabel } from './assignment-bar-label';
 import { AssignmentBarPopover } from './assignment-bar-popover';
 
@@ -37,6 +41,7 @@ type Props = {
     style: React.CSSProperties;
     highlighted: boolean;
     can: PlanningPagePermissions;
+    planningBackQuery?: PlanningBackQuery | null;
     rangeFrom: Date;
     rangeTo: Date;
     onEdit?: (bar: GanttBar) => void;
@@ -48,6 +53,7 @@ export function DraggableAssignmentBar({
     style,
     highlighted,
     can,
+    planningBackQuery = null,
     rangeFrom,
     rangeTo,
     onEdit,
@@ -272,6 +278,7 @@ export function DraggableAssignmentBar({
                 <AssignmentBarPopover
                     bar={bar}
                     can={can}
+                    planningBackQuery={planningBackQuery}
                     onEdit={onEdit}
                     onDelete={onDelete}
                 />

@@ -4,11 +4,16 @@ import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
 import { create as createCrewAssignment } from '@/routes/organization/crew-assignments';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
-import type { GanttBar, PlanningPagePermissions } from '../types';
+import type {
+    GanttBar,
+    PlanningBackQuery,
+    PlanningPagePermissions,
+} from '../types';
 
 type Props = {
     bar: GanttBar;
     can: PlanningPagePermissions;
+    planningBackQuery?: PlanningBackQuery | null;
     onEdit?: (bar: GanttBar) => void;
     onDelete?: (bar: GanttBar) => void;
 };
@@ -16,6 +21,7 @@ type Props = {
 export function AssignmentBarActions({
     bar,
     can,
+    planningBackQuery = null,
     onEdit,
     onDelete,
 }: Props): ReactElement | null {
@@ -49,6 +55,7 @@ export function AssignmentBarActions({
     const startHref = createCrewAssignment.url({
         query: {
             planning_assignment_id: bar.id,
+            ...(planningBackQuery ?? {}),
         },
     });
 

@@ -80,8 +80,19 @@ Operational checklist after deploying Crew Movement changes.
 
 ## 6. Planning
 
-- [ ] Confirming a planning assignment creates one draft CrewAssignment
-- [ ] Repeat confirm is idempotent and keeps exactly one planning row
+- [ ] Planning row **Start Assignment** opens the unified Start form without creating a CrewAssignment
+- [ ] Planning master data (Employee, Rank, Client, Vessel, Expected Join) is read-only on the handoff form
+- [ ] Confirm Start creates one Active CrewAssignment with one P0/P1 phase, `source = crew_planning`, and links the original planning row
+- [ ] Expected Join and Planned Sign-Off remain forecasts; actual start uses trusted server submit time
+- [ ] P1 default / P0 optional; direct P2A–P6 rejected
+- [ ] Back/Cancel returns to Crew Planning with practical filter context preserved
+- [ ] User without `crew_operations.planning.view` cannot open or submit the Planning → Start handoff
+- [ ] Crafted POST cannot substitute employee/rank/vessel/client/planned join — server uses locked Planning values
+- [ ] Expected Join after Planned Sign-Off is rejected at Start
+- [ ] Relief planning preserves `relieves_crew_assignment_id` and rejects incompatible relief state
+- [ ] Linked Active assignment opens existing record without duplicate
+- [ ] Linked Draft assignment remains backward compatible (redirect to existing draft workflow)
+- [ ] Repeat Start on linked Active is idempotent and keeps exactly one planning row
 - [ ] Manual Crew Assignments draft with vessel/rank/join/sign-off creates a planning bar
 - [ ] Join vessel without sign-off shows an open-ended Assigned bar on the Gantt
 - [ ] Plan sign-off updates the same planning bar leave date

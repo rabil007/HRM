@@ -15,6 +15,7 @@ import {
 } from '../lib/planning-gantt-math';
 import type {
     GanttBar,
+    PlanningBackQuery,
     PlanningPagePermissions,
     PlanningProjectionPeriod,
     PlanningProjectionRow,
@@ -44,6 +45,7 @@ type Props = {
     isHighlighted: boolean;
     timelineMinWidth: number;
     can: PlanningPagePermissions;
+    planningBackQuery?: PlanningBackQuery | null;
     projection?: PlanningProjectionRow | null;
     showCoverage?: boolean;
     isDraggingBar?: boolean;
@@ -90,6 +92,7 @@ export function PlanningGanttRow({
     isHighlighted,
     timelineMinWidth,
     can,
+    planningBackQuery = null,
     projection = null,
     showCoverage = false,
     isDraggingBar = false,
@@ -262,6 +265,7 @@ export function PlanningGanttRow({
                                 style={style}
                                 highlighted={isBarHighlighted}
                                 can={can}
+                                planningBackQuery={planningBackQuery}
                                 rangeFrom={rangeFrom}
                                 rangeTo={rangeTo}
                                 onEdit={onEditBar}

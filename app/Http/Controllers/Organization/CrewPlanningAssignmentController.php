@@ -56,14 +56,21 @@ class CrewPlanningAssignmentController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_if($assignment->company_id !== $companyId, 404);
 
-        if (! $request->user()?->can('crew_operations.assignments.create')
+        if (! $request->user()?->can('crew_operations.planning.view')
+            || ! $request->user()->can('crew_operations.assignments.create')
             || ! $request->user()->can('crew_operations.movements.perform')) {
             abort(403);
         }
 
-        return redirect()->route('organization.crew-assignments.create', [
+        return redirect()->route('organization.crew-assignments.create', array_filter([
             'planning_assignment_id' => $assignment->id,
-        ]);
+            'view' => $request->query('view'),
+            'vessel_id' => $request->query('vessel_id'),
+            'rank_id' => $request->query('rank_id'),
+            'from' => $request->query('from'),
+            'to' => $request->query('to'),
+            'search' => $request->query('search'),
+        ], fn ($value) => $value !== null && $value !== ''));
     }
 
     public function startAssignment(

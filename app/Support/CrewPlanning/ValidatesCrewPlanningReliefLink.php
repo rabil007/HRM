@@ -5,13 +5,35 @@ namespace App\Support\CrewPlanning;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Exceptions\CrewMovementException;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
+use Illuminate\Support\Facades\Validator as ValidatorFacade;
 use Illuminate\Validation\Validator;
 
 final class ValidatesCrewPlanningReliefLink
 {
+    public static function assertOrThrow(CrewPlanningAssignment $planning): void
+    {
+        $validator = ValidatorFacade::make([], []);
+
+        self::validate($validator, [
+            'company_id' => (int) $planning->company_id,
+            'relieves_crew_assignment_id' => $planning->relieves_crew_assignment_id,
+            'vessel_id' => $planning->vessel_id,
+            'rank_id' => $planning->rank_id,
+            'employee_id' => $planning->employee_id,
+        ], $planning);
+
+        if ($validator->errors()->isNotEmpty()) {
+            throw CrewMovementException::make(
+                (string) $validator->errors()->first(),
+                'planning_relief_invalid',
+            );
+        }
+    }
+
     /**
      * Early Form Request validation for relief links.
      *

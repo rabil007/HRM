@@ -43,6 +43,7 @@ import type {
     CrewPlanningView,
     GanttBar,
     GanttVesselGroup,
+    PlanningBackQuery,
     PlanningFilters,
     PlanningOption,
     PlanningPagePermissions,
@@ -166,6 +167,16 @@ export function CrewPlanningContent({
             : view === 'relief'
               ? 'relief'
               : 'planning';
+    const planningBackQuery = Object.fromEntries(
+        Object.entries({
+            view: currentView,
+            vessel_id: filters.vessel_id,
+            rank_id: filters.rank_id,
+            from: filters.from,
+            to: filters.to,
+            search: filters.search,
+        }).filter(([, value]) => value !== null && value !== ''),
+    ) as PlanningBackQuery;
     const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState(filters.search ?? '');
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -698,6 +709,7 @@ export function CrewPlanningContent({
                                 search={searchInput}
                                 highlightedRowKey={selectedRowKey}
                                 can={can}
+                                planningBackQuery={planningBackQuery}
                                 projection={projection}
                                 showCoverage={can.projection && showCoverage}
                                 onRowClick={handleRowClick}

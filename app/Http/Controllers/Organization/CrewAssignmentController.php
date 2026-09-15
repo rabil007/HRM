@@ -117,7 +117,7 @@ class CrewAssignmentController extends Controller
         $planningAssignmentId = $request->query('planning_assignment_id');
 
         if ($planningAssignmentId !== null && $planningAssignmentId !== '') {
-            if (! $permissions['start']) {
+            if (! $permissions['start'] || ! $request->user()?->can('crew_operations.planning.view')) {
                 abort(403);
             }
 
@@ -143,7 +143,7 @@ class CrewAssignmentController extends Controller
             }
 
             try {
-                $planningContext = $planningHandoff->prefill($planning);
+                $planningContext = $planningHandoff->prefill($planning, $companyId);
             } catch (CrewMovementException $exception) {
                 return redirect()
                     ->route('organization.crew-planning.index')

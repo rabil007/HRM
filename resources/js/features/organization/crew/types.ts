@@ -384,6 +384,7 @@ export type CrewPlanningStartContext = {
     vessel_id: number;
     vessel_name: string;
     client_id: number | null;
+    client_name: string | null;
     planned_join_at: string;
     remarks: string | null;
     current_stage: CrewAssignmentStartStage;
