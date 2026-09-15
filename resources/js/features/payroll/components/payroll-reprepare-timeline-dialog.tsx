@@ -27,14 +27,14 @@ export function PayrollReprepareTimelineDialog({
             <AlertDialogContent className="glass-card">
                 <AlertDialogHeader>
                     <AlertDialogTitle>
-                        Re-prepare timeline from Crew Operations?
+                        Prepare a new Crew Timesheet version?
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                        This creates a new draft version from the latest Crew
-                        Operations movement data. The current version{' '}
+                        This creates a new draft Crew Timesheet version from the
+                        latest Crew Operations movement data. The current version{' '}
                         {currentVersion} and any review progress on it will be
-                        superseded. Use this only when the underlying timeline
-                        has changed.
+                        superseded. Use this when the underlying Crew Operations
+                        data has changed.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
