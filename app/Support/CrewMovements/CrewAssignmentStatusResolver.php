@@ -265,9 +265,8 @@ final class CrewAssignmentStatusResolver
             $label = 'Needs update';
         }
 
-        // Draft (P0 Pre-Mobilisation) is not counted as an active-assignment conflict
-        // because the backend currently allows multiple drafts. Only truly Active
-        // assignments should prevent accidental duplicate creation in the UI.
+        // Draft P0 is incomplete preparation and is not an active-assignment conflict.
+        // Active P0 is a real operational Pre-Mobilisation period and blocks another assignment.
         $hasActiveAssignment = $assignment->status === CrewAssignmentStatus::Active;
 
         return $this->payload(

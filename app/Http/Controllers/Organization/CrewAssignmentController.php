@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Organization;
 
+use App\Enums\CrewAssignmentSubmissionIntent;
 use App\Enums\RecentItemType;
 use App\Enums\SavedViewPage;
 use App\Exceptions\CrewMovementException;
@@ -156,14 +157,20 @@ class CrewAssignmentController extends Controller
 
     public function store(StoreCrewAssignmentRequest $request)
     {
-        Gate::authorize('create', CrewAssignment::class);
+        $intent = $request->submissionIntent();
+
+        if ($intent === CrewAssignmentSubmissionIntent::Start) {
+            Gate::authorize('start', CrewAssignment::class);
+        } else {
+            Gate::authorize('create', CrewAssignment::class);
+        }
 
         $companyId = (int) $request->attributes->get('current_company_id');
         $validated = $request->validated();
 
         try {
-            $assignment = DB::transaction(function () use ($companyId, $validated, $request) {
-                $assignment = $this->service->createDraft(
+            $assignment = $intent === CrewAssignmentSubmissionIntent::Start
+                ? $this->service->startAssignment(
                     $companyId,
                     (int) $validated['employee_id'],
                     [
@@ -171,27 +178,44 @@ class CrewAssignmentController extends Controller
                         'client_id' => $validated['client_id'] ?? null,
                         'vessel_id' => $validated['vessel_id'] ?? null,
                         'planned_join_at' => $validated['planned_join_at'] ?? null,
-                        'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
-                        'planned_travel_at' => $validated['planned_travel_at'] ?? null,
+                        'current_stage' => $validated['current_stage'] ?? null,
+                        'stage_started_at' => $validated['stage_started_at'] ?? null,
                         'remarks' => $validated['remarks'] ?? null,
                     ],
                     $request->user()?->id,
-                );
+                )
+                : DB::transaction(function () use ($companyId, $validated, $request) {
+                    $assignment = $this->service->createDraft(
+                        $companyId,
+                        (int) $validated['employee_id'],
+                        [
+                            'rank_id' => $validated['rank_id'] ?? null,
+                            'client_id' => $validated['client_id'] ?? null,
+                            'vessel_id' => $validated['vessel_id'] ?? null,
+                            'planned_join_at' => $validated['planned_join_at'] ?? null,
+                            'remarks' => $validated['remarks'] ?? null,
+                        ],
+                        $request->user()?->id,
+                    );
 
-                $this->planningSync->sync($assignment);
+                    $this->planningSync->sync($assignment);
 
-                return $assignment->fresh() ?? $assignment;
-            });
+                    return $assignment->fresh() ?? $assignment;
+                });
+
+            $success = $intent === CrewAssignmentSubmissionIntent::Start
+                ? 'Crew assignment started successfully.'
+                : 'Crew assignment created successfully.';
 
             if (Gate::allows('view', $assignment)) {
                 return redirect()
                     ->route('organization.crew-assignments.show', $assignment)
-                    ->with('success', 'Crew assignment created successfully.');
+                    ->with('success', $success);
             }
 
             return redirect()
                 ->route('dashboard')
-                ->with('success', 'Crew assignment created successfully.');
+                ->with('success', $success);
         } catch (CrewMovementException $e) {
             throw ValidationException::withMessages(['error' => $e->getMessage()]);
         }

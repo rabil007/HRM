@@ -122,7 +122,7 @@ export function CrewAssignmentsTableRow({
             <TableCell className={dataTableCellClass()}>
                 <div className="flex flex-col gap-1">
                     <div className="text-[11px] text-muted-foreground/70">
-                        Planned join
+                        Expected Join
                     </div>
                     <div className="font-medium">
                         {formatDisplayDate(assignment.planned_join_at)}

@@ -295,6 +295,30 @@ export interface CrewAssignmentFormData {
     remarks: string;
 }
 
+export type CrewAssignmentStartStage = 'p0' | 'p1' | 'p2a' | 'p3';
+
+export interface CrewAssignmentCreateFormData {
+    employee_id: number | null;
+    rank_id: number | null;
+    client_id: number | null;
+    vessel_id: number | null;
+    planned_join_at: string;
+    current_stage: CrewAssignmentStartStage;
+    stage_started_at: string;
+    submission_intent: 'start' | 'draft';
+    remarks: string;
+}
+
+export const CREW_DIRECT_START_STAGES: Array<{
+    value: CrewAssignmentStartStage;
+    label: string;
+}> = [
+    { value: 'p0', label: 'P0 Pre-Mobilisation' },
+    { value: 'p1', label: 'P1 Travel In' },
+    { value: 'p2a', label: 'P2A Join Standby' },
+    { value: 'p3', label: 'P3 Ready to Join' },
+];
+
 export interface CrewAssignmentFormOptions {
     employees: Array<{
         id: number;
@@ -331,7 +355,7 @@ export interface EmployeeOperationalStatus {
     warning: string | null;
     in_home_days: number | null;
     vessel_name: string | null;
-    /** Always present. True when the employee has a truly Active (P1-P6) assignment. False for Draft (P0), completed, or no assignment. */
+    /** Always present. True when the employee has an Active assignment, including Active P0. False for Draft P0, completed, or no assignment. */
     has_active_assignment: boolean;
 }
 
@@ -407,6 +431,7 @@ export interface CrewAssignmentFilters {
 export interface CrewAssignmentPagePermissions {
     view: boolean;
     create: boolean;
+    start: boolean;
     update: boolean;
     perform_movement: boolean;
     cancel: boolean;
@@ -463,7 +488,7 @@ export type CrewMovementAction =
     | 'correct_movement';
 
 export const CREW_MOVEMENT_ACTION_LABELS: Record<CrewMovementAction, string> = {
-    approve_mobilisation: 'Approve Mobilisation',
+    approve_mobilisation: 'Start Travel',
     record_arrival: 'Record Arrival',
     start_join_standby: 'Start Join Standby',
     send_to_training: 'Send to Training',

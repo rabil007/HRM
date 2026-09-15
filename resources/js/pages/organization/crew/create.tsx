@@ -1,6 +1,6 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Info } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import InputError from '@/components/input-error';
 import { Main } from '@/components/layout/main';
@@ -9,10 +9,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { VesselTransferRecommendationDialog } from '@/features/organization/crew/actions/vessel-transfer-recommendation-dialog';
 import { CrewAssignmentFormFields } from '@/features/organization/crew/components/crew-assignment-form-fields';
+import { datetimeLocalInTimezone } from '@/features/organization/crew/lib/quick-detail';
 import { recommendsVesselTransfer } from '@/features/organization/crew/lib/vessel-transfer-recommendation';
 import type {
+    CrewAssignmentCreateFormData,
     CrewAssignmentCreateFormOptions,
-    CrewAssignmentFormData,
     CrewAssignmentPagePermissions,
 } from '@/features/organization/crew/types';
 import { dashboard } from '@/routes';
@@ -20,6 +21,7 @@ import {
     index as crewAssignmentsIndex,
     store as storeAssignment,
 } from '@/routes/organization/crew-assignments';
+import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
 
 export default function CrewAssignmentCreate({
     form_options,
@@ -29,14 +31,20 @@ export default function CrewAssignmentCreate({
     can: CrewAssignmentPagePermissions;
 }) {
     const [transferPromptOpen, setTransferPromptOpen] = useState(false);
-    const form = useForm<CrewAssignmentFormData & { error?: never }>({
+    const companyTimezone = form_options.company_timezone || 'UTC';
+    const defaultStageStartedAt = useMemo(
+        () => datetimeLocalInTimezone(new Date(), companyTimezone),
+        [companyTimezone],
+    );
+    const form = useForm<CrewAssignmentCreateFormData & { error?: never }>({
         employee_id: null,
         rank_id: null,
         client_id: null,
         vessel_id: null,
         planned_join_at: '',
-        planned_signoff_at: '',
-        planned_travel_at: '',
+        current_stage: 'p0',
+        stage_started_at: defaultStageStartedAt,
+        submission_intent: can.start ? 'start' : 'draft',
         remarks: '',
     });
 
@@ -72,9 +80,7 @@ export default function CrewAssignmentCreate({
         ? 'Back to Crew Assignments'
         : 'Back to Dashboard';
 
-    const handleSubmit = (event: React.FormEvent): void => {
-        event.preventDefault();
-
+    const submit = (intent: 'start' | 'draft'): void => {
         if (canUseRecommendedTransfer) {
             setTransferPromptOpen(true);
 
@@ -85,17 +91,36 @@ export default function CrewAssignmentCreate({
             return;
         }
 
-        form.post(storeAssignment.url());
+        if (intent === 'start' && !can.start) {
+            return;
+        }
+
+        form.setData('submission_intent', intent);
+        form.transform((data) => ({
+            ...data,
+            submission_intent: intent,
+            stage_started_at:
+                intent === 'start' ? data.stage_started_at : undefined,
+            current_stage: intent === 'start' ? data.current_stage : undefined,
+        }));
+        form.post(storeAssignment.url(), {
+            onFinish: () => form.transform((data) => data),
+        });
+    };
+
+    const handleSubmit = (event: React.FormEvent): void => {
+        event.preventDefault();
+        submit(can.start ? 'start' : 'draft');
     };
 
     return (
         <>
-            <Head title="New Crew Assignment" />
+            <Head title="Start Crew Assignment" />
             <Main>
                 <DetailsHeader
                     kicker="Crew Assignments"
-                    title="New Assignment"
-                    description="Create a draft mobilisation cycle. Movement actions advance the phase later."
+                    title="Start Crew Assignment"
+                    description="Record the crew member's current operational position and start the mobilisation cycle."
                     backHref={backHref}
                     backLabel={backLabel}
                 />
@@ -109,11 +134,14 @@ export default function CrewAssignmentCreate({
                             />
                             <div className="space-y-0.5 text-sm text-sky-900 dark:text-sky-100">
                                 <p className="font-medium">
-                                    Creates a P0 Pre-Mobilisation draft.
+                                    Record the crew member&apos;s current
+                                    operational position and start the
+                                    mobilisation cycle.
                                 </p>
                                 <p className="text-xs text-sky-900/80 dark:text-sky-200/80">
-                                    Travel, training, and joining are recorded
-                                    later using operational Movement Actions.
+                                    Draft remains available when the record is
+                                    still incomplete. Future mobilisation
+                                    belongs in Crew Planning.
                                 </p>
                             </div>
                         </div>
@@ -125,37 +153,84 @@ export default function CrewAssignmentCreate({
                                 <CrewAssignmentFormFields
                                     form={form}
                                     formOptions={form_options}
+                                    mode="create"
+                                    showStartFields={can.start}
                                 />
 
                                 <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-6">
+                                    {can.start ? (
+                                        <Button
+                                            type="submit"
+                                            disabled={
+                                                form.processing ||
+                                                hasActiveAssignmentConflict
+                                            }
+                                            title={
+                                                transferRequiredButUnauthorized
+                                                    ? 'Vessel Transfer is required for this move, but you do not have permission to perform it.'
+                                                    : hasActiveAssignmentConflict
+                                                      ? 'This employee already has an active Crew Assignment. Resolve the conflict above before creating a new one.'
+                                                      : undefined
+                                            }
+                                            className="h-11 rounded-xl px-6"
+                                        >
+                                            {form.processing &&
+                                            form.data.submission_intent ===
+                                                'start' ? (
+                                                <Spinner className="mr-2" />
+                                            ) : null}
+                                            Start Assignment
+                                        </Button>
+                                    ) : null}
                                     <Button
-                                        type="submit"
+                                        type="button"
+                                        variant={
+                                            can.start ? 'outline' : 'default'
+                                        }
+                                        className="h-11 rounded-xl px-6"
                                         disabled={
                                             form.processing ||
                                             hasActiveAssignmentConflict
                                         }
-                                        title={
-                                            transferRequiredButUnauthorized
-                                                ? 'Vessel Transfer is required for this move, but you do not have permission to perform it.'
-                                                : hasActiveAssignmentConflict
-                                                  ? 'This employee already has an active Crew Assignment. Resolve the conflict above before creating a new one.'
-                                                  : undefined
-                                        }
-                                        className="h-11 rounded-xl px-6"
+                                        onClick={() => submit('draft')}
                                     >
-                                        {form.processing ? (
+                                        {form.processing &&
+                                        form.data.submission_intent ===
+                                            'draft' ? (
                                             <Spinner className="mr-2" />
                                         ) : null}
-                                        Create Draft Assignment
+                                        Save as Draft
                                     </Button>
                                     <Button
                                         type="button"
-                                        variant="outline"
+                                        variant="ghost"
                                         className="h-11 rounded-xl px-6"
                                         onClick={() => router.visit(backHref)}
                                     >
                                         Cancel
                                     </Button>
+
+                                    {!can.start ? (
+                                        <p className="w-full text-xs font-medium text-amber-700 dark:text-amber-300">
+                                            Starting an operational assignment
+                                            requires movement permission. You
+                                            can still save a Draft, or ask an
+                                            authorized Operations user to start
+                                            the assignment.
+                                        </p>
+                                    ) : null}
+
+                                    {can.view_planning ? (
+                                        <p className="w-full text-xs text-muted-foreground">
+                                            Planning this for later?{' '}
+                                            <Link
+                                                href={crewPlanningIndex.url()}
+                                                className="font-medium text-primary hover:underline"
+                                            >
+                                                Plan Crew Instead →
+                                            </Link>
+                                        </p>
+                                    ) : null}
 
                                     {transferRequiredButUnauthorized ? (
                                         <p className="w-full text-xs font-medium text-amber-700 dark:text-amber-300">

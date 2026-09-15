@@ -24,6 +24,7 @@ class CrewAssignmentPagePermissions
      * @return array{
      *     view: bool,
      *     create: bool,
+     *     start: bool,
      *     update: bool,
      *     perform_movement: bool,
      *     cancel: bool,
@@ -33,11 +34,15 @@ class CrewAssignmentPagePermissions
      */
     public static function for(?User $user): array
     {
+        $create = $user?->can('crew_operations.assignments.create') ?? false;
+        $performMovement = $user?->can('crew_operations.movements.perform') ?? false;
+
         return [
             'view' => $user?->can('crew_operations.assignments.view') ?? false,
-            'create' => $user?->can('crew_operations.assignments.create') ?? false,
+            'create' => $create,
+            'start' => $create && $performMovement,
             'update' => $user?->can('crew_operations.assignments.update') ?? false,
-            'perform_movement' => $user?->can('crew_operations.movements.perform') ?? false,
+            'perform_movement' => $performMovement,
             'cancel' => $user?->can('crew_operations.assignments.cancel') ?? false,
             'void' => $user?->can('crew_operations.assignments.void') ?? false,
             'view_audit' => $user?->can('audit.view') ?? false,

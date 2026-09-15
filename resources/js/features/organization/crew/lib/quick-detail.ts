@@ -29,7 +29,7 @@ const NEXT_MOVEMENT: Record<string, CrewMovementAction> = {
 };
 
 const MOVEMENT_GUIDANCE: Record<string, string> = {
-    p0: 'Review document checks and travel arrangements before mobilisation.',
+    p0: 'Pre-mobilisation is in progress.',
     p1: 'Confirm the actual arrival and choose standby or ready to join.',
     p2a: 'Confirm clearance before marking this crew member ready to join.',
     p2b: 'Record completion once the course is finished.',
@@ -38,6 +38,23 @@ const MOVEMENT_GUIDANCE: Record<string, string> = {
     p5: 'Confirm travel home or use another movement to redeploy.',
     p6: 'Review the record before closing this cycle or redeploying.',
 };
+
+export function datetimeLocalInTimezone(now: Date, timezone: string): string {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+    }).formatToParts(now);
+
+    const value = (type: Intl.DateTimeFormatPartTypes): string =>
+        parts.find((part) => part.type === type)?.value ?? '';
+
+    return `${value('year')}-${value('month')}-${value('day')}T${value('hour')}:${value('minute')}`;
+}
 
 export function companyToday(now: Date, timezone: string): string {
     const parts = new Intl.DateTimeFormat('en-CA', {
@@ -145,14 +162,9 @@ export function crewQuickDetailModel(
                 date: assignment.movement_context
                     .training_expected_completion_at,
             };
-        } else if (phase === 'p0' && assignment.planned_travel_at) {
-            milestone = {
-                label: 'Planned travel',
-                date: assignment.planned_travel_at,
-            };
         } else if (phase && ['p0', 'p1', 'p2a', 'p3'].includes(phase)) {
             milestone = {
-                label: 'Planned join',
+                label: 'Expected Join',
                 date: assignment.planned_join_at,
             };
         }

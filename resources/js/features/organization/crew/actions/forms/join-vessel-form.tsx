@@ -110,7 +110,7 @@ export function JoinVesselForm({
                 </div>
                 <div>
                     <span className="text-muted-foreground">
-                        Planned join:{' '}
+                        Expected join:{' '}
                     </span>
                     <span className="font-medium">
                         {formatDisplayDate(context.planned_join_at)}

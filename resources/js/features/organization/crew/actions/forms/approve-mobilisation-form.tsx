@@ -24,7 +24,7 @@ export function ApproveMobilisationForm({
     }
 
     if (!context.planned_join_at) {
-        missing.push('Planned join is not set.');
+        missing.push('Expected vessel join is not set.');
     }
 
     return (
@@ -50,7 +50,7 @@ export function ApproveMobilisationForm({
                 </div>
                 <div>
                     <span className="text-muted-foreground">
-                        Planned join:{' '}
+                        Expected join:{' '}
                     </span>
                     <span className="font-medium">
                         {formatDisplayDate(context.planned_join_at)}

@@ -227,7 +227,7 @@ export function CrewEmployeeOperationalStatus({
                             ) : null}
                             {status.planned_next_date ? (
                                 <span>
-                                    Planned join:{' '}
+                                    Expected join:{' '}
                                     {formatDisplayDate(
                                         status.planned_next_date,
                                     )}
@@ -406,7 +406,7 @@ export function CrewEmployeeOperationalStatus({
                         {sinceText ? <span>Started: {sinceText}</span> : null}
                         {status.planned_next_date ? (
                             <span>
-                                Planned next:{' '}
+                                Expected join:{' '}
                                 {formatDisplayDate(status.planned_next_date)}
                             </span>
                         ) : null}

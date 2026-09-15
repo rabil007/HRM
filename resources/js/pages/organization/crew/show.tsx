@@ -803,7 +803,7 @@ export default function CrewAssignmentShow({
                             </CardHeader>
                             <CardContent className="pt-0">
                                 <CrewMetadataField
-                                    label="Planned Join"
+                                    label="Expected Vessel Join"
                                     value={formatDisplayDate(
                                         assignment.planned_join_at,
                                     )}

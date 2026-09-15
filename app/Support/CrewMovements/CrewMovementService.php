@@ -55,45 +55,15 @@ final class CrewMovementService
         ?int $actorId = null,
     ): CrewAssignment {
         return DB::transaction(function () use ($companyId, $employeeId, $attributes, $actorId): CrewAssignment {
-            $employee = Employee::query()
-                ->where('company_id', $companyId)
-                ->whereKey($employeeId)
-                ->lockForUpdate()
-                ->first();
-
-            if ($employee === null) {
-                throw CrewMovementException::make(
-                    'Employee not found in this company.',
-                    'employee_not_found',
-                );
-            }
-
-            if ($employee->status !== 'active') {
-                throw CrewMovementException::make(
-                    'Only active employees can receive a draft crew assignment.',
-                    'employee_not_active',
-                );
-            }
+            $employee = $this->lockActiveEmployee(
+                $companyId,
+                $employeeId,
+                'Only active employees can receive a draft crew assignment.',
+            );
 
             $this->assertNoActiveAssignment($companyId, $employeeId);
 
-            $vesselId = isset($attributes['vessel_id']) && $attributes['vessel_id'] !== null && (int) $attributes['vessel_id'] > 0
-                ? (int) $attributes['vessel_id']
-                : null;
-            $submittedClientId = isset($attributes['client_id']) && $attributes['client_id'] !== null && (int) $attributes['client_id'] > 0
-                ? (int) $attributes['client_id']
-                : null;
-
-            // New drafts with a Vessel require company-owned, active master data
-            // before Client snapshot derivation.
-            if ($vesselId !== null) {
-                $this->assertCompanyOwnedMaster($companyId, Vessel::class, $vesselId, 'vessel');
-            }
-
-            // New drafts with a Vessel must snapshot that Vessel's current Client.
-            $clientId = $vesselId !== null
-                ? $this->resolveOperationalClientId($companyId, $vesselId, $submittedClientId)
-                : $submittedClientId;
+            $masters = $this->resolveCreateMasters($companyId, $employee, $attributes);
 
             $assignmentNo = $this->numbers->next($companyId);
 
@@ -101,9 +71,9 @@ final class CrewMovementService
                 'company_id' => $companyId,
                 'assignment_no' => $assignmentNo,
                 'employee_id' => $employeeId,
-                'rank_id' => $attributes['rank_id'] ?? $employee->rank_id,
-                'client_id' => $clientId,
-                'vessel_id' => $vesselId,
+                'rank_id' => $masters['rankId'],
+                'client_id' => $masters['clientId'],
+                'vessel_id' => $masters['vesselId'],
                 'status' => CrewAssignmentStatus::Draft,
                 'planned_join_at' => $attributes['planned_join_at'] ?? null,
                 'planned_signoff_at' => $attributes['planned_signoff_at'] ?? null,
@@ -133,6 +103,78 @@ final class CrewMovementService
             $this->invariants->assertValid($assignment);
 
             return $assignment;
+        });
+    }
+
+    /**
+     * Start a real operational Crew Assignment at a known current stage.
+     *
+     * Creates an Active assignment and a single Active starting phase. Prior
+     * phases are never invented. Tour of Duty and Sea Service are not created
+     * for pre-P4 starts. Join Vessel remains the only way to enter P4.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function startAssignment(
+        int $companyId,
+        int $employeeId,
+        array $attributes = [],
+        ?int $actorId = null,
+    ): CrewAssignment {
+        return DB::transaction(function () use ($companyId, $employeeId, $attributes, $actorId): CrewAssignment {
+            $employee = $this->lockActiveEmployee(
+                $companyId,
+                $employeeId,
+                'Only active employees can start a crew assignment.',
+            );
+
+            $this->assertNoActiveAssignment($companyId, $employeeId);
+
+            $startingPhase = $this->requireDirectStartPhase($attributes);
+            $startedAt = $this->requireStageStartedAt($companyId, $attributes);
+            $masters = $this->resolveCreateMasters($companyId, $employee, $attributes);
+
+            $assignmentNo = $this->numbers->next($companyId);
+
+            $assignment = CrewAssignment::query()->create([
+                'company_id' => $companyId,
+                'assignment_no' => $assignmentNo,
+                'employee_id' => $employeeId,
+                'rank_id' => $masters['rankId'],
+                'client_id' => $masters['clientId'],
+                'vessel_id' => $masters['vesselId'],
+                'status' => CrewAssignmentStatus::Active,
+                'started_at' => $startedAt,
+                'planned_join_at' => $attributes['planned_join_at'] ?? null,
+                'previous_assignment_id' => $attributes['previous_assignment_id'] ?? null,
+                'source' => $attributes['source'] ?? 'manual',
+                'remarks' => $attributes['remarks'] ?? null,
+                'created_by' => $actorId,
+                'updated_by' => $actorId,
+            ]);
+
+            $phase = CrewAssignmentPhase::query()->create([
+                'company_id' => $companyId,
+                'crew_assignment_id' => $assignment->id,
+                'phase_code' => $startingPhase,
+                'sequence' => 1,
+                'status' => CrewPhaseStatus::Active,
+                'actual_start_at' => $startedAt,
+                'actual_end_at' => null,
+                'remarks' => null,
+                'started_by' => $actorId,
+            ]);
+
+            $assignment->update([
+                'current_phase_id' => $phase->id,
+                'updated_by' => $actorId,
+            ]);
+
+            $assignment = $this->reloadLocked($companyId, $assignment->id);
+            $this->invariants->assertValid($assignment);
+            $this->planningSync->sync($assignment);
+
+            return $this->reloadLocked($companyId, $assignment->id);
         });
     }
 
@@ -185,15 +227,51 @@ final class CrewMovementService
     }
 
     /**
+     * User-facing action: Start Travel. Internal value remains `approve_mobilisation`.
+     *
+     * CASE A — Active P0: complete the existing Active Pre-Mobilisation phase using
+     * its recorded actual_start_at, open Active P1 at occurred_at, and preserve
+     * assignment.started_at.
+     *
+     * CASE B — legacy Draft P0: keep the historical Draft → Active + P1 transition.
+     * Planned P0 has no actual_start_at; one is not manufactured from a later travel time
+     * beyond the existing completePhase fallback (start = end = occurred_at).
+     *
      * @param  array<string, mixed>  $payload
      */
     private function approveMobilisation(CrewAssignment $assignment, array $payload, ?int $actorId): CrewAssignment
     {
-        $this->assertStatus($assignment, CrewAssignmentStatus::Draft);
         $current = $this->requireCurrentPhase($assignment, CrewPhaseCode::PreMobilisation);
-        $this->assertPhaseStatus($current, CrewPhaseStatus::Planned);
-
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
+
+        if ($assignment->status === CrewAssignmentStatus::Active
+            && $current->status === CrewPhaseStatus::Active) {
+            $this->completePhase(
+                $current,
+                $current->actual_start_at ?? $occurredAt,
+                $occurredAt,
+                $actorId,
+            );
+
+            $next = $this->createPhase(
+                $assignment,
+                CrewPhaseCode::TravelIn,
+                CrewPhaseStatus::Active,
+                $occurredAt,
+                null,
+                $actorId,
+            );
+
+            $assignment->update([
+                'current_phase_id' => $next->id,
+                'updated_by' => $actorId,
+            ]);
+
+            return $assignment;
+        }
+
+        $this->assertStatus($assignment, CrewAssignmentStatus::Draft);
+        $this->assertPhaseStatus($current, CrewPhaseStatus::Planned);
 
         $this->assertNoActiveAssignment($assignment->company_id, $assignment->employee_id, $assignment->id);
 
@@ -1077,6 +1155,116 @@ final class CrewMovementService
         ]);
 
         return $this->reloadLocked($companyId, $assignment->id);
+    }
+
+    private function lockActiveEmployee(int $companyId, int $employeeId, string $inactiveMessage): Employee
+    {
+        $employee = $this->lockEmployee($companyId, $employeeId);
+
+        if ($employee->status !== 'active') {
+            throw CrewMovementException::make(
+                $inactiveMessage,
+                'employee_not_active',
+            );
+        }
+
+        return $employee;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array{vesselId: int|null, clientId: int|null, rankId: int|null}
+     */
+    private function resolveCreateMasters(int $companyId, Employee $employee, array $attributes): array
+    {
+        $vesselId = isset($attributes['vessel_id']) && $attributes['vessel_id'] !== null && (int) $attributes['vessel_id'] > 0
+            ? (int) $attributes['vessel_id']
+            : null;
+        $submittedClientId = isset($attributes['client_id']) && $attributes['client_id'] !== null && (int) $attributes['client_id'] > 0
+            ? (int) $attributes['client_id']
+            : null;
+        $rankId = isset($attributes['rank_id']) && $attributes['rank_id'] !== null && (int) $attributes['rank_id'] > 0
+            ? (int) $attributes['rank_id']
+            : ($employee->rank_id !== null ? (int) $employee->rank_id : null);
+
+        if ($vesselId !== null) {
+            $this->assertCompanyOwnedMaster($companyId, Vessel::class, $vesselId, 'vessel');
+        }
+
+        if ($rankId !== null) {
+            $this->assertCompanyOwnedMaster($companyId, Rank::class, $rankId, 'rank');
+        }
+
+        $clientId = $vesselId !== null
+            ? $this->resolveOperationalClientId($companyId, $vesselId, $submittedClientId)
+            : $submittedClientId;
+
+        if ($clientId !== null && $vesselId === null) {
+            $this->assertCompanyOwnedMaster($companyId, Client::class, $clientId, 'client');
+        }
+
+        return [
+            'vesselId' => $vesselId,
+            'clientId' => $clientId,
+            'rankId' => $rankId,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function requireDirectStartPhase(array $attributes): CrewPhaseCode
+    {
+        $raw = trim((string) ($attributes['current_stage'] ?? $attributes['starting_phase'] ?? ''));
+
+        if ($raw === '') {
+            return CrewPhaseCode::PreMobilisation;
+        }
+
+        $code = CrewPhaseCode::tryFrom($raw);
+
+        if ($code === null || ! $code->allowsDirectStart()) {
+            throw CrewMovementException::make(
+                'Assignments cannot start directly in this stage. Join Vessel remains the only way to enter On Vessel.',
+                'invalid_start_stage',
+            );
+        }
+
+        return $code;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function requireStageStartedAt(int $companyId, array $attributes): CarbonInterface
+    {
+        $raw = trim((string) ($attributes['stage_started_at'] ?? ''));
+
+        if ($raw === '') {
+            throw CrewMovementException::make(
+                'Stage started at is required when starting an assignment.',
+                'stage_started_at_required',
+            );
+        }
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) === 1) {
+            throw CrewMovementException::make(
+                'Stage started at must include a time. Midnight is not assumed.',
+                'stage_started_at_missing_time',
+            );
+        }
+
+        $startedAt = $this->parseTimestamp($companyId, $raw);
+        $timezone = $this->companyTimezone($companyId);
+
+        if ($startedAt->gt(now($timezone))) {
+            throw CrewMovementException::make(
+                'Stage started at cannot be in the future. Future mobilisation belongs in Crew Planning.',
+                'stage_started_at_in_future',
+            );
+        }
+
+        return $startedAt;
     }
 
     private function lockEmployee(int $companyId, int $employeeId): Employee

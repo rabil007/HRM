@@ -107,11 +107,11 @@ function nextMilestone(assignment: CrewAssignmentDetail): {
         )
     ) {
         return {
-            label: 'Next milestone',
+            label: 'Expected Join',
             value: formatDisplayDate(assignment.planned_join_at),
             detail:
                 assignment.recommended_action?.label ??
-                'Planned vessel joining date',
+                'Expected vessel joining date',
             tone: 'neutral',
         };
     }

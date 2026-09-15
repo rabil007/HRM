@@ -10,17 +10,20 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Confirm roles that previously had deployments permissions now have assignment permissions
 - [ ] Confirm `crew_operations.deployments.*` permissions no longer exist
 
-## 2. Create draft
+## 2. Start Assignment
 
-- [ ] Open Crew Assignments → New Assignment
-- [ ] Create form loads employees, ranks, vessels, clients
-- [ ] Create draft for an active company employee
+- [ ] Open Crew Assignments → Start Assignment
+- [ ] Create form loads employees, ranks, vessels, clients, and operational status
+- [ ] Start Assignment for an active company employee at P0 with Stage Started At
+- [ ] Assignment is Active with Active P0 (not Draft + Planned P0)
 - [ ] Assignment number format `CA-{YEAR}-{######}`
-- [ ] Current phase is P0 Pre-Mobilisation
+- [ ] Save as Draft still creates Draft + Planned P0
+- [ ] Expected Vessel Join stores in `planned_join_at`
 
 ## 3. Standard lifecycle
 
-- [ ] Approve Mobilisation → P1
+- [ ] Start Travel (`approve_mobilisation`) from Active P0 → P1
+- [ ] Legacy Draft P0 can still Start Travel
 - [ ] Record Arrival → P2A
 - [ ] Mark Ready → P3
 - [ ] Join Vessel → P4 (optional planned sign-off only)

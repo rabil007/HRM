@@ -106,13 +106,13 @@ final class CrewAssignmentRecommendedActionResolver
                     : sprintf('%d mobilisation requirements need attention. This is guidance only and does not block movement.', $problemCount),
                 href: $readiness->documentsHref,
                 anywayAction: $canApprove ? CrewMovementAction::ApproveMobilisation->value : null,
-                anywayLabel: $canApprove ? 'Approve Mobilisation Anyway' : null,
+                anywayLabel: $canApprove ? 'Start Travel Anyway' : null,
             );
         }
 
         $reason = $readiness !== null && $readiness->applies && ! $readiness->hasConfiguredChecks()
-            ? 'No required document checks are configured. Approve mobilisation when Operations is ready to proceed.'
-            : 'Readiness looks clear. Approve mobilisation when Operations is ready to proceed.';
+            ? 'No required document checks are configured. Start travel when Operations is ready to proceed.'
+            : 'Readiness looks clear. Start travel when Operations is ready to proceed.';
 
         return $this->movementRecommendation(
             $permitted,

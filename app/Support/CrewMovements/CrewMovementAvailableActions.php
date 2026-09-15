@@ -37,6 +37,10 @@ class CrewMovementAvailableActions
 
         if ($status === CrewAssignmentStatus::Active) {
             return match ($phase) {
+                CrewPhaseCode::PreMobilisation => [
+                    CrewMovementAction::ApproveMobilisation->value,
+                    CrewMovementAction::CancelAssignment->value,
+                ],
                 CrewPhaseCode::TravelIn => [
                     CrewMovementAction::RecordArrival->value,
                     CrewMovementAction::CancelAssignment->value,

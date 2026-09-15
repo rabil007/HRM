@@ -210,7 +210,7 @@ export function CurrentCrewContent({
                                 }
                             >
                                 <Plus className="h-4 w-4" />
-                                New Assignment
+                                Start Assignment
                             </Button>
                         ) : null}
                     </div>
@@ -340,7 +340,7 @@ export function CurrentCrewContent({
                     description={
                         hasActiveQuery
                             ? 'Try clearing search or filters to widen the board.'
-                            : 'Create a draft assignment to start mobilisation tracking.'
+                            : 'Start a crew assignment to begin operational movement tracking.'
                     }
                     action={
                         can.create && !hasActiveQuery ? (
@@ -350,7 +350,7 @@ export function CurrentCrewContent({
                                 }
                             >
                                 <Plus className="h-4 w-4" />
-                                New Assignment
+                                Start Assignment
                             </Button>
                         ) : hasActiveQuery ? (
                             <Button variant="outline" onClick={onResetFilters}>

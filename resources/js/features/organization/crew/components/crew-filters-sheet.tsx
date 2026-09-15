@@ -277,7 +277,7 @@ export function CrewFiltersSheet({
             <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                     <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                        Planned join from
+                        Expected Join from
                     </Label>
                     <Input
                         type="date"
@@ -293,7 +293,7 @@ export function CrewFiltersSheet({
                 </div>
                 <div className="space-y-2">
                     <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                        Planned join to
+                        Expected Join to
                     </Label>
                     <Input
                         type="date"

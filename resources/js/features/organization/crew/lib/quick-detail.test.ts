@@ -5,6 +5,7 @@ import {
     calendarDayDifference,
     companyToday,
     crewQuickDetailModel,
+    datetimeLocalInTimezone,
     relativePlanDate,
 } from './quick-detail.ts';
 
@@ -152,19 +153,20 @@ describe('crew quick detail operational summary', () => {
         assert.equal(model.movement, 'complete_training');
     });
 
-    it('shows travel first for drafts and joining for travelling crew', () => {
+    it('shows expected join for pre-join crew including active p0', () => {
         const assignment = listItem({
             planned_travel_at: '2026-09-15',
             planned_join_at: '2026-09-17',
         });
-        const draft = crewQuickDetailModel(
+        const preMobilisation = crewQuickDetailModel(
             {
                 ...assignment,
                 current_phase: {
                     code: 'p0',
-                    label: 'Draft',
-                    status: 'planned',
+                    label: 'Pre-Mobilisation',
+                    status: 'active',
                 },
+                available_actions: ['approve_mobilisation'],
             },
             can,
             now,
@@ -181,7 +183,10 @@ describe('crew quick detail operational summary', () => {
             can,
             now,
         );
-        assert.equal(draft.milestone?.date, '2026-09-15');
+        assert.equal(preMobilisation.milestone?.label, 'Expected Join');
+        assert.equal(preMobilisation.milestone?.date, '2026-09-17');
+        assert.equal(preMobilisation.movement, 'approve_mobilisation');
+        assert.equal(preMobilisation.focus, 'Pre-mobilisation is in progress.');
         assert.equal(travelling.milestone?.date, '2026-09-17');
     });
 
@@ -349,5 +354,12 @@ describe('crew quick detail operational summary', () => {
         assert.equal(relativePlanDate(model.daysUntilMilestone), 'Today');
         assert.equal(calendarDayDifference('2026-03-09', '2026-03-08'), 1);
         assert.equal(calendarDayDifference(null, '2026-09-14'), null);
+        assert.equal(
+            datetimeLocalInTimezone(
+                new Date('2026-09-15T06:30:00Z'),
+                'Asia/Dubai',
+            ),
+            '2026-09-15T10:30',
+        );
     });
 });

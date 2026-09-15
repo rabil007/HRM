@@ -25,14 +25,14 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
     Record<CrewMovementAction, MovementActionConfig>
 > = {
     approve_mobilisation: {
-        title: 'Approve Mobilisation',
+        title: 'Start Travel',
         description:
-            'This starts the mobilisation cycle and moves the employee to P1 Travel In.',
-        occurredAtLabel: 'Mobilisation started at',
-        submitLabel: 'Approve Mobilisation',
+            'This completes Pre-Mobilisation and moves the employee to P1 Travel In.',
+        occurredAtLabel: 'Travel started at',
+        submitLabel: 'Start Travel',
         impactTitle: 'What this does',
         impactDescription:
-            'This starts the mobilisation cycle and moves the employee to P1 Travel In.',
+            'This completes Pre-Mobilisation and moves the employee to P1 Travel In. The original Pre-Mobilisation start time is preserved.',
         fixedNextPhase: 'p1',
     },
     record_arrival: {

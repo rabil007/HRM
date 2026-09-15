@@ -86,6 +86,92 @@ Selection uses the shared `useRecordSelection` hook. `selectedIds` remains the v
 | P5 | Demobilisation Standby |
 | P6 | Home / Redeployment |
 
+## Crew Planning vs Crew Assignment
+
+| Surface | Meaning |
+|---------|---------|
+| **Crew Planning** | Future intention / scheduling |
+| **Crew Assignment** | Actual operational mobilisation cycle |
+
+A Planning record is **not** required before starting an operational assignment. `/organization/crew/create` is the fast operational-entry surface. Crew Planning remains the place to record future joins that have not started yet.
+
+```text
+Crew Planning (optional future intention)
+    ↓ convert when ready
+Crew Assignment (operational cycle)
+    ↓ Start Assignment (manual, no Planning required)
+Crew Assignment Phases
+    ↓ completed P4
+Employee Sea Service
+```
+
+This phase does **not** redesign Crew Planning, Bulk Add Crew, or spreadsheet import.
+
+## Start Assignment
+
+Manual create uses `submission_intent = start | draft`. Domain logic lives in `CrewMovementService::startAssignment()` (reusable by later Bulk Add Crew). The HTTP controller only authorizes, validates, and redirects.
+
+### Start (primary)
+
+Requires `crew_operations.assignments.create` **and** `crew_operations.movements.perform`.
+
+Creates:
+
+- `CrewAssignment.status = Active`
+- `started_at` = Stage Started At (company timezone)
+- one Active starting phase (`sequence = 1`, `actual_start_at` = Stage Started At)
+- `source` remains the existing manual source
+- `planned_join_at` stores **Expected Vessel Join** (forecast only)
+
+Default current stage is **P0 Pre-Mobilisation**. Operations may also start directly at **P1**, **P2A**, or **P3**. Direct start at P2B, P4, P5, or P6 is rejected. Join Vessel remains the only way to enter P4.
+
+Prior phases are **never invented**. A direct P2A start has only P2A in the timeline.
+
+Stage Started At is an actual operational timestamp:
+
+- required for `start`
+- parsed in the active company timezone (not the browser timezone)
+- date-only values are rejected (midnight is not assumed)
+- future timestamps are rejected (those belong in Crew Planning)
+
+Quick create does **not** accept Planned Sign-Off or Planned Travel Home. Those columns remain for edit/show, P4 Plan Sign-Off, and other legitimate flows.
+
+Start Assignment does **not** snapshot Tour of Duty, create Sea Service, mark the employee On Vessel, or create P4. Expected Vessel Join never becomes P4 `actual_start_at`.
+
+`SyncPlanningAssignmentFromCrewAssignment` still runs. A manually started pre-P4 assignment is **not** forced to manufacture a new Planning row when Planned Sign-Off is absent. Existing linked Planning rows stay linked.
+
+### Save as Draft (optional)
+
+Requires only `crew_operations.assignments.create`.
+
+Keeps the previous Draft semantics:
+
+- `CrewAssignment.status = Draft`, `started_at = null`
+- Planned P0 with `actual_start_at = null`
+- Current Stage / Stage Started At are not required
+
+Existing Draft assignments remain operable.
+
+### Start Travel (`approve_mobilisation`)
+
+User-facing label is **Start Travel**. The persisted action value remains `approve_mobilisation` for historical activities, tests, and old Draft records.
+
+| Case | Behaviour |
+|------|-----------|
+| **A — Active P0** | Complete P0 using its existing `actual_start_at`; open Active P1 at `occurred_at`; preserve `assignment.started_at` |
+| **B — legacy Draft P0** | Activate the assignment, complete Planned P0 with the existing `completePhase` fallback (`actual_start_at` = `actual_end_at` = `occurred_at`), open Active P1. Do not manufacture a historical P0 start from a later travel time |
+
+No approval step is required between Active P0 and Start Travel.
+
+### Active P0 conflict
+
+| State | `has_active_assignment` |
+|-------|-------------------------|
+| Draft P0 | `false` |
+| Active P0 | `true` |
+
+An employee already in Active P0 cannot start another assignment, the same as P1–P6. Transfer Vessel remains the path when the selected employee is already On Vessel on another vessel.
+
 ## Tour of Duty
 
 When Join Vessel creates active P4, the system resolves Tour of Duty directly from Global Rank Master (`ranks.max_tour_of_duty_days`) and suggests Planned Sign-Off.
@@ -187,7 +273,7 @@ Email, browser Web Push, in-app notification feeds, escalation, and Announcement
 
 | Action | Typical from phase |
 |--------|--------------------|
-| `approve_mobilisation` | P0 |
+| `approve_mobilisation` | P0 (Active or legacy Draft). User-facing label: **Start Travel** |
 | `record_arrival` | P1 → P2A or P3 |
 | `start_join_standby` | P1/P3 path helpers |
 | `send_to_training` | P2A → P2B |
@@ -242,14 +328,14 @@ The warning identifies the employee, current assignment, current vessel, active 
 
 This appears when:
 
-- creating a draft assignment and the selected employee is currently On Vessel, with a destination vessel that differs from the current vessel
+- creating a draft **or starting** an assignment and the selected employee is currently On Vessel, with a destination vessel that differs from the current vessel
 - recording Join Vessel on another assignment for a different destination vessel
 
 **Use Transfer Vessel** opens the existing Transfer Vessel action on the current On Vessel assignment and prefills destination vessel, rank, client, and movement time when those values were already entered (Visa Type is not stored on Crew Assignments). Query parameters are convenience only. The recorder must still review and submit the movement. The mutation still goes through `transfer_vessel` and backend company ownership checks. The system does not create the linked assignment in the browser and does not rewrite history.
 
 #### Employee operational status on assignment creation
 
-On the New Crew Assignment create form (`/organization/crew/create`), selecting an employee immediately displays their tenant-scoped operational status directly within the Employee selection panel (via `CrewAssignmentStatusResolver::forEmployeeIds()`).
+On the Start Crew Assignment form (`/organization/crew/create`), selecting an employee immediately displays their tenant-scoped operational status directly within the Employee selection panel (via `CrewAssignmentStatusResolver::forEmployeeIds()`).
 
 Operations immediately sees:
 - **On Vessel (P4)**: High-attention amber warning showing current vessel, assignment number, start time, and days onboard, with transfer recommendation when another vessel is selected.
@@ -303,7 +389,7 @@ Generic Crew Assignment editing is limited to Draft/pre-P4 preparation. Once P4 
 
 Mobilisation Readiness currently derives from required-document compliance (`DocumentRequirementResolver` / `DocumentComplianceQuery`). Training is not included in the score. There is no readiness table and **no movement blocker**. Readiness is advisory only and never blocks Crew movement.
 
-`CrewMobilisationReadinessResolver` answers whether the assignment employee looks operationally ready to mobilise based on required documents. It is shown on Crew Assignment show (full card) and as a compact indicator on Current Crew lists for **pre-join** assignments (P0–P3). Zero applicable checks are shown as **No Checks Configured** (neutral presentation; overall status remains Ready so P0 may still recommend Approve Mobilisation).
+`CrewMobilisationReadinessResolver` answers whether the assignment employee looks operationally ready to mobilise based on required documents. It is shown on Crew Assignment show (full card) and as a compact indicator on Current Crew lists for **pre-join** assignments (P0–P3). Zero applicable checks are shown as **No Checks Configured** (neutral presentation; overall status remains Ready so P0 may still recommend Start Travel).
 
 | Status | Meaning |
 |--------|---------|
@@ -330,8 +416,8 @@ Typical suggestions:
 
 | Phase | Usual recommendation |
 |-------|----------------------|
-| P0 (ready or no checks configured) | Approve Mobilisation |
-| P0 (readiness issues) | Resolve readiness, with Approve Mobilisation Anyway |
+| P0 (ready or no checks configured) | Start Travel (`approve_mobilisation`) |
+| P0 (readiness issues) | Resolve readiness, with Start Travel Anyway |
 | P1 | Record Arrival |
 | P2A | Join Vessel |
 | P2B | Complete Training |
@@ -363,9 +449,11 @@ audit.view
 
 Legacy `crew_operations.deployments.*` permissions are removed and migrated onto assignment permissions.
 
+Save as Draft requires `crew_operations.assignments.create`. Start Assignment requires that permission **and** `crew_operations.movements.perform` (`CrewAssignmentPolicy::start()`). Frontend `can.start` is UX only.
+
 ## Movement service
 
-`CrewMovementService` runs every create/action in a company-scoped transaction with `lockForUpdate()`, invariant checks, and atomic phase updates. Completed P4 (`actual_end_at` set) syncs sea service via `SeaServiceSyncService` in the same transaction.
+`CrewMovementService` runs every create/action in a company-scoped transaction with `lockForUpdate()`, invariant checks, and atomic phase updates. `startAssignment()` is the shared operational create path. Completed P4 (`actual_end_at` set) syncs sea service via `SeaServiceSyncService` in the same transaction.
 
 Tour resolution uses `CrewTourOfDutyResolver` / `CrewTourOfDutyCalculator`. Progress and status buckets use `CrewTourProgress` / `CrewTourStatusQuery`.
 
@@ -382,7 +470,7 @@ EmployeeSeaService.client_id  = Client during that service period (from assignme
 
 `projects.client_id` / `vessels.client_id` stay nullable only for legacy unassigned rows. Mapped records cannot clear Client back to null in normal editing. Project Client changes (including first-time `null` → Client) that would leave Employees with a mismatched Client are rejected.
 
-New operational Crew activity cannot use a legacy-unassigned Vessel, an inactive Vessel, or an active Vessel whose assigned Client is inactive. When `CrewMovementService::createDraft()` receives a `vessel_id`, it asserts the Vessel is company-owned and active, then snapshots that Vessel’s current **active** Client (and rejects null-client / inactive-client / mismatched Client). Crew Planning create/update vessel options and validation require an active company Vessel with an assigned active Client; Planning → Assignment conversion relies on the same draft invariant.
+New operational Crew activity cannot use a legacy-unassigned Vessel, an inactive Vessel, or an active Vessel whose assigned Client is inactive. When `CrewMovementService::createDraft()` or `startAssignment()` receives a `vessel_id`, it asserts the Vessel is company-owned and active, then snapshots that Vessel’s current **active** Client (and rejects null-client / inactive-client / mismatched Client). Crew Planning create/update vessel options and validation require an active company Vessel with an assigned active Client; Planning → Assignment conversion relies on the same draft invariant.
 
 Editable pre-P4 Crew Assignments may retain an unchanged legacy or inactive Vessel/Client snapshot during unrelated field edits (remarks, planned dates, rank). Changing Vessel or Client on that record applies today’s strict operational rules — an inactive existing Vessel cannot participate in a Client-only change.
 
@@ -833,10 +921,11 @@ Backend authorization remains authoritative — the scoping on the create page i
 ### Active assignment UI blocking
 
 - `has_active_assignment` is always included in the payload regardless of view permission.
-- It is `true` only when the employee has an **Active** (P1–P6) assignment. Draft (P0) is excluded.
-- When `has_active_assignment = true` **and** the Transfer Vessel intercept is not active, the "Create Draft Assignment" button is **disabled** in the UI.
+- It is `true` when the employee has an **Active** assignment, including **Active P0**. Draft P0 remains `false`.
+- When `has_active_assignment = true` **and** the Transfer Vessel intercept is not active, Start Assignment and Save as Draft are **disabled**.
 - The conflict UI shows: "This employee already has an active Crew Assignment."
 - If the viewer has view permission (`assignment_no` is non-null), a "Continue [CA-XXXXXX]" button is shown, opening the existing assignment in a new tab.
+- Users with create permission but without `crew_operations.movements.perform` can still Save as Draft. Start Assignment is hidden and explained.
 
 ### P4 On Vessel — Transfer Vessel intercept
 

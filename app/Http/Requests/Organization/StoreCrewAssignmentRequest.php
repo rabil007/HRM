@@ -2,8 +2,12 @@
 
 namespace App\Http\Requests\Organization;
 
+use App\Enums\CrewAssignmentSubmissionIntent;
+use App\Enums\CrewPhaseCode;
 use App\Support\Employees\ActiveCompanyEmployeeRule;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Settings\CompanyTimezone;
+use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -13,7 +17,21 @@ class StoreCrewAssignmentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user();
+        $user = $this->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        if (! $user->can('crew_operations.assignments.create')) {
+            return false;
+        }
+
+        if ($this->submissionIntent() === CrewAssignmentSubmissionIntent::Start) {
+            return $user->can('crew_operations.movements.perform');
+        }
+
+        return true;
     }
 
     protected function prepareForValidation(): void
@@ -21,6 +39,18 @@ class StoreCrewAssignmentRequest extends FormRequest
         $companyId = (int) $this->attributes->get('current_company_id');
         $vesselId = $this->input('vessel_id');
         $clientId = $this->input('client_id');
+        $intent = $this->input('submission_intent');
+        $merge = [];
+
+        if ($intent === null || $intent === '') {
+            $intent = CrewAssignmentSubmissionIntent::Draft->value;
+            $merge['submission_intent'] = $intent;
+        }
+
+        if ($intent === CrewAssignmentSubmissionIntent::Start->value
+            && ($this->input('current_stage') === null || $this->input('current_stage') === '')) {
+            $merge['current_stage'] = CrewPhaseCode::PreMobilisation->value;
+        }
 
         if (($clientId === null || $clientId === '')
             && $vesselId !== null
@@ -29,8 +59,12 @@ class StoreCrewAssignmentRequest extends FormRequest
             $resolved = ClientAssignmentRules::resolveClientIdFromVessel($companyId, (int) $vesselId);
 
             if ($resolved !== null) {
-                $this->merge(['client_id' => $resolved]);
+                $merge['client_id'] = $resolved;
             }
+        }
+
+        if ($merge !== []) {
+            $this->merge($merge);
         }
     }
 
@@ -40,8 +74,10 @@ class StoreCrewAssignmentRequest extends FormRequest
     public function rules(): array
     {
         $companyId = (int) $this->attributes->get('current_company_id');
+        $isStart = $this->submissionIntent() === CrewAssignmentSubmissionIntent::Start;
 
         return [
+            'submission_intent' => ['required', 'string', Rule::in(CrewAssignmentSubmissionIntent::values())],
             'employee_id' => [
                 'required',
                 'integer',
@@ -51,9 +87,32 @@ class StoreCrewAssignmentRequest extends FormRequest
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)],
             'vessel_id' => ['nullable', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)],
             'planned_join_at' => ['nullable', 'date'],
-            'planned_signoff_at' => ['nullable', 'date', 'after_or_equal:planned_join_at'],
-            'planned_travel_at' => ['nullable', 'date'],
+            'current_stage' => [
+                Rule::requiredIf($isStart),
+                'nullable',
+                'string',
+                Rule::in(array_map(
+                    fn (CrewPhaseCode $phase): string => $phase->value,
+                    CrewPhaseCode::directStartPhases(),
+                )),
+            ],
+            'stage_started_at' => [
+                Rule::requiredIf($isStart),
+                'nullable',
+                'string',
+            ],
             'remarks' => ['nullable', 'string', 'max:1000'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'current_stage.in' => 'Assignments cannot start directly in this stage. Join Vessel remains the only way to enter On Vessel.',
+            'stage_started_at.required' => 'Stage started at is required when starting an assignment.',
         ];
     }
 
@@ -74,6 +133,48 @@ class StoreCrewAssignmentRequest extends FormRequest
                 $clientId !== null && $clientId !== '' ? (int) $clientId : null,
                 $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null,
             );
+
+            if ($this->submissionIntent() !== CrewAssignmentSubmissionIntent::Start) {
+                return;
+            }
+
+            $raw = trim((string) $this->input('stage_started_at', ''));
+
+            if ($raw === '') {
+                return;
+            }
+
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) === 1) {
+                $validator->errors()->add(
+                    'stage_started_at',
+                    'Stage started at must include a time. Midnight is not assumed.',
+                );
+
+                return;
+            }
+
+            $timezone = CompanyTimezone::forCompanyId($companyId);
+
+            try {
+                $startedAt = Carbon::parse($raw, $timezone);
+            } catch (\Throwable) {
+                $validator->errors()->add('stage_started_at', 'Enter a valid date and time for Stage Started At.');
+
+                return;
+            }
+
+            if ($startedAt->gt(now($timezone))) {
+                $validator->errors()->add(
+                    'stage_started_at',
+                    'Stage started at cannot be in the future. Future mobilisation belongs in Crew Planning.',
+                );
+            }
         });
+    }
+
+    public function submissionIntent(): CrewAssignmentSubmissionIntent
+    {
+        return CrewAssignmentSubmissionIntent::tryFrom((string) $this->input('submission_intent'))
+            ?? CrewAssignmentSubmissionIntent::Draft;
     }
 }

@@ -45,4 +45,27 @@ enum CrewPhaseCode: string
             self::ReadyToJoin,
         ], true);
     }
+
+    /**
+     * Phases that Operations may record as the first known stage when starting an assignment.
+     *
+     * P2B, P4, P5, and P6 cannot be used as a direct start. Join Vessel remains the only
+     * way to enter On Vessel.
+     *
+     * @return list<self>
+     */
+    public static function directStartPhases(): array
+    {
+        return [
+            self::PreMobilisation,
+            self::TravelIn,
+            self::JoinStandby,
+            self::ReadyToJoin,
+        ];
+    }
+
+    public function allowsDirectStart(): bool
+    {
+        return in_array($this, self::directStartPhases(), true);
+    }
 }

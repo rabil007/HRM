@@ -22,6 +22,12 @@ class CrewAssignmentPolicy
         return $user->can('crew_operations.assignments.create');
     }
 
+    public function start(User $user): bool
+    {
+        return $user->can('crew_operations.assignments.create')
+            && $user->can('crew_operations.movements.perform');
+    }
+
     public function update(User $user, CrewAssignment $assignment): bool
     {
         return $user->can('crew_operations.assignments.update');
