@@ -32,6 +32,6 @@ class SkipCrewTimesheetPreparationEmployeeController extends Controller
 
         return redirect()
             ->route('payroll.crew-timeline.show', [$payrollPeriod, $preparation])
-            ->with('success', "Timeline data skipped for {$employee->name}.");
+            ->with('success', "Crew Timesheet data skipped for {$employee->name}.");
     }
 }
