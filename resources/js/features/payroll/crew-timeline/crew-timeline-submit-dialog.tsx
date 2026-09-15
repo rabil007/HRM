@@ -36,11 +36,12 @@ export function CrewTimelineSubmitDialog({
             <AlertDialogContent className="glass-card">
                 <AlertDialogHeader>
                     <AlertDialogTitle>
-                        Submit for Crewing Approval
+                        Submit Crew Timesheet for Crewing Approval
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                        Submit this timeline preparation for supervisor review.
-                        Generated lines cannot be edited after submission.
+                        Submit this Crew Timesheet preparation for supervisor
+                        review. Generated lines cannot be edited after
+                        submission.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
