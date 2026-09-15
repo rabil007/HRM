@@ -11,10 +11,9 @@ import { Button } from '@/components/ui/button';
 import { ActionRequiredCard } from '@/features/organization/crew-operations/components/action-required-card';
 import { CoverageHorizonCard } from '@/features/organization/crew-operations/components/coverage-horizon-card';
 import { DailyPulse } from '@/features/organization/crew-operations/components/daily-pulse';
-import { DeploymentTrendsCard } from '@/features/organization/crew-operations/components/deployment-trends-card';
 import { ManningReliefRisksCard } from '@/features/organization/crew-operations/components/manning-relief-risks-card';
 import { NextSevenDaysCard } from '@/features/organization/crew-operations/components/next-seven-days-card';
-import { RecentActivityCard } from '@/features/organization/crew-operations/components/recent-activity-card';
+import { OperationalBriefing } from '@/features/organization/crew-operations/components/operational-briefing';
 import type { CrewOperationsDashboardProps } from '@/features/organization/crew-operations/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { index as crewAssignmentsIndex } from '@/routes/organization/crew-assignments';
@@ -30,8 +29,6 @@ export function CrewOperationsDashboardContent({
     next_seven_days: nextSevenDays,
     manning_relief_risks: manningReliefRisks,
     projected_manning: projectedManning,
-    deployment_trends: deploymentTrends,
-    recent_activity: recentActivity,
     can,
 }: CrewOperationsDashboardProps): ReactElement {
     usePoll(60_000, {
@@ -41,13 +38,11 @@ export function CrewOperationsDashboardContent({
             'next_seven_days',
             'manning_relief_risks',
             'projected_manning',
-            'recent_activity',
         ],
     });
 
     return (
         <Main className="flex flex-1 flex-col gap-6">
-            {/* ── Page header ─────────────────────────────────────── */}
             <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
                 <div className="space-y-2">
                     <div className="flex items-center gap-2">
@@ -57,11 +52,11 @@ export function CrewOperationsDashboardContent({
                         </span>
                     </div>
                     <h1 className="bg-linear-to-br from-foreground to-foreground/50 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent">
-                        Daily Operations
+                        Crew operations
                     </h1>
                     <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground/60">
                         <CalendarDays className="h-3.5 w-3.5" />
-                        {formatDisplayDate(today)} · {companyTimezone}
+                        Today, {formatDisplayDate(today)} · {companyTimezone}
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
@@ -92,52 +87,85 @@ export function CrewOperationsDashboardContent({
                 </div>
             </div>
 
-            {/* ── Zone 1: Daily Pulse ─────────────────────────────── */}
-            <DailyPulse
-                pulse={dailyPulse}
-                canViewProjected={can.vessel_manning}
-            />
-
-            {/* ── Zone 2: Coverage Horizon (if permitted) ─────────── */}
-            {can.vessel_manning && projectedManning ? (
-                <CoverageHorizonCard
-                    projected={projectedManning}
-                    canViewManning={can.vessel_manning}
+            <section className="space-y-3" aria-labelledby="operations-status">
+                <div>
+                    <h2
+                        id="operations-status"
+                        className="text-sm font-semibold text-foreground"
+                    >
+                        Operating status
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                        Crew on board, scheduled movements, and coverage health.
+                    </p>
+                </div>
+                <DailyPulse
+                    pulse={dailyPulse}
+                    canViewProjected={can.vessel_manning}
                 />
-            ) : null}
-
-            {/* ── Zone 3: Action Required + Next 7 Days ───────────── */}
-            <div className="grid gap-6 lg:grid-cols-2">
-                <ActionRequiredCard items={actionRequired} />
-                <NextSevenDaysCard
-                    days={nextSevenDays}
-                    canViewPlanning={can.planning}
+                <OperationalBriefing
+                    actionItems={actionRequired}
+                    movementDays={nextSevenDays}
+                    reliefRisks={manningReliefRisks}
+                    projectedManning={
+                        can.vessel_manning ? projectedManning : null
+                    }
                 />
-            </div>
+            </section>
 
-            {/* ── Zone 4: Deployment Trends (full-width) ──────────── */}
-            <DeploymentTrendsCard trends={deploymentTrends} />
-
-            {/* ── Zone 5: Manning Risks + Recent Activity ─────────── */}
-            <div
-                className={
-                    recentActivity.length > 0
-                        ? 'grid gap-6 lg:grid-cols-3'
-                        : 'grid gap-6'
-                }
+            <section
+                className="space-y-3"
+                aria-labelledby="operations-attention"
             >
-                <div
-                    className={recentActivity.length > 0 ? 'lg:col-span-2' : ''}
-                >
+                <div>
+                    <h2
+                        id="operations-attention"
+                        className="text-sm font-semibold text-foreground"
+                    >
+                        Needs attention
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                        Resolve urgent crew, relief, and vessel coverage issues.
+                    </p>
+                </div>
+                <div className="grid gap-6 xl:grid-cols-2">
+                    <ActionRequiredCard items={actionRequired} />
                     <ManningReliefRisksCard
                         risks={manningReliefRisks}
                         canViewPlanning={can.planning}
                     />
                 </div>
-                {recentActivity.length > 0 ? (
-                    <RecentActivityCard activities={recentActivity} />
-                ) : null}
-            </div>
+            </section>
+
+            <section
+                className="space-y-3"
+                aria-labelledby="operations-planning"
+            >
+                <div>
+                    <h2
+                        id="operations-planning"
+                        className="text-sm font-semibold text-foreground"
+                    >
+                        Plan ahead
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                        Confirm this week&apos;s movements and protect future
+                        coverage.
+                    </p>
+                </div>
+                <div className="grid gap-6 xl:grid-cols-2">
+                    <NextSevenDaysCard
+                        days={nextSevenDays}
+                        canViewPlanning={can.planning}
+                    />
+                    {can.vessel_manning && projectedManning ? (
+                        <CoverageHorizonCard
+                            projected={projectedManning}
+                            canViewManning={can.vessel_manning}
+                        />
+                    ) : null}
+                </div>
+            </section>
         </Main>
     );
 }

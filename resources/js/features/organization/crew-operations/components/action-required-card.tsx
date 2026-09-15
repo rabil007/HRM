@@ -105,15 +105,15 @@ export function ActionRequiredCard({
                 <div className="flex items-center justify-between gap-3">
                     <div>
                         <CardTitle className="text-base font-bold tracking-tight">
-                            Action Required
+                            Priority queue
                         </CardTitle>
                         <CardDescription className="text-xs">
-                            Highest-priority operational issues
+                            Resolve these crew issues first
                         </CardDescription>
                     </div>
                     {items.length > 0 ? (
-                        <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive/15 px-1.5 text-xs font-bold text-destructive tabular-nums">
-                            {items.length}
+                        <span className="inline-flex h-6 items-center justify-center rounded-full bg-destructive/15 px-2 text-[11px] font-bold text-destructive tabular-nums">
+                            {items.length} open
                         </span>
                     ) : null}
                 </div>

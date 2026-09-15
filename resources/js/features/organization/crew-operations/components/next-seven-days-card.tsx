@@ -10,6 +10,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import type { CrewOperationsNextDay } from '@/features/organization/crew-operations/types';
+import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
 
@@ -80,10 +81,10 @@ export function NextSevenDaysCard({
                 <div className="flex items-center justify-between gap-4">
                     <div>
                         <CardTitle className="text-base font-bold tracking-tight">
-                            Next 7 Days
+                            Movement watch
                         </CardTitle>
                         <CardDescription className="text-xs">
-                            Planned movements — joins &amp; sign-offs
+                            Planned joins and sign-offs for the next seven days
                         </CardDescription>
                     </div>
                     {canViewPlanning ? (
@@ -133,16 +134,21 @@ export function NextSevenDaysCard({
                                     )}
                                 >
                                     {/* Day label */}
-                                    <p
-                                        className={cn(
-                                            'w-16 shrink-0 text-sm font-semibold',
-                                            day.label === 'Today'
-                                                ? 'text-primary'
-                                                : 'text-foreground/75',
-                                        )}
-                                    >
-                                        {day.label}
-                                    </p>
+                                    <div className="w-20 shrink-0">
+                                        <p
+                                            className={cn(
+                                                'text-sm font-semibold',
+                                                day.label === 'Today'
+                                                    ? 'text-primary'
+                                                    : 'text-foreground/75',
+                                            )}
+                                        >
+                                            {day.label}
+                                        </p>
+                                        <p className="text-[10px] text-muted-foreground/60">
+                                            {formatDisplayDate(day.date)}
+                                        </p>
+                                    </div>
 
                                     {/* Bar */}
                                     <div className="flex-1">

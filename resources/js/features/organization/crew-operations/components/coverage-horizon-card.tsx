@@ -85,11 +85,10 @@ export function CoverageHorizonCard({
                         </div>
                         <div>
                             <CardTitle className="text-base font-bold tracking-tight">
-                                Coverage Horizon
+                                Coverage outlook
                             </CardTitle>
                             <CardDescription className="text-xs">
-                                {projected.horizon_days}-day projected manning
-                                outlook
+                                {projected.horizon_days}-day vessel manning view
                             </CardDescription>
                         </div>
                     </div>
@@ -125,7 +124,7 @@ export function CoverageHorizonCard({
                         value={projected.future_gap_positions}
                         total={total}
                         color="bg-warning/70"
-                        label="Future gap"
+                        label="Upcoming gap"
                     />
                     <Segment
                         value={projected.current_gap_positions}

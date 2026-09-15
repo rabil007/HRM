@@ -88,11 +88,10 @@ export function ManningReliefRisksCard({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <CardTitle className="text-base font-bold tracking-tight">
-                            Manning & Relief Risks
+                            Coverage & relief watch
                         </CardTitle>
                         <CardDescription className="text-xs">
-                            Actual gaps, projected future gaps, and relief
-                            readiness — kept distinct
+                            Current gaps, upcoming gaps, and relief readiness
                         </CardDescription>
                     </div>
                     {canViewPlanning ? (
