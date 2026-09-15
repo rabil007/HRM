@@ -1,6 +1,7 @@
 import { Link, router } from '@inertiajs/react';
 import { Mail, MailWarning, PenLine } from 'lucide-react';
 import type { ReactNode } from 'react';
+import ResendDocumentRecipientRequestEmailController from '@/actions/App/Http/Controllers/Organization/Documents/ResendDocumentRecipientRequestEmailController';
 import { EmptyState } from '@/components/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,6 @@ import type { RecipientRequestListItem } from '@/features/organization/documents
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import documentRoutes from '@/routes/organization/documents';
-import ResendDocumentRecipientRequestEmailController from '@/actions/App/Http/Controllers/Organization/Documents/ResendDocumentRecipientRequestEmailController';
 
 /** Deterministic avatar colour from name. */
 function avatarColour(name: string | null): string {

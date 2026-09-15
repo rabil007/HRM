@@ -2,6 +2,7 @@ import { Link, router } from '@inertiajs/react';
 import { FileSpreadsheet, FolderOpen } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
+import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TabsContent } from '@/components/ui/tabs';
@@ -35,7 +36,6 @@ import type {
 import documentRoutes, {
     employee as employeeDocumentsBrowse,
 } from '@/routes/organization/documents';
-import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 
 const DOCUMENTS_RELOAD = {
     preserveScroll: true,

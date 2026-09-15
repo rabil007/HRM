@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import CancelDocumentRecipientRequestController from '@/actions/App/Http/Controllers/Organization/Documents/CancelDocumentRecipientRequestController';
 import RegenerateDocumentRecipientRequestTokenController from '@/actions/App/Http/Controllers/Organization/Documents/RegenerateDocumentRecipientRequestTokenController';
+import ResendDocumentRecipientRequestEmailController from '@/actions/App/Http/Controllers/Organization/Documents/ResendDocumentRecipientRequestEmailController';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
@@ -18,7 +19,6 @@ import type {
 } from '@/features/organization/documents/workflow/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import documentRoutes from '@/routes/organization/documents';
-import ResendDocumentRecipientRequestEmailController from '@/actions/App/Http/Controllers/Organization/Documents/ResendDocumentRecipientRequestEmailController';
 
 type RecipientRequestDetail = {
     id: number;

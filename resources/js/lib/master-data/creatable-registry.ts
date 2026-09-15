@@ -1,11 +1,11 @@
-import { store as storeVessel } from '@/actions/App/Http/Controllers/Organization/VesselController';
-import { store as storeDocumentType } from '@/actions/App/Http/Controllers/Settings/MasterData/DocumentTypeController';
 import { store as storeDepartment } from '@/actions/App/Http/Controllers/Organization/DepartmentController';
 import { store as storePosition } from '@/actions/App/Http/Controllers/Organization/PositionController';
+import { store as storeVessel } from '@/actions/App/Http/Controllers/Organization/VesselController';
 import { store as storeBank } from '@/actions/App/Http/Controllers/Settings/MasterData/BankController';
 import { store as storeClient } from '@/actions/App/Http/Controllers/Settings/MasterData/ClientController';
 import { store as storeCompanyVisaType } from '@/actions/App/Http/Controllers/Settings/MasterData/CompanyVisaTypeController';
 import { store as storeCourse } from '@/actions/App/Http/Controllers/Settings/MasterData/CourseController';
+import { store as storeDocumentType } from '@/actions/App/Http/Controllers/Settings/MasterData/DocumentTypeController';
 import { store as storeGender } from '@/actions/App/Http/Controllers/Settings/MasterData/GenderController';
 import { store as storeProject } from '@/actions/App/Http/Controllers/Settings/MasterData/ProjectController';
 import { store as storeRank } from '@/actions/App/Http/Controllers/Settings/MasterData/RankController';

@@ -1,6 +1,7 @@
 import { useForm } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import type { ReactElement } from 'react';
+import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -30,7 +31,6 @@ import {
 import { useTemplateRecordFields } from '@/pages/organization/_hooks/use-template-record-fields';
 import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
 import type { TemplateFieldConfig } from '@/pages/organization/employee-page.types';
-import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 
 export function ReplaceDocumentDialog({
     document,

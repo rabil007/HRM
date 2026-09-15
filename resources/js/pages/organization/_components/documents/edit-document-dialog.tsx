@@ -1,6 +1,7 @@
 import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useEffect } from 'react';
+import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 import { Button } from '@/components/ui/button';
 import { CreatableSelect } from '@/components/ui/creatable-select';
 import {
@@ -34,7 +35,6 @@ import {
 import { omitHiddenTemplateRecordFields } from '@/pages/organization/_lib/template-field-visibility';
 import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
 import type { TemplateFieldConfig } from '@/pages/organization/employee-page.types';
-import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 
 export function EditDocumentDialog({
     document,

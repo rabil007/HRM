@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import ResendDocumentRecipientRequestEmailController from '@/actions/App/Http/Controllers/Organization/Documents/ResendDocumentRecipientRequestEmailController';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type {
@@ -7,7 +8,6 @@ import type {
 } from '@/features/organization/documents/signing/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cancel, retry } from '@/routes/organization/documents/signing-flows';
-import ResendDocumentRecipientRequestEmailController from '@/actions/App/Http/Controllers/Organization/Documents/ResendDocumentRecipientRequestEmailController';
 
 type Props = {
     flow: SigningFlowSummary;

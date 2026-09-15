@@ -1,16 +1,16 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import {
+    exportMethod as mysqlExport,
+    index as mysqlIndex,
+    show as mysqlShow,
+} from '@/actions/App/Http/Controllers/DatabaseViewerController';
+import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import {
-    exportMethod as mysqlExport,
-    index as mysqlIndex,
-    show as mysqlShow,
-} from '@/actions/App/Http/Controllers/DatabaseViewerController';
 
 interface PaginatedData {
     data: any[];
