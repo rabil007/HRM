@@ -13,13 +13,13 @@ import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SavedViewsControl } from '@/components/saved-views-control';
 import { SearchBar } from '@/components/search-bar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
 import { CrewAssignmentMobileCard } from '@/features/organization/crew/components/crew-assignment-mobile-card';
 import { CrewAssignmentQuickDetailSheet } from '@/features/organization/crew/components/crew-assignment-quick-detail-sheet';
 import { CrewAssignmentsTableRow } from '@/features/organization/crew/components/crew-assignments-table-row';
 import { CrewFiltersSheet } from '@/features/organization/crew/components/crew-filters-sheet';
+import { CrewPhasePipeline } from '@/features/organization/crew/components/crew-phase-pipeline';
 import { CrewSummaryCards } from '@/features/organization/crew/components/crew-summary-cards';
 import { CurrentCrewViewSwitcher } from '@/features/organization/crew/components/current-crew-view-switcher';
 import { OnboardByVesselBoard } from '@/features/organization/crew/onboard-by-vessel/onboard-by-vessel-board';
@@ -42,7 +42,6 @@ import {
     MOBILE_OPERATIONAL_LIST_CLASS,
 } from '@/lib/mobile-operational-list';
 import type { SavedView } from '@/lib/saved-views';
-import { cn } from '@/lib/utils';
 import {
     create as createAssignment,
     edit as editAssignment,
@@ -218,46 +217,46 @@ export function CurrentCrewContent({
                 }
             />
 
-            <CrewSummaryCards
-                summary={summary}
-                activeFilter={activeSummaryFilter}
-                onSelect={onSummaryFilterChange}
-            />
+            <section className="mb-6 space-y-3" aria-labelledby="crew-health">
+                <div>
+                    <h2
+                        id="crew-health"
+                        className="text-sm font-semibold text-foreground"
+                    >
+                        Assignment health
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                        Select a card to focus the operating board.
+                    </p>
+                </div>
+                <CrewSummaryCards
+                    summary={summary}
+                    activeFilter={activeSummaryFilter}
+                    onSelect={onSummaryFilterChange}
+                />
+            </section>
 
-            <div className="mb-4 flex flex-wrap gap-2">
-                {phaseChips.map((chip) => {
-                    const isActive = filters.phase === chip.code;
+            <div className="mb-6">
+                <CrewPhasePipeline
+                    phases={phaseChips}
+                    total={summary.total}
+                    activePhase={filters.phase}
+                    onSelect={onPhaseChange}
+                />
+            </div>
 
-                    return (
-                        <button
-                            key={chip.code}
-                            type="button"
-                            onClick={() =>
-                                onPhaseChange(isActive ? '' : chip.code)
-                            }
-                            aria-pressed={isActive}
-                            className={cn(
-                                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-                                isActive
-                                    ? 'border-primary/40 bg-primary/10 text-primary'
-                                    : 'border-border/70 bg-muted/20 text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground',
-                            )}
-                        >
-                            <span className="font-semibold uppercase">
-                                {chip.code}
-                            </span>
-                            <span className="hidden sm:inline">
-                                {chip.label}
-                            </span>
-                            <Badge
-                                variant="secondary"
-                                className="h-5 min-w-5 justify-center rounded-full px-1.5 text-[10px]"
-                            >
-                                {chip.count}
-                            </Badge>
-                        </button>
-                    );
-                })}
+            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <h2 className="text-sm font-semibold text-foreground">
+                        Assignment queue
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                        Search, filter, or open a crew record for quick action.
+                    </p>
+                </div>
+                <span className="text-xs font-medium text-muted-foreground tabular-nums">
+                    {pagination.total} result{pagination.total === 1 ? '' : 's'}
+                </span>
             </div>
 
             <SearchBar

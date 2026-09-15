@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
@@ -56,11 +57,28 @@ export function CrewRecommendedNextAction({
             : null;
 
     return (
-        <Card className="border-border/80 dark:border-white/10">
-            <CardHeader className="pb-3">
-                <CardTitle className="text-base">
-                    Recommended Next Action
-                </CardTitle>
+        <Card className="overflow-hidden border-primary/20 bg-primary/3 dark:border-primary/20 dark:bg-primary/5">
+            <CardHeader className="border-b border-primary/10 pb-3">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                            <Sparkles className="size-4" />
+                        </span>
+                        <div>
+                            <CardTitle className="text-base">
+                                Operator next step
+                            </CardTitle>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                Recommended from the current assignment state
+                            </p>
+                        </div>
+                    </div>
+                    {recommended ? (
+                        <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary">
+                            Recommended
+                        </span>
+                    ) : null}
+                </div>
             </CardHeader>
             <CardContent className="space-y-3">
                 {recommended ? (
@@ -83,8 +101,8 @@ export function CrewRecommendedNextAction({
                                 >
                                     {CREW_MOVEMENT_ACTION_LABELS[
                                         recommendedMovement as CrewMovementAction
-                                    ] ?? recommended.label}{' '}
-                                    →
+                                    ] ?? recommended.label}
+                                    <ArrowRight className="ml-1.5 size-4" />
                                 </Button>
                             ) : null}
                             {recommendedHref && !recommendedMovement ? (
@@ -137,9 +155,9 @@ export function CrewRecommendedNextAction({
                         />
                     </div>
                 )}
-                <p className="text-xs text-muted-foreground">
-                    You can ignore this recommendation and use another allowed
-                    action.
+                <p className="text-[11px] text-muted-foreground/70">
+                    Other permitted movements remain available under More
+                    Actions.
                 </p>
             </CardContent>
             <MovementActionDialog

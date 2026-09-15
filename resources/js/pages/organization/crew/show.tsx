@@ -18,6 +18,7 @@ import { ApplyTourOfDutyDialog } from '@/features/organization/crew/actions/appl
 import { MovementActionDialog } from '@/features/organization/crew/actions/movement-action-dialog';
 import type { VesselTransferPrefill } from '@/features/organization/crew/actions/vessel-transfer-recommendation-dialog';
 import { VoidErroneousAssignmentDialog } from '@/features/organization/crew/actions/void-erroneous-assignment-dialog';
+import { CrewAssignmentOperationalSummary } from '@/features/organization/crew/components/crew-assignment-operational-summary';
 import { CrewMetadataField } from '@/features/organization/crew/components/crew-metadata-field';
 import { CrewMobilisationReadinessCard } from '@/features/organization/crew/components/crew-mobilisation-readiness-card';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
@@ -169,9 +170,14 @@ export default function CrewAssignmentShow({
             <Main>
                 <DetailsHeader
                     kicker="Crew Assignments"
-                    title={assignment.assignment_no}
+                    title={
+                        assignment.employee?.name ?? assignment.assignment_no
+                    }
                     description={
                         <span className="inline-flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-xs text-muted-foreground">
+                                {assignment.assignment_no}
+                            </span>
                             <Badge
                                 variant={
                                     assignment.status === 'active'
@@ -210,7 +216,7 @@ export default function CrewAssignmentShow({
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    className="h-12 rounded-xl px-5"
+                                    className="h-10 rounded-lg px-4"
                                     onClick={() =>
                                         setIsApplyTourDialogOpen(true)
                                     }
@@ -223,7 +229,7 @@ export default function CrewAssignmentShow({
                                 <Button
                                     type="button"
                                     variant="destructive"
-                                    className="h-12 rounded-xl px-5"
+                                    className="h-10 rounded-lg px-4"
                                     onClick={() => setIsVoidDialogOpen(true)}
                                 >
                                     Void Erroneous Assignment
@@ -233,7 +239,7 @@ export default function CrewAssignmentShow({
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    className="h-12 rounded-xl px-5"
+                                    className="h-10 rounded-lg px-4"
                                     onClick={() =>
                                         router.visit(
                                             editAssignment.url(assignment.id),
@@ -250,7 +256,7 @@ export default function CrewAssignmentShow({
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    className="h-12 rounded-xl px-5"
+                                    className="h-10 rounded-lg px-4"
                                     onClick={() =>
                                         setIsCorrectionDialogOpen(true)
                                     }
@@ -261,6 +267,11 @@ export default function CrewAssignmentShow({
                             ) : null}
                         </div>
                     }
+                />
+
+                <CrewAssignmentOperationalSummary
+                    assignment={assignment}
+                    corrections={corrections}
                 />
 
                 {corrections ? (
@@ -319,10 +330,14 @@ export default function CrewAssignmentShow({
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
                     <div className="space-y-6">
                         <Card className="border-border/80 dark:border-white/10">
-                            <CardHeader className="pb-3">
+                            <CardHeader className="border-b border-border/50 pb-3 dark:border-white/5">
                                 <CardTitle className="text-base">
-                                    Movement Progress
+                                    Assignment journey
                                 </CardTitle>
+                                <p className="text-xs text-muted-foreground">
+                                    Actual movement through the P0–P6 operating
+                                    lifecycle
+                                </p>
                             </CardHeader>
                             <CardContent>
                                 <CrewPhaseProgress
