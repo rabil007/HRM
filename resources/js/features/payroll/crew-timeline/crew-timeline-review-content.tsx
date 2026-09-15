@@ -139,7 +139,7 @@ export function CrewTimelineReviewContent({
     return (
         <Main>
             <DetailsHeader
-                kicker="Crew Timeline"
+                kicker="Crew Timesheet"
                 title={
                     <span className="inline-flex flex-wrap items-center gap-3">
                         {period.name}
@@ -193,7 +193,7 @@ export function CrewTimelineReviewContent({
                         {canApply ? (
                             <Button onClick={() => setApplyOpen(true)}>
                                 <FileSpreadsheet className="mr-2 h-4 w-4" />
-                                Apply Approved Timeline to Timesheets
+                                Apply Approved Crew Timesheet
                             </Button>
                         ) : null}
                     </div>
@@ -217,7 +217,7 @@ export function CrewTimelineReviewContent({
                         <CheckCircle2 className="h-4 w-4" />
                         <AlertTitle>Approved</AlertTitle>
                         <AlertDescription>
-                            This timeline is approved. Apply it to write
+                            This Crew Timesheet is approved. Apply it to write
                             operational day totals into crew timesheets while
                             preserving overtime and other financial inputs.
                         </AlertDescription>
@@ -229,8 +229,8 @@ export function CrewTimelineReviewContent({
                         <FileSpreadsheet className="h-4 w-4" />
                         <AlertTitle>Applied</AlertTitle>
                         <AlertDescription>
-                            Operational timesheets were written from Crew
-                            Operations. Linked timesheets:{' '}
+                            Crew Timesheet operational values were written from
+                            Crew Operations. Linked timesheets:{' '}
                             {preparation.linked_timesheet_count}. Operational
                             fields are locked; financial fields remain editable.
                         </AlertDescription>
@@ -467,7 +467,7 @@ function MetaFreshness({ isFresh }: { isFresh: boolean }) {
                 ) : (
                     <RefreshCw className="size-3.5 shrink-0" />
                 )}
-                {isFresh ? 'Fresh' : 'Timeline changed'}
+                {isFresh ? 'Fresh' : 'Crew Operations changed'}
             </p>
         </div>
     );
