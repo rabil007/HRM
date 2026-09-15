@@ -1,5 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
-import { Filter, Loader2, Plus, Ship, Users } from 'lucide-react';
+import { Filter, Loader2, Plus, Ship } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -203,21 +203,6 @@ export function CurrentCrewContent({
                             value={currentView}
                             onChange={onViewChange}
                         />
-                        {can.start ? (
-                            <Button
-                                variant="outline"
-                                onClick={() =>
-                                    router.visit(
-                                        createAssignment.url({
-                                            query: { mode: 'bulk' },
-                                        }),
-                                    )
-                                }
-                            >
-                                <Users className="h-4 w-4" />
-                                Bulk Add Crew
-                            </Button>
-                        ) : null}
                         {can.create ? (
                             <Button
                                 onClick={() =>
@@ -358,34 +343,15 @@ export function CurrentCrewContent({
                             : 'Start a crew assignment to begin operational movement tracking.'
                     }
                     action={
-                        !hasActiveQuery && (can.start || can.create) ? (
-                            <div className="flex flex-wrap justify-center gap-2">
-                                {can.start ? (
-                                    <Button
-                                        variant="outline"
-                                        onClick={() =>
-                                            router.visit(
-                                                createAssignment.url({
-                                                    query: { mode: 'bulk' },
-                                                }),
-                                            )
-                                        }
-                                    >
-                                        <Users className="h-4 w-4" />
-                                        Bulk Add Crew
-                                    </Button>
-                                ) : null}
-                                {can.create ? (
-                                    <Button
-                                        onClick={() =>
-                                            router.visit(createAssignment.url())
-                                        }
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                        Start Assignment
-                                    </Button>
-                                ) : null}
-                            </div>
+                        !hasActiveQuery && can.create ? (
+                            <Button
+                                onClick={() =>
+                                    router.visit(createAssignment.url())
+                                }
+                            >
+                                <Plus className="h-4 w-4" />
+                                Start Assignment
+                            </Button>
                         ) : hasActiveQuery ? (
                             <Button variant="outline" onClick={onResetFilters}>
                                 Clear filters

@@ -101,7 +101,7 @@ These sentences are UI copy only (`crew-phase-descriptions.ts`). They do not cha
 | **Crew Planning** | Future intention / scheduling |
 | **Crew Assignment** | Actual operational mobilisation cycle |
 
-A Planning record is **not** required before starting an operational assignment. `/organization/crew/create` is the unified operational-entry surface: one crew row by default, with **Add Another Crew Member** to start several assignments in one all-or-nothing batch. The legacy `/organization/crew/bulk-create` route redirects to `/organization/crew/create?mode=bulk` (two empty rows). Crew Planning remains the place to record future joins that have not started yet.
+A Planning record is **not** required before starting an operational assignment. Current Crew exposes one entry point — **Start Assignment** → `/organization/crew/create` — with one crew row by default and **Add Another Crew Member** to start several assignments in one all-or-nothing batch on the same page. The legacy `/organization/crew/bulk-create` route redirects to the unified Create page for bookmarks only. Crew Planning remains the place to record future joins that have not started yet.
 
 **Assignment lifecycle vs payroll:** `CrewAssignment.started_at` and `closed_at` describe the assignment record lifecycle (when the operational cycle was started or closed in OMS). They are **not** Crew payroll inputs. Crew payroll is derived only from eligible actual `CrewAssignmentPhase.actual_start_at` / `actual_end_at` dates. Expected Vessel Join, Planned Sign-Off, Planned Travel Home, and Crew Planning dates are never payable movement dates.
 
@@ -147,7 +147,7 @@ Start Assignment does **not** snapshot Tour of Duty, create Sea Service, mark th
 
 ### Bulk Add Crew (unified Create UI)
 
-Single and bulk start share one Create UI at `/organization/crew/create`. One crew row uses the normal Store path; **Add Another Crew Member** switches the same page into bulk mode (2+ rows) and posts to the existing atomic bulk Store endpoint. Save as Draft remains **single-row only**. The legacy `/organization/crew/bulk-create` URL redirects to `/organization/crew/create?mode=bulk` for bookmarks.
+Single and bulk start share one Create UI at `/organization/crew/create`. Current Crew does not expose a separate Bulk Add Crew action. One crew row uses the normal Store path; **Add Another Crew Member** switches the same page into bulk mode (2+ rows) and posts to the existing atomic bulk Store endpoint. Save as Draft remains **single-row only**. The legacy `/organization/crew/bulk-create` URL redirects to the unified Create page for bookmarks.
 
 Bulk mode does not introduce a bulk-specific lifecycle, batch table, or spreadsheet import.
 

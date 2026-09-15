@@ -27,10 +27,11 @@ Operational checklist after deploying Crew Movement changes.
 
 ## 2A. Unified Start / Bulk Create
 
+- [ ] Current Crew shows only **Start Assignment** (no separate Bulk Add Crew header action)
 - [ ] Start Assignment opens `/organization/crew/create` with **one** crew row
 - [ ] **Add Another Crew Member** adds a second row; Save as Draft disappears; Start becomes **Start N Assignments**
 - [ ] Removing rows back to one restores Single mode (Start Assignment + Save as Draft)
-- [ ] Optional **Bulk Add Crew** shortcut (when `can.start`) opens the same page with `?mode=bulk` (two rows); legacy `/organization/crew/bulk-create` redirects there
+- [ ] Legacy `/organization/crew/bulk-create` redirects to the unified Create page for bookmarks
 - [ ] One-row Start posts to the normal Store endpoint; one-row Draft posts to Store with `submission_intent=draft`
 - [ ] Two-or-more-row Start posts to the existing bulk Store endpoint (atomic)
 - [ ] Common Client / Vessel auto-resolve identically for single and bulk; Expected Join, P1 default / optional P0, and remarks are shared
