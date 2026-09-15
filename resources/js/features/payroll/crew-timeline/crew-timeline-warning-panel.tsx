@@ -106,11 +106,10 @@ export function CrewTimelineWarningPanel({
             {isStale ? (
                 <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Timeline changed</AlertTitle>
+                    <AlertTitle>Crew Timesheet source changed</AlertTitle>
                     <AlertDescription>
-                        The Crew Operations timeline changed after this
-                        preparation was created. Prepare a new version before
-                        continuing.
+                        Crew Operations data changed after this Crew Timesheet
+                        was prepared. Prepare a new version before continuing.
                     </AlertDescription>
                 </Alert>
             ) : null}
@@ -125,7 +124,7 @@ export function CrewTimelineWarningPanel({
                     <AlertDescription>
                         Blocking warnings prevent submission and approval.
                         Correct Crew Operations data and prepare a new version,
-                        or skip the affected employee&apos;s timeline data if
+                        or skip the affected employee&apos;s Crew Timesheet data if
                         permitted.
                         <WarningBreakdownList
                             items={blockingItems}
@@ -143,9 +142,9 @@ export function CrewTimelineWarningPanel({
                         {skippedCount === 1 ? '' : 's'} skipped
                     </AlertTitle>
                     <AlertDescription>
-                        Their Crew Operations timeline data will not be applied
-                        to timesheets. They may require Manual/Excel data or
-                        payroll exclusion before generation.
+                        Their Crew Timesheet data will not be applied to
+                        timesheets. They may require Manual/Excel data or payroll
+                        exclusion before generation.
                         {skippedBlockingItems.length > 0 ? (
                             <div className="mt-2 flex flex-wrap gap-1.5">
                                 {skippedBlockingItems.map((item) => (
