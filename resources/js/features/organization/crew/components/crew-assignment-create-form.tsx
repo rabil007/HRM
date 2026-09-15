@@ -28,7 +28,7 @@ import {
 import {
     canUseManualTransferRecommendation,
     hasPlanningStartActiveAssignmentConflict,
-} from '@/features/organization/crew/lib/planning-start-conflict';
+} from '@/features/organization/crew/lib/vessel-transfer-recommendation';
 import type {
     BulkAddCrewFormData,
     BulkAddCrewRow,

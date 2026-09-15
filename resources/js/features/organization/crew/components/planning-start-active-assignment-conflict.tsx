@@ -1,7 +1,7 @@
 import { AlertTriangle } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
-import { shouldShowPlanningTransferGuidance } from '@/features/organization/crew/lib/planning-start-conflict';
+import { shouldShowPlanningTransferGuidance } from '@/features/organization/crew/lib/vessel-transfer-recommendation';
 import type {
     ActiveOnVesselAssignment,
     CrewPlanningStartContext,
