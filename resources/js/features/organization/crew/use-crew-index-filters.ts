@@ -149,18 +149,6 @@ export function useCrewIndexFilters({
         [baseParams, visit],
     );
 
-    const onPhaseChange = useCallback(
-        (phase: string) => {
-            visit({
-                ...baseParams(),
-                phase: phase || undefined,
-                movement_attention: undefined,
-                page: 1,
-            });
-        },
-        [baseParams, visit],
-    );
-
     const onSheetFiltersChange = useCallback(
         (next: CrewAssignmentFilters) => {
             visit({
@@ -226,7 +214,6 @@ export function useCrewIndexFilters({
         isSearching,
         onSearchChange,
         onSummaryFilterChange,
-        onPhaseChange,
         onSheetFiltersChange,
         onResetFilters,
         onPageChange,

@@ -19,7 +19,6 @@ import { CrewAssignmentMobileCard } from '@/features/organization/crew/component
 import { CrewAssignmentQuickDetailSheet } from '@/features/organization/crew/components/crew-assignment-quick-detail-sheet';
 import { CrewAssignmentsTableRow } from '@/features/organization/crew/components/crew-assignments-table-row';
 import { CrewFiltersSheet } from '@/features/organization/crew/components/crew-filters-sheet';
-import { CrewPhasePipeline } from '@/features/organization/crew/components/crew-phase-pipeline';
 import { CrewSummaryCards } from '@/features/organization/crew/components/crew-summary-cards';
 import { CurrentCrewViewSwitcher } from '@/features/organization/crew/components/current-crew-view-switcher';
 import { OnboardByVesselBoard } from '@/features/organization/crew/onboard-by-vessel/onboard-by-vessel-board';
@@ -34,7 +33,6 @@ import type {
     CurrentCrewView,
     CurrentCrewVesselRow,
 } from '@/features/organization/crew/types';
-import { CREW_PHASE_LABELS } from '@/features/organization/crew/types';
 import { useCrewIndexFilters } from '@/features/organization/crew/use-crew-index-filters';
 import type { CrewSummaryFilter } from '@/features/organization/crew/use-crew-index-filters';
 import {
@@ -136,7 +134,6 @@ export function CurrentCrewContent({
         isSearching,
         onSearchChange,
         onSummaryFilterChange,
-        onPhaseChange,
         onSheetFiltersChange,
         onResetFilters,
         onPageChange,
@@ -184,14 +181,6 @@ export function CurrentCrewContent({
         filters,
     });
 
-    const phaseChips = useMemo(() => {
-        return Object.entries(CREW_PHASE_LABELS).map(([code, label]) => ({
-            code,
-            label,
-            count: summary.by_phase[code] ?? 0,
-        }));
-    }, [summary.by_phase]);
-
     return (
         <Main>
             <PageHeader
@@ -235,15 +224,6 @@ export function CurrentCrewContent({
                     onSelect={onSummaryFilterChange}
                 />
             </section>
-
-            <div className="mb-6">
-                <CrewPhasePipeline
-                    phases={phaseChips}
-                    total={summary.total}
-                    activePhase={filters.phase}
-                    onSelect={onPhaseChange}
-                />
-            </div>
 
             <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
