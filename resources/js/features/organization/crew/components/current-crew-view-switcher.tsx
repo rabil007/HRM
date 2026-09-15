@@ -27,8 +27,8 @@ export function CurrentCrewViewSwitcher({
                 onClick={() => onChange('crew')}
             >
                 <Users className="h-4 w-4" aria-hidden />
-                <span className="hidden sm:inline">Crew View</span>
-                <span className="sm:hidden">Crew</span>
+                <span className="hidden sm:inline">Crew History</span>
+                <span className="sm:hidden">History</span>
             </Button>
             <Button
                 type="button"
@@ -41,8 +41,8 @@ export function CurrentCrewViewSwitcher({
                 onClick={() => onChange('vessel')}
             >
                 <Ship className="h-4 w-4" aria-hidden />
-                <span className="hidden sm:inline">Vessel View</span>
-                <span className="sm:hidden">Vessel</span>
+                <span className="hidden sm:inline">Crew On-Site</span>
+                <span className="sm:hidden">On-Site</span>
             </Button>
         </div>
     );
