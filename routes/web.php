@@ -71,6 +71,7 @@ use App\Http\Controllers\Organization\ContractShowController;
 use App\Http\Controllers\Organization\ContractsImportController;
 use App\Http\Controllers\Organization\ContractsIndexController;
 use App\Http\Controllers\Organization\ContractsNoContractController;
+use App\Http\Controllers\Organization\CrewAssignmentBulkController;
 use App\Http\Controllers\Organization\CrewAssignmentController;
 use App\Http\Controllers\Organization\CrewMovementActionController;
 use App\Http\Controllers\Organization\CrewMovementCorrectionController;
@@ -564,6 +565,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('organization/crew', [CrewAssignmentController::class, 'index'])->middleware('can:crew_operations.assignments.view')->name('organization.crew-assignments.index');
     Route::get('organization/crew/create', [CrewAssignmentController::class, 'create'])->middleware('can:crew_operations.assignments.create')->name('organization.crew-assignments.create');
+    Route::get('organization/crew/bulk-create', [CrewAssignmentBulkController::class, 'create'])
+        ->middleware(['can:crew_operations.assignments.create', 'can:crew_operations.movements.perform'])
+        ->name('organization.crew-assignments.bulk-create');
+    Route::post('organization/crew/bulk-create', [CrewAssignmentBulkController::class, 'store'])
+        ->middleware(['can:crew_operations.assignments.create', 'can:crew_operations.movements.perform'])
+        ->name('organization.crew-assignments.bulk-store');
     Route::get('organization/crew/onboard-vessels/export', CurrentCrewOnboardVesselsExportController::class)
         ->middleware('can:crew_operations.assignments.view')
         ->name('organization.crew-assignments.onboard-vessels.export');

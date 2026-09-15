@@ -25,6 +25,20 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Expected Vessel Join cannot be saved after an existing Planned Sign-Off; the sign-off plan is not silently changed
 - [ ] Start Travel does not show or require Planned Travel Home
 
+## 2A. Bulk Add Crew
+
+- [ ] Current Crew shows Bulk Add Crew only when `can.start` (create + movement)
+- [ ] Bulk Add Crew opens `/organization/crew/bulk-create` without loading the Current Crew index with the full employee list twice as the primary workspace
+- [ ] Common Client / Vessel auto-resolve like single Create; Expected Join, P1 default / optional P0, and remarks are shared
+- [ ] Per-row employee + rank; rank defaults from the employee and can be changed
+- [ ] Duplicate employees are blocked in the UI and rejected by the server
+- [ ] An On Vessel / active-assignment employee is highlighted and cannot start another assignment; removing that row lets the rest of a valid batch start
+- [ ] Start N Assignments is all-or-nothing: a blocked row creates zero assignments from that submission
+- [ ] Successful batch redirects to Current Crew with `{N} crew assignments started successfully.`
+- [ ] Every created assignment is a normal Active CrewAssignment with exactly one initial P0 or P1 phase, the same server-generated start timestamp, no invented P2A/P3/P4, no Sea Service, and no payroll payable days from P0/P1
+- [ ] After a P0 batch, Start Travel on an individual assignment still works
+- [ ] Spreadsheet import, per-row vessel/stage, backdated start time, and Skip Blocked Rows are not present
+
 ## 3. Standard lifecycle
 
 - [ ] Start Travel (`approve_mobilisation`) from Active P0 → P1

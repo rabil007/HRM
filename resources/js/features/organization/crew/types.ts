@@ -306,6 +306,20 @@ export interface CrewAssignmentCreateFormData {
     remarks: string;
 }
 
+export type BulkAddCrewRow = {
+    employee_id: number | null;
+    rank_id: number | null;
+};
+
+export interface BulkAddCrewFormData {
+    client_id: number | null;
+    vessel_id: number | null;
+    planned_join_at: string;
+    current_stage: CrewAssignmentStartStage;
+    remarks: string;
+    crew: BulkAddCrewRow[];
+}
+
 export const CREW_DIRECT_START_STAGES: Array<{
     value: CrewAssignmentStartStage;
     label: string;

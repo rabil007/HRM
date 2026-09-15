@@ -15,13 +15,12 @@ use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\Rank;
 use App\Support\Activity\RecentActivityQuery;
-use App\Support\CrewMovements\ActiveOnVesselAssignmentFinder;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionPresenter;
 use App\Support\CrewMovements\CrewAssignmentAccess;
+use App\Support\CrewMovements\CrewAssignmentCreateFormOptions;
 use App\Support\CrewMovements\CrewAssignmentEditability;
 use App\Support\CrewMovements\CrewAssignmentPagePermissions;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
-use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewMovementService;
 use App\Support\CrewMovements\CurrentCrewQuery;
@@ -32,7 +31,6 @@ use App\Support\Pagination\ResolvesPerPage;
 use App\Support\RecentItems\RecordRecentItem;
 use App\Support\SavedViews\ApplyDefaultSavedView;
 use App\Support\SavedViews\SavedViewsForPage;
-use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -109,48 +107,9 @@ class CrewAssignmentController extends Controller
         Gate::authorize('create', CrewAssignment::class);
 
         $companyId = (int) $request->attributes->get('current_company_id');
-        $canView = Gate::allows('viewAny', CrewAssignment::class);
-        $canTransfer = CrewAssignmentPagePermissions::canTransfer($request->user());
-
-        $employeeModels = Employee::query()
-            ->where('company_id', $companyId)
-            ->active()
-            ->orderBy('name')
-            ->get(['id', 'name', 'employee_no', 'rank_id']);
-
-        $employeeIds = $employeeModels->pluck('id')->map(fn ($id) => (int) $id)->all();
-        $activeOnVessel = $canView
-            ? collect(app(ActiveOnVesselAssignmentFinder::class)->forCompany($companyId, $employeeIds))
-                ->map(fn (array $current): array => [
-                    ...$current,
-                    'can_transfer' => $canTransfer,
-                ])
-                ->all()
-            : [];
-        $employeeStatusByEmployee = app(CrewAssignmentStatusResolver::class)
-            ->forEmployeeIds($companyId, $employeeIds, includeRestrictedFields: $canView, today: null);
-
-        $formOptions = [
-            'employees' => $employeeModels
-                ->map(fn (Employee $e) => [
-                    'id' => $e->id,
-                    'name' => $e->name,
-                    'employee_no' => $e->employee_no,
-                    'rank_id' => $e->rank_id,
-                ])
-                ->values()
-                ->all(),
-            'active_on_vessel_by_employee' => $activeOnVessel,
-            'employee_status_by_employee' => $employeeStatusByEmployee,
-            'ranks' => $this->activeRanks(),
-            'vessels' => $this->activeVessels($companyId),
-            'clients' => $this->activeClients(),
-            'courses' => $this->activeCourses(),
-            'company_timezone' => CompanyTimezone::forCompanyId($companyId),
-        ];
 
         return Inertia::render('organization/crew/create', [
-            'form_options' => $formOptions,
+            'form_options' => CrewAssignmentCreateFormOptions::for($companyId, $request->user()),
             'can' => CrewAssignmentPagePermissions::for($request->user()),
         ]);
     }

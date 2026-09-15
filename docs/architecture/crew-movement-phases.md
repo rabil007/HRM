@@ -101,7 +101,7 @@ These sentences are UI copy only (`crew-phase-descriptions.ts`). They do not cha
 | **Crew Planning** | Future intention / scheduling |
 | **Crew Assignment** | Actual operational mobilisation cycle |
 
-A Planning record is **not** required before starting an operational assignment. `/organization/crew/create` is the fast operational-entry surface. Crew Planning remains the place to record future joins that have not started yet.
+A Planning record is **not** required before starting an operational assignment. `/organization/crew/create` is the fast operational-entry surface. `/organization/crew/bulk-create` starts several of those same assignments in one all-or-nothing batch. Crew Planning remains the place to record future joins that have not started yet.
 
 **Assignment lifecycle vs payroll:** `CrewAssignment.started_at` and `closed_at` describe the assignment record lifecycle (when the operational cycle was started or closed in OMS). They are **not** Crew payroll inputs. Crew payroll is derived only from eligible actual `CrewAssignmentPhase.actual_start_at` / `actual_end_at` dates. Expected Vessel Join, Planned Sign-Off, Planned Travel Home, and Crew Planning dates are never payable movement dates.
 
@@ -115,11 +115,11 @@ Crew Assignment Phases
 Employee Sea Service
 ```
 
-This phase does **not** redesign Crew Planning, Bulk Add Crew, or spreadsheet import.
+This phase does **not** redesign Crew Planning or spreadsheet import.
 
 ## Start Assignment
 
-Manual create uses `submission_intent = start | draft`. Domain logic lives in `CrewMovementService::startAssignment()` (reusable by later Bulk Add Crew). The HTTP controller only authorizes, validates, and redirects.
+Manual create uses `submission_intent = start | draft`. Domain logic lives in `CrewMovementService::startAssignment()` (shared with Bulk Add Crew). The HTTP controller only authorizes, validates, and redirects.
 
 ### Start (primary)
 
@@ -137,13 +137,37 @@ Default current assignment stage is **P1 Travel In**. Operations may optionally 
 
 Prior phases are **never invented**. A P1 start has only P1 in the timeline.
 
-The create form does **not** collect Assignment Start Date & Time. Normal `/organization/crew/create` Start Assignment always uses company-local server submit time (`now()` in the company timezone). The Store request and controller do **not** accept, validate, or forward a client-supplied `stage_started_at`; crafted timestamps cannot backdate or future-date a normal web start. `CrewMovementService::startAssignment()` may still accept an explicit timestamp internally for tests and later controlled Bulk Add / historical import.
+The create form does **not** collect Assignment Start Date & Time. Normal `/organization/crew/create` Start Assignment always uses company-local server submit time (`now()` in the company timezone). The Store request and controller do **not** accept, validate, or forward a client-supplied `stage_started_at`; crafted timestamps cannot backdate or future-date a normal web start. `CrewMovementService::startAssignment()` may still accept an explicit timestamp internally for tests, Bulk Add Crew, and later historical import.
 
 Quick create does **not** accept Planned Sign-Off or Planned Travel Home. Those columns remain on the assignment for P4 Plan Sign-Off, Confirm Disembarkation, Crew Planning, and Movement Correction. Normal Edit Assignment does not expose or mutate them.
 
 Start Assignment does **not** snapshot Tour of Duty, create Sea Service, mark the employee On Vessel, or create P4. Expected Vessel Join never becomes P4 `actual_start_at`. `CrewAssignment.started_at` is the assignment lifecycle timestamp and is not a payroll input; the first phase `actual_start_at` is recorded as the same company-local submit instant for operational history.
 
 `SyncPlanningAssignmentFromCrewAssignment` still runs. A manually started pre-P4 assignment is **not** forced to manufacture a new Planning row when Planned Sign-Off is absent. Existing linked Planning rows stay linked.
+
+### Bulk Add Crew
+
+`/organization/crew/bulk-create` starts several **normal** Crew Assignments in one Operations workflow. It does not introduce a bulk-specific lifecycle, batch table, or spreadsheet import.
+
+```text
+Bulk Add Crew
+    ↓ common Client / Vessel / Expected Join / initial stage / remarks
+    ↓ per-employee Rank
+BulkStartCrewAssignments (one transaction)
+    ↓ CrewMovementService::startAssignment() for each employee
+Current Crew
+```
+
+| Rule | Behaviour |
+|------|-----------|
+| Permissions | Same as Start Assignment: `crew_operations.assignments.create` **and** `crew_operations.movements.perform`. Frontend `can.start` is UX only. |
+| Common fields | Client, Vessel, Expected Vessel Join (`planned_join_at`), initial stage, remarks. Client/Vessel auto-resolution reuses `ClientAssignmentRules`. |
+| Per-row fields | Employee and Rank only. Rank still defaults from the employee profile. |
+| Starting stages | P1 Travel In default; P0 Pre-Mobilisation optional. Direct P2A/P2B/P3/P4/P5/P6 starts are rejected. |
+| Timestamp | One company-local server timestamp for the whole successful batch. The HTTP request does not accept `stage_started_at`, `started_at`, or browser-supplied company IDs. Each assignment `started_at` equals its initial phase `actual_start_at`. |
+| Atomicity | All-or-nothing. If any row is invalid or the employee already has an Active assignment, **no** assignments from that batch are committed. Partial success / Skip Blocked Rows is not in this phase. |
+| Active assignment | Reuses `startAssignment()` locking and `assertNoActiveAssignment()`. On Vessel and other Active phases block the row/batch; Transfer Vessel remains the existing movement, not an automatic bulk action. |
+| Payroll / sea service | Unchanged. P0/P1 stay payroll-excluded. Bulk P0/P1 does not create `EmployeeSeaService` or invent P2A/P3/P4. Planning sync still runs through `startAssignment()`. |
 
 ### Save as Draft (optional)
 
