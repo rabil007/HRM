@@ -11,6 +11,7 @@ use App\Support\CrewMovements\CrewDateProvenance;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewQuery;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewResource;
 use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 
 afterEach(function () {
@@ -432,7 +433,7 @@ test('crew payroll review formats phase actual dates in the company timezone', f
 
     $loadedPhase = $loaded->lines->first()?->phase;
 
-    expect(\App\Support\Settings\CompanyTimezone::forCompanyId((int) $fixtures['company']->id))
+    expect(CompanyTimezone::forCompanyId((int) $fixtures['company']->id))
         ->toBe('Asia/Dubai')
         ->and($loaded->company_id)->toBe($fixtures['company']->id)
         ->and(CrewDateProvenance::phaseActual($loadedPhase, 'UTC')['start'])

@@ -31,10 +31,10 @@ export function PayrollReprepareTimelineDialog({
                     </AlertDialogTitle>
                     <AlertDialogDescription>
                         This creates a new draft Crew Timesheet version from the
-                        latest Crew Operations movement data. The current version{' '}
-                        {currentVersion} and any review progress on it will be
-                        superseded. Use this when the underlying Crew Operations
-                        data has changed.
+                        latest Crew Operations movement data. The current
+                        version {currentVersion} and any review progress on it
+                        will be superseded. Use this when the underlying Crew
+                        Operations data has changed.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

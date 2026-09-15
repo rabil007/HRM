@@ -124,8 +124,8 @@ export function CrewTimelineWarningPanel({
                     <AlertDescription>
                         Blocking warnings prevent submission and approval.
                         Correct Crew Operations data and prepare a new version,
-                        or skip the affected employee&apos;s Crew Timesheet data if
-                        permitted.
+                        or skip the affected employee&apos;s Crew Timesheet data
+                        if permitted.
                         <WarningBreakdownList
                             items={blockingItems}
                             tone="blocking"
@@ -143,8 +143,8 @@ export function CrewTimelineWarningPanel({
                     </AlertTitle>
                     <AlertDescription>
                         Their Crew Timesheet data will not be applied to
-                        timesheets. They may require Manual/Excel data or payroll
-                        exclusion before generation.
+                        timesheets. They may require Manual/Excel data or
+                        payroll exclusion before generation.
                         {skippedBlockingItems.length > 0 ? (
                             <div className="mt-2 flex flex-wrap gap-1.5">
                                 {skippedBlockingItems.map((item) => (
