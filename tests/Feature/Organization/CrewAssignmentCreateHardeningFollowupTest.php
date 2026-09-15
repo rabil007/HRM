@@ -1,8 +1,11 @@
 <?php
 
+use App\Enums\CrewAssignmentStatus;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Support\CrewMovements\ActiveOnVesselAssignmentFinder;
+use App\Support\CrewMovements\CrewAssignmentStatusResolver;
+use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('create-only users do not receive restricted on-vessel transfer metadata', function () {
@@ -90,4 +93,51 @@ test('on-vessel lookup can be limited to the selectable employee set', function 
     expect($scoped)->toHaveKey($employee->id)
         ->and($scoped)->not->toHaveKey($otherEmployee->id)
         ->and($finder->forCompany($company->id, []))->toBe([]);
+});
+
+test('operational status selects only the latest completed assignment per employee', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    CrewAssignment::query()->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-HISTORY-OLDER',
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'status' => CrewAssignmentStatus::Completed,
+        'started_at' => '2026-07-01 08:00:00',
+        'closed_at' => '2026-08-01 08:00:00',
+        'source' => 'manual',
+    ]);
+
+    CrewAssignment::query()->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-HISTORY-LATEST-A',
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'status' => CrewAssignmentStatus::Completed,
+        'started_at' => '2026-08-15 08:00:00',
+        'closed_at' => '2026-09-10 08:00:00',
+        'source' => 'manual',
+    ]);
+
+    $latest = CrewAssignment::query()->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-HISTORY-LATEST-B',
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'status' => CrewAssignmentStatus::Completed,
+        'started_at' => '2026-08-20 08:00:00',
+        'closed_at' => '2026-09-10 08:00:00',
+        'source' => 'manual',
+    ]);
+
+    $status = app(CrewAssignmentStatusResolver::class)->forEmployee(
+        $employee,
+        CarbonImmutable::parse('2026-09-15', $company->timezone ?? config('app.timezone', 'UTC')),
+    );
+
+    expect($status['status'])->toBe('in_home')
+        ->and($status['assignment_id'])->toBe($latest->id)
+        ->and($status['assignment_no'])->toBe($latest->assignment_no)
+        ->and($status['in_home_days'])->toBe(5);
 });
