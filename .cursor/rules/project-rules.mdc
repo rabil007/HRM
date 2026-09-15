@@ -1,32 +1,39 @@
 ---
-description: Critical OMS-HRM constraints and context routing
+description: Critical OMS-HRM invariants and context routing
 alwaysApply: true
 ---
 
-# OMS-HRM Core Rules
+# OMS-HRM Core Invariants
 
 Laravel 13 + Inertia v3 + React 19 monolith with company-scoped Spatie permissions.
 
 ## Non-negotiables
 
-- Scope every tenant-owned query and mutation to the active `company_id`.
-- Enforce authorization on the backend; frontend `can` flags are UX only.
-- Never return decrypted SMTP, WhatsApp, Hikvision, signing, or other credentials to the browser. Return masked values and `has_*` flags; preserve stored secrets when an update submits an empty credential.
-- Extend existing Support, Service, component, and hook abstractions before creating another pattern.
-- Use Wayfinder for frontend routes and actions; do not hardcode application URLs.
-- Add or update the smallest relevant Pest test for every behavior change.
-- Run `vendor/bin/pint --dirty --format agent` after PHP edits.
-- After any `resources/` frontend edit (`.ts`, `.tsx`, `.js`, `.jsx`, `.css`), run Prettier on the files you changed before finishing: `npx prettier --write path/to/file`. Do not skip this — CI fails on `prettier --check`. Then run the narrowest relevant `eslint` / `npm run types:check` as needed.
-- Never run `migrate:fresh`, `migrate:refresh`, `db:wipe`, or other destructive DB resets against the Herd app database unless the user explicitly requests it. Use Pest/`RefreshDatabase` (sqlite `:memory:` in `phpunit.xml`) for fixtures and measurements.
+- Scope every tenant-owned query and mutation to trusted request `current_company_id`; never trust submitted `company_id`.
+- Enforce authorization on the backend. Frontend `can` flags are UX only.
+- Never return decrypted SMTP, WhatsApp, Hikvision, signing, API, or other credentials to the browser, logs, exports, jobs, or activity data. Use masked values plus `has_*`; blank secret updates preserve stored values unless explicit removal exists.
+- Keep the Laravel/Inertia monolith. Do not introduce REST architecture, React Query, Redux/Zustand, TanStack Table, client validation libraries, repository layers, or new dependencies without approval.
+- Prefer existing `app/Support/` domain actions/queries and `app/Services/` integrations before creating another abstraction.
+- Use Wayfinder for frontend routes/actions. Never manually edit generated `resources/js/routes/`, `resources/js/actions/`, or `resources/js/wayfinder/` files.
+- Preserve operational history and planned-vs-actual distinctions. Do not silently rewrite historical workflow data.
+- Never run `migrate:fresh`, `migrate:refresh`, `db:wipe`, or other destructive resets against the Herd application database unless explicitly requested.
 
-## Context routing
+## Context budget
 
-- Let scoped `.cursor/rules/*.mdc` attach based on the files being changed.
-- Use `docs/README.md` to select only the relevant domain guide. Optional directory pointers: `docs/architecture/context-map.md`.
-- Use `docs/architecture/golden-files.md` to find preferred implementation examples.
-- Use `AI_GUIDE.md` only when broader architectural context is necessary; do not load it for every task.
-- Invoke `implement-oms-change` for end-to-end changes. For authentication, authorization, tenant ownership, credentials, private files, privileged actions, webhooks, exports, or other security-sensitive changes, load and follow `review-oms-security`.
+Cursor already applies this rule and root `AGENTS.md`; do not manually reload them for normal tasks.
 
-For a normal change, load: matching guide → relevant routes/permissions → models → Support/Services → sibling implementations → tests. Do not initially load every migration, every model, every docs file, the entire PermissionsSeeder, or unrelated modules.
+Start with `docs/README.md`, then load only:
 
-Do not introduce REST APIs, React Query, Redux/Zustand, TanStack Table, or client-side validation libraries without architectural approval.
+1. one matching domain guide (two only when the task truly crosses domains),
+2. relevant routes/permission names,
+3. relevant models + Support/Services,
+4. one or two sibling implementations,
+5. the smallest relevant tests.
+
+Use `docs/architecture/golden-files.md` for preferred examples. Load `AI_GUIDE.md` only for broad architecture work.
+
+Let file-scoped `.cursor/rules/*.mdc` and on-demand skills attach naturally. Do not proactively load every rule, skill, migration, model, documentation file, or frontend module.
+
+Use `implement-oms-change` for genuinely end-to-end multi-file changes. Use `review-oms-security` for authentication, authorization, tenant ownership, credentials, private files, privileged actions, webhooks, imports/exports, or other security-sensitive work.
+
+Run the narrowest relevant verification described by the matching scoped rule/skill first. Broaden checks only when the change warrants it.

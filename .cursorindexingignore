@@ -12,6 +12,9 @@ test-results/**
 .phpunit.result.cache
 .cursor/debug-*.log
 
+# Generated AI/framework guidance remains explicitly readable but is not retrieval noise.
+.ai/generated/**
+
 # Wayfinder output remains agent-readable when explicitly requested.
 resources/js/actions/**
 resources/js/routes/**

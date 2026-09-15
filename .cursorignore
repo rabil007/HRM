@@ -3,10 +3,23 @@
 .env.*
 !.env.example
 auth.json
-storage/*.key
-storage/app/private/**
-storage/app/esign-preview/**
 *.pem
 *.p12
 *.pfx
+*.key
 
+# User-generated/private runtime data.
+storage/app/**
+storage/logs/**
+storage/framework/**
+storage/*.key
+storage/pail/**
+database/*.sqlite
+database/*.sqlite3
+*.sql
+
+# Local reports/runtime output that is not application source.
+coverage/**
+playwright-report/**
+test-results/**
+*.log
