@@ -1,7 +1,6 @@
 import { useHttp } from '@inertiajs/react';
 import { History, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 import {
     Sheet,
     SheetContent,
@@ -10,6 +9,7 @@ import {
 } from '@/components/ui/sheet';
 import { DocumentVersionHistory } from '@/features/organization/documents/shared/document-version-history';
 import type { DocumentVersionItem } from '@/features/organization/documents/shared/document-version-history';
+import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 
 type Props = {
     open: boolean;

@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
 import { CrewAssignmentMobileCard } from '@/features/organization/crew/components/crew-assignment-mobile-card';
+import { CrewAssignmentQuickDetailSheet } from '@/features/organization/crew/components/crew-assignment-quick-detail-sheet';
 import { CrewAssignmentsTableRow } from '@/features/organization/crew/components/crew-assignments-table-row';
 import { CrewFiltersSheet } from '@/features/organization/crew/components/crew-filters-sheet';
 import { CrewSummaryCards } from '@/features/organization/crew/components/crew-summary-cards';
@@ -120,6 +121,13 @@ export function CurrentCrewContent({
     saved_views?: SavedView[];
 }) {
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+    const [quickDetailAssignmentId, setQuickDetailAssignmentId] = useState<
+        number | null
+    >(null);
+    const quickDetailIndex = assignments.findIndex(
+        (assignment) => assignment.id === quickDetailAssignmentId,
+    );
+    const quickDetailAssignment = assignments[quickDetailIndex] ?? null;
     const filters = useMemo(() => normalizeFilters(rawFilters), [rawFilters]);
     const activeSummaryFilter = resolveActiveSummaryFilter(filters);
     const currentView: CurrentCrewView = view === 'vessel' ? 'vessel' : 'crew';
@@ -372,6 +380,11 @@ export function CurrentCrewContent({
                                     canPerformMovement={can.perform_movement}
                                     canCancel={can.cancel}
                                     formOptions={formOptions}
+                                    onView={() =>
+                                        setQuickDetailAssignmentId(
+                                            assignment.id,
+                                        )
+                                    }
                                 />
                             ))}
                         </MobileRecordList>
@@ -433,6 +446,11 @@ export function CurrentCrewContent({
                                         }
                                         canCancel={can.cancel}
                                         formOptions={formOptions}
+                                        onView={() =>
+                                            setQuickDetailAssignmentId(
+                                                assignment.id,
+                                            )
+                                        }
                                     />
                                 ))}
                             </TableBody>
@@ -460,6 +478,36 @@ export function CurrentCrewContent({
                 value={filters}
                 onChange={onSheetFiltersChange}
                 onReset={onResetFilters}
+            />
+            <CrewAssignmentQuickDetailSheet
+                assignment={quickDetailAssignment}
+                open={quickDetailAssignment !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setQuickDetailAssignmentId(null);
+                    }
+                }}
+                can={can}
+                formOptions={formOptions}
+                position={quickDetailIndex + 1}
+                total={assignments.length}
+                onPrevious={
+                    quickDetailIndex > 0
+                        ? () =>
+                              setQuickDetailAssignmentId(
+                                  assignments[quickDetailIndex - 1].id,
+                              )
+                        : undefined
+                }
+                onNext={
+                    quickDetailIndex >= 0 &&
+                    quickDetailIndex < assignments.length - 1
+                        ? () =>
+                              setQuickDetailAssignmentId(
+                                  assignments[quickDetailIndex + 1].id,
+                              )
+                        : undefined
+                }
             />
         </Main>
     );

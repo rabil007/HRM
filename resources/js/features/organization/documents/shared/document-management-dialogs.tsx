@@ -1,6 +1,5 @@
 import { router } from '@inertiajs/react';
 import type { ReactElement } from 'react';
-import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
 import type {
     DocumentProfileItem,
@@ -9,6 +8,7 @@ import type {
 import { EditDocumentDialog } from '@/pages/organization/_components/documents/edit-document-dialog';
 import { ReplaceDocumentDialog } from '@/pages/organization/_components/documents/replace-document-dialog';
 import type { TemplateFieldConfig } from '@/pages/organization/employee-page.types';
+import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 
 type DocumentManagementDialogsProps = {
     employeeId: number;

@@ -33,6 +33,7 @@ export function CrewAssignmentsTableRow({
     canPerformMovement,
     canCancel,
     formOptions,
+    onView,
 }: {
     assignment: CrewAssignmentListItem;
     viewHref: string;
@@ -41,6 +42,7 @@ export function CrewAssignmentsTableRow({
     canPerformMovement: boolean;
     canCancel: boolean;
     formOptions?: CrewAssignmentFormOptions;
+    onView?: () => void;
 }) {
     const warningCount = assignment.warnings.length;
     const showMovementActions =
@@ -59,7 +61,7 @@ export function CrewAssignmentsTableRow({
     return (
         <TableRow
             className={cn(dataTableBodyRowClass(false), 'cursor-pointer')}
-            onClick={() => router.visit(viewHref)}
+            onClick={() => (onView ? onView() : router.visit(viewHref))}
         >
             <TableCell
                 className={cn(dataTableCellPrimaryClass(), 'min-w-[160px]')}
@@ -221,7 +223,8 @@ export function CrewAssignmentsTableRow({
                         />
                     ) : null}
                     <ListTableCrudActions
-                        viewHref={viewHref}
+                        viewHref={onView ? undefined : viewHref}
+                        onView={onView}
                         onEdit={
                             canUpdate && editHref
                                 ? () => router.visit(editHref)

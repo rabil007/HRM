@@ -1,9 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
 import { useCallback, useMemo } from 'react';
-import {
-    destroy as destroyFavorite,
-    store as storeFavorite,
-} from '@/actions/App/Http/Controllers/NavigationFavoriteController';
 import { useAuthPermissions } from '@/hooks/use-has-permission';
 import { isSidebarUrlVisible, NO_PLATFORM_ACCESS } from '@/lib/nav-visibility';
 import {
@@ -13,6 +9,10 @@ import {
     resolveAccessibleFavoriteItems,
 } from '@/lib/navigation-favorites';
 import type { Auth } from '@/types/auth';
+import {
+    destroy as destroyFavorite,
+    store as storeFavorite,
+} from '@/actions/App/Http/Controllers/NavigationFavoriteController';
 
 export function useNavigationFavorites() {
     const page = usePage();

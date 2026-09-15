@@ -3,7 +3,6 @@ import { router } from '@inertiajs/react';
 import { FileText, UploadCloud } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
-import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -54,6 +53,7 @@ import {
 } from '@/pages/organization/_lib/template-field-visibility';
 import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
 import type { TemplateFieldConfig } from '@/pages/organization/employee-page.types';
+import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 
 function uploadDraftToFormData(draft: UploadDraft): Record<string, unknown> {
     return {

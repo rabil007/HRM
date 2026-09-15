@@ -18,6 +18,7 @@ export function CrewAssignmentMobileCard({
     canPerformMovement,
     canCancel,
     formOptions,
+    onView,
 }: {
     assignment: CrewAssignmentListItem;
     viewHref: string;
@@ -26,6 +27,7 @@ export function CrewAssignmentMobileCard({
     canPerformMovement: boolean;
     canCancel: boolean;
     formOptions?: CrewAssignmentFormOptions;
+    onView?: () => void;
 }) {
     const model = crewAssignmentMobileCardModel(assignment, {
         update: canUpdate,
@@ -79,7 +81,10 @@ export function CrewAssignmentMobileCard({
                 ) : undefined
             }
             attention={model.attention}
-            href={viewHref}
+            href={onView ? undefined : viewHref}
+            primaryAction={
+                onView ? { label: 'Quick view', onClick: onView } : undefined
+            }
             extraActions={
                 model.showMovement ? (
                     <MovementActionMenu

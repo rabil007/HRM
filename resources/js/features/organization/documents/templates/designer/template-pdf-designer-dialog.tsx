@@ -67,11 +67,6 @@ import {
     sourcePdf,
 } from '@/routes/organization/documents/templates/versions';
 import {
-    save as saveDesignRoute,
-    validate as validateDesignRoute,
-} from '@/routes/organization/documents/templates/versions/design';
-import { show as showValidationRunRoute } from '@/routes/organization/documents/templates/versions/validation-runs';
-import {
     clickToAlignedPlacement,
     clickToCenteredPlacement,
     cloneDesignState,
@@ -200,6 +195,11 @@ import {
     TemplateLayoutValidationPanel,
 } from './template-layout-validation-panel';
 import { TemplateReadinessIndicator } from './template-readiness-indicator';
+import {
+    save as saveDesignRoute,
+    validate as validateDesignRoute,
+} from '@/routes/organization/documents/templates/versions/design';
+import { show as showValidationRunRoute } from '@/routes/organization/documents/templates/versions/validation-runs';
 
 function isSnapGuideObject(obj: { get: (key: string) => unknown }): boolean {
     return (
