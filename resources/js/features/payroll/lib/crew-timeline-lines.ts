@@ -187,7 +187,7 @@ export function formatCrewTimelineDate(
 export function formatCrewTimelineDateRange(
     from: string | null | undefined,
     to: string | null | undefined,
-    emptyLabel = 'No planned dates',
+    emptyLabel = '—',
 ): string {
     if (!from && !to) {
         return emptyLabel;

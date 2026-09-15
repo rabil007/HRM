@@ -24,6 +24,8 @@ System or user creates one normal Crew pay period for the month (hybrid)
 - Only `CrewAssignmentPhase.actual_start_at` and `actual_end_at` are used as payable movement dates.
 - `CrewAssignment.started_at` and `closed_at` describe the assignment lifecycle. They are never Crew payroll inputs.
 - Expected Vessel Join, Planned Sign-Off, Planned Travel Home, and Crew Planning dates are never payable movement dates.
+- The Payroll Crew Timeline review payload must not expose planned schedule dates as phase timeline fields. Payroll review presents only actual movement dates, payroll allocation ranges, and warning affected periods.
+- `CrewTimelinePhaseQuery::issuePhases()` may inspect planned phase windows only to discover records missing actual movement timestamps so a blocking warning can be generated. Planned values are never converted into payable allocation.
 - Payroll must not wait for an assignment to finish before monthly preparation can exist.
 - Automatic preparation currently supports **daily** crew only.
 - Monthly crew payroll uses the explicit `unpaid_leave_days` field for leave/unpaid days.
@@ -169,7 +171,7 @@ Correct Crew Operations movement data
 7. Older preparation versions remain preserved.
 8. Approved preparation lines are immutable.
 9. Generated preparation lines cannot be manually edited.
-10. Planned Crew Operations dates must never be used.
+10. Planned Crew Operations dates must never be used as payroll inputs, review timeline fields, or sort keys. `issuePhases()` may inspect planned windows only to discover missing actual timestamps.
 
 ### Approval authorization
 
@@ -279,7 +281,7 @@ Employee
 └── Non-payable / excluded activity
 ```
 
-Planned dates are intentionally not shown in the payroll breakdown because they are not payroll inputs. Planned fields may remain in the review payload for other features, but this modal must not display planned schedule, planned join/leave, or Crew Planning date provenance.
+The Payroll Crew Timeline review payload must not expose planned schedule dates as phase timeline fields. Payroll review presents only actual movement dates, payroll allocation ranges, and warning affected periods. Planned dates are intentionally not shown in the payroll breakdown because they are not payroll inputs.
 
 Presentation rules:
 
@@ -305,7 +307,7 @@ The payroll breakdown modal shows only:
 | Payroll counted  | preparation-line `from_date` / `to_date` / `days`               | Which dates from that movement this preparation includes        |
 | Warning period   | warning-line `from_date` / `to_date`                            | Affected range for a blocking or informational warning          |
 
-Planned schedule is not a payroll input and is not rendered in this modal.
+Planned schedule is not a payroll input, is not exposed on payroll review phase payloads, and is not rendered in this modal.
 
 Automatic write behaviour:
 
@@ -462,7 +464,7 @@ Hardening applied before production use. Manual / Excel and Monthly crew behavio
 - **Payable predicate** — `CrewTimeline/PayableCrewPreparationLines` is the single payable-line predicate (sign-on standby / onsite / sign-off standby with days > 0) shared by application, readiness, and generation. Excluded, warning-only, and zero-day lines never require a linked timesheet.
 - **Readiness parity** — `BuildCrewPayrollGenerationPreview` drives hybrid/manual generation preview and skip/block classification; exclusive Crew Operations still uses Applied preparation checks. Generate confirmation recomputes under lock and generates only Ready employees.
 - **Source freshness** — the source hash now covers the period-applicable contract (id, category, salary structure, effective dates) and pending movement correction state, so contract/salary-structure/correction/actual-movement/phase changes make a preparation stale.
-- **Query split & timezone** — `CrewTimelinePhaseQuery::issuePhases()` surfaces phases missing `actual_start_at` (blocking `missing_actual_start`) while `overlappingPhases()` stays actual-only; both use company-timezone boundaries compared in UTC.
+- **Query split & timezone** — `CrewTimelinePhaseQuery::issuePhases()` surfaces phases missing `actual_start_at` (blocking `missing_actual_start`) while `overlappingPhases()` stays actual-only; both use company-timezone boundaries compared in UTC. `issuePhases()` may inspect planned phase windows only as discovery hints for that warning. Planned values are never converted into payable allocation.
 - **Empty Applied preparation** — apply is allowed with zero payable Daily employees, marked Applied, idempotent, and does not block generation.
 - **Concurrency** — generation and `UpsertCrewTimesheet` lock the period (and rows) and revalidate status/mode/lock state; generation derives mode from the locked model. Import financial writes use explicit-presence handling to preserve stored amounts.
 - **History** — `CrewTimesheetPreparation` and `CrewTimesheetPreparationLine` use `SoftDeletes`; creation migrations recover missing columns/indexes idempotently.

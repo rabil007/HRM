@@ -57,6 +57,11 @@ final class CrewTimelinePhaseQuery
      * `missing_actual_start` warning is raised instead of the phase being
      * silently dropped.
      *
+     * Planned `planned_start_at` / `planned_end_at` values here are discovery
+     * hints only: they locate a phase whose `actual_start_at` is missing so a
+     * 0-day warning can be generated. They are never payroll allocation inputs
+     * and must not be converted into payable days.
+     *
      * @return Collection<int, CrewAssignmentPhase>
      */
     public function issuePhases(

@@ -323,10 +323,7 @@ final class CrewTimesheetPreparationReviewResource
                 return $sequenceCompare;
             }
 
-            $leftStart = $left['actual_start'] ?? $left['planned_start'] ?? '9999-12-31';
-            $rightStart = $right['actual_start'] ?? $right['planned_start'] ?? '9999-12-31';
-
-            $dateCompare = $leftStart <=> $rightStart;
+            $dateCompare = $this->phaseSortDate($left) <=> $this->phaseSortDate($right);
 
             if ($dateCompare !== 0) {
                 return $dateCompare;
@@ -441,7 +438,6 @@ final class CrewTimesheetPreparationReviewResource
 
         $phaseCode = $phase?->phase_code ?? $first?->phase_code;
         $timezone = (string) config('app.timezone', 'UTC');
-        $planned = CrewDateProvenance::phasePlanned($phase, $first?->assignment, $timezone);
         $actual = CrewDateProvenance::phaseActual($phase, $timezone);
 
         $hasWarningOnlyRanges = $phaseLines->contains(
@@ -467,10 +463,6 @@ final class CrewTimesheetPreparationReviewResource
             'sequence' => $phase?->sequence ?? null,
             'status' => $phase?->status instanceof CrewPhaseStatus ? $phase->status->value : null,
             'status_label' => $phase?->status instanceof CrewPhaseStatus ? $phase->status->label() : null,
-            'planned_start' => $planned['start'],
-            'planned_end' => $planned['end'],
-            'planned_date_origin' => $planned['origin'],
-            'planned_date_origin_label' => $planned['origin_label'],
             'actual_start' => $actual['start'],
             'actual_end' => $actual['end'],
             'actual_date_origin' => $actual['origin'],
@@ -495,7 +487,6 @@ final class CrewTimesheetPreparationReviewResource
             'remarks' => array_values(array_unique($remarks)),
             'occurrence' => null,
             'occurrence_count' => 1,
-            'has_planned_schedule' => $planned['start'] !== null || $planned['end'] !== null,
             'has_payroll_period' => $hasPayableAllocation || ($payrollFrom !== null || $payrollTo !== null),
         ];
     }
@@ -603,14 +594,29 @@ final class CrewTimesheetPreparationReviewResource
     private function assignmentSortKey(array $assignment): string
     {
         foreach ($assignment['phases'] ?? [] as $phase) {
-            $start = $phase['actual_start'] ?? $phase['planned_start'] ?? $phase['payable_from'] ?? null;
+            $start = $this->phaseSortDate($phase);
 
-            if ($start !== null) {
+            if ($start !== '9999-12-31') {
                 return $start;
             }
         }
 
         return sprintf('%010d', (int) ($assignment['id'] ?? 0));
+    }
+
+    /**
+     * Payroll-safe phase order: sequence, then actual movement, then payroll
+     * counted / warning affected dates, then a stable id. Planned schedule
+     * dates are never used for payroll review ordering.
+     *
+     * @param  array<string, mixed>  $phase
+     */
+    private function phaseSortDate(array $phase): string
+    {
+        return $phase['actual_start']
+            ?? $phase['payroll_from']
+            ?? $phase['payable_from']
+            ?? '9999-12-31';
     }
 
     private function assignmentSourceLabel(?string $source): string

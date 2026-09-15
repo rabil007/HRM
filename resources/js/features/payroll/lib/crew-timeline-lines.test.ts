@@ -10,6 +10,7 @@ import {
     buildCrewTimelineAssignmentSections,
     buildCrewTimelinePayrollBreakdown,
     formatAssignmentCountLabel,
+    formatCrewTimelineArrowRange,
     formatCrewTimelineDate,
     formatCrewTimelineDateRange,
     formatCrewTimelineDayCount,
@@ -51,10 +52,6 @@ function phaseOccurrence(
         sequence: 1,
         status: 'completed',
         status_label: 'Completed',
-        planned_start: null,
-        planned_end: null,
-        planned_date_origin: null,
-        planned_date_origin_label: null,
         actual_start: '2026-08-08',
         actual_end: '2026-08-10',
         actual_date_origin: 'movement_actual',
@@ -81,7 +78,6 @@ function phaseOccurrence(
         remarks: [],
         occurrence: null,
         occurrence_count: 1,
-        has_planned_schedule: false,
         has_payroll_period: true,
         ...overrides,
     };
@@ -196,10 +192,7 @@ describe('crew timeline line presentation', () => {
             formatCrewTimelineDateRange('2026-08-04', '2026-08-07'),
             '04 Aug 2026 – 07 Aug 2026',
         );
-        assert.equal(
-            formatCrewTimelineDateRange(null, null),
-            'No planned dates',
-        );
+        assert.equal(formatCrewTimelineDateRange(null, null), '—');
     });
 
     it('uses readable singular, plural, and fractional day labels', () => {
@@ -535,7 +528,7 @@ describe('crew timeline line presentation', () => {
         );
     });
 
-    it('keeps excluded periods out of payable categories', () => {
+    it('keeps excluded p0, p1, and p6 periods out of payable categories', () => {
         const employee = employeeSummary({
             sign_on_standby_days: 0,
             onsite_days: 3,
@@ -544,10 +537,48 @@ describe('crew timeline line presentation', () => {
                 assignmentSummary({
                     phases: [
                         phaseOccurrence({
+                            id: 30,
+                            phase_code: 'p0',
+                            phase_code_display: 'P0',
+                            phase_label: 'Pre-Mobilisation',
+                            actual_start: '2026-07-28',
+                            actual_end: '2026-07-31',
+                            payroll_from: '2026-08-01',
+                            payroll_to: '2026-08-01',
+                            payroll_lines: [
+                                timelineLine({
+                                    id: 30,
+                                    phase_code: 'p0',
+                                    phase_label: 'Pre-Mobilisation',
+                                    pay_category: 'excluded',
+                                    pay_category_label: 'Excluded',
+                                    from_date: '2026-08-01',
+                                    to_date: '2026-08-01',
+                                    days: '1.00',
+                                    source_actual_start: '2026-07-28',
+                                    source_actual_end: '2026-07-31',
+                                }),
+                            ],
+                            primary_treatment: {
+                                pay_category: 'excluded',
+                                pay_category_label: 'Excluded',
+                                from_date: '2026-08-01',
+                                to_date: '2026-08-01',
+                                days: '1.00',
+                            },
+                            payable_from: null,
+                            payable_to: null,
+                            payable_days: '0.00',
+                        }),
+                        phaseOccurrence({
                             id: 31,
                             phase_code: 'p1',
                             phase_code_display: 'P1',
                             phase_label: 'Travel In',
+                            actual_start: '2026-08-01',
+                            actual_end: '2026-08-02',
+                            payroll_from: '2026-08-01',
+                            payroll_to: '2026-08-02',
                             payroll_lines: [
                                 timelineLine({
                                     id: 31,
@@ -558,6 +589,8 @@ describe('crew timeline line presentation', () => {
                                     from_date: '2026-08-01',
                                     to_date: '2026-08-02',
                                     days: '2.00',
+                                    source_actual_start: '2026-08-01',
+                                    source_actual_end: '2026-08-02',
                                 }),
                             ],
                             primary_treatment: {
@@ -567,9 +600,45 @@ describe('crew timeline line presentation', () => {
                                 to_date: '2026-08-02',
                                 days: '2.00',
                             },
+                            payable_from: null,
+                            payable_to: null,
                             payable_days: '0.00',
                         }),
                         phaseOccurrence(),
+                        phaseOccurrence({
+                            id: 36,
+                            phase_code: 'p6',
+                            phase_code_display: 'P6',
+                            phase_label: 'Home / Redeployment',
+                            actual_start: '2026-08-11',
+                            actual_end: '2026-08-12',
+                            payroll_from: '2026-08-11',
+                            payroll_to: '2026-08-12',
+                            payroll_lines: [
+                                timelineLine({
+                                    id: 36,
+                                    phase_code: 'p6',
+                                    phase_label: 'Home / Redeployment',
+                                    pay_category: 'excluded',
+                                    pay_category_label: 'Excluded',
+                                    from_date: '2026-08-11',
+                                    to_date: '2026-08-12',
+                                    days: '2.00',
+                                    source_actual_start: '2026-08-11',
+                                    source_actual_end: '2026-08-12',
+                                }),
+                            ],
+                            primary_treatment: {
+                                pay_category: 'excluded',
+                                pay_category_label: 'Excluded',
+                                from_date: '2026-08-11',
+                                to_date: '2026-08-12',
+                                days: '2.00',
+                            },
+                            payable_from: null,
+                            payable_to: null,
+                            payable_days: '0.00',
+                        }),
                     ],
                 }),
             ],
@@ -581,11 +650,25 @@ describe('crew timeline line presentation', () => {
         );
 
         assert.deepEqual(
-            breakdown.excluded.map((segment) => segment.lineId),
-            [31],
+            breakdown.excluded.map((segment) => [
+                segment.lineId,
+                segment.title,
+            ]),
+            [
+                [30, 'P0 · Pre-Mobilisation'],
+                [31, 'P1 · Travel In'],
+                [36, 'P6 · Home / Redeployment'],
+            ],
         );
+        assert.equal(payableLineIds.includes(30), false);
         assert.equal(payableLineIds.includes(31), false);
+        assert.equal(payableLineIds.includes(36), false);
         assert.equal(breakdown.detectedPayableDays, 3);
+        assert.equal(
+            breakdown.categories.find((category) => category.key === 'onsite')
+                ?.days,
+            3,
+        );
     });
 
     it('keeps blocking and informational warnings visible', () => {
@@ -693,32 +776,131 @@ describe('crew timeline line presentation', () => {
         );
     });
 
-    it('does not include planned schedule fields in the payroll breakdown', () => {
+    it('uses actual movement and preparation-line dates in payroll breakdown', () => {
         const employee = employeeSummary({
+            onsite_from: '2026-08-01',
+            onsite_to: '2026-08-07',
+            onsite_days: 7,
+            total_payable_days: 7,
             assignments: [
                 assignmentSummary({
                     phases: [
                         phaseOccurrence({
-                            planned_start: '2026-07-01',
-                            planned_end: '2026-07-31',
-                            planned_date_origin: 'crew_planning',
-                            planned_date_origin_label: 'Crew Planning',
-                            has_planned_schedule: true,
+                            actual_start: '2026-06-24',
+                            actual_end: '2026-08-07',
+                            payroll_from: '2026-08-01',
+                            payroll_to: '2026-08-07',
+                            payable_from: '2026-08-01',
+                            payable_to: '2026-08-07',
+                            payable_days: '7.00',
+                            payroll_lines: [
+                                timelineLine({
+                                    from_date: '2026-08-01',
+                                    to_date: '2026-08-07',
+                                    days: '7.00',
+                                    source_actual_start: '2026-06-24',
+                                    source_actual_end: '2026-08-07',
+                                }),
+                            ],
                         }),
                     ],
                 }),
             ],
         });
 
-        const serialized = JSON.stringify(
-            buildCrewTimelinePayrollBreakdown(employee),
-        );
+        const onsite = buildCrewTimelinePayrollBreakdown(
+            employee,
+        ).categories.find((category) => category.key === 'onsite');
 
+        assert.equal(onsite?.days, 7);
+        assert.equal(onsite?.segments[0]?.actualStart, '2026-06-24');
+        assert.equal(onsite?.segments[0]?.actualEnd, '2026-08-07');
+        assert.equal(onsite?.segments[0]?.payrollFrom, '2026-08-01');
+        assert.equal(onsite?.segments[0]?.payrollTo, '2026-08-07');
+        assert.equal(onsite?.segments[0]?.days, '7.00');
+    });
+
+    it('does not fall back to planned dates when actual movement is missing', () => {
+        const employee = employeeSummary({
+            onsite_from: null,
+            onsite_to: null,
+            onsite_days: 0,
+            total_payable_days: 0,
+            blocking_warning_count: 1,
+            assignments: [
+                assignmentSummary({
+                    phases: [
+                        phaseOccurrence({
+                            actual_start: null,
+                            actual_end: null,
+                            payroll_from: '2026-09-01',
+                            payroll_to: '2026-09-30',
+                            payable_from: null,
+                            payable_to: null,
+                            payable_days: '0.00',
+                            is_operational: false,
+                            primary_treatment: null,
+                            payroll_lines: [
+                                timelineLine({
+                                    id: 91,
+                                    days: '0.00',
+                                    pay_category: 'excluded',
+                                    pay_category_label: 'Excluded',
+                                    from_date: '2026-09-01',
+                                    to_date: '2026-09-30',
+                                    source_actual_start: null,
+                                    source_actual_end: null,
+                                    warning: {
+                                        code: 'missing_actual_start',
+                                        label: 'Missing actual start',
+                                        is_blocking: true,
+                                    },
+                                }),
+                            ],
+                            warnings: [
+                                {
+                                    code: 'missing_actual_start',
+                                    label: 'Missing actual start',
+                                    is_blocking: true,
+                                    remarks:
+                                        'Phase is missing an actual start date.',
+                                    from_date: '2026-09-01',
+                                    to_date: '2026-09-30',
+                                    line_id: 91,
+                                },
+                            ],
+                        }),
+                    ],
+                }),
+            ],
+        });
+
+        const breakdown = buildCrewTimelinePayrollBreakdown(employee);
+        const serialized = JSON.stringify(breakdown);
+
+        assert.equal(breakdown.categories.length, 0);
+        assert.equal(breakdown.excluded.length, 0);
+        assert.equal(breakdown.detectedPayableDays, 0);
+        assert.deepEqual(
+            breakdown.warnings.map((warning) => [
+                warning.label,
+                warning.from,
+                warning.to,
+                warning.isBlocking,
+            ]),
+            [['Missing actual start', '2026-09-01', '2026-09-30', true]],
+        );
         assert.equal(serialized.includes('planned_start'), false);
         assert.equal(serialized.includes('planned_end'), false);
         assert.equal(serialized.includes('has_planned_schedule'), false);
-        assert.equal(serialized.includes('crew_planning'), false);
-        assert.equal(serialized.includes('Crew Planning'), false);
+        assert.equal(
+            formatCrewTimelineArrowRange(
+                null,
+                null,
+                'No actual movement recorded',
+            ),
+            'No actual movement recorded',
+        );
         assert.equal(
             formatCrewTimelinePeriodLabel({
                 name: 'August 2026 - Crew',

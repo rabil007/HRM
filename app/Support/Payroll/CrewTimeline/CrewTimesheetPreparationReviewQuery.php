@@ -38,7 +38,7 @@ final class CrewTimesheetPreparationReviewQuery
                             'assignment.client:id,name',
                             'assignment.previousAssignment:id,assignment_no,vessel_id',
                             'assignment.previousAssignment.vessel:id,name',
-                            'phase:id,crew_assignment_id,phase_code,sequence,status,planned_start_at,planned_end_at,actual_start_at,actual_end_at,remarks',
+                            'phase:id,crew_assignment_id,phase_code,sequence,status,actual_start_at,actual_end_at,remarks',
                         ])
                         ->orderBy('employee_id')
                         ->orderBy('crew_assignment_id')

@@ -61,10 +61,6 @@ export type CrewTimelinePhaseOccurrence = {
     sequence: number | null;
     status: string | null;
     status_label: string | null;
-    planned_start: string | null;
-    planned_end: string | null;
-    planned_date_origin: string | null;
-    planned_date_origin_label: string | null;
     actual_start: string | null;
     actual_end: string | null;
     actual_date_origin: string | null;
@@ -85,7 +81,6 @@ export type CrewTimelinePhaseOccurrence = {
     remarks: string[];
     occurrence: number | null;
     occurrence_count: number;
-    has_planned_schedule: boolean;
     has_payroll_period: boolean;
 };
 
